@@ -1321,6 +1321,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       vx: clamp(num(f[3], 0), -4500, 4500), vy: clamp(num(f[4], 0), -4500, 4500),
       life: SHOT_LIFE[kind] - 0.1, mine: false, owner
     };
+    // a peer can send anything: cap what one owner (and everyone together) can keep alive here
+    let own = 0, ownMines = 0;
+    for (const o of shots) if (o.owner === owner) { own++; if (o.kind === 6) ownMines++; }
+    if (shots.length > 900 || own > 80 || (kind === 6 && ownMines >= 12)) return;
     if (kind === 4) scatterPellets(sh); else shots.push(sh);
     if (seenShots.size > 400) { const t = performance.now(); for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k); }
   }
