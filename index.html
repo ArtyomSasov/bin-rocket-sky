@@ -1409,6 +1409,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
   renderHearts(false);
   function renderLevel() {
+    if (me.shield > 0) renderShield();   // armour shows as a share of max health, which grows with level
     const lo = XP_STEPS[me.lv - 1], hi = XP_STEPS[me.lv];
     document.getElementById("lvNum").textContent = me.lv >= MAX_LV ? "Lv " + me.lv + " MAX" : "Lv " + me.lv;
     document.getElementById("xpFill").style.width = (me.lv >= MAX_LV ? 100 : Math.round((me.xp - lo) / (hi - lo) * 100)) + "%";
@@ -2008,9 +2009,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
     showScore();
   }
+  // armour is counted in lives like health, so it shows as a percentage of your full health too
   function renderShield() {
     document.getElementById("shieldChip").hidden = me.shield <= 0;
-    document.getElementById("shieldNum").textContent = me.shield;
+    document.getElementById("shieldNum").textContent = Math.ceil(me.shield / maxLivesOf(me.lv) * 100) + "%";
   }
   let shieldHitAt = -1e9;
   function hurt(now, dmg = 1, force = false) {
@@ -2019,7 +2021,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     // armour soaks the hit first (black hole and the nuke's core ignore it)
     if (!force && me.shield > 0) {
       const absorbed = Math.min(me.shield, dmg);
-      me.shield -= absorbed; dmg -= absorbed; shieldHitAt = now; renderShield();
+      me.shield = Math.round((me.shield - absorbed) * 1000) / 1000; dmg = Math.round((dmg - absorbed) * 1000) / 1000;   // no float dust left behind
+      shieldHitAt = now; renderShield();
       impacts.push({ x: me.x, y: me.y, t: 0, r: 90 * sizeOf(me.lv), col: "#6fc2ff" });
       sfx("shield_hit", 0.8) || blip(640, 0.12, "triangle");
       if (dmg <= 0) { me.hazardAt = now + 600; shake = Math.max(shake, 0.15); return true; }
@@ -2172,7 +2175,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (Array.isArray(p.st) && p.st.length === 6 && p.st.every(Number.isInteger)) r.st = p.st;   // [round, kills, deaths, shots, hits, best]
     if (Array.isArray(p.cv)) applyRemoteCarves(id, p.cv);
     if (Number.isInteger(p.wp)) r.weapon = WEAPON_KEYS[p.wp] || "fire";
-    if (Number.isFinite(p.sh)) r.shield = clamp(Math.floor(p.sh), 0, MAX_SHIELD);
+    if (Number.isFinite(p.sh)) r.shield = clamp(p.sh, 0, MAX_SHIELD);
     if ("am" in p) r.amp = p.am === 1;
     if (Number.isFinite(p.l)) r.lives = clamp(p.l, 0, maxLivesOf(r.lv));
     if (Array.isArray(p.g)) for (const k of p.g.slice(0, 48)) if (typeof k === "string" && k.length < 16) grabbed.add(k);
@@ -2862,7 +2865,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
         if (sp.heal) { me.lives = Math.min(maxL, me.lives + sp.heal); renderHearts(false); }
         if (sp.armor) { me.shield = Math.min(MAX_SHIELD, me.shield + sp.armor); renderShield(); }
-        floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: sp.heal ? "+" + sp.heal + " ♥" : "+" + sp.armor + " armour", gold: !!sp.big });
+        floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: "+" + Math.round((sp.heal || sp.armor) / maxLivesOf(me.lv) * 100) + "% " + (sp.heal ? "health" : "armour"), gold: !!sp.big });
         for (let k = 0; k < 26; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 200; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, sp.col); }
         impacts.push({ x: c.x, y: c.y, t: 0, r: 70, col: sp.col });
         if (!sfx(sp.heal ? "heal" : "shield_get", 0.8)) [523, 784].forEach((f, j) => setTimeout(() => blip(f, 0.14, "triangle"), j * 70));
@@ -2999,7 +3002,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         t: me.thrust > 0.3 ? 1 : 0, b: me.boostFx, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0, ds: me.dead ? me.ds : 0
       };
       const slow = {
-        tg: myTag, n: me.name, h: me.hue, ck: me.ck, s: me.score, l: Math.round(me.lives * 100) / 100, am: me.ampUntil > now ? 1 : 0, lv: me.lv, sh: me.shield, wp: WEAPON_KEYS.indexOf(me.weapon), g: myGrabs, hb: hitBy, ko: koBy,
+        tg: myTag, n: me.name, h: me.hue, ck: me.ck, s: me.score, l: Math.round(me.lives * 100) / 100, am: me.ampUntil > now ? 1 : 0, lv: me.lv, sh: Math.round(me.shield * 100) / 100, wp: WEAPON_KEYS.indexOf(me.weapon), g: myGrabs, hb: hitBy, ko: koBy,
         st: [stats.round, stats.kills, stats.deaths, stats.shots, stats.hits, stats.best],
         cv: myCarves.filter(e => performance.now() - e.at < 4000).map(e => e.d),
         dr: myDrops.filter(d => Date.now() - d[4] < DROP_LIFE).slice(-3).map(d => d.slice(0, 4))
