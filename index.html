@@ -247,7 +247,24 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 }
 .fire:active { box-shadow: 0 1px 0 #9c2a17, 0 0 34px rgba(255, 160, 60, .8); }
 .fire svg { width: 34px; height: 40px; fill: #fff7e0; }
-@media (hover: hover) and (pointer: fine) { .fire { display: none; } }
+.joy {
+  position: fixed;
+  left: calc(28px + env(safe-area-inset-left, 0px));
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  width: 124px; height: 124px; border-radius: 50%;
+  border: 2px solid rgba(125, 249, 255, .4);
+  background: radial-gradient(circle, rgba(79, 214, 200, .16), rgba(79, 214, 200, .05) 70%);
+  pointer-events: none; opacity: .4; transition: opacity .15s;
+}
+.joy.on { opacity: 1; transition: none; }
+.joy i {
+  position: absolute; left: 50%; top: 50%;
+  width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #c8fff8, #4fd6c8 60%, #2aa79b);
+  box-shadow: 0 0 16px rgba(79, 214, 200, .6);
+}
+@media (pointer: coarse) { .minimap { bottom: auto; top: calc(72px + env(safe-area-inset-top, 0px)); } }
+@media (hover: hover) and (pointer: fine) { .fire, .joy { display: none; } }
 @keyframes bob { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-8px) rotate(4deg); } }
 @media (prefers-reduced-motion: reduce) { .card img { animation: none; } }
 @media (max-width: 480px) {
@@ -267,6 +284,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 
 <div class="score chip"><b id="score">0</b><span>points</span><span class="lv"><b id="lvNum">Lv 1</b><span class="xpbar"><i id="xpFill"></i></span><span class="xpbar nrg" title="Boost energy"><i id="nrgFill"></i></span></span><span class="hearts" id="hearts" role="img" aria-label="3 lives"></span><span class="shieldchip" id="shieldChip" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z"/></svg><b id="shieldNum">0</b></span><span class="wpn" id="wpn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg>Fireball</span></div>
 <button class="fire boostbtn" id="boostBtn" aria-label="Boost: tap to dash, hold to boost" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l7 6-7 6zM12 6l7 6-7 6z"/></svg></button>
+<div class="joy" id="joy" hidden><i></i></div>
 <canvas class="minimap" id="minimap" width="280" height="280" aria-label="Mini map" hidden></canvas>
 <button class="fire" id="fireBtn" aria-label="Fire" hidden><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg></button>
 <div class="event" id="eventBanner" hidden></div>
@@ -649,7 +667,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if ((e.code === "ShiftLeft" || e.code === "ShiftRight") && !e.repeat && e.target.tagName !== "INPUT") { boostDownAt = performance.now(); dash(boostDownAt); }
   });
   addEventListener("keyup", e => keys.delete(e.code));
-  addEventListener("blur", () => { keys.clear(); ptr.down = false; firing = false; boostBtnDown = false; });
+  addEventListener("blur", () => { keys.clear(); ptr.down = false; firing = false; boostBtnDown = false; joyEnd(); });
   const fireBtn = document.getElementById("fireBtn");
   const boostBtn = document.getElementById("boostBtn");
   boostBtn.addEventListener("pointerdown", e => {
@@ -660,9 +678,41 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   boostBtn.addEventListener("contextmenu", e => e.preventDefault());
   fireBtn.addEventListener("pointerdown", e => { e.preventDefault(); firing = true; fireBtn.setPointerCapture(e.pointerId); });
   for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) fireBtn.addEventListener(ev, () => { firing = false; });
-  cv.addEventListener("pointerdown", e => { ptr.down = true; ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; cv.setPointerCapture(e.pointerId); });
-  cv.addEventListener("pointermove", e => { ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; });
-  const up = () => { ptr.down = false; };
+  // touch: a floating joystick appears under the thumb on the left part of the screen; mouse: hold and point
+  const joyEl = document.getElementById("joy"), joyKnob = joyEl.firstElementChild;
+  const JOY_R = 56;
+  const joy = { id: null, bx: 0, by: 0, x: 0, y: 0 };
+  function joyEnd() {
+    joy.id = null; joy.x = joy.y = 0;
+    joyEl.classList.remove("on"); joyEl.style.left = joyEl.style.top = joyEl.style.bottom = ""; joyKnob.style.transform = "";
+  }
+  cv.addEventListener("pointerdown", e => {
+    if (COARSE && e.pointerType !== "mouse") {
+      if (joy.id !== null || e.clientX > innerWidth * 0.6) return;
+      joy.id = e.pointerId; joy.bx = e.clientX; joy.by = e.clientY; joy.x = joy.y = 0;
+      joyEl.classList.add("on");
+      joyEl.style.left = joy.bx - 62 + "px"; joyEl.style.top = joy.by - 62 + "px"; joyEl.style.bottom = "auto";
+      cv.setPointerCapture(e.pointerId);
+      return;
+    }
+    ptr.down = true; ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; cv.setPointerCapture(e.pointerId);
+  });
+  cv.addEventListener("pointermove", e => {
+    if (e.pointerId === joy.id) {
+      let dx = e.clientX - joy.bx, dy = e.clientY - joy.by;
+      const d = Math.hypot(dx, dy);
+      if (d > JOY_R) {   // the base follows a thumb that slides past the rim, so reversing direction is instant
+        joy.bx += dx / d * (d - JOY_R); joy.by += dy / d * (d - JOY_R);
+        dx = dx / d * JOY_R; dy = dy / d * JOY_R;
+        joyEl.style.left = joy.bx - 62 + "px"; joyEl.style.top = joy.by - 62 + "px";
+      }
+      joy.x = dx / JOY_R; joy.y = dy / JOY_R;
+      joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+      return;
+    }
+    ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom;
+  });
+  const up = e => { if (e.pointerId === joy.id) joyEnd(); else ptr.down = false; };
   for (const el of [cv, fireBtn]) el.addEventListener("contextmenu", e => e.preventDefault());
   cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
 
@@ -1648,6 +1698,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (keys.has("KeyD") || keys.has("ArrowRight")) ix += 1;
       if (keys.has("KeyW") || keys.has("ArrowUp")) iy -= 1;
       if (keys.has("KeyS") || keys.has("ArrowDown")) iy += 1;
+      const jm = Math.hypot(joy.x, joy.y);
+      if (jm > 0.12) { const m = Math.min(1, (jm - 0.12) / 0.8); ix += joy.x / jm * m; iy += joy.y / jm * m; }
       if (ptr.down) {
         const dx = ptr.x - vw / 2, dy = ptr.y - vh / 2, d = Math.hypot(dx, dy);
         if (d > 8) { const m = Math.min(1, d / 140); ix += dx / d * m; iy += dy / d * m; }
@@ -3234,6 +3286,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (e !== shownEnergy) { shownEnergy = e; nrgFill.style.width = e + "%"; }
   }
   const mm = document.getElementById("minimap"), mctx = mm.getContext("2d");
+  // on touch screens the joystick takes the bottom-left corner, so the map sits right under the score chip
+  if (COARSE) {
+    const scoreChip = document.querySelector(".score");
+    new ResizeObserver(() => { mm.style.top = scoreChip.getBoundingClientRect().bottom + 8 + "px"; }).observe(scoreChip);
+  }
   function drawMinimap(now) {
     const S = mm.width, k = (S - 16) / W, o = 8;
     const P = (x, y) => [o + x * k, o + y * k];
@@ -3323,10 +3380,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       ["Dash", `tap ${KEY("Shift")} — a quick dodge forward`],
       ["Boost", `hold ${KEY("Shift")} — uses the blue energy bar`]] },
     phone: { label: "Phone", rows: [
-      ["Fly", "touch and hold the screen, slide toward where you want to go"],
+      ["Fly", "put your thumb anywhere on the left side: a joystick appears under it, push it where you want to go"],
       ["Fire", "orange flame button (bottom right)"],
       ["Dash", "tap the teal button — a quick dodge forward"],
-      ["Boost", "hold the teal button, or drag your finger far from the bin"]] }
+      ["Boost", "hold the teal button"]] }
   };
   function detectDevice() {
     const ua = navigator.userAgent, plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
@@ -3415,7 +3472,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     store.set("binrocket.name", me.name);
     try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { audio = null; }
     document.getElementById("start").hidden = true;
-    fireBtn.hidden = false; boostBtn.hidden = false; mm.hidden = false;
+    fireBtn.hidden = false; boostBtn.hidden = false; mm.hidden = false; joyEl.hidden = false;
     me.inv = performance.now() + 2000;
     playing = true;
     cv.focus();
@@ -3426,5 +3483,4 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   initNet().catch(() => {});
 })();
 </script>
-
 </body></html>
