@@ -305,7 +305,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const me = {
     x: rndIn(W, 300), y: rndIn(H, 300), vx: 0, vy: -40, a: -Math.PI / 2,
     thrust: 0, score: 0, name: "", hue: Math.floor(Math.random() * 360),
-    lives: LIVES, dead: false, respawnAt: 0, inv: 0, xp: 0, lv: 1, weapon: "fire", ammo: Infinity
+    lives: LIVES, dead: false, respawnAt: 0, inv: 0, xp: 0, lv: 1, weapon: "fire", ammo: Infinity, carry: 0
   };
   const myTag = Math.random().toString(36).slice(2, 7);
   let shotSeq = 0, fireCd = 0, firing = false, shake = 0;
@@ -314,6 +314,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const seenShots = new Set();
   const hitBy = [], koBy = []; // shot ids that hit / knocked me out (shooter reads these for credit)
   const credited = new Set();
+  // stars spilled by a destroyed bin: id -> {x, y, n, born}; shared through presence
+  const drops = new Map();
+  const myDrops = [];          // [id, x, y, n, bornMs] of my own recent spills
+  let deaths = 0;
+  const DROP_LIFE = 20000;
   const remotes = new Map();   // id -> remote bot
   const grabbed = new Set();   // "slot:gen" already taken by anyone
   const myGrabs = [];
@@ -454,13 +459,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     blip(110, 0.3, "square");
     if (me.lives <= 0) {
       me.dead = true; me.respawnAt = now + 3000; me.vx = me.vy = 0;
+      spillStars(now);
       explode(me.x, me.y, 70, 320);
       blip(60, 0.6, "sawtooth");
     } else explode(me.x, me.y, 18, 180);
     return true;
   }
   function gainXp(v, now) {
-    me.xp += v;
+    me.xp += v; me.carry += v;
     const nl = lvOf(me.xp);
     if (nl > me.lv) {
       const oldMax = maxLivesOf(me.lv);
@@ -477,6 +483,22 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       renderHearts(false);
     }
     renderLevel();
+  }
+  function spillStars(now) {
+    const n = Math.min(40, Math.floor(me.carry / 2));
+    me.carry = 0;
+    if (n <= 0) return;
+    const id = myTag + (deaths++).toString(36);
+    me.score = Math.max(0, me.score - n);
+    document.getElementById("score").textContent = me.score;
+    floaters.push({ x: me.x, y: me.y - 40, t: 0, txt: "-" + n + " stars", gold: false });
+    drops.set(id, { x: me.x, y: me.y, n, born: now });
+    myDrops.push([id, Math.round(me.x), Math.round(me.y), n, Date.now()]);
+  }
+  function dropStar(d, id, j, now) {
+    const a = hash(j, id.length, 41) * 6.283 + j, r = 50 + hash(j, id.charCodeAt(0), 42) * 190;
+    const k = Math.min(1, (now - d.born) / 600), e = 1 - (1 - k) * (1 - k);
+    return { key: "d" + id + "." + j, x: clamp(d.x + Math.cos(a) * r * e, 40, W - 40), y: clamp(d.y + Math.sin(a) * r * e, 40, H - 40), ready: k >= 1 };
   }
   function respawn(now) {
     me.dead = false; me.lives = maxLivesOf(me.lv); me.inv = now + 2000;
@@ -540,6 +562,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       });
     }
     if (seenShots.size > 800) seenShots.clear();
+    if (Array.isArray(p.dr)) for (const d of p.dr.slice(0, 3)) {
+      if (!Array.isArray(d) || typeof d[0] !== "string" || d[0].length > 10 || drops.has(d[0])) continue;
+      drops.set(d[0], { x: clamp(num(d[1], 0), 0, W), y: clamp(num(d[2], 0), 0, H), n: Math.max(0, Math.min(40, Math.floor(num(d[3], 0)))), born: performance.now() });
+    }
     // credit for my fireballs that they report
     const mine = k => typeof k === "string" && k.startsWith(myTag + ".");
     for (const k of Array.isArray(p.hb) ? p.hb.slice(0, 16) : []) if (mine(k) && !credited.has(k)) {
@@ -799,6 +825,22 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         }
       }
     }
+    // spilled stars
+    for (const [id, d] of drops) {
+      if (now - d.born > DROP_LIFE) { drops.delete(id); continue; }
+      if (!playing || me.dead) continue;
+      for (let j = 0; j < d.n; j++) {
+        const st = dropStar(d, id, j, now);
+        if (!st.ready || grabbed.has(st.key)) continue;
+        if (Math.hypot(st.x - me.x, st.y - me.y) < 22 + 30 * sizeOf(me.lv)) {
+          grabbed.add(st.key); pushCapped(myGrabs, st.key, 20);
+          me.score += 1; document.getElementById("score").textContent = me.score;
+          for (let k = 0; k < 8; k++) { const a = Math.random() * 6.28; puff(st.x, st.y, Math.cos(a) * 120, Math.sin(a) * 120, 0.4, 1.8, "#ffe3f6"); }
+          blip(990, 0.06);
+          gainXp(1, now);
+        }
+      }
+    }
     // weapon crates
     if (playing && !me.dead) {
       for (let i = 0; i < PICKS; i++) {
@@ -832,7 +874,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         vx: Math.round(me.vx), vy: Math.round(me.vy), a: +me.a.toFixed(2),
         s: me.score, t: me.thrust > 0.3 ? 1 : 0, g: myGrabs,
         l: me.lives, lv: me.lv, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0,
-        f: myShotLog.slice(-9).map(e => e.d), hb: hitBy, ko: koBy
+        f: myShotLog.slice(-9).map(e => e.d), dr: myDrops.filter(d => Date.now() - d[4] < DROP_LIFE).slice(-3).map(d => d.slice(0, 4)), hb: hitBy, ko: koBy
       });
     }
     boardAcc += dt;
@@ -1448,6 +1490,17 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (onScreen(x, y, 50)) drawRock(k, x, y);
     }
     drawEvents(now);
+    for (const [id, d] of drops) {
+      const age = now - d.born, fade = age > DROP_LIFE - 3000 && Math.floor(now / 120) % 2 ? 0.35 : 1;
+      g.globalAlpha = fade;
+      for (let j = 0; j < d.n; j++) {
+        const st = dropStar(d, id, j, now);
+        if (grabbed.has(st.key)) continue;
+        const x = sx(st.x), y = sy(st.y);
+        if (onScreen(x, y, 30)) drawSpark(x, y, 8, false, now, 1);
+      }
+      g.globalAlpha = 1;
+    }
     for (let i = 0; i < PICKS; i++) {
       const c = pickup(i, wall);
       if (grabbed.has(c.key)) continue;
