@@ -71,7 +71,8 @@ body {
   display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap;
   pointer-events: none;
 }
-.status .chip { padding: 7px 12px; font-size: 13px; color: var(--muted); pointer-events: auto; }
+.status > * { pointer-events: auto; }
+.status .chip { padding: 7px 12px; font-size: 13px; color: var(--muted); }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #8f86a8; margin-right: 6px; vertical-align: 1px; }
 .dot.on { background: var(--teal); box-shadow: 0 0 8px var(--teal); }
 button {
@@ -432,24 +433,50 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const hostId = "binrocket-sky-" + code;
     document.getElementById("boardTitle").textContent = "Room " + code;
     shareBtn.hidden = false;
+    const copied = () => { shareBtn.textContent = "Link copied"; setTimeout(() => shareBtn.textContent = "Copy invite link", 1600); };
     shareBtn.onclick = () => {
-      navigator.clipboard.writeText(location.href).then(
-        () => { shareBtn.textContent = "Link copied"; setTimeout(() => shareBtn.textContent = "Copy invite link", 1600); },
-        () => { shareBtn.textContent = location.href; });
+      const url = location.href;
+      const legacy = () => {
+        const ta = document.createElement("textarea");
+        ta.value = url; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select();
+        const ok = document.execCommand("copy"); ta.remove();
+        if (ok) copied(); else shareBtn.textContent = url;
+      };
+      if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(url).then(copied, legacy);
+      else legacy();
     };
 
+    // One peer at a time. The first visitor of a room claims the fixed host id; everyone else
+    // connects to it and the host relays states. If the host goes away, a remaining player takes over.
+    const NET_ERRORS = ["network", "server-error", "socket-error", "socket-closed", "disconnected"];
+    let current = null;      // the live Peer
+    let restartTimer = 0;
+    const restart = (delay, fn) => {
+      clearTimeout(restartTimer);
+      net.send = () => {};
+      remotes.clear();
+      if (current) { current.destroy(); current = null; }
+      restartTimer = setTimeout(fn, delay);
+    };
+    addEventListener("pagehide", () => { if (current) current.destroy(); });
+
     const becomeHost = () => {
-      setStatus(false, "Finding room " + code + "…");
-      const peer = new Peer(hostId);
+      setStatus(false, "Joining room " + code + "…");
+      const peer = current = new Peer(hostId);
       const conns = new Map();
+      let keepalive = 0;
       peer.on("open", () => {
+        if (peer !== current) return;
         setStatus(true, "Room " + code + " · you are hosting");
         net.send = p => { for (const c of conns.values()) if (c.open) c.send({ t: "s", id: hostId, p }); };
+        keepalive = setInterval(() => { for (const c of conns.values()) if (c.open) c.send({ t: "k" }); }, 1000);
       });
       peer.on("connection", c => {
         c.on("open", () => conns.set(c.peer, c));
         c.on("data", d => {
           if (!d || d.t !== "s") return;
+          c.seen = performance.now();
           applyRemote(c.peer, d.p);
           for (const [id, o] of conns) if (id !== c.peer && o.open) o.send({ t: "s", id: c.peer, p: d.p });
         });
@@ -458,30 +485,52 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
           for (const o of conns.values()) if (o.open) o.send({ t: "l", id: c.peer });
         });
       });
+      peer.on("close", () => clearInterval(keepalive));
       peer.on("error", e => {
-        if (e.type === "unavailable-id") { peer.destroy(); becomeClient(); }
-        else setStatus(false, "Network: " + e.type);
+        if (peer !== current) return;
+        clearInterval(keepalive);
+        if (e.type === "unavailable-id") restart(0, becomeClient);
+        else if (NET_ERRORS.includes(e.type)) { setStatus(false, "Connection lost · retrying…"); restart(3000, becomeHost); }
+        else setStatus(false, "Network error: " + e.type);
       });
     };
+
     const becomeClient = () => {
-      const peer = new Peer();
-      const retry = () => { net.send = () => {}; remotes.clear(); peer.destroy(); setTimeout(becomeHost, 600 + Math.random() * 1600); };
+      setStatus(false, "Joining room " + code + "…");
+      const peer = current = new Peer();
+      let lastMsg = 0, watchdog = 0;
+      const lost = msg => {
+        if (peer !== current) return;
+        clearInterval(watchdog);
+        setStatus(false, msg);
+        restart(500 + Math.random() * 1500, becomeHost);
+      };
       peer.on("open", () => {
+        if (peer !== current) return;
         const c = peer.connect(hostId);
+        const started = performance.now();
+        watchdog = setInterval(() => {
+          const now = performance.now();
+          if (!c.open && now - started > 10000) lost("Could not reach the room host · retrying…");
+          else if (c.open && now - lastMsg > 5000) lost("Host left · taking over…");
+        }, 1000);
         c.on("open", () => {
+          lastMsg = performance.now();
           setStatus(true, "Room " + code + " · connected");
           net.send = p => { if (c.open) c.send({ t: "s", p }); };
         });
         c.on("data", d => {
+          lastMsg = performance.now();
           if (!d) return;
           if (d.t === "s" && d.id !== peer.id) applyRemote(d.id, d.p);
           else if (d.t === "l") removeRemote(d.id);
         });
-        c.on("close", retry);
+        c.on("close", () => lost("Host left · taking over…"));
       });
       peer.on("error", e => {
-        if (e.type === "peer-unavailable") retry();
-        else setStatus(false, "Network: " + e.type);
+        if (e.type === "peer-unavailable") lost("Room is empty · hosting it…");
+        else if (NET_ERRORS.includes(e.type)) lost("Connection lost · retrying…");
+        else if (peer === current) setStatus(false, "Network error: " + e.type);
       });
     };
     becomeHost();
