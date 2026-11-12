@@ -428,6 +428,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const keys = new Set();
   const ptr = { down: false, x: 0, y: 0 };
   let playing = false;
+  let lowQ = false;   // set by the frame loop when the device can't keep up
   let audio = null;
 
   // ---------- input ----------
@@ -519,7 +520,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function puff(x, y, vx, vy, life, size, col) { parts.push({ x, y, vx, vy, life, max: life, size, col }); }
   const TRAIL = ["#ffe3f6", "#ffffff", "#ffd2a0", "#f3c6ff"];
   function trailFrom(b, rate, dt) {
-    const n = rate * dt * 60;
+    const n = rate * dt * (lowQ ? 25 : 60);
     const bx = Math.cos(b.a), by = Math.sin(b.a), sz = sizeOf(b.lv || 1), tail = 40 * sz;
     const tr = b.ck ? customVal(b.ck, "trail") : null, trailCols = tr ? TRAILS[tr] : TRAIL;
     for (let k = 0; k < n || (k === 0 && Math.random() < n); k++) {
@@ -555,7 +556,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const id = myTag + "." + (shotSeq++).toString(36);
     const s = { id, kind, x: me.x + bx * 42 * sz, y: me.y + by * 42 * sz, px: me.x, py: me.y, vx: bx * speed + me.vx * 0.6, vy: by * speed + me.vy * 0.6, life: SHOT_LIFE[kind], mine: true };
     shots.push(s);
-    myShotLog.push({ at: now, d: [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind] });
+    const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind];
+    myShotLog.push({ at: now, d });
+    net.shot(d);
     return s;
   }
   function shoot(now) {
@@ -634,7 +637,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
 
   // ---------- networking ----------
-  const net = { send() {}, share: null };
+  // send(state) every 50 ms; shot(d) right away where the transport allows; otherwise shots ride in the state
+  const net = { send() {}, shot() {}, shotsInState: false };
   const netDot = document.getElementById("netDot"), netText = document.getElementById("netText");
   const shareBtn = document.getElementById("shareBtn"), codeBtn = document.getElementById("codeBtn");
   function copyText(text, btn, label, done) {
@@ -657,48 +661,60 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const normCode = v => v.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10);
   function setStatus(on, text) { netDot.classList.toggle("on", on); netText.textContent = text; }
 
+  // how far ahead (s) to place a flyer from its last report: roughly the network delay we measured (~85-100 ms)
+  const LEAD = 0.09;
+  function addRemoteShot(owner, f) {
+    if (!Array.isArray(f) || typeof f[0] !== "string" || f[0].length > 20 || seenShots.has(f[0])) return;
+    seenShots.set(f[0], performance.now());
+    const kind = f[5] === 1 || f[5] === 2 ? f[5] : 0;
+    const x = clamp(num(f[1], 0), 0, W), y = clamp(num(f[2], 0), 0, H);
+    shots.push({
+      id: f[0], kind, x, y, px: x, py: y,
+      vx: clamp(num(f[3], 0), -2500, 2500), vy: clamp(num(f[4], 0), -2500, 2500),
+      life: SHOT_LIFE[kind] - 0.1, mine: false, owner
+    });
+    if (seenShots.size > 400) { const t = performance.now(); for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k); }
+  }
+  // Messages are partial: fast ones carry only motion, slow ones add name/look/score/lists.
   function applyRemote(id, p) {
-    if (!p || typeof p !== "object" || !Number.isFinite(p.x)) return;
+    if (!p || typeof p !== "object") return;
+    const hasPos = Number.isFinite(p.x) && Number.isFinite(p.y);
     let r = remotes.get(id);
-    if (r && Number.isFinite(p.q) && p.q <= r.q) return;   // duplicate or out-of-order state
-    const x = clamp(num(p.x, 0), 0, W), y = clamp(num(p.y, 0), 0, H);
-    if (!r) { r = { x, y, a: num(p.a, 0) }; remotes.set(id, r); }
-    r.q = Number.isFinite(p.q) ? p.q : 0;
-    r.tx = x; r.ty = y;
-    r.vx = Math.max(-1200, Math.min(1200, num(p.vx, 0)));
-    r.vy = Math.max(-1200, Math.min(1200, num(p.vy, 0)));
-    r.ta = num(p.a, 0);
-    r.name = typeof p.n === "string" ? p.n.slice(0, 14) : "Bin";
-    r.hue = num(p.h, 200) % 360;
-    r.ck = cleanCustom(p.ck);
-    r.score = Math.max(0, Math.floor(num(p.s, 0)));
-    r.thrust = p.t ? 1 : 0;
+    if (!r) {
+      if (!hasPos) return;   // a flyer appears once we know where it is
+      r = { x: clamp(p.x, 0, W), y: clamp(p.y, 0, H), a: num(p.a, 0), ta: num(p.a, 0), tx: p.x, ty: p.y, vx: 0, vy: 0,
+            q: -1, name: "Bin", hue: 200, ck: [0, 0, 0, 0, 0], score: 0, lv: 1, lives: LIVES, thrust: 0, dead: false, inv: false };
+      remotes.set(id, r);
+    }
     r.seen = performance.now();
     if (Number.isFinite(p.ts)) {
       const o = clamp(p.ts - Date.now(), -120000, 120000);
       r.off = Number.isFinite(r.off) ? r.off + (o - r.off) * 0.1 : o;
     }
-    if (Array.isArray(p.g)) for (const k of p.g.slice(0, 24)) if (typeof k === "string" && k.length < 16) grabbed.add(k);
-    r.lv = Math.max(1, Math.min(MAX_LV, Math.floor(num(p.lv, 1))));
-    r.lives = Math.max(0, Math.min(maxLivesOf(r.lv), Math.floor(num(p.l, LIVES))));
-    const dead = p.d === 1;
-    if (dead && !r.dead) explode(r.x, r.y, 70, 320);
-    r.dead = dead; r.inv = p.i === 1;
-    // their fireballs
-    if (Array.isArray(p.f)) for (const f of p.f.slice(0, 10)) {
-      if (!Array.isArray(f) || typeof f[0] !== "string" || f[0].length > 20 || seenShots.has(f[0])) continue;
-      seenShots.set(f[0], performance.now());
-      const kind = f[5] === 1 || f[5] === 2 ? f[5] : 0;
-      shots.push({
-        id: f[0], kind, x: clamp(num(f[1], 0), 0, W), y: clamp(num(f[2], 0), 0, H), px: clamp(num(f[1], 0), 0, W), py: clamp(num(f[2], 0), 0, H),
-        vx: Math.max(-2500, Math.min(2500, num(f[3], 0))), vy: Math.max(-2500, Math.min(2500, num(f[4], 0))),
-        life: SHOT_LIFE[kind] - 0.1, mine: false, owner: id
-      });
+    // motion only from states newer than what we have (two brokers / reordering)
+    const fresh = !Number.isFinite(p.q) || p.q > r.q;
+    if (fresh && Number.isFinite(p.q)) r.q = p.q;
+    if (fresh && hasPos) {
+      r.vx = clamp(num(p.vx, 0), -1200, 1200); r.vy = clamp(num(p.vy, 0), -1200, 1200);
+      r.tx = clamp(p.x + r.vx * LEAD, 0, W); r.ty = clamp(p.y + r.vy * LEAD, 0, H);
+      if (Math.hypot(r.tx - r.x, r.ty - r.y) > 300) { r.x = r.tx; r.y = r.ty; }   // teleport (respawn, black hole)
+      if (Number.isFinite(p.a)) r.ta = p.a;
+      r.thrust = p.t ? 1 : 0;
+      const dead = p.d === 1;
+      if (dead && !r.dead) explode(r.x, r.y, 70, 320);
+      r.dead = dead; r.inv = p.i === 1;
     }
-    if (seenShots.size > 400) { const t = performance.now(); for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k); }
+    if (typeof p.n === "string") r.name = p.n.slice(0, 14);
+    if (Number.isFinite(p.h)) r.hue = p.h % 360;
+    if ("ck" in p) r.ck = cleanCustom(p.ck);
+    if (Number.isFinite(p.s)) r.score = Math.max(0, Math.floor(p.s));
+    if (Number.isFinite(p.lv)) r.lv = clamp(Math.floor(p.lv), 1, MAX_LV);
+    if (Number.isFinite(p.l)) r.lives = clamp(Math.floor(p.l), 0, maxLivesOf(r.lv));
+    if (Array.isArray(p.g)) for (const k of p.g.slice(0, 24)) if (typeof k === "string" && k.length < 16) grabbed.add(k);
+    if (Array.isArray(p.f)) for (const f of p.f.slice(0, 10)) addRemoteShot(id, f);
     if (Array.isArray(p.dr)) for (const d of p.dr.slice(0, 3)) {
       if (!Array.isArray(d) || typeof d[0] !== "string" || d[0].length > 10 || drops.has(d[0])) continue;
-      drops.set(d[0], { x: clamp(num(d[1], 0), 0, W), y: clamp(num(d[2], 0), 0, H), n: Math.max(0, Math.min(40, Math.floor(num(d[3], 0)))), born: performance.now() });
+      drops.set(d[0], { x: clamp(num(d[1], 0), 0, W), y: clamp(num(d[2], 0), 0, H), n: clamp(Math.floor(num(d[3], 0)), 0, 40), born: performance.now() });
     }
     // credit for my fireballs that they report
     const mine = k => typeof k === "string" && k.startsWith(myTag + ".");
@@ -718,6 +734,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const room = await window.claude.use("room");
       if (!room) { setStatus(false, "Solo flight · multiplayer needs a signed-in invite to this page"); return; }
       net.send = p => room.presence(p).catch(() => {});
+      net.shotsInState = true;   // presence is the only channel every viewer may write
       room.onPeers(ch => {
         for (const p of ch.joined.concat(ch.updated)) if (!p.sameTab) applyRemote(p.peer, p.presence);
         for (const p of ch.left) removeRemote(p.peer);
@@ -754,7 +771,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         clean: true, keepalive: 20, reconnectPeriod: 2000, connectTimeout: 10000,
         will: { topic: base + "l/" + myId, payload: "1", qos: 0, retain: false }
       });
-      c.on("connect", () => { c.subscribe([base + "s/+", base + "l/+"], { qos: 0 }); refresh(); });
+      c.on("connect", () => { c.subscribe([base + "s/+", base + "l/+", base + "f/+"], { qos: 0 }); refresh(); });
       c.on("close", refresh);
       c.on("offline", refresh);
       c.on("error", () => {});
@@ -763,6 +780,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         const kind = parts[parts.length - 2], id = parts[parts.length - 1];
         if (id === myId || !/^p[a-z0-9]{1,12}$/.test(id)) return;
         if (kind === "l") { removeRemote(id); return; }
+        if (kind === "f" && payload.length < 200) { try { addRemoteShot(id, JSON.parse(payload.toString())); } catch {} return; }
         if (kind !== "s" || payload.length > 4096) return;
         let p; try { p = JSON.parse(payload.toString()); } catch { return; }
         applyRemote(id, p);
@@ -775,9 +793,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       else setStatus(false, "Lobby " + shown + " · reconnecting…");
     }
     setInterval(refresh, 2000);
+    const outbound = () => clients.find(c => c.connected);   // first connected broker in BROKERS order
+    net.shot = d => { const c = outbound(); if (c) c.publish(base + "f/" + myId, JSON.stringify(d), { qos: 0 }); };
     net.send = p => {
-      const msg = JSON.stringify(p);
-      for (const c of clients) if (c.connected) c.publish(base + "s/" + myId, msg, { qos: 0 });
+      const c = outbound();
+      if (c) c.publish(base + "s/" + myId, JSON.stringify(p), { qos: 0 });
     };
     addEventListener("pageshow", e => { if (e.persisted) location.reload(); });
     addEventListener("pagehide", () => {
@@ -821,7 +841,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
 
   // ---------- update ----------
-  let sendAcc = 0, boardAcc = 0, sendSeq = 0;
+  let sendAcc = 0, boardAcc = 0, sendSeq = 0, slowAcc = 1, lastSlow = "";
   function update(dt, now) {
     // input → acceleration
     let ix = 0, iy = 0, boost = keys.has("ShiftLeft") || keys.has("ShiftRight");
@@ -931,10 +951,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     // remotes: extrapolate + ease toward reported spot
     for (const [id, r] of remotes) {
       if (now - r.seen > 7000) { remotes.delete(id); continue; }
-      r.tx += r.vx * dt; r.ty += r.vy * dt;
-      r.x = clamp(r.x + r.vx * dt + (r.tx - r.x) * Math.min(1, dt * 5), 0, W);
-      r.y = clamp(r.y + r.vy * dt + (r.ty - r.y) * Math.min(1, dt * 5), 0, H);
-      r.a = lerpAng(r.a, r.ta, 1 - Math.exp(-8 * dt));
+      r.tx = clamp(r.tx + r.vx * dt, 0, W); r.ty = clamp(r.ty + r.vy * dt, 0, H);
+      const corr = 1 - Math.exp(-12 * dt);
+      r.x = clamp(r.x + r.vx * dt + (r.tx - r.x) * corr, 0, W);
+      r.y = clamp(r.y + r.vy * dt + (r.ty - r.y) * corr, 0, H);
+      r.a = lerpAng(r.a, r.ta, 1 - Math.exp(-14 * dt));
       if (r.dead) continue;
       trailFrom(r, 0.6 + r.thrust * 1.4, dt);
       // boop
@@ -1005,19 +1026,26 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (p.life <= 0) { parts[i] = parts[parts.length - 1]; parts.pop(); continue; }
       p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.97; p.vy *= 0.97;
     }
-    if (parts.length > MAX_PARTS) parts.splice(0, parts.length - MAX_PARTS);
+    const partCap = lowQ ? MAX_PARTS / 3 : MAX_PARTS;
+    if (parts.length > partCap) parts.splice(0, parts.length - partCap);
     for (let i = floaters.length - 1; i >= 0; i--) { floaters[i].t += dt; if (floaters[i].t > 1) floaters.splice(i, 1); }
 
-    sendAcc += dt;
-    if (playing && sendAcc > 1 / 15) {
+    sendAcc += dt; slowAcc += dt;
+    if (playing && sendAcc >= 1 / 20) {
       sendAcc = 0;
-      net.send({
-        q: ++sendSeq, ts: Date.now(), n: me.name, h: me.hue, ck: me.ck, x: Math.round(me.x), y: Math.round(me.y),
+      const msg = {
+        q: ++sendSeq, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),
         vx: Math.round(me.vx), vy: Math.round(me.vy), a: +me.a.toFixed(2),
-        s: me.score, t: me.thrust > 0.3 ? 1 : 0, g: myGrabs,
-        l: me.lives, lv: me.lv, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0,
-        f: myShotLog.slice(-9).map(e => e.d), dr: myDrops.filter(d => Date.now() - d[4] < DROP_LIFE).slice(-3).map(d => d.slice(0, 4)), hb: hitBy, ko: koBy
-      });
+        t: me.thrust > 0.3 ? 1 : 0, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0
+      };
+      const slow = {
+        n: me.name, h: me.hue, ck: me.ck, s: me.score, l: me.lives, lv: me.lv, g: myGrabs, hb: hitBy, ko: koBy,
+        dr: myDrops.filter(d => Date.now() - d[4] < DROP_LIFE).slice(-3).map(d => d.slice(0, 4))
+      };
+      const sig = JSON.stringify(slow);
+      if ((sig !== lastSlow && slowAcc >= 0.1) || slowAcc >= 1) { Object.assign(msg, slow); lastSlow = sig; slowAcc = 0; }
+      if (net.shotsInState && myShotLog.length) msg.f = myShotLog.slice(-9).map(e => e.d);
+      net.send(msg);
     }
     boardAcc += dt;
     if (boardAcc > 0.5) { boardAcc = 0; renderBoard(); }
@@ -1063,7 +1091,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const glow = g.createRadialGradient(x, y, 0, x, y, rr * 3);
     glow.addColorStop(0, gold ? "rgba(255,210,100,0.55)" : "rgba(255,235,255,0.5)");
     glow.addColorStop(1, "rgba(255,220,255,0)");
-    g.fillStyle = glow; g.beginPath(); g.arc(x, y, rr * 3, 0, 6.29); g.fill();
+    if (!lowQ) { g.fillStyle = glow; g.beginPath(); g.arc(x, y, rr * 3, 0, 6.29); g.fill(); }
     g.save(); g.translate(x, y); g.rotate(now / 900 + x);
     g.fillStyle = gold ? "#ffd36b" : "#ffffff";
     g.beginPath();
@@ -1236,12 +1264,12 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (lv < 2) return;
     const m = armorMat(lv), P = (px, py) => [(px / 320 - 0.5) * s, (py / 320 - 0.5) * s];
     g.lineJoin = "round";
-    if (m.glow) { g.shadowColor = `rgba(${m.glow},0.9)`; g.shadowBlur = s * 0.06; }
+    const glowEdge = () => { if (m.glow && !lowQ) { g.save(); g.strokeStyle = `rgba(${m.glow},0.35)`; g.lineWidth = s * 0.06; g.stroke(); g.restore(); } };
     if (lv >= 3) {
       // belly plate between the face and the engine rim
       g.fillStyle = metal(m, P, [140, 150], [140, 178]);
       g.strokeStyle = m.edge; g.lineWidth = s * 0.01;
-      poly(P, [[64, 147], [224, 169], [222, 182], [64, 160]]); g.fill(); g.stroke();
+      poly(P, [[64, 147], [224, 169], [222, 182], [64, 160]]); glowEdge(); g.fill(); g.stroke();
     }
     if (lv >= 6) {
       // trim along the lid's front edge
@@ -1251,11 +1279,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (lv >= 8) {
       // horns on the lid corners
       g.fillStyle = metal(m, P, [90, 60], [60, 30]); g.strokeStyle = m.edge; g.lineWidth = s * 0.01;
-      poly(P, [[96, 48], [58, 26], [84, 70]]); g.fill(); g.stroke();
+      poly(P, [[96, 48], [58, 26], [84, 70]]); glowEdge(); g.fill(); g.stroke();
       g.fillStyle = metal(m, P, [240, 60], [270, 30]);
-      poly(P, [[236, 58], [276, 34], [250, 76]]); g.fill(); g.stroke();
+      poly(P, [[236, 58], [276, 34], [250, 76]]); glowEdge(); g.fill(); g.stroke();
     }
-    g.shadowBlur = 0;
     // bolts
     bolt(m, P, 76, 154, s); bolt(m, P, 212, 175, s);
     if (lv >= 3) bolt(m, P, 144, 165, s);
@@ -1338,7 +1365,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const lv = b.lv || 1, sz = sizeOf(lv), tier = tierOf(lv), S = BOT * sz;
     if (b.blink && Math.floor(now / 90) % 2) g.globalAlpha = 0.35;
     // aura from Lv 4
-    if (tier.aura) {
+    if (tier.aura && !lowQ) {
       const ar = S * (0.78 + 0.06 * Math.sin(now / 300));
       const au = g.createRadialGradient(x, y, S * 0.15, x, y, ar);
       au.addColorStop(0, `rgba(${tier.aura},0.38)`); au.addColorStop(1, `rgba(${tier.aura},0)`);
@@ -1746,9 +1773,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
 
   // ---------- loop ----------
-  let last = performance.now();
+  let last = performance.now(), frameAvg = 1 / 60;
   function frame(now) {
-    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
+    if (raw < 0.25) {   // ignore pauses (tab switch)
+      frameAvg += (raw - frameAvg) * 0.05;
+      if (!lowQ && frameAvg > 1 / 42) lowQ = true;          // under ~42 fps: lighten the load
+      else if (lowQ && frameAvg < 1 / 56) lowQ = false;     // back above ~56 fps: full effects
+    }
     update(dt, now); draw(now);
     if (!playing) drawPreview(now);
     requestAnimationFrame(frame);
