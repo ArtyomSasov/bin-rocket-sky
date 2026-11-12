@@ -548,6 +548,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
     g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
   }
+  const scoreEl = document.getElementById("score");
+  let shownScore = 0;
+  function showScore() { if (me.score !== shownScore) { shownScore = me.score; scoreEl.textContent = me.score; } }
   function pushCapped(arr, v, n) { arr.push(v); if (arr.length > n) arr.shift(); }
 
   // ---------- fire & damage ----------
@@ -620,7 +623,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (n <= 0) return;
     const id = myTag + (deaths++).toString(36);
     me.score = Math.max(0, me.score - n);
-    document.getElementById("score").textContent = me.score;
+    showScore();
     floaters.push({ x: me.x, y: me.y - 40, t: 0, txt: "-" + n + " stars", gold: false });
     drops.set(id, { x: me.x, y: me.y, n, born: now });
     myDrops.push([id, Math.round(me.x), Math.round(me.y), n, Date.now()]);
@@ -725,7 +728,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       credited.add("ko" + k); me.score += 5; floaters.push({ x: r.x, y: r.y - 50, t: 0, txt: "KO +5", gold: true });
       blip(520, 0.35);
     }
-    document.getElementById("score").textContent = me.score;
+    showScore();
   }
   function removeRemote(id) { remotes.delete(id); }
 
@@ -917,16 +920,15 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     while (myShotLog.length && now - myShotLog[0].at > 700) myShotLog.shift();
 
     // space junk
-    const wallNow = clockNow();
     for (let i = 0; i < ROCKS; i++) {
-      const k = rock(i, wallNow);
+      const k = world.rocks[i];
       if (grabbed.has(k.key) || k.age < 0.6) continue;
       for (const s of shots) {
         if (s.life <= 0 || !segHit(s, k.x, k.y, k.r + 10)) continue;
         s.life = 0;
         if (s.mine) {
           grabbed.add(k.key); pushCapped(myGrabs, k.key, 20);
-          me.score += 2; document.getElementById("score").textContent = me.score;
+          me.score += 2; showScore();
           floaters.push({ x: k.x, y: k.y, t: 0, txt: "+2", gold: false });
           explode(k.x, k.y, 30, 220); blip(300, 0.2, "square");
         }
@@ -957,7 +959,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       r.y = clamp(r.y + r.vy * dt + (r.ty - r.y) * corr, 0, H);
       r.a = lerpAng(r.a, r.ta, 1 - Math.exp(-14 * dt));
       if (r.dead) continue;
-      trailFrom(r, 0.6 + r.thrust * 1.4, dt);
+      if (Math.abs(r.x - me.x) < vw / 2 + 300 && Math.abs(r.y - me.y) < vh / 2 + 300) trailFrom(r, 0.6 + r.thrust * 1.4, dt);
       // boop
       const dx = wrapD(me.x - r.x, W), dy = wrapD(me.y - r.y, H), d = Math.hypot(dx, dy);
       if (playing && !me.dead && d < 31 * (sizeOf(me.lv) + sizeOf(r.lv || 1)) && d > 0.01 && (!r.boop || now - r.boop > 400)) {
@@ -971,13 +973,13 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     // sparks
     if (playing && !me.dead) {
       for (let i = 0; i < SLOTS; i++) {
-        const s = spark(i, clockNow());
+        const s = world.sparks[i];
         if (grabbed.has(s.key) || s.age < 0.04) continue;
         if (Math.hypot(wrapD(s.x - me.x, W), wrapD(s.y - me.y, H)) < 22 + 30 * sizeOf(me.lv)) {
           grabbed.add(s.key); pushCapped(myGrabs, s.key, 20);
           const val = s.gold ? 5 : 1;
           me.score += val;
-          document.getElementById("score").textContent = me.score;
+          showScore();
           floaters.push({ x: s.x, y: s.y, t: 0, txt: "+" + val, gold: s.gold });
           gainXp(val, now);
           for (let k = 0; k < (s.gold ? 30 : 14); k++) {
@@ -997,7 +999,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         if (!st.ready || grabbed.has(st.key)) continue;
         if (Math.hypot(st.x - me.x, st.y - me.y) < 22 + 30 * sizeOf(me.lv)) {
           grabbed.add(st.key); pushCapped(myGrabs, st.key, 20);
-          me.score += 1; document.getElementById("score").textContent = me.score;
+          me.score += 1; showScore();
           for (let k = 0; k < 8; k++) { const a = Math.random() * 6.28; puff(st.x, st.y, Math.cos(a) * 120, Math.sin(a) * 120, 0.4, 1.8, "#ffe3f6"); }
           blip(990, 0.06);
           gainXp(1, now);
@@ -1007,7 +1009,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     // weapon crates
     if (playing && !me.dead) {
       for (let i = 0; i < PICKS; i++) {
-        const c = pickup(i, clockNow());
+        const c = world.picks[i];
         if (grabbed.has(c.key) || c.age < 0.05) continue;
         if (Math.hypot(c.x - me.x, c.y - me.y) < 26 + 30 * sizeOf(me.lv)) {
           grabbed.add(c.key); pushCapped(myGrabs, c.key, 20);
@@ -1521,7 +1523,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         for (const s of shots) {
           if (!s.mine || s.life <= 0 || !segHit(s, m.x, m.y, m.r + 12)) continue;
           s.life = 0; grabbed.add(m.key); pushCapped(myGrabs, m.key, 20);
-          me.score += 2; document.getElementById("score").textContent = me.score;
+          me.score += 2; showScore();
           floaters.push({ x: m.x, y: m.y, t: 0, txt: "+2", gold: false });
           explode(m.x, m.y, 26, 240); blip(320, 0.15, "square");
           break;
@@ -1546,7 +1548,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
           explode(s.x, s.y, 10, 160); blip(260, 0.08, "square");
           if (h >= UFO_HP) {
             grabbed.add(key); pushCapped(myGrabs, key, 20);
-            me.score += 15; document.getElementById("score").textContent = me.score;
+            me.score += 15; showScore();
             floaters.push({ x: p.x, y: p.y, t: 0, txt: "UFO +15", gold: true });
             explode(p.x, p.y, 80, 340); blip(90, 0.5, "sawtooth");
             gainXp(5, now);
@@ -1566,7 +1568,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         if (!gd || grabbed.has(gd.key) || gd.age < 0.3) continue;
         if (Math.hypot(gd.x - me.x, gd.y - me.y) < 22 + 30 * sizeOf(me.lv)) {
           grabbed.add(gd.key); pushCapped(myGrabs, gd.key, 20);
-          me.score += 5; document.getElementById("score").textContent = me.score;
+          me.score += 5; showScore();
           floaters.push({ x: gd.x, y: gd.y, t: 0, txt: "+5", gold: true });
           for (let k = 0; k < 24; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 200; puff(gd.x, gd.y, Math.cos(a) * v, Math.sin(a) * v, 0.7, 2.2, "#ffd36b"); }
           blip(700, 0.25);
@@ -1689,9 +1691,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (shake > 0) g.translate((Math.random() - .5) * shake * 40, (Math.random() - .5) * shake * 40);
     drawSky(now);
     drawWalls(now);
-    const wall = clockNow();
     for (let i = 0; i < ROCKS; i++) {
-      const k = rock(i, wall);
+      const k = world.rocks[i];
       if (grabbed.has(k.key)) continue;
       const x = sx(k.x), y = sy(k.y);
       if (onScreen(x, y, 50)) drawRock(k, x, y);
@@ -1709,14 +1710,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.globalAlpha = 1;
     }
     for (let i = 0; i < PICKS; i++) {
-      const c = pickup(i, wall);
+      const c = world.picks[i];
       if (grabbed.has(c.key)) continue;
       const x = sx(c.x), y = sy(c.y) + Math.sin(now / 400 + i) * 6;
       if (onScreen(x, y, 50)) drawCrate(c, x, y, now);
     }
     // sparks
     for (let i = 0; i < SLOTS; i++) {
-      const s = spark(i, wall);
+      const s = world.sparks[i];
       if (grabbed.has(s.key)) continue;
       const x = sx(s.x), y = sy(s.y);
       if (onScreen(x, y, 40)) drawSpark(x, y, s.gold ? 15 : 9, s.gold, now, s.age);
@@ -1774,6 +1775,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 
   // ---------- loop ----------
   let last = performance.now(), frameAvg = 1 / 60;
+  const world = { sparks: [], rocks: [], picks: [] };   // shared-clock objects, computed once per frame
   function frame(now) {
     const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
     if (raw < 0.25) {   // ignore pauses (tab switch)
@@ -1781,6 +1783,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (!lowQ && frameAvg > 1 / 42) lowQ = true;          // under ~42 fps: lighten the load
       else if (lowQ && frameAvg < 1 / 56) lowQ = false;     // back above ~56 fps: full effects
     }
+    const wt = clockNow();
+    for (let i = 0; i < SLOTS; i++) world.sparks[i] = spark(i, wt);
+    for (let i = 0; i < ROCKS; i++) world.rocks[i] = rock(i, wt);
+    for (let i = 0; i < PICKS; i++) world.picks[i] = pickup(i, wt);
     update(dt, now); draw(now);
     if (!playing) drawPreview(now);
     requestAnimationFrame(frame);
