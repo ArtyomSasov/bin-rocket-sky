@@ -883,9 +883,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function cellsFromArt(b) {
     const W2 = b.cv.width, H2 = b.cv.height, img = b.q.getImageData(0, 0, W2, H2).data;
     let m = 0;
-    for (let j = 0; j < b.gh; j++) for (let i = 0; i < b.gw; i++) {
-      const px = Math.min(W2 - 1, Math.floor((i + 0.5) * b.cs * BODY_RES)), py = Math.min(H2 - 1, Math.floor((j + 0.5) * b.cs * BODY_RES));
-      if (img[(py * W2 + px) * 4 + 3] > 60) { b.cells[j * b.gw + i] = 1; m++; }
+    for (let j = 0; j < b.gh; j++) for (let i = 0; i < b.gw; i++) {   // solid when at least a quarter of the cell is painted
+      const x0 = Math.floor(i * b.cs * BODY_RES), y0 = Math.floor(j * b.cs * BODY_RES), x1 = Math.min(W2, Math.floor((i + 1) * b.cs * BODY_RES)), y1 = Math.min(H2, Math.floor((j + 1) * b.cs * BODY_RES));
+      let on = 0, all = 0;
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { all++; if (img[(y * W2 + x) * 4 + 3] > 60) on++; }
+      if (all && on >= all * 0.25) { b.cells[j * b.gw + i] = 1; m++; }
     }
     b.mass = b.mass0 = m;
   }
@@ -1145,6 +1147,25 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (!b.cells[j * b.gw + i] && !solidNear(b, i, j)) b.q.clearRect(i * b.cs - 0.5, j * b.cs - 0.5, b.cs + 1, b.cs + 1);
     }
   }
+  // around a fresh crater, a cell that kept less than a quarter of its art stops being solid
+  // (otherwise a shot would stop on a corner sliver while the visible edge is further in)
+  function dropBareCells(b, i0, i1, j0, j1) {
+    i0 = Math.max(0, i0); j0 = Math.max(0, j0); i1 = Math.min(b.gw - 1, i1); j1 = Math.min(b.gh - 1, j1);
+    const cs = b.cs, R = BODY_RES, X = Math.floor(i0 * cs * R), Y = Math.floor(j0 * cs * R);
+    const Wd = Math.min(b.cv.width - X, Math.ceil((i1 - i0 + 1) * cs * R)), Hd = Math.min(b.cv.height - Y, Math.ceil((j1 - j0 + 1) * cs * R));
+    if (Wd <= 0 || Hd <= 0) return 0;
+    const img = b.q.getImageData(X, Y, Wd, Hd).data;
+    let n = 0;
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const k = j * b.gw + i;
+      if (!b.cells[k]) continue;
+      const x0 = Math.floor(i * cs * R) - X, y0 = Math.floor(j * cs * R) - Y, x1 = Math.min(Wd, Math.floor((i + 1) * cs * R) - X), y1 = Math.min(Hd, Math.floor((j + 1) * cs * R) - Y);
+      let on = 0, all = 0;
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { all++; if (img[(y * Wd + x) * 4 + 3] > 60) on++; }
+      if (all && on < all * 0.25) { b.cells[k] = 0; n++; b.q.clearRect(i * cs, j * cs, cs, cs); }
+    }
+    return n;
+  }
   function carveLocal(b, lx, ly, rad, hot) {
     const cs = b.cs, R2 = rad * 1.2, i0 = Math.max(0, Math.floor((lx - R2) / cs)), i1 = Math.min(b.gw - 1, Math.floor((lx + R2) / cs));
     const j0 = Math.max(0, Math.floor((ly - R2) / cs)), j1 = Math.min(b.gh - 1, Math.floor((ly + R2) / cs));
@@ -1169,6 +1190,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     rg.addColorStop(0, "rgba(15,8,18,0.9)"); rg.addColorStop(0.3, hot ? "rgba(255,120,40,0.5)" : "rgba(40,24,30,0.6)"); rg.addColorStop(1, "rgba(15,8,18,0)");
     q.fillStyle = rg; q.beginPath(); q.arc(lx, ly, rad * 1.7, 0, 6.29); q.fill();
     q.restore();
+    n += dropBareCells(b, i0 - 1, i1 + 1, j0 - 1, j1 + 1);
     sweepOrphans(b, i0 - 1, i1 + 1, j0 - 1, j1 + 1);
     b.mass -= n; b.dirty = true;
     return n;
