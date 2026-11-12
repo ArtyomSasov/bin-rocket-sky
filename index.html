@@ -1326,6 +1326,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     for (let s = 0; s < 10; s++) { const a = s / 10 * 6.283; if (solidAt(b, o.x + Math.cos(a) * rad, o.y + Math.sin(a) * rad)) return true; }
     return solidAt(b, o.x, o.y);
   }
+  // only something big hurts when you fly into it: planets, moons and whole wrecks; small rubble just gets knocked aside
+  const hurtsOnHit = b => b.mass >= 150;
+  // crash damage grows with how hard you hit, small even at full boost (in lives: Lv 1 has 3)
+  const crashDmg = (hs, boosting) => hs < 220 ? 0 : Math.min(0.5, (boosting ? 0.25 : 0.12) * hs / 400);
   function bounceOff(o, rad, k) {
     for (const b of bodies) {
       const dx = o.x - b.x, dy = o.y - b.y;
@@ -2445,7 +2449,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       gravityOn(b, dt);
       b.x += b.vx * dt; b.y += b.vy * dt;
       const pc = bounceOff(b, 40, 0.6);
-      if (pc && pc.vn < -200) { impact(b.x - pc.nx * 40, b.y - pc.ny * 40, "#ffd9b0", 1.2); botHurt(b, 0.6, "p", now, false); }
+      if (pc && pc.vn < -200) {
+        impact(b.x - pc.nx * 40, b.y - pc.ny * 40, "#ffd9b0", 1.2);
+        const dmg = hurtsOnHit(pc.b) ? crashDmg(-pc.vn, false) : 0;
+        if (dmg > 0) botHurt(b, dmg, "p", now, false);
+      }
       if (b.x < 40 || b.x > W - 40) { b.vx = -b.vx * 0.6; b.x = clamp(b.x, 40, W - 40); }
       if (b.y < 40 || b.y > H - 40) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 40, H - 40); }
       // aim (with some error) and shoot
@@ -2650,13 +2658,15 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     // planets and moons: same as a wall, and worse on boost
     const pc = me.dead ? null : bounceOff(me, wr, 0.7);
     if (pc) {
-      me.vx += pc.nx * 220; me.vy += pc.ny * 220;
+      const big = hurtsOnHit(pc.b);
+      if (big) { me.vx += pc.nx * 220; me.vy += pc.ny * 220; }
       const hs = -pc.vn, cx = me.x - pc.nx * wr, cy = me.y - pc.ny * wr;
       if (playing && hs > 60) {
-        impact(cx, cy, "#ffd9b0", Math.min(2, 0.4 + hs / 450));
+        impact(cx, cy, "#ffd9b0", Math.min(2, (big ? 0.4 : 0.2) + hs / 450));
         if (hs > 300) sparkShower(cx, cy, pc.nx, pc.ny, Math.min(1.6, hs / 600));
-        sfx("crash", Math.min(1, 0.3 + hs / 700), 0.8);
-        if (hs > 120) hurt(now, me.boostFx > 0 ? 1.2 : 0.6); else shake = Math.max(shake, 0.12);
+        sfx("crash", Math.min(1, (big ? 0.3 : 0.15) + hs / 700), big ? 0.8 : 1.2);
+        const dmg = big ? crashDmg(hs, me.boostFx > 0) : 0;
+        if (dmg > 0) hurt(now, dmg); else shake = Math.max(shake, big ? 0.12 : 0.06);
       }
     }
     let hitX = me.x < wr ? wr : me.x > W - wr ? W - wr : null;
