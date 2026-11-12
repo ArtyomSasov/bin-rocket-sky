@@ -325,7 +325,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   <form class="card chip" id="startForm">
     <canvas id="preview" width="220" height="220" aria-label="Preview of your bin rocket"></canvas>
     <h1>Bin Rocket <em>Sky</em></h1>
-    <p><b>Deathmatch:</b> 5-minute rounds, the pilot with the most kills wins. Scoop up sparks to level up, blast space junk and other bins with fire. You have 3 lives. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more lives and fancier fire. Planets pull you in and hurt if you slam into them (more on boost). Watch out for black holes, meteor showers and aliens. Grab weapon crates: triple shot, laser, rockets, scatter gun, railgun, mines, and the rare nuke (it levels everything around it). Medkits heal, shields soak damage. Black holes swallow anything that reaches the centre.</p>
+    <p><b>Deathmatch:</b> 5-minute rounds, the pilot with the most kills wins. Scoop up sparks to level up, blast space junk and other bins with fire. You have 3 lives. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more lives and fancier fire. Planets pull you in and hurt if you slam into them (more on boost); shoot one apart for +25. Watch out for black holes, meteor showers and aliens. Grab weapon crates: triple shot, laser, rockets, scatter gun, railgun, mines, and the rare nuke (it levels everything around it). Medkits heal, shields soak damage. Black holes swallow anything that reaches the centre.</p>
     <div class="field">
       <label for="nameInput">Pilot name</label>
       <input id="nameInput" maxlength="14" autocomplete="off" placeholder="Pilot name">
@@ -837,8 +837,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const r = 150 + hash(seed, t, 1) * 150, m = r + 380;
       const x = m + hash(seed, t, 2) * (W - 2 * m), y = m + hash(seed, t, 3) * (H - 2 * m);
       if (planets.some(p => Math.hypot(p.x - x, p.y - y) < p.r + r + 560)) continue;
-      const p = { x, y, r, seed: seed + t * 131, kind: PLANET_KINDS[(Math.floor(hash(seed, 0, 9) * 4) + planets.length) % 4], tilt: (hash(seed, t, 4) - 0.5) * 0.8, planet: true };
+      const p = { x, y, r, r0: r, idx: planets.length, hp: Math.round(r / 3), stage: 0, frac: 0, dead: false,
+                  seed: seed + t * 131, kind: PLANET_KINDS[(Math.floor(hash(seed, 0, 9) * 4) + planets.length) % 4], tilt: (hash(seed, t, 4) - 0.5) * 0.8, planet: true };
       paintBody(p, r, p.kind, p.kind === "gas");
+      paintCracks(p);
       planets.push(p);
       if (hash(seed, t, 5) < 0.65) {
         const mo = { p, r: 38 + hash(seed, t, 6) * 30, orbit: r + 190 + hash(seed, t, 7) * 110, period: 45 + hash(seed, t, 8) * 40,
@@ -848,8 +850,98 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       }
     }
     bodies = [...planets, ...moons];
+    planetQuietUntil = performance.now() + 3000;   // damage that arrives right after joining just shows, without the fireworks
     moveMoons(clockNow());
     if (inBody(me.x, me.y, 80)) Object.assign(me, spawnPoint());
+  }
+  // ---------- planets can be destroyed: everyone's damage adds up (each player reports what their own shots did) ----------
+  const myPD = [0, 0, 0, 0, 0], remotePD = new Map();
+  let pdRound = -1, planetQuietUntil = 0;
+  function paintCracks(p) {
+    const R = p.r0, c = document.createElement("canvas");
+    c.width = c.height = p.half * 2;
+    const q = c.getContext("2d"), rnd = k => hash(p.seed, k, 808);
+    q.translate(p.half, p.half);
+    q.beginPath(); q.arc(0, 0, R, 0, 6.29); q.clip();
+    q.lineCap = "round"; q.lineJoin = "round";
+    for (let k = 0; k < 11; k++) {   // fault lines running in from the rim, forking as they go
+      let a = rnd(k) * 6.283, x = Math.cos(a) * R, y = Math.sin(a) * R, dir = a + Math.PI + (rnd(k + 20) - 0.5) * 0.8;
+      q.beginPath(); q.moveTo(x, y);
+      for (let j = 0; j < 8; j++) { dir += (rnd(k * 13 + j + 40) - 0.5) * 1.1; x += Math.cos(dir) * R * 0.11; y += Math.sin(dir) * R * 0.11; q.lineTo(x, y); }
+      q.strokeStyle = "rgba(15,6,20,0.85)"; q.lineWidth = R * 0.05; q.stroke();
+      q.strokeStyle = "rgba(255,110,40,0.9)"; q.lineWidth = R * 0.022; q.stroke();
+      q.strokeStyle = "#ffe0a0"; q.lineWidth = R * 0.007; q.stroke();
+    }
+    p.crack = c;
+  }
+  function planetDmg(i) {
+    let d = myPD[i];
+    for (const v of remotePD.values()) if (v.r === stats.round) d += v.d[i];
+    return d;
+  }
+  function hitPlanet(p, dmg, now) {
+    if (p.dead || !roundLive) return;
+    const before = planetDmg(p.idx);
+    myPD[p.idx] += dmg;
+    if (before < p.hp && before + dmg >= p.hp && playing) {   // my shot finished it off
+      me.score += 25; showScore(); gainXp(5, now);
+      floaters.push({ x: p.x, y: p.y - p.r0 - 40, t: 0, txt: "PLANET +25", gold: true });
+    }
+  }
+  function chunkCol(p) { const b = PLANET_PAL[p.kind].bands; return b[Math.floor(Math.random() * b.length)]; }
+  // a slab breaks off the rim: rubble, fire and smoke where it tore away
+  function breakOff(p, n, now) {
+    for (let k = 0; k < n; k++) {
+      const a = Math.random() * 6.283, x = p.x + Math.cos(a) * p.r, y = p.y + Math.sin(a) * p.r, v = 80 + Math.random() * 220;
+      for (let j = 0; j < 4; j++) addDebris(x + (Math.random() - 0.5) * 40, y + (Math.random() - 0.5) * 40, Math.cos(a) * v + (Math.random() - 0.5) * 80, Math.sin(a) * v + (Math.random() - 0.5) * 80, 10 + Math.random() * 18, chunkCol(p));
+      explode(x, y, lowQ ? 20 : 45, 320); smoke(x, y, lowQ ? 4 : 10, 160, 2.5);
+      impacts.push({ x, y, t: 0, r: 110, col: "#ffb070" });
+    }
+    const d = Math.hypot(me.x - p.x, me.y - p.y);
+    if (d < 1600) { shake = Math.max(shake, 0.5 * (1 - d / 1600)); boomSound(1.0, 600, 0.45 * (1 - d / 1600) + 0.1); }
+  }
+  function destroyPlanet(p, now) {
+    const q = lowQ ? 0.4 : 1;
+    for (let k = 0; k < 55 * q; k++) {
+      const a = Math.random() * 6.283, rr = Math.random() * p.r, v = 120 + Math.random() * 520;
+      addDebris(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr, Math.cos(a) * v, Math.sin(a) * v, 12 + Math.random() * 30, chunkCol(p));
+    }
+    for (let k = 0; k < 7; k++) { const a = Math.random() * 6.283, rr = Math.random() * p.r; explode(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr, Math.round(70 * q), 700); }
+    explode(p.x, p.y, Math.round(200 * q), 1100);
+    smoke(p.x, p.y, Math.round(50 * q), p.r * 1.6, 5);
+    rings.push({ x: p.x, y: p.y, t: 0, r: p.r * 4, col: "255,230,190", warp: true, dur: 1.1, w: 30 });
+    rings.push({ x: p.x, y: p.y, t: -0.15, r: p.r * 6, col: "255,160,90", dur: 1.6, w: 14 });
+    shove(p.x, p.y, p.r * 4, 1200);
+    const d = Math.hypot(me.x - p.x, me.y - p.y);
+    if (d < 2600) { shake = Math.max(shake, 1.2 * (1 - d / 2600)); flash = Math.max(flash, 0.7 * (1 - d / 2600)); }
+    boomSound(2.4, 500, 0.6); blip(35, 1.8, "sawtooth");
+    feedPush("A planet was blown apart!");
+    if (d < 2600) announce("PLANET DESTROYED", "", "#ffb070");
+  }
+  // every frame: total damage → stage (0 whole, 1 cracked, 2 broken, 3 gone); a new round brings every planet back
+  function planetTick(now) {
+    if (pdRound !== stats.round) { pdRound = stats.round; myPD.fill(0); }
+    let changed = false;
+    for (const p of planets) {
+      p.frac = Math.min(1, planetDmg(p.idx) / p.hp);
+      const stage = p.frac >= 1 ? 3 : p.frac >= 0.66 ? 2 : p.frac >= 0.33 ? 1 : 0;
+      if (stage === p.stage) continue;
+      const fx = stage > p.stage && now > planetQuietUntil;
+      if (fx && stage === 3) destroyPlanet(p, now); else if (fx) breakOff(p, stage === 1 ? 2 : 3, now);
+      p.stage = stage; p.dead = stage === 3; p.r = p.r0 * [1, 0.88, 0.76, 0.76][stage];
+      changed = true;
+    }
+    if (changed) {
+      for (const m of moons) {
+        const dead = m.p.dead;
+        if (dead && !m.dead && now > planetQuietUntil) {   // its planet is gone: the moon shatters too
+          for (let k = 0; k < 14; k++) addDebris(m.x, m.y, (Math.random() - 0.5) * 400, (Math.random() - 0.5) * 400, 8 + Math.random() * 14, "#8a7f96");
+          explode(m.x, m.y, 50, 400);
+        }
+        m.dead = dead;
+      }
+      bodies = [...planets, ...moons].filter(b => !b.dead && !(b.p && b.p.dead));
+    }
   }
   function moveMoons(t) {
     for (const m of moons) {
@@ -865,6 +957,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   // pick-ups that would land inside a planet sit on its rim instead (same result on every client)
   function outside(o) {
     for (const p of planets) {
+      if (p.dead) continue;
       const dx = o.x - p.x, dy = o.y - p.y, d = Math.hypot(dx, dy);
       if (d < p.r + 50) { const k = (p.r + 50) / (d || 1); o.x = p.x + (d ? dx : 1) * k; o.y = p.y + dy * k; }
     }
@@ -872,6 +965,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
   function gravityOn(o, dt) {
     for (const p of planets) {
+      if (p.dead) continue;
       const dx = p.x - o.x, dy = p.y - o.y, d = Math.hypot(dx, dy);
       if (d > p.r * 4 || d < 1) continue;
       const acc = PLANET_G * (p.r / 250) * (p.r / Math.max(d, p.r)) ** 2 * (1 - d / (p.r * 4));
@@ -890,9 +984,18 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
   function drawBodies(now) {
     for (const b of bodies) {
-      const x = sx(b.x), y = sy(b.y);
-      if (!onScreen(x, y, b.half)) continue;
-      g.drawImage(b.cv, x - b.half, y - b.half);
+      const x = sx(b.x), y = sy(b.y), sc = b.r0 ? b.r / b.r0 : 1, hh = b.half * sc;
+      if (!onScreen(x, y, hh)) continue;
+      g.drawImage(b.cv, x - hh, y - hh, hh * 2, hh * 2);
+      if (b.frac > 0.05) {   // damage shows as glowing fault lines, then it smoulders
+        g.globalAlpha = Math.min(1, b.frac * 1.6) * (0.85 + 0.15 * Math.sin(now / 160 + b.idx));
+        g.drawImage(b.crack, x - hh, y - hh, hh * 2, hh * 2);
+        g.globalAlpha = 1;
+        if (b.stage >= 1 && Math.random() < (lowQ ? 0.15 : 0.4)) {
+          const a = Math.random() * 6.283;
+          puff(b.x + Math.cos(a) * b.r * 0.95, b.y + Math.sin(a) * b.r * 0.95, Math.cos(a) * 30, Math.sin(a) * 30, 2.2, 6 + Math.random() * 6, "rgb(60,50,70)", 2);
+        }
+      }
       if (b.kind === "lava") {
         g.globalCompositeOperation = "lighter";
         const lg = g.createRadialGradient(x, y, b.r * 0.7, x, y, b.r * 1.25);
@@ -1382,6 +1485,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const x = clamp(s.x, 0, W), y = clamp(s.y, 0, H), d = Math.hypot(me.x - x, me.y - y);
     const q = lowQ ? 0.35 : 1;
     shove(x, y, NUKE_R * 1.4, 1600);
+    if (s.mine) for (const p of planets) {   // a nuke tears a planet apart
+      const gap = Math.hypot(p.x - x, p.y - y) - p.r;
+      if (gap < NUKE_R) hitPlanet(p, p.hp * (gap < NUKE_KILL ? 0.75 : 0.35), now);
+    }
     booms.push({ x, y, t: 0, seed: Math.random() * 100 });
     // three shock waves: a fast bright one, a heavy one, and a faint far one, all bending the view
     rings.push({ x, y, t: 0, r: NUKE_R * 1.25, col: "255,250,230", warp: true, dur: 0.9, w: 26 });
@@ -1584,6 +1691,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (Number.isFinite(p.s)) r.score = Math.max(0, Math.floor(p.s));
     if (Number.isFinite(p.lv)) r.lv = clamp(Math.floor(p.lv), 1, MAX_LV);
     if (Array.isArray(p.st) && p.st.length === 6 && p.st.every(Number.isInteger)) r.st = p.st;   // [round, kills, deaths, shots, hits, best]
+    if (Array.isArray(p.pd) && p.pd.length === 6 && p.pd.every(Number.isFinite)) remotePD.set(id, { r: p.pd[0], d: p.pd.slice(1).map(v => clamp(v, 0, 1000)) });
     if (Number.isInteger(p.wp)) r.weapon = WEAPON_KEYS[p.wp] || "fire";
     if (Number.isFinite(p.sh)) r.shield = clamp(Math.floor(p.sh), 0, MAX_SHIELD);
     if (Number.isFinite(p.l)) r.lives = clamp(Math.floor(p.l), 0, maxLivesOf(r.lv));
@@ -1980,6 +2088,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (!playing) { me.vx = Math.cos(now / 2400) * 120; me.vy = Math.sin(now / 3100) * 90 - 40; }
     if (me.dead) { me.vx = me.vy = 0; }
     moveMoons(clockNow());
+    planetTick(now);
     if (!me.dead) gravityOn(me, dt);
     me.x += me.vx * dt; me.y += me.vy * dt;
     // walls: crash, lose a life, bounce back in
@@ -2032,7 +2141,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         continue;
       }
       if (s.kind === 6 && (s.x < 0 || s.x > W || s.y < 0 || s.y > H)) { s.x = clamp(s.x, 0, W); s.y = clamp(s.y, 0, H); s.vx = s.vy = 0; }
-      if (inBody(s.x, s.y, 2)) { impact(s.x, s.y, SHOT_COL[s.kind], 1); explode(s.x, s.y, s.kind === 1 || s.kind === 6 ? 40 : 10, 160); shots.splice(i, 1); continue; }
+      const hb = inBody(s.x, s.y, 2);
+      if (hb && hb.planet && (s.mine || botById.has(s.owner))) hitPlanet(hb, shotDmg(s), now);
+      if (hb) { impact(s.x, s.y, SHOT_COL[s.kind], 1); explode(s.x, s.y, s.kind === 1 || s.kind === 6 ? 40 : 10, 160); shots.splice(i, 1); continue; }
       if (s.x < 0 || s.x > W || s.y < 0 || s.y > H) { explode(clamp(s.x, 0, W), clamp(s.y, 0, H), s.kind === 1 ? 40 : 10, 160); shots.splice(i, 1); continue; }
       if (s.kind === 1) {
         if (Math.random() < dt * 50) puff(s.x, s.y, -s.vx * 0.1 + (Math.random() - .5) * 40, -s.vy * 0.1 + (Math.random() - .5) * 40, 0.6 + Math.random() * 0.5, 2.5 + Math.random() * 2.5, Math.random() < 0.6 ? "#9a8fb5" : "#ffb43c");
@@ -2303,6 +2414,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const slow = {
         tg: myTag, n: me.name, h: me.hue, ck: me.ck, s: me.score, l: me.lives, lv: me.lv, sh: me.shield, wp: WEAPON_KEYS.indexOf(me.weapon), g: myGrabs, hb: hitBy, ko: koBy,
         st: [stats.round, stats.kills, stats.deaths, stats.shots, stats.hits, stats.best],
+        pd: [stats.round, ...myPD.map(v => Math.round(v * 10) / 10)],
         dr: myDrops.filter(d => Date.now() - d[4] < DROP_LIFE).slice(-3).map(d => d.slice(0, 4))
       };
       const sig = JSON.stringify(slow);
