@@ -769,6 +769,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const SFX_NAMES = ["fire", "triple", "laser", "rocket", "scatter", "pump", "rail", "mine_drop", "boom_small", "boom_bin", "boom_big", "boom_low",
     "chunk", "hit", "crash", "ram", "shield_hit", "shield_get", "heal", "weapon_get", "dash", "level_up",
     "v_fight", "v_prepare", "v_multikill", "v_flawless", "v_win", "v_lose", "v_levelup", "v_powerup"];   // v_*: Kenney's CC0 voice-over packs
+  const SFX_MP3 = new Set(["rail"]);   // rail.mp3: made by the game's author
   const sfxBuf = {};
   let sfxBus = null, heavyBus = null, sfxVoices = 0, hall = null;
   // a big room's echo, shared by the announcer sting and the guns
@@ -785,7 +786,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   // heavier, grittier weapons: pitched down, a sub-bass punch under every shot, saturation, boosted lows, a little room
   const SFX_TUNE = {
     fire: [0.8, [110, 0.12, 0.45]], triple: [0.8, [100, 0.12, 0.4]], laser: [0.85, null], rocket: [0.75, [70, 0.3, 0.6]],
-    scatter: [0.72, [75, 0.28, 1]], rail: [0.7, [55, 0.45, 0.9]], mine_drop: [0.9, null],
+    scatter: [0.72, [75, 0.28, 1]], mine_drop: [0.9, null],
     boom_small: [0.8, [55, 0.5, 0.9]], boom_bin: [0.8, [45, 0.8, 1]], boom_big: [0.8, [38, 1.2, 1]], boom_low: [0.85, [32, 1.4, 1]],
     chunk: [0.8, [60, 0.4, 0.8]], hit: [0.7, [90, 0.12, 0.6]], crash: [0.75, [70, 0.22, 0.7]], ram: [0.75, [65, 0.25, 0.8]]
   };
@@ -802,7 +803,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const room = audio.createGain(); room.gain.value = 0.18;
     heavyBus.connect(drive).connect(lows).connect(comp);
     lows.connect(room).connect(getHall());
-    for (const n of SFX_NAMES) fetch("sfx/" + n + ".wav").then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
+    for (const n of SFX_NAMES) fetch("sfx/" + n + (SFX_MP3.has(n) ? ".mp3" : ".wav")).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
       .then(b => audio.decodeAudioData(b)).then(b => { sfxBuf[n] = b; }).catch(() => {});   // missing file: the synth sound stays
   }
   // x, y: where it happens (quieter with distance, silent past ~2200); rate: pitch, with a little random spread

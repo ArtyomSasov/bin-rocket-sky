@@ -14,3 +14,5 @@ Sound effects: all CC0 (public domain), from OpenGameArt.org. Trimmed, mixed to 
   https://opengameart.org/content/voiceover-pack-40-lines
 - "Space Ship Shield Sounds" by bart (downloaded, not used in the current mix)
   https://opengameart.org/content/space-ship-shield-sounds
+
+rail.mp3 (railgun): made by the game's author.
