@@ -143,6 +143,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 .lv b { font: 700 13px var(--display); color: var(--teal); white-space: nowrap; }
 .xpbar { display: block; width: 64px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.15); overflow: hidden; }
 .xpbar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--teal), var(--flame)); transition: width .3s; }
+.wpn { align-self: center; margin-left: 6px; font: 700 12px var(--display); color: var(--ink); background: rgba(255,255,255,.08); border: 1px solid var(--line); border-radius: 8px; padding: 3px 7px; white-space: nowrap; }
 .hearts.many svg { width: 14px; height: 14px; }
 .hearts { flex-wrap: wrap; max-width: 130px; }
 .hearts { display: flex; gap: 3px; margin-left: 4px; align-self: center; }
@@ -170,7 +171,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 
 <canvas id="c"></canvas>
 
-<div class="score chip" aria-live="polite"><b id="score">0</b><span>points</span><span class="lv"><b id="lvNum">Lv 1</b><span class="xpbar"><i id="xpFill"></i></span></span><span class="hearts" id="hearts" role="img" aria-label="3 lives"></span></div>
+<div class="score chip" aria-live="polite"><b id="score">0</b><span>points</span><span class="lv"><b id="lvNum">Lv 1</b><span class="xpbar"><i id="xpFill"></i></span></span><span class="hearts" id="hearts" role="img" aria-label="3 lives"></span><span class="wpn" id="wpn">Fireball</span></div>
 <button class="fire" id="fireBtn" aria-label="Fire" hidden><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg></button>
 <div class="event" id="eventBanner" role="status" hidden></div>
 <div class="board chip"><h2 id="boardTitle">Flyers</h2><ol id="board"></ol></div>
@@ -184,7 +185,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   <form class="card chip" id="startForm">
     <img src="bot.png" alt="A teal bin-shaped rocket with a purple lid, smiling, flame underneath">
     <h1>Bin Rocket <em>Sky</em></h1>
-    <p>Scoop up sparks, blast space junk and other bins with fire. You have 3 lives. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more lives and fancier fire. Watch out for black holes, meteor showers and aliens.</p>
+    <p>Scoop up sparks, blast space junk and other bins with fire. You have 3 lives. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more lives and fancier fire. Watch out for black holes, meteor showers and aliens. Grab weapon crates: triple shot, laser, homing rockets.</p>
     <div class="field">
       <label for="nameInput">Pilot name</label>
       <input id="nameInput" maxlength="14" autocomplete="off" placeholder="Pilot name">
@@ -207,7 +208,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const W = 2600, H = 2600;          // wrap-around world
   const BOT = 84;                    // sprite size on screen
   const SLOTS = 44, PERIOD = 16;     // spark slots, seconds per respawn cycle
-  const SPRITE_TILT = 0.14;          // the art leans right a little
+  const SPRITE_TILT = 0.24;          // the art leans right a little (its engine points down-left)
+  const NOZZLE = [140 / 320 - 0.5, 186 / 320 - 0.5];   // engine opening in the art, as a fraction of size
   const LIVES = 3, ROCKS = 16, ROCK_PERIOD = 22;
   // levels: sparks are XP; each level makes the bin bigger, adds lives and changes the fire
   const XP_STEPS = [0, 6, 15, 28, 45, 66, 92, 124, 162, 210];   // total XP to reach Lv 1..10
@@ -222,10 +224,31 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     { from: 10, outer: [255, 80, 200], mid: [255, 210, 80], core: [255, 255, 255], aura: [255, 220, 120] }
   ];
   const tierOf = lv => TIERS.filter(t => lv >= t.from).pop();
-  const BODY_CUT = 0.58;   // the art's painted flame below this line is replaced by the live one
+  // weapons: pick-ups swap the fireball for a while
+  const WEAPONS = {
+    fire:   { name: "Fireball",    ammo: Infinity, cd: 0.2 },
+    triple: { name: "Triple shot", ammo: 30, cd: 0.24, col: "#ffb43c", glyph: "x3" },
+    laser:  { name: "Laser",       ammo: 45, cd: 0.08, col: "#7df9ff", glyph: "L" },
+    rocket: { name: "Rockets",     ammo: 10, cd: 0.45, col: "#ff5a6e", glyph: "R" }
+  };
+  const PICK_TYPES = ["triple", "laser", "rocket"], PICKS = 7, PICK_PERIOD = 24;
+  const SHOT_LIFE = [1.1, 2.4, 0.45];   // by kind: 0 fireball, 1 rocket, 2 laser
   const FIRE_KEYS = ["Space", "KeyF", "KeyJ", "Enter"];
 
   const img = new Image(); img.src = "bot.png";
+  // the art with its painted flame removed: our animated fire is drawn behind it from the nozzle
+  let body = null;
+  img.onload = () => {
+    const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const cx2 = c.getContext("2d"); cx2.drawImage(img, 0, 0);
+    const d = cx2.getImageData(0, 0, c.width, c.height), px = d.data;
+    for (let i = 0; i < px.length; i += 4) {
+      const r = px[i], gg = px[i + 1], b = px[i + 2];
+      if (r > 150 && r - b > 70 && r >= gg) px[i + 3] = 0;
+    }
+    cx2.putImageData(d, 0, 0);
+    body = c;
+  };
   const cv = document.getElementById("c"), g = cv.getContext("2d");
   let vw = 0, vh = 0, dpr = 1;
   function resize() {
@@ -282,7 +305,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const me = {
     x: rndIn(W, 300), y: rndIn(H, 300), vx: 0, vy: -40, a: -Math.PI / 2,
     thrust: 0, score: 0, name: "", hue: Math.floor(Math.random() * 360),
-    lives: LIVES, dead: false, respawnAt: 0, inv: 0, xp: 0, lv: 1
+    lives: LIVES, dead: false, respawnAt: 0, inv: 0, xp: 0, lv: 1, weapon: "fire", ammo: Infinity
   };
   const myTag = Math.random().toString(36).slice(2, 7);
   let shotSeq = 0, fireCd = 0, firing = false, shake = 0;
@@ -395,20 +418,38 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function pushCapped(arr, v, n) { arr.push(v); if (arr.length > n) arr.shift(); }
 
   // ---------- fire & damage ----------
-  function shoot(now) {
-    fireCd = 0.2;
-    const bx = Math.cos(me.a), by = Math.sin(me.a);
+  function fireOne(now, ang, kind, speed) {
+    const bx = Math.cos(ang), by = Math.sin(ang), sz = sizeOf(me.lv);
     const id = myTag + "." + (shotSeq++).toString(36);
-    const s = { id, x: me.x + bx * 42, y: me.y + by * 42, vx: bx * 880 + me.vx * 0.6, vy: by * 880 + me.vy * 0.6, life: 1.1, mine: true };
+    const s = { id, kind, x: me.x + bx * 42 * sz, y: me.y + by * 42 * sz, vx: bx * speed + me.vx * 0.6, vy: by * speed + me.vy * 0.6, life: SHOT_LIFE[kind], mine: true };
     shots.push(s);
-    myShotLog.push({ at: now, d: [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy)] });
-    me.vx -= bx * 25; me.vy -= by * 25;
-    for (let k = 0; k < 6; k++) puff(s.x, s.y, bx * 200 + (Math.random() - .5) * 160, by * 200 + (Math.random() - .5) * 160, 0.25, 2.5, FIRE_COLS[k % 4]);
-    blip(150, 0.12, "sawtooth");
+    myShotLog.push({ at: now, d: [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind] });
+    return s;
   }
-  function hurt(now) {
+  function shoot(now) {
+    const w = WEAPONS[me.weapon];
+    fireCd = w.cd;
+    const bx = Math.cos(me.a), by = Math.sin(me.a);
+    let muzzle;
+    if (me.weapon === "triple") { for (const da of [-0.2, 0, 0.2]) muzzle = fireOne(now, me.a + da, 0, 880); blip(170, 0.12, "sawtooth"); }
+    else if (me.weapon === "laser") { muzzle = fireOne(now, me.a, 2, 2300); blip(1200, 0.06, "square"); }
+    else if (me.weapon === "rocket") { muzzle = fireOne(now, me.a, 1, 420); blip(90, 0.25, "sawtooth"); }
+    else { muzzle = fireOne(now, me.a, 0, 880); blip(150, 0.12, "sawtooth"); }
+    const kick = me.weapon === "rocket" ? 60 : me.weapon === "laser" ? 8 : 25;
+    me.vx -= bx * kick; me.vy -= by * kick;
+    for (let k = 0; k < 6; k++) puff(muzzle.x, muzzle.y, bx * 200 + (Math.random() - .5) * 160, by * 200 + (Math.random() - .5) * 160, 0.25, 2.5, me.weapon === "laser" ? "#bff9ff" : FIRE_COLS[k % 4]);
+    if (me.weapon !== "fire" && --me.ammo <= 0) { me.weapon = "fire"; me.ammo = Infinity; }
+    renderWeapon();
+  }
+  function renderWeapon() {
+    const w = WEAPONS[me.weapon];
+    const el = document.getElementById("wpn");
+    el.textContent = w.name + (Number.isFinite(me.ammo) ? " · " + me.ammo : "");
+    el.style.color = w.col || "";
+  }
+  function hurt(now, dmg = 1) {
     if (me.dead || now < me.inv) return false;
-    me.lives -= 1; me.inv = now + 900; shake = 0.35;
+    me.lives = Math.max(0, me.lives - dmg); me.inv = now + 900; shake = 0.35;
     renderHearts(true);
     blip(110, 0.3, "square");
     if (me.lives <= 0) {
@@ -488,13 +529,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (dead && !r.dead) explode(r.x, r.y, 70, 320);
     r.dead = dead; r.inv = p.i === 1;
     // their fireballs
-    if (Array.isArray(p.f)) for (const f of p.f.slice(0, 8)) {
+    if (Array.isArray(p.f)) for (const f of p.f.slice(0, 10)) {
       if (!Array.isArray(f) || typeof f[0] !== "string" || f[0].length > 20 || seenShots.has(f[0])) continue;
       seenShots.add(f[0]);
+      const kind = f[5] === 1 || f[5] === 2 ? f[5] : 0;
       shots.push({
-        id: f[0], x: clamp(num(f[1], 0), 0, W), y: clamp(num(f[2], 0), 0, H),
-        vx: Math.max(-2000, Math.min(2000, num(f[3], 0))), vy: Math.max(-2000, Math.min(2000, num(f[4], 0))),
-        life: 1.0, mine: false, owner: id
+        id: f[0], kind, x: clamp(num(f[1], 0), 0, W), y: clamp(num(f[2], 0), 0, H),
+        vx: Math.max(-2500, Math.min(2500, num(f[3], 0))), vy: Math.max(-2500, Math.min(2500, num(f[4], 0))),
+        life: SHOT_LIFE[kind] - 0.1, mine: false, owner: id
       });
     }
     if (seenShots.size > 800) seenShots.clear();
@@ -587,6 +629,36 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     addEventListener("online", () => { for (const c of clients) if (!c.connected) c.reconnect(); });
   }
 
+  // ---------- weapon crates & rockets ----------
+  function pickup(i, now) {
+    const off = hash(i, 61, 1) * PICK_PERIOD;
+    const gen = Math.floor((now / 1000 + off) / PICK_PERIOD);
+    return {
+      key: "w" + i + ":" + gen,
+      x: 150 + hash(i, gen, 63) * (W - 300), y: 150 + hash(i, gen, 64) * (H - 300),
+      type: PICK_TYPES[Math.floor(hash(i, gen, 62) * PICK_TYPES.length)],
+      age: (now / 1000 + off) / PICK_PERIOD - gen
+    };
+  }
+  function rocketTargets(s) {
+    const out = [];
+    if (!s.mine && playing && !me.dead) out.push(me);
+    for (const [id, r] of remotes) if (!r.dead && id !== s.owner) out.push(r);
+    if (s.mine) {
+      const ev = eventAt(Date.now());
+      if (ev.active && ev.type === "aliens") for (let u = 0; u < UFO_N; u++) if (!grabbed.has("e" + ev.cyc + "u" + u)) out.push(ufoPos(ev, u, ev.et));
+    }
+    return out;
+  }
+  function steerRocket(s, dt) {
+    let best = null, bd = 1000;
+    for (const t of rocketTargets(s)) { const d = Math.hypot(t.x - s.x, t.y - s.y); if (d < bd) { bd = d; best = t; } }
+    const cur = Math.atan2(s.vy, s.vx);
+    const na = best ? cur + clamp(angD(Math.atan2(best.y - s.y, best.x - s.x) - cur), -3.4 * dt, 3.4 * dt) : cur;
+    const sp = Math.min(980, Math.hypot(s.vx, s.vy) + 650 * dt);
+    s.vx = Math.cos(na) * sp; s.vy = Math.sin(na) * sp;
+  }
+
   // ---------- update ----------
   let sendAcc = 0, boardAcc = 0;
   function update(dt, now) {
@@ -640,18 +712,24 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const s = shots[i];
       s.life -= dt;
       if (s.life <= 0) { shots.splice(i, 1); continue; }
+      if (s.kind === 1) steerRocket(s, dt);
       s.x += s.vx * dt; s.y += s.vy * dt;
-      if (s.x < 0 || s.x > W || s.y < 0 || s.y > H) { explode(clamp(s.x, 0, W), clamp(s.y, 0, H), 10, 140); shots.splice(i, 1); continue; }
-      if (Math.random() < dt * 40) puff(s.x, s.y, -s.vx * 0.08 + (Math.random() - .5) * 60, -s.vy * 0.08 + (Math.random() - .5) * 60, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 2, FIRE_COLS[(Math.random() * 4) | 0]);
+      if (s.x < 0 || s.x > W || s.y < 0 || s.y > H) { explode(clamp(s.x, 0, W), clamp(s.y, 0, H), s.kind === 1 ? 40 : 10, 160); shots.splice(i, 1); continue; }
+      if (s.kind === 1) {
+        if (Math.random() < dt * 50) puff(s.x, s.y, -s.vx * 0.1 + (Math.random() - .5) * 40, -s.vy * 0.1 + (Math.random() - .5) * 40, 0.6 + Math.random() * 0.5, 2.5 + Math.random() * 2.5, Math.random() < 0.6 ? "#9a8fb5" : "#ffb43c");
+      } else if (s.kind === 2) {
+        if (Math.random() < dt * 15) puff(s.x, s.y, (Math.random() - .5) * 40, (Math.random() - .5) * 40, 0.2, 1.5, "#bff9ff");
+      } else if (Math.random() < dt * 40) puff(s.x, s.y, -s.vx * 0.08 + (Math.random() - .5) * 60, -s.vy * 0.08 + (Math.random() - .5) * 60, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 2, FIRE_COLS[(Math.random() * 4) | 0]);
       // enemy fireball hits me (I decide, then report the shot id)
       if (!s.mine && playing && !me.dead && Math.hypot(wrapD(s.x - me.x, W), wrapD(s.y - me.y, H)) < 12 + 26 * sizeOf(me.lv)) {
         s.life = 0;
-        if (hurt(now)) { pushCapped(hitBy, s.id, 12); if (me.dead) pushCapped(koBy, s.id, 12); }
+        if (s.kind === 1) explode(s.x, s.y, 40, 260);
+        if (hurt(now, s.kind === 1 ? 2 : 1)) { pushCapped(hitBy, s.id, 12); if (me.dead) pushCapped(koBy, s.id, 12); }
       }
       // my fireball reaches another bin: fizzle here, they confirm the hit
       if (s.mine && s.life > 0) for (const r of remotes.values()) {
         if (r.dead || r.inv) continue;
-        if (Math.hypot(wrapD(s.x - r.x, W), wrapD(s.y - r.y, H)) < 16 + 26 * sizeOf(r.lv || 1)) { s.life = 0; explode(s.x, s.y, 12, 160); break; }
+        if (Math.hypot(wrapD(s.x - r.x, W), wrapD(s.y - r.y, H)) < 16 + 26 * sizeOf(r.lv || 1)) { s.life = 0; explode(s.x, s.y, s.kind === 1 ? 40 : 12, s.kind === 1 ? 260 : 160); break; }
       }
     }
     while (myShotLog.length && now - myShotLog[0].at > 700) myShotLog.shift();
@@ -721,6 +799,21 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         }
       }
     }
+    // weapon crates
+    if (playing && !me.dead) {
+      for (let i = 0; i < PICKS; i++) {
+        const c = pickup(i, Date.now());
+        if (grabbed.has(c.key) || c.age < 0.05) continue;
+        if (Math.hypot(c.x - me.x, c.y - me.y) < 26 + 30 * sizeOf(me.lv)) {
+          grabbed.add(c.key); pushCapped(myGrabs, c.key, 20);
+          const w = WEAPONS[c.type];
+          me.weapon = c.type; me.ammo = w.ammo; renderWeapon();
+          floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: w.name.toUpperCase() + "!", gold: true });
+          for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 220; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, w.col); }
+          [440, 660, 880].forEach((f, j) => setTimeout(() => blip(f, 0.1, "square"), j * 60));
+        }
+      }
+    }
     if (grabbed.size > 600) { const keep = [...grabbed].slice(-300); grabbed.clear(); keep.forEach(k => grabbed.add(k)); }
 
     for (let i = parts.length - 1; i >= 0; i--) {
@@ -739,7 +832,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         vx: Math.round(me.vx), vy: Math.round(me.vy), a: +me.a.toFixed(2),
         s: me.score, t: me.thrust > 0.3 ? 1 : 0, g: myGrabs,
         l: me.lives, lv: me.lv, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0,
-        f: myShotLog.slice(-6).map(e => e.d), hb: hitBy, ko: koBy
+        f: myShotLog.slice(-9).map(e => e.d), hb: hitBy, ko: koBy
       });
     }
     boardAcc += dt;
@@ -843,6 +936,34 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
 
   function drawShot(s, x, y, now) {
+    if (s.kind === 2) {
+      const a = Math.atan2(s.vy, s.vx), L = 90;
+      g.save(); g.translate(x, y); g.rotate(a);
+      const lg = g.createLinearGradient(-L, 0, 0, 0);
+      lg.addColorStop(0, "rgba(125,249,255,0)"); lg.addColorStop(1, "rgba(125,249,255,0.55)");
+      g.strokeStyle = lg; g.lineWidth = 9; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
+      g.strokeStyle = "rgba(255,255,255,0.95)"; g.lineWidth = 2.5;
+      g.beginPath(); g.moveTo(-L * 0.8, 0); g.lineTo(2, 0); g.stroke();
+      g.restore();
+      return;
+    }
+    if (s.kind === 1) {
+      const a = Math.atan2(s.vy, s.vx), fl = 1 + Math.sin(now / 25 + s.x) * 0.25;
+      g.save(); g.translate(x, y); g.rotate(a);
+      const fg = g.createLinearGradient(-34 * fl, 0, -8, 0);
+      fg.addColorStop(0, "rgba(255,60,20,0)"); fg.addColorStop(1, "rgba(255,210,90,0.95)");
+      g.fillStyle = fg; g.beginPath(); g.moveTo(-8, -4); g.lineTo(-34 * fl, 0); g.lineTo(-8, 4); g.fill();
+      g.globalCompositeOperation = "source-over";
+      g.fillStyle = "#8a7fb0"; g.beginPath(); g.moveTo(-10, -8); g.lineTo(-2, -3); g.lineTo(-2, 3); g.lineTo(-10, 8); g.fill();
+      const bg = g.createLinearGradient(0, -5, 0, 5);
+      bg.addColorStop(0, "#f4f1ff"); bg.addColorStop(1, "#a59cc8");
+      g.fillStyle = bg; g.beginPath(); g.roundRect(-10, -4.5, 20, 9, 4); g.fill();
+      g.fillStyle = "#ff5a6e"; g.beginPath(); g.moveTo(10, -4.5); g.quadraticCurveTo(18, 0, 10, 4.5); g.fill();
+      g.globalCompositeOperation = "lighter";
+      g.restore();
+      return;
+    }
     const fl = 1 + Math.sin(now / 28 + s.y) * 0.18;
     g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
     const tail = g.createLinearGradient(-52 * fl, 0, 10, 0);
@@ -888,6 +1009,104 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     g.globalCompositeOperation = "source-over";
   }
 
+  function drawCrate(c, x, y, now) {
+    const w = WEAPONS[c.type], k = Math.min(1, c.age * 40);
+    const gl = g.createRadialGradient(x, y, 4, x, y, 44);
+    gl.addColorStop(0, w.col + "88"); gl.addColorStop(1, w.col + "00");
+    g.fillStyle = gl; g.beginPath(); g.arc(x, y, 44, 0, 6.29); g.fill();
+    g.save(); g.translate(x, y); g.rotate(Math.sin(now / 700 + c.x) * 0.25); g.scale(k, k);
+    const bg = g.createLinearGradient(0, -17, 0, 17);
+    bg.addColorStop(0, "#3d2f66"); bg.addColorStop(1, "#1e1638");
+    g.fillStyle = bg; g.strokeStyle = w.col; g.lineWidth = 2.5;
+    g.beginPath(); g.roundRect(-17, -17, 34, 34, 8); g.fill(); g.stroke();
+    g.fillStyle = w.col; g.font = "700 15px " + getComputedStyle(document.documentElement).getPropertyValue("--display");
+    g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(w.glyph, 0, 1);
+    g.textBaseline = "alphabetic";
+    g.restore();
+  }
+
+  // armour that grows with level, drawn in the art's own frame (P maps art pixels of the 320px sprite)
+  function armorMat(lv) {
+    if (lv >= 10) return { hi: "#fff1b8", lo: "#c98a1e", edge: "#7a4f08", glow: "255,215,120" };
+    if (lv >= 7) return { hi: "#e3fbff", lo: "#3d8fc9", edge: "#1d3f73", glow: "120,220,255" };
+    if (lv >= 5) return { hi: "#e2dcff", lo: "#5b54c9", edge: "#2c2670", glow: "170,150,255" };
+    return { hi: "#eef2f8", lo: "#8a95ad", edge: "#4a5268", glow: null };
+  }
+  function metal(m, P, a, b) {
+    const [x1, y1] = P(a[0], a[1]), [x2, y2] = P(b[0], b[1]);
+    const gr = g.createLinearGradient(x1, y1, x2, y2);
+    gr.addColorStop(0, m.hi); gr.addColorStop(1, m.lo);
+    return gr;
+  }
+  function poly(P, pts) { g.beginPath(); pts.forEach(([px, py], i) => { const [x, y] = P(px, py); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.closePath(); }
+  function bolt(m, P, px, py, s) {
+    const [x, y] = P(px, py), r = s * 0.02;
+    const gr = g.createRadialGradient(x - r * 0.4, y - r * 0.4, 0, x, y, r);
+    gr.addColorStop(0, "#ffffff"); gr.addColorStop(1, m.lo);
+    g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 6.29); g.fill();
+  }
+  function drawWings(lv, s) {
+    if (lv < 4) return;
+    const m = armorMat(lv), P = (px, py) => [(px / 320 - 0.5) * s, (py / 320 - 0.5) * s];
+    g.lineWidth = s * 0.012; g.strokeStyle = m.edge;
+    g.fillStyle = metal(m, P, [70, 110], [20, 150]);
+    poly(P, [[74, 112], [lv >= 8 ? 4 : 20, 126], [lv >= 8 ? 26 : 38, 146], [74, 154]]); g.fill(); g.stroke();
+    g.fillStyle = metal(m, P, [222, 132], [292, 178]);
+    poly(P, [[220, 132], [lv >= 8 ? 312 : 294, 166], [lv >= 8 ? 286 : 272, 186], [220, 178]]); g.fill(); g.stroke();
+  }
+  function drawArmor(lv, s, now) {
+    if (lv < 2) return;
+    const m = armorMat(lv), P = (px, py) => [(px / 320 - 0.5) * s, (py / 320 - 0.5) * s];
+    g.lineJoin = "round";
+    if (m.glow) { g.shadowColor = `rgba(${m.glow},0.9)`; g.shadowBlur = s * 0.06; }
+    if (lv >= 3) {
+      // belly plate between the face and the engine rim
+      g.fillStyle = metal(m, P, [140, 150], [140, 178]);
+      g.strokeStyle = m.edge; g.lineWidth = s * 0.01;
+      poly(P, [[64, 147], [224, 169], [222, 182], [64, 160]]); g.fill(); g.stroke();
+    }
+    if (lv >= 6) {
+      // trim along the lid's front edge
+      g.strokeStyle = m.hi; g.lineWidth = s * 0.024; g.lineCap = "round";
+      g.beginPath(); [[84, 77], [150, 87], [222, 97]].forEach(([px, py], i) => { const [x, y] = P(px, py); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+    }
+    if (lv >= 8) {
+      // horns on the lid corners
+      g.fillStyle = metal(m, P, [90, 60], [60, 30]); g.strokeStyle = m.edge; g.lineWidth = s * 0.01;
+      poly(P, [[96, 48], [58, 26], [84, 70]]); g.fill(); g.stroke();
+      g.fillStyle = metal(m, P, [240, 60], [270, 30]);
+      poly(P, [[236, 58], [276, 34], [250, 76]]); g.fill(); g.stroke();
+    }
+    g.shadowBlur = 0;
+    // bolts
+    bolt(m, P, 76, 154, s); bolt(m, P, 212, 175, s);
+    if (lv >= 3) bolt(m, P, 144, 165, s);
+    if (lv >= 5) {
+      // glowing antenna tips
+      const pulse = 0.6 + 0.4 * Math.sin(now / 250);
+      const glow = m.glow || "255,255,255";
+      for (const [px, py] of [[128, 17], [232, 39]]) {
+        const [x, y] = P(px, py), r = s * 0.09;
+        const gr = g.createRadialGradient(x, y, 0, x, y, r);
+        gr.addColorStop(0, `rgba(${glow},${0.9 * pulse})`); gr.addColorStop(1, `rgba(${glow},0)`);
+        g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 6.29); g.fill();
+      }
+    }
+    if (lv >= 10) {
+      // crown on the lid
+      const [cx0, cy0] = P(176, 30);
+      g.save(); g.translate(cx0, cy0); g.rotate(0.13);
+      const u = s * 0.012;
+      const cg = g.createLinearGradient(0, -14 * u, 0, 4 * u);
+      cg.addColorStop(0, "#fff6c8"); cg.addColorStop(1, "#d39a22");
+      g.fillStyle = cg; g.strokeStyle = "#7a4f08"; g.lineWidth = u * 0.8;
+      g.beginPath(); g.moveTo(-14 * u, 3 * u); g.lineTo(-16 * u, -10 * u); g.lineTo(-8 * u, -4 * u); g.lineTo(0, -15 * u);
+      g.lineTo(8 * u, -4 * u); g.lineTo(16 * u, -10 * u); g.lineTo(14 * u, 3 * u); g.closePath(); g.fill(); g.stroke();
+      for (const [gx, gc] of [[-8, "#ff5a6e"], [0, "#4fd6c8"], [8, "#c38bff"]]) { g.fillStyle = gc; g.beginPath(); g.arc(gx * u, -1 * u, 2.2 * u, 0, 6.29); g.fill(); }
+      g.restore();
+    }
+  }
+
   function starPath(x, y, r, rot) {
     g.beginPath();
     for (let i = 0; i < 10; i++) {
@@ -924,15 +1143,16 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     g.translate(x, y);
     g.rotate(b.a + Math.PI / 2 - SPRITE_TILT + Math.sin(now / 300 + x * 0.01) * 0.05);
     const s = S * (1 + Math.sin(now / 55 + y) * 0.015 * (0.5 + b.thrust));
-    // fire first so the bin's rim sits on top of it
+    // fire first, from the engine opening, so the bin's rim sits on top of it
     g.save();
-    g.translate(-0.03 * s, 0.2 * s);
+    g.translate(NOZZLE[0] * s, NOZZLE[1] * s);
     g.rotate(SPRITE_TILT);
-    drawFlame(s * (0.32 + 0.42 * Math.min(1.4, b.thrust)), s * 0.3, now, (b.hue || 0) * 0.1, tier);
+    drawFlame(s * (0.36 + 0.46 * Math.min(1.4, b.thrust)), s * 0.3, now, (b.hue || 0) * 0.1, tier);
     g.restore();
-    if (img.complete && img.naturalWidth) {
-      g.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight * BODY_CUT, -s / 2, -0.33 * s, s, s * BODY_CUT);
-    } else { g.fillStyle = "#4fd6c8"; g.fillRect(-s / 3, -s / 3, s / 1.5, s / 1.5); }
+    drawWings(lv, s);
+    if (body) g.drawImage(body, -s / 2, -s / 2, s, s);
+    else { g.fillStyle = "#4fd6c8"; g.fillRect(-s / 3, -s / 3, s / 1.5, s / 1.5); }
+    drawArmor(lv, s, now);
     g.restore();
     orbit(true);
     g.globalAlpha = 1;
@@ -949,7 +1169,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (label) {
       g.font = "700 13px " + getComputedStyle(document.documentElement).getPropertyValue("--display");
       g.textAlign = "center";
-      const top = y - S * 0.42 - 26;
+      const top = y - S * (lv >= 8 ? 0.6 : 0.46) - 22;
       g.fillStyle = "rgba(20,12,40,0.55)";
       const w = g.measureText(label).width + 12;
       g.beginPath(); g.roundRect(x - w / 2, top, w, 19, 9); g.fill();
@@ -1073,7 +1293,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         for (const s of shots) {
           if (!s.mine || s.life <= 0 || Math.hypot(s.x - p.x, s.y - p.y) > 48) continue;
           s.life = 0;
-          const h = (ufoHits.get(key) || 0) + 1; ufoHits.set(key, h);
+          const h = (ufoHits.get(key) || 0) + (s.kind === 1 ? 3 : 1); ufoHits.set(key, h);
           explode(s.x, s.y, 10, 160); blip(260, 0.08, "square");
           if (h >= UFO_HP) {
             grabbed.add(key); pushCapped(myGrabs, key, 20);
@@ -1228,6 +1448,12 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (onScreen(x, y, 50)) drawRock(k, x, y);
     }
     drawEvents(now);
+    for (let i = 0; i < PICKS; i++) {
+      const c = pickup(i, wall);
+      if (grabbed.has(c.key)) continue;
+      const x = sx(c.x), y = sy(c.y) + Math.sin(now / 400 + i) * 6;
+      if (onScreen(x, y, 50)) drawCrate(c, x, y, now);
+    }
     // sparks
     for (let i = 0; i < SLOTS; i++) {
       const s = spark(i, wall);
