@@ -265,6 +265,28 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 }
 @media (pointer: coarse) { .minimap { bottom: auto; top: calc(72px + env(safe-area-inset-top, 0px)); } }
 @media (hover: hover) and (pointer: fine) { .fire, .joy { display: none; } }
+.arsenal {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+  display: flex; gap: 6px; padding: 5px; border-radius: 12px;
+  background: var(--panel); border: 1px solid var(--line);
+}
+.arsenal[hidden] { display: none !important; }
+.slot {
+  position: relative; width: 46px; height: 46px; padding: 0; border-radius: 9px;
+  display: grid; place-items: center; align-content: center; gap: 1px;
+  background: rgba(255,255,255,.05); border: 1.5px solid transparent; color: var(--c);
+  box-shadow: none; touch-action: none; cursor: pointer;
+}
+.slot svg { width: 20px; height: 20px; fill: currentColor; }
+.slot span { font: 700 10px var(--display); color: var(--ink); line-height: 1; }
+.slot i { position: absolute; left: 4px; top: 2px; font: 700 9px var(--display); font-style: normal; color: var(--muted); }
+.slot.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); box-shadow: 0 0 12px color-mix(in srgb, var(--c) 45%, transparent); }
+@media (pointer: coarse) {
+  .arsenal { left: auto; transform: none; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(156px + env(safe-area-inset-bottom, 0px)); flex-wrap: wrap-reverse; justify-content: flex-end; max-width: 60vw; }
+  .slot i { display: none; }
+}
+@media (pointer: coarse) and (max-width: 480px) { .arsenal { bottom: calc(196px + env(safe-area-inset-bottom, 0px)); } }
 @keyframes bob { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-8px) rotate(4deg); } }
 @media (prefers-reduced-motion: reduce) { .card img { animation: none; } }
 @media (max-width: 480px) {
@@ -285,6 +307,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 <div class="score chip"><b id="score">0</b><span>points</span><span class="lv"><b id="lvNum">Lv 1</b><span class="xpbar"><i id="xpFill"></i></span><span class="xpbar nrg" title="Boost energy"><i id="nrgFill"></i></span></span><span class="hearts" id="hearts" role="img" aria-label="3 lives"></span><span class="shieldchip" id="shieldChip" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z"/></svg><b id="shieldNum">0</b></span><span class="wpn" id="wpn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg>Fireball</span></div>
 <button class="fire boostbtn" id="boostBtn" aria-label="Boost: tap to dash, hold to boost" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l7 6-7 6zM12 6l7 6-7 6z"/></svg></button>
 <div class="joy" id="joy" hidden><i></i></div>
+<div class="arsenal" id="arsenal" hidden></div>
 <canvas class="minimap" id="minimap" width="280" height="280" aria-label="Mini map" hidden></canvas>
 <button class="fire" id="fireBtn" aria-label="Fire" hidden><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg></button>
 <div class="event" id="eventBanner" hidden></div>
@@ -302,7 +325,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   <form class="card chip" id="startForm">
     <canvas id="preview" width="220" height="220" aria-label="Preview of your bin rocket"></canvas>
     <h1>Bin Rocket <em>Sky</em></h1>
-    <p><b>Deathmatch:</b> 5-minute rounds, the pilot with the most kills wins. Scoop up sparks to level up, blast space junk and other bins with fire. You have 3 lives. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more lives and fancier fire. Watch out for black holes, meteor showers and aliens. Grab weapon crates: triple shot, laser, rockets, scatter gun, railgun, mines, and the rare nuke (it levels everything around it). Medkits heal, shields soak damage. Black holes swallow anything that reaches the centre.</p>
+    <p><b>Deathmatch:</b> 5-minute rounds, the pilot with the most kills wins. Scoop up sparks to level up, blast space junk and other bins with fire. You have 3 lives. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more lives and fancier fire. Planets pull you in and hurt if you slam into them (more on boost). Watch out for black holes, meteor showers and aliens. Grab weapon crates: triple shot, laser, rockets, scatter gun, railgun, mines, and the rare nuke (it levels everything around it). Medkits heal, shields soak damage. Black holes swallow anything that reaches the centre.</p>
     <div class="field">
       <label for="nameInput">Pilot name</label>
       <input id="nameInput" maxlength="14" autocomplete="off" placeholder="Pilot name">
@@ -334,12 +357,12 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 <script>
 (() => {
   "use strict";
-  const W = 2600, H = 2600;          // walled arena
+  const W = 4200, H = 4200;          // walled arena
   const BOT = 84;                    // sprite size on screen
-  const SLOTS = 44, PERIOD = 16;     // spark slots, seconds per respawn cycle
+  const SLOTS = 100, PERIOD = 16;     // spark slots, seconds per respawn cycle
   const SPRITE_TILT = 0.24;          // the art leans right a little (its engine points down-left)
   const NOZZLE = [140 / 320 - 0.5, 186 / 320 - 0.5];   // engine opening in the art, as a fraction of size
-  const LIVES = 3, ROCKS = 16, ROCK_PERIOD = 22;
+  const LIVES = 3, ROCKS = 36, ROCK_PERIOD = 22;
   // levels: sparks are XP; each level makes the bin bigger, adds lives and changes the fire
   const XP_STEPS = [0, 6, 15, 28, 45, 66, 92, 124, 162, 210];   // total XP to reach Lv 1..10
   const MAX_LV = XP_STEPS.length;
@@ -360,13 +383,13 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     laser:  { name: "Laser",       ammo: 45, cd: 0.08, col: "#7df9ff" },
     rocket: { name: "Rockets",     ammo: 10, cd: 0.45, col: "#ff5a6e" },
     nuke:   { name: "Nuke",        ammo: 1,  cd: 1.0,  col: "#ffe14d" },
-    scatter: { name: "Scatter gun", ammo: 14, cd: 0.55, col: "#ffd27a" },
+    scatter: { name: "Scatter gun", ammo: 16, cd: 0.7,  col: "#ffd27a" },
     rail:   { name: "Railgun",     ammo: 8,  cd: 1.0,  col: "#d9a8ff" },
     mine:   { name: "Mines",       ammo: 6,  cd: 0.6,  col: "#ff6b3c" }
   };
-  const PICK_TYPES = ["triple", "laser", "rocket", "scatter", "rail", "mine"], PICKS = 8, PICK_PERIOD = 24;
+  const PICK_TYPES = ["triple", "laser", "rocket", "scatter", "rail", "mine"], PICKS = 18, PICK_PERIOD = 24;
   // by shot kind: 0 fireball, 1 rocket, 2 laser, 3 nuke, 4 scatter pellet, 5 rail slug, 6 mine
-  const SHOT_LIFE = [1.1, 2.4, 0.45, 3.2, 0.32, 0.7, 25];
+  const SHOT_LIFE = [1.1, 2.4, 0.45, 3.2, 0.38, 0.7, 25];
   const SHOT_DMG  = [1, 2, 1, 0, 2, 3, 2];                 // the nuke deals its damage through detonate()
   const SHOT_COL  = ["#ffb43c", "#ffb43c", "#7df9ff", "#ffe14d", "#ffd27a", "#e9c8ff", "#ff6b3c"];
   const MINE_R = 55, MINE_ARM = 0.7;                        // mines go off when a bin comes this close, after arming
@@ -382,7 +405,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   // deathmatch rounds on the shared clock: 5 minutes of fighting, then 15 seconds of results
   const ROUND_PLAY = 300, ROUND_BREAK = 15, ROUND_LEN = ROUND_PLAY + ROUND_BREAK;
   const roundAt = ms => { const t = ms / 1000, idx = Math.floor(t / ROUND_LEN), ph = t - idx * ROUND_LEN; return { idx, ph, live: ph < ROUND_PLAY, left: ROUND_PLAY - ph }; };
-  const SUPPLY_SLOTS = 6, SUPPLY_PERIOD = 20, MAX_SHIELD = 6;
+  const SUPPLY_SLOTS = 14, SUPPLY_PERIOD = 20, MAX_SHIELD = 6;
   const NUKE_R = 900, NUKE_KILL = 480, NUKE_DMG = 3, NUKE_PERIOD = 70, BOOM_LIFE = 3.2;
   // weapon icons (24x24 SVG path data, even-odd fill): used on crates (canvas) and in the HUD (SVG)
   const ICONS = {
@@ -578,34 +601,6 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       }
     }
   });
-  const planetCv = (() => {
-    const S = 640, c = document.createElement("canvas"); c.width = c.height = S;
-    const x = c.getContext("2d"), cx = S / 2, cy = S / 2, r = 150;
-    const ring = (front) => {
-      x.save(); x.translate(cx, cy); x.rotate(-0.32); x.scale(1, 0.26);
-      x.beginPath(); front ? x.rect(-S, 0, 2 * S, S) : x.rect(-S, -S, 2 * S, S); x.clip();
-      for (let k = 0; k < 7; k++) {
-        x.strokeStyle = `rgba(${k % 2 ? "255,214,180" : "210,170,255"},${0.18 + (k % 3) * 0.07})`; x.lineWidth = 5 + (k % 3) * 3;
-        x.beginPath(); x.arc(0, 0, r * (1.45 + k * 0.1), 0, 6.29); x.stroke();
-      }
-      x.restore();
-    };
-    ring(false);
-    const atm = x.createRadialGradient(cx, cy, r * 0.9, cx, cy, r * 1.25);
-    atm.addColorStop(0, "rgba(120,200,255,0.35)"); atm.addColorStop(1, "rgba(120,200,255,0)");
-    x.fillStyle = atm; x.beginPath(); x.arc(cx, cy, r * 1.25, 0, 6.29); x.fill();
-    const body = x.createRadialGradient(cx - r * 0.45, cy - r * 0.5, r * 0.1, cx, cy, r);
-    body.addColorStop(0, "#9ad8ff"); body.addColorStop(0.45, "#5a6fd6"); body.addColorStop(0.85, "#2a1f63"); body.addColorStop(1, "#140d33");
-    x.fillStyle = body; x.beginPath(); x.arc(cx, cy, r, 0, 6.29); x.fill();
-    x.save(); x.beginPath(); x.arc(cx, cy, r, 0, 6.29); x.clip();   // cloud bands
-    for (let k = 0; k < 6; k++) { x.fillStyle = `rgba(255,255,255,${0.04 + (k % 2) * 0.03})`; x.fillRect(cx - r, cy - r + k * 52 + 10, 2 * r, 18); }
-    const night = x.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
-    night.addColorStop(0.45, "rgba(10,6,30,0)"); night.addColorStop(1, "rgba(10,6,30,0.75)");
-    x.fillStyle = night; x.fillRect(cx - r, cy - r, 2 * r, 2 * r);
-    x.restore();
-    ring(true);
-    return c;
-  })();
   const galaxyCv = (() => {
     const S = 420, c = document.createElement("canvas"); c.width = c.height = S;
     const x = c.getContext("2d");
@@ -633,7 +628,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const me = {
     x: rndIn(W, 300), y: rndIn(H, 300), vx: 0, vy: -40, a: -Math.PI / 2,
     thrust: 0, score: 0, name: "", hue: Math.floor(Math.random() * 360), ck: [0, 0, 0, 0, 0],
-    lives: LIVES, dead: false, respawnAt: 0, inv: 0, xp: 0, lv: 1, weapon: "fire", ammo: Infinity, carry: 0, ds: 0, shield: 0, boostFx: 0, dashAt: -1e9
+    lives: LIVES, dead: false, respawnAt: 0, inv: 0, xp: 0, lv: 1, weapon: "fire", arsenal: { fire: Infinity }, carry: 0, ds: 0, shield: 0, boostFx: 0, dashAt: -1e9
   };
   const myTag = Math.random().toString(36).slice(2, 7);
   let shotSeq = 0, fireCd = 0, firing = false, shake = 0;
@@ -749,16 +744,177 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     o.connect(v).connect(audio.destination); o.start(t); o.stop(t + dur);
   }
 
+  // ---------- planets & moons: solid, with gravity; the layout comes from the lobby code, so everyone shares it ----------
+  const PLANET_G = 320;   // px/s² at the surface of a 250-radius planet
+  const PLANET_KINDS = ["gas", "ice", "lava", "rock"];
+  const PLANET_PAL = {
+    gas:  { base: "#c98a5a", bands: ["#e8b27a", "#9c5f3c", "#f3d3a0", "#b7714a"], glow: "255,190,130" },
+    ice:  { base: "#8fc9e8", bands: ["#d8f3ff", "#6aa6cf", "#bfe6f7"], glow: "160,225,255" },
+    lava: { base: "#3a1c22", bands: ["#572630", "#2a1218"], glow: "255,110,50" },
+    rock: { base: "#8a7f96", bands: ["#a59bb0", "#6f6580"], glow: "200,185,230" }
+  };
+  let planets = [], moons = [], bodies = [];
+  function paintBody(b, R, kind, ring) {
+    const pal = PLANET_PAL[kind], rnd = k => hash(b.seed, k, 404);
+    const half = Math.ceil(R * (ring ? 1.85 : 1.3)), c = document.createElement("canvas");
+    c.width = c.height = half * 2;
+    const q = c.getContext("2d");
+    q.translate(half, half);
+    const glow = a => `rgba(${pal.glow},${a})`;
+    const ag = q.createRadialGradient(0, 0, R * 0.92, 0, 0, R * 1.28);
+    ag.addColorStop(0, glow(0.5)); ag.addColorStop(1, glow(0));
+    q.fillStyle = ag; q.beginPath(); q.arc(0, 0, R * 1.28, 0, 6.29); q.fill();
+    const rings = front => {
+      q.save(); q.rotate(b.tilt); q.scale(1, 0.3);
+      q.beginPath(); q.rect(-half * 3, front ? 0 : -half * 6, half * 6, half * 6); q.clip();
+      for (let k = 0; k < 7; k++) {
+        q.strokeStyle = `rgba(${k % 2 ? "240,210,170" : "200,160,130"},${0.25 + rnd(k + 50) * 0.35})`;
+        q.lineWidth = R * (0.03 + rnd(k + 60) * 0.05);
+        q.beginPath(); q.arc(0, 0, R * (1.3 + k * 0.075), 0, 6.29); q.stroke();
+      }
+      q.restore();
+    };
+    if (ring) rings(false);
+    q.save(); q.beginPath(); q.arc(0, 0, R, 0, 6.29); q.clip();
+    q.fillStyle = pal.base; q.fillRect(-R, -R, R * 2, R * 2);
+    q.save(); q.rotate(b.tilt * 0.6);
+    if (kind === "gas" || kind === "ice") {   // wavy cloud bands
+      for (let k = 0; k < 14; k++) {
+        const y = -R + (k + rnd(k)) * R * 2 / 14, th = R * (0.05 + rnd(k + 20) * 0.1);
+        q.fillStyle = pal.bands[k % pal.bands.length]; q.globalAlpha = 0.45 + rnd(k + 30) * 0.4;
+        q.beginPath();
+        for (let x = -R; x <= R; x += R / 12) q.lineTo(x, y + Math.sin(x / R * 4 + rnd(k + 40) * 6) * R * 0.035);
+        for (let x = R; x >= -R; x -= R / 12) q.lineTo(x, y + th + Math.sin(x / R * 3 + rnd(k + 45) * 6) * R * 0.035);
+        q.fill();
+      }
+      q.globalAlpha = 1;
+      if (kind === "gas") {   // a storm eye
+        q.fillStyle = "rgba(170,70,50,0.75)"; q.beginPath(); q.ellipse(R * (rnd(70) - 0.5), R * (rnd(71) * 0.6 - 0.1), R * 0.2, R * 0.1, 0, 0, 6.29); q.fill();
+        q.fillStyle = "rgba(240,170,120,0.6)"; q.beginPath(); q.ellipse(R * (rnd(70) - 0.5), R * (rnd(71) * 0.6 - 0.1), R * 0.11, R * 0.05, 0, 0, 6.29); q.fill();
+      } else {                // polar caps
+        q.fillStyle = "rgba(255,255,255,0.85)";
+        q.beginPath(); q.ellipse(0, -R * 0.95, R * 0.6, R * 0.25, 0, 0, 6.29); q.fill();
+        q.beginPath(); q.ellipse(0, R * 0.97, R * 0.45, R * 0.18, 0, 0, 6.29); q.fill();
+      }
+    } else {                  // rocky surface: blotches and craters
+      for (let k = 0; k < 26; k++) {
+        q.fillStyle = pal.bands[k % pal.bands.length]; q.globalAlpha = 0.35;
+        q.beginPath(); q.arc(R * (rnd(k) * 2 - 1), R * (rnd(k + 100) * 2 - 1), R * (0.1 + rnd(k + 200) * 0.3), 0, 6.29); q.fill();
+      }
+      q.globalAlpha = 1;
+      for (let k = 0; k < 16; k++) {
+        const x = R * (rnd(k + 300) * 1.8 - 0.9), y = R * (rnd(k + 400) * 1.8 - 0.9), cr = R * (0.04 + rnd(k + 500) * 0.11);
+        q.fillStyle = "rgba(20,10,30,0.35)"; q.beginPath(); q.arc(x, y, cr, 0, 6.29); q.fill();
+        q.strokeStyle = "rgba(255,255,255,0.18)"; q.lineWidth = cr * 0.25; q.beginPath(); q.arc(x - cr * 0.1, y - cr * 0.1, cr, 3.4, 5.6); q.stroke();
+      }
+      if (kind === "lava") {  // glowing rivers of lava
+        q.lineCap = "round"; q.lineJoin = "round";
+        for (let k = 0; k < 9; k++) {
+          let x = R * (rnd(k + 600) * 1.6 - 0.8), y = R * (rnd(k + 700) * 1.6 - 0.8), a = rnd(k + 800) * 6.28;
+          q.beginPath(); q.moveTo(x, y);
+          for (let j = 0; j < 7; j++) { a += (rnd(k * 10 + j + 900) - 0.5) * 1.6; x += Math.cos(a) * R * 0.13; y += Math.sin(a) * R * 0.13; q.lineTo(x, y); }
+          q.strokeStyle = "rgba(255,90,30,0.55)"; q.lineWidth = R * 0.05; q.stroke();
+          q.strokeStyle = "#ffc06a"; q.lineWidth = R * 0.015; q.stroke();
+        }
+      }
+    }
+    q.restore();
+    // sunlight from the top-left, night side fading to deep violet
+    const sg = q.createRadialGradient(-R * 0.45, -R * 0.45, R * 0.05, -R * 0.15, -R * 0.15, R * 1.4);
+    sg.addColorStop(0, "rgba(255,255,255,0.22)"); sg.addColorStop(0.45, "rgba(0,0,0,0)"); sg.addColorStop(1, "rgba(8,4,24,0.85)");
+    q.fillStyle = sg; q.fillRect(-R, -R, R * 2, R * 2);
+    q.restore();
+    q.strokeStyle = glow(0.55); q.lineWidth = Math.max(2, R * 0.012); q.beginPath(); q.arc(0, 0, R - 1, 3.3, 5.5); q.stroke();
+    if (ring) rings(true);
+    b.cv = c; b.half = half;
+  }
+  const inBody = (x, y, pad) => { for (const b of bodies) if ((x - b.x) ** 2 + (y - b.y) ** 2 < (b.r + pad) ** 2) return b; return null; };
+  function buildPlanets(code) {
+    let seed = 7;
+    for (const ch of String(code)) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) | 0;
+    planets = []; moons = [];
+    for (let t = 0; planets.length < 5 && t < 600; t++) {
+      const r = 150 + hash(seed, t, 1) * 150, m = r + 380;
+      const x = m + hash(seed, t, 2) * (W - 2 * m), y = m + hash(seed, t, 3) * (H - 2 * m);
+      if (planets.some(p => Math.hypot(p.x - x, p.y - y) < p.r + r + 560)) continue;
+      const p = { x, y, r, seed: seed + t * 131, kind: PLANET_KINDS[(Math.floor(hash(seed, 0, 9) * 4) + planets.length) % 4], tilt: (hash(seed, t, 4) - 0.5) * 0.8, planet: true };
+      paintBody(p, r, p.kind, p.kind === "gas");
+      planets.push(p);
+      if (hash(seed, t, 5) < 0.65) {
+        const mo = { p, r: 38 + hash(seed, t, 6) * 30, orbit: r + 190 + hash(seed, t, 7) * 110, period: 45 + hash(seed, t, 8) * 40,
+                     ph: hash(seed, t, 10) * 6.283, dir: hash(seed, t, 11) < 0.5 ? -1 : 1, seed: seed + t * 977, tilt: 0, x: 0, y: 0 };
+        paintBody(mo, mo.r, "rock", false);
+        moons.push(mo);
+      }
+    }
+    bodies = [...planets, ...moons];
+    moveMoons(clockNow());
+    if (inBody(me.x, me.y, 80)) Object.assign(me, spawnPoint());
+  }
+  function moveMoons(t) {
+    for (const m of moons) {
+      const a = m.ph + m.dir * 6.283 * (t / 1000) / m.period;
+      m.x = m.p.x + Math.cos(a) * m.orbit; m.y = m.p.y + Math.sin(a) * m.orbit;
+    }
+  }
+  function spawnPoint() {
+    let x = rndIn(W, 300), y = rndIn(H, 300);
+    for (let k = 0; k < 30 && inBody(x, y, 160); k++) { x = rndIn(W, 300); y = rndIn(H, 300); }
+    return { x, y };
+  }
+  // pick-ups that would land inside a planet sit on its rim instead (same result on every client)
+  function outside(o) {
+    for (const p of planets) {
+      const dx = o.x - p.x, dy = o.y - p.y, d = Math.hypot(dx, dy);
+      if (d < p.r + 50) { const k = (p.r + 50) / (d || 1); o.x = p.x + (d ? dx : 1) * k; o.y = p.y + dy * k; }
+    }
+    return o;
+  }
+  function gravityOn(o, dt) {
+    for (const p of planets) {
+      const dx = p.x - o.x, dy = p.y - o.y, d = Math.hypot(dx, dy);
+      if (d > p.r * 4 || d < 1) continue;
+      const acc = PLANET_G * (p.r / 250) * (p.r / Math.max(d, p.r)) ** 2 * (1 - d / (p.r * 4));
+      o.vx += dx / d * acc * dt; o.vy += dy / d * acc * dt;
+    }
+  }
+  // push something out of a planet or moon and bounce it; returns the contact (vn < 0 means it was moving in)
+  function bounceOff(o, rad, k) {
+    const b = inBody(o.x, o.y, rad);
+    if (!b) return null;
+    const dx = o.x - b.x, dy = o.y - b.y, d = Math.hypot(dx, dy) || 1, nx = dx / d, ny = dy / d;
+    o.x = b.x + nx * (b.r + rad); o.y = b.y + ny * (b.r + rad);
+    const vn = o.vx * nx + o.vy * ny;
+    if (vn < 0) { o.vx -= (1 + k) * vn * nx; o.vy -= (1 + k) * vn * ny; }
+    return { b, nx, ny, vn };
+  }
+  function drawBodies(now) {
+    for (const b of bodies) {
+      const x = sx(b.x), y = sy(b.y);
+      if (!onScreen(x, y, b.half)) continue;
+      g.drawImage(b.cv, x - b.half, y - b.half);
+      if (b.kind === "lava") {
+        g.globalCompositeOperation = "lighter";
+        const lg = g.createRadialGradient(x, y, b.r * 0.7, x, y, b.r * 1.25);
+        lg.addColorStop(0, "rgba(255,90,30,0)"); lg.addColorStop(0.75, `rgba(255,90,30,${0.12 + 0.08 * Math.sin(now / 400)})`); lg.addColorStop(1, "rgba(255,90,30,0)");
+        g.fillStyle = lg; g.beginPath(); g.arc(x, y, b.r * 1.25, 0, 6.29); g.fill();
+        g.globalCompositeOperation = "source-over";
+      }
+    }
+  }
+
+  buildPlanets("lobby");
+
   // ---------- sparks (shared via deterministic clock) ----------
   function spark(i, now) {
     const off = hash(i, 7, 7) * PERIOD;
     const gen = Math.floor((now / 1000 + off) / PERIOD);
     const age = (now / 1000 + off) / PERIOD - gen;
-    return {
+    return outside({
       key: i + ":" + gen,
       x: 90 + hash(i, gen, 1) * (W - 180), y: 90 + hash(i, gen, 2) * (H - 180),
       gold: hash(i, gen, 3) < 0.12, age
-    };
+    });
   }
 
   // ---------- space junk (shared via the same clock) ----------
@@ -1072,13 +1228,17 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const lx = (mx / 320 - 0.5) * S + Math.sin(SPRITE_TILT) * t, ly = (my / 320 - 0.5) * S - Math.cos(SPRITE_TILT) * t;
     return { x: me.x + lx * Math.cos(R) - ly * Math.sin(R), y: me.y + lx * Math.sin(R) + ly * Math.cos(R) };
   }
-  // one scatter record on the wire becomes the same seven pellets everywhere
+  // one scatter record on the wire becomes the same ten pellets everywhere
   function scatterPellets(s) {
-    for (let k = 0; k < 7; k++) {
-      const da = (k - 3) * 0.1, f = 0.9 + ((k * 3) % 7) * 0.035, c = Math.cos(da), sn = Math.sin(da);
-      shots.push({ ...s, id: s.id + "p" + k, vx: (s.vx * c - s.vy * sn) * f, vy: (s.vx * sn + s.vy * c) * f });
+    for (let k = 0; k < 10; k++) {
+      const da = (k - 4.5) * 0.066, f = 0.86 + ((k * 7) % 10) * 0.028, c = Math.cos(da), sn = Math.sin(da);
+      shots.push({ ...s, id: s.id + "p" + k, ox: s.x, oy: s.y, vx: (s.vx * c - s.vy * sn) * f, vy: (s.vx * sn + s.vy * c) * f });
     }
   }
+  // a pellet hurts more the closer it was fired from (the classic shotgun falloff); it also shoves what it hits
+  const pelletDmg = s => { const d = Math.hypot(s.x - s.ox, s.y - s.oy); return d < 170 ? 3 : d < 320 ? 2 : 1; };
+  const shotDmg = s => s.kind === 4 ? pelletDmg(s) : SHOT_DMG[s.kind];
+  function pelletShove(o, s) { const v = Math.hypot(s.vx, s.vy) || 1; o.vx += s.vx / v * 150; o.vy += s.vy / v * 150; }
   function fireOne(now, ang, kind, speed, from) {
     const bx = Math.cos(ang), by = Math.sin(ang), sz = sizeOf(me.lv);
     const id = myTag + "." + (shotSeq++).toString(36);
@@ -1096,6 +1256,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (s.kind === 6) { s.boom = true; explode(s.x, s.y, 50, 320); rings.push({ x: s.x, y: s.y, t: 0, r: 150, col: "255,140,80", dur: 0.45, w: 10 }); shake = Math.max(shake, 0.25); boomSound(0.6, 900, 0.35); return; }
     if (s.kind === 1) explode(s.x, s.y, 40, 260);
     if (s.kind === 5) sparkShower(s.x, s.y, s.vx / 4200, s.vy / 4200, 1.2);
+    if (s.kind === 4) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
     impact(s.x, s.y, SHOT_COL[s.kind], s.kind === 1 || s.kind === 5 ? 2 : 1);
   }
   function shoot(now) {
@@ -1107,7 +1268,19 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (me.weapon === "triple") { for (const da of [-0.2, 0, 0.2]) muzzle = fireOne(now, me.a + da, 0, 880, gun); blip(170, 0.12, "sawtooth"); }
     else if (me.weapon === "laser") { muzzle = fireOne(now, me.a, 2, 2300, gun); blip(1200, 0.06, "square"); }
     else if (me.weapon === "rocket") { muzzle = fireOne(now, me.a, 1, 420, gun); blip(90, 0.25, "sawtooth"); }
-    else if (me.weapon === "scatter") { muzzle = fireOne(now, me.a, 4, 1120, gun); blip(70, 0.18, "square"); boomSound(0.25, 1800, 0.25); }
+    else if (me.weapon === "scatter") {
+      muzzle = fireOne(now, me.a, 4, 1250, gun);
+      // a heavy blast: flash, a cone of fire and smoke, a thump, then the pump racking
+      boomSound(0.35, 1400, 0.5); blip(55, 0.25, "square");
+      setTimeout(() => { blip(420, 0.05, "square"); setTimeout(() => blip(300, 0.06, "square"), 90); }, 260);
+      impacts.push({ x: muzzle.x, y: muzzle.y, t: 0, r: 70, col: "#ffd27a" });
+      for (let k = 0; k < 22; k++) {
+        const a = me.a + (Math.random() - 0.5) * 0.7, v = 250 + Math.random() * 500;
+        puff(muzzle.x, muzzle.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.2 + Math.random() * 0.25, 2 + Math.random() * 2.5, FIRE_COLS[k % 4]);
+      }
+      smoke(muzzle.x, muzzle.y, 8, 120, 1.2);
+      shake = Math.max(shake, 0.3);
+    }
     else if (me.weapon === "rail") {
       muzzle = fireOne(now, me.a, 5, 4200, gun);
       blip(1800, 0.05, "sine"); blip(140, 0.4, "sawtooth");
@@ -1116,10 +1289,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     else if (me.weapon === "mine") { muzzle = fireOne(now, me.a + Math.PI, 6, 140, gun); blip(260, 0.1, "triangle"); }
     else if (me.weapon === "nuke") { muzzle = fireOne(now, me.a, 3, 360, gun); blip(55, 0.7, "sawtooth"); }
     else { muzzle = fireOne(now, me.a, 0, 880); blip(150, 0.12, "sawtooth"); }
-    const kick = { nuke: 160, rail: 110, scatter: 70, rocket: 60, laser: 8, mine: 0 }[me.weapon] ?? 25;
+    const kick = { nuke: 160, rail: 110, scatter: 260, rocket: 60, laser: 8, mine: 0 }[me.weapon] ?? 25;
     me.vx -= bx * kick; me.vy -= by * kick;
     for (let k = 0; k < 6; k++) puff(muzzle.x, muzzle.y, bx * 200 + (Math.random() - .5) * 160, by * 200 + (Math.random() - .5) * 160, 0.25, 2.5, me.weapon === "laser" ? "#bff9ff" : FIRE_COLS[k % 4]);
-    if (me.weapon !== "fire" && --me.ammo <= 0) { me.weapon = "fire"; me.ammo = Infinity; }
+    if (me.weapon !== "fire" && --me.arsenal[me.weapon] <= 0) {
+      delete me.arsenal[me.weapon];
+      // out of ammo: fall back to another gun you carry (never auto-pick the nuke), else the fireball
+      me.weapon = WEAPON_KEYS.find(k => k !== "fire" && k !== "nuke" && me.arsenal[k]) || "fire";
+    }
     renderWeapon();
   }
   // quick dodge: a burst forward (or toward where you steer) with a moment of invulnerability
@@ -1143,13 +1320,53 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const r = remotes.get(owner);
     if (r) killer = r.name;
   }
+  const arsenalEl = document.getElementById("arsenal");
+  const owned = () => WEAPON_KEYS.filter(k => me.arsenal[k]);
   function renderWeapon() {
-    const w = WEAPONS[me.weapon];
+    const w = WEAPONS[me.weapon], ammo = me.arsenal[me.weapon];
     const el = document.getElementById("wpn");
     el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICONS[me.weapon]}"/></svg>`;
-    el.append(w.name + (Number.isFinite(me.ammo) ? " · " + me.ammo : ""));
+    el.append(w.name + (Number.isFinite(ammo) ? " · " + ammo : ""));
     el.style.color = w.col || "";
+    // the weapon bar: every gun you carry, tap/click or 1-8 / Q / E / mouse wheel to switch
+    const list = owned();
+    arsenalEl.hidden = !playing || list.length < 2;
+    arsenalEl.innerHTML = list.map((k, i) => {
+      const n = me.arsenal[k];
+      return `<button type="button" class="slot${k === me.weapon ? " on" : ""}" data-w="${k}" style="--c:${WEAPONS[k].col || "#ffb43c"}" aria-label="${WEAPONS[k].name}">`
+        + `<i>${i + 1}</i><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICONS[k]}"/></svg><span>${Number.isFinite(n) ? n : "∞"}</span></button>`;
+    }).join("");
   }
+  function selectWeapon(k) {
+    if (!me.arsenal[k] || k === me.weapon) return;
+    me.weapon = k; fireCd = Math.max(fireCd, 0.15);
+    blip(520, 0.05, "square");
+    renderWeapon();
+  }
+  function cycleWeapon(dir) {
+    const list = owned(), i = list.indexOf(me.weapon);
+    if (list.length > 1) selectWeapon(list[(i + dir + list.length) % list.length]);
+  }
+  arsenalEl.addEventListener("pointerdown", e => {
+    const b = e.target.closest(".slot");
+    if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    selectWeapon(b.dataset.w);
+  });
+  addEventListener("keydown", e => {
+    if (!playing || e.target.tagName === "INPUT" || e.repeat) return;
+    if (/^Digit[1-8]$/.test(e.code)) { const k = owned()[+e.code.slice(5) - 1]; if (k) selectWeapon(k); }
+    else if (e.code === "KeyQ") cycleWeapon(-1);
+    else if (e.code === "KeyE") cycleWeapon(1);
+  });
+  let wheelAt = 0;
+  cv.addEventListener("wheel", e => {
+    if (!playing) return;
+    e.preventDefault();
+    const t = performance.now();
+    if (t - wheelAt < 120 || !e.deltaY) return;
+    wheelAt = t; cycleWeapon(e.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
   function nukeTouches(s) {
     if (!s.mine && playing && !me.dead && segHit(s, me.x, me.y, 20 + 26 * sizeOf(me.lv))) return true;
     for (const [id, r] of remotes) if (!r.dead && id !== s.owner && segHit(s, r.x, r.y, 20 + 26 * sizeOf(r.lv))) return true;
@@ -1280,7 +1497,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function respawn(now) {
     killer = "";
     me.dead = false; me.lives = maxLivesOf(me.lv); me.inv = now + 2000; me.shield = 0; renderShield();
-    me.x = rndIn(W, 300); me.y = rndIn(H, 300); me.vx = 0; me.vy = -60;
+    Object.assign(me, spawnPoint()); me.vx = 0; me.vy = -60;
     renderHearts(false);
   }
 
@@ -1417,6 +1634,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }).catch(() => { setStatus(false, "Solo flight · could not load the multiplayer library"); throw new Error("mqtt"); });
 
     const code = await lobbyChosen;          // picked on the start screen
+    buildPlanets(code);
+    for (const b of bots) if (inBody(b.x, b.y, 80)) Object.assign(b, spawnPoint());
     history.replaceState(null, "", "#" + code);
     const shown = code.toUpperCase();
     document.getElementById("boardTitle").textContent = "Lobby " + shown;
@@ -1489,26 +1708,26 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function pickup(i, now) {
     const off = hash(i, 61, 1) * PICK_PERIOD;
     const gen = Math.floor((now / 1000 + off) / PICK_PERIOD);
-    return {
+    return outside({
       key: "w" + i + ":" + gen,
       x: 150 + hash(i, gen, 63) * (W - 300), y: 150 + hash(i, gen, 64) * (H - 300),
       type: PICK_TYPES[Math.floor(hash(i, gen, 62) * PICK_TYPES.length)],
       age: (now / 1000 + off) / PICK_PERIOD - gen
-    };
+    });
   }
   function supply(i, now) {
     const off = hash(i, 51, 1) * SUPPLY_PERIOD, tt = now / 1000 + off;
     const gen = Math.floor(tt / SUPPLY_PERIOD), r = hash(i, gen, 52);
-    return {
+    return outside({
       key: "h" + i + ":" + gen, age: tt / SUPPLY_PERIOD - gen,
       type: r < 0.45 ? "med" : r < 0.55 ? "bigmed" : r < 0.9 ? "shield" : "mega",
       x: 150 + hash(i, gen, 53) * (W - 300), y: 150 + hash(i, gen, 54) * (H - 300)
-    };
+    });
   }
   function nukePickup(now) {
     const t = now / 1000, gen = Math.floor(t / NUKE_PERIOD), age = t / NUKE_PERIOD - gen;
     if (hash(gen, 71, 1) > 0.65 || age > 0.6) return null;   // turns up in about 2 of 3 cycles, for ~40 s
-    return { key: "N" + gen, type: "nuke", age, x: 300 + hash(gen, 72, 1) * (W - 600), y: 300 + hash(gen, 72, 2) * (H - 600) };
+    return outside({ key: "N" + gen, type: "nuke", age, x: 300 + hash(gen, 72, 1) * (W - 600), y: 300 + hash(gen, 72, 2) * (H - 600) });
   }
   // ---------- bots (simulated here, broadcast like real pilots) ----------
   const BOT_NAMES = ["Rusty", "Bolt", "Zappy", "Clank", "Nova", "Sprocket", "Dusty", "Orbit"];
@@ -1520,7 +1739,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const id = "pb" + Math.random().toString(36).slice(2, 8);
       const b = { id, tag: "b" + Math.random().toString(36).slice(2, 7), name: BOT_NAMES[(bots.length) % BOT_NAMES.length] + " (bot)", L,
         hue: Math.floor(Math.random() * 360), ck: [Math.floor(Math.random() * 7), Math.floor(Math.random() * 6), Math.floor(Math.random() * 5), Math.floor(Math.random() * 5), Math.floor(Math.random() * 6)],
-        x: rndIn(W, 300), y: rndIn(H, 300), vx: 0, vy: 0, a: Math.random() * 6.28, lives: LIVES, dead: false, respawnAt: 0, inv: 0, ds: 0,
+        ...spawnPoint(), vx: 0, vy: 0, a: Math.random() * 6.28, lives: LIVES, dead: false, respawnAt: 0, inv: 0, ds: 0,
         fireCd: 1 + Math.random(), side: Math.random() < 0.5 ? 1 : -1, wander: Math.random() * 6.28, seq: 0, q: 0,
         shotLog: [], hitBy: [], koBy: [], st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 } };
       bots.push(b); botById.set(id, b);
@@ -1540,12 +1759,12 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function botHurt(b, dmg, shotId, now, force) {
     if (b.dead || (!force && now < b.inv) || !roundLive) return;
     b.lives -= dmg; b.inv = now + 500;
-    const byHole = shotId === "x";   // the black hole: nobody gets credit
+    const byHole = shotId === "x" || shotId === "p";   // the black hole or a planet: nobody gets credit
     if (!byHole) pushCapped(b.hitBy, shotId, 12);
     if (b.lives <= 0) {
       b.dead = true; b.respawnAt = now + 3000; b.ds = 1 + Math.floor(Math.random() * 4);
       b.st.deaths++; b.st.streak = 0;
-      if (byHole) feedPush(`<span class="v">${esc(b.name)}</span> was swallowed by the black hole`);
+      if (byHole) feedPush(`<span class="v">${esc(b.name)}</span> ${shotId === "p" ? "crashed into a planet" : "was swallowed by the black hole"}`);
       else pushCapped(b.koBy, shotId, 12);
     }
   }
@@ -1567,7 +1786,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       while (b.shotLog.length && now - b.shotLog[0].at > 700) b.shotLog.shift();
       if (b.dead) {
         if (now < b.respawnAt) continue;
-        Object.assign(b, { dead: false, lives: LIVES, inv: now + 2000, x: rndIn(W, 300), y: rndIn(H, 300), vx: 0, vy: 0 });
+        Object.assign(b, { dead: false, lives: LIVES, inv: now + 2000, ...spawnPoint(), vx: 0, vy: 0 });
       }
       // nearest living target: me or anyone else in the lobby (other bots included)
       let tgt = null, td = 1700;
@@ -1588,6 +1807,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const m = 260;   // keep off the fence
       if (b.x < m) dx += (m - b.x) / m * 2.5; if (b.x > W - m) dx -= (b.x - W + m) / m * 2.5;
       if (b.y < m) dy += (m - b.y) / m * 2.5; if (b.y > H - m) dy -= (b.y - H + m) / m * 2.5;
+      for (const p of bodies) {   // and around planets and moons
+        const hx = b.x - p.x, hy = b.y - p.y, hd = Math.hypot(hx, hy) || 1, gap = hd - p.r;
+        if (gap < 280) { dx += hx / hd * 3 * (1 - gap / 280); dy += hy / hd * 3 * (1 - gap / 280); }
+      }
       if (bh) {   // and away from a black hole
         const hx = b.x - bh.x, hy = b.y - bh.y, hd = Math.hypot(hx, hy) || 1;
         if (hd < 900) { dx += hx / hd * 3 * (1 - hd / 900) * 2; dy += hy / hd * 3 * (1 - hd / 900) * 2; }
@@ -1597,7 +1820,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const dm = Math.hypot(dx, dy) || 1, top = 540 * b.L.speed;
       const resp = 1 - Math.exp(-2.4 * dt);
       b.vx += (dx / dm * top - b.vx) * resp; b.vy += (dy / dm * top - b.vy) * resp;
+      gravityOn(b, dt);
       b.x += b.vx * dt; b.y += b.vy * dt;
+      const pc = bounceOff(b, 40, 0.6);
+      if (pc && pc.vn < -200) { impact(b.x - pc.nx * 40, b.y - pc.ny * 40, "#ffd9b0", 1.2); botHurt(b, 1, "p", now, false); }
       if (b.x < 40 || b.x > W - 40) { b.vx = -b.vx * 0.6; b.x = clamp(b.x, 40, W - 40); }
       if (b.y < 40 || b.y > H - 40) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 40, H - 40); }
       // aim (with some error) and shoot
@@ -1629,7 +1855,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       for (const s of shots) {
         if (s.life <= 0 || s.owner === b.id || s.kind === 3) continue;
         if (s.kind === 6 && SHOT_LIFE[6] - s.life < MINE_ARM) continue;
-        if (segHit(s, b.x, b.y, 38 + (s.kind === 6 ? MINE_R : 0))) { s.life = 0; shotBurst(s); botHurt(b, SHOT_DMG[s.kind], s.id, now, false); }
+        if (segHit(s, b.x, b.y, 38 + (s.kind === 6 ? MINE_R : 0))) { s.life = 0; shotBurst(s); if (s.kind === 4) pelletShove(b, s); botHurt(b, shotDmg(s), s.id, now, false); }
       }
     }
   }
@@ -1753,9 +1979,22 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const sp = Math.hypot(me.vx, me.vy);
     if (!playing) { me.vx = Math.cos(now / 2400) * 120; me.vy = Math.sin(now / 3100) * 90 - 40; }
     if (me.dead) { me.vx = me.vy = 0; }
+    moveMoons(clockNow());
+    if (!me.dead) gravityOn(me, dt);
     me.x += me.vx * dt; me.y += me.vy * dt;
     // walls: crash, lose a life, bounce back in
     const wr = WALL_R * sizeOf(me.lv);
+    // planets and moons: same as a wall, and worse on boost
+    const pc = me.dead ? null : bounceOff(me, wr, 0.7);
+    if (pc) {
+      me.vx += pc.nx * 220; me.vy += pc.ny * 220;
+      const hs = -pc.vn, cx = me.x - pc.nx * wr, cy = me.y - pc.ny * wr;
+      if (playing && hs > 60) {
+        impact(cx, cy, "#ffd9b0", Math.min(2, 0.4 + hs / 450));
+        if (hs > 300) sparkShower(cx, cy, pc.nx, pc.ny, Math.min(1.6, hs / 600));
+        if (hs > 120) hurt(now, me.boostFx > 0 ? 2 : 1); else shake = Math.max(shake, 0.12);
+      }
+    }
     let hitX = me.x < wr ? wr : me.x > W - wr ? W - wr : null;
     let hitY = me.y < wr ? wr : me.y > H - wr ? H - wr : null;
     if (hitX !== null || hitY !== null) {
@@ -1787,12 +2026,13 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (s.kind === 3) { const v = Math.hypot(s.vx, s.vy), nv = Math.min(720, v + 260 * dt); s.vx *= nv / v; s.vy *= nv / v; }
       s.px = s.x; s.py = s.y;
       s.x += s.vx * dt; s.y += s.vy * dt;
-      if (s.kind === 3 && (s.x < 0 || s.x > W || s.y < 0 || s.y > H || nukeTouches(s))) { detonate(s, now); shots.splice(i, 1); continue; }
+      if (s.kind === 3 && (s.x < 0 || s.x > W || s.y < 0 || s.y > H || inBody(s.x, s.y, 10) || nukeTouches(s))) { detonate(s, now); shots.splice(i, 1); continue; }
       if (s.kind === 3) {
         if (Math.random() < dt * 70) puff(s.x, s.y, -s.vx * 0.15 + (Math.random() - .5) * 50, -s.vy * 0.15 + (Math.random() - .5) * 50, 0.9, 3 + Math.random() * 3, Math.random() < 0.5 ? "#8a7fb0" : "#ffe14d");
         continue;
       }
       if (s.kind === 6 && (s.x < 0 || s.x > W || s.y < 0 || s.y > H)) { s.x = clamp(s.x, 0, W); s.y = clamp(s.y, 0, H); s.vx = s.vy = 0; }
+      if (inBody(s.x, s.y, 2)) { impact(s.x, s.y, SHOT_COL[s.kind], 1); explode(s.x, s.y, s.kind === 1 || s.kind === 6 ? 40 : 10, 160); shots.splice(i, 1); continue; }
       if (s.x < 0 || s.x > W || s.y < 0 || s.y > H) { explode(clamp(s.x, 0, W), clamp(s.y, 0, H), s.kind === 1 ? 40 : 10, 160); shots.splice(i, 1); continue; }
       if (s.kind === 1) {
         if (Math.random() < dt * 50) puff(s.x, s.y, -s.vx * 0.1 + (Math.random() - .5) * 40, -s.vy * 0.1 + (Math.random() - .5) * 40, 0.6 + Math.random() * 0.5, 2.5 + Math.random() * 2.5, Math.random() < 0.6 ? "#9a8fb5" : "#ffb43c");
@@ -1808,7 +2048,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (armed && !s.mine && playing && !me.dead && segHit(s, me.x, me.y, 12 + 26 * sizeOf(me.lv) + (s.kind === 6 ? MINE_R : 0))) {
         s.life = 0;
         shotBurst(s);
-        if (hurt(now, SHOT_DMG[s.kind])) {
+        if (s.kind === 4) pelletShove(me, s);
+        if (hurt(now, shotDmg(s))) {
           pushCapped(hitBy, s.id, 12);
           if (me.dead) { meKilled(s.id); killedBy(s.owner); }
         }
@@ -1948,7 +2189,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         if (Math.hypot(c.x - me.x, c.y - me.y) < 26 + 30 * sizeOf(me.lv)) {
           grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
           const w = WEAPONS[c.type];
-          me.weapon = c.type; me.ammo = w.ammo; renderWeapon();
+          me.arsenal[c.type] = Math.min(w.ammo * 2, (me.arsenal[c.type] || 0) + w.ammo);
+          me.weapon = c.type; renderWeapon();
           floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: w.name.toUpperCase() + "!", gold: true });
           for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 220; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, w.col); }
           [440, 660, 880].forEach((f, j) => setTimeout(() => blip(f, 0.1, "square"), j * 60));
@@ -1978,6 +2220,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (h.life <= 0) { hulks.splice(i, 1); continue; }
       const drag = Math.exp(-0.015 * dt);   // space: practically no drag
       h.x += h.vx * dt; h.y += h.vy * dt; h.vx *= drag; h.vy *= drag; h.a += h.spin * dt;
+      bounceOff(h, 30 * sizeOf(h.lv), 0.8);
       if (h.x < 40 || h.x > W - 40) { h.vx = -h.vx; h.x = clamp(h.x, 40, W - 40); }
       if (h.y < 40 || h.y > H - 40) { h.vy = -h.vy; h.y = clamp(h.y, 40, H - 40); }
       const sz = sizeOf(h.lv);
@@ -2009,6 +2252,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         f.vx += fdx / fd * push; f.vy += fdy / fd * push; f.spin += (Math.random() - 0.5) * 3;
         impact((f.x + me.x) / 2, (f.y + me.y) / 2, "#d9c8ff", 0.7);
       }
+      bounceOff(f, f.s * 0.25, 0.8);
       if (f.x < 0 || f.x > W) { f.vx = -f.vx; f.x = clamp(f.x, 0, W); }
       if (f.y < 0 || f.y > H) { f.vy = -f.vy; f.y = clamp(f.y, 0, H); }
       if ((now - f.born) / 1000 < 4 && Math.random() < (lowQ ? 3 : 8) * dt) puff(f.x, f.y, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30, 1.4, 3 + Math.random() * 3, "rgb(60,54,72)", 2);
@@ -2026,6 +2270,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       d.life -= dt;
       if (d.life <= 0) { debris.splice(i, 1); continue; }
       d.x += d.vx * dt; d.y += d.vy * dt; d.vx *= drift; d.vy *= drift; d.rot += d.vr * dt;
+      bounceOff(d, 4, 0.8);
       if (d.x < 0 || d.x > W) { d.vx = -d.vx; d.x = clamp(d.x, 0, W); }
       if (d.y < 0 || d.y > H) { d.vy = -d.vy; d.y = clamp(d.y, 0, H); }
       const ddx = d.x - me.x, ddy = d.y - me.y, dd = Math.hypot(ddx, ddy);
@@ -2120,11 +2365,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       Object.assign(stats, { round: rd.idx, kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 });
       if (shownRound !== -1 && playing) {
         me.score = 0; showScore(); me.xp = 0; me.lv = 1; renderLevel();
-        me.weapon = "fire"; me.ammo = Infinity; renderWeapon();
+        me.weapon = "fire"; me.arsenal = { fire: Infinity }; renderWeapon();
         if (!me.dead) { me.lives = maxLivesOf(1); me.shield = 0; renderShield(); renderHearts(false); me.inv = now + 2000; }
         floaters.push({ x: me.x, y: me.y - 90, t: 0, txt: "ROUND " + (rd.idx % 1000) + " · FIGHT!", gold: true });
       }
-      for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, dead: false, x: rndIn(W, 300), y: rndIn(H, 300), inv: now + 2000 });
+      for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, dead: false, ...spawnPoint(), inv: now + 2000 });
       hulks.length = 0; frags.length = 0; debris.length = 0;
       firstBlood = false; streaks.clear(); multi = 0;
       shownRound = rd.idx;
@@ -2180,16 +2425,6 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const far = 0.04;
     const gx = vw * 0.14 - (me.x - W / 2) * far * 0.6, gy = vh * 0.72 - (me.y - H / 2) * far * 0.6;
     g.save(); g.globalAlpha = 0.75; g.translate(gx, gy); g.rotate(t * 0.03); g.drawImage(galaxyCv, -210, -210); g.restore(); g.globalAlpha = 1;
-    const px = vw * 0.8 - (me.x - W / 2) * far, py = vh * 0.24 - (me.y - H / 2) * far;
-    const ma = t * 0.25, mx = px + Math.cos(ma) * 250, my = py + Math.sin(ma) * 70, behind = Math.sin(ma) < 0;
-    const moon = () => {
-      const m = g.createRadialGradient(mx - 8, my - 8, 2, mx, my, 24);
-      m.addColorStop(0, "#efe9ff"); m.addColorStop(1, "#4a3f78");
-      g.fillStyle = m; g.beginPath(); g.arc(mx, my, 22, 0, 6.29); g.fill();
-    };
-    if (behind) moon();
-    g.drawImage(planetCv, px - 320, py - 320);
-    if (!behind) moon();
     // two glowing nebula layers drifting against each other, then the soft smoky trails
     g.globalCompositeOperation = "lighter";
     tile(colorNeb, NEB2, 0.22, t * 9, t * 4);
@@ -2299,11 +2534,12 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function drawShot(s, x, y, now) {
     if (s.kind === 4) {   // scatter pellet: a short hot streak
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
-      const lg = g.createLinearGradient(-30, 0, 0, 0);
-      lg.addColorStop(0, "rgba(255,170,60,0)"); lg.addColorStop(1, "rgba(255,235,160,0.95)");
-      g.strokeStyle = lg; g.lineWidth = 4; g.lineCap = "round";
-      g.beginPath(); g.moveTo(-30, 0); g.lineTo(0, 0); g.stroke();
-      g.fillStyle = "#fff6d8"; g.beginPath(); g.arc(0, 0, 2.8, 0, 6.29); g.fill();
+      const lg = g.createLinearGradient(-44, 0, 0, 0);
+      lg.addColorStop(0, "rgba(255,150,40,0)"); lg.addColorStop(1, "rgba(255,235,160,0.95)");
+      g.strokeStyle = lg; g.lineWidth = 6; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-44, 0); g.lineTo(0, 0); g.stroke();
+      g.fillStyle = "rgba(255,200,90,0.35)"; g.beginPath(); g.arc(0, 0, 9, 0, 6.29); g.fill();
+      g.fillStyle = "#fff6d8"; g.beginPath(); g.arc(0, 0, 3.6, 0, 6.29); g.fill();
       g.restore();
       return;
     }
@@ -2838,11 +3074,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       }
     }
   }
-  const GOLD_N = 70;
+  const GOLD_N = 140;
   function goldDrop(ev, i) {
     const t0 = hash(ev.cyc, i, 95) * 20, age = ev.et - t0;
     if (age < 0 || age > 7) return null;
-    return { key: "e" + ev.cyc + "g" + i, x: 120 + hash(ev.cyc, i, 96) * (W - 240), y: 120 + hash(ev.cyc, i, 97) * (H - 240), age };
+    return outside({ key: "e" + ev.cyc + "g" + i, x: 120 + hash(ev.cyc, i, 96) * (W - 240), y: 120 + hash(ev.cyc, i, 97) * (H - 240), age });
   }
   const ufoHits = new Map();
   const bannerEl = document.getElementById("eventBanner");
@@ -2917,7 +3153,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         for (const s of shots) {
           if (!s.mine || s.life <= 0 || s.kind === 3 || !segHit(s, p.x, p.y, 48)) continue;
           s.life = 0;
-          const h = (ufoHits.get(key) || 0) + SHOT_DMG[s.kind]; ufoHits.set(key, h);
+          const h = (ufoHits.get(key) || 0) + shotDmg(s); ufoHits.set(key, h);
           impact(s.x, s.y, "#7dffb0", 1); blip(260, 0.08, "square");
           if (h >= UFO_HP) {
             grabbed.add(key); pushCapped(myGrabs, key, 40);
@@ -3164,6 +3400,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const x = sx(k.x), y = sy(k.y);
       if (onScreen(x, y, 50)) drawRock(k, x, y);
     }
+    drawBodies(now);   // after the junk: drifting rocks pass behind planets
     drawEvents(now);
     for (const [id, d] of drops) {
       const age = now - d.born, fade = age > DROP_LIFE - 3000 && Math.floor(now / 120) % 2 ? 0.35 : 1;
@@ -3402,6 +3639,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     mctx.clearRect(0, 0, S, S);
     mctx.strokeStyle = "rgba(189,255,246,0.5)"; mctx.lineWidth = 2;
     mctx.strokeRect(o, o, W * k, H * k);
+    for (const b of bodies) {
+      const [x, y] = P(b.x, b.y);
+      mctx.fillStyle = b.planet ? `rgba(${PLANET_PAL[b.kind].glow},0.45)` : "rgba(200,190,220,0.4)";
+      mctx.beginPath(); mctx.arc(x, y, Math.max(2, b.r * k), 0, 6.29); mctx.fill();
+    }
     // what your screen shows
     const [vx0, vy0] = P(me.x - vw / 2, me.y - vh / 2);
     mctx.strokeStyle = "rgba(255,255,255,0.25)"; mctx.lineWidth = 1.5;
@@ -3473,22 +3715,26 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       ["Fly", `${KEY("W")}${KEY("A")}${KEY("S")}${KEY("D")} or arrows · or hold the trackpad / mouse button and point`],
       ["Fire", `${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY("Return")})`],
       ["Dash", `tap ${KEY("⇧ Shift")} — a quick dodge forward`],
-      ["Boost", `hold ${KEY("⇧ Shift")} — uses the blue energy bar`]] },
+      ["Boost", `hold ${KEY("⇧ Shift")} — uses the blue energy bar`],
+      ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`]] },
     windows: { label: "Windows", rows: [
       ["Fly", `${KEY("W")}${KEY("A")}${KEY("S")}${KEY("D")} or arrows · or hold the left mouse button and point`],
       ["Fire", `${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY("Enter")})`],
       ["Dash", `tap ${KEY("Shift")} — a quick dodge forward`],
-      ["Boost", `hold ${KEY("Shift")} — uses the blue energy bar`]] },
+      ["Boost", `hold ${KEY("Shift")} — uses the blue energy bar`],
+      ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`]] },
     linux: { label: "Linux", rows: [
       ["Fly", `${KEY("W")}${KEY("A")}${KEY("S")}${KEY("D")} or arrows · or hold the left mouse button and point`],
       ["Fire", `${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY("Enter")})`],
       ["Dash", `tap ${KEY("Shift")} — a quick dodge forward`],
-      ["Boost", `hold ${KEY("Shift")} — uses the blue energy bar`]] },
+      ["Boost", `hold ${KEY("Shift")} — uses the blue energy bar`],
+      ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`]] },
     phone: { label: "Phone", rows: [
       ["Fly", "put your thumb anywhere on the left side: a joystick appears under it, push it where you want to go"],
       ["Fire", "orange flame button (bottom right)"],
       ["Dash", "tap the teal button — a quick dodge forward"],
-      ["Boost", "hold the teal button"]] }
+      ["Boost", "hold the teal button"],
+      ["Weapon", "tap a gun in the bar above the fire button"]] }
   };
   function detectDevice() {
     const ua = navigator.userAgent, plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
