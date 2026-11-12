@@ -9,5 +9,8 @@ Sound effects: all CC0 (public domain), from OpenGameArt.org. Trimmed, mixed to 
   https://opengameart.org/content/25-cc0-bang-firework-sfx
 - "Shotgun Reload Sound effects" by zer0sol
   https://opengameart.org/content/shotgun-reload-sound-effects
+- "Voiceover Pack: Fighter (40+ taunts)" and "Voiceover Pack (40+ lines)" by Kenney (v_*.wav)
+  https://opengameart.org/content/voiceover-pack-fighter-40-taunts
+  https://opengameart.org/content/voiceover-pack-40-lines
 - "Space Ship Shield Sounds" by bart (downloaded, not used in the current mix)
   https://opengameart.org/content/space-ship-shield-sounds
