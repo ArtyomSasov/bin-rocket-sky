@@ -162,6 +162,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 .xpbar { display: block; width: 64px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.15); overflow: hidden; }
 .xpbar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--teal), var(--flame)); transition: width .3s; }
 .wpn { align-self: center; margin-left: 6px; font: 700 12px var(--display); color: var(--ink); background: rgba(255,255,255,.08); border: 1px solid var(--line); border-radius: 8px; padding: 3px 7px; white-space: nowrap; }
+.wpn { display: inline-flex; align-items: center; gap: 5px; }
+.wpn svg { width: 14px; height: 14px; fill: currentColor; flex: none; }
 .hearts.many svg { width: 14px; height: 14px; }
 .hearts { flex-wrap: wrap; max-width: 130px; }
 .hearts { display: flex; gap: 3px; margin-left: 4px; align-self: center; }
@@ -216,7 +218,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 
 <canvas id="c"></canvas>
 
-<div class="score chip"><b id="score">0</b><span>points</span><span class="lv"><b id="lvNum">Lv 1</b><span class="xpbar"><i id="xpFill"></i></span><span class="xpbar nrg" title="Boost energy"><i id="nrgFill"></i></span></span><span class="hearts" id="hearts" role="img" aria-label="3 lives"></span><span class="wpn" id="wpn">Fireball</span></div>
+<div class="score chip"><b id="score">0</b><span>points</span><span class="lv"><b id="lvNum">Lv 1</b><span class="xpbar"><i id="xpFill"></i></span><span class="xpbar nrg" title="Boost energy"><i id="nrgFill"></i></span></span><span class="hearts" id="hearts" role="img" aria-label="3 lives"></span><span class="wpn" id="wpn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg>Fireball</span></div>
 <button class="fire boostbtn" id="boostBtn" aria-label="Boost: tap to dash, hold to boost" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l7 6-7 6zM12 6l7 6-7 6z"/></svg></button>
 <canvas class="minimap" id="minimap" width="280" height="280" aria-label="Mini map" hidden></canvas>
 <button class="fire" id="fireBtn" aria-label="Fire" hidden><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg></button>
@@ -232,7 +234,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   <form class="card chip" id="startForm">
     <canvas id="preview" width="220" height="220" aria-label="Preview of your bin rocket"></canvas>
     <h1>Bin Rocket <em>Sky</em></h1>
-    <p>Scoop up sparks, blast space junk and other bins with fire. You have 3 lives. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more lives and fancier fire. Watch out for black holes, meteor showers and aliens. Grab weapon crates: triple shot, laser, homing rockets.</p>
+    <p>Scoop up sparks, blast space junk and other bins with fire. You have 3 lives. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more lives and fancier fire. Watch out for black holes, meteor showers and aliens. Grab weapon crates: triple shot, laser, homing rockets, and the rare nuke. Black holes swallow anything that reaches the centre.</p>
     <div class="field">
       <label for="nameInput">Pilot name</label>
       <input id="nameInput" maxlength="14" autocomplete="off" placeholder="Pilot name">
@@ -278,12 +280,23 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   // weapons: pick-ups swap the fireball for a while
   const WEAPONS = {
     fire:   { name: "Fireball",    ammo: Infinity, cd: 0.2 },
-    triple: { name: "Triple shot", ammo: 30, cd: 0.24, col: "#ffb43c", glyph: "x3" },
-    laser:  { name: "Laser",       ammo: 45, cd: 0.08, col: "#7df9ff", glyph: "L" },
-    rocket: { name: "Rockets",     ammo: 10, cd: 0.45, col: "#ff5a6e", glyph: "R" }
+    triple: { name: "Triple shot", ammo: 30, cd: 0.24, col: "#ffb43c" },
+    laser:  { name: "Laser",       ammo: 45, cd: 0.08, col: "#7df9ff" },
+    rocket: { name: "Rockets",     ammo: 10, cd: 0.45, col: "#ff5a6e" },
+    nuke:   { name: "Nuke",        ammo: 1,  cd: 1.0,  col: "#ffe14d" }
   };
   const PICK_TYPES = ["triple", "laser", "rocket"], PICKS = 7, PICK_PERIOD = 24;
-  const SHOT_LIFE = [1.1, 2.4, 0.45];   // by kind: 0 fireball, 1 rocket, 2 laser
+  const SHOT_LIFE = [1.1, 2.4, 0.45, 3.2];   // by kind: 0 fireball, 1 rocket, 2 laser, 3 nuke
+  const NUKE_R = 430, NUKE_DMG = 3, NUKE_PERIOD = 70;
+  // weapon icons (24x24 SVG path data, even-odd fill): used on crates (canvas) and in the HUD (SVG)
+  const ICONS = {
+    fire: "M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z",
+    triple: "M3 17a3 3 0 1 0 6 0a3 3 0 1 0-6 0ZM8.6 7.5a3.4 3.4 0 1 0 6.8 0a3.4 3.4 0 1 0-6.8 0ZM15 17a3 3 0 1 0 6 0a3 3 0 1 0-6 0ZM5.2 13.6L9.6 10.4L10.4 11.2L6.4 14.6ZM18.8 13.6L14.4 10.4L13.6 11.2L17.6 14.6Z",
+    laser: "M13.5 1L4 13.5h6.5L9 23l10-13h-6.5z",
+    rocket: "M12 1c3.5 2.5 5 6.5 5 10.5V16l2.5 3v2.5L16 20h-8l-3.5 1.5V19L7 16v-4.5C7 7.5 8.5 3.5 12 1zM12 7a2 2 0 1 0 0.01 0Z",
+    nuke: "M14.10 8.36L17.25 2.91A10.5 10.5 0 0 0 6.75 2.91L9.90 8.36A4.2 4.2 0 0 1 14.10 8.36ZM7.80 12.00L1.50 12.00A10.5 10.5 0 0 0 6.75 21.09L9.90 15.64A4.2 4.2 0 0 1 7.80 12.00ZM14.10 15.64L17.25 21.09A10.5 10.5 0 0 0 22.50 12.00L16.20 12.00A4.2 4.2 0 0 1 14.10 15.64ZM12 9.8a2.2 2.2 0 1 0 0.01 0Z"
+  };
+  const ICON_PATHS = Object.fromEntries(Object.entries(ICONS).map(([k, d]) => [k, new Path2D(d)]));
   const FIRE_KEYS = ["Space", "KeyF", "KeyJ", "Enter"];
   // customization: index 0 of every list is the original look
   const CUSTOM = {
@@ -620,8 +633,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (me.weapon === "triple") { for (const da of [-0.2, 0, 0.2]) muzzle = fireOne(now, me.a + da, 0, 880); blip(170, 0.12, "sawtooth"); }
     else if (me.weapon === "laser") { muzzle = fireOne(now, me.a, 2, 2300); blip(1200, 0.06, "square"); }
     else if (me.weapon === "rocket") { muzzle = fireOne(now, me.a, 1, 420); blip(90, 0.25, "sawtooth"); }
+    else if (me.weapon === "nuke") { muzzle = fireOne(now, me.a, 3, 360); blip(55, 0.7, "sawtooth"); }
     else { muzzle = fireOne(now, me.a, 0, 880); blip(150, 0.12, "sawtooth"); }
-    const kick = me.weapon === "rocket" ? 60 : me.weapon === "laser" ? 8 : 25;
+    const kick = me.weapon === "nuke" ? 160 : me.weapon === "rocket" ? 60 : me.weapon === "laser" ? 8 : 25;
     me.vx -= bx * kick; me.vy -= by * kick;
     for (let k = 0; k < 6; k++) puff(muzzle.x, muzzle.y, bx * 200 + (Math.random() - .5) * 160, by * 200 + (Math.random() - .5) * 160, 0.25, 2.5, me.weapon === "laser" ? "#bff9ff" : FIRE_COLS[k % 4]);
     if (me.weapon !== "fire" && --me.ammo <= 0) { me.weapon = "fire"; me.ammo = Infinity; }
@@ -644,11 +658,47 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function renderWeapon() {
     const w = WEAPONS[me.weapon];
     const el = document.getElementById("wpn");
-    el.textContent = w.name + (Number.isFinite(me.ammo) ? " · " + me.ammo : "");
+    el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICONS[me.weapon]}"/></svg>`;
+    el.append(w.name + (Number.isFinite(me.ammo) ? " · " + me.ammo : ""));
     el.style.color = w.col || "";
   }
-  function hurt(now, dmg = 1) {
-    if (me.dead || now < me.inv) return false;
+  function nukeTouches(s) {
+    if (!s.mine && playing && !me.dead && segHit(s, me.x, me.y, 20 + 26 * sizeOf(me.lv))) return true;
+    for (const [id, r] of remotes) if (!r.dead && id !== s.owner && segHit(s, r.x, r.y, 20 + 26 * sizeOf(r.lv))) return true;
+    for (const k of world.rocks) if (!grabbed.has(k.key) && k.age >= 0.6 && segHit(s, k.x, k.y, k.r + 10)) return true;
+    return false;
+  }
+  const booms = [];   // nuke shockwaves on screen
+  let flash = 0;
+  function detonate(s, now) {
+    if (s.boom) return;
+    s.boom = true; s.life = 0;
+    const x = clamp(s.x, 0, W), y = clamp(s.y, 0, H), d = Math.hypot(me.x - x, me.y - y);
+    booms.push({ x, y, t: 0 });
+    explode(x, y, lowQ ? 70 : 180, 760);
+    if (d < 1600) { shake = Math.max(shake, 0.9 * (1 - d / 1600)); flash = Math.max(flash, 0.85 * (1 - d / 1600)); }
+    blip(38, 1.4, "sawtooth"); blip(70, 1.0, "square");
+    if (!s.mine && playing && !me.dead && d < NUKE_R) {
+      me.vx += (me.x - x) / (d || 1) * 900; me.vy += (me.y - y) / (d || 1) * 900;
+      if (hurt(now, NUKE_DMG)) { pushCapped(hitBy, s.id, 12); if (me.dead) pushCapped(koBy, s.id, 12); }
+    }
+    if (!s.mine) return;
+    // the shooter wipes out everything in the blast and shares the result
+    const take = (key, pts) => { grabbed.add(key); pushCapped(myGrabs, key, 40); me.score += pts; };
+    for (const k of world.rocks) if (!grabbed.has(k.key) && Math.hypot(k.x - x, k.y - y) < NUKE_R) take(k.key, 2);
+    const ev = eventAt(clockNow());
+    if (ev.active && ev.type === "meteors") for (let i = 0; i < 40; i++) {
+      const m = meteor(ev, i);
+      if (m && !grabbed.has(m.key) && Math.hypot(m.x - x, m.y - y) < NUKE_R) take(m.key, 2);
+    }
+    if (ev.active && ev.type === "aliens") for (let u = 0; u < UFO_N; u++) {
+      const key = "e" + ev.cyc + "u" + u, p = ufoPos(ev, u, ev.et);
+      if (!grabbed.has(key) && Math.hypot(p.x - x, p.y - y) < NUKE_R) { take(key, 15); gainXp(5, now); }
+    }
+    showScore();
+  }
+  function hurt(now, dmg = 1, force = false) {
+    if (me.dead || (!force && now < me.inv)) return false;
     me.lives = Math.max(0, me.lives - dmg); me.inv = now + 900; shake = 0.35;
     renderHearts(true);
     blip(110, 0.3, "square");
@@ -734,7 +784,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function addRemoteShot(owner, f) {
     if (!Array.isArray(f) || typeof f[0] !== "string" || f[0].length > 20 || seenShots.has(f[0])) return;
     seenShots.set(f[0], performance.now());
-    const kind = f[5] === 1 || f[5] === 2 ? f[5] : 0;
+    const kind = f[5] === 1 || f[5] === 2 || f[5] === 3 ? f[5] : 0;
     const x = clamp(num(f[1], 0), 0, W), y = clamp(num(f[2], 0), 0, H);
     shots.push({
       id: f[0], kind, x, y, px: x, py: y,
@@ -778,7 +828,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (Number.isFinite(p.s)) r.score = Math.max(0, Math.floor(p.s));
     if (Number.isFinite(p.lv)) r.lv = clamp(Math.floor(p.lv), 1, MAX_LV);
     if (Number.isFinite(p.l)) r.lives = clamp(Math.floor(p.l), 0, maxLivesOf(r.lv));
-    if (Array.isArray(p.g)) for (const k of p.g.slice(0, 24)) if (typeof k === "string" && k.length < 16) grabbed.add(k);
+    if (Array.isArray(p.g)) for (const k of p.g.slice(0, 48)) if (typeof k === "string" && k.length < 16) grabbed.add(k);
     if (Array.isArray(p.f)) for (const f of p.f.slice(0, 10)) addRemoteShot(id, f);
     if (Array.isArray(p.dr)) for (const d of p.dr.slice(0, 3)) {
       if (!Array.isArray(d) || typeof d[0] !== "string" || d[0].length > 10 || drops.has(d[0])) continue;
@@ -897,6 +947,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       age: (now / 1000 + off) / PICK_PERIOD - gen
     };
   }
+  function nukePickup(now) {
+    const t = now / 1000, gen = Math.floor(t / NUKE_PERIOD), age = t / NUKE_PERIOD - gen;
+    if (hash(gen, 71, 1) > 0.65 || age > 0.6) return null;   // turns up in about 2 of 3 cycles, for ~40 s
+    return { key: "N" + gen, type: "nuke", age, x: 300 + hash(gen, 72, 1) * (W - 600), y: 300 + hash(gen, 72, 2) * (H - 600) };
+  }
   function rocketTargets(s) {
     const out = [];
     if (!s.mine && playing && !me.dead) out.push(me);
@@ -975,10 +1030,16 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     for (let i = shots.length - 1; i >= 0; i--) {
       const s = shots[i];
       s.life -= dt;
-      if (s.life <= 0) { shots.splice(i, 1); continue; }
+      if (s.life <= 0) { if (s.kind === 3) detonate(s, now); shots.splice(i, 1); continue; }
       if (s.kind === 1) steerRocket(s, dt);
+      if (s.kind === 3) { const v = Math.hypot(s.vx, s.vy), nv = Math.min(720, v + 260 * dt); s.vx *= nv / v; s.vy *= nv / v; }
       s.px = s.x; s.py = s.y;
       s.x += s.vx * dt; s.y += s.vy * dt;
+      if (s.kind === 3 && (s.x < 0 || s.x > W || s.y < 0 || s.y > H || nukeTouches(s))) { detonate(s, now); shots.splice(i, 1); continue; }
+      if (s.kind === 3) {
+        if (Math.random() < dt * 70) puff(s.x, s.y, -s.vx * 0.15 + (Math.random() - .5) * 50, -s.vy * 0.15 + (Math.random() - .5) * 50, 0.9, 3 + Math.random() * 3, Math.random() < 0.5 ? "#8a7fb0" : "#ffe14d");
+        continue;
+      }
       if (s.x < 0 || s.x > W || s.y < 0 || s.y > H) { explode(clamp(s.x, 0, W), clamp(s.y, 0, H), s.kind === 1 ? 40 : 10, 160); shots.splice(i, 1); continue; }
       if (s.kind === 1) {
         if (Math.random() < dt * 50) puff(s.x, s.y, -s.vx * 0.1 + (Math.random() - .5) * 40, -s.vy * 0.1 + (Math.random() - .5) * 40, 0.6 + Math.random() * 0.5, 2.5 + Math.random() * 2.5, Math.random() < 0.6 ? "#9a8fb5" : "#ffb43c");
@@ -1004,10 +1065,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const k = world.rocks[i];
       if (grabbed.has(k.key) || k.age < 0.6) continue;
       for (const s of shots) {
-        if (s.life <= 0 || !segHit(s, k.x, k.y, k.r + 10)) continue;
+        if (s.life <= 0 || s.kind === 3 || !segHit(s, k.x, k.y, k.r + 10)) continue;
         s.life = 0;
         if (s.mine) {
-          grabbed.add(k.key); pushCapped(myGrabs, k.key, 20);
+          grabbed.add(k.key); pushCapped(myGrabs, k.key, 40);
           me.score += 2; showScore();
           floaters.push({ x: k.x, y: k.y, t: 0, txt: "+2", gold: false });
           explode(k.x, k.y, 30, 220); blip(300, 0.2, "square");
@@ -1016,7 +1077,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       }
       if (grabbed.has(k.key)) continue;
       if (playing && !me.dead && Math.hypot(wrapD(k.x - me.x, W), wrapD(k.y - me.y, H)) < k.r + 26 * sizeOf(me.lv) && now >= me.inv) {
-        grabbed.add(k.key); pushCapped(myGrabs, k.key, 20);
+        grabbed.add(k.key); pushCapped(myGrabs, k.key, 40);
         explode(k.x, k.y, 30, 220);
         hurt(now);
       }
@@ -1056,7 +1117,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         const s = world.sparks[i];
         if (grabbed.has(s.key) || s.age < 0.04) continue;
         if (Math.hypot(wrapD(s.x - me.x, W), wrapD(s.y - me.y, H)) < 22 + 30 * sizeOf(me.lv)) {
-          grabbed.add(s.key); pushCapped(myGrabs, s.key, 20);
+          grabbed.add(s.key); pushCapped(myGrabs, s.key, 40);
           const val = s.gold ? 5 : 1;
           me.score += val;
           showScore();
@@ -1078,7 +1139,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         const st = dropStar(d, id, j, now);
         if (!st.ready || grabbed.has(st.key)) continue;
         if (Math.hypot(st.x - me.x, st.y - me.y) < 22 + 30 * sizeOf(me.lv)) {
-          grabbed.add(st.key); pushCapped(myGrabs, st.key, 20);
+          grabbed.add(st.key); pushCapped(myGrabs, st.key, 40);
           me.score += 1; showScore();
           for (let k = 0; k < 8; k++) { const a = Math.random() * 6.28; puff(st.x, st.y, Math.cos(a) * 120, Math.sin(a) * 120, 0.4, 1.8, "#ffe3f6"); }
           blip(990, 0.06);
@@ -1088,11 +1149,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
     // weapon crates
     if (playing && !me.dead) {
-      for (let i = 0; i < PICKS; i++) {
-        const c = world.picks[i];
-        if (grabbed.has(c.key) || c.age < 0.05) continue;
+      for (const c of world.nuke ? [...world.picks, world.nuke] : world.picks) {
+        if (grabbed.has(c.key) || c.age < (c.type === "nuke" ? 0.01 : 0.05)) continue;
         if (Math.hypot(c.x - me.x, c.y - me.y) < 26 + 30 * sizeOf(me.lv)) {
-          grabbed.add(c.key); pushCapped(myGrabs, c.key, 20);
+          grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
           const w = WEAPONS[c.type];
           me.weapon = c.type; me.ammo = w.ammo; renderWeapon();
           floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: w.name.toUpperCase() + "!", gold: true });
@@ -1110,6 +1170,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
     const partCap = lowQ ? MAX_PARTS / 3 : MAX_PARTS;
     if (parts.length > partCap) parts.splice(0, parts.length - partCap);
+    for (let i = booms.length - 1; i >= 0; i--) { booms[i].t += dt; if (booms[i].t > 1.2) booms.splice(i, 1); }
+    flash = Math.max(0, flash - dt * 1.4);
     for (let i = floaters.length - 1; i >= 0; i--) { floaters[i].t += dt; if (floaters[i].t > 1) floaters.splice(i, 1); }
 
     sendAcc += dt; slowAcc += dt;
@@ -1228,6 +1290,25 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
 
   function drawShot(s, x, y, now) {
+    if (s.kind === 3) {
+      const a = Math.atan2(s.vy, s.vx), fl = 1 + Math.sin(now / 22 + s.x) * 0.25;
+      g.save(); g.translate(x, y); g.rotate(a);
+      g.globalCompositeOperation = "lighter";
+      const fg = g.createLinearGradient(-70 * fl, 0, -16, 0);
+      fg.addColorStop(0, "rgba(255,60,20,0)"); fg.addColorStop(1, "rgba(255,230,120,0.95)");
+      g.fillStyle = fg; g.beginPath(); g.moveTo(-16, -9); g.lineTo(-70 * fl, 0); g.lineTo(-16, 9); g.fill();
+      const gl = g.createRadialGradient(0, 0, 4, 0, 0, 46);
+      gl.addColorStop(0, `rgba(255,225,77,${0.35 + 0.25 * Math.sin(now / 90)})`); gl.addColorStop(1, "rgba(255,225,77,0)");
+      g.fillStyle = gl; g.beginPath(); g.arc(0, 0, 46, 0, 6.29); g.fill();
+      g.globalCompositeOperation = "source-over";
+      g.fillStyle = "#1d1630"; g.beginPath(); g.moveTo(-18, -14); g.lineTo(-8, -6); g.lineTo(-8, 6); g.lineTo(-18, 14); g.fill();
+      g.fillStyle = "#ffe14d"; rrect(-18, -9, 34, 18, 8); g.fill();
+      g.fillStyle = "#1d1630"; g.beginPath(); g.moveTo(16, -9); g.quadraticCurveTo(30, 0, 16, 9); g.fill();
+      g.save(); g.translate(-7, -7); g.scale(14 / 24, 14 / 24); g.fill(ICON_PATHS.nuke, "evenodd"); g.restore();
+      g.restore();
+      g.globalCompositeOperation = "lighter";
+      return;
+    }
     if (s.kind === 2) {
       const a = Math.atan2(s.vy, s.vx), L = 90;
       g.save(); g.translate(x, y); g.rotate(a);
@@ -1311,10 +1392,25 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     bg.addColorStop(0, "#3d2f66"); bg.addColorStop(1, "#1e1638");
     g.fillStyle = bg; g.strokeStyle = w.col; g.lineWidth = 2.5;
     rrect(-17, -17, 34, 34, 8); g.fill(); g.stroke();
-    g.fillStyle = w.col; g.font = "700 15px " + DISPLAY_FONT;
-    g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(w.glyph, 0, 1);
-    g.textBaseline = "alphabetic";
+    g.fillStyle = w.col;
+    g.save(); g.translate(-11, -11); g.scale(22 / 24, 22 / 24); g.fill(ICON_PATHS[c.type], "evenodd"); g.restore();
     g.restore();
+  }
+  // the rare nuke crate: bigger, hazard-striped, pulsing
+  function drawNukeCrate(c, x, y, now) {
+    const k = Math.min(1, c.age * 40), pulse = 0.6 + 0.4 * Math.sin(now / 180);
+    const gl = g.createRadialGradient(x, y, 6, x, y, 90);
+    gl.addColorStop(0, `rgba(255,225,77,${0.55 * pulse})`); gl.addColorStop(1, "rgba(255,225,77,0)");
+    g.fillStyle = gl; g.beginPath(); g.arc(x, y, 90, 0, 6.29); g.fill();
+    g.save(); g.translate(x, y); g.rotate(Math.sin(now / 900) * 0.15); g.scale(k * 1.35, k * 1.35);
+    rrect(-20, -20, 40, 40, 9); g.save(); g.clip();
+    for (let i = -6; i < 6; i++) { g.fillStyle = i % 2 ? "#1d1630" : "#ffe14d"; g.beginPath(); g.moveTo(i * 8, -20); g.lineTo(i * 8 + 8, -20); g.lineTo(i * 8 + 48, 20); g.lineTo(i * 8 + 40, 20); g.fill(); }
+    g.restore();
+    g.fillStyle = "#1d1630"; rrect(-14, -14, 28, 28, 6); g.fill();
+    g.fillStyle = "#ffe14d"; g.save(); g.translate(-11, -11); g.scale(22 / 24, 22 / 24); g.fill(ICON_PATHS.nuke, "evenodd"); g.restore();
+    g.restore();
+    g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.textAlign = "center"; g.fillStyle = "#ffe14d";
+    g.fillText("NUKE", x, y + 44);
   }
 
   // armour that grows with level, drawn in the art's own frame (P maps art pixels of the 320px sprite)
@@ -1582,21 +1678,29 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         bannerEl.classList.toggle("warn", ev.warn);
       } else bannerEl.hidden = true;
     }
+    if (ev.active && ev.type === "blackhole") {
+      // shots bend toward the hole and vanish at the horizon
+      const bh = blackHole(ev);
+      for (const s of shots) {
+        const dx = bh.x - s.x, dy = bh.y - s.y, d = Math.hypot(dx, dy) || 1;
+        if (d < 60 * bh.k) { s.life = 0; continue; }
+        if (d < 1500) { const acc = bh.k * 9e7 / (d * d + 1.5e4); s.vx += dx / d * acc * dt; s.vy += dy / d * acc * dt; }
+      }
+    }
     if (!ev.active || !playing || me.dead) return;
     const mr = 30 * sizeOf(me.lv);
 
     if (ev.type === "blackhole") {
       const bh = blackHole(ev), dx = bh.x - me.x, dy = bh.y - me.y, d = Math.hypot(dx, dy) || 1;
-      if (d < 1100) {
-        const acc = bh.k * 4e7 / (d * d + 2e4);
+      // pull ~ 1/d^2: drifting is fine far out, under ~200 px only a boost gets you out, under ~140 px nothing does
+      if (d < 1500) {
+        const acc = bh.k * 9e7 / (d * d + 1.5e4);
         me.vx += dx / d * acc * dt; me.vy += dy / d * acc * dt;
       }
-      if (d < 55 * bh.k + mr * 0.5) {
-        hurt(now);
-        const a = Math.random() * 6.283;
-        me.x = clamp(bh.x + Math.cos(a) * 260, 60, W - 60); me.y = clamp(bh.y + Math.sin(a) * 260, 60, H - 60);
-        me.vx = Math.cos(a) * 900; me.vy = Math.sin(a) * 900;
-        for (let k = 0; k < 40; k++) { const b = Math.random() * 6.28; puff(me.x, me.y, Math.cos(b) * 260, Math.sin(b) * 260, 0.8, 2.4, k % 2 ? "#c38bff" : "#ffffff"); }
+      if (d < 60 * bh.k) {
+        floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: "Swallowed!", gold: false });
+        for (let k = 0; k < 60; k++) { const b = Math.random() * 6.28; puff(me.x, me.y, Math.cos(b) * 300, Math.sin(b) * 300, 0.9, 2.6, k % 2 ? "#c38bff" : "#ffffff"); }
+        hurt(now, 99, true);   // the horizon ignores dash invulnerability
       }
     }
 
@@ -1605,8 +1709,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         const m = meteor(ev, i);
         if (!m || grabbed.has(m.key)) continue;
         for (const s of shots) {
-          if (!s.mine || s.life <= 0 || !segHit(s, m.x, m.y, m.r + 12)) continue;
-          s.life = 0; grabbed.add(m.key); pushCapped(myGrabs, m.key, 20);
+          if (!s.mine || s.life <= 0 || s.kind === 3 || !segHit(s, m.x, m.y, m.r + 12)) continue;
+          s.life = 0; grabbed.add(m.key); pushCapped(myGrabs, m.key, 40);
           me.score += 2; showScore();
           floaters.push({ x: m.x, y: m.y, t: 0, txt: "+2", gold: false });
           explode(m.x, m.y, 26, 240); blip(320, 0.15, "square");
@@ -1614,7 +1718,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         }
         if (grabbed.has(m.key)) continue;
         if (Math.hypot(m.x - me.x, m.y - me.y) < m.r + mr && now >= me.inv) {
-          grabbed.add(m.key); pushCapped(myGrabs, m.key, 20);
+          grabbed.add(m.key); pushCapped(myGrabs, m.key, 40);
           explode(m.x, m.y, 30, 260); hurt(now);
         }
       }
@@ -1626,12 +1730,12 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         if (grabbed.has(key)) continue;
         const p = ufoPos(ev, u, ev.et);
         for (const s of shots) {
-          if (!s.mine || s.life <= 0 || !segHit(s, p.x, p.y, 48)) continue;
+          if (!s.mine || s.life <= 0 || s.kind === 3 || !segHit(s, p.x, p.y, 48)) continue;
           s.life = 0;
           const h = (ufoHits.get(key) || 0) + (s.kind === 1 ? 3 : 1); ufoHits.set(key, h);
           explode(s.x, s.y, 10, 160); blip(260, 0.08, "square");
           if (h >= UFO_HP) {
-            grabbed.add(key); pushCapped(myGrabs, key, 20);
+            grabbed.add(key); pushCapped(myGrabs, key, 40);
             me.score += 15; showScore();
             floaters.push({ x: p.x, y: p.y, t: 0, txt: "UFO +15", gold: true });
             explode(p.x, p.y, 80, 340); blip(90, 0.5, "sawtooth");
@@ -1651,7 +1755,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         const gd = goldDrop(ev, i);
         if (!gd || grabbed.has(gd.key) || gd.age < 0.3) continue;
         if (Math.hypot(gd.x - me.x, gd.y - me.y) < 22 + 30 * sizeOf(me.lv)) {
-          grabbed.add(gd.key); pushCapped(myGrabs, gd.key, 20);
+          grabbed.add(gd.key); pushCapped(myGrabs, gd.key, 40);
           me.score += 5; showScore();
           floaters.push({ x: gd.x, y: gd.y, t: 0, txt: "+5", gold: true });
           for (let k = 0; k < 24; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 200; puff(gd.x, gd.y, Math.cos(a) * v, Math.sin(a) * v, 0.7, 2.2, "#ffd36b"); }
@@ -1666,26 +1770,6 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const ev = eventAt(clockNow());
     if (!ev.active) return;
     const t = now / 1000;
-
-    if (ev.type === "blackhole") {
-      const bh = blackHole(ev), x = sx(bh.x), y = sy(bh.y), k = bh.k;
-      if (!onScreen(x, y, 420)) { drawEdgeArrow(x, y, "#c38bff"); return; }
-      const halo = g.createRadialGradient(x, y, 40 * k, x, y, 380 * k);
-      halo.addColorStop(0, "rgba(195,139,255,0.35)"); halo.addColorStop(0.4, "rgba(120,60,200,0.15)"); halo.addColorStop(1, "rgba(60,20,120,0)");
-      g.fillStyle = halo; g.beginPath(); g.arc(x, y, 380 * k, 0, 6.29); g.fill();
-      g.globalCompositeOperation = "lighter";
-      for (let i = 0; i < 160; i++) {
-        const r = 62 + mod(i * 53.7 - t * 90, 330);
-        const a = i * 2.39996 + t * (1 + 2600 / (r * r) * 30);
-        const al = Math.min(1, (330 - (r - 62)) / 120) * 0.8 * k;
-        g.fillStyle = i % 3 ? `rgba(255,170,90,${al})` : `rgba(210,160,255,${al})`;
-        g.beginPath(); g.arc(x + Math.cos(a) * r * k, y + Math.sin(a) * r * 0.55 * k, 1.6 + (i % 4) * 0.5, 0, 6.29); g.fill();
-      }
-      g.globalCompositeOperation = "source-over";
-      g.strokeStyle = `rgba(255,200,140,${0.7 * k})`; g.lineWidth = 3;
-      g.beginPath(); g.ellipse(x, y, 70 * k, 66 * k, t, 0, 6.29); g.stroke();
-      g.fillStyle = "#05010c"; g.beginPath(); g.arc(x, y, 56 * k, 0, 6.29); g.fill();
-    }
 
     if (ev.type === "meteors") {
       for (let i = 0; i < 40; i++) {
@@ -1761,6 +1845,59 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
   }
 
+  // black hole: gravitational lens over everything behind it, then the accretion disk and the horizon
+  const lensCv = document.createElement("canvas"), lctx = lensCv.getContext("2d");
+  function drawBlackHole(now) {
+    const ev = eventAt(clockNow());
+    if (!ev.active || ev.type !== "blackhole") return;
+    const bh = blackHole(ev), x = sx(bh.x), y = sy(bh.y), k = bh.k, t = now / 1000;
+    const R = 360 * k;
+    if (!onScreen(x, y, R)) { if (playing) drawEdgeArrow(x, y, "#c38bff"); return; }
+    if (!lowQ && R > 30) {
+      // copy what is already drawn around the hole, then repaint it in rings that are
+      // magnified and twisted more and more toward the centre
+      const sc = dpr * zoom, size = Math.ceil(2 * R * sc);
+      if (lensCv.width !== size) { lensCv.width = lensCv.height = size; } else lctx.clearRect(0, 0, size, size);
+      const px = Math.round((x - R) * sc), py = Math.round((y - R) * sc);
+      const ax = Math.max(0, px), ay = Math.max(0, py), bx = Math.min(cv.width, px + size), by = Math.min(cv.height, py + size);
+      if (bx > ax && by > ay) lctx.drawImage(cv, ax, ay, bx - ax, by - ay, ax - px, ay - py, bx - ax, by - ay);
+      const N = 24;   // more rings = softer steps between them
+      for (let i = N; i >= 1; i--) {
+        const f = 1 - (i - 0.5) / N;
+        const mag = 1 + f * f * 2.0 * k, rot = (f * f * 2.2 + Math.sin(t * 0.8) * 0.12 * f) * k;
+        g.save(); g.beginPath(); g.arc(x, y, R * i / N, 0, 6.29); g.clip();
+        g.translate(x, y); g.rotate(rot); g.scale(mag, mag);
+        g.drawImage(lensCv, -R, -R, 2 * R, 2 * R);
+        g.restore();
+      }
+    }
+    // dim violet halo
+    const halo = g.createRadialGradient(x, y, 50 * k, x, y, R);
+    halo.addColorStop(0, "rgba(120,60,200,0.35)"); halo.addColorStop(0.5, "rgba(80,30,150,0.15)"); halo.addColorStop(1, "rgba(40,10,90,0)");
+    g.fillStyle = halo; g.beginPath(); g.arc(x, y, R, 0, 6.29); g.fill();
+    // accretion disk: tilted, the back half first, the side moving toward you brighter
+    const disk = front => {
+      g.globalCompositeOperation = "lighter";
+      for (let i = 0; i < (lowQ ? 90 : 220); i++) {
+        const r = 66 + mod(i * 41.3 - t * 70, 300);
+        const a = i * 2.39996 + t * (0.6 + 9000 / (r * r));
+        if ((Math.sin(a) > 0) !== front) continue;
+        const beam = 0.55 + 0.45 * Math.cos(a);   // relativistic beaming, roughly
+        const al = Math.min(1, (366 - r) / 110) * 0.9 * k * beam;
+        g.fillStyle = r < 120 ? `rgba(255,236,200,${al})` : i % 3 ? `rgba(255,160,80,${al})` : `rgba(205,150,255,${al})`;
+        g.beginPath(); g.arc(x + Math.cos(a) * r * k, y + Math.sin(a) * r * 0.32 * k, 1.4 + (i % 4) * 0.55, 0, 6.29); g.fill();
+      }
+      g.globalCompositeOperation = "source-over";
+    };
+    disk(false);
+    // horizon with a thin photon ring
+    const pr = g.createRadialGradient(x, y, 54 * k, x, y, 84 * k);
+    pr.addColorStop(0, "rgba(255,240,210,0.95)"); pr.addColorStop(0.25, "rgba(255,170,90,0.55)"); pr.addColorStop(1, "rgba(255,120,60,0)");
+    g.fillStyle = pr; g.beginPath(); g.arc(x, y, 84 * k, 0, 6.29); g.fill();
+    g.fillStyle = "#000000"; g.beginPath(); g.arc(x, y, 58 * k, 0, 6.29); g.fill();
+    disk(true);
+  }
+
   function drawEdgeArrow(x, y, col) {
     const cx = vw / 2, cy = vh / 2, dx = x - cx, dy = y - cy;
     const m = 40, t = Math.min((cx - m) / Math.abs(dx || 1e-6), (cy - m) / Math.abs(dy || 1e-6));
@@ -1799,6 +1936,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const x = sx(c.x), y = sy(c.y) + Math.sin(now / 400 + i) * 6;
       if (onScreen(x, y, 50)) drawCrate(c, x, y, now);
     }
+    if (world.nuke && !grabbed.has(world.nuke.key)) {
+      const x = sx(world.nuke.x), y = sy(world.nuke.y);
+      if (onScreen(x, y, 90)) drawNukeCrate(world.nuke, x, y, now); else if (playing) drawEdgeArrow(x, y, "#ffe14d");
+    }
     // sparks
     for (let i = 0; i < SLOTS; i++) {
       const s = world.sparks[i];
@@ -1821,6 +1962,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (onScreen(x, y, 60)) drawShot(s, x, y, now);
     }
     g.globalCompositeOperation = "source-over";
+    drawBlackHole(now);   // lenses the world behind it; bots and text are drawn on top, undistorted
     // bots
     for (const r of remotes.values()) {
       if (r.dead) continue;
@@ -1834,6 +1976,15 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.font = `700 ${30 * TS}px ` + DISPLAY_FONT;
       g.fillText("Boom! Back in " + Math.max(1, Math.ceil((me.respawnAt - now) / 1000)) + "…", vw / 2, vh / 2);
     }
+    for (const b of booms) {
+      const x = sx(b.x), y = sy(b.y), k = Math.min(1, b.t / 0.9), e = 1 - (1 - k) * (1 - k);
+      if (!onScreen(x, y, NUKE_R * 1.3)) continue;
+      const fb = g.createRadialGradient(x, y, 0, x, y, NUKE_R * 0.7 * (0.4 + e));
+      fb.addColorStop(0, `rgba(255,250,220,${0.9 * (1 - k)})`); fb.addColorStop(0.5, `rgba(255,170,60,${0.6 * (1 - k)})`); fb.addColorStop(1, "rgba(255,80,30,0)");
+      g.fillStyle = fb; g.beginPath(); g.arc(x, y, NUKE_R * 0.7 * (0.4 + e), 0, 6.29); g.fill();
+      g.strokeStyle = `rgba(255,240,200,${0.8 * (1 - k)})`; g.lineWidth = 14 * (1 - k) + 2;
+      g.beginPath(); g.arc(x, y, NUKE_R * 1.15 * e, 0, 6.29); g.stroke();
+    }
     // floating score text
     g.textAlign = "center";
     for (const f of floaters) {
@@ -1844,6 +1995,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
     g.globalAlpha = 1;
     g.restore();
+    if (flash > 0) { g.fillStyle = `rgba(255,252,235,${flash})`; g.fillRect(0, 0, vw, vh); }
   }
 
   // edge arrow toward an off-screen flyer
@@ -1859,7 +2011,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 
   // ---------- loop ----------
   let last = performance.now(), frameAvg = 1 / 60;
-  const world = { sparks: [], rocks: [], picks: [] };   // shared-clock objects, computed once per frame
+  const world = { sparks: [], rocks: [], picks: [], nuke: null };   // shared-clock objects, computed once per frame
   function frame(now) {
     requestAnimationFrame(frame);
     const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
@@ -1872,6 +2024,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     for (let i = 0; i < SLOTS; i++) world.sparks[i] = spark(i, wt);
     for (let i = 0; i < ROCKS; i++) world.rocks[i] = rock(i, wt);
     for (let i = 0; i < PICKS; i++) world.picks[i] = pickup(i, wt);
+    world.nuke = nukePickup(wt);
     update(dt, now); draw(now);
     if (!playing) drawPreview(now);
     else { drawMinimap(now); renderEnergy(); }
@@ -1901,6 +2054,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (grabbed.has(c.key)) continue;
       const [x, y] = P(c.x, c.y);
       mctx.fillStyle = WEAPONS[c.type].col; mctx.fillRect(x - 3, y - 3, 6, 6);
+    }
+    if (world.nuke && !grabbed.has(world.nuke.key) && Math.floor(now / 250) % 2) {
+      const [x, y] = P(world.nuke.x, world.nuke.y);
+      mctx.fillStyle = "#ffe14d"; mctx.beginPath(); mctx.moveTo(x, y - 8); mctx.lineTo(x + 7, y + 5); mctx.lineTo(x - 7, y + 5); mctx.closePath(); mctx.fill();
     }
     // event hazards
     const ev = eventAt(clockNow());
