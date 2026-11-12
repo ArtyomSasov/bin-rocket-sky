@@ -4440,16 +4440,6 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     g.globalAlpha = 1;
     g.restore();
     if (flash > 0) { g.fillStyle = `rgba(255,252,235,${flash})`; g.fillRect(0, 0, vw, vh); }
-    if (playing && !me.dead && me.boostFx > 0) {   // boosting: streaks of light rushing past the edges of the view
-      const sp = Math.hypot(me.vx, me.vy) || 1, ux = me.vx / sp, uy = me.vy / sp, inner = Math.min(vw, vh) * 0.32;
-      g.strokeStyle = `rgba(220,245,255,${me.boostFx === 2 ? 0.32 : 0.2})`; g.lineCap = "round";
-      for (let k = 0; k < (lowQ ? 10 : 22); k++) {
-        const x = Math.random() * vw, y = Math.random() * vh, dx = x - vw / 2, dy = y - vh / 2;
-        if (dx * dx + dy * dy < inner * inner) continue;
-        const L = 60 + Math.random() * 160;
-        g.lineWidth = 1 + Math.random() * 2; g.beginPath(); g.moveTo(x, y); g.lineTo(x - ux * L, y - uy * L); g.stroke();
-      }
-    }
     if (hurtFlash > 0) {   // taking damage: the edges of the screen flush red
       const vg = g.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.3, vw / 2, vh / 2, Math.max(vw, vh) * 0.75);
       vg.addColorStop(0, "rgba(255,30,40,0)"); vg.addColorStop(1, `rgba(255,30,40,${0.55 * hurtFlash})`);
