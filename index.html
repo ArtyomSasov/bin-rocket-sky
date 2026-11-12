@@ -47,7 +47,7 @@ body {
   padding: 8px 14px;
   display: flex; align-items: baseline; gap: 8px;
 }
-.score b { font-family: var(--display); font-size: 30px; font-weight: 700; color: var(--flame); font-variant-numeric: tabular-nums; }
+.score > b { font-family: var(--display); font-size: 30px; font-weight: 700; color: var(--flame); font-variant-numeric: tabular-nums; }
 .score span { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .event {
   position: fixed;
@@ -183,7 +183,15 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 @media (hover: hover) and (pointer: fine) { .fire { display: none; } }
 @keyframes bob { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-8px) rotate(4deg); } }
 @media (prefers-reduced-motion: reduce) { .card img { animation: none; } }
-@media (max-width: 480px) { .board { min-width: 0; font-size: 12px; } .score b { font-size: 24px; } }
+@media (max-width: 480px) {
+  .board { min-width: 0; max-width: 36vw; font-size: 12px; }
+  .score { flex-wrap: wrap; row-gap: 4px; max-width: calc(64vw - 40px); }
+  .score > b { font-size: 24px; }
+  .hearts { max-width: 100px; }
+  .event { top: calc(118px + env(safe-area-inset-top, 0px)); font-size: 13px; }
+  .fire { bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (max-width: 360px) { .score > span:first-of-type { display: none; } }
 </style>
 
 <canvas id="c"></canvas>
@@ -300,12 +308,15 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const cv = document.getElementById("c");
   let g = cv.getContext("2d", { alpha: false });   // swapped briefly to draw the start-screen preview
   const DISPLAY_FONT = getComputedStyle(document.documentElement).getPropertyValue('--display');
-  let vw = 0, vh = 0, dpr = 1;
+  let vw = 0, vh = 0, dpr = 1, zoom = 1;
+  let TS = 1;   // text scale: undoes the camera zoom so labels stay readable
   function resize() {
     dpr = Math.min(MAX_DPR, window.devicePixelRatio || 1);
-    vw = innerWidth; vh = innerHeight;
-    cv.width = Math.round(vw * dpr); cv.height = Math.round(vh * dpr);
-    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    zoom = Math.max(0.62, Math.min(1, Math.min(innerWidth, innerHeight) / 700));   // runs before the helpers exist
+    TS = 1 / zoom;
+    vw = innerWidth / zoom; vh = innerHeight / zoom;   // world units visible on screen
+    cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr);
+    g.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0);
   }
   addEventListener("resize", resize); resize();
 
@@ -445,8 +456,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const fireBtn = document.getElementById("fireBtn");
   fireBtn.addEventListener("pointerdown", e => { e.preventDefault(); firing = true; fireBtn.setPointerCapture(e.pointerId); });
   for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) fireBtn.addEventListener(ev, () => { firing = false; });
-  cv.addEventListener("pointerdown", e => { ptr.down = true; ptr.x = e.clientX; ptr.y = e.clientY; cv.setPointerCapture(e.pointerId); });
-  cv.addEventListener("pointermove", e => { ptr.x = e.clientX; ptr.y = e.clientY; });
+  cv.addEventListener("pointerdown", e => { ptr.down = true; ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener("pointermove", e => { ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; });
   const up = () => { ptr.down = false; };
   cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
 
@@ -1418,14 +1429,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 
     const label = b.name ? "Lv " + lv + " · " + b.name : "";
     if (label) {
-      g.font = "700 13px " + DISPLAY_FONT;
+      g.font = `700 ${13 * TS}px ` + DISPLAY_FONT;
       g.textAlign = "center";
-      const top = y - S * (lv >= 8 || hat ? 0.62 : 0.46) - 22;
+      const top = y - S * (lv >= 8 || hat ? 0.62 : 0.46) - 22 * TS;
       g.fillStyle = "rgba(20,12,40,0.55)";
-      const w = g.measureText(label).width + 12;
-      rrect(x - w / 2, top, w, 19, 9); g.fill();
+      const w = g.measureText(label).width + 12 * TS;
+      rrect(x - w / 2, top, w, 19 * TS, 9 * TS); g.fill();
       g.fillStyle = `hsl(${b.hue} 90% ${isMe ? 85 : 78}%)`;
-      g.fillText(label, x, top + 14);
+      g.fillText(label, x, top + 14 * TS);
     }
   }
 
@@ -1747,14 +1758,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (!me.dead) drawBot({ ...me, name: playing ? me.name : "", blink: now < me.inv }, vw / 2, vh / 2, now, true);
     else {
       g.textAlign = "center"; g.fillStyle = "#ffffff";
-      g.font = "700 30px " + DISPLAY_FONT;
+      g.font = `700 ${30 * TS}px ` + DISPLAY_FONT;
       g.fillText("Boom! Back in " + Math.max(1, Math.ceil((me.respawnAt - now) / 1000)) + "…", vw / 2, vh / 2);
     }
     // floating score text
     g.textAlign = "center";
     for (const f of floaters) {
       g.globalAlpha = 1 - f.t;
-      g.font = `700 ${f.gold ? 26 : 18}px ` + DISPLAY_FONT;
+      g.font = `700 ${(f.gold ? 26 : 18) * TS}px ` + DISPLAY_FONT;
       g.fillStyle = f.gold ? "#ffd36b" : "#ffffff";
       g.fillText(f.txt, sx(f.x), sy(f.y) - f.t * 50);
     }
@@ -1777,6 +1788,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   let last = performance.now(), frameAvg = 1 / 60;
   const world = { sparks: [], rocks: [], picks: [] };   // shared-clock objects, computed once per frame
   function frame(now) {
+    requestAnimationFrame(frame);
     const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
     if (raw < 0.25) {   // ignore pauses (tab switch)
       frameAvg += (raw - frameAvg) * 0.05;
@@ -1789,19 +1801,19 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     for (let i = 0; i < PICKS; i++) world.picks[i] = pickup(i, wt);
     update(dt, now); draw(now);
     if (!playing) drawPreview(now);
-    requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
 
   // ---------- start ----------
   const pv = document.getElementById("preview"), pctx = pv.getContext("2d");
   function drawPreview(now) {
-    const main = g; g = pctx;
+    const main = g, mainTS = TS; g = pctx; TS = 1;
+    try {
     const k = pv.width / 150;
     pctx.setTransform(1, 0, 0, 1, 0, 0); pctx.clearRect(0, 0, pv.width, pv.height);
     pctx.setTransform(k * 1.25, 0, 0, k * 1.25, 0, 0);
     drawBot({ ...me, name: "", blink: false, thrust: 0.9, a: -Math.PI / 2 + Math.sin(now / 900) * 0.25 }, 60, 50, now, true);
-    g = main;
+    } finally { g = main; TS = mainTS; }
   }
   me.ck = cleanCustom((() => { try { return JSON.parse(store.get("binrocket.custom")); } catch { return null; } })());
   const optsEl = document.getElementById("customOpts");
