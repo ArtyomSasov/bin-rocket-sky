@@ -654,7 +654,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 
   // ---------- networking ----------
   // send(state) every 50 ms; shot(d) right away where the transport allows; otherwise shots ride in the state
-  const net = { send() {}, shot() {}, shotsInState: false };
+  const net = { send() {}, shot() {}, shotsInState: false, hz: 20 };
   const netDot = document.getElementById("netDot"), netText = document.getElementById("netText");
   const shareBtn = document.getElementById("shareBtn"), codeBtn = document.getElementById("codeBtn");
   function copyText(text, btn, label, done) {
@@ -778,6 +778,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     codeBtn.textContent = "Code " + shown + " · copy";
     codeBtn.onclick = () => copyText(shown, codeBtn, "Code " + shown + " · copy", "Code copied");
 
+    // hz: messages per second we may publish there. Measured: HiveMQ delivers 32/s in full;
+    // the public EMQX broker silently drops everything above ~10/s per client.
+    const BROKER_HZ = [20, 9];
     const BROKERS = ["wss://broker.hivemq.com:8884/mqtt", "wss://broker.emqx.io:8084/mqtt"];
     const myId = "p" + Math.random().toString(36).slice(2, 10);
     const base = "binrocket-sky/v1/" + code + "/";
@@ -810,9 +813,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
     setInterval(refresh, 2000);
     const outbound = () => clients.find(c => c.connected);   // first connected broker in BROKERS order
-    net.shot = d => { const c = outbound(); if (c) c.publish(base + "f/" + myId, JSON.stringify(d), { qos: 0 }); };
+    // on the rate-limited backup, shots ride inside the (slower) state messages instead of their own
+    const onPrimary = () => outbound() === clients[0];
+    net.shot = d => { if (onPrimary()) clients[0].publish(base + "f/" + myId, JSON.stringify(d), { qos: 0 }); };
     net.send = p => {
       const c = outbound();
+      const i = clients.indexOf(c);
+      net.hz = i >= 0 ? BROKER_HZ[i] : BROKER_HZ[0];
+      net.shotsInState = i > 0;
       if (c) c.publish(base + "s/" + myId, JSON.stringify(p), { qos: 0 });
     };
     addEventListener("pageshow", e => { if (e.persisted) location.reload(); });
@@ -1046,7 +1054,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     for (let i = floaters.length - 1; i >= 0; i--) { floaters[i].t += dt; if (floaters[i].t > 1) floaters.splice(i, 1); }
 
     sendAcc += dt; slowAcc += dt;
-    if (playing && sendAcc >= 1 / 20) {
+    if (playing && sendAcc >= 1 / net.hz) {
       sendAcc = 0;
       const msg = {
         q: ++sendSeq, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),
