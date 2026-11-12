@@ -92,6 +92,20 @@ body {
 .award span { font-size: 13px; }
 .award small { color: var(--muted); font-size: 12px; }
 .rcard .next { text-align: center; color: var(--muted); font-size: 13px; }
+.feed { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); top: 200px; display: grid; gap: 4px; justify-items: end; pointer-events: none; max-width: 70vw; }
+.fe { display: flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 8px; background: rgba(20,13,40,.72); border: 1px solid var(--line);
+  font: 700 12px var(--body); color: var(--ink); white-space: nowrap; animation: feedIn .25s ease-out; }
+.fe svg { width: 14px; height: 14px; fill: var(--flame); flex: none; }
+.fe .k { color: #ffd36b; } .fe .v { color: #ff8a9a; } .fe.me { border-color: var(--teal); }
+.fe.spree { color: #c38bff; font-style: italic; }
+@keyframes feedIn { from { opacity: 0; transform: translateX(20px); } }
+.announce { position: fixed; left: 50%; top: 26%; transform: translateX(-50%); text-align: center; pointer-events: none; opacity: 0; display: grid; gap: 4px; --ac: #ffd36b; }
+.announce b { font: 700 52px/1 var(--display); color: var(--ac); letter-spacing: .04em; text-shadow: 0 0 18px var(--ac), 0 4px 0 rgba(0,0,0,.45); white-space: nowrap; }
+.announce span { font: 700 16px var(--display); color: var(--ink); text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+.announce.show { animation: ann 2.3s ease-out forwards; }
+@keyframes ann { 0% { opacity: 0; transform: translateX(-50%) scale(2.2); } 9% { opacity: 1; transform: translateX(-50%) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-24px) scale(1); } }
+@media (max-width: 480px) { .announce b { font-size: 32px; } .announce { top: 30%; } }
+@media (prefers-reduced-motion: reduce) { .announce.show { animation-duration: 2.3s; animation-name: annFade; } @keyframes annFade { 0%, 80% { opacity: 1; } 100% { opacity: 0; } } }
 .board h2 { margin: 0 0 6px; font: 600 11px/1 var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .board ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
 .board li { display: flex; justify-content: space-between; gap: 12px; white-space: nowrap; }
@@ -174,6 +188,9 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
 }
 .row input.code { font-family: var(--display); letter-spacing: .18em; text-transform: uppercase; }
 .go { width: 100%; padding: 13px 16px; font-size: 18px; }
+.segs { display: flex; gap: 4px; flex-wrap: wrap; }
+.segs button { font: 700 12px var(--body); padding: 6px 10px; border-radius: 8px; background: transparent; color: var(--muted); border: 1px solid var(--line); box-shadow: none; }
+.segs button[aria-pressed="true"] { background: rgba(79,214,200,.2); color: var(--ink); border-color: var(--teal); }
 .controls { width: 100%; display: grid; gap: 8px; text-align: left; }
 .ctrl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .ctrl-head > span { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
@@ -254,6 +271,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 <button class="fire" id="fireBtn" aria-label="Fire" hidden><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg></button>
 <div class="event" id="eventBanner" hidden></div>
 <div class="board chip"><h2 id="boardTitle">Flyers</h2><div class="round" id="roundInfo">Round 1 · 5:00</div><div class="bhead"><span>Pilot</span><span>Kills · Deaths</span></div><ol id="board"></ol></div>
+<div class="feed" id="feed" aria-live="off"></div>
+<div class="announce" id="announce"></div>
 <div class="results" id="results" hidden><div class="card chip rcard" id="resultsCard"></div></div>
 <div class="status">
   <div class="chip" id="netChip"><span class="dot" id="netDot"></span><span id="netText">Connecting…</span></div>
@@ -282,6 +301,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       <summary>Customize your bin</summary>
       <div class="opts" id="customOpts"></div>
     </details>
+    <div class="field">
+      <label>Bots <small>(they join your lobby; everyone can fight them)</small></label>
+      <div class="segs" id="botCount" role="group" aria-label="Number of bots"></div>
+      <div class="segs" id="botLevel" role="group" aria-label="Bot difficulty"></div>
+    </div>
     <section class="controls" aria-labelledby="ctrlTitle">
       <div class="ctrl-head"><span id="ctrlTitle">Controls</span><div class="ctabs" id="ctabs" role="tablist" aria-label="Device"></div></div>
       <dl class="clist" id="clist"></dl>
@@ -490,6 +514,86 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
   })();
 
+  // ---------- deep-space backdrop: colour nebulae, bright stars, a distant ringed planet, a galaxy ----------
+  const seamless = (size, paint) => {   // paint(ctx, x, y) is called for each wrap copy so the tile repeats cleanly
+    const c = document.createElement("canvas"); c.width = c.height = size;
+    const x = c.getContext("2d");
+    for (const ox of [-size, 0, size]) for (const oy of [-size, 0, size]) paint(x, ox, oy);
+    return c;
+  };
+  const NEB2 = 1800;
+  const nebula = (seed, cols, count, rmin, rmax, amin, amax) => seamless(NEB2, (n, ox, oy) => {
+    for (let i = 0; i < count; i++) {
+      const x = hash(i, 3, seed) * NEB2 + ox, y = hash(i, 4, seed) * NEB2 + oy, r = rmin + hash(i, 5, seed) * (rmax - rmin);
+      if (x < -r || x > NEB2 + r || y < -r || y > NEB2 + r) continue;
+      const c = cols[i % cols.length], a = amin + hash(i, 6, seed) * (amax - amin);
+      const gr = n.createRadialGradient(x, y, 0, x, y, r);
+      gr.addColorStop(0, `rgba(${c},${a})`); gr.addColorStop(0.5, `rgba(${c},${a * 0.45})`); gr.addColorStop(1, `rgba(${c},0)`);
+      n.fillStyle = gr; n.beginPath(); n.arc(x, y, r, 0, 6.29); n.fill();
+    }
+  });
+  const colorNeb = nebula(61, ["255,80,200", "110,90,255", "255,120,160", "170,90,255"], 24, 220, 520, 0.08, 0.16);
+  const colorNeb2 = nebula(64, ["60,200,255", "70,230,190", "120,140,255", "255,170,120"], 18, 160, 420, 0.06, 0.13);
+  const STAR_TILE = 1200;
+  const brightStars = seamless(STAR_TILE, (n, ox, oy) => {
+    const cols = ["#ffffff", "#cfe3ff", "#ffe9c4", "#ffd0f0", "#c9fff6"];
+    for (let i = 0; i < 34; i++) {
+      const x = hash(i, 7, 62) * STAR_TILE + ox, y = hash(i, 8, 62) * STAR_TILE + oy, r = 0.9 + hash(i, 9, 62) * 1.6;
+      if (x < -20 || x > STAR_TILE + 20 || y < -20 || y > STAR_TILE + 20) continue;
+      const col = cols[i % cols.length];
+      const gl = n.createRadialGradient(x, y, 0, x, y, r * 5);
+      gl.addColorStop(0, col); gl.addColorStop(0.25, col + "66"); gl.addColorStop(1, col + "00");
+      n.fillStyle = gl; n.beginPath(); n.arc(x, y, r * 5, 0, 6.29); n.fill();
+      if (i % 5 === 0) {   // a few with diffraction spikes
+        n.strokeStyle = col + "aa"; n.lineWidth = 0.8;
+        n.beginPath(); n.moveTo(x - r * 9, y); n.lineTo(x + r * 9, y); n.moveTo(x, y - r * 9); n.lineTo(x, y + r * 9); n.stroke();
+      }
+    }
+  });
+  const planetCv = (() => {
+    const S = 640, c = document.createElement("canvas"); c.width = c.height = S;
+    const x = c.getContext("2d"), cx = S / 2, cy = S / 2, r = 150;
+    const ring = (front) => {
+      x.save(); x.translate(cx, cy); x.rotate(-0.32); x.scale(1, 0.26);
+      x.beginPath(); front ? x.rect(-S, 0, 2 * S, S) : x.rect(-S, -S, 2 * S, S); x.clip();
+      for (let k = 0; k < 7; k++) {
+        x.strokeStyle = `rgba(${k % 2 ? "255,214,180" : "210,170,255"},${0.18 + (k % 3) * 0.07})`; x.lineWidth = 5 + (k % 3) * 3;
+        x.beginPath(); x.arc(0, 0, r * (1.45 + k * 0.1), 0, 6.29); x.stroke();
+      }
+      x.restore();
+    };
+    ring(false);
+    const atm = x.createRadialGradient(cx, cy, r * 0.9, cx, cy, r * 1.25);
+    atm.addColorStop(0, "rgba(120,200,255,0.35)"); atm.addColorStop(1, "rgba(120,200,255,0)");
+    x.fillStyle = atm; x.beginPath(); x.arc(cx, cy, r * 1.25, 0, 6.29); x.fill();
+    const body = x.createRadialGradient(cx - r * 0.45, cy - r * 0.5, r * 0.1, cx, cy, r);
+    body.addColorStop(0, "#9ad8ff"); body.addColorStop(0.45, "#5a6fd6"); body.addColorStop(0.85, "#2a1f63"); body.addColorStop(1, "#140d33");
+    x.fillStyle = body; x.beginPath(); x.arc(cx, cy, r, 0, 6.29); x.fill();
+    x.save(); x.beginPath(); x.arc(cx, cy, r, 0, 6.29); x.clip();   // cloud bands
+    for (let k = 0; k < 6; k++) { x.fillStyle = `rgba(255,255,255,${0.04 + (k % 2) * 0.03})`; x.fillRect(cx - r, cy - r + k * 52 + 10, 2 * r, 18); }
+    const night = x.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+    night.addColorStop(0.45, "rgba(10,6,30,0)"); night.addColorStop(1, "rgba(10,6,30,0.75)");
+    x.fillStyle = night; x.fillRect(cx - r, cy - r, 2 * r, 2 * r);
+    x.restore();
+    ring(true);
+    return c;
+  })();
+  const galaxyCv = (() => {
+    const S = 420, c = document.createElement("canvas"); c.width = c.height = S;
+    const x = c.getContext("2d");
+    x.translate(S / 2, S / 2); x.rotate(0.5); x.scale(1, 0.42);
+    for (let i = 0; i < 900; i++) {   // two spiral arms of faint dots
+      const t = i / 900 * 9, arm = i % 2 ? Math.PI : 0, rr = 8 + t * 20;
+      const a = t + arm + (hash(i, 1, 63) - 0.5) * 0.6;
+      x.fillStyle = `rgba(${i % 3 ? "220,200,255" : "255,220,240"},${0.25 * (1 - t / 9) + 0.05})`;
+      x.fillRect(Math.cos(a) * rr + (hash(i, 2, 63) - 0.5) * 14, Math.sin(a) * rr + (hash(i, 3, 63) - 0.5) * 14, 2, 2);
+    }
+    const core = x.createRadialGradient(0, 0, 0, 0, 0, 60);
+    core.addColorStop(0, "rgba(255,240,230,0.8)"); core.addColorStop(1, "rgba(255,200,240,0)");
+    x.fillStyle = core; x.beginPath(); x.arc(0, 0, 60, 0, 6.29); x.fill();
+    return c;
+  })();
+
   const DUST = [[0.25, 700, 60, 1, 0.5], [0.8, 900, 50, 1.6, 0.8]].map(([par, tile, count, size, alpha]) => {
     const c = document.createElement("canvas"); c.width = c.height = tile;
     const x = c.getContext("2d"); x.fillStyle = `rgba(255,240,255,${alpha})`;
@@ -501,7 +605,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const me = {
     x: rndIn(W, 300), y: rndIn(H, 300), vx: 0, vy: -40, a: -Math.PI / 2,
     thrust: 0, score: 0, name: "", hue: Math.floor(Math.random() * 360), ck: [0, 0, 0, 0, 0],
-    lives: LIVES, dead: false, respawnAt: 0, inv: 0, xp: 0, lv: 1, weapon: "fire", ammo: Infinity, carry: 0, ds: 0, shield: 0
+    lives: LIVES, dead: false, respawnAt: 0, inv: 0, xp: 0, lv: 1, weapon: "fire", ammo: Infinity, carry: 0, ds: 0, shield: 0, boostFx: 0, dashAt: -1e9
   };
   const myTag = Math.random().toString(36).slice(2, 7);
   let shotSeq = 0, fireCd = 0, firing = false, shake = 0;
@@ -563,6 +667,19 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
 
   // ---------- sound ----------
+  // filtered noise bursts for explosions
+  let noiseBuf = null;
+  function boomSound(dur, freq, vol) {
+    if (!audio) return;
+    if (!noiseBuf) {
+      noiseBuf = audio.createBuffer(1, audio.sampleRate * 2.5, audio.sampleRate);
+      const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const src = audio.createBufferSource(), f = audio.createBiquadFilter(), v = audio.createGain(), t = audio.currentTime;
+    src.buffer = noiseBuf; f.type = "lowpass"; f.frequency.setValueAtTime(freq, t); f.frequency.exponentialRampToValueAtTime(60, t + dur);
+    v.gain.setValueAtTime(vol, t); v.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.connect(f).connect(v).connect(audio.destination); src.start(t); src.stop(t + dur);
+  }
   function blip(f, dur, type) {
     if (!audio) return;
     const o = audio.createOscillator(), v = audio.createGain(), t = audio.currentTime;
@@ -629,16 +746,29 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     dotCache.set(col, c);
     return c;
   }
-  function puff(x, y, vx, vy, life, size, col, k = 0) {
-    parts.push({ x, y, vx, vy, life, max: life, size, col, k, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 14 });
+  function puff(x, y, vx, vy, life, size, col, k = 0, len = 0.035) {
+    parts.push({ x, y, vx, vy, life, max: life, size, col, k, len, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 14 });
+  }
+  // a shower of long glowing sparks thrown along (nx, ny), with embers and a flash: for hard collisions
+  function sparkShower(x, y, nx, ny, power) {
+    const n = Math.round((lowQ ? 12 : 34) * power);
+    for (let k = 0; k < n; k++) {
+      const a = Math.atan2(ny, nx) + (Math.random() - 0.5) * 1.6, v = 380 + Math.random() * 760 * power;
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.45 + Math.random() * 0.6, 1.1 + Math.random() * 1.3, k % 4 ? (k % 2 ? "#fff6c8" : "#ffd36b") : "#ff9a2e", 1, 0.07);
+    }
+    for (let k = 0; k < n / 2; k++) {
+      const a = Math.random() * 6.28, v = 60 + Math.random() * 220;
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.8 + Math.random() * 0.8, 1 + Math.random(), "#ffb43c");
+    }
+    impacts.push({ x, y, t: 0, r: 60 + power * 40, col: "#fff2c0" });
   }
   const impacts = [];   // short bright flashes where something hits
   const debris = [];    // wreckage of destroyed bins, drifting through space for a while
   function addDebris(x, y, vx, vy, size, col) {
     const shape = Array.from({ length: 6 }, () => 0.55 + Math.random() * 0.5);
-    const life = 9 + Math.random() * 5;
-    debris.push({ x, y, vx, vy, size, col, shape, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 3, life, max: life });
-    if (debris.length > 160) debris.shift();
+    const life = Infinity;   // stays until the round ends
+    debris.push({ x, y, vx, vy, size, col, shape, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 3, life, max: life, born: performance.now() });
+    if (debris.length > 220) debris.shift();
   }
   const rings = [];     // expanding shock rings
   // metal-on-metal: a flash plus a spray of bright streaks
@@ -659,10 +789,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   // dead but intact: a dark, cracked, engine-off bin tumbling slowly, smoking and sparking for ~12 s
   const hulks = [];
   function makeHulk(b) {
-    const life = 11 + Math.random() * 3;
+    const life = Infinity;   // stays until the round ends
     hulks.push({ x: b.x, y: b.y, vx: (b.vx || 0) * 0.5 + (Math.random() - 0.5) * 60, vy: (b.vy || 0) * 0.5 + (Math.random() - 0.5) * 60,
-                 a: b.a, spin: (Math.random() - 0.5) * 1.6, lv: b.lv || 1, ck: b.ck, life, max: life });
-    if (hulks.length > 12) hulks.shift();
+                 a: b.a, spin: (Math.random() - 0.5) * 1.6, lv: b.lv || 1, ck: b.ck, life, max: life, born: performance.now() });
+    if (hulks.length > 30) hulks.shift();
     impacts.push({ x: b.x, y: b.y, t: 0, r: 70, col: "#ff9a2e" });
     rings.push({ x: b.x, y: b.y, t: 0, r: 140, col: "255,200,160", warp: true });
     explode(b.x, b.y, lowQ ? 14 : 30, 220);
@@ -684,6 +814,27 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const bh = ck ? customVal(ck, "body") : null, lh = ck ? customVal(ck, "lid") : null;
     return [bh === null ? "#4fd6c8" : `hsl(${bh} 65% 55%)`, lh === null ? "#9d8fc8" : `hsl(${lh} 45% 60%)`];
   };
+  // boost: a dense jet of fire out of the nozzle
+  function afterburner(b, fx, dt) {
+    if (!fx) return;
+    const bx = Math.cos(b.a), by = Math.sin(b.a), sz = sizeOf(b.lv || 1), tail = 46 * sz;
+    const n = (fx === 2 ? 110 : 55) * (lowQ ? 0.4 : 1) * dt;
+    for (let k = 0; k < n || (k === 0 && Math.random() < n); k++) {
+      const sp = 260 + Math.random() * 320, j = (Math.random() - 0.5) * 0.5;
+      const vx = -Math.cos(b.a + j) * sp, vy = -Math.sin(b.a + j) * sp;
+      puff(b.x - bx * tail, b.y - by * tail, vx + (b.vx || 0) * 0.4, vy + (b.vy || 0) * 0.4, 0.22 + Math.random() * 0.25, 2.5 + Math.random() * 3 * sz, FIRE_COLS[(Math.random() * 3) | 0]);
+    }
+  }
+  // dash: a flash and a hot ring at the nozzle, sparks thrown back
+  function dashBurst(b) {
+    const bx = Math.cos(b.a), by = Math.sin(b.a), sz = sizeOf(b.lv || 1), tx = b.x - bx * 44 * sz, ty = b.y - by * 44 * sz;
+    impacts.push({ x: tx, y: ty, t: 0, r: 90 * sz, col: "#ffd23f" });
+    rings.push({ x: tx, y: ty, t: 0, r: 110 * sz, col: "255,220,160", dur: 0.35, w: 8 });
+    for (let k = 0; k < (lowQ ? 12 : 30); k++) {
+      const a = b.a + Math.PI + (Math.random() - 0.5) * 0.9, v = 400 + Math.random() * 500;
+      puff(tx, ty, Math.cos(a) * v, Math.sin(a) * v, 0.25 + Math.random() * 0.25, 1.2 + Math.random(), k % 2 ? "#fff6c8" : "#ffb43c", 1);
+    }
+  }
   // a hurt bin smokes; on its last life it also throws sparks
   const damageOf = b => 1 - b.lives / maxLivesOf(b.lv || 1);
   function damageFx(b, dt) {
@@ -734,7 +885,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   // draw a piece once into its own canvas (art + wings + armour, clipped), plus a second canvas with the
   // hot fracture lines kept only where the piece has paint, so nothing glows in empty space
   function renderPiece(piece, s, lv, ck) {
-    const res = 2, cw = Math.ceil(s * res), mk = () => { const c = document.createElement("canvas"); c.width = c.height = cw; return c; };
+    const res = 1.5, cw = Math.ceil(s * res), mk = () => { const c = document.createElement("canvas"); c.width = c.height = cw; return c; };
     const base = mk(), glow = mk(), bctx = base.getContext("2d"), gctx = glow.getContext("2d");
     const P = (px, py) => [(px / 320 - 0.5) * s, (py / 320 - 0.5) * s];
     const main = g, mainTS = TS;
@@ -763,15 +914,25 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     for (const piece of cutSprite(n)) {
       const ox = (piece.cx / 320 - 0.5) * s, oy = (piece.cy / 320 - 0.5) * s;
       const wx = ox * Math.cos(rot) - oy * Math.sin(rot), wy = ox * Math.sin(rot) + oy * Math.cos(rot);
-      const d = Math.hypot(wx, wy) || 1, v = 70 + Math.random() * 150, life = 10 + Math.random() * 4;
+      const d = Math.hypot(wx, wy) || 1, v = 70 + Math.random() * 150, life = Infinity;
       const [img0, glow0] = renderPiece(piece, s, b.lv || 1, b.ck || [0, 0, 0, 0, 0]);
       frags.push({ cx: piece.cx, cy: piece.cy, img: img0, glow: glow0, x: b.x + wx, y: b.y + wy,
                    vx: wx / d * v + (b.vx || 0) * 0.4, vy: wy / d * v + (b.vy || 0) * 0.4,
-                   a: rot, spin: (Math.random() - 0.5) * 1.3, s, life, max: life });
+                   a: rot, spin: (Math.random() - 0.5) * 1.3, s, life, max: life, born: performance.now() });
     }
-    while (frags.length > 40) frags.shift();
+    while (frags.length > 60) frags.shift();   // each piece holds two small pre-rendered canvases
+  }
+  function shove(x, y, r, power) {
+    for (const list of [hulks, frags, debris]) for (const o of list) {
+      const dx = o.x - x, dy = o.y - y, d = Math.hypot(dx, dy);
+      if (d < 1 || d > r) continue;
+      const f = power * (1 - d / r);
+      o.vx += dx / d * f; o.vy += dy / d * f;
+      if ("spin" in o) o.spin += (Math.random() - 0.5) * f / 200; else o.vr += (Math.random() - 0.5) * f / 100;
+    }
   }
   function binExplosion(b, n) {
+    shove(b.x, b.y, 320, 420);
     const [bodyCol, lidCol] = binColors(b.ck), sz = sizeOf(b.lv || 1), q = lowQ ? 0.35 : 1;
     // a fireball in three quick beats
     impacts.push({ x: b.x, y: b.y, t: 0, r: 150 * sz, col: "#fff2c0" });
@@ -779,6 +940,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     impacts.push({ x: b.x - 8, y: b.y + 10, t: -0.14, r: 95 * sz, col: "#ff6a2a" });
     rings.push({ x: b.x, y: b.y, t: 0, r: 230 * sz, col: "255,220,170", warp: true });
     explode(b.x, b.y, Math.round(90 * q), 360);
+    if (Math.hypot(b.x - me.x, b.y - me.y) < 1400) boomSound(0.9, 1400, 0.35);
     // dense rolling fire at the core
     for (let k = 0; k < 46 * q; k++) {
       const a = Math.random() * 6.28, v = 30 + Math.random() * 150;
@@ -870,6 +1032,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function dash(now) {
     if (!playing || me.dead || energy < 25 || now < dashReadyAt) return;
     energy -= 25; dashReadyAt = now + 450; energyRegenAt = now + 700;
+    me.dashAt = now;
+    dashBurst(me);
     const sm = Math.hypot(steer.x, steer.y);
     const a = sm > 0.2 ? Math.atan2(steer.y, steer.x) : me.a;
     me.vx += Math.cos(a) * 720; me.vy += Math.sin(a) * 720;
@@ -906,12 +1070,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     s.boom = true; s.life = 0;
     const x = clamp(s.x, 0, W), y = clamp(s.y, 0, H), d = Math.hypot(me.x - x, me.y - y);
     const q = lowQ ? 0.35 : 1;
+    shove(x, y, NUKE_R * 1.4, 1600);
     booms.push({ x, y, t: 0, seed: Math.random() * 100 });
     // three shock waves: a fast bright one, a heavy one, and a faint far one, all bending the view
     rings.push({ x, y, t: 0, r: NUKE_R * 1.25, col: "255,250,230", warp: true, dur: 0.9, w: 26 });
     rings.push({ x, y, t: -0.12, r: NUKE_R * 0.95, col: "255,190,110", warp: true, dur: 1.2, w: 34 });
     rings.push({ x, y, t: -0.3, r: NUKE_R * 1.8, col: "255,220,180", dur: 1.6, w: 14 });
     explode(x, y, Math.round(260 * q), 1150);
+    boomSound(2.6, 700, 0.6);
     for (let k = 0; k < 160 * q; k++) {   // embers flung far out
       const a = Math.random() * 6.28, v = 500 + Math.random() * 900;
       puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 1.6 + Math.random() * 1.6, 1 + Math.random() * 1.6, Math.random() < 0.5 ? "#ffb43c" : "#ffe08a");
@@ -926,8 +1092,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (!s.mine && playing && !me.dead && d < NUKE_R) {
       const push = 1500 * (1 - d / NUKE_R) + 400;
       me.vx += (me.x - x) / (d || 1) * push; me.vy += (me.y - y) / (d || 1) * push;
-      const killed = d < NUKE_KILL ? hurt(now, 99, true) : hurt(now, NUKE_DMG);
-      if (killed) { pushCapped(hitBy, s.id, 12); if (me.dead) pushCapped(koBy, s.id, 12); }
+      const wasHit = d < NUKE_KILL ? hurt(now, 99, true) : hurt(now, NUKE_DMG);
+      if (wasHit) { pushCapped(hitBy, s.id, 12); if (me.dead) { meKilled(s.id); killedBy(s.owner); } }
+    }
+    for (const b of bots) {
+      const bd = Math.hypot(b.x - x, b.y - y);
+      if (b.dead || b.id === s.owner || bd > NUKE_R) continue;
+      b.vx += (b.x - x) / (bd || 1) * 1200; b.vy += (b.y - y) / (bd || 1) * 1200;
+      botHurt(b, bd < NUKE_KILL ? 99 : NUKE_DMG, s.id, now, bd < NUKE_KILL);
     }
     if (!s.mine) return;
     // the shooter wipes out everything in the blast and shares the result
@@ -1020,7 +1192,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 
   // ---------- networking ----------
   // send(state) every 50 ms; shot(d) right away where the transport allows; otherwise shots ride in the state
-  const net = { send() {}, shot() {}, shotsInState: false, hz: 20 };
+  const net = { send() {}, shot() {}, sendAs() {}, shotAs() {}, shotsInState: false, hz: 20 };
   const netDot = document.getElementById("netDot"), netText = document.getElementById("netText");
   const shareBtn = document.getElementById("shareBtn"), codeBtn = document.getElementById("codeBtn");
   function copyText(text, btn, label, done) {
@@ -1082,10 +1254,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (Math.hypot(r.tx - r.x, r.ty - r.y) > 300) { r.x = r.tx; r.y = r.ty; }   // teleport (respawn, black hole)
       if (Number.isFinite(p.a)) r.ta = p.a;
       r.thrust = p.t ? 1 : 0;
+      const bf = p.b === 1 || p.b === 2 ? p.b : 0;
+      if (bf === 2 && r.boost !== 2) dashBurst(r);   // they just dashed
+      r.boost = bf;
       const dead = p.d === 1;
       if (dead && !r.dead) { if (p.ds === 1) makeHulk(r); else binExplosion(r, p.ds >= 2 && p.ds <= 4 ? p.ds : 3); }
       r.dead = dead; r.inv = p.i === 1;
     }
+    if (typeof p.tg === "string" && /^[a-z0-9]{1,8}$/.test(p.tg)) r.tag = p.tg;
     if (typeof p.n === "string") r.name = p.n.slice(0, 14);
     if (Number.isFinite(p.h)) r.hue = p.h % 360;
     if ("ck" in p) r.ck = cleanCustom(p.ck);
@@ -1106,9 +1282,12 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     for (const k of Array.isArray(p.hb) ? p.hb.slice(0, 16) : []) if (mine(k) && !credited.has(k)) {
       credited.add(k); me.score += 1; stats.hits++; floaters.push({ x: r.x, y: r.y - 30, t: 0, txt: "Hit +1", gold: false });
     }
+    if (bots.length) { creditBots(Array.isArray(p.hb) ? p.hb.slice(0, 16) : [], false); creditBots(Array.isArray(p.ko) ? p.ko.slice(0, 16) : [], true); }
+    for (const k of Array.isArray(p.ko) ? p.ko.slice(0, 16) : []) if (typeof k === "string") reportKill(k, r.name);
     for (const k of Array.isArray(p.ko) ? p.ko.slice(0, 16) : []) if (mine(k) && !credited.has("ko" + k)) {
       credited.add("ko" + k); me.score += 5; floaters.push({ x: r.x, y: r.y - 50, t: 0, txt: "KILL " + r.name, gold: true });
       stats.kills++; stats.streak++; stats.best = Math.max(stats.best, stats.streak);
+      myKillAnnounce(performance.now());
       blip(520, 0.35);
     }
     showScore();
@@ -1186,6 +1365,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     // on the rate-limited backup, shots ride inside the (slower) state messages instead of their own
     const onPrimary = () => outbound() === clients[0];
     net.shot = d => { if (onPrimary()) clients[0].publish(base + "f/" + myId, JSON.stringify(d), { qos: 0 }); };
+    // bots run in this browser and show up for everyone as their own pilots
+    net.shotAs = (id, d) => { if (onPrimary()) clients[0].publish(base + "f/" + id, JSON.stringify(d), { qos: 0 }); };
+    net.sendAs = (id, p) => { const c = outbound(); if (c) c.publish(base + "s/" + id, JSON.stringify(p), { qos: 0 }); };
     net.send = p => {
       const c = outbound();
       const i = clients.indexOf(c);
@@ -1248,6 +1430,193 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     s.vx = Math.cos(na) * sp; s.vy = Math.sin(na) * sp;
   }
 
+  // ---------- bots (simulated here, broadcast like real pilots) ----------
+  const BOT_NAMES = ["Rusty", "Bolt", "Zappy", "Clank", "Nova", "Sprocket", "Dusty", "Orbit"];
+  const BOT_LEVELS = { easy: { aim: 0.26, cd: 0.95, speed: 0.75, label: "Easy" }, normal: { aim: 0.13, cd: 0.62, speed: 0.9, label: "Normal" }, hard: { aim: 0.05, cd: 0.4, speed: 1, label: "Hard" } };
+  const bots = [], botById = new Map(), botCredited = new Set();
+  function addBots(n, level) {
+    const L = BOT_LEVELS[level];
+    for (let i = 0; i < n; i++) {
+      const id = "pb" + Math.random().toString(36).slice(2, 8);
+      const b = { id, tag: "b" + Math.random().toString(36).slice(2, 7), name: BOT_NAMES[(bots.length) % BOT_NAMES.length] + " (bot)", L,
+        hue: Math.floor(Math.random() * 360), ck: [Math.floor(Math.random() * 7), Math.floor(Math.random() * 6), Math.floor(Math.random() * 5), Math.floor(Math.random() * 5), Math.floor(Math.random() * 6)],
+        x: rndIn(W, 300), y: rndIn(H, 300), vx: 0, vy: 0, a: Math.random() * 6.28, lives: LIVES, dead: false, respawnAt: 0, inv: 0, ds: 0,
+        fireCd: 1 + Math.random(), side: Math.random() < 0.5 ? 1 : -1, wander: Math.random() * 6.28, seq: 0, q: 0,
+        shotLog: [], hitBy: [], koBy: [], st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 } };
+      bots.push(b); botById.set(id, b);
+    }
+  }
+  function creditBots(list, ko) {
+    for (const k of list) {
+      if (typeof k !== "string") continue;
+      const key = (ko ? "ko" : "") + k;
+      if (botCredited.has(key)) continue;
+      for (const b of bots) if (k.startsWith(b.tag + ".")) {
+        botCredited.add(key);
+        if (ko) { b.st.kills++; b.st.streak++; b.st.best = Math.max(b.st.best, b.st.streak); } else b.st.hits++;
+      }
+    }
+  }
+  function botHurt(b, dmg, shotId, now, force) {
+    if (b.dead || (!force && now < b.inv) || !roundLive) return;
+    b.lives -= dmg; b.inv = now + 500;
+    const byHole = shotId === "x";   // the black hole: nobody gets credit
+    if (!byHole) pushCapped(b.hitBy, shotId, 12);
+    if (b.lives <= 0) {
+      b.dead = true; b.respawnAt = now + 3000; b.ds = 1 + Math.floor(Math.random() * 4);
+      b.st.deaths++; b.st.streak = 0;
+      if (byHole) feedPush(`<span class="v">${esc(b.name)}</span> was swallowed by the black hole`);
+      else pushCapped(b.koBy, shotId, 12);
+    }
+  }
+  function botFire(b, now) {
+    const bx = Math.cos(b.a), by = Math.sin(b.a);
+    const id = b.tag + "." + (b.seq++).toString(36);
+    const s = { id, kind: 0, x: b.x + bx * 42, y: b.y + by * 42, px: b.x, py: b.y, vx: bx * 880 + b.vx * 0.6, vy: by * 880 + b.vy * 0.6, life: SHOT_LIFE[0], mine: false, owner: b.id };
+    shots.push(s); seenShots.set(id, performance.now());
+    const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), 0];
+    b.shotLog.push({ at: now, d }); net.shotAs(b.id, d);
+    b.st.shots++;
+    b.vx -= bx * 25; b.vy -= by * 25;
+  }
+  function updateBots(dt, now) {
+    if (!bots.length) return;
+    creditBots(hitBy, false); creditBots(koBy, true);   // bots that hit or killed me
+    const ev = eventAt(clockNow()), bh = ev.active && ev.type === "blackhole" ? blackHole(ev) : null;
+    for (const b of bots) {
+      while (b.shotLog.length && now - b.shotLog[0].at > 700) b.shotLog.shift();
+      if (b.dead) {
+        if (now < b.respawnAt) continue;
+        Object.assign(b, { dead: false, lives: LIVES, inv: now + 2000, x: rndIn(W, 300), y: rndIn(H, 300), vx: 0, vy: 0 });
+      }
+      // nearest living target: me or anyone else in the lobby (other bots included)
+      let tgt = null, td = 1700;
+      if (playing && !me.dead) { const d = Math.hypot(me.x - b.x, me.y - b.y); if (d < td) { td = d; tgt = me; } }
+      for (const [rid, r] of remotes) {
+        if (rid === b.id || r.dead) continue;
+        const d = Math.hypot(r.x - b.x, r.y - b.y);
+        if (d < td) { td = d; tgt = r; }
+      }
+      let dx = 0, dy = 0;
+      if (tgt) {
+        const ax = (tgt.x - b.x) / td, ay = (tgt.y - b.y) / td, want = td > 430 ? 1 : td < 260 ? -0.8 : 0;
+        dx = ax * want - ay * 0.65 * b.side; dy = ay * want + ax * 0.65 * b.side;
+        if (Math.random() < dt * 0.4) b.side = -b.side;
+      } else {
+        b.wander += (Math.random() - 0.5) * dt * 2; dx = Math.cos(b.wander); dy = Math.sin(b.wander);
+      }
+      const m = 260;   // keep off the fence
+      if (b.x < m) dx += (m - b.x) / m * 2.5; if (b.x > W - m) dx -= (b.x - W + m) / m * 2.5;
+      if (b.y < m) dy += (m - b.y) / m * 2.5; if (b.y > H - m) dy -= (b.y - H + m) / m * 2.5;
+      if (bh) {   // and away from a black hole
+        const hx = b.x - bh.x, hy = b.y - bh.y, hd = Math.hypot(hx, hy) || 1;
+        if (hd < 900) { dx += hx / hd * 3 * (1 - hd / 900) * 2; dy += hy / hd * 3 * (1 - hd / 900) * 2; }
+        if (hd < 1500) { const acc = bh.k * 9e7 / (hd * hd + 1.5e4); b.vx -= hx / hd * acc * dt; b.vy -= hy / hd * acc * dt; }
+        if (hd < 60 * bh.k) botHurt(b, 99, "x", now, true);
+      }
+      const dm = Math.hypot(dx, dy) || 1, top = 540 * b.L.speed;
+      const resp = 1 - Math.exp(-2.4 * dt);
+      b.vx += (dx / dm * top - b.vx) * resp; b.vy += (dy / dm * top - b.vy) * resp;
+      b.x += b.vx * dt; b.y += b.vy * dt;
+      if (b.x < 40 || b.x > W - 40) { b.vx = -b.vx * 0.6; b.x = clamp(b.x, 40, W - 40); }
+      if (b.y < 40 || b.y > H - 40) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 40, H - 40); }
+      // aim (with some error) and shoot
+      const aim = tgt ? Math.atan2(tgt.y + (tgt.vy || 0) * 0.25 - b.y, tgt.x + (tgt.vx || 0) * 0.25 - b.x) + Math.sin(now / 400 + b.seq) * b.L.aim
+                      : Math.atan2(b.vy, b.vx);
+      b.a = lerpAng(b.a, aim, 1 - Math.exp(-5 * dt));
+      b.fireCd -= dt;
+      if (tgt && roundLive && td < 950 && Math.abs(angD(aim - b.a)) < 0.3 && b.fireCd <= 0) { botFire(b, now); b.fireCd = b.L.cd * (0.7 + Math.random() * 0.6); }
+      // ramming a bot on boost
+      if (playing && !me.dead && me.boostFx > 0 && Math.hypot(me.x - b.x, me.y - b.y) < 31 * (sizeOf(me.lv) + 1) && (!b.rammedAt || now - b.rammedAt > 400)) {
+        b.rammedAt = now;
+        const dx = b.x - me.x, dy = b.y - me.y, d = Math.hypot(dx, dy) || 1;
+        b.vx += dx / d * 900; b.vy += dy / d * 900; me.vx -= dx / d * 260; me.vy -= dy / d * 260;
+        sparkShower((b.x + me.x) / 2, (b.y + me.y) / 2, -dy, dx, 1.3); sparkShower((b.x + me.x) / 2, (b.y + me.y) / 2, dy, -dx, 1.3);
+        shake = Math.max(shake, 0.4); blip(120, 0.2, "square");
+        botHurt(b, me.boostFx === 2 ? 2 : 1, myTag + ".ram" + Math.floor(now), now, false);
+      }
+      // anyone's shots can hit the bot (the bot's own excepted)
+      for (const s of shots) {
+        if (s.life <= 0 || s.owner === b.id || s.kind === 3) continue;
+        if (segHit(s, b.x, b.y, 38)) { s.life = 0; impact(s.x, s.y, "#ffb43c", 1); botHurt(b, s.kind === 1 ? 2 : 1, s.id, now, false); }
+      }
+    }
+  }
+  function sendBots(now) {
+    for (const b of bots) {
+      const m = {
+        q: ++b.q, x: Math.round(b.x), y: Math.round(b.y), vx: Math.round(b.vx), vy: Math.round(b.vy), a: +b.a.toFixed(2),
+        t: 1, b: 0, d: b.dead ? 1 : 0, i: now < b.inv ? 1 : 0, ds: b.dead ? b.ds : 0,
+        n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, l: Math.max(0, b.lives), lv: 1, sh: 0, wp: 0, g: [], hb: b.hitBy, ko: b.koBy,
+        st: [stats.round, b.st.kills, b.st.deaths, b.st.shots, b.st.hits, b.st.best]
+      };
+      if (net.shotsInState) m.f = b.shotLog.map(e => e.d);
+      net.sendAs(b.id, m);
+      applyRemote(b.id, m);   // and show it here
+    }
+  }
+
+  // ---------- kill feed & announcer ----------
+  const feedEl = document.getElementById("feed"), annEl = document.getElementById("announce");
+  const feed = [];
+  function feedPush(html, isMe) { feed.push({ html, at: performance.now(), me: !!isMe }); if (feed.length > 6) feed.shift(); renderFeed(); }
+  function renderFeed() {
+    const now = performance.now();
+    while (feed.length && now - feed[0].at > 7000) feed.shift();
+    feedEl.style.top = (document.querySelector(".board").getBoundingClientRect().bottom + 8) + "px";
+    feedEl.innerHTML = feed.map(e => `<div class="fe${e.me ? " me" : ""}${e.spree ? " spree" : ""}">${e.html}</div>`).join("");
+  }
+  const tagOwner = tag => {
+    if (tag === myTag) return { name: me.name || "You", weapon: me.weapon, me: true };
+    for (const b of bots) if (b.tag === tag) return { name: b.name, weapon: "fire" };
+    for (const r of remotes.values()) if (r.tag === tag) return { name: r.name, weapon: r.weapon || "fire" };
+    return null;
+  };
+  const RAM_ICON = "M2 11h11l-3-4 2-1 6 6-6 6-2-1 3-4H2zM19 5h3v14h-3z";
+  const killSeen = new Set(), streaks = new Map();
+  let firstBlood = false;
+  const SPREES = { 3: "KILLING SPREE", 5: "RAMPAGE", 7: "DOMINATING", 9: "UNSTOPPABLE", 11: "GODLIKE", 15: "WICKED SICK" };
+  const MULTI = ["", "", "DOUBLE KILL", "TRIPLE KILL", "MULTI KILL", "MEGA KILL", "ULTRA KILL", "MONSTER KILL"];
+  // someone (anyone) killed someone: one line in the feed, first blood, other pilots' sprees
+  function reportKill(shotId, victim) {
+    if (killSeen.has(shotId) || !roundLive) return;
+    killSeen.add(shotId);
+    const k = tagOwner(shotId.split(".")[0]), killer = k ? k.name : "Someone", ram = shotId.includes(".ram");
+    const icon = ram ? RAM_ICON : ICONS[k ? k.weapon : "fire"];
+    feedPush(`<span class="k">${esc(killer)}</span><svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="${icon}"/></svg><span class="v">${esc(victim)}</span>`, k && k.me || victim === (me.name || "You"));
+    if (!firstBlood) { firstBlood = true; announce("FIRST BLOOD", killer + " drew first blood", "#ff5a6e"); }
+    const n = (streaks.get(killer) || 0) + 1;
+    streaks.set(killer, n); streaks.set(victim, 0);
+    if (SPREES[n] && !(k && k.me)) { feed.push({ html: `${esc(killer)} is on a ${SPREES[n].toLowerCase()}!`, at: performance.now(), spree: true }); renderFeed(); }
+  }
+  function meKilled(id) { pushCapped(koBy, id, 12); reportKill(id, me.name || "You"); }
+  // my own multi-kills and sprees get the big centre announcement
+  let multi = 0, lastKillAt = -1e9;
+  function myKillAnnounce(now) {
+    multi = now - lastKillAt < 4000 ? multi + 1 : 1;
+    lastKillAt = now;
+    [784, 988, 1175].forEach((f, i) => setTimeout(() => blip(f, 0.16, "triangle"), i * 70));
+    const m = multi >= 2 ? MULTI[Math.min(multi, MULTI.length - 1)] : "", sp = SPREES[stats.streak] || "";
+    if (m) announce(m, multi + " kills", "#ffd36b");
+    if (sp) setTimeout(() => announce(sp, stats.streak + " kills without dying", "#c38bff"), m ? 1300 : 0);
+  }
+  let voice = null;
+  function speak(text) {
+    if (!audio || !window.speechSynthesis) return;
+    if (!voice) voice = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang)).sort((a, b) => (/male|daniel|alex|fred|uk/i.test(b.name) ? 1 : 0) - (/male|daniel|alex|fred|uk/i.test(a.name) ? 1 : 0))[0] || null;
+    const u = new SpeechSynthesisUtterance(text.toLowerCase());
+    if (voice) u.voice = voice;
+    u.lang = "en-US"; u.rate = 0.85; u.pitch = 0.45; u.volume = 1;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }
+  function announce(text, sub, col) {
+    annEl.innerHTML = `<b>${esc(text)}</b>${sub ? `<span>${esc(sub)}</span>` : ""}`;
+    annEl.style.setProperty("--ac", col);
+    annEl.classList.remove("show"); void annEl.offsetWidth; annEl.classList.add("show");
+    speak(text);
+    [196, 247, 294].forEach((f, i) => setTimeout(() => blip(f, 0.5, "sawtooth"), i * 40));
+  }
+
   // ---------- update ----------
   let sendAcc = 0, boardAcc = 0, sendSeq = 0, slowAcc = 1, lastSlow = "";
   function update(dt, now) {
@@ -1276,6 +1645,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     steer.x += (ix - steer.x) * ease; steer.y += (iy - steer.y) * ease;
     const im = Math.hypot(steer.x, steer.y);
     boost = boost && playing && !me.dead && energy > 0 && im > 0.1;
+    me.boostFx = now - me.dashAt < 350 ? 2 : boost ? 1 : 0;
     if (boost) { energy = Math.max(0, energy - 45 * dt); energyRegenAt = now + 700; }
     else if (now > energyRegenAt) energy = Math.min(100, energy + 22 * dt);
     const top = boost ? 860 : 540;
@@ -1296,12 +1666,17 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (playing && !me.dead) {
         const wx = hitX !== null ? (hitX < W / 2 ? 0 : W) : me.x, wy = hitY !== null ? (hitY < H / 2 ? 0 : H) : me.y;
         impact(wx, wy, "#bdfff6", Math.min(2, 0.4 + hitSpeed / 450));
+        if (hitSpeed > 300) sparkShower(wx, wy, W / 2 - wx || (W / 2 - me.x), H / 2 - wy || (H / 2 - me.y), Math.min(1.6, hitSpeed / 600));
         if (hitSpeed > 120) hurt(now); else shake = Math.max(shake, 0.12);
       }
     }
-    if (sp > 25) me.a = lerpAng(me.a, Math.atan2(me.vy, me.vx), 1 - Math.exp(-6 * dt));
+    // face where you steer, not where you drift: recoil, bumps and the black hole's pull move the bin
+    // but no longer spin it (shooting while standing still used to flip it round and round)
+    const steerMag = Math.hypot(steer.x, steer.y);
+    if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-7 * dt));
+    else if (!playing && sp > 25) me.a = lerpAng(me.a, Math.atan2(me.vy, me.vx), 1 - Math.exp(-6 * dt));
     me.thrust += ((playing ? Math.min(1, im) * (boost ? 1.4 : 1) : 0.6) - me.thrust) * Math.min(1, dt * 6);
-    if (!me.dead) { trailFrom(me, 0.6 + me.thrust * 1.6, dt); if (playing) damageFx(me, dt); }
+    if (!me.dead) { trailFrom(me, 0.6 + me.thrust * 1.6 + me.boostFx * 1.5, dt); if (playing) damageFx(me, dt); afterburner(me, me.boostFx, dt); }
 
     // fireballs
     for (let i = shots.length - 1; i >= 0; i--) {
@@ -1330,11 +1705,12 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         impact(s.x, s.y, s.kind === 2 ? "#7df9ff" : "#ffb43c", s.kind === 1 ? 2 : 1);
         if (hurt(now, s.kind === 1 ? 2 : 1)) {
           pushCapped(hitBy, s.id, 12);
-          if (me.dead) { pushCapped(koBy, s.id, 12); killedBy(s.owner); }
+          if (me.dead) { meKilled(s.id); killedBy(s.owner); }
         }
       }
       // my fireball reaches another bin: fizzle here, they confirm the hit
-      if (s.mine && s.life > 0) for (const r of remotes.values()) {
+      if (s.mine && s.life > 0) for (const [rid, r] of remotes) {
+        if (botById.has(rid)) continue;
         if (r.dead || r.inv) continue;
         if (segHit(s, r.x, r.y, 16 + 26 * sizeOf(r.lv || 1))) { s.life = 0; impact(s.x, s.y, s.kind === 2 ? "#7df9ff" : "#ffb43c", s.kind === 1 ? 2 : 1); if (s.kind === 1) explode(s.x, s.y, 40, 260); break; }
       }
@@ -1368,6 +1744,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 
     updateEvents(dt, now);
 
+    updateBots(dt, now);
+
     // shared clock: drift smoothly toward the average offset
     let offSum = 0, offN = 1;
     for (const r of remotes.values()) if (Number.isFinite(r.off)) { offSum += r.off; offN++; }
@@ -1375,22 +1753,33 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     clockOff += (clockTarget - clockOff) * Math.min(1, dt * 0.5);
 
     // remotes: extrapolate + ease toward reported spot
-    for (const [id, r] of remotes) {
-      if (now - r.seen > 7000) { remotes.delete(id); continue; }
+    for (const [rid, r] of remotes) {
+      if (now - r.seen > 7000) { remotes.delete(rid); continue; }
       r.tx = clamp(r.tx + r.vx * dt, 0, W); r.ty = clamp(r.ty + r.vy * dt, 0, H);
       const corr = 1 - Math.exp(-12 * dt);
       r.x = clamp(r.x + r.vx * dt + (r.tx - r.x) * corr, 0, W);
       r.y = clamp(r.y + r.vy * dt + (r.ty - r.y) * corr, 0, H);
       r.a = lerpAng(r.a, r.ta, 1 - Math.exp(-14 * dt));
       if (r.dead) continue;
-      if (Math.abs(r.x - me.x) < vw / 2 + 300 && Math.abs(r.y - me.y) < vh / 2 + 300) { trailFrom(r, 0.6 + r.thrust * 1.4, dt); damageFx(r, dt); }
+      if (Math.abs(r.x - me.x) < vw / 2 + 300 && Math.abs(r.y - me.y) < vh / 2 + 300) { trailFrom(r, 0.6 + r.thrust * 1.4 + (r.boost || 0) * 1.5, dt); damageFx(r, dt); afterburner(r, r.boost || 0, dt); }
       // boop
       const dx = wrapD(me.x - r.x, W), dy = wrapD(me.y - r.y, H), d = Math.hypot(dx, dy);
       if (playing && !me.dead && d < 31 * (sizeOf(me.lv) + sizeOf(r.lv || 1)) && d > 0.01 && (!r.boop || now - r.boop > 400)) {
         r.boop = now;
-        me.vx += dx / d * 420; me.vy += dy / d * 420;
+        const rammed = (r.boost || 0) > 0, mineRam = me.boostFx > 0;
+        const kick = rammed ? 900 : mineRam ? 260 : 420;
+        me.vx += dx / d * kick; me.vy += dy / d * kick;
         impact(me.x - dx / 2, me.y - dy / 2, "#bdfff6", 1.2);
-        blip(220, 0.18, "square");
+        if (rammed || mineRam) { sparkShower(me.x - dx / 2, me.y - dy / 2, -dy, dx, 1.3); sparkShower(me.x - dx / 2, me.y - dy / 2, dy, -dx, 1.3); shake = Math.max(shake, 0.4); }
+        blip(rammed ? 120 : 220, 0.2, "square");
+        // they rammed me on boost: I take the damage and report it so they get the credit
+        if (rammed && r.tag) {
+          const id = r.tag + ".ram" + Math.floor(now);
+          if (hurt(now, r.boost === 2 ? 2 : 1)) {
+            pushCapped(hitBy, id, 12);
+            if (me.dead) { meKilled(id); killedBy(rid); }
+          }
+        }
       }
     }
 
@@ -1463,8 +1852,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
     if (grabbed.size > 600) { const keep = [...grabbed].slice(-300); grabbed.clear(); keep.forEach(k => grabbed.add(k)); }
 
+    // flying through smoke and sparks shoves them aside (faster = harder)
+    const meSp = Math.hypot(me.vx, me.vy), pushR = 46 * sizeOf(me.lv), pushR2 = pushR * pushR, canPush = playing && !me.dead && meSp > 60;
     for (let i = parts.length - 1; i >= 0; i--) {
       const p = parts[i]; p.life -= dt;
+      if (canPush && p.k !== 1) {
+        const dx = p.x - me.x, dy = p.y - me.y, d2 = dx * dx + dy * dy;
+        if (d2 < pushR2 && d2 > 1) { const d = Math.sqrt(d2), v = meSp * 0.8 + 80; p.vx = dx / d * v + me.vx * 0.3; p.vy = dy / d * v + me.vy * 0.3; }
+      }
       if (p.life <= 0) { parts[i] = parts[parts.length - 1]; parts.pop(); continue; }
       p.x += p.vx * dt; p.y += p.vy * dt;
       const damp = p.k === 2 ? 0.93 : 0.97;
@@ -1476,19 +1871,22 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const h = hulks[i];
       h.life -= dt;
       if (h.life <= 0) { hulks.splice(i, 1); continue; }
-      const drag = Math.exp(-0.1 * dt);
+      const drag = Math.exp(-0.015 * dt);   // space: practically no drag
       h.x += h.vx * dt; h.y += h.vy * dt; h.vx *= drag; h.vy *= drag; h.a += h.spin * dt;
       if (h.x < 40 || h.x > W - 40) { h.vx = -h.vx; h.x = clamp(h.x, 40, W - 40); }
       if (h.y < 40 || h.y > H - 40) { h.vy = -h.vy; h.y = clamp(h.y, 40, H - 40); }
       const sz = sizeOf(h.lv);
-      if (Math.random() < (lowQ ? 6 : 14) * dt) puff(h.x + (Math.random() - 0.5) * 40 * sz, h.y + (Math.random() - 0.5) * 40 * sz, (Math.random() - 0.5) * 40, (Math.random() - 0.5) * 40, 1.6, 4 + Math.random() * 4, "rgb(52,46,64)", 2);
-      if (h.max - h.life < 6 && Math.random() < 2.5 * dt) impact(h.x + (Math.random() - 0.5) * 50 * sz, h.y + (Math.random() - 0.5) * 50 * sz, "#ff9a2e", 0.5);
+      const hAge = (now - h.born) / 1000;
+      if (hAge < 15 && Math.random() < (lowQ ? 6 : 14) * dt) puff(h.x + (Math.random() - 0.5) * 40 * sz, h.y + (Math.random() - 0.5) * 40 * sz, (Math.random() - 0.5) * 40, (Math.random() - 0.5) * 40, 1.6, 4 + Math.random() * 4, "rgb(52,46,64)", 2);
+      if (hAge < 6 && Math.random() < 2.5 * dt) impact(h.x + (Math.random() - 0.5) * 50 * sz, h.y + (Math.random() - 0.5) * 50 * sz, "#ff9a2e", 0.5);
       // it is solid: bump off it
       const dx = me.x - h.x, dy = me.y - h.y, d = Math.hypot(dx, dy);
       if (playing && !me.dead && d > 0.01 && d < 31 * (sizeOf(me.lv) + sz) && (!h.bump || now - h.bump > 300)) {
         h.bump = now;
-        me.vx += dx / d * 380; me.vy += dy / d * 380; h.vx -= dx / d * 120; h.vy -= dy / d * 120;
+        const push = Math.max(160, Math.hypot(me.vx, me.vy) * 0.8);
+        me.vx += dx / d * 260; me.vy += dy / d * 260; h.vx -= dx / d * push; h.vy -= dy / d * push; h.spin += (Math.random() - 0.5) * 2;
         impact(me.x - dx / 2, me.y - dy / 2, "#d9c8ff", 1.2);
+        if (push > 300) sparkShower(me.x - dx / 2, me.y - dy / 2, -dy, dx, 0.8);
         blip(180, 0.15, "square");
       }
     }
@@ -1496,14 +1894,28 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const f = frags[i];
       f.life -= dt;
       if (f.life <= 0) { frags.splice(i, 1); continue; }
-      const drag = Math.exp(-0.1 * dt);
+      const drag = Math.exp(-0.015 * dt);
       f.x += f.vx * dt; f.y += f.vy * dt; f.vx *= drag; f.vy *= drag; f.a += f.spin * dt;
+      // you can shove the pieces around
+      const fdx = f.x - me.x, fdy = f.y - me.y, fd = Math.hypot(fdx, fdy), fr = 30 * sizeOf(me.lv) + f.s * 0.3;
+      if (playing && !me.dead && fd < fr && fd > 0.01 && (!f.bump || now - f.bump > 250)) {
+        f.bump = now;
+        const push = Math.max(140, Math.hypot(me.vx, me.vy) * 0.9);
+        f.vx += fdx / fd * push; f.vy += fdy / fd * push; f.spin += (Math.random() - 0.5) * 3;
+        impact((f.x + me.x) / 2, (f.y + me.y) / 2, "#d9c8ff", 0.7);
+      }
       if (f.x < 0 || f.x > W) { f.vx = -f.vx; f.x = clamp(f.x, 0, W); }
       if (f.y < 0 || f.y > H) { f.vy = -f.vy; f.y = clamp(f.y, 0, H); }
-      if (f.max - f.life < 4 && Math.random() < (lowQ ? 3 : 8) * dt) puff(f.x, f.y, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30, 1.4, 3 + Math.random() * 3, "rgb(60,54,72)", 2);
+      if ((now - f.born) / 1000 < 4 && Math.random() < (lowQ ? 3 : 8) * dt) puff(f.x, f.y, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30, 1.4, 3 + Math.random() * 3, "rgb(60,54,72)", 2);
+    }
+    for (const s of shots) {
+      if (s.life <= 0 || s.kind === 3) continue;
+      for (const o of hulks) if (segHit(s, o.x, o.y, 34 * sizeOf(o.lv))) { o.vx += s.vx * 0.08; o.vy += s.vy * 0.08; o.spin += (Math.random() - 0.5); s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.8); break; }
+      if (s.life <= 0) continue;
+      for (const o of frags) if (segHit(s, o.x, o.y, o.s * 0.3)) { o.vx += s.vx * 0.12; o.vy += s.vy * 0.12; o.spin += (Math.random() - 0.5) * 2; s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.6); break; }
     }
     // wreckage drifts (almost no drag in space), spins, bounces off the fence, smoulders at first
-    const drift = Math.exp(-0.12 * dt);
+    const drift = Math.exp(-0.015 * dt);
     for (let i = debris.length - 1; i >= 0; i--) {
       const d = debris[i];
       d.life -= dt;
@@ -1511,7 +1923,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       d.x += d.vx * dt; d.y += d.vy * dt; d.vx *= drift; d.vy *= drift; d.rot += d.vr * dt;
       if (d.x < 0 || d.x > W) { d.vx = -d.vx; d.x = clamp(d.x, 0, W); }
       if (d.y < 0 || d.y > H) { d.vy = -d.vy; d.y = clamp(d.y, 0, H); }
-      if (d.max - d.life < 3 && Math.random() < (lowQ ? 1 : 3) * dt) puff(d.x, d.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 1.2, 2 + Math.random() * 2, "rgb(80,72,98)", 2);
+      const ddx = d.x - me.x, ddy = d.y - me.y, dd = Math.hypot(ddx, ddy);
+      if (playing && !me.dead && dd < 34 * sizeOf(me.lv) && dd > 0.01) { const pv = Math.max(120, Math.hypot(me.vx, me.vy)); d.vx = ddx / dd * pv; d.vy = ddy / dd * pv; d.vr += (Math.random() - 0.5) * 4; }
+      if ((now - d.born) / 1000 < 3 && Math.random() < (lowQ ? 1 : 3) * dt) puff(d.x, d.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 1.2, 2 + Math.random() * 2, "rgb(80,72,98)", 2);
     }
     for (let i = impacts.length - 1; i >= 0; i--) { impacts[i].t += dt; if (impacts[i].t > 0.22) impacts.splice(i, 1); }
     for (let i = rings.length - 1; i >= 0; i--) { rings[i].t += dt; if (rings[i].t > (rings[i].dur || 0.6)) rings.splice(i, 1); }
@@ -1534,10 +1948,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const msg = {
         q: ++sendSeq, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),
         vx: Math.round(me.vx), vy: Math.round(me.vy), a: +me.a.toFixed(2),
-        t: me.thrust > 0.3 ? 1 : 0, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0, ds: me.dead ? me.ds : 0
+        t: me.thrust > 0.3 ? 1 : 0, b: me.boostFx, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0, ds: me.dead ? me.ds : 0
       };
       const slow = {
-        n: me.name, h: me.hue, ck: me.ck, s: me.score, l: me.lives, lv: me.lv, sh: me.shield, wp: WEAPON_KEYS.indexOf(me.weapon), g: myGrabs, hb: hitBy, ko: koBy,
+        tg: myTag, n: me.name, h: me.hue, ck: me.ck, s: me.score, l: me.lives, lv: me.lv, sh: me.shield, wp: WEAPON_KEYS.indexOf(me.weapon), g: myGrabs, hb: hitBy, ko: koBy,
         st: [stats.round, stats.kills, stats.deaths, stats.shots, stats.hits, stats.best],
         dr: myDrops.filter(d => Date.now() - d[4] < DROP_LIFE).slice(-3).map(d => d.slice(0, 4))
       };
@@ -1547,9 +1961,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       // field by field, so an omitted "f" would keep old shots there forever and they could come back as ghosts
       if (net.shotsInState) msg.f = myShotLog.slice(-9).map(e => e.d);
       net.send(msg);
+      sendBots(now);
     }
     boardAcc += dt;
-    if (boardAcc > 0.5) { boardAcc = 0; renderBoard(); }
+    if (boardAcc > 0.5) { boardAcc = 0; renderBoard(); renderFeed(); }
   }
 
   const boardEl = document.getElementById("board");
@@ -1601,6 +2016,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         if (!me.dead) { me.lives = maxLivesOf(1); me.shield = 0; renderShield(); renderHearts(false); me.inv = now + 2000; }
         floaters.push({ x: me.x, y: me.y - 90, t: 0, txt: "ROUND " + (rd.idx % 1000) + " · FIGHT!", gold: true });
       }
+      for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, dead: false, x: rndIn(W, 300), y: rndIn(H, 300), inv: now + 2000 });
+      hulks.length = 0; frags.length = 0; debris.length = 0;
+      firstBlood = false; streaks.clear(); multi = 0;
       shownRound = rd.idx;
       document.getElementById("results").hidden = true;
     }
@@ -1636,13 +2054,72 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function sy(y) { return vh / 2 + wrapD(y - me.y, H); }
   function onScreen(x, y, m) { return x > -m && x < vw + m && y > -m && y < vh + m; }
 
+  // live background: everything drifts on its own (not only when you move), stars twinkle one by one,
+  // shooting stars cross the sky, the moon orbits, the galaxy turns
+  const TWINKLE = Array.from({ length: 70 }, (_, i) => ({ x: hash(i, 1, 66), y: hash(i, 2, 66), r: 0.8 + hash(i, 3, 66) * 1.8, ph: hash(i, 4, 66) * 6.28, sp: 0.6 + hash(i, 5, 66) * 2.2, col: ["#ffffff", "#cfe3ff", "#ffe9c4", "#ffd0f0"][i % 4] }));
+  const comets = [];
+  let nextComet = 0, lastSky = 0;
   function drawSky(now) {
-    const gr = g.createLinearGradient(0, 0, 0, vh);
-    gr.addColorStop(0, "#241a4a"); gr.addColorStop(0.6, "#4b3478"); gr.addColorStop(1, "#7a5598");
+    const t = now / 1000, sdt = Math.min(0.05, (now - lastSky) / 1000); lastSky = now;
+    const gr = g.createLinearGradient(0, 0, vw * 0.3, vh);
+    gr.addColorStop(0, "#060920"); gr.addColorStop(0.5, "#170f3f"); gr.addColorStop(1, "#33175a");
     g.fillStyle = gr; g.fillRect(0, 0, vw, vh);
-    // nebula tiles, parallax 0.6
-    const ox = -mod(me.x * 0.6, NEB), oy = -mod(me.y * 0.6, NEB);
-    for (let x = ox; x < vw; x += NEB) for (let y = oy; y < vh; y += NEB) g.drawImage(neb, x, y);
+    const tile = (img, size, par, dx, dy) => {
+      const ox = -mod(me.x * par + dx, size), oy = -mod(me.y * par + dy, size);
+      for (let x = ox; x < vw; x += size) for (let y = oy; y < vh; y += size) g.drawImage(img, x, y);
+    };
+    // far away: a slowly turning galaxy and a ringed planet with an orbiting moon
+    const far = 0.04;
+    const gx = vw * 0.14 - (me.x - W / 2) * far * 0.6, gy = vh * 0.72 - (me.y - H / 2) * far * 0.6;
+    g.save(); g.globalAlpha = 0.75; g.translate(gx, gy); g.rotate(t * 0.03); g.drawImage(galaxyCv, -210, -210); g.restore(); g.globalAlpha = 1;
+    const px = vw * 0.8 - (me.x - W / 2) * far, py = vh * 0.24 - (me.y - H / 2) * far;
+    const ma = t * 0.25, mx = px + Math.cos(ma) * 250, my = py + Math.sin(ma) * 70, behind = Math.sin(ma) < 0;
+    const moon = () => {
+      const m = g.createRadialGradient(mx - 8, my - 8, 2, mx, my, 24);
+      m.addColorStop(0, "#efe9ff"); m.addColorStop(1, "#4a3f78");
+      g.fillStyle = m; g.beginPath(); g.arc(mx, my, 22, 0, 6.29); g.fill();
+    };
+    if (behind) moon();
+    g.drawImage(planetCv, px - 320, py - 320);
+    if (!behind) moon();
+    // two glowing nebula layers drifting against each other, then the soft smoky trails
+    g.globalCompositeOperation = "lighter";
+    tile(colorNeb, NEB2, 0.22, t * 9, t * 4);
+    if (!lowQ) tile(colorNeb2, NEB2, 0.32, -t * 7, t * 6);
+    g.globalCompositeOperation = "source-over";
+    g.globalAlpha = 0.45; tile(neb, NEB, 0.6, t * 5, -t * 2); g.globalAlpha = 1;
+    // bright stars as a layer, plus single stars that each twinkle on their own beat
+    g.globalAlpha = 0.85 + 0.15 * Math.sin(t * 1.1);
+    tile(brightStars, STAR_TILE, 0.45, 0, 0);
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = "lighter";
+    for (const st of TWINKLE) {
+      const x = mod(st.x * 2400 - me.x * 0.35, vw + 200) - 100, y = mod(st.y * 1600 - me.y * 0.35, vh + 200) - 100;
+      const a = Math.max(0, Math.sin(t * st.sp + st.ph));
+      if (a < 0.05) continue;
+      g.globalAlpha = a;
+      const d = st.r * 6;
+      g.drawImage(dotSprite(st.col), x - d / 2, y - d / 2, d, d);
+      if (st.r > 2.2) { g.fillStyle = st.col; g.fillRect(x - st.r * 5 * a, y - 0.5, st.r * 10 * a, 1); g.fillRect(x - 0.5, y - st.r * 5 * a, 1, st.r * 10 * a); }
+    }
+    // shooting stars
+    if (now > nextComet) {
+      nextComet = now + 1800 + Math.random() * 3500;
+      const a = 0.35 + Math.random() * 0.5, v = 900 + Math.random() * 700;
+      comets.push({ x: Math.random() * vw * 0.8, y: -40 + Math.random() * vh * 0.3, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1.2 });
+    }
+    for (let i = comets.length - 1; i >= 0; i--) {
+      const c = comets[i];
+      c.life -= sdt; c.x += c.vx * sdt; c.y += c.vy * sdt;
+      if (c.life <= 0) { comets.splice(i, 1); continue; }
+      const L = 0.16, al = Math.min(1, c.life * 2);
+      const cg = g.createLinearGradient(c.x, c.y, c.x - c.vx * L, c.y - c.vy * L);
+      cg.addColorStop(0, `rgba(255,255,255,${al})`); cg.addColorStop(0.3, `rgba(190,220,255,${0.5 * al})`); cg.addColorStop(1, "rgba(150,180,255,0)");
+      g.globalAlpha = 1; g.strokeStyle = cg; g.lineWidth = 2.2; g.lineCap = "round";
+      g.beginPath(); g.moveTo(c.x, c.y); g.lineTo(c.x - c.vx * L, c.y - c.vy * L); g.stroke();
+    }
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = "source-over";
     // dust layers (pre-rendered tiles, gently twinkling as a whole)
     for (const d of DUST) {
       const bx = -mod(me.x * d.par, d.tile), by = -mod(me.y * d.par, d.tile);
@@ -1650,6 +2127,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       for (let tx = bx; tx < vw; tx += d.tile) for (let ty = by; ty < vh; ty += d.tile) g.drawImage(d.c, tx, ty);
     }
     g.globalAlpha = 1;
+    const vg = g.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.35, vw / 2, vh / 2, Math.max(vw, vh) * 0.75);
+    vg.addColorStop(0, "rgba(4,2,14,0)"); vg.addColorStop(1, "rgba(4,2,14,0.55)");
+    g.fillStyle = vg; g.fillRect(0, 0, vw, vh);
   }
 
   function drawSpark(x, y, r, gold, now, appear) {
@@ -2090,7 +2570,18 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const fl = b.ck ? customVal(b.ck, "flame") : null;
     const sputter = Number.isFinite(b.lives) && damageOf(b) > 0.6 ? 0.55 + 0.45 * Math.abs(Math.sin(now / 37 + x)) : 1;
     const firePal = fl === "rainbow" ? rainbowFlame(now) : fl ? FLAMES[fl] : tier;
-    drawFlame(s * (0.36 + 0.46 * Math.min(1.4, b.thrust)) * sputter, s * 0.3, now, (b.hue || 0) * 0.1, firePal);
+    const bf = isMe ? me.boostFx : b.boost || 0;
+    const burst = isMe ? Math.max(0, 1 - (now - me.dashAt) / 350) : bf === 2 ? 1 : 0;
+    const lenMul = 1 + (bf ? 0.85 : 0) + burst * 1.1, widMul = 1 + (bf ? 0.35 : 0) + burst * 0.3;
+    const pal = bf ? { outer: firePal.outer, mid: firePal.mid, core: [255, 255, 255] } : firePal;
+    if (bf) {   // afterburner glow around the nozzle
+      const ag = g.createRadialGradient(0, s * 0.25, 0, 0, s * 0.25, s * (0.55 + burst * 0.4));
+      ag.addColorStop(0, "rgba(255,230,170,0.75)"); ag.addColorStop(0.5, "rgba(255,150,60,0.3)"); ag.addColorStop(1, "rgba(255,100,40,0)");
+      g.globalCompositeOperation = "lighter"; g.fillStyle = ag;
+      g.beginPath(); g.arc(0, s * 0.25, s * (0.55 + burst * 0.4), 0, 6.29); g.fill();
+      g.globalCompositeOperation = "source-over";
+    }
+    drawFlame(s * (0.36 + 0.46 * Math.min(1.4, b.thrust)) * sputter * lenMul, s * 0.3 * widMul, now, (b.hue || 0) * 0.1, pal);
     g.restore();
     drawWings(lv, s);
     drawMounts(isMe ? me.weapon : b.weapon, s, now);
@@ -2203,7 +2694,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         if (d < 1500) { const acc = bh.k * 9e7 / (d * d + 1.5e4); s.vx += dx / d * acc * dt; s.vy += dy / d * acc * dt; }
       }
     }
-    if (!ev.active || !playing || me.dead) return;
+    if (!ev.active || !playing || me.dead || !roundLive) return;   // events leave you alone during the results break
     const mr = 30 * sizeOf(me.lv);
 
     if (ev.type === "blackhole") {
@@ -2217,6 +2708,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: "Swallowed!", gold: false });
         for (let k = 0; k < 60; k++) { const b = Math.random() * 6.28; puff(me.x, me.y, Math.cos(b) * 300, Math.sin(b) * 300, 0.9, 2.6, k % 2 ? "#c38bff" : "#ffffff"); }
         hurt(now, 99, true);   // the horizon ignores dash invulnerability
+        feedPush(`<span class="v">${esc(me.name || "You")}</span> was swallowed by the black hole`, true);
       }
     }
 
@@ -2544,7 +3036,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     for (const f of frags) {
       const x = sx(f.x), y = sy(f.y), s = f.s;
       if (!onScreen(x, y, s)) continue;
-      const fade = Math.min(1, f.life / 2), hot = 1 - (f.max - f.life) / 5;
+      const fade = 1, hot = 1 - (now - f.born) / 5000;
       g.save(); g.translate(x, y); g.rotate(f.a);
       g.translate(-(f.cx / 320 - 0.5) * s, -(f.cy / 320 - 0.5) * s);   // the piece turns around its own middle
       g.globalAlpha = fade; g.drawImage(f.img, -s / 2, -s / 2, s, s);
@@ -2563,8 +3055,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.closePath();
       g.fillStyle = d.col; g.fill();
       g.strokeStyle = "rgba(25,18,32,0.7)"; g.lineWidth = 1.5; g.stroke();
-      if (d.max - d.life < 2.5) {   // still glowing hot
-        g.strokeStyle = `rgba(255,150,60,${0.8 * (1 - (d.max - d.life) / 2.5)})`; g.lineWidth = 1.2; g.stroke();
+      const dAge = (now - d.born) / 1000;
+      if (dAge < 2.5) {   // still glowing hot
+        g.strokeStyle = `rgba(255,150,60,${0.8 * (1 - dAge / 2.5)})`; g.lineWidth = 1.2; g.stroke();
       }
       g.restore();
     }
@@ -2578,7 +3071,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.globalAlpha = Math.max(0, p.life / p.max) * 0.9;
       if (p.k === 1) {
         g.strokeStyle = p.col; g.lineWidth = p.size;
-        g.beginPath(); g.moveTo(x, y); g.lineTo(x - p.vx * 0.035, y - p.vy * 0.035); g.stroke();
+        g.beginPath(); g.moveTo(x, y); g.lineTo(x - p.vx * p.len, y - p.vy * p.len); g.stroke();
       } else {
         const d = p.size * 2.6;
         g.drawImage(dotSprite(p.col), x - d / 2, y - d / 2, d, d);
@@ -2779,6 +3272,19 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
   }
 
+  // ---------- bot picker ----------
+  const botChoice = (() => { try { const v = JSON.parse(store.get("binrocket.bots")); if (v && [0, 2, 4, 6].includes(v.n) && BOT_LEVELS[v.level]) return v; } catch {} return { n: 0, level: "normal" }; })();
+  function segButtons(el, items, current, onPick) {
+    for (const [val, label] of items) {
+      const b = document.createElement("button"); b.type = "button"; b.textContent = label;
+      b.setAttribute("aria-pressed", String(val === current));
+      b.addEventListener("click", () => { for (const o of el.children) o.setAttribute("aria-pressed", String(o === b)); onPick(val); });
+      el.appendChild(b);
+    }
+  }
+  segButtons(document.getElementById("botCount"), [[0, "No bots"], [2, "2 bots"], [4, "4 bots"], [6, "6 bots"]], botChoice.n, v => { botChoice.n = v; store.set("binrocket.bots", JSON.stringify(botChoice)); });
+  segButtons(document.getElementById("botLevel"), Object.entries(BOT_LEVELS).map(([k, L]) => [k, L.label]), botChoice.level, v => { botChoice.level = v; store.set("binrocket.bots", JSON.stringify(botChoice)); });
+
   // ---------- controls help, tailored to the device ----------
   const KEY = k => `<kbd>${k}</kbd>`;
   const CONTROLS = {
@@ -2885,6 +3391,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   document.getElementById("startForm").addEventListener("submit", e => {
     e.preventDefault();
     if (standalone) { if (!codeOk()) { lobbyInput.focus(); return; } chooseLobby(normCode(lobbyInput.value)); }
+    if (!bots.length && botChoice.n > 0) addBots(botChoice.n, botChoice.level);
     me.name = nameInput.value.trim().slice(0, 14) || "Bin";
     store.set("binrocket.name", me.name);
     try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { audio = null; }
