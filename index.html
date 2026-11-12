@@ -429,7 +429,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }).catch(() => { setStatus(false, "Solo flight · could not reach the matchmaking server"); throw new Error("peerjs"); });
 
     let code = (location.hash.match(/^#([a-z0-9]{4,16})$/) || [])[1];
-    if (!code) { code = Math.random().toString(36).slice(2, 8); history.replaceState(null, "", "#" + code); }
+    if (!code) { code = "lobby"; history.replaceState(null, "", "#" + code); }   // plain link: everyone meets in one shared room
     const hostId = "binrocket-sky-" + code;
     document.getElementById("boardTitle").textContent = "Room " + code;
     shareBtn.hidden = false;
@@ -448,75 +448,107 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     };
 
     // One peer at a time. The first visitor of a room claims the fixed host id; everyone else
-    // connects to it and the host relays states. If the host goes away, a remaining player takes over.
+    // connects to it and the host relays states. Nothing gives up: a lost signalling socket is
+    // reconnected in place (game links stay up), a lost host is replaced by a remaining player,
+    // and any other failure starts the join over after a short pause.
+    const PEER_OPTS = { config: { iceServers: [
+      { urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" },
+      { urls: "stun:stun.cloudflare.com:3478" }
+    ] } };
     const NET_ERRORS = ["network", "server-error", "socket-error", "socket-closed", "disconnected"];
     let current = null;      // the live Peer
     let restartTimer = 0;
+    let linked = false;      // true while this tab is in the room (hosting or connected)
+    const link = (on, text) => { linked = on; setStatus(on, text); };
     const restart = (delay, fn) => {
       clearTimeout(restartTimer);
+      linked = false;
       net.send = () => {};
       remotes.clear();
       if (current) { current.destroy(); current = null; }
       restartTimer = setTimeout(fn, delay);
     };
+    // keep the signalling socket alive without touching the game links
+    const healSignal = peer => {
+      if (peer !== current || peer.destroyed || !peer.disconnected) return;
+      try { peer.reconnect(); } catch {}
+      setTimeout(() => healSignal(peer), 3000);
+    };
     addEventListener("pagehide", () => { if (current) current.destroy(); });
+    const rejoinNow = () => { if (!linked) restart(0, becomeHost); };
+    addEventListener("online", rejoinNow);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) rejoinNow(); });
 
     const becomeHost = () => {
       setStatus(false, "Joining room " + code + "…");
-      const peer = current = new Peer(hostId);
+      const peer = current = new Peer(hostId, PEER_OPTS);
       const conns = new Map();
       let keepalive = 0;
+      const drop = id => {
+        const c = conns.get(id); if (!c) return;
+        conns.delete(id); removeRemote(id); try { c.close(); } catch {}
+        for (const o of conns.values()) if (o.open) o.send({ t: "l", id });
+      };
       peer.on("open", () => {
         if (peer !== current) return;
-        setStatus(true, "Room " + code + " · you are hosting");
+        link(true, "Room " + code + " · you are hosting");
         net.send = p => { for (const c of conns.values()) if (c.open) c.send({ t: "s", id: hostId, p }); };
-        keepalive = setInterval(() => { for (const c of conns.values()) if (c.open) c.send({ t: "k" }); }, 1000);
+        clearInterval(keepalive);
+        keepalive = setInterval(() => {
+          const now = performance.now();
+          for (const [id, c] of conns) {
+            if (now - c.seen > 20000) drop(id);
+            else if (c.open) c.send({ t: "k" });
+          }
+        }, 1000);
       });
       peer.on("connection", c => {
-        c.on("open", () => conns.set(c.peer, c));
+        c.seen = performance.now();
+        c.on("open", () => { c.seen = performance.now(); conns.set(c.peer, c); });
         c.on("data", d => {
-          if (!d || d.t !== "s") return;
           c.seen = performance.now();
+          if (!d) return;
+          if (d.t === "p") { if (c.open) c.send({ t: "k" }); return; }
+          if (d.t !== "s") return;
           applyRemote(c.peer, d.p);
           for (const [id, o] of conns) if (id !== c.peer && o.open) o.send({ t: "s", id: c.peer, p: d.p });
         });
-        c.on("close", () => {
-          conns.delete(c.peer); removeRemote(c.peer);
-          for (const o of conns.values()) if (o.open) o.send({ t: "l", id: c.peer });
-        });
+        c.on("close", () => drop(c.peer));
+        c.on("error", () => drop(c.peer));
       });
+      peer.on("disconnected", () => healSignal(peer));
       peer.on("close", () => clearInterval(keepalive));
       peer.on("error", e => {
         if (peer !== current) return;
-        clearInterval(keepalive);
-        if (e.type === "unavailable-id") restart(0, becomeClient);
-        else if (NET_ERRORS.includes(e.type)) { setStatus(false, "Connection lost · retrying…"); restart(3000, becomeHost); }
-        else setStatus(false, "Network error: " + e.type);
+        if (e.type === "unavailable-id") { clearInterval(keepalive); restart(0, becomeClient); }
+        else if (NET_ERRORS.includes(e.type) && !peer.destroyed && peer.open !== undefined && conns.size) healSignal(peer);
+        else { clearInterval(keepalive); setStatus(false, "Connection lost · retrying…"); restart(2500, becomeHost); }
       });
     };
 
     const becomeClient = () => {
       setStatus(false, "Joining room " + code + "…");
-      const peer = current = new Peer();
-      let lastMsg = 0, watchdog = 0;
+      const peer = current = new Peer(PEER_OPTS);
+      let lastMsg = 0, watchdog = 0, conn = null;
       const lost = msg => {
         if (peer !== current) return;
         clearInterval(watchdog);
         setStatus(false, msg);
-        restart(500 + Math.random() * 1500, becomeHost);
+        restart(400 + Math.random() * 1200, becomeHost);
       };
       peer.on("open", () => {
-        if (peer !== current) return;
-        const c = peer.connect(hostId);
+        if (peer !== current || conn) return;   // reconnect of the signalling socket fires open again
+        const c = conn = peer.connect(hostId);
         const started = performance.now();
         watchdog = setInterval(() => {
           const now = performance.now();
-          if (!c.open && now - started > 10000) lost("Could not reach the room host · retrying…");
-          else if (c.open && now - lastMsg > 5000) lost("Host left · taking over…");
+          if (!c.open) { if (now - started > 10000) lost("Could not reach the room host · retrying…"); return; }
+          c.send({ t: "p" });
+          if (now - lastMsg > 8000) lost("Host left · taking over…");
         }, 1000);
         c.on("open", () => {
           lastMsg = performance.now();
-          setStatus(true, "Room " + code + " · connected");
+          link(true, "Room " + code + " · connected");
           net.send = p => { if (c.open) c.send({ t: "s", p }); };
         });
         c.on("data", d => {
@@ -526,11 +558,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
           else if (d.t === "l") removeRemote(d.id);
         });
         c.on("close", () => lost("Host left · taking over…"));
+        c.on("error", () => lost("Connection lost · retrying…"));
       });
+      peer.on("disconnected", () => healSignal(peer));
       peer.on("error", e => {
+        if (peer !== current) return;
         if (e.type === "peer-unavailable") lost("Room is empty · hosting it…");
-        else if (NET_ERRORS.includes(e.type)) lost("Connection lost · retrying…");
-        else if (peer === current) setStatus(false, "Network error: " + e.type);
+        else if (NET_ERRORS.includes(e.type) && conn && conn.open) healSignal(peer);
+        else lost("Connection lost · retrying…");
       });
     };
     becomeHost();
