@@ -885,7 +885,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     let m = 0;
     for (let j = 0; j < b.gh; j++) for (let i = 0; i < b.gw; i++) {
       const px = Math.min(W2 - 1, Math.floor((i + 0.5) * b.cs * BODY_RES)), py = Math.min(H2 - 1, Math.floor((j + 0.5) * b.cs * BODY_RES));
-      if (img[(py * W2 + px) * 4 + 3] > 140) { b.cells[j * b.gw + i] = 1; m++; }
+      if (img[(py * W2 + px) * 4 + 3] > 60) { b.cells[j * b.gw + i] = 1; m++; }
     }
     b.mass = b.mass0 = m;
   }
@@ -953,7 +953,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     // cells: the disc
     let m = 0;
     for (let j = 0; j < b.gh; j++) for (let i = 0; i < b.gw; i++) {
-      if (((i + 0.5) * b.cs - b.hw) ** 2 + ((j + 0.5) * b.cs - b.hh) ** 2 < (R - b.cs * 0.3) ** 2) { b.cells[j * b.gw + i] = 1; m++; }
+      if (((i + 0.5) * b.cs - b.hw) ** 2 + ((j + 0.5) * b.cs - b.hh) ** 2 < (R + b.cs * 0.2) ** 2) { b.cells[j * b.gw + i] = 1; m++; }
     }
     b.mass = b.mass0 = m;
   }
@@ -1130,25 +1130,46 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const list = PLANET_PAL[b.kind] ? PLANET_PAL[b.kind].bands : WRECK_PAL[b.kind];
     return list[Math.floor(Math.random() * list.length)];
   }
+  // art in an empty cell is only kept while it borders a solid one (it's the soft outline of the body);
+  // once nothing solid is next to it, it would hang in space as a ghost sliver, so it's wiped
+  const solidNear = (b, i, j) => {
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+      const ii = i + di, jj = j + dj;
+      if (ii >= 0 && jj >= 0 && ii < b.gw && jj < b.gh && b.cells[jj * b.gw + ii]) return true;
+    }
+    return false;
+  };
+  function sweepOrphans(b, i0, i1, j0, j1) {
+    i0 = Math.max(0, i0); j0 = Math.max(0, j0); i1 = Math.min(b.gw - 1, i1); j1 = Math.min(b.gh - 1, j1);
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      if (!b.cells[j * b.gw + i] && !solidNear(b, i, j)) b.q.clearRect(i * b.cs - 0.5, j * b.cs - 0.5, b.cs + 1, b.cs + 1);
+    }
+  }
   function carveLocal(b, lx, ly, rad, hot) {
-    const cs = b.cs, i0 = Math.max(0, Math.floor((lx - rad) / cs)), i1 = Math.min(b.gw - 1, Math.floor((lx + rad) / cs));
-    const j0 = Math.max(0, Math.floor((ly - rad) / cs)), j1 = Math.min(b.gh - 1, Math.floor((ly + rad) / cs));
+    const cs = b.cs, R2 = rad * 1.2, i0 = Math.max(0, Math.floor((lx - R2) / cs)), i1 = Math.min(b.gw - 1, Math.floor((lx + R2) / cs));
+    const j0 = Math.max(0, Math.floor((ly - R2) / cs)), j1 = Math.min(b.gh - 1, Math.floor((ly + R2) / cs));
+    // one ragged outline for both the cells and the art, so what you see is exactly what can be hit
+    const jag = []; for (let k = 0; k < 12; k++) jag.push(rad * (0.9 + Math.random() * 0.25));
+    const edge = a => { const f = (a / 6.2832 + 1) % 1 * 12, k = Math.floor(f), t = f - k; return jag[k] * (1 - t) + jag[(k + 1) % 12] * t; };
     let n = 0;
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
       const k = j * b.gw + i;
-      if (b.cells[k] && ((i + 0.5) * cs - lx) ** 2 + ((j + 0.5) * cs - ly) ** 2 < rad * rad) { b.cells[k] = 0; n++; }
+      if (!b.cells[k]) continue;
+      const dx = (i + 0.5) * cs - lx, dy = (j + 0.5) * cs - ly;
+      if (dx * dx + dy * dy < edge(Math.atan2(dy, dx)) ** 2) { b.cells[k] = 0; n++; }
     }
     if (!n) return 0;
-    // a ragged hole, its rim scorched dark, glowing hot while fresh
+    // the hole in the art is cut along the very same outline the cells were cleared by
     const q = b.q;
     q.save(); q.globalCompositeOperation = "destination-out"; q.beginPath();
-    for (let k = 0; k < 12; k++) { const a = k / 12 * 6.283, rr = rad * (0.85 + Math.random() * 0.3); q.lineTo(lx + Math.cos(a) * rr, ly + Math.sin(a) * rr); }
+    for (let k = 0; k < 48; k++) { const a = k / 48 * 6.2832, rr = edge(a); q.lineTo(lx + Math.cos(a) * rr, ly + Math.sin(a) * rr); }
     q.closePath(); q.fill();
     q.globalCompositeOperation = "source-atop";
     const rg = q.createRadialGradient(lx, ly, rad * 0.8, lx, ly, rad * 1.7);
     rg.addColorStop(0, "rgba(15,8,18,0.9)"); rg.addColorStop(0.3, hot ? "rgba(255,120,40,0.5)" : "rgba(40,24,30,0.6)"); rg.addColorStop(1, "rgba(15,8,18,0)");
     q.fillStyle = rg; q.beginPath(); q.arc(lx, ly, rad * 1.7, 0, 6.29); q.fill();
     q.restore();
+    sweepOrphans(b, i0 - 1, i1 + 1, j0 - 1, j1 + 1);
     b.mass -= n; b.dirty = true;
     return n;
   }
@@ -1230,8 +1251,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const inPiece = new Set(list);
       for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
         const k = j * gw + i;
-        if (inPiece.has(k)) f.cells[(j - j0) * f.gw + (i - i0)] = 1; else f.q.clearRect((i - i0) * cs, (j - j0) * cs, cs, cs);
+        if (inPiece.has(k)) f.cells[(j - j0) * f.gw + (i - i0)] = 1;
       }
+      sweepOrphans(f, 0, f.gw - 1, 0, f.gh - 1);   // drop the parent's art that isn't part of this piece
       f.mass = f.mass0 = list.length; f.x = x; f.y = y; f.a = b.a; f.rr = Math.max(f.hw, f.hh);
       const ox = x - b.x, oy = y - b.y, od = Math.hypot(ox, oy) || 1, v = 30 + Math.random() * 70;
       setFree(f, (b.vx || 0) + ox / od * v, (b.vy || 0) + oy / od * v);
@@ -1241,6 +1263,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       for (let k = 0; k < Math.min(6, list.length); k++) { const a = Math.random() * 6.28, v = 40 + Math.random() * 120; addDebris(x, y, Math.cos(a) * v, Math.sin(a) * v, 4 + Math.random() * 6, bodyCol(b)); }
     }
     for (const k of list) { b.cells[k] = 0; const i = k % gw, j = (k - i) / gw; b.q.clearRect(i * cs, j * cs, cs, cs); }
+    sweepOrphans(b, i0 - 1, i1 + 1, j0 - 1, j1 + 1);
     b.mass -= list.length;
   }
   function destroyPlanet(p, now) {
