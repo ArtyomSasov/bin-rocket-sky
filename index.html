@@ -30,6 +30,7 @@ body {
   overflow: hidden;
   touch-action: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
   user-select: none;
 }
 #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
@@ -196,9 +197,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 
 <canvas id="c"></canvas>
 
-<div class="score chip" aria-live="polite"><b id="score">0</b><span>points</span><span class="lv"><b id="lvNum">Lv 1</b><span class="xpbar"><i id="xpFill"></i></span></span><span class="hearts" id="hearts" role="img" aria-label="3 lives"></span><span class="wpn" id="wpn">Fireball</span></div>
+<div class="score chip"><b id="score">0</b><span>points</span><span class="lv"><b id="lvNum">Lv 1</b><span class="xpbar"><i id="xpFill"></i></span></span><span class="hearts" id="hearts" role="img" aria-label="3 lives"></span><span class="wpn" id="wpn">Fireball</span></div>
 <button class="fire" id="fireBtn" aria-label="Fire" hidden><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg></button>
-<div class="event" id="eventBanner" role="status" hidden></div>
+<div class="event" id="eventBanner" hidden></div>
 <div class="board chip"><h2 id="boardTitle">Flyers</h2><ol id="board"></ol></div>
 <div class="status">
   <div class="chip" id="netChip"><span class="dot" id="netDot"></span><span id="netText">Connecting…</span></div>
@@ -459,6 +460,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   cv.addEventListener("pointerdown", e => { ptr.down = true; ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; cv.setPointerCapture(e.pointerId); });
   cv.addEventListener("pointermove", e => { ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; });
   const up = () => { ptr.down = false; };
+  for (const el of [cv, fireBtn]) el.addEventListener("contextmenu", e => e.preventDefault());
   cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
 
   // ---------- sound ----------
@@ -1069,7 +1071,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const rows = [{ name: me.name || "You", score: me.score, hue: me.hue, me: true }];
     for (const r of remotes.values()) rows.push({ name: r.name, score: r.score, hue: r.hue });
     rows.sort((a, b) => b.score - a.score);
-    boardEl.replaceChildren(...rows.slice(0, 8).map(r => {
+    const shown = rows.slice(0, 8);
+    if (!shown.some(r => r.me)) shown[7] = rows.find(r => r.me);
+    boardEl.replaceChildren(...shown.map(r => {
       const li = document.createElement("li"); if (r.me) li.className = "me";
       const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = r.name; nm.style.color = `hsl(${r.hue} 90% 80%)`;
       const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = r.score;
