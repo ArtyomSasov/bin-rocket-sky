@@ -2710,8 +2710,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       }
       if ((s.x < 0 || s.x > W || s.y < 0 || s.y > H) && s.kind === 1) rocketSplash(s, now);
       if (s.x < 0 || s.x > W || s.y < 0 || s.y > H) { explode(clamp(s.x, 0, W), clamp(s.y, 0, H), s.kind === 1 ? 40 : 10, 160); shots.splice(i, 1); continue; }
-      if (s.kind === 1) {
-        if (Math.random() < dt * 50) puff(s.x, s.y, -s.vx * 0.1 + (Math.random() - .5) * 40, -s.vy * 0.1 + (Math.random() - .5) * 40, 0.6 + Math.random() * 0.5, 2.5 + Math.random() * 2.5, Math.random() < 0.6 ? "#9a8fb5" : "#ffb43c");
+      if (s.kind === 1) {   // a thick billowing smoke trail with fire licking out of the motor
+        const sp = Math.hypot(s.vx, s.vy) || 1, bx = s.x - s.vx / sp * 26, by = s.y - s.vy / sp * 26;
+        if (Math.random() < dt * (lowQ ? 30 : 70)) puff(bx, by, -s.vx * 0.08 + (Math.random() - .5) * 50, -s.vy * 0.08 + (Math.random() - .5) * 50, 1.2 + Math.random() * 1.0, 6 + Math.random() * 6, "rgb(120,110,140)", 2);
+        if (Math.random() < dt * 60) puff(bx, by, -s.vx * 0.4 + (Math.random() - .5) * 60, -s.vy * 0.4 + (Math.random() - .5) * 60, 0.2 + Math.random() * 0.2, 3 + Math.random() * 3, FIRE_COLS[(Math.random() * 3) | 0]);
       } else if (s.kind === 2) {
         if (Math.random() < dt * 15) puff(s.x, s.y, (Math.random() - .5) * 40, (Math.random() - .5) * 40, 0.2, 1.5, "#bff9ff");
       } else if (s.kind === 5) {   // the slug leaves a glowing wake along its whole path
@@ -3345,15 +3347,21 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.globalCompositeOperation = "lighter";
       return;
     }
-    if (s.kind === 2) {
-      const a = Math.atan2(s.vy, s.vx), L = 90;
+    if (s.kind === 2) {   // laser: a long bolt of light with a pulsing glow and a hot flare at the head
+      const a = Math.atan2(s.vy, s.vx), L = 130, pw = 1 + 0.25 * Math.sin(now / 30 + s.x);
       g.save(); g.translate(x, y); g.rotate(a);
+      g.lineCap = "round";
+      const og = g.createLinearGradient(-L, 0, 0, 0);
+      og.addColorStop(0, "rgba(60,200,255,0)"); og.addColorStop(1, "rgba(60,200,255,0.35)");
+      g.strokeStyle = og; g.lineWidth = 18 * pw; g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
       const lg = g.createLinearGradient(-L, 0, 0, 0);
-      lg.addColorStop(0, "rgba(125,249,255,0)"); lg.addColorStop(1, "rgba(125,249,255,0.55)");
-      g.strokeStyle = lg; g.lineWidth = 9; g.lineCap = "round";
-      g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
+      lg.addColorStop(0, "rgba(125,249,255,0)"); lg.addColorStop(1, "rgba(160,250,255,0.85)");
+      g.strokeStyle = lg; g.lineWidth = 7; g.beginPath(); g.moveTo(-L * 0.9, 0); g.lineTo(0, 0); g.stroke();
       g.strokeStyle = "rgba(255,255,255,0.95)"; g.lineWidth = 2.5;
-      g.beginPath(); g.moveTo(-L * 0.8, 0); g.lineTo(2, 0); g.stroke();
+      g.beginPath(); g.moveTo(-L * 0.75, 0); g.lineTo(4, 0); g.stroke();
+      const hg = g.createRadialGradient(2, 0, 0, 2, 0, 16 * pw);
+      hg.addColorStop(0, "rgba(255,255,255,0.95)"); hg.addColorStop(1, "rgba(125,249,255,0)");
+      g.fillStyle = hg; g.beginPath(); g.arc(2, 0, 16 * pw, 0, 6.29); g.fill();
       g.restore();
       return;
     }
@@ -3369,6 +3377,13 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       bg.addColorStop(0, "#f4f1ff"); bg.addColorStop(1, "#a59cc8");
       g.fillStyle = bg; rrect(-10, -4.5, 20, 9, 4); g.fill();
       g.fillStyle = "#ff5a6e"; g.beginPath(); g.moveTo(10, -4.5); g.quadraticCurveTo(18, 0, 10, 4.5); g.fill();
+      if (Math.floor(now / 140 + s.x) % 2) {   // homing seeker light blinking on the nose
+        g.globalCompositeOperation = "lighter";
+        const sg = g.createRadialGradient(13, 0, 0, 13, 0, 9);
+        sg.addColorStop(0, "rgba(255,255,255,0.95)"); sg.addColorStop(1, "rgba(255,60,80,0)");
+        g.fillStyle = sg; g.beginPath(); g.arc(13, 0, 9, 0, 6.29); g.fill();
+        g.globalCompositeOperation = "source-over";
+      }
       g.globalCompositeOperation = "lighter";
       g.restore();
       return;
@@ -3381,6 +3396,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     g.beginPath(); g.moveTo(10, 0);
     g.quadraticCurveTo(-12, -12 * fl, -52 * fl, Math.sin(now / 40) * 3);
     g.quadraticCurveTo(-12, 12 * fl, 10, 0); g.fill();
+    const halo = g.createRadialGradient(4, 0, 0, 4, 0, 36 * fl);   // the light it throws around itself
+    halo.addColorStop(0, "rgba(255,170,60,0.45)"); halo.addColorStop(1, "rgba(255,90,30,0)");
+    g.fillStyle = halo; g.beginPath(); g.arc(4, 0, 36 * fl, 0, 6.29); g.fill();
+    for (let k = -1; k <= 1; k += 2) {   // two licking tongues of flame
+      const w2 = Math.sin(now / 35 + k * 2 + s.x) * 5;
+      g.fillStyle = "rgba(255,150,40,0.55)"; g.beginPath(); g.moveTo(6, k * 3);
+      g.quadraticCurveTo(-14, k * (10 + w2), -34 * fl, k * (6 + w2)); g.quadraticCurveTo(-12, k * 2, 6, k * 3); g.fill();
+    }
     const core = g.createRadialGradient(4, 0, 0, 4, 0, 17 * fl);
     core.addColorStop(0, "#fffbe6"); core.addColorStop(0.35, "#ffd23f"); core.addColorStop(0.7, "rgba(255,110,30,0.8)"); core.addColorStop(1, "rgba(255,60,20,0)");
     g.fillStyle = core; g.beginPath(); g.arc(4, 0, 17 * fl, 0, 6.29); g.fill();
