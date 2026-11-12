@@ -1,0 +1,13 @@
+Sound effects: all CC0 (public domain), from OpenGameArt.org. Trimmed, mixed to mono and resampled for the game.
+
+- "Sci-Fi Sounds" and "63 Digital sound effects" by Kenney (www.kenney.nl)
+  https://opengameart.org/content/sci-fi-sounds
+  https://opengameart.org/content/63-digital-sound-effects-lasers-phasers-space-etc
+- "50 CC0 Sci-Fi SFX", "100 CC0 SFX", "25 CC0 bang / firework SFX" by rubberduck
+  https://opengameart.org/content/50-cc0-sci-fi-sfx
+  https://opengameart.org/content/100-cc0-sfx
+  https://opengameart.org/content/25-cc0-bang-firework-sfx
+- "Shotgun Reload Sound effects" by zer0sol
+  https://opengameart.org/content/shotgun-reload-sound-effects
+- "Space Ship Shield Sounds" by bart (downloaded, not used in the current mix)
+  https://opengameart.org/content/space-ship-shield-sounds
