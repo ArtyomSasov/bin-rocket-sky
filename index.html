@@ -336,6 +336,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         <input id="lobbyInput" class="code" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="e.g. K7M2Q">
         <button type="button" class="ghost" id="createBtn">Create new</button>
       </div>
+      <label>Map size <small>(for a new lobby; a friend's code brings its own)</small></label>
+      <div class="segs" id="mapSize" role="group" aria-label="Map size"></div>
     </div>
     <button type="submit" class="go" id="goBtn">Take off</button>
     <details class="custom" id="customBox">
@@ -357,12 +359,15 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 <script>
 (() => {
   "use strict";
-  const W = 4200, H = 4200;          // walled arena
+  // walled arena; its size comes from the lobby code's first letter (s/m/l/x), so everyone in a lobby shares it
+  const MAP_SIZES = { s: [2600, "Small", 3], m: [4200, "Medium", 5], l: [6000, "Large", 9], x: [8000, "Huge", 14] };
+  const mapOf = code => MAP_SIZES[String(code)[0]] ? String(code)[0] : "m";
+  let W = 4200, H = 4200, PLANET_N = 5;
   const BOT = 84;                    // sprite size on screen
-  const SLOTS = 100, PERIOD = 16;     // spark slots, seconds per respawn cycle
+  let SLOTS = 100; const PERIOD = 16;     // spark slots, seconds per respawn cycle
   const SPRITE_TILT = 0.24;          // the art leans right a little (its engine points down-left)
   const NOZZLE = [140 / 320 - 0.5, 186 / 320 - 0.5];   // engine opening in the art, as a fraction of size
-  const LIVES = 3, ROCKS = 36, ROCK_PERIOD = 22;
+  const LIVES = 3, ROCK_PERIOD = 22; let ROCKS = 36;
   // levels: sparks are XP; each level makes the bin bigger, adds lives and changes the fire
   const XP_STEPS = [0, 6, 15, 28, 45, 66, 92, 124, 162, 210];   // total XP to reach Lv 1..10
   const MAX_LV = XP_STEPS.length;
@@ -387,7 +392,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     rail:   { name: "Railgun",     ammo: 8,  cd: 1.0,  col: "#d9a8ff" },
     mine:   { name: "Mines",       ammo: 6,  cd: 0.6,  col: "#ff6b3c" }
   };
-  const PICK_TYPES = ["triple", "laser", "rocket", "scatter", "rail", "mine"], PICKS = 18, PICK_PERIOD = 24;
+  const PICK_TYPES = ["triple", "laser", "rocket", "scatter", "rail", "mine"], PICK_PERIOD = 24; let PICKS = 18;
   // by shot kind: 0 fireball, 1 rocket, 2 laser, 3 nuke, 4 scatter pellet, 5 rail slug, 6 mine
   const SHOT_LIFE = [1.1, 2.4, 0.45, 3.2, 0.38, 0.7, 25];
   const SHOT_DMG  = [1, 2, 1, 0, 2, 3, 2];                 // the nuke deals its damage through detonate()
@@ -405,7 +410,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   // deathmatch rounds on the shared clock: 5 minutes of fighting, then 15 seconds of results
   const ROUND_PLAY = 300, ROUND_BREAK = 15, ROUND_LEN = ROUND_PLAY + ROUND_BREAK;
   const roundAt = ms => { const t = ms / 1000, idx = Math.floor(t / ROUND_LEN), ph = t - idx * ROUND_LEN; return { idx, ph, live: ph < ROUND_PLAY, left: ROUND_PLAY - ph }; };
-  const SUPPLY_SLOTS = 14, SUPPLY_PERIOD = 20, MAX_SHIELD = 6;
+  const SUPPLY_PERIOD = 20, MAX_SHIELD = 6; let SUPPLY_SLOTS = 14;
   const NUKE_R = 900, NUKE_KILL = 480, NUKE_DMG = 3, NUKE_PERIOD = 70, BOOM_LIFE = 3.2;
   // weapon icons (24x24 SVG path data, even-odd fill): used on crates (canvas) and in the HUD (SVG)
   const ICONS = {
@@ -754,12 +759,13 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     rock: { base: "#8a7f96", bands: ["#a59bb0", "#6f6580"], glow: "200,185,230" }
   };
   let planets = [], moons = [], bodies = [];
+  const PLANET_RES = matchMedia("(pointer: coarse)").matches ? 0.6 : 1;
   function paintBody(b, R, kind, ring) {
     const pal = PLANET_PAL[kind], rnd = k => hash(b.seed, k, 404);
     const half = Math.ceil(R * (ring ? 1.85 : 1.3)), c = document.createElement("canvas");
-    c.width = c.height = half * 2;
+    c.width = c.height = Math.ceil(half * 2 * PLANET_RES);   // baked at lower resolution on phones to save memory
     const q = c.getContext("2d");
-    q.translate(half, half);
+    q.scale(PLANET_RES, PLANET_RES); q.translate(half, half);
     const glow = a => `rgba(${pal.glow},${a})`;
     const ag = q.createRadialGradient(0, 0, R * 0.92, 0, 0, R * 1.28);
     ag.addColorStop(0, glow(0.5)); ag.addColorStop(1, glow(0));
@@ -829,11 +835,18 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     b.cv = c; b.half = half;
   }
   const inBody = (x, y, pad) => { for (const b of bodies) if ((x - b.x) ** 2 + (y - b.y) ** 2 < (b.r + pad) ** 2) return b; return null; };
+  // everything that scales with the arena: pick-ups and junk keep about the same density (capped for the huge map)
+  function setMapSize(key) {
+    const [size, , n] = MAP_SIZES[key], a = Math.min(6, (size / 2600) ** 2);
+    W = H = size; PLANET_N = n;
+    SLOTS = Math.round(44 * a); ROCKS = Math.round(16 * a); PICKS = Math.round(8 * a); SUPPLY_SLOTS = Math.round(6 * a); GOLD_N = Math.round(70 * a);
+    world.sparks.length = world.rocks.length = world.picks.length = world.supplies.length = 0;
+  }
   function buildPlanets(code) {
     let seed = 7;
     for (const ch of String(code)) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) | 0;
     planets = []; moons = [];
-    for (let t = 0; planets.length < 5 && t < 600; t++) {
+    for (let t = 0; planets.length < PLANET_N && t < 1500; t++) {
       const r = 150 + hash(seed, t, 1) * 150, m = r + 380;
       const x = m + hash(seed, t, 2) * (W - 2 * m), y = m + hash(seed, t, 3) * (H - 2 * m);
       if (planets.some(p => Math.hypot(p.x - x, p.y - y) < p.r + r + 560)) continue;
@@ -855,13 +868,13 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (inBody(me.x, me.y, 80)) Object.assign(me, spawnPoint());
   }
   // ---------- planets can be destroyed: everyone's damage adds up (each player reports what their own shots did) ----------
-  const myPD = [0, 0, 0, 0, 0], remotePD = new Map();
+  const myPD = new Array(14).fill(0), remotePD = new Map();
   let pdRound = -1, planetQuietUntil = 0;
   function paintCracks(p) {
     const R = p.r0, c = document.createElement("canvas");
-    c.width = c.height = p.half * 2;
+    c.width = c.height = Math.ceil(R * 2 * PLANET_RES);
     const q = c.getContext("2d"), rnd = k => hash(p.seed, k, 808);
-    q.translate(p.half, p.half);
+    q.scale(PLANET_RES, PLANET_RES); q.translate(R, R);
     q.beginPath(); q.arc(0, 0, R, 0, 6.29); q.clip();
     q.lineCap = "round"; q.lineJoin = "round";
     for (let k = 0; k < 11; k++) {   // fault lines running in from the rim, forking as they go
@@ -876,7 +889,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
   function planetDmg(i) {
     let d = myPD[i];
-    for (const v of remotePD.values()) if (v.r === stats.round) d += v.d[i];
+    for (const v of remotePD.values()) if (v.r === stats.round) d += v.d[i] || 0;
     return d;
   }
   function hitPlanet(p, dmg, now) {
@@ -989,7 +1002,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.drawImage(b.cv, x - hh, y - hh, hh * 2, hh * 2);
       if (b.frac > 0.05) {   // damage shows as glowing fault lines, then it smoulders
         g.globalAlpha = Math.min(1, b.frac * 1.6) * (0.85 + 0.15 * Math.sin(now / 160 + b.idx));
-        g.drawImage(b.crack, x - hh, y - hh, hh * 2, hh * 2);
+        g.drawImage(b.crack, x - b.r, y - b.r, b.r * 2, b.r * 2);
         g.globalAlpha = 1;
         if (b.stage >= 1 && Math.random() < (lowQ ? 0.15 : 0.4)) {
           const a = Math.random() * 6.283;
@@ -1691,7 +1704,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (Number.isFinite(p.s)) r.score = Math.max(0, Math.floor(p.s));
     if (Number.isFinite(p.lv)) r.lv = clamp(Math.floor(p.lv), 1, MAX_LV);
     if (Array.isArray(p.st) && p.st.length === 6 && p.st.every(Number.isInteger)) r.st = p.st;   // [round, kills, deaths, shots, hits, best]
-    if (Array.isArray(p.pd) && p.pd.length === 6 && p.pd.every(Number.isFinite)) remotePD.set(id, { r: p.pd[0], d: p.pd.slice(1).map(v => clamp(v, 0, 1000)) });
+    if (Array.isArray(p.pd) && p.pd.length >= 2 && p.pd.length <= 15 && p.pd.every(Number.isFinite)) remotePD.set(id, { r: p.pd[0], d: p.pd.slice(1).map(v => clamp(v, 0, 1000)) });
     if (Number.isInteger(p.wp)) r.weapon = WEAPON_KEYS[p.wp] || "fire";
     if (Number.isFinite(p.sh)) r.shield = clamp(Math.floor(p.sh), 0, MAX_SHIELD);
     if (Number.isFinite(p.l)) r.lives = clamp(Math.floor(p.l), 0, maxLivesOf(r.lv));
@@ -1742,8 +1755,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }).catch(() => { setStatus(false, "Solo flight · could not load the multiplayer library"); throw new Error("mqtt"); });
 
     const code = await lobbyChosen;          // picked on the start screen
+    setMapSize(mapOf(code));
     buildPlanets(code);
-    for (const b of bots) if (inBody(b.x, b.y, 80)) Object.assign(b, spawnPoint());
+    Object.assign(me, spawnPoint());
+    for (const b of bots) Object.assign(b, spawnPoint());
     history.replaceState(null, "", "#" + code);
     const shown = code.toUpperCase();
     document.getElementById("boardTitle").textContent = "Lobby " + shown;
@@ -2006,8 +2021,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const RAM_ICON = "M2 11h11l-3-4 2-1 6 6-6 6-2-1 3-4H2zM19 5h3v14h-3z";
   const killSeen = new Set(), streaks = new Map();
   let firstBlood = false;
-  const SPREES = { 3: "KILLING SPREE", 5: "RAMPAGE", 7: "DOMINATING", 9: "UNSTOPPABLE", 11: "GODLIKE", 15: "WICKED SICK" };
-  const MULTI = ["", "", "DOUBLE KILL", "TRIPLE KILL", "MULTI KILL", "MEGA KILL", "ULTRA KILL", "MONSTER KILL"];
+  // Dota-style ladder: kills in a row without dying, one step per kill, then "beyond godlike" every other kill
+  const SPREE_LADDER = { 3: ["KILLING SPREE", "is on a killing spree"], 4: ["DOMINATING", "is dominating"], 5: ["MEGA KILL", "has a mega kill"],
+    6: ["UNSTOPPABLE", "is unstoppable"], 7: ["WICKED SICK", "is wicked sick"], 8: ["MONSTER KILL", "has a monster kill"], 9: ["GODLIKE", "is godlike"] };
+  const spreeOf = n => SPREE_LADDER[n] || (n >= 10 && n % 2 === 0 ? ["BEYOND GODLIKE", "is beyond godlike. Somebody kill them!"] : null);
+  const MULTI = ["", "", "DOUBLE KILL", "TRIPLE KILL", "ULTRA KILL", "RAMPAGE"];
   // someone (anyone) killed someone: one line in the feed, first blood, other pilots' sprees
   function reportKill(shotId, victim) {
     if (killSeen.has(shotId) || !roundLive) return;
@@ -2018,7 +2036,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (!firstBlood) { firstBlood = true; announce("FIRST BLOOD", killer + " drew first blood", "#ff5a6e"); }
     const n = (streaks.get(killer) || 0) + 1;
     streaks.set(killer, n); streaks.set(victim, 0);
-    if (SPREES[n] && !(k && k.me)) { feed.push({ html: `${esc(killer)} is on a ${SPREES[n].toLowerCase()}!`, at: performance.now(), spree: true }); renderFeed(); }
+    const sp = spreeOf(n);
+    if (sp && !(k && k.me)) { feed.push({ html: `${esc(killer)} ${sp[1]}!`, at: performance.now(), spree: true }); renderFeed(); }
   }
   function meKilled(id) { pushCapped(koBy, id, 12); reportKill(id, me.name || "You"); }
   // my own multi-kills and sprees get the big centre announcement
@@ -2027,9 +2046,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     multi = now - lastKillAt < 4000 ? multi + 1 : 1;
     lastKillAt = now;
     [784, 988, 1175].forEach((f, i) => setTimeout(() => blip(f, 0.16, "triangle"), i * 70));
-    const m = multi >= 2 ? MULTI[Math.min(multi, MULTI.length - 1)] : "", sp = SPREES[stats.streak] || "";
-    if (m) announce(m, multi + " kills", "#ffd36b");
-    if (sp) setTimeout(() => announce(sp, stats.streak + " kills without dying", "#c38bff"), m ? 1300 : 0);
+    const m = multi >= 2 ? MULTI[Math.min(multi, MULTI.length - 1)] : "", sp = spreeOf(stats.streak);
+    if (m) announce(m, multi + " kills", "#ffd36b", multi);
+    if (sp) setTimeout(() => announce(sp[0], stats.streak + " kills without dying", "#c38bff", Math.min(6, stats.streak - 1)), m ? 1500 : 0);
   }
   let voice = null;
   function speak(text) {
@@ -2037,15 +2056,44 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (!voice) voice = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang)).sort((a, b) => (/male|daniel|alex|fred|uk/i.test(b.name) ? 1 : 0) - (/male|daniel|alex|fred|uk/i.test(a.name) ? 1 : 0))[0] || null;
     const u = new SpeechSynthesisUtterance(text.toLowerCase());
     if (voice) u.voice = voice;
-    u.lang = "en-US"; u.rate = 0.85; u.pitch = 0.45; u.volume = 1;
+    u.lang = "en-US"; u.rate = 0.78; u.pitch = 0.3; u.volume = 1;   // slow and deep, like an arena announcer
     speechSynthesis.cancel(); speechSynthesis.speak(u);
   }
-  function announce(text, sub, col) {
+  // announcer sting (all synthesized): a sub-bass hit, a brass-like chord swelling in a big hall, higher for bigger streaks
+  let hall = null;
+  function sting(level) {
+    if (!audio) return;
+    const t = audio.currentTime;
+    if (!hall) {   // a long decaying noise burst as the room's echo
+      hall = audio.createConvolver();
+      const len = audio.sampleRate * 2.6, ir = audio.createBuffer(2, len, audio.sampleRate);
+      for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
+      hall.buffer = ir;
+      const wet = audio.createGain(); wet.gain.value = 0.5; hall.connect(wet).connect(audio.destination);
+    }
+    boomSound(1.4, 260, 0.5);
+    const sub = audio.createOscillator(), sv = audio.createGain();
+    sub.type = "sine"; sub.frequency.setValueAtTime(90, t); sub.frequency.exponentialRampToValueAtTime(38, t + 0.9);
+    sv.gain.setValueAtTime(0.45, t); sv.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
+    sub.connect(sv).connect(audio.destination); sub.start(t); sub.stop(t + 1.2);
+    const root = 98 * Math.pow(2, Math.min(level, 6) * 2 / 12);   // each streak step lifts the chord a whole tone
+    for (const [ratio, delay] of [[1, 0], [1.5, 0.05], [2, 0.1], [2.52, 0.15]]) {
+      for (const det of [-6, 6]) {
+        const o = audio.createOscillator(), f = audio.createBiquadFilter(), v = audio.createGain(), s0 = t + delay;
+        o.type = "sawtooth"; o.frequency.value = root * ratio; o.detune.value = det;
+        f.type = "lowpass"; f.frequency.setValueAtTime(400, s0); f.frequency.linearRampToValueAtTime(2400, s0 + 0.35); f.frequency.exponentialRampToValueAtTime(500, s0 + 1.8);
+        v.gain.setValueAtTime(0.0001, s0); v.gain.exponentialRampToValueAtTime(0.035, s0 + 0.12); v.gain.exponentialRampToValueAtTime(0.0001, s0 + 1.9);
+        o.connect(f).connect(v); v.connect(audio.destination); v.connect(hall);
+        o.start(s0); o.stop(s0 + 2);
+      }
+    }
+  }
+  function announce(text, sub, col, level = 1) {
     annEl.innerHTML = `<b>${esc(text)}</b>${sub ? `<span>${esc(sub)}</span>` : ""}`;
     annEl.style.setProperty("--ac", col);
     annEl.classList.remove("show"); void annEl.offsetWidth; annEl.classList.add("show");
-    speak(text);
-    [196, 247, 294].forEach((f, i) => setTimeout(() => blip(f, 0.5, "sawtooth"), i * 40));
+    sting(level);
+    setTimeout(() => speak(text), 180);
   }
 
   // ---------- update ----------
@@ -2414,7 +2462,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const slow = {
         tg: myTag, n: me.name, h: me.hue, ck: me.ck, s: me.score, l: me.lives, lv: me.lv, sh: me.shield, wp: WEAPON_KEYS.indexOf(me.weapon), g: myGrabs, hb: hitBy, ko: koBy,
         st: [stats.round, stats.kills, stats.deaths, stats.shots, stats.hits, stats.best],
-        pd: [stats.round, ...myPD.map(v => Math.round(v * 10) / 10)],
+        pd: [stats.round, ...myPD.slice(0, planets.length).map(v => Math.round(v * 10) / 10)],
         dr: myDrops.filter(d => Date.now() - d[4] < DROP_LIFE).slice(-3).map(d => d.slice(0, 4))
       };
       const sig = JSON.stringify(slow);
@@ -3186,7 +3234,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       }
     }
   }
-  const GOLD_N = 140;
+  let GOLD_N = 140;
   function goldDrop(ev, i) {
     const t0 = hash(ev.cyc, i, 95) * 20, age = ev.et - t0;
     if (age < 0 || age > 7) return null;
@@ -3914,17 +3962,22 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const syncGo = () => {
     if (!standalone) { goBtn.textContent = "Take off"; return; }
     goBtn.disabled = !codeOk();
-    goBtn.textContent = codeOk() ? "Join lobby " + lobbyInput.value.toUpperCase() : "Enter a code (4+ characters) or create one";
+    goBtn.textContent = codeOk() ? "Join lobby " + lobbyInput.value.toUpperCase() + " · " + MAP_SIZES[mapOf(normCode(lobbyInput.value))][1] + " map" : "Enter a code (4+ characters) or create one";
   };
   if (standalone) {
     document.getElementById("lobbyBox").hidden = false;
     const fromLink = normCode((location.hash.match(/^#([A-Za-z0-9]{1,16})$/) || [])[1] || "");
     if (fromLink.length >= 4) lobbyInput.value = fromLink.toUpperCase();
     lobbyInput.addEventListener("input", () => { lobbyInput.value = lobbyInput.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); syncGo(); });
-    document.getElementById("createBtn").addEventListener("click", () => {
-      let c = ""; for (let i = 0; i < 5; i++) c += CODE_ABC[(Math.random() * CODE_ABC.length) | 0];
-      lobbyInput.value = c.toUpperCase(); syncGo(); goBtn.focus();
+    let mapPick = MAP_SIZES[store.get("binrocket.map")] ? store.get("binrocket.map") : "m";
+    const newCode = () => { let c = mapPick; for (let i = 0; i < 4; i++) c += CODE_ABC[(Math.random() * CODE_ABC.length) | 0]; lobbyInput.value = c.toUpperCase(); syncGo(); };
+    segButtons(document.getElementById("mapSize"), Object.entries(MAP_SIZES).map(([k, v]) => [k, v[1]]), mapPick, v => {
+      mapPick = v; store.set("binrocket.map", v);
+      if (createdCode) newCode();   // a code you just made follows the size you pick
     });
+    let createdCode = false;
+    lobbyInput.addEventListener("input", () => { createdCode = false; });
+    document.getElementById("createBtn").addEventListener("click", () => { createdCode = true; newCode(); goBtn.focus(); });
   }
   syncGo();
   document.getElementById("startForm").addEventListener("submit", e => {
