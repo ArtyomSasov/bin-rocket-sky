@@ -179,6 +179,23 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   box-shadow: 0 4px 0 #9c2a17, 0 0 26px rgba(255, 140, 50, .55);
   touch-action: none;
 }
+.boostbtn {
+  right: calc(110px + env(safe-area-inset-right, 0px));
+  width: 60px; height: 60px;
+  background: radial-gradient(circle at 50% 40%, #c8fff8, #4fd6c8 60%, #2aa79b);
+  box-shadow: 0 4px 0 #1d7a70, 0 0 20px rgba(79, 214, 200, .5);
+}
+.boostbtn svg { width: 28px; height: 28px; fill: #10302d; }
+.xpbar.nrg i { background: linear-gradient(90deg, #7df9ff, #ffffff); transition: none; }
+.minimap {
+  position: fixed;
+  left: max(16px, env(safe-area-inset-left, 0px));
+  bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  width: 140px; height: 140px;
+  border-radius: 12px; border: 1px solid var(--line);
+  background: var(--panel);
+  pointer-events: none;
+}
 .fire:active { box-shadow: 0 1px 0 #9c2a17, 0 0 34px rgba(255, 160, 60, .8); }
 .fire svg { width: 34px; height: 40px; fill: #fff7e0; }
 @media (hover: hover) and (pointer: fine) { .fire { display: none; } }
@@ -191,13 +208,17 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   .hearts { max-width: 100px; }
   .event { top: calc(118px + env(safe-area-inset-top, 0px)); font-size: 13px; }
   .fire { bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
+  .boostbtn { right: calc(104px + env(safe-area-inset-right, 0px)); }
+  .minimap { width: 96px; height: 96px; bottom: calc(108px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (max-width: 360px) { .score > span:first-of-type { display: none; } }
 </style>
 
 <canvas id="c"></canvas>
 
-<div class="score chip"><b id="score">0</b><span>points</span><span class="lv"><b id="lvNum">Lv 1</b><span class="xpbar"><i id="xpFill"></i></span></span><span class="hearts" id="hearts" role="img" aria-label="3 lives"></span><span class="wpn" id="wpn">Fireball</span></div>
+<div class="score chip"><b id="score">0</b><span>points</span><span class="lv"><b id="lvNum">Lv 1</b><span class="xpbar"><i id="xpFill"></i></span><span class="xpbar nrg" title="Boost energy"><i id="nrgFill"></i></span></span><span class="hearts" id="hearts" role="img" aria-label="3 lives"></span><span class="wpn" id="wpn">Fireball</span></div>
+<button class="fire boostbtn" id="boostBtn" aria-label="Boost: tap to dash, hold to boost" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l7 6-7 6zM12 6l7 6-7 6z"/></svg></button>
+<canvas class="minimap" id="minimap" width="280" height="280" aria-label="Mini map" hidden></canvas>
 <button class="fire" id="fireBtn" aria-label="Fire" hidden><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg></button>
 <div class="event" id="eventBanner" hidden></div>
 <div class="board chip"><h2 id="boardTitle">Flyers</h2><ol id="board"></ol></div>
@@ -228,7 +249,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       <summary>Customize your bin</summary>
       <div class="opts" id="customOpts"></div>
     </details>
-    <div class="keys"><kbd>WASD</kbd> / <kbd>←↑↓→</kbd> fly · <kbd>Space</kbd> fire · <kbd>Shift</kbd> boost<br>Mouse or touch: hold and point where to go · phone: fire button</div>
+    <div class="keys"><kbd>WASD</kbd> / <kbd>←↑↓→</kbd> fly · <kbd>Space</kbd> fire · <kbd>Shift</kbd> tap: dash · hold: boost<br>Mouse or touch: hold and point where to go · phone: fire and boost buttons</div>
   </form>
 </div>
 
@@ -441,6 +462,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const ptr = { down: false, x: 0, y: 0 };
   let playing = false;
   let lowQ = false;   // set by the frame loop when the device can't keep up
+  // smooth steering + boost: input eases in, energy drains while boosting and refills after a short pause
+  const steer = { x: 0, y: 0 };
+  const BOOST_HOLD = 0.18;           // s: a press shorter than this is just a dash
+  let energy = 100, energyRegenAt = 0, dashReadyAt = 0, boostDownAt = -1, boostBtnDown = false;
   let audio = null;
 
   // ---------- input ----------
@@ -452,9 +477,19 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     keys.add(e.code);
     if (playing && (e.code.startsWith("Arrow") || e.code === "Space")) e.preventDefault();
   });
+  addEventListener("keydown", e => {
+    if ((e.code === "ShiftLeft" || e.code === "ShiftRight") && !e.repeat && e.target.tagName !== "INPUT") { boostDownAt = performance.now(); dash(boostDownAt); }
+  });
   addEventListener("keyup", e => keys.delete(e.code));
-  addEventListener("blur", () => { keys.clear(); ptr.down = false; firing = false; });
+  addEventListener("blur", () => { keys.clear(); ptr.down = false; firing = false; boostBtnDown = false; });
   const fireBtn = document.getElementById("fireBtn");
+  const boostBtn = document.getElementById("boostBtn");
+  boostBtn.addEventListener("pointerdown", e => {
+    e.preventDefault(); boostBtn.setPointerCapture(e.pointerId);
+    boostBtnDown = true; boostDownAt = performance.now(); dash(boostDownAt);
+  });
+  for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) boostBtn.addEventListener(ev, () => { boostBtnDown = false; });
+  boostBtn.addEventListener("contextmenu", e => e.preventDefault());
   fireBtn.addEventListener("pointerdown", e => { e.preventDefault(); firing = true; fireBtn.setPointerCapture(e.pointerId); });
   for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) fireBtn.addEventListener(ev, () => { firing = false; });
   cv.addEventListener("pointerdown", e => { ptr.down = true; ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; cv.setPointerCapture(e.pointerId); });
@@ -592,6 +627,20 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (me.weapon !== "fire" && --me.ammo <= 0) { me.weapon = "fire"; me.ammo = Infinity; }
     renderWeapon();
   }
+  // quick dodge: a burst forward (or toward where you steer) with a moment of invulnerability
+  function dash(now) {
+    if (!playing || me.dead || energy < 25 || now < dashReadyAt) return;
+    energy -= 25; dashReadyAt = now + 450; energyRegenAt = now + 700;
+    const sm = Math.hypot(steer.x, steer.y);
+    const a = sm > 0.2 ? Math.atan2(steer.y, steer.x) : me.a;
+    me.vx += Math.cos(a) * 720; me.vy += Math.sin(a) * 720;
+    me.inv = Math.max(me.inv, now + 280);
+    for (let k = 0; k < 22; k++) {
+      const b = a + Math.PI + (Math.random() - 0.5) * 1.2, v = 120 + Math.random() * 220;
+      puff(me.x, me.y, Math.cos(b) * v, Math.sin(b) * v, 0.45, 2.4, k % 2 ? "#bff9ff" : "#ffffff");
+    }
+    blip(520, 0.12, "triangle");
+  }
   function renderWeapon() {
     const w = WEAPONS[me.weapon];
     const el = document.getElementById("wpn");
@@ -606,6 +655,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (me.lives <= 0) {
       me.dead = true; me.respawnAt = now + 3000; me.vx = me.vy = 0;
       spillStars(now);
+      if (me.lv > 1) floaters.push({ x: me.x, y: me.y - 80, t: 0, txt: "Level reset", gold: false });
+      me.xp = 0; me.lv = 1;   // a destroyed bin starts over from level 1
+      renderLevel();
       explode(me.x, me.y, 70, 320);
       blip(60, 0.6, "sawtooth");
     } else explode(me.x, me.y, 18, 180);
@@ -868,7 +920,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   let sendAcc = 0, boardAcc = 0, sendSeq = 0, slowAcc = 1, lastSlow = "";
   function update(dt, now) {
     // input → acceleration
-    let ix = 0, iy = 0, boost = keys.has("ShiftLeft") || keys.has("ShiftRight");
+    let ix = 0, iy = 0;
+    const shiftHeld = keys.has("ShiftLeft") || keys.has("ShiftRight");
+    let boost = (shiftHeld || boostBtnDown) && boostDownAt >= 0 && now - boostDownAt > BOOST_HOLD * 1000;
     if (me.dead && now >= me.respawnAt) respawn(now);
     fireCd -= dt; shake = Math.max(0, shake - dt);
     if (playing && !me.dead && fireCd <= 0 && (firing || FIRE_KEYS.some(k => keys.has(k)))) shoot(now);
@@ -883,14 +937,19 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         if (d > Math.min(vw, vh) * 0.4) boost = true;
       }
     }
-    const im = Math.hypot(ix, iy);
-    if (im > 1) { ix /= im; iy /= im; }
-    const acc = boost ? 1500 : 950;
-    me.vx += ix * acc * dt; me.vy += iy * acc * dt;
-    const drag = Math.exp(-(im > 0 ? 1.3 : 2.2) * dt);
-    me.vx *= drag; me.vy *= drag;
-    const sp = Math.hypot(me.vx, me.vy), cap = boost ? 820 : 540;
-    if (sp > cap) { me.vx *= cap / sp; me.vy *= cap / sp; }
+    const raw = Math.hypot(ix, iy);
+    if (raw > 1) { ix /= raw; iy /= raw; }
+    // input eases in/out over ~0.1 s, then velocity eases toward the wanted velocity: turns become arcs
+    const ease = 1 - Math.exp(-10 * dt);
+    steer.x += (ix - steer.x) * ease; steer.y += (iy - steer.y) * ease;
+    const im = Math.hypot(steer.x, steer.y);
+    boost = boost && playing && !me.dead && energy > 0 && im > 0.1;
+    if (boost) { energy = Math.max(0, energy - 45 * dt); energyRegenAt = now + 700; }
+    else if (now > energyRegenAt) energy = Math.min(100, energy + 22 * dt);
+    const top = boost ? 860 : 540;
+    const resp = 1 - Math.exp(-(im > 0.05 ? (boost ? 3.2 : 2.6) : 1.6) * dt);
+    me.vx += (steer.x * top - me.vx) * resp; me.vy += (steer.y * top - me.vy) * resp;
+    const sp = Math.hypot(me.vx, me.vy);
     if (!playing) { me.vx = Math.cos(now / 2400) * 120; me.vy = Math.sin(now / 3100) * 90 - 40; }
     if (me.dead) { me.vx = me.vy = 0; }
     me.x += me.vx * dt; me.y += me.vy * dt;
@@ -908,7 +967,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         if (impact > 120) hurt(now); else shake = Math.max(shake, 0.12);
       }
     }
-    if (sp > 25) me.a = lerpAng(me.a, Math.atan2(me.vy, me.vx), 1 - Math.exp(-8 * dt));
+    if (sp > 25) me.a = lerpAng(me.a, Math.atan2(me.vy, me.vx), 1 - Math.exp(-6 * dt));
     me.thrust += ((playing ? Math.min(1, im) * (boost ? 1.4 : 1) : 0.6) - me.thrust) * Math.min(1, dt * 6);
     if (!me.dead) trailFrom(me, 0.6 + me.thrust * 1.6, dt);
 
@@ -1815,8 +1874,63 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     for (let i = 0; i < PICKS; i++) world.picks[i] = pickup(i, wt);
     update(dt, now); draw(now);
     if (!playing) drawPreview(now);
+    else { drawMinimap(now); renderEnergy(); }
   }
   requestAnimationFrame(frame);
+
+  // ---------- energy bar & mini map ----------
+  const nrgFill = document.getElementById("nrgFill");
+  let shownEnergy = -1;
+  function renderEnergy() {
+    const e = Math.round(energy);
+    if (e !== shownEnergy) { shownEnergy = e; nrgFill.style.width = e + "%"; }
+  }
+  const mm = document.getElementById("minimap"), mctx = mm.getContext("2d");
+  function drawMinimap(now) {
+    const S = mm.width, k = (S - 16) / W, o = 8;
+    const P = (x, y) => [o + x * k, o + y * k];
+    mctx.clearRect(0, 0, S, S);
+    mctx.strokeStyle = "rgba(189,255,246,0.5)"; mctx.lineWidth = 2;
+    mctx.strokeRect(o, o, W * k, H * k);
+    // what your screen shows
+    const [vx0, vy0] = P(me.x - vw / 2, me.y - vh / 2);
+    mctx.strokeStyle = "rgba(255,255,255,0.25)"; mctx.lineWidth = 1.5;
+    mctx.strokeRect(vx0, vy0, vw * k, vh * k);
+    // weapon crates
+    for (const c of world.picks) {
+      if (grabbed.has(c.key)) continue;
+      const [x, y] = P(c.x, c.y);
+      mctx.fillStyle = WEAPONS[c.type].col; mctx.fillRect(x - 3, y - 3, 6, 6);
+    }
+    // event hazards
+    const ev = eventAt(clockNow());
+    if (ev.active && ev.type === "blackhole") {
+      const bh = blackHole(ev), [x, y] = P(bh.x, bh.y);
+      mctx.fillStyle = `rgba(195,139,255,${0.5 + 0.3 * Math.sin(now / 200)})`;
+      mctx.beginPath(); mctx.arc(x, y, 9 * bh.k + 2, 0, 6.29); mctx.fill();
+      mctx.fillStyle = "#05010c"; mctx.beginPath(); mctx.arc(x, y, 4 * bh.k, 0, 6.29); mctx.fill();
+    }
+    if (ev.active && ev.type === "aliens") for (let u = 0; u < UFO_N; u++) {
+      if (grabbed.has("e" + ev.cyc + "u" + u)) continue;
+      const p = ufoPos(ev, u, ev.et), [x, y] = P(p.x, p.y);
+      mctx.fillStyle = "#7dffb0"; mctx.beginPath(); mctx.ellipse(x, y, 6, 3, 0, 0, 6.29); mctx.fill();
+    }
+    // other flyers
+    for (const r of remotes.values()) {
+      if (r.dead) continue;
+      const [x, y] = P(r.x, r.y);
+      mctx.fillStyle = `hsl(${r.hue} 90% 70%)`;
+      mctx.beginPath(); mctx.arc(x, y, 4 + r.lv * 0.3, 0, 6.29); mctx.fill();
+    }
+    // you: an arrow pointing where you fly
+    if (!me.dead) {
+      const [x, y] = P(me.x, me.y);
+      mctx.save(); mctx.translate(x, y); mctx.rotate(me.a);
+      mctx.fillStyle = "#ffffff"; mctx.strokeStyle = "#10302d"; mctx.lineWidth = 1.5;
+      mctx.beginPath(); mctx.moveTo(9, 0); mctx.lineTo(-6, -6); mctx.lineTo(-3, 0); mctx.lineTo(-6, 6); mctx.closePath(); mctx.fill(); mctx.stroke();
+      mctx.restore();
+    }
+  }
 
   // ---------- start ----------
   const pv = document.getElementById("preview"), pctx = pv.getContext("2d");
@@ -1881,7 +1995,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     store.set("binrocket.name", me.name);
     try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { audio = null; }
     document.getElementById("start").hidden = true;
-    fireBtn.hidden = false;
+    fireBtn.hidden = false; boostBtn.hidden = false; mm.hidden = false;
     me.inv = performance.now() + 2000;
     playing = true;
     cv.focus();
