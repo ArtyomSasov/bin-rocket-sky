@@ -1067,7 +1067,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       };
       const sig = JSON.stringify(slow);
       if ((sig !== lastSlow && slowAcc >= 0.1) || slowAcc >= 1) { Object.assign(msg, slow); lastSlow = sig; slowAcc = 0; }
-      if (net.shotsInState && myShotLog.length) msg.f = myShotLog.slice(-9).map(e => e.d);
+      // always send the list when shots ride in the state, even empty: the Claude room merges presence
+      // field by field, so an omitted "f" would keep old shots there forever and they could come back as ghosts
+      if (net.shotsInState) msg.f = myShotLog.slice(-9).map(e => e.d);
       net.send(msg);
     }
     boardAcc += dt;
