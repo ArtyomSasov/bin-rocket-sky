@@ -110,6 +110,17 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
   background: rgba(255,255,255,.08); border: 1px solid var(--line); border-radius: 12px;
   padding: 10px 12px;
 }
+.field { display: grid; gap: 6px; width: 100%; text-align: left; }
+.field label { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.field label small { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.field > input, .row input {
+  min-width: 0;
+  font: 700 16px var(--body); color: var(--ink);
+  background: rgba(255,255,255,.08); border: 1px solid var(--line); border-radius: 12px;
+  padding: 10px 12px;
+}
+.row input.code { font-family: var(--display); letter-spacing: .18em; text-transform: uppercase; }
+.go { width: 100%; padding: 13px 16px; font-size: 18px; }
 .keys { font-size: 12px; color: var(--muted); line-height: 1.6; }
 kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; color: var(--ink); }
 .hearts { display: flex; gap: 3px; margin-left: 4px; align-self: center; }
@@ -142,6 +153,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 <div class="board chip"><h2 id="boardTitle">Flyers</h2><ol id="board"></ol></div>
 <div class="status">
   <div class="chip" id="netChip"><span class="dot" id="netDot"></span><span id="netText">Connecting…</span></div>
+  <button class="ghost" id="codeBtn" hidden>Copy code</button>
   <button class="ghost" id="shareBtn" hidden>Copy invite link</button>
 </div>
 
@@ -150,10 +162,18 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     <img src="bot.png" alt="A teal bin-shaped rocket with a purple lid, smiling, flame underneath">
     <h1>Bin Rocket <em>Sky</em></h1>
     <p>Scoop up sparks, blast space junk and other bins with fire. You have 3 lives. Gold spark +5, junk +2, hit +1, knockout +5.</p>
-    <div class="row">
-      <input id="nameInput" maxlength="14" autocomplete="off" aria-label="Your pilot name" placeholder="Pilot name">
-      <button type="submit">Take off</button>
+    <div class="field">
+      <label for="nameInput">Pilot name</label>
+      <input id="nameInput" maxlength="14" autocomplete="off" placeholder="Pilot name">
     </div>
+    <div class="field" id="lobbyBox" hidden>
+      <label for="lobbyInput">Lobby code <small>(empty = public lobby)</small></label>
+      <div class="row">
+        <input id="lobbyInput" class="code" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="e.g. K7M2Q">
+        <button type="button" class="ghost" id="createBtn">Create new</button>
+      </div>
+    </div>
+    <button type="submit" class="go" id="goBtn">Take off</button>
     <div class="keys"><kbd>WASD</kbd> / <kbd>←↑↓→</kbd> fly · <kbd>Space</kbd> fire · <kbd>Shift</kbd> boost<br>Mouse or touch: hold and point where to go · phone: fire button</div>
   </form>
 </div>
@@ -362,7 +382,25 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   // ---------- networking ----------
   const net = { send() {}, share: null };
   const netDot = document.getElementById("netDot"), netText = document.getElementById("netText");
-  const shareBtn = document.getElementById("shareBtn");
+  const shareBtn = document.getElementById("shareBtn"), codeBtn = document.getElementById("codeBtn");
+  function copyText(text, btn, label, done) {
+    const ok = () => { btn.textContent = done; setTimeout(() => btn.textContent = label, 1600); };
+    const legacy = () => {
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      const copied = document.execCommand("copy"); ta.remove();
+      if (copied) ok(); else btn.textContent = text;
+    };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(ok, legacy);
+    else legacy();
+  }
+  // lobby choice (standalone hosting only)
+  const standalone = !(window.claude && typeof window.claude.use === "function");
+  let chooseLobby;
+  const lobbyChosen = new Promise(r => { chooseLobby = r; });
+  const CODE_ABC = "abcdefghjkmnpqrstuvwxyz23456789";
+  const normCode = v => v.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10);
   function setStatus(on, text) { netDot.classList.toggle("on", on); netText.textContent = text; }
 
   function applyRemote(id, p) {
@@ -428,24 +466,18 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       s.onload = res; s.onerror = rej; document.head.appendChild(s);
     }).catch(() => { setStatus(false, "Solo flight · could not reach the matchmaking server"); throw new Error("peerjs"); });
 
-    let code = (location.hash.match(/^#([a-z0-9]{4,16})$/) || [])[1];
-    if (!code) { code = "lobby"; history.replaceState(null, "", "#" + code); }   // plain link: everyone meets in one shared room
+    const code = await lobbyChosen;          // picked on the start screen
+    history.replaceState(null, "", "#" + code);
     const hostId = "binrocket-sky-" + code;
-    document.getElementById("boardTitle").textContent = "Room " + code;
+    const shown = code === "lobby" ? "PUBLIC" : code.toUpperCase();
+    document.getElementById("boardTitle").textContent = "Lobby " + shown;
     shareBtn.hidden = false;
-    const copied = () => { shareBtn.textContent = "Link copied"; setTimeout(() => shareBtn.textContent = "Copy invite link", 1600); };
-    shareBtn.onclick = () => {
-      const url = location.href;
-      const legacy = () => {
-        const ta = document.createElement("textarea");
-        ta.value = url; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
-        document.body.appendChild(ta); ta.select();
-        const ok = document.execCommand("copy"); ta.remove();
-        if (ok) copied(); else shareBtn.textContent = url;
-      };
-      if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(url).then(copied, legacy);
-      else legacy();
-    };
+    shareBtn.onclick = () => copyText(location.href, shareBtn, "Copy invite link", "Link copied");
+    if (code !== "lobby") {
+      codeBtn.hidden = false;
+      codeBtn.textContent = "Code " + shown + " · copy";
+      codeBtn.onclick = () => copyText(shown, codeBtn, "Code " + shown + " · copy", "Code copied");
+    }
 
     // One peer at a time. The first visitor of a room claims the fixed host id; everyone else
     // connects to it and the host relays states. Nothing gives up: a lost signalling socket is
@@ -480,7 +512,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     document.addEventListener("visibilitychange", () => { if (!document.hidden) rejoinNow(); });
 
     const becomeHost = () => {
-      setStatus(false, "Joining room " + code + "…");
+      setStatus(false, "Joining lobby " + shown + "…");
       const peer = current = new Peer(hostId, PEER_OPTS);
       const conns = new Map();
       let keepalive = 0;
@@ -491,7 +523,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       };
       peer.on("open", () => {
         if (peer !== current) return;
-        link(true, "Room " + code + " · you are hosting");
+        link(true, "Lobby " + shown + " · you are hosting");
         net.send = p => { for (const c of conns.values()) if (c.open) c.send({ t: "s", id: hostId, p }); };
         clearInterval(keepalive);
         keepalive = setInterval(() => {
@@ -527,7 +559,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     };
 
     const becomeClient = () => {
-      setStatus(false, "Joining room " + code + "…");
+      setStatus(false, "Joining lobby " + shown + "…");
       const peer = current = new Peer(PEER_OPTS);
       let lastMsg = 0, watchdog = 0, conn = null;
       const lost = msg => {
@@ -548,7 +580,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         }, 1000);
         c.on("open", () => {
           lastMsg = performance.now();
-          link(true, "Room " + code + " · connected");
+          link(true, "Lobby " + shown + " · connected");
           net.send = p => { if (c.open) c.send({ t: "s", p }); };
         });
         c.on("data", d => {
@@ -956,8 +988,22 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   // ---------- start ----------
   const nameInput = document.getElementById("nameInput");
   nameInput.value = store.get("binrocket.name") || "Bin-" + Math.floor(10 + Math.random() * 89);
+  const lobbyInput = document.getElementById("lobbyInput"), goBtn = document.getElementById("goBtn");
+  const syncGo = () => { goBtn.textContent = !standalone ? "Take off" : normCode(lobbyInput.value) ? "Join lobby " + lobbyInput.value.toUpperCase() : "Play in public lobby"; };
+  if (standalone) {
+    document.getElementById("lobbyBox").hidden = false;
+    const fromLink = normCode((location.hash.match(/^#([A-Za-z0-9]{1,16})$/) || [])[1] || "");
+    if (fromLink && fromLink !== "lobby") lobbyInput.value = fromLink.toUpperCase();
+    lobbyInput.addEventListener("input", () => { lobbyInput.value = lobbyInput.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); syncGo(); });
+    document.getElementById("createBtn").addEventListener("click", () => {
+      let c = ""; for (let i = 0; i < 5; i++) c += CODE_ABC[(Math.random() * CODE_ABC.length) | 0];
+      lobbyInput.value = c.toUpperCase(); syncGo(); goBtn.focus();
+    });
+  }
+  syncGo();
   document.getElementById("startForm").addEventListener("submit", e => {
     e.preventDefault();
+    if (standalone) chooseLobby(normCode(lobbyInput.value) || "lobby");
     me.name = nameInput.value.trim().slice(0, 14) || "Bin";
     store.set("binrocket.name", me.name);
     try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { audio = null; }
@@ -969,7 +1015,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     renderBoard();
   });
 
-  setStatus(false, "Connecting…");
+  setStatus(false, standalone ? "Pick a lobby and take off" : "Connecting…");
   initNet().catch(() => {});
 })();
 </script>
