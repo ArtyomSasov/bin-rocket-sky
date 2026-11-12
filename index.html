@@ -235,7 +235,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 <script>
 (() => {
   "use strict";
-  const W = 2600, H = 2600;          // wrap-around world
+  const W = 2600, H = 2600;          // walled arena
   const BOT = 84;                    // sprite size on screen
   const SLOTS = 44, PERIOD = 16;     // spark slots, seconds per respawn cycle
   const SPRITE_TILT = 0.24;          // the art leans right a little (its engine points down-left)
@@ -761,7 +761,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
     // Standalone hosting: every player talks to public MQTT brokers over secure WebSocket.
     // No direct browser-to-browser links, so office NATs and mobile networks don't matter.
-    // We join two brokers at once and accept messages from either (duplicates are harmless).
+    // We listen on two brokers and publish on the first one that is connected (see BROKER_HZ for their limits).
     await new Promise((res, rej) => {
       const s = document.createElement("script");
       s.src = "https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js";
