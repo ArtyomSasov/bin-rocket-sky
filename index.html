@@ -1192,7 +1192,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 
   // ---------- networking ----------
   // send(state) every 50 ms; shot(d) right away where the transport allows; otherwise shots ride in the state
-  const net = { send() {}, shot() {}, sendAs() {}, shotAs() {}, shotsInState: false, hz: 20 };
+  const net = { send() {}, shot() {}, shotsInState: false, hz: 20 };
   const netDot = document.getElementById("netDot"), netText = document.getElementById("netText");
   const shareBtn = document.getElementById("shareBtn"), codeBtn = document.getElementById("codeBtn");
   function copyText(text, btn, label, done) {
@@ -1349,9 +1349,12 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         if (id === myId || !/^p[a-z0-9]{1,12}$/.test(id)) return;
         if (kind === "l") { removeRemote(id); return; }
         if (kind === "f" && payload.length < 200) { try { addRemoteShot(id, JSON.parse(payload.toString())); } catch {} return; }
-        if (kind !== "s" || payload.length > 4096) return;
+        if (kind !== "s" || payload.length > 16384) return;
         let p; try { p = JSON.parse(payload.toString()); } catch { return; }
         applyRemote(id, p);
+        if (Array.isArray(p.bots)) for (const e of p.bots.slice(0, 8)) {
+          if (Array.isArray(e) && typeof e[0] === "string" && /^pb[a-z0-9]{1,10}$/.test(e[0]) && !botById.has(e[0])) applyRemote(e[0], e[1]);
+        }
       });
       return c;
     });
@@ -1365,9 +1368,6 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     // on the rate-limited backup, shots ride inside the (slower) state messages instead of their own
     const onPrimary = () => outbound() === clients[0];
     net.shot = d => { if (onPrimary()) clients[0].publish(base + "f/" + myId, JSON.stringify(d), { qos: 0 }); };
-    // bots run in this browser and show up for everyone as their own pilots
-    net.shotAs = (id, d) => { if (onPrimary()) clients[0].publish(base + "f/" + id, JSON.stringify(d), { qos: 0 }); };
-    net.sendAs = (id, p) => { const c = outbound(); if (c) c.publish(base + "s/" + id, JSON.stringify(p), { qos: 0 }); };
     net.send = p => {
       const c = outbound();
       const i = clients.indexOf(c);
@@ -1475,7 +1475,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const s = { id, kind: 0, x: b.x + bx * 42, y: b.y + by * 42, px: b.x, py: b.y, vx: bx * 880 + b.vx * 0.6, vy: by * 880 + b.vy * 0.6, life: SHOT_LIFE[0], mine: false, owner: b.id };
     shots.push(s); seenShots.set(id, performance.now());
     const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), 0];
-    b.shotLog.push({ at: now, d }); net.shotAs(b.id, d);
+    b.shotLog.push({ at: now, d });
     b.st.shots++;
     b.vx -= bx * 25; b.vy -= by * 25;
   }
@@ -1526,6 +1526,16 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       b.a = lerpAng(b.a, aim, 1 - Math.exp(-5 * dt));
       b.fireCd -= dt;
       if (tgt && roundLive && td < 950 && Math.abs(angD(aim - b.a)) < 0.3 && b.fireCd <= 0) { botFire(b, now); b.fireCd = b.L.cd * (0.7 + Math.random() * 0.6); }
+      // another pilot ramming my bot on boost (the bot is the victim, so its owner decides)
+      for (const [rid, r] of remotes) {
+        if (botById.has(rid) || r.dead || !(r.boost > 0) || !r.tag) continue;
+        if (Math.hypot(r.x - b.x, r.y - b.y) < 31 * (sizeOf(r.lv || 1) + 1) && (!b.rammedBy || now - b.rammedBy > 400)) {
+          b.rammedBy = now;
+          const dx = b.x - r.x, dy = b.y - r.y, d = Math.hypot(dx, dy) || 1;
+          b.vx += dx / d * 900; b.vy += dy / d * 900;
+          botHurt(b, r.boost === 2 ? 2 : 1, r.tag + ".ram" + Math.floor(now), now, false);
+        }
+      }
       // ramming a bot on boost
       if (playing && !me.dead && me.boostFx > 0 && Math.hypot(me.x - b.x, me.y - b.y) < 31 * (sizeOf(me.lv) + 1) && (!b.rammedAt || now - b.rammedAt > 400)) {
         b.rammedAt = now;
@@ -1542,18 +1552,24 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       }
     }
   }
-  function sendBots(now) {
+  // all bots travel inside my own state message (one publish per tick, whatever the bot count):
+  // brokers rate-limit per client, and six bots sending separately would blow past that
+  let botTick = 0;
+  function botStates(now) {
+    const out = [];
+    const full = botTick++ % 10 === 0;   // names/looks/scores every 10th tick; motion, hits and shots every tick
     for (const b of bots) {
       const m = {
         q: ++b.q, x: Math.round(b.x), y: Math.round(b.y), vx: Math.round(b.vx), vy: Math.round(b.vy), a: +b.a.toFixed(2),
         t: 1, b: 0, d: b.dead ? 1 : 0, i: now < b.inv ? 1 : 0, ds: b.dead ? b.ds : 0,
-        n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, l: Math.max(0, b.lives), lv: 1, sh: 0, wp: 0, g: [], hb: b.hitBy, ko: b.koBy,
-        st: [stats.round, b.st.kills, b.st.deaths, b.st.shots, b.st.hits, b.st.best]
+        l: Math.max(0, b.lives), hb: b.hitBy, ko: b.koBy, f: b.shotLog.map(e => e.d)
       };
-      if (net.shotsInState) m.f = b.shotLog.map(e => e.d);
-      net.sendAs(b.id, m);
-      applyRemote(b.id, m);   // and show it here
+      if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, lv: 1, sh: 0, wp: 0, tg: b.tag,
+        st: [stats.round, b.st.kills, b.st.deaths, b.st.shots, b.st.hits, b.st.best] });
+      applyRemote(b.id, m);   // show it here
+      out.push([b.id, m]);
     }
+    return out;
   }
 
   // ---------- kill feed & announcer ----------
@@ -1960,8 +1976,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       // always send the list when shots ride in the state, even empty: the Claude room merges presence
       // field by field, so an omitted "f" would keep old shots there forever and they could come back as ghosts
       if (net.shotsInState) msg.f = myShotLog.slice(-9).map(e => e.d);
+      if (bots.length) {
+        const bs = botStates(now);
+        if (standalone) msg.bots = bs;   // the Claude room's presence is too small for bots: they stay local there
+      }
       net.send(msg);
-      sendBots(now);
     }
     boardAcc += dt;
     if (boardAcc > 0.5) { boardAcc = 0; renderBoard(); renderFeed(); }
