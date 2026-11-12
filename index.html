@@ -92,7 +92,7 @@ body {
 .award span { font-size: 13px; }
 .award small { color: var(--muted); font-size: 12px; }
 .rcard .next { text-align: center; color: var(--muted); font-size: 13px; }
-.feed { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); top: 200px; display: grid; gap: 4px; justify-items: end; pointer-events: none; max-width: 70vw; }
+.feed { display: none !important; position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); top: 200px; display: grid; gap: 4px; justify-items: end; pointer-events: none; max-width: 70vw; }
 .fe { display: flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 8px; background: rgba(20,13,40,.72); border: 1px solid var(--line);
   font: 700 12px var(--body); color: var(--ink); white-space: nowrap; animation: feedIn .25s ease-out; }
 .fe svg { width: 14px; height: 14px; fill: var(--flame); flex: none; }
@@ -1408,17 +1408,24 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 
   const FIRE_COLS = ["#fff3b0", "#ffd23f", "#ff9a2e", "#ff5a1f"];
   function explode(x, y, n, speed) {
+    // bigger and brighter: a wider fireball of larger embers, a white-hot core, then streaks, a shock ring and smoke
+    n = Math.round(n * 1.3); speed *= 1.35;
     for (let k = 0; k < n; k++) {
       const a = Math.random() * 6.28, v = speed * (0.3 + Math.random());
-      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.5 + Math.random() * 0.8, 1.5 + Math.random() * 3.5, FIRE_COLS[(Math.random() * 4) | 0]);
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.6 + Math.random() * 1.0, 2.5 + Math.random() * 5, FIRE_COLS[(Math.random() * 4) | 0]);
     }
-    // brighter: fast streaks, a flash, and a little smoke that hangs around
-    for (let k = 0; k < n / (lowQ ? 6 : 3); k++) {
-      const a = Math.random() * 6.28, v = speed * (0.9 + Math.random() * 1.2);
-      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.25 + Math.random() * 0.35, 1.3 + Math.random() * 1.1, Math.random() < 0.5 ? "#fff6c8" : "#ffd23f", 1);
+    for (let k = 0; k < n / (lowQ ? 8 : 4); k++) {   // the core: big slow white-yellow blobs
+      const a = Math.random() * 6.28, v = speed * Math.random() * 0.35;
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.35 + Math.random() * 0.3, 5 + Math.random() * 6, Math.random() < 0.5 ? "#ffffff" : "#fff1a8");
     }
-    impacts.push({ x, y, t: 0, r: 18 + speed * 0.14, col: "#ff9a2e" });
-    if (n >= 20) smoke(x, y, Math.round(n / (lowQ ? 12 : 6)), speed * 0.25, 1.5);
+    for (let k = 0; k < n / (lowQ ? 5 : 2.5); k++) {
+      const a = Math.random() * 6.28, v = speed * (0.9 + Math.random() * 1.4);
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.3 + Math.random() * 0.4, 1.6 + Math.random() * 1.4, Math.random() < 0.5 ? "#fff6c8" : "#ffd23f", 1);
+    }
+    impacts.push({ x, y, t: 0, r: 30 + speed * 0.22, col: "#ffb040" });
+    impacts.push({ x, y, t: 0, r: 14 + speed * 0.1, col: "#ffffff" });
+    if (n >= 26) rings.push({ x, y, t: 0, r: 40 + speed * 0.45, col: "255,190,110", dur: 0.45, w: 6 + n * 0.05 });
+    if (n >= 20) smoke(x, y, Math.round(n / (lowQ ? 10 : 5)), speed * 0.3, 1.8);
   }
   // distance test along the segment a shot travelled this frame, so fast shots can't skip a target
   function segHit(s, x, y, r) {
