@@ -180,6 +180,8 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
 .field { display: grid; gap: 6px; width: 100%; text-align: left; }
 .field label { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .field label small { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.field .note { color: var(--muted); font-size: 12px; min-height: 1em; }
+#railFile { min-width: 0; flex: 1; font-size: 13px; color: var(--muted); }
 .field > input, .row input {
   min-width: 0;
   font: 700 16px var(--body); color: var(--ink);
@@ -343,6 +345,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       <div class="segs" id="mapSize" role="group" aria-label="Map size"></div>
     </div>
     <button type="submit" class="go" id="goBtn">Take off</button>
+    <div class="field">
+      <label for="railFile">Railgun sound <small>(optional: your own file, kept only in this browser; other pilots hear the default)</small></label>
+      <div class="row">
+        <input type="file" id="railFile" accept="audio/*">
+        <button type="button" class="ghost" id="railReset" hidden>Use default</button>
+      </div>
+      <small id="railNote" class="note"></small>
+    </div>
     <details class="custom" id="customBox">
       <summary>Customize your bin</summary>
       <div class="opts" id="customOpts"></div>
@@ -796,8 +806,19 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       .then(b => audio.decodeAudioData(b)).then(b => { sfxBuf[n] = b; }).catch(() => {});   // missing file: the synth sound stays
   }
   // x, y: where it happens (quieter with distance, silent past ~2200); rate: pitch, with a little random spread
+  // a railgun sound the player picked from their own computer: stored in this browser only, never uploaded
+  let customRail = null;
+  const RAIL_KEY = "binrocket.railsfx";
+  function loadCustomRail() {
+    const data = store.get(RAIL_KEY);
+    if (!audio || !data) return;
+    const bin = atob(data.slice(data.indexOf(",") + 1)), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    audio.decodeAudioData(bytes.buffer).then(b => { customRail = b; }, () => { railNote.textContent = "That file couldn't be played as audio."; });
+  }
   function sfx(name, vol = 1, rate = 1, x, y) {
-    const b = sfxBuf[name], tune = SFX_TUNE[name];
+    const own = name === "rail" && customRail;
+    const b = own || sfxBuf[name], tune = own ? null : SFX_TUNE[name];
     if (!audio || !b) return false;
     if (x !== undefined) {
       const d = Math.hypot(x - me.x, y - me.y);
@@ -4299,6 +4320,21 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     });
     row.append(lab, sws); optsEl.appendChild(row);
   }
+  const railFile = document.getElementById("railFile"), railReset = document.getElementById("railReset"), railNote = document.getElementById("railNote");
+  const showRail = () => { const on = !!store.get(RAIL_KEY); railReset.hidden = !on; railNote.textContent = on ? "Your own railgun sound is on." : ""; };
+  showRail();
+  railFile.addEventListener("change", () => {
+    const f = railFile.files[0];
+    if (!f) return;
+    if (f.size > 1.5e6) { railNote.textContent = "That file is too big (keep it under 1.5 MB)."; return; }
+    const rd = new FileReader();
+    rd.onload = () => {
+      try { localStorage.setItem(RAIL_KEY, rd.result); } catch { railNote.textContent = "This browser wouldn't store the file."; return; }
+      showRail(); customRail = null; loadCustomRail();
+    };
+    rd.readAsDataURL(f);
+  });
+  railReset.addEventListener("click", () => { try { localStorage.removeItem(RAIL_KEY); } catch {} customRail = null; railFile.value = ""; showRail(); });
   const nameInput = document.getElementById("nameInput");
   nameInput.value = store.get("binrocket.name") || "Bin-" + Math.floor(10 + Math.random() * 89);
   const lobbyInput = document.getElementById("lobbyInput"), goBtn = document.getElementById("goBtn");
@@ -4331,7 +4367,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     me.name = nameInput.value.trim().slice(0, 14) || "Bin";
     store.set("binrocket.name", me.name);
     try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { audio = null; }
-    loadSfx();
+    loadSfx(); loadCustomRail();
     document.getElementById("start").hidden = true;
     fireBtn.hidden = false; boostBtn.hidden = false; mm.hidden = false; joyEl.hidden = false;
     me.inv = performance.now() + 2000;
