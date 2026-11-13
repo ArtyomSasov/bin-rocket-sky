@@ -116,6 +116,8 @@
     document.getElementById("createBtn").addEventListener("click", () => { createdCode = true; newCode(); goBtn.focus(); });
   }
   syncGo();
+  // on a small screen the scoreboard shows only you (and the teams); a tap opens the whole table
+  document.querySelector(".board").addEventListener("click", e => e.currentTarget.classList.toggle("open"));
   document.getElementById("startForm").addEventListener("submit", e => {
     e.preventDefault();
     if (standalone) { if (!codeOk()) { lobbyInput.focus(); return; } chooseLobby(normCode(lobbyInput.value)); }
@@ -125,6 +127,7 @@
     try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { audio = null; }
     loadSfx();
     document.getElementById("start").hidden = true;
+    document.body.classList.add("playing");   // the compact phone HUD applies from here on
     fireBtn.hidden = false; boostBtn.hidden = false; mm.hidden = false; joyEl.hidden = false;
     me.inv = performance.now() + 2000;
     playing = true;

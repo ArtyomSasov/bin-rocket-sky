@@ -308,3 +308,23 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   .minimap { width: 96px; height: 96px; bottom: calc(108px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (max-width: 360px) { .score > span:first-of-type { display: none; } }
+/* phones and small windows, in a game: only what you need to play, so the arena stays in view.
+   The scoreboard shrinks to the timer, the team scores and your own row (tap it for everyone); the lobby
+   bar, the weapon name and the labels go; the map, the gun bar and the banners get smaller and see-through */
+@media (pointer: coarse), (max-width: 700px), (max-height: 500px) {
+  body.playing .status { display: none; }
+  body.playing .score { padding: 5px 9px; gap: 7px; font-size: 11px; opacity: .92; }
+  body.playing .score > b { font-size: 18px; }
+  body.playing .score > span:first-of-type, body.playing .score .wpn, body.playing .score .xpbar:not(.nrg) { display: none; }
+  body.playing .board { padding: 5px 9px; font-size: 11px; min-width: 0; max-width: 42vw; opacity: .9; cursor: pointer; }
+  body.playing .board h2, body.playing .board .bhead { display: none; }
+  body.playing .board .round { margin: 0; font-size: 11px; }
+  body.playing .board:not(.open) li:not(.me):not(.team) { display: none; }
+  body.playing .board li.team { border-bottom: 0; padding-bottom: 0; }
+  body.playing .minimap { width: 76px; height: 76px; opacity: .8; }
+  body.playing .event { font-size: 11px; padding: 4px 10px; }
+  body.playing .announce b { font-size: 26px; }
+  body.playing .announce span { font-size: 12px; }
+  body.playing .slot { width: 38px; height: 38px; }
+  body.playing .slot svg { width: 16px; height: 16px; }
+}

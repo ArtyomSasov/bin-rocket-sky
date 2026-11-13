@@ -172,6 +172,7 @@
     body = c;
   };
   const COARSE = matchMedia("(pointer: coarse)").matches;
+  const COMPACT = matchMedia("(pointer: coarse), (max-width: 700px), (max-height: 500px)");   // the compact HUD (same query as in styles.css)
   const MAX_DPR = COARSE ? 1.5 : 2, MAX_PARTS = COARSE ? 1200 : 2500;
   const cv = document.getElementById("c");
   let g = cv.getContext("2d", { alpha: false });   // swapped briefly to draw the start-screen preview
