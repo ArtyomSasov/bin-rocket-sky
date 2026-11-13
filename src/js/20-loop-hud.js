@@ -119,8 +119,9 @@
   // ---------- bot picker ----------
   const botChoice = (() => { try { const v = JSON.parse(store.get("binrocket.bots")); if (v && [0, 2, 4, 6].includes(v.n) && BOT_LEVELS[v.level]) return v; } catch {} return { n: 0, level: "normal" }; })();
   function segButtons(el, items, current, onPick) {
-    for (const [val, label] of items) {
+    for (const [val, label, hint] of items) {
       const b = document.createElement("button"); b.type = "button"; b.textContent = label;
+      if (hint) { const s = document.createElement("small"); s.textContent = hint; b.append(s); }
       b.setAttribute("aria-pressed", String(val === current));
       b.addEventListener("click", () => { for (const o of el.children) o.setAttribute("aria-pressed", String(o === b)); onPick(val); });
       el.appendChild(b);

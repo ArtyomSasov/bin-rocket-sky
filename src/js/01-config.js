@@ -8,12 +8,12 @@
   // planets / wrecks: counts relative to Classic; pR: planet radius range; kinds: planet looks; moons: chance per
   // planet; moonN: moons per planet; gap: spacing between planets; star: a sun in the middle; wgap: spacing between wrecks; lumpy: planets become ragged asteroids
   const MAPS = {
-    c: { name: "Classic", label: "Classic" },
-    a: { name: "Asteroid belt", label: "Asteroids", planets: 4, pR: [55, 130], kinds: ["rock", "moon", "ice", "rock", "lava"], moons: 0, gap: 170, wrecks: 0.4, lumpy: true },
-    y: { name: "Shipyard", label: "Shipyard", planets: 0.35, wrecks: 2.6, wgap: 110, wreckTypes: ["hull", "hull", "ring", "ring", "tower", "crates"] },
-    r: { name: "Ruined city", label: "Ruins", planets: 0.45, wrecks: 2.2, wgap: 110, wreckTypes: ["tower", "tower", "tower", "crates", "crates", "hull"] },
-    s: { name: "Solar system", label: "Solar", planets: 0.8, pR: [190, 320], moons: 1, moonN: 2, wrecks: 0.35, star: true },
-    o: { name: "Open space", label: "Open", planets: 0.25, pR: [110, 170], moons: 0, wrecks: 0.25 }
+    c: { name: "Classic", label: "Classic", hint: "planets, moons, wrecks" },
+    a: { name: "Asteroid belt", label: "Asteroids", hint: "a field of ragged rocks", planets: 4, pR: [55, 130], kinds: ["rock", "moon", "ice", "rock", "lava"], moons: 0, gap: 170, wrecks: 0.4, lumpy: true },
+    y: { name: "Shipyard", label: "Shipyard", hint: "wrecked ships and stations", planets: 0.35, wrecks: 2.6, wgap: 110, wreckTypes: ["hull", "hull", "ring", "ring", "tower", "crates"] },
+    r: { name: "Ruined city", label: "Ruins", hint: "floating towers and crates", planets: 0.45, wrecks: 2.2, wgap: 110, wreckTypes: ["tower", "tower", "tower", "crates", "crates", "hull"] },
+    s: { name: "Solar system", label: "Solar", hint: "a sun and big planets", planets: 0.8, pR: [190, 320], moons: 1, moonN: 2, wrecks: 0.35, star: true },
+    o: { name: "Open space", label: "Open", hint: "nearly empty: duels", planets: 0.25, pR: [110, 170], moons: 0, wrecks: 0.25 }
   };
   const mapThemeOf = code => { const m = String(code).match(/^[a-z0-9](?:1[a-z])?0([a-z])/); return m && MAPS[m[1]] ? m[1] : "c"; };
   let W = 4200, H = 4200, PLANET_N = 5;
@@ -94,11 +94,11 @@
   // nukes or Overdrive); cdMul: reload multiplier for players, botCd: for bots (x their usual pace); instagib: a hit
   // kills; noSupplies: no medkits or shields
   const MODES = {
-    d: { name: "Deathmatch", label: "Deathmatch" },
-    t: { name: "Team Deathmatch", label: "Team DM", teams: true },
-    c: { name: "Capture the Flag", label: "CTF", teams: true, flags: true },
-    n: { name: "Nukes only", label: "Nukes", only: "nuke", cdMul: 2.2, botCd: 6 },
-    r: { name: "Railgun instagib", label: "Instagib", only: "rail", botCd: 3, instagib: true, noSupplies: true }
+    d: { name: "Deathmatch", label: "Deathmatch", hint: "everyone for themselves" },
+    t: { name: "Team Deathmatch", label: "Team DM", hint: "Red against Blue", teams: true },
+    c: { name: "Capture the Flag", label: "CTF", hint: "steal their flag", teams: true, flags: true },
+    n: { name: "Nukes only", label: "Nukes", hint: "unlimited nukes", only: "nuke", cdMul: 2.2, botCd: 6 },
+    r: { name: "Railgun instagib", label: "Instagib", hint: "one rail hit kills", only: "rail", botCd: 3, instagib: true, noSupplies: true }
   };
   const modeOf = code => { const c = String(code); return c[1] === "1" && MODES[c[2]] ? c[2] : "d"; };
   let MODE = "d";

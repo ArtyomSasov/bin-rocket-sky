@@ -154,8 +154,28 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
   background: var(--panel);
 }
 #preview { width: 150px; height: 150px; }
-.custom { width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; background: rgba(255,255,255,.04); }
-.custom summary { cursor: pointer; font: 700 14px var(--display); color: var(--teal); }
+.tag { font-size: 13px !important; margin-top: -4px !important; }
+.pilot { width: 100%; display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: start; text-align: left;
+  border: 1px solid var(--line); border-radius: 14px; padding: 10px; background: rgba(255,255,255,.04); }
+.pilot #preview { width: 150px; height: 150px; border-radius: 12px; background: radial-gradient(circle at 50% 45%, rgba(79,214,200,.16), transparent 70%); }
+.pilot-side { display: grid; gap: 8px; min-width: 0; }
+.pilot .opts { margin-top: 0; gap: 7px; }
+@media (max-width: 420px) { .pilot { grid-template-columns: 1fr; justify-items: center; } .pilot-side { width: 100%; } }
+.play { width: 100%; display: grid; gap: 10px; text-align: left; }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(255,255,255,.05); border: 1px solid var(--line); }
+.tabs button { font: 700 14px var(--display); padding: 8px; border-radius: 9px; background: transparent; color: var(--muted); border: 0; box-shadow: none; }
+.tabs button[aria-selected="true"] { background: rgba(79,214,200,.22); color: var(--ink); }
+.pane { display: grid; gap: 10px; }
+.pane[hidden] { display: none; }
+.pick { width: 100%; display: grid; gap: 6px; text-align: left; }
+.pick > span { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+.cards button { display: grid; gap: 2px; text-align: left; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,.04); color: var(--ink);
+  border: 1px solid var(--line); box-shadow: none; font: 700 13px var(--display); }
+.cards button small { font: 600 11px var(--body); color: var(--muted); }
+.cards button[aria-pressed="true"] { background: rgba(79,214,200,.2); border-color: var(--teal); }
+.codeline { font-size: 12px !important; }
+.codeline b { color: var(--ink); letter-spacing: .06em; }
 .opts { display: grid; gap: 10px; margin-top: 10px; }
 .opt-row { display: grid; gap: 5px; }
 .opt-row > span { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
@@ -171,33 +191,19 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
 .card h1 { margin: 0; font: 700 34px/1 var(--display); letter-spacing: .01em; text-wrap: balance; }
 .card h1 em { font-style: normal; color: var(--teal); }
 .card p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
-.row { display: flex; gap: 8px; width: 100%; }
-.row input {
-  flex: 1; min-width: 0;
-  font: 700 16px var(--body); color: var(--ink);
-  background: rgba(255,255,255,.08); border: 1px solid var(--line); border-radius: 12px;
-  padding: 10px 12px;
-}
-.field { display: grid; gap: 6px; width: 100%; text-align: left; }
-.field label { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.field label small { text-transform: none; letter-spacing: 0; font-weight: 600; }
-.field > input, .row input {
+.pilot-side input, .pane input {
   min-width: 0;
   font: 700 16px var(--body); color: var(--ink);
   background: rgba(255,255,255,.08); border: 1px solid var(--line); border-radius: 12px;
   padding: 10px 12px;
 }
-.row input.code { font-family: var(--display); letter-spacing: .18em; text-transform: uppercase; }
+.pane input.code { font-family: var(--display); letter-spacing: .18em; text-transform: uppercase; }
 .go { width: 100%; padding: 13px 16px; font-size: 18px; }
 .segs { display: flex; gap: 4px; flex-wrap: wrap; }
 .segs button { font: 700 12px var(--body); padding: 6px 10px; border-radius: 8px; background: transparent; color: var(--muted); border: 1px solid var(--line); box-shadow: none; }
 .segs button[aria-pressed="true"] { background: rgba(79,214,200,.2); color: var(--ink); border-color: var(--teal); }
 .controls { width: 100%; display: grid; gap: 8px; text-align: left; }
-.ctrl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.ctrl-head > span { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.ctabs { display: flex; gap: 4px; flex-wrap: wrap; }
-.ctabs button { font: 700 11px var(--body); padding: 4px 8px; border-radius: 8px; background: transparent; color: var(--muted); border: 1px solid var(--line); box-shadow: none; }
-.ctabs button[aria-selected="true"] { background: rgba(79,214,200,.2); color: var(--ink); border-color: var(--teal); }
+.controls > span { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .clist { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 13px; }
 .clist dt { color: var(--muted); font-weight: 800; white-space: nowrap; }
 .clist dd { margin: 0; color: var(--ink); }
@@ -335,6 +341,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   body.playing .slot { width: 38px; height: 38px; }
   body.playing .slot svg { width: 16px; height: 16px; }
 }
+/* before take-off the start card is all there is: no game HUD behind it */
+body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status { display: none; }
 </style>
 
 <canvas id="c"></canvas>
@@ -359,38 +367,43 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 
 <div class="start" id="start">
   <form class="card chip" id="startForm">
-    <canvas id="preview" width="220" height="220" aria-label="Preview of your bin rocket"></canvas>
     <h1>Bin Rocket <em>Sky</em></h1>
-    <p><b>Deathmatch:</b> 5-minute rounds, the pilot with the most kills wins. Scoop up sparks to level up, blast space junk and other bins with fire. You start at 100% health. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more health and fancier fire. Planets pull you in and hurt if you slam into them (more on boost); shoot one apart for +25. Planets, wrecks and buildings break off piece by piece where you hit them. Watch out for black holes, meteor showers and aliens. Grab weapon crates: triple shot, laser, homing rockets (slow: outrun them or shoot them down), scatter gun, railgun (pierces), mines, plasma orb (shoot it with the railgun or laser for a combo blast), lightning, shard cannon (shards ricochet), and the rare nuke. The violet Overdrive crystal triples your damage for 20 s (it levels everything around it). Medkits heal, shields soak damage. Black holes swallow anything that reaches the centre. Your bin has inertia: push the other way or hold X to brake. Modes for a new lobby: Deathmatch, Team Deathmatch, Capture the Flag, Nukes only and Railgun instagib; maps: Classic, Asteroid belt, Shipyard, Ruined city, Solar system and Open space.</p>
-    <div class="field">
-      <label for="nameInput">Pilot name</label>
-      <input id="nameInput" maxlength="14" autocomplete="off" placeholder="Pilot name">
-    </div>
-    <div class="field" id="lobbyBox" hidden>
-      <label for="lobbyInput">Lobby code <small>(type a friend's code or create your own)</small></label>
-      <div class="row">
-        <input id="lobbyInput" class="code" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="e.g. K7M2Q">
-        <button type="button" class="ghost" id="createBtn">Create new</button>
+    <p class="tag">Space battles of flying bins: shoot, smash planets apart, win the round.</p>
+
+    <section class="pilot" aria-label="Your pilot">
+      <canvas id="preview" width="220" height="220" aria-label="How your bin will look"></canvas>
+      <div class="pilot-side">
+        <input id="nameInput" maxlength="14" autocomplete="off" placeholder="Pilot name" aria-label="Pilot name">
+        <div class="opts" id="customOpts"></div>
       </div>
-      <label>Map size <small>(for a new lobby; a friend's code brings its own)</small></label>
-      <div class="segs" id="mapSize" role="group" aria-label="Map size"></div>
-      <label>Mode <small>(for a new lobby; a friend's code brings its own)</small></label>
-      <div class="segs" id="modePick" role="group" aria-label="Game mode"></div>
-      <label>Map <small>(what fills the arena)</small></label>
-      <div class="segs" id="themePick" role="group" aria-label="Map"></div>
-    </div>
-    <button type="submit" class="go" id="goBtn">Take off</button>
-    <details class="custom" id="customBox">
-      <summary>Customize your bin</summary>
-      <div class="opts" id="customOpts"></div>
-    </details>
-    <div class="field">
-      <label>Bots <small>(they join your lobby; everyone can fight them)</small></label>
+    </section>
+
+    <section class="play" id="lobbyBox" hidden>
+      <div class="tabs" role="tablist" aria-label="Game">
+        <button type="button" role="tab" id="tabNew" aria-selected="true">New game</button>
+        <button type="button" role="tab" id="tabJoin" aria-selected="false">Join a friend</button>
+      </div>
+      <div class="pane" id="paneNew">
+        <div class="pick"><span>Mode</span><div class="cards" id="modePick" role="group" aria-label="Game mode"></div></div>
+        <div class="pick"><span>Map</span><div class="cards" id="themePick" role="group" aria-label="Map"></div></div>
+        <div class="pick"><span>Size</span><div class="segs" id="mapSize" role="group" aria-label="Map size"></div></div>
+        <p class="codeline" id="codeLine"></p>
+      </div>
+      <div class="pane" id="paneJoin" hidden>
+        <input id="lobbyInput" class="code" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Friend's code, e.g. K7M2Q" aria-label="Lobby code">
+        <p class="codeline" id="joinLine">The code brings its own mode and map.</p>
+      </div>
+    </section>
+
+    <div class="pick"><span>Bots</span>
       <div class="segs" id="botCount" role="group" aria-label="Number of bots"></div>
       <div class="segs" id="botLevel" role="group" aria-label="Bot difficulty"></div>
     </div>
+
+    <button type="submit" class="go" id="goBtn">Take off</button>
+
     <section class="controls" aria-labelledby="ctrlTitle">
-      <div class="ctrl-head"><span id="ctrlTitle">Controls</span><div class="ctabs" id="ctabs" role="tablist" aria-label="Device"></div></div>
+      <span id="ctrlTitle">Controls</span>
       <dl class="clist" id="clist"></dl>
     </section>
   </form>
@@ -408,12 +421,12 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   // planets / wrecks: counts relative to Classic; pR: planet radius range; kinds: planet looks; moons: chance per
   // planet; moonN: moons per planet; gap: spacing between planets; star: a sun in the middle; wgap: spacing between wrecks; lumpy: planets become ragged asteroids
   const MAPS = {
-    c: { name: "Classic", label: "Classic" },
-    a: { name: "Asteroid belt", label: "Asteroids", planets: 4, pR: [55, 130], kinds: ["rock", "moon", "ice", "rock", "lava"], moons: 0, gap: 170, wrecks: 0.4, lumpy: true },
-    y: { name: "Shipyard", label: "Shipyard", planets: 0.35, wrecks: 2.6, wgap: 110, wreckTypes: ["hull", "hull", "ring", "ring", "tower", "crates"] },
-    r: { name: "Ruined city", label: "Ruins", planets: 0.45, wrecks: 2.2, wgap: 110, wreckTypes: ["tower", "tower", "tower", "crates", "crates", "hull"] },
-    s: { name: "Solar system", label: "Solar", planets: 0.8, pR: [190, 320], moons: 1, moonN: 2, wrecks: 0.35, star: true },
-    o: { name: "Open space", label: "Open", planets: 0.25, pR: [110, 170], moons: 0, wrecks: 0.25 }
+    c: { name: "Classic", label: "Classic", hint: "planets, moons, wrecks" },
+    a: { name: "Asteroid belt", label: "Asteroids", hint: "a field of ragged rocks", planets: 4, pR: [55, 130], kinds: ["rock", "moon", "ice", "rock", "lava"], moons: 0, gap: 170, wrecks: 0.4, lumpy: true },
+    y: { name: "Shipyard", label: "Shipyard", hint: "wrecked ships and stations", planets: 0.35, wrecks: 2.6, wgap: 110, wreckTypes: ["hull", "hull", "ring", "ring", "tower", "crates"] },
+    r: { name: "Ruined city", label: "Ruins", hint: "floating towers and crates", planets: 0.45, wrecks: 2.2, wgap: 110, wreckTypes: ["tower", "tower", "tower", "crates", "crates", "hull"] },
+    s: { name: "Solar system", label: "Solar", hint: "a sun and big planets", planets: 0.8, pR: [190, 320], moons: 1, moonN: 2, wrecks: 0.35, star: true },
+    o: { name: "Open space", label: "Open", hint: "nearly empty: duels", planets: 0.25, pR: [110, 170], moons: 0, wrecks: 0.25 }
   };
   const mapThemeOf = code => { const m = String(code).match(/^[a-z0-9](?:1[a-z])?0([a-z])/); return m && MAPS[m[1]] ? m[1] : "c"; };
   let W = 4200, H = 4200, PLANET_N = 5;
@@ -494,11 +507,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   // nukes or Overdrive); cdMul: reload multiplier for players, botCd: for bots (x their usual pace); instagib: a hit
   // kills; noSupplies: no medkits or shields
   const MODES = {
-    d: { name: "Deathmatch", label: "Deathmatch" },
-    t: { name: "Team Deathmatch", label: "Team DM", teams: true },
-    c: { name: "Capture the Flag", label: "CTF", teams: true, flags: true },
-    n: { name: "Nukes only", label: "Nukes", only: "nuke", cdMul: 2.2, botCd: 6 },
-    r: { name: "Railgun instagib", label: "Instagib", only: "rail", botCd: 3, instagib: true, noSupplies: true }
+    d: { name: "Deathmatch", label: "Deathmatch", hint: "everyone for themselves" },
+    t: { name: "Team Deathmatch", label: "Team DM", hint: "Red against Blue", teams: true },
+    c: { name: "Capture the Flag", label: "CTF", hint: "steal their flag", teams: true, flags: true },
+    n: { name: "Nukes only", label: "Nukes", hint: "unlimited nukes", only: "nuke", cdMul: 2.2, botCd: 6 },
+    r: { name: "Railgun instagib", label: "Instagib", hint: "one rail hit kills", only: "rail", botCd: 3, instagib: true, noSupplies: true }
   };
   const modeOf = code => { const c = String(code); return c[1] === "1" && MODES[c[2]] ? c[2] : "d"; };
   let MODE = "d";
@@ -5464,8 +5477,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   // ---------- bot picker ----------
   const botChoice = (() => { try { const v = JSON.parse(store.get("binrocket.bots")); if (v && [0, 2, 4, 6].includes(v.n) && BOT_LEVELS[v.level]) return v; } catch {} return { n: 0, level: "normal" }; })();
   function segButtons(el, items, current, onPick) {
-    for (const [val, label] of items) {
+    for (const [val, label, hint] of items) {
       const b = document.createElement("button"); b.type = "button"; b.textContent = label;
+      if (hint) { const s = document.createElement("small"); s.textContent = hint; b.append(s); }
       b.setAttribute("aria-pressed", String(val === current));
       b.addEventListener("click", () => { for (const o of el.children) o.setAttribute("aria-pressed", String(o === b)); onPick(val); });
       el.appendChild(b);
@@ -5505,20 +5519,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (/Linux|X11|CrOS/i.test(plat + ua)) return "linux";
     return "windows";
   }
-  const ctabs = document.getElementById("ctabs"), clist = document.getElementById("clist");
-  function showControls(dev) {
-    for (const b of ctabs.children) b.setAttribute("aria-selected", String(b.dataset.dev === dev));
-    clist.innerHTML = CONTROLS[dev].rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
-  }
+  // only the controls for the device you are on
   const myDevice = detectDevice();
-  for (const dev of Object.keys(CONTROLS)) {
-    const b = document.createElement("button");
-    b.type = "button"; b.role = "tab"; b.dataset.dev = dev;
-    b.textContent = CONTROLS[dev].label + (dev === myDevice ? " ✓" : "");
-    b.addEventListener("click", () => showControls(dev));
-    ctabs.appendChild(b);
-  }
-  showControls(myDevice);
+  document.getElementById("ctrlTitle").textContent = "Controls · " + CONTROLS[myDevice].label;
+  document.getElementById("clist").innerHTML = CONTROLS[myDevice].rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
 
   // ---------- start ----------
   const pv = document.getElementById("preview"), pctx = pv.getContext("2d");
@@ -5559,44 +5563,51 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const nameInput = document.getElementById("nameInput");
   nameInput.value = store.get("binrocket.name") || "Bin-" + Math.floor(10 + Math.random() * 89);
   const lobbyInput = document.getElementById("lobbyInput"), goBtn = document.getElementById("goBtn");
-  const codeOk = () => normCode(lobbyInput.value).length >= 4;
+  // New game: the picks make the lobby code (size, then "1"+mode, "0"+map, then random letters); Join: a friend's code
+  let joining = false, newGameCode = "";
+  const lobbyCode = () => joining ? normCode(lobbyInput.value) : newGameCode;
+  const codeOk = () => lobbyCode().length >= 4;
+  const describe = c => MODES[modeOf(c)].name + " · " + MAPS[mapThemeOf(c)].name + " · " + MAP_SIZES[mapOf(c)][1];
   const syncGo = () => {
     if (!standalone) { goBtn.textContent = "Take off"; return; }
     goBtn.disabled = !codeOk();
-    const c = normCode(lobbyInput.value);
-    goBtn.textContent = codeOk() ? "Join " + lobbyInput.value.toUpperCase() + " · " + MODES[modeOf(c)].name + " · " + MAPS[mapThemeOf(c)].name + " · " + MAP_SIZES[mapOf(c)][1] : "Enter a code (4+ characters) or create one";
+    goBtn.textContent = joining ? (codeOk() ? "Join " + lobbyInput.value.toUpperCase() : "Type your friend's code") : "Take off";
+    document.getElementById("joinLine").textContent = codeOk() ? describe(lobbyCode()) : "The code brings its own mode and map.";
+    if (!joining) document.getElementById("codeLine").innerHTML = `${describe(newGameCode)} · code <b>${newGameCode.toUpperCase()}</b> (share it to play together)`;
+  };
+  const setTab = join => {
+    joining = join;
+    document.getElementById("tabNew").setAttribute("aria-selected", String(!join));
+    document.getElementById("tabJoin").setAttribute("aria-selected", String(join));
+    document.getElementById("paneNew").hidden = join; document.getElementById("paneJoin").hidden = !join;
+    syncGo();
   };
   if (standalone) {
     document.getElementById("lobbyBox").hidden = false;
-    const fromLink = normCode((location.hash.match(/^#([A-Za-z0-9]{1,16})$/) || [])[1] || "");
-    if (fromLink.length >= 4) lobbyInput.value = fromLink.toUpperCase();
-    lobbyInput.addEventListener("input", () => { lobbyInput.value = lobbyInput.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); syncGo(); });
     let mapPick = MAP_SIZES[store.get("binrocket.map")] ? store.get("binrocket.map") : "m";
     let modePick = MODES[store.get("binrocket.mode")] ? store.get("binrocket.mode") : "d";
     let themePick = MAPS[store.get("binrocket.theme")] ? store.get("binrocket.theme") : "c";
-    const newCode = () => { let c = mapPick + (modePick === "d" ? "" : "1" + modePick) + (themePick === "c" ? "" : "0" + themePick); for (let i = 0; i < 4; i++) c += CODE_ABC[(Math.random() * CODE_ABC.length) | 0]; lobbyInput.value = c.toUpperCase(); syncGo(); };
-    segButtons(document.getElementById("themePick"), Object.entries(MAPS).map(([k, v]) => [k, v.label]), themePick, v => {
-      themePick = v; store.set("binrocket.theme", v);
-      if (createdCode) newCode();
-    });
-    segButtons(document.getElementById("modePick"), Object.entries(MODES).map(([k, v]) => [k, v.label]), modePick, v => {
-      modePick = v; store.set("binrocket.mode", v);
-      if (createdCode) newCode();
-    });
-    segButtons(document.getElementById("mapSize"), Object.entries(MAP_SIZES).map(([k, v]) => [k, v[1]]), mapPick, v => {
-      mapPick = v; store.set("binrocket.map", v);
-      if (createdCode) newCode();   // a code you just made follows the size you pick
-    });
-    let createdCode = false;
-    lobbyInput.addEventListener("input", () => { createdCode = false; });
-    document.getElementById("createBtn").addEventListener("click", () => { createdCode = true; newCode(); goBtn.focus(); });
+    const newCode = () => {
+      let c = mapPick + (modePick === "d" ? "" : "1" + modePick) + (themePick === "c" ? "" : "0" + themePick);
+      for (let i = 0; i < 4; i++) c += CODE_ABC[(Math.random() * CODE_ABC.length) | 0];
+      newGameCode = c; syncGo();
+    };
+    segButtons(document.getElementById("modePick"), Object.entries(MODES).map(([k, v]) => [k, v.label, v.hint]), modePick, v => { modePick = v; store.set("binrocket.mode", v); newCode(); });
+    segButtons(document.getElementById("themePick"), Object.entries(MAPS).map(([k, v]) => [k, v.label, v.hint]), themePick, v => { themePick = v; store.set("binrocket.theme", v); newCode(); });
+    segButtons(document.getElementById("mapSize"), Object.entries(MAP_SIZES).map(([k, v]) => [k, v[1]]), mapPick, v => { mapPick = v; store.set("binrocket.map", v); newCode(); });
+    document.getElementById("tabNew").addEventListener("click", () => setTab(false));
+    document.getElementById("tabJoin").addEventListener("click", () => { setTab(true); lobbyInput.focus(); });
+    lobbyInput.addEventListener("input", () => { lobbyInput.value = lobbyInput.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (!joining) setTab(true); else syncGo(); });
+    newCode();
+    const fromLink = normCode((location.hash.match(/^#([A-Za-z0-9]{1,16})$/) || [])[1] || "");
+    if (fromLink.length >= 4) { lobbyInput.value = fromLink.toUpperCase(); setTab(true); }   // an invite link opens on Join
   }
   syncGo();
   // on a small screen the scoreboard shows only you (and the teams); a tap opens the whole table
   document.querySelector(".board").addEventListener("click", e => e.currentTarget.classList.toggle("open"));
   document.getElementById("startForm").addEventListener("submit", e => {
     e.preventDefault();
-    if (standalone) { if (!codeOk()) { lobbyInput.focus(); return; } chooseLobby(normCode(lobbyInput.value)); }
+    if (standalone) { if (!codeOk()) { lobbyInput.focus(); return; } chooseLobby(lobbyCode()); }
     if (!bots.length && botChoice.n > 0) addBots(botChoice.n, botChoice.level);
     me.name = nameInput.value.trim().slice(0, 14) || "Bin";
     store.set("binrocket.name", me.name);

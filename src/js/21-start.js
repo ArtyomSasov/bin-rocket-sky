@@ -29,20 +29,10 @@
     if (/Linux|X11|CrOS/i.test(plat + ua)) return "linux";
     return "windows";
   }
-  const ctabs = document.getElementById("ctabs"), clist = document.getElementById("clist");
-  function showControls(dev) {
-    for (const b of ctabs.children) b.setAttribute("aria-selected", String(b.dataset.dev === dev));
-    clist.innerHTML = CONTROLS[dev].rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
-  }
+  // only the controls for the device you are on
   const myDevice = detectDevice();
-  for (const dev of Object.keys(CONTROLS)) {
-    const b = document.createElement("button");
-    b.type = "button"; b.role = "tab"; b.dataset.dev = dev;
-    b.textContent = CONTROLS[dev].label + (dev === myDevice ? " ✓" : "");
-    b.addEventListener("click", () => showControls(dev));
-    ctabs.appendChild(b);
-  }
-  showControls(myDevice);
+  document.getElementById("ctrlTitle").textContent = "Controls · " + CONTROLS[myDevice].label;
+  document.getElementById("clist").innerHTML = CONTROLS[myDevice].rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
 
   // ---------- start ----------
   const pv = document.getElementById("preview"), pctx = pv.getContext("2d");
@@ -83,44 +73,51 @@
   const nameInput = document.getElementById("nameInput");
   nameInput.value = store.get("binrocket.name") || "Bin-" + Math.floor(10 + Math.random() * 89);
   const lobbyInput = document.getElementById("lobbyInput"), goBtn = document.getElementById("goBtn");
-  const codeOk = () => normCode(lobbyInput.value).length >= 4;
+  // New game: the picks make the lobby code (size, then "1"+mode, "0"+map, then random letters); Join: a friend's code
+  let joining = false, newGameCode = "";
+  const lobbyCode = () => joining ? normCode(lobbyInput.value) : newGameCode;
+  const codeOk = () => lobbyCode().length >= 4;
+  const describe = c => MODES[modeOf(c)].name + " · " + MAPS[mapThemeOf(c)].name + " · " + MAP_SIZES[mapOf(c)][1];
   const syncGo = () => {
     if (!standalone) { goBtn.textContent = "Take off"; return; }
     goBtn.disabled = !codeOk();
-    const c = normCode(lobbyInput.value);
-    goBtn.textContent = codeOk() ? "Join " + lobbyInput.value.toUpperCase() + " · " + MODES[modeOf(c)].name + " · " + MAPS[mapThemeOf(c)].name + " · " + MAP_SIZES[mapOf(c)][1] : "Enter a code (4+ characters) or create one";
+    goBtn.textContent = joining ? (codeOk() ? "Join " + lobbyInput.value.toUpperCase() : "Type your friend's code") : "Take off";
+    document.getElementById("joinLine").textContent = codeOk() ? describe(lobbyCode()) : "The code brings its own mode and map.";
+    if (!joining) document.getElementById("codeLine").innerHTML = `${describe(newGameCode)} · code <b>${newGameCode.toUpperCase()}</b> (share it to play together)`;
+  };
+  const setTab = join => {
+    joining = join;
+    document.getElementById("tabNew").setAttribute("aria-selected", String(!join));
+    document.getElementById("tabJoin").setAttribute("aria-selected", String(join));
+    document.getElementById("paneNew").hidden = join; document.getElementById("paneJoin").hidden = !join;
+    syncGo();
   };
   if (standalone) {
     document.getElementById("lobbyBox").hidden = false;
-    const fromLink = normCode((location.hash.match(/^#([A-Za-z0-9]{1,16})$/) || [])[1] || "");
-    if (fromLink.length >= 4) lobbyInput.value = fromLink.toUpperCase();
-    lobbyInput.addEventListener("input", () => { lobbyInput.value = lobbyInput.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); syncGo(); });
     let mapPick = MAP_SIZES[store.get("binrocket.map")] ? store.get("binrocket.map") : "m";
     let modePick = MODES[store.get("binrocket.mode")] ? store.get("binrocket.mode") : "d";
     let themePick = MAPS[store.get("binrocket.theme")] ? store.get("binrocket.theme") : "c";
-    const newCode = () => { let c = mapPick + (modePick === "d" ? "" : "1" + modePick) + (themePick === "c" ? "" : "0" + themePick); for (let i = 0; i < 4; i++) c += CODE_ABC[(Math.random() * CODE_ABC.length) | 0]; lobbyInput.value = c.toUpperCase(); syncGo(); };
-    segButtons(document.getElementById("themePick"), Object.entries(MAPS).map(([k, v]) => [k, v.label]), themePick, v => {
-      themePick = v; store.set("binrocket.theme", v);
-      if (createdCode) newCode();
-    });
-    segButtons(document.getElementById("modePick"), Object.entries(MODES).map(([k, v]) => [k, v.label]), modePick, v => {
-      modePick = v; store.set("binrocket.mode", v);
-      if (createdCode) newCode();
-    });
-    segButtons(document.getElementById("mapSize"), Object.entries(MAP_SIZES).map(([k, v]) => [k, v[1]]), mapPick, v => {
-      mapPick = v; store.set("binrocket.map", v);
-      if (createdCode) newCode();   // a code you just made follows the size you pick
-    });
-    let createdCode = false;
-    lobbyInput.addEventListener("input", () => { createdCode = false; });
-    document.getElementById("createBtn").addEventListener("click", () => { createdCode = true; newCode(); goBtn.focus(); });
+    const newCode = () => {
+      let c = mapPick + (modePick === "d" ? "" : "1" + modePick) + (themePick === "c" ? "" : "0" + themePick);
+      for (let i = 0; i < 4; i++) c += CODE_ABC[(Math.random() * CODE_ABC.length) | 0];
+      newGameCode = c; syncGo();
+    };
+    segButtons(document.getElementById("modePick"), Object.entries(MODES).map(([k, v]) => [k, v.label, v.hint]), modePick, v => { modePick = v; store.set("binrocket.mode", v); newCode(); });
+    segButtons(document.getElementById("themePick"), Object.entries(MAPS).map(([k, v]) => [k, v.label, v.hint]), themePick, v => { themePick = v; store.set("binrocket.theme", v); newCode(); });
+    segButtons(document.getElementById("mapSize"), Object.entries(MAP_SIZES).map(([k, v]) => [k, v[1]]), mapPick, v => { mapPick = v; store.set("binrocket.map", v); newCode(); });
+    document.getElementById("tabNew").addEventListener("click", () => setTab(false));
+    document.getElementById("tabJoin").addEventListener("click", () => { setTab(true); lobbyInput.focus(); });
+    lobbyInput.addEventListener("input", () => { lobbyInput.value = lobbyInput.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (!joining) setTab(true); else syncGo(); });
+    newCode();
+    const fromLink = normCode((location.hash.match(/^#([A-Za-z0-9]{1,16})$/) || [])[1] || "");
+    if (fromLink.length >= 4) { lobbyInput.value = fromLink.toUpperCase(); setTab(true); }   // an invite link opens on Join
   }
   syncGo();
   // on a small screen the scoreboard shows only you (and the teams); a tap opens the whole table
   document.querySelector(".board").addEventListener("click", e => e.currentTarget.classList.toggle("open"));
   document.getElementById("startForm").addEventListener("submit", e => {
     e.preventDefault();
-    if (standalone) { if (!codeOk()) { lobbyInput.focus(); return; } chooseLobby(normCode(lobbyInput.value)); }
+    if (standalone) { if (!codeOk()) { lobbyInput.focus(); return; } chooseLobby(lobbyCode()); }
     if (!bots.length && botChoice.n > 0) addBots(botChoice.n, botChoice.level);
     me.name = nameInput.value.trim().slice(0, 14) || "Bin";
     store.set("binrocket.name", me.name);
