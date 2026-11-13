@@ -329,7 +329,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   <form class="card chip" id="startForm">
     <canvas id="preview" width="220" height="220" aria-label="Preview of your bin rocket"></canvas>
     <h1>Bin Rocket <em>Sky</em></h1>
-    <p><b>Deathmatch:</b> 5-minute rounds, the pilot with the most kills wins. Scoop up sparks to level up, blast space junk and other bins with fire. You start at 100% health. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more health and fancier fire. Planets pull you in and hurt if you slam into them (more on boost); shoot one apart for +25. Planets, wrecks and buildings break off piece by piece where you hit them. Watch out for black holes, meteor showers and aliens. Grab weapon crates: triple shot, laser, homing rockets (slow: outrun them or shoot them down), scatter gun, railgun (pierces), mines, plasma orb (shoot it with the railgun or laser for a combo blast), lightning, shard cannon (shards ricochet), and the rare nuke. The violet Overdrive crystal triples your damage for 20 s (it levels everything around it). Medkits heal, shields soak damage. Black holes swallow anything that reaches the centre. Modes for a new lobby: Deathmatch, Team Deathmatch, Capture the Flag, Nukes only and Railgun instagib.</p>
+    <p><b>Deathmatch:</b> 5-minute rounds, the pilot with the most kills wins. Scoop up sparks to level up, blast space junk and other bins with fire. You start at 100% health. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more health and fancier fire. Planets pull you in and hurt if you slam into them (more on boost); shoot one apart for +25. Planets, wrecks and buildings break off piece by piece where you hit them. Watch out for black holes, meteor showers and aliens. Grab weapon crates: triple shot, laser, homing rockets (slow: outrun them or shoot them down), scatter gun, railgun (pierces), mines, plasma orb (shoot it with the railgun or laser for a combo blast), lightning, shard cannon (shards ricochet), and the rare nuke. The violet Overdrive crystal triples your damage for 20 s (it levels everything around it). Medkits heal, shields soak damage. Black holes swallow anything that reaches the centre. Your bin has inertia: push the other way or hold X to brake. Modes for a new lobby: Deathmatch, Team Deathmatch, Capture the Flag, Nukes only and Railgun instagib.</p>
     <div class="field">
       <label for="nameInput">Pilot name</label>
       <input id="nameInput" maxlength="14" autocomplete="off" placeholder="Pilot name">
@@ -3037,9 +3037,31 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     me.boostFx = now - me.dashAt < 350 ? 2 : boost ? 1 : 0;
     if (boost) { energy = Math.max(0, energy - 20 * dt); energyRegenAt = now + 700; }   // a full bar is ~5 s of boost
     else if (now > energyRegenAt) energy = Math.min(100, energy + 22 * dt);
-    const top = boost ? 860 : 540;
-    const resp = 1 - Math.exp(-(im > 0.05 ? (boost ? 3.2 : 2.6) : 1.6) * dt);
-    me.vx += (steer.x * top - me.vx) * resp; me.vy += (steer.y * top - me.vy) * resp;
+    // inertia: thrust pushes the bin and it keeps its speed, coasting down only slowly. Pushing against your motion
+    // fires the retro thrusters (they bite harder), X is an air brake; past top speed the excess (a hit, a blast) bleeds off
+    const top = boost ? 880 : 560, acc = boost ? 1250 : 720;
+    const braking = playing && !me.dead && keys.has("KeyX");
+    if (playing && !me.dead) {
+      const sp0 = Math.hypot(me.vx, me.vy);
+      if (im > 0.05) {
+        const ux = steer.x / im, uy = steer.y / im, along = sp0 > 1 ? (me.vx * ux + me.vy * uy) / sp0 : 1;
+        const va = me.vx * ux + me.vy * uy;   // speed already going this way: thrust fades out as it nears top speed
+        const k = Math.max(0, Math.min(acc * Math.min(1, im) * (along < 0 ? 1 - 0.8 * along : 1) * dt, (top * Math.min(1, im) - va) * Math.min(1, 6 * dt)));
+        me.vx += ux * k; me.vy += uy * k;
+        const lat = -me.vx * uy + me.vy * ux, ld = lat * (1 - Math.exp(-1.2 * dt));   // sideways slip fades: turns sweep in arcs
+        me.vx += uy * ld; me.vy -= ux * ld;
+      } else { const d = Math.exp(-0.45 * dt); me.vx *= d; me.vy *= d; }
+      if (braking) {
+        const s = Math.hypot(me.vx, me.vy), ns = Math.max(0, s - 1000 * dt);
+        if (s > 1) { me.vx *= ns / s; me.vy *= ns / s; }
+        if (s > 60 && Math.random() < 40 * dt) {   // retro jets puffing out of the nose
+          const fx = me.x + Math.cos(me.a) * 30 * sizeOf(me.lv), fy = me.y + Math.sin(me.a) * 30 * sizeOf(me.lv);
+          puff(fx, fy, Math.cos(me.a) * 220 + me.vx, Math.sin(me.a) * 220 + me.vy, 0.35, 3 + Math.random() * 3, "#cfe8ff", 2);
+        }
+      }
+      const s1 = Math.hypot(me.vx, me.vy);
+      if (s1 > top) { const ns = top + (s1 - top) * Math.exp(-2.5 * dt); me.vx *= ns / s1; me.vy *= ns / s1; }
+    }
     const sp = Math.hypot(me.vx, me.vy);
     if (!playing) { me.vx = Math.cos(now / 2400) * 120; me.vy = Math.sin(now / 3100) * 90 - 40; }
     if (me.dead) { me.vx = me.vy = 0; }
