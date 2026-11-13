@@ -15,10 +15,9 @@
     let boost = (shiftHeld || boostBtnDown) && boostDownAt >= 0 && now - boostDownAt > BOOST_HOLD * 1000;
     if (me.dead && now >= me.respawnAt) respawn(now);
     fireCd -= dt; shake = Math.max(0, shake - dt);
-    heatTick(dt, now);
     const ready = playing && roundLive && !me.dead && fireCd <= 0;
     if (ready && (altFiring || keys.has("KeyC")) && WEAPONS[me.weapon].alt) shoot(now, true);
-    else if (ready && (firing || FIRE_KEYS.some(k => keys.has(k))) && !(me.weapon === "laser" && overheated)) shoot(now);
+    else if (ready && (firing || FIRE_KEYS.some(k => keys.has(k)))) shoot(now);
     if (playing && !me.dead) {
       if (keys.has("KeyA") || keys.has("ArrowLeft")) ix -= 1;
       if (keys.has("KeyD") || keys.has("ArrowRight")) ix += 1;
@@ -394,8 +393,8 @@
     }
     // weapon crates
     if (playing && !me.dead) {
-      for (const c of world.nuke ? [...world.picks, world.nuke] : world.picks) {
-        if (grabbed.has(c.key) || c.age < (c === world.nuke ? 0.01 : 0.05)) continue;
+      for (const c of [...world.picks, ...world.bombs]) {
+        if (grabbed.has(c.key) || c.age < (BOMB_CRATES[c.type] ? 0.01 : 0.05)) continue;
         if (Math.hypot(c.x - me.x, c.y - me.y) < 26 + 30 * sizeOf(me.lv)) {
           grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
           const w = WEAPONS[c.type];

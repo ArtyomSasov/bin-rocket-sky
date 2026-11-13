@@ -255,7 +255,6 @@
     sfx(name, vol, pitch) || blip(160, 0.1, "sawtooth");
     if (pat.fx) MUZZLE_FX[pat.fx](muzzle);
     shotFeel(k, muzzle, pat.kick, ...pat.feel);
-    if (k === "laser") { laserHeat = Math.min(1, laserHeat + LASER_HEAT.perShot); heatAt = now; if (laserHeat >= 1) overheat(); }
     spend(k, alt ? pat.cost : 1);
   }
   // feel, scaled per gun: recoil shoves the bin back, the view jolts, the screen shakes and the muzzle lights up
@@ -273,21 +272,6 @@
     // out of ammo: fall back to another gun you carry (never auto-pick the nuke), else the fireball
     me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && w !== "holy" && me.arsenal[w]) || "fire";
     renderWeapon();
-  }
-  // the laser runs hot: about a second and a half of fire overheats it, then it is locked until it has cooled down a lot
-  const LASER_HEAT = { perShot: 0.075, cool: 0.55, wait: 0.25, unlock: 0.3 };
-  let laserHeat = 0, heatAt = 0, overheated = false, heatBar = null, heatShown = "";
-  function overheat() {
-    overheated = true;
-    sfx("crash", 0.5, 1.6) || blip(300, 0.2, "square");
-    floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: "OVERHEAT", hit: true, col: "#ff6b3c" });
-    smoke(me.x, me.y, 6, 60, 1);
-  }
-  function heatTick(dt, now) {
-    if (now - heatAt > LASER_HEAT.wait * 1000) laserHeat = Math.max(0, laserHeat - LASER_HEAT.cool * dt);
-    if (overheated && laserHeat <= LASER_HEAT.unlock) overheated = false;
-    const shown = laserHeat.toFixed(2) + overheated;
-    if (heatBar && shown !== heatShown) { heatShown = shown; heatBar.style.setProperty("--f", laserHeat.toFixed(2)); heatBar.classList.toggle("hot", overheated); }
   }
   // quick dodge: a burst forward (or toward where you steer) with a moment of invulnerability
   function dash(now) {
@@ -333,12 +317,11 @@
     const list = owned();
     arsenalEl.hidden = !playing || list.length < 2;
     arsenalEl.innerHTML = list.map((k, i) => {
-      const n = me.arsenal[k];   // the laser's bar shows heat, filled in by heatTick
+      const n = me.arsenal[k];
       return `<button type="button" class="slot${k === me.weapon ? " on" : ""}" data-w="${k}" style="--c:${WEAPONS[k].col || "#ffb43c"}" aria-label="${WEAPONS[k].name}">`
         + `<i>${i + 1}</i><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICONS[k]}"/></svg><span>${Number.isFinite(n) ? n : "∞"}</span>`
-        + (k === "laser" ? `<b class="heat"></b>` : `<b style="--f:${(Number.isFinite(n) ? ammoFill(k) : 1).toFixed(3)}"></b>`) + `</button>`;
+        + `<b style="--f:${(Number.isFinite(n) ? ammoFill(k) : 1).toFixed(3)}"></b></button>`;
     }).join("");
-    heatBar = arsenalEl.querySelector('[data-w="laser"] b'); heatShown = "";
     const alt = WEAPONS[me.weapon].alt;
     document.getElementById("altBtn").hidden = !playing || !COARSE || !alt;
     if (alt) document.getElementById("altName").textContent = alt.name.toUpperCase();

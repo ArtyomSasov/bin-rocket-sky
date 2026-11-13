@@ -320,9 +320,6 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 .slot svg { width: 20px; height: 20px; fill: currentColor; }
 .slot b { position: absolute; left: 5px; right: 5px; bottom: 3px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.12); overflow: hidden; }
 .slot b::after { content: ""; position: absolute; inset: 0; transform-origin: left; transform: scaleX(var(--f)); background: var(--c); }
-.slot b.heat::after { background: linear-gradient(90deg, #7df9ff, #ffd36b 60%, #ff5a3c); }
-.slot b.hot { animation: hot .3s steps(2) infinite; }
-@keyframes hot { 50% { background: rgba(255,90,60,.7); } }
 .slot span { font: 700 10px var(--display); color: var(--ink); line-height: 1; }
 .slot i { position: absolute; left: 4px; top: 2px; font: 700 9px var(--display); font-style: normal; color: var(--muted); }
 .slot.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); box-shadow: 0 0 12px color-mix(in srgb, var(--c) 45%, transparent); }

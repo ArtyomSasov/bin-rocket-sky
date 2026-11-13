@@ -23,8 +23,8 @@
     if (hash(gen, 81, 1) > 0.7 || age > 0.5) return null;
     return outside({ key: "A" + gen, type: "amp", age, x: 400 + hash(gen, 82, 1) * (W - 800), y: 400 + hash(gen, 82, 2) * (H - 800) });
   }
-  function nukePickup(now) {
-    const t = now / 1000, gen = Math.floor(t / NUKE_PERIOD), age = t / NUKE_PERIOD - gen;
-    if (hash(gen, 71, 1) > 0.65 || age > 0.6) return null;   // turns up in about 2 of 3 cycles, for ~40 s
-    return outside({ key: "N" + gen, type: hash(gen, 73, 1) < HOLY_CHANCE ? "holy" : "nuke", age, x: 300 + hash(gen, 72, 1) * (W - 600), y: 300 + hash(gen, 72, 2) * (H - 600) });
+  function bombPickup(now, type) {
+    const c = BOMB_CRATES[type], t = now / 1000, gen = Math.floor(t / c.period), age = t / c.period - gen;
+    if (hash(gen, c.seed, 1) > c.chance || age > c.stay) return null;
+    return outside({ key: c.key + gen, type, age, x: 300 + hash(gen, c.seed + 1, 1) * (W - 600), y: 300 + hash(gen, c.seed + 1, 2) * (H - 600) });
   }

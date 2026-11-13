@@ -1,6 +1,7 @@
   // ---------- loop ----------
   let last = performance.now(), frameAvg = 1 / 60;
-  const world = { sparks: [], rocks: [], picks: [], nuke: null, amp: null, supplies: [] };   // shared-clock objects, computed once per frame
+  let holyAnnounced = "";
+  const world = { sparks: [], rocks: [], picks: [], bombs: [], amp: null, supplies: [] };   // shared-clock objects, computed once per frame
   // once a second, also in a background tab: the network keeps adding effects and ids there while no frame runs
   setInterval(() => {
     const t = performance.now(), cap = (list, n) => { if (list.length > n) list.splice(0, list.length - n); };
@@ -33,13 +34,15 @@
     const solo = !!MODES[MODE].only;
     world.picks.length = solo ? 0 : PICKS;
     for (let i = 0; i < world.picks.length; i++) world.picks[i] = pickup(i, wt);
-    world.nuke = solo ? null : nukePickup(wt);
+    world.bombs = solo ? [] : Object.keys(BOMB_CRATES).map(k => bombPickup(wt, k)).filter(Boolean);
+    const holy = world.bombs.find(c => c.type === "holy");   // a fresh holy-bomb crate is announced once
+    if (playing && holy && holy.key !== holyAnnounced && !grabbed.has(holy.key)) { holyAnnounced = holy.key; announce("HOLY BOMB", "a crate has appeared · follow the white arrow", "#fff3b0"); }
     world.amp = solo ? null : ampPickup(wt);
     world.supplies.length = MODES[MODE].noSupplies ? 0 : SUPPLY_SLOTS;
     roundTick(now);
     for (let i = 0; i < world.supplies.length; i++) world.supplies[i] = supply(i, wt);
     // a black hole drags the junk and the pick-ups in too; what it swallows is gone (on every screen alike)
-    for (const o of [...world.sparks, ...world.rocks, ...world.picks, ...world.supplies, world.nuke, world.amp]) {
+    for (const o of [...world.sparks, ...world.rocks, ...world.picks, ...world.supplies, ...world.bombs, world.amp]) {
       if (o && !(o.slot !== undefined && rockMotion.has(o.slot)) && holePull(o, wt, 0) > 0.9) grabbed.add(o.key);
     }
     update(now < hitStopUntil ? 0 : dt, now); draw(now);

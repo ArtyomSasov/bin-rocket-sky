@@ -72,7 +72,7 @@
     fire:    { name: "Fireball", ammo: Infinity, cd: 0.22, shot: [K.FIRE, 1000], kick: 25, feel: [5, 0.05, 40], sfx: ["fire", 0.55] },
     triple:  { name: "Triple shot", ammo: 24, cd: 0.3, col: "#ffb43c", shot: [K.FIRE, 1000], spread: [-0.2, 0, 0.2], kick: 25, feel: [7, 0.07, 50], sfx: ["triple", 0.7],
                alt: { name: "Focus", cost: 1, cd: 0.3, shot: [K.FIRE, 1050], spread: [-0.035, 0, 0.035], kick: 60, feel: [10, 0.13, 80], sfx: ["triple", 0.8, 0.9] } },
-    laser:   { name: "Laser", ammo: 90, cd: 0.08, col: "#7df9ff", shot: [K.LASER, 2300], kick: 8, feel: [2, 0.02, 30], sfx: ["laser", 0.45] },   // also limited by heat (LASER_HEAT)
+    laser:   { name: "Laser", ammo: 90, cd: 0.08, col: "#7df9ff", shot: [K.LASER, 2300], kick: 8, feel: [2, 0.02, 30], sfx: ["laser", 0.45] },
     rocket:  { name: "Homing rockets", ammo: 8, cd: 0.7, col: "#ff5a6e", shot: [K.ROCKET, 260], kick: 90, feel: [12, 0.14, 70], sfx: ["rocket", 0.8],
                alt: { name: "Salvo", cost: 3, cd: 1.6, shot: [K.ROCKET, 300], spread: [-0.24, 0, 0.24], kick: 200, feel: [18, 0.23, 96], sfx: ["rocket", 1, 0.8] } },
     nuke:    { name: "Nuke", ammo: 1, cd: 1.0, col: "#ffe14d", shot: [K.NUKE, 360], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.6] },
@@ -130,7 +130,9 @@
   const SUPPLY_PERIOD = 20, MAX_SHIELD = 3, ARMOR_SOAK = 0.6; let SUPPLY_SLOTS = 14;
   // the big bombs: one huge blast each. Inside kill nothing survives; out to R the damage falls from 4 to 1.5 lives.
   // The holy bomb is thrown, bounces, sings a choir sing seconds before its fuse runs out, then outdoes the nuke
-  const NUKE_PERIOD = 70, BOOM_LIFE = 4, HOLY_CHANCE = 0.3;   // HOLY_CHANCE: share of big-bomb crates that are holy
+  const BOOM_LIFE = 4;
+  // big-bomb crates, each on its own cycle: period (s), share of cycles it turns up in, and for how much of the cycle
+  const BOMB_CRATES = { nuke: { key: "N", period: 70, seed: 71, chance: 0.65, stay: 0.6 }, holy: { key: "H", period: 50, seed: 74, chance: 0.85, stay: 0.7 } };
   const BOMBS = { [K.NUKE]: { R: 1100, kill: 620, carve: 420 }, [K.HOLY]: { R: 1600, kill: 950, carve: 560, sing: 2.1, holy: true } };
   const bombDmg = (bm, d) => d < bm.kill ? 99 : 1.5 + 2.5 * (1 - (d - bm.kill) / (bm.R - bm.kill));
   // weapon icons (24x24 SVG path data, even-odd fill): used on crates (canvas) and in the HUD (SVG)

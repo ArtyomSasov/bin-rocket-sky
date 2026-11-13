@@ -396,9 +396,10 @@
       const x = sx(world.amp.x), y = sy(world.amp.y);
       if (onScreen(x, y, 80)) drawAmpCrate(world.amp, x, y, now); else if (playing) drawEdgeArrow(x, y, "#c38bff");
     }
-    if (world.nuke && !grabbed.has(world.nuke.key)) {
-      const x = sx(world.nuke.x), y = sy(world.nuke.y);
-      if (onScreen(x, y, 90)) drawNukeCrate(world.nuke, x, y, now); else if (playing) drawEdgeArrow(x, y, WEAPONS[world.nuke.type].col);
+    for (const c of world.bombs) {
+      if (grabbed.has(c.key)) continue;
+      const x = sx(c.x), y = sy(c.y);
+      if (onScreen(x, y, 90)) drawNukeCrate(c, x, y, now); else if (playing) drawEdgeArrow(x, y, WEAPONS[c.type].col);
     }
     // sparks
     for (let i = 0; i < SLOTS; i++) {

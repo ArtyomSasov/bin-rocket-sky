@@ -8,7 +8,6 @@
   function baseArsenal() {
     const o = MODES[MODE].only;
     me.arsenal = o ? { [o]: Infinity } : { fire: Infinity }; me.weapon = o || "fire";
-    laserHeat = 0; overheated = false;   // a new life or round: the laser starts cold
   }
   function findBase(t) {
     const x = t ? W - Math.max(380, W * 0.1) : Math.max(380, W * 0.1);
