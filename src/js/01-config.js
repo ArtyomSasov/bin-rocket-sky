@@ -178,9 +178,10 @@
   let g = cv.getContext("2d", { alpha: false });   // swapped briefly to draw the start-screen preview
   const DISPLAY_FONT = getComputedStyle(document.documentElement).getPropertyValue('--display');
   let vw = 0, vh = 0, dpr = 1, zoom = 1;
+  let resScale = 1;   // lowered by the frame loop when the device can't keep up (dynamic resolution)
   let TS = 1;   // text scale: undoes the camera zoom so labels stay readable
   function resize() {
-    dpr = Math.min(MAX_DPR, window.devicePixelRatio || 1);
+    dpr = Math.min(MAX_DPR, window.devicePixelRatio || 1) * resScale;
     zoom = Math.max(0.62, Math.min(1, Math.min(innerWidth, innerHeight) / 700));   // runs before the helpers exist
     TS = 1 / zoom;
     vw = innerWidth / zoom; vh = innerHeight / zoom;   // world units visible on screen

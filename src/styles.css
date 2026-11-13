@@ -159,7 +159,7 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
 .tabs button { font: 700 14px var(--display); padding: 8px; border-radius: 9px; background: transparent; color: var(--muted); border: 0; box-shadow: none; }
 .tabs button[aria-selected="true"] { background: rgba(79,214,200,.22); color: var(--ink); }
 .pane { display: grid; gap: 10px; }
-.pane[hidden] { display: none; }
+.pane[hidden], .pick[hidden] { display: none; }
 .pick { width: 100%; display: grid; gap: 6px; text-align: left; }
 .pick > span { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }

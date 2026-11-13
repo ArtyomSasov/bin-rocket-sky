@@ -5,6 +5,8 @@
   const errs = []; addEventListener("error", e => errs.push(String(e.message)));
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const key = (c, d) => dispatchEvent(new KeyboardEvent(d ? "keydown" : "keyup", { code: c, key: c }));
+  // play as the lobby's host (only the host brings bots): this browser "made" the code
+  try { localStorage.setItem("binrocket.hosted", JSON.stringify([window.__code.toLowerCase()])); } catch {}
   [...document.querySelectorAll('#botCount button')].find(b => /6/.test(b.textContent)).click();
   document.getElementById("lobbyInput").value = window.__code; document.getElementById("lobbyInput").dispatchEvent(new Event("input"));
   document.querySelector("form").requestSubmit();

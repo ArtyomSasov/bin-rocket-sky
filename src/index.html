@@ -51,10 +51,11 @@
       <div class="pane" id="paneJoin" hidden>
         <input id="lobbyInput" class="code" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Friend's code, e.g. K7M2Q" aria-label="Lobby code">
         <p class="codeline" id="joinLine">The code brings its own mode and map.</p>
+        <p class="codeline">Bots and settings come from whoever made the lobby.</p>
       </div>
     </section>
 
-    <div class="pick"><span>Bots</span>
+    <div class="pick" id="botsPick"><span>Bots</span>
       <div class="segs" id="botCount" role="group" aria-label="Number of bots"></div>
       <div class="segs" id="botLevel" role="group" aria-label="Bot difficulty"></div>
     </div>

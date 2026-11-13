@@ -23,7 +23,19 @@
     vg.addColorStop(0, "rgba(0,0,6,0)"); vg.addColorStop(1, "rgba(0,0,6,0.65)");
     q.fillStyle = vg; q.fillRect(0, 0, vw, vh);
   }
+  // the sky is soft and far away: on a sharp (retina) screen it is painted at 1x into its own canvas and stretched,
+  // a quarter of the pixels for the layers that cover the whole screen
+  const skyCv = document.createElement("canvas"), skyQ = skyCv.getContext("2d", { alpha: false });
   function drawSky(now) {
+    if (dpr <= 1.05) { paintSky(now); return; }
+    const w = Math.ceil(innerWidth), h = Math.ceil(innerHeight);
+    if (skyCv.width !== w || skyCv.height !== h) { skyCv.width = w; skyCv.height = h; }
+    skyQ.setTransform(zoom, 0, 0, zoom, 0, 0);
+    const main = g; g = skyQ;
+    try { paintSky(now); } finally { g = main; }
+    g.drawImage(skyCv, 0, 0, vw, vh);
+  }
+  function paintSky(now) {
     const t = now / 1000, sdt = Math.min(0.05, (now - lastSky) / 1000); lastSky = now;
     skyLayers();
     g.drawImage(skyBase, 0, 0, vw, vh);
@@ -47,7 +59,7 @@
     tile(brightStars, STAR_TILE, 0.45, 0, 0);
     g.globalAlpha = 1;
     g.globalCompositeOperation = "lighter";
-    for (const st of TWINKLE) {
+    if (!lowQ) for (const st of TWINKLE) {
       const x = mod(st.x * 2400 - cam.x * 0.35, vw + 200) - 100, y = mod(st.y * 1600 - cam.y * 0.35, vh + 200) - 100;
       const a = Math.max(0, Math.sin(t * st.sp + st.ph));
       if (a < 0.05) continue;
@@ -75,7 +87,7 @@
     g.globalAlpha = 1;
     g.globalCompositeOperation = "source-over";
     // dust layers (pre-rendered tiles, gently twinkling as a whole)
-    for (const d of DUST) {
+    for (const d of lowQ ? DUST.slice(0, 1) : DUST) {
       const bx = -mod(cam.x * d.par, d.tile), by = -mod(cam.y * d.par, d.tile);
       g.globalAlpha = 0.75 + 0.25 * Math.sin(now / 700 + d.par * 9);
       for (let tx = bx; tx < vw; tx += d.tile) for (let ty = by; ty < vh; ty += d.tile) g.drawImage(d.c, tx, ty);

@@ -73,6 +73,9 @@
   const nameInput = document.getElementById("nameInput");
   nameInput.value = store.get("binrocket.name") || "Bin-" + Math.floor(10 + Math.random() * 89);
   const lobbyInput = document.getElementById("lobbyInput"), goBtn = document.getElementById("goBtn");
+  // the lobbies this browser created: its owner is their host (the one whose bots fly there), even after a reload
+  const hosted = () => { try { return JSON.parse(store.get("binrocket.hosted")) || []; } catch { return []; } };
+  const remember = c => store.set("binrocket.hosted", JSON.stringify([c, ...hosted().filter(x => x !== c)].slice(0, 12)));
   // New game: the picks make the lobby code (size, then "1"+mode, "0"+map, then random letters); Join: a friend's code
   let joining = false, newGameCode = "";
   const lobbyCode = () => joining ? normCode(lobbyInput.value) : newGameCode;
@@ -90,6 +93,7 @@
     document.getElementById("tabNew").setAttribute("aria-selected", String(!join));
     document.getElementById("tabJoin").setAttribute("aria-selected", String(join));
     document.getElementById("paneNew").hidden = join; document.getElementById("paneJoin").hidden = !join;
+    document.getElementById("botsPick").hidden = join && !hosted().includes(normCode(lobbyInput.value));   // a guest doesn't bring bots
     syncGo();
   };
   if (standalone) {
@@ -101,13 +105,14 @@
       let c = mapPick + (modePick === "d" ? "" : "1" + modePick) + (themePick === "c" ? "" : "0" + themePick);
       for (let i = 0; i < 4; i++) c += CODE_ABC[(Math.random() * CODE_ABC.length) | 0];
       newGameCode = c; syncGo();
+      remember(c);
     };
     segButtons(document.getElementById("modePick"), Object.entries(MODES).map(([k, v]) => [k, v.label, v.hint]), modePick, v => { modePick = v; store.set("binrocket.mode", v); newCode(); });
     segButtons(document.getElementById("themePick"), Object.entries(MAPS).map(([k, v]) => [k, v.label, v.hint]), themePick, v => { themePick = v; store.set("binrocket.theme", v); newCode(); });
     segButtons(document.getElementById("mapSize"), Object.entries(MAP_SIZES).map(([k, v]) => [k, v[1]]), mapPick, v => { mapPick = v; store.set("binrocket.map", v); newCode(); });
     document.getElementById("tabNew").addEventListener("click", () => setTab(false));
     document.getElementById("tabJoin").addEventListener("click", () => { setTab(true); lobbyInput.focus(); });
-    lobbyInput.addEventListener("input", () => { lobbyInput.value = lobbyInput.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (!joining) setTab(true); else syncGo(); });
+    lobbyInput.addEventListener("input", () => { lobbyInput.value = lobbyInput.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); setTab(true); });
     newCode();
     const fromLink = normCode((location.hash.match(/^#([A-Za-z0-9]{1,16})$/) || [])[1] || "");
     if (fromLink.length >= 4) { lobbyInput.value = fromLink.toUpperCase(); setTab(true); }   // an invite link opens on Join
@@ -118,7 +123,9 @@
   document.getElementById("startForm").addEventListener("submit", e => {
     e.preventDefault();
     if (standalone) { if (!codeOk()) { lobbyInput.focus(); return; } chooseLobby(lobbyCode()); }
-    if (!bots.length && botChoice.n > 0) addBots(botChoice.n, botChoice.level);
+    // bots: in a lobby only its host adds them (everyone else sees the host's); in the Claude room they stay local anyway
+    const host = !standalone || !joining || hosted().includes(lobbyCode());
+    if (host && !bots.length && botChoice.n > 0) addBots(botChoice.n, botChoice.level);
     me.name = nameInput.value.trim().slice(0, 14) || "Bin";
     store.set("binrocket.name", me.name);
     try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { audio = null; }

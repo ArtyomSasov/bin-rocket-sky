@@ -166,7 +166,7 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
 .tabs button { font: 700 14px var(--display); padding: 8px; border-radius: 9px; background: transparent; color: var(--muted); border: 0; box-shadow: none; }
 .tabs button[aria-selected="true"] { background: rgba(79,214,200,.22); color: var(--ink); }
 .pane { display: grid; gap: 10px; }
-.pane[hidden] { display: none; }
+.pane[hidden], .pick[hidden] { display: none; }
 .pick { width: 100%; display: grid; gap: 6px; text-align: left; }
 .pick > span { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
@@ -392,10 +392,11 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       <div class="pane" id="paneJoin" hidden>
         <input id="lobbyInput" class="code" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Friend's code, e.g. K7M2Q" aria-label="Lobby code">
         <p class="codeline" id="joinLine">The code brings its own mode and map.</p>
+        <p class="codeline">Bots and settings come from whoever made the lobby.</p>
       </div>
     </section>
 
-    <div class="pick"><span>Bots</span>
+    <div class="pick" id="botsPick"><span>Bots</span>
       <div class="segs" id="botCount" role="group" aria-label="Number of bots"></div>
       <div class="segs" id="botLevel" role="group" aria-label="Bot difficulty"></div>
     </div>
@@ -591,9 +592,10 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   let g = cv.getContext("2d", { alpha: false });   // swapped briefly to draw the start-screen preview
   const DISPLAY_FONT = getComputedStyle(document.documentElement).getPropertyValue('--display');
   let vw = 0, vh = 0, dpr = 1, zoom = 1;
+  let resScale = 1;   // lowered by the frame loop when the device can't keep up (dynamic resolution)
   let TS = 1;   // text scale: undoes the camera zoom so labels stay readable
   function resize() {
-    dpr = Math.min(MAX_DPR, window.devicePixelRatio || 1);
+    dpr = Math.min(MAX_DPR, window.devicePixelRatio || 1) * resScale;
     zoom = Math.max(0.62, Math.min(1, Math.min(innerWidth, innerHeight) / 700));   // runs before the helpers exist
     TS = 1 / zoom;
     vw = innerWidth / zoom; vh = innerHeight / zoom;   // world units visible on screen
@@ -3947,7 +3949,19 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     vg.addColorStop(0, "rgba(0,0,6,0)"); vg.addColorStop(1, "rgba(0,0,6,0.65)");
     q.fillStyle = vg; q.fillRect(0, 0, vw, vh);
   }
+  // the sky is soft and far away: on a sharp (retina) screen it is painted at 1x into its own canvas and stretched,
+  // a quarter of the pixels for the layers that cover the whole screen
+  const skyCv = document.createElement("canvas"), skyQ = skyCv.getContext("2d", { alpha: false });
   function drawSky(now) {
+    if (dpr <= 1.05) { paintSky(now); return; }
+    const w = Math.ceil(innerWidth), h = Math.ceil(innerHeight);
+    if (skyCv.width !== w || skyCv.height !== h) { skyCv.width = w; skyCv.height = h; }
+    skyQ.setTransform(zoom, 0, 0, zoom, 0, 0);
+    const main = g; g = skyQ;
+    try { paintSky(now); } finally { g = main; }
+    g.drawImage(skyCv, 0, 0, vw, vh);
+  }
+  function paintSky(now) {
     const t = now / 1000, sdt = Math.min(0.05, (now - lastSky) / 1000); lastSky = now;
     skyLayers();
     g.drawImage(skyBase, 0, 0, vw, vh);
@@ -3971,7 +3985,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     tile(brightStars, STAR_TILE, 0.45, 0, 0);
     g.globalAlpha = 1;
     g.globalCompositeOperation = "lighter";
-    for (const st of TWINKLE) {
+    if (!lowQ) for (const st of TWINKLE) {
       const x = mod(st.x * 2400 - cam.x * 0.35, vw + 200) - 100, y = mod(st.y * 1600 - cam.y * 0.35, vh + 200) - 100;
       const a = Math.max(0, Math.sin(t * st.sp + st.ph));
       if (a < 0.05) continue;
@@ -3999,7 +4013,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     g.globalAlpha = 1;
     g.globalCompositeOperation = "source-over";
     // dust layers (pre-rendered tiles, gently twinkling as a whole)
-    for (const d of DUST) {
+    for (const d of lowQ ? DUST.slice(0, 1) : DUST) {
       const bx = -mod(cam.x * d.par, d.tile), by = -mod(cam.y * d.par, d.tile);
       g.globalAlpha = 0.75 + 0.25 * Math.sin(now / 700 + d.par * 9);
       for (let tx = bx; tx < vw; tx += d.tile) for (let ty = by; ty < vh; ty += d.tile) g.drawImage(d.c, tx, ty);
@@ -5359,6 +5373,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // ---------- loop ----------
   let last = performance.now(), frameAvg = 1 / 60;
   const world = { sparks: [], rocks: [], picks: [], nuke: null, amp: null, supplies: [] };   // shared-clock objects, computed once per frame
+  let resCheckAt = 0;
   function frame(now) {
     requestAnimationFrame(frame);
     const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
@@ -5366,6 +5381,12 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       frameAvg += (raw - frameAvg) * 0.05;
       if (!lowQ && frameAvg > 1 / 42) lowQ = true;          // under ~42 fps: lighten the load
       else if (lowQ && frameAvg < 1 / 56) lowQ = false;     // back above ~56 fps: full effects
+      // dynamic resolution: below ~50 fps draw fewer pixels (down to 55%), and climb back once it runs smoothly
+      if (now - resCheckAt > 1500) {
+        resCheckAt = now;
+        if (frameAvg > 1 / 50 && resScale > 0.55) { resScale = Math.max(0.55, resScale - 0.15); resize(); }
+        else if (frameAvg < 1 / 58 && resScale < 1) { resScale = Math.min(1, resScale + 0.15); resize(); }
+      }
     }
     const wt = clockNow();
     for (let i = 0; i < SLOTS; i++) world.sparks[i] = spark(i, wt);
@@ -5563,6 +5584,9 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   const nameInput = document.getElementById("nameInput");
   nameInput.value = store.get("binrocket.name") || "Bin-" + Math.floor(10 + Math.random() * 89);
   const lobbyInput = document.getElementById("lobbyInput"), goBtn = document.getElementById("goBtn");
+  // the lobbies this browser created: its owner is their host (the one whose bots fly there), even after a reload
+  const hosted = () => { try { return JSON.parse(store.get("binrocket.hosted")) || []; } catch { return []; } };
+  const remember = c => store.set("binrocket.hosted", JSON.stringify([c, ...hosted().filter(x => x !== c)].slice(0, 12)));
   // New game: the picks make the lobby code (size, then "1"+mode, "0"+map, then random letters); Join: a friend's code
   let joining = false, newGameCode = "";
   const lobbyCode = () => joining ? normCode(lobbyInput.value) : newGameCode;
@@ -5580,6 +5604,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     document.getElementById("tabNew").setAttribute("aria-selected", String(!join));
     document.getElementById("tabJoin").setAttribute("aria-selected", String(join));
     document.getElementById("paneNew").hidden = join; document.getElementById("paneJoin").hidden = !join;
+    document.getElementById("botsPick").hidden = join && !hosted().includes(normCode(lobbyInput.value));   // a guest doesn't bring bots
     syncGo();
   };
   if (standalone) {
@@ -5591,13 +5616,14 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       let c = mapPick + (modePick === "d" ? "" : "1" + modePick) + (themePick === "c" ? "" : "0" + themePick);
       for (let i = 0; i < 4; i++) c += CODE_ABC[(Math.random() * CODE_ABC.length) | 0];
       newGameCode = c; syncGo();
+      remember(c);
     };
     segButtons(document.getElementById("modePick"), Object.entries(MODES).map(([k, v]) => [k, v.label, v.hint]), modePick, v => { modePick = v; store.set("binrocket.mode", v); newCode(); });
     segButtons(document.getElementById("themePick"), Object.entries(MAPS).map(([k, v]) => [k, v.label, v.hint]), themePick, v => { themePick = v; store.set("binrocket.theme", v); newCode(); });
     segButtons(document.getElementById("mapSize"), Object.entries(MAP_SIZES).map(([k, v]) => [k, v[1]]), mapPick, v => { mapPick = v; store.set("binrocket.map", v); newCode(); });
     document.getElementById("tabNew").addEventListener("click", () => setTab(false));
     document.getElementById("tabJoin").addEventListener("click", () => { setTab(true); lobbyInput.focus(); });
-    lobbyInput.addEventListener("input", () => { lobbyInput.value = lobbyInput.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (!joining) setTab(true); else syncGo(); });
+    lobbyInput.addEventListener("input", () => { lobbyInput.value = lobbyInput.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); setTab(true); });
     newCode();
     const fromLink = normCode((location.hash.match(/^#([A-Za-z0-9]{1,16})$/) || [])[1] || "");
     if (fromLink.length >= 4) { lobbyInput.value = fromLink.toUpperCase(); setTab(true); }   // an invite link opens on Join
@@ -5608,7 +5634,9 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   document.getElementById("startForm").addEventListener("submit", e => {
     e.preventDefault();
     if (standalone) { if (!codeOk()) { lobbyInput.focus(); return; } chooseLobby(lobbyCode()); }
-    if (!bots.length && botChoice.n > 0) addBots(botChoice.n, botChoice.level);
+    // bots: in a lobby only its host adds them (everyone else sees the host's); in the Claude room they stay local anyway
+    const host = !standalone || !joining || hosted().includes(lobbyCode());
+    if (host && !bots.length && botChoice.n > 0) addBots(botChoice.n, botChoice.level);
     me.name = nameInput.value.trim().slice(0, 14) || "Bin";
     store.set("binrocket.name", me.name);
     try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { audio = null; }

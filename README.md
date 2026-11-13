@@ -17,7 +17,8 @@ Pick a mode when you create a lobby; the lobby code carries it, so friends who j
 | Nukes only | Everyone has unlimited nukes and nothing else |
 | Railgun instagib | Unlimited railguns, one hit kills |
 
-Bots (2, 4 or 6, three skill levels) join any mode and play its rules.
+Bots (2, 4 or 6, three skill levels) join any mode and play its rules. Only the lobby's host (whoever made the
+code, remembered in that browser) brings bots; players who join with the code play with the host's.
 
 ## Maps
 
