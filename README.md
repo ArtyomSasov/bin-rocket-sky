@@ -20,6 +20,12 @@ Pick a mode when you create a lobby; the lobby code carries it, so friends who j
 Bots (2, 4 or 6, three skill levels) join any mode and play its rules. Only the lobby's host (whoever made the
 code, remembered in that browser) brings bots; players who join with the code play with the host's.
 
+## Finding a game
+
+The start screen's "Join" tab lists the games running right now (mode, map, size, pilots and bots); click one
+to join. Every running lobby announces itself every few seconds on a shared topic of the public MQTT broker the
+game already uses, so there is no server of our own; a lobby disappears from the list ~13 s after it goes quiet.
+
 ## Maps
 
 Also picked with a new lobby (and carried in its code), on top of the map size:
@@ -31,6 +37,7 @@ Also picked with a new lobby (and carried in its code), on top of the map size:
 | Shipyard | Broken ship hulls and station rings, few planets |
 | Ruined city | Floating towers and container stacks |
 | Solar system | A sun in the middle, big planets with two moons each |
+| Waste depot | Skips, refuse trucks, giant wheelie bins and bales of crushed waste |
 | Open space | Almost empty: quick duels |
 
 ## Controls

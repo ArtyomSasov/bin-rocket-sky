@@ -187,6 +187,10 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
 .cards button small { font: 600 11px var(--body); color: var(--muted); }
 .cards button[aria-pressed="true"] { background: rgba(79,214,200,.2); border-color: var(--teal); }
 .codeline { font-size: 12px !important; }
+.lobbies { display: grid; gap: 6px; }
+.lobby { display: grid; gap: 2px; text-align: left; padding: 9px 12px; border-radius: 10px; background: rgba(255,255,255,.05); border: 1px solid var(--line); box-shadow: none; color: var(--ink); font: 700 13px var(--display); cursor: pointer; }
+.lobby small { font: 600 11px var(--body); color: var(--muted); }
+.lobby:hover { border-color: var(--teal); background: rgba(79,214,200,.12); }
 .codeline b { color: var(--ink); letter-spacing: .06em; }
 .opts { display: grid; gap: 10px; margin-top: 10px; }
 .opt-row { display: grid; gap: 5px; }

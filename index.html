@@ -194,6 +194,10 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
 .cards button small { font: 600 11px var(--body); color: var(--muted); }
 .cards button[aria-pressed="true"] { background: rgba(79,214,200,.2); border-color: var(--teal); }
 .codeline { font-size: 12px !important; }
+.lobbies { display: grid; gap: 6px; }
+.lobby { display: grid; gap: 2px; text-align: left; padding: 9px 12px; border-radius: 10px; background: rgba(255,255,255,.05); border: 1px solid var(--line); box-shadow: none; color: var(--ink); font: 700 13px var(--display); cursor: pointer; }
+.lobby small { font: 600 11px var(--body); color: var(--muted); }
+.lobby:hover { border-color: var(--teal); background: rgba(79,214,200,.12); }
 .codeline b { color: var(--ink); letter-spacing: .06em; }
 .opts { display: grid; gap: 10px; margin-top: 10px; }
 .opt-row { display: grid; gap: 5px; }
@@ -429,6 +433,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
         <input id="lobbyInput" class="code" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Friend's code, e.g. K7M2Q" aria-label="Lobby code">
         <p class="codeline" id="joinLine">The code brings its own mode and map.</p>
         <p class="codeline">Bots and settings come from whoever made the lobby.</p>
+        <div class="pick"><span>Open games</span><div class="lobbies" id="lobbyList"></div></div>
       </div>
     </section>
 
@@ -2809,8 +2814,28 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(ok, legacy);
     else legacy();
   }
+  // the lobby browser (standalone hosting only)
+  const LOBBY_BROKER = "wss://broker.hivemq.com:8884/mqtt", LOBBY_TOPIC = "binrocket-sky/v1/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
+  function renderLobbies() {
+    const el = document.getElementById("lobbyList"), now = Date.now();
+    for (const [c, l] of openLobbies) if (now - l.at > LOBBY_TTL) openLobbies.delete(c);
+    const list = [...openLobbies].sort((a, b) => b[1].n - a[1].n);
+    document.getElementById("tabJoin").textContent = list.length ? `Join a game (${list.length})` : "Join a friend";
+    if (!el) return;
+    el.replaceChildren(...list.map(([c, l]) => {
+      const row = document.createElement("button"); row.type = "button"; row.className = "lobby";
+      const t = document.createElement("b"); t.textContent = MODES[modeOf(c)].label + " · " + MAPS[mapThemeOf(c)].label + " · " + MAP_SIZES[mapOf(c)][1];
+      const s = document.createElement("small"); s.textContent = l.n + (l.n === 1 ? " pilot" : " pilots") + (l.b ? " + " + l.b + " bots" : "") + " · " + c.toUpperCase();
+      row.append(t, s);
+      row.addEventListener("click", () => { lobbyInput.value = c.toUpperCase(); lobbyInput.dispatchEvent(new Event("input")); document.getElementById("startForm").requestSubmit(); });
+      return row;
+    }));
+    if (!list.length) { const p = document.createElement("p"); p.className = "codeline"; p.textContent = "No open games right now: start a new one, or type a friend's code."; el.append(p); }
+  }
   // lobby choice (standalone hosting only)
   const standalone = !(window.claude && typeof window.claude.use === "function");
+  if (standalone) setInterval(renderLobbies, 3000);   // the lobby browser drops games that went quiet
   let chooseLobby;
   const lobbyChosen = new Promise(r => { chooseLobby = r; });
   const CODE_ABC = "abcdefghjkmnpqrstuvwxyz23456789";
@@ -2935,7 +2960,21 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       s.onload = res; s.onerror = rej; document.head.appendChild(s);
     }).catch(() => { setStatus(false, "Solo flight · could not load the multiplayer library"); throw new Error("mqtt"); });
 
+    // the lobby browser: every running lobby says it exists on one shared topic every few seconds, and the start
+    // screen lists the ones heard lately (no server of our own: it's the same public broker the game talks through)
+    const browse = mqtt.connect(LOBBY_BROKER, { clientId: "brs_b_" + Math.random().toString(36).slice(2, 10), clean: true, keepalive: 30, reconnectPeriod: 3000 });
+    browse.on("connect", () => browse.subscribe(LOBBY_TOPIC, { qos: 0 }));
+    browse.on("error", () => {});
+    browse.on("message", (topic, payload) => {
+      if (payload.length > 300) return;
+      let p; try { p = JSON.parse(payload.toString()); } catch { return; }
+      if (!p || typeof p.c !== "string" || !/^[a-z0-9]{4,10}$/.test(p.c) || !Number.isInteger(p.n) || p.n < 1 || p.n > 64) return;
+      openLobbies.set(p.c, { n: p.n, b: Number.isInteger(p.b) ? clamp(p.b, 0, 64) : 0, at: Date.now() });
+      renderLobbies();
+    });
+
     const code = await lobbyChosen;          // picked on the start screen
+    browse.end(true);
     setMapSize(mapOf(code));
     buildPlanets(code);
     setMode(modeOf(code));
@@ -2953,7 +2992,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     // hz: messages per second we may publish there. Measured: HiveMQ delivers 32/s in full;
     // the public EMQX broker silently drops everything above ~10/s per client.
     const BROKER_HZ = [20, 9];
-    const BROKERS = ["wss://broker.hivemq.com:8884/mqtt", "wss://broker.emqx.io:8084/mqtt"];
+    const BROKERS = [LOBBY_BROKER, "wss://broker.emqx.io:8084/mqtt"];
     const myId = "p" + Math.random().toString(36).slice(2, 10);
     const base = "binrocket-sky/v1/" + code + "/";
     const clients = BROKERS.map(url => {
@@ -2998,6 +3037,14 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       net.shotsInState = i > 0;
       if (c) c.publish(base + "s/" + myId, JSON.stringify(p), { qos: 0 });
     };
+    // say this lobby is running (for the lobby browser): how many pilots and bots are here now
+    setInterval(() => {
+      const c = outbound();
+      if (!c || !playing) return;
+      let n = 1, b = 0;
+      for (const id of remotes.keys()) if (/^pb/.test(id)) b++; else n++;
+      c.publish(LOBBY_TOPIC, JSON.stringify({ c: code, n, b }), { qos: 0 });
+    }, LOBBY_EVERY);
     addEventListener("pageshow", e => { if (e.persisted) location.reload(); });
     addEventListener("pagehide", () => {
       for (const c of clients) if (c.connected) { c.publish(base + "l/" + myId, "1"); c.end(true); }
