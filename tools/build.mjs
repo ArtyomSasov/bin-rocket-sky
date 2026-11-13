@@ -33,7 +33,7 @@ const body = template
 
 const args = process.argv.slice(2);
 // test hooks: read-only views of the game's state for tools/smoke.js (never in the published page)
-const HOOK = '  window.__t = { me, deathFx: (...a) => deathFx(...a), hurt: (...a) => hurt(...a), get bodies() { return bodies; }, get bots() { return bots; }, ' +
+const HOOK = '  window.__t = { me, get myShotLog() { return myShotLog; }, deathFx: (...a) => deathFx(...a), hurt: (...a) => hurt(...a), get bodies() { return bodies; }, get bots() { return bots; }, ' +
   'get shots() { return shots; }, get mode() { return MODE; }, get bases() { return bases; }, get flagCarrier() { return flagCarrier; } };\n';
 if (args[0] === "--debug") {
   if (!args[1]) throw new Error("usage: node tools/build.mjs --debug <out.html>");

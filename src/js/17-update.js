@@ -302,7 +302,7 @@
 
     // remotes: extrapolate + ease toward reported spot
     for (const [rid, r] of remotes) {
-      if (now - r.seen > 7000) { remotes.delete(rid); continue; }
+      if (!botById.has(rid) && now - r.seen > 7000) { removeRemote(rid); continue; }
       r.tx = clamp(r.tx + r.vx * dt, 0, W); r.ty = clamp(r.ty + r.vy * dt, 0, H);
       const corr = 1 - Math.exp(-12 * dt);
       r.x = clamp(r.x + r.vx * dt + (r.tx - r.x) * corr, 0, W);
@@ -511,7 +511,7 @@
     if (playing && sendAcc >= 1 / net.hz) {
       sendAcc = 0;
       const msg = {
-        q: ++sendSeq, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),
+        q: ++sendSeq, rd: stats.round, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),
         vx: Math.round(me.vx), vy: Math.round(me.vy), a: +me.a.toFixed(2),
         t: me.thrust > 0.3 ? 1 : 0, b: me.boostFx, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0, ds: me.dead ? me.ds : 0,
         dk: me.dead ? me.dk : 0, da: me.dead ? +me.da.toFixed(2) : 0, tm: me.tm ?? -1   // the team rides every message: shots need it
@@ -520,7 +520,8 @@
         tm: me.tm ?? -1, fc: me.fc ?? -1, cp: [stats.round, me.caps || 0],
         tg: myTag, n: me.name, h: me.hue, ck: me.ck, s: me.score, l: Math.round(me.lives * 100) / 100, am: me.ampUntil > now ? 1 : 0, lv: me.lv, sh: Math.round(me.shield * 100) / 100, wp: WEAPON_KEYS.indexOf(me.weapon), g: myGrabs, hb: hitBy, ko: koBy,
         st: [stats.round, stats.kills, stats.deaths, stats.shots, stats.hits, stats.best],
-        cv: myCarves.filter(e => performance.now() - e.at < 4000).map(e => e.d),
+        // Keep live deltas within the packet budget; rolling terrain snapshots repair older holes.
+        cv: myCarves.filter(e => performance.now() - e.at < 4000).slice(-128).map(e => e.d),
         dr: myDrops.filter(d => Date.now() - d[4] < DROP_LIFE).slice(-3).map(d => d.slice(0, 4))
       };
       const sig = JSON.stringify(slow);
@@ -532,6 +533,8 @@
         const bs = botStates(now);
         if (standalone) msg.bots = bs;   // the Claude room's presence is too small for bots: they stay local there
       }
+      const terrain = nextTerrain();
+      if (terrain) msg.terrain = terrain;
       net.send(msg);
     }
     boardAcc += dt;
@@ -627,7 +630,10 @@
       hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0;
       if (shownRound !== -1) { myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode); }   // every crater filled in again
       firstBlood = false; streaks.clear(); multi = 0;
-      credited.clear(); botCredited.clear(); killSeen.clear(); ufoHits.clear();   // ids of the last round can't come back
+      credited.clear(); botCredited.clear(); killSeen.clear(); ufoHits.clear();
+      hitBy.length = 0; koBy.length = 0; myShotLog.length = 0; shots.length = 0; seenShots.clear();
+      for (const b of bots) { b.hitBy.length = 0; b.koBy.length = 0; b.shotLog.length = 0; }
+      slowAcc = 1; lastSlow = "";
       shownRound = rd.idx;
       document.getElementById("results").hidden = true;
     }

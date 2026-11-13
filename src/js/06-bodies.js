@@ -38,6 +38,7 @@
       if (all && on >= all * 0.25) { b.cells[j * b.gw + i] = 1; m++; }
     }
     b.mass = b.mass0 = m;
+    b.initialCells = b.cells.slice();
   }
   // light from the top-left over whatever is painted
   function shade(q, w, h) {
@@ -106,6 +107,7 @@
       if (((i + 0.5) * b.cs - b.hw) ** 2 + ((j + 0.5) * b.cs - b.hh) ** 2 < (R + b.cs * 0.2) ** 2) { b.cells[j * b.gw + i] = 1; m++; }
     }
     b.mass = b.mass0 = m;
+    b.initialCells = b.cells.slice();
   }
   function paintRings(b, R, rnd) {
     const half = Math.ceil(R * 1.85), mk = front => {
@@ -478,6 +480,46 @@
       if (n) { const [x, y] = toWorld(b, lx, ly); rubbleFx(b, x, y, r, n); }
     }
     if (seenCarves.size > 4000) seenCarves.clear();
+  }
+
+  // Repair missed craters and late joins with a rolling snapshot of removed cells. Removal is
+  // monotonic within a round, so duplicates and snapshots from different peers cannot fill a hole.
+  // Only shared terrain is synchronized; detached rubble remains a local visual/physics effect.
+  let terrainCursor = 0;
+  function nextTerrain() {
+    if (!det.length) return null;
+    const bi = terrainCursor++ % det.length, b = det[bi];
+    if (b.dead || b.free) return [stats.round, bi, 1, ""];
+    let bytes = "";
+    for (let i = 0; i < b.cells.length; i += 8) {
+      let bits = 0;
+      for (let k = 0; k < 8 && i + k < b.cells.length; k++) if (b.initialCells[i + k] && !b.cells[i + k]) bits |= 1 << k;
+      bytes += String.fromCharCode(bits);
+    }
+    return [stats.round, bi, 0, btoa(bytes)];
+  }
+  function applyTerrain(s) {
+    if (s.length !== 4 || s[0] !== stats.round || !Number.isSafeInteger(s[1]) || (s[2] !== 0 && s[2] !== 1) || typeof s[3] !== "string") return;
+    const b = det[s[1]];
+    if (!b || b.dead || b.free) return;
+    if (s[2] === 1) {
+      if (s[3] !== "") return;
+      b.dead = true; rebuildBodies(); return;
+    }
+    const count = Math.ceil(b.cells.length / 8);
+    if (s[3].length !== Math.ceil(count / 3) * 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(s[3])) return;
+    let bytes;
+    try { bytes = atob(s[3]); } catch { return; }   // malformed network encoding
+    if (bytes.length !== count) return;
+    let removed = 0;
+    for (let i = 0; i < b.cells.length; i++) if (b.cells[i] && (bytes.charCodeAt(i >> 3) & (1 << (i & 7)))) {
+      b.cells[i] = 0; removed++;
+      b.q.clearRect((i % b.gw) * b.cs, Math.floor(i / b.gw) * b.cs, b.cs, b.cs);
+    }
+    if (removed) {
+      b.mass -= removed; b.dirty = true;
+      sweepOrphans(b, 0, b.gw - 1, 0, b.gh - 1);
+    }
   }
 
   // ---------- breaking apart: cut-off pieces fly away as rubble; a planet whittled down to its last 15% blows apart ----------

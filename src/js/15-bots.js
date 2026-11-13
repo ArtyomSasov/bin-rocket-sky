@@ -18,7 +18,7 @@
     for (const k of list) {
       if (typeof k !== "string") continue;
       const key = (ko ? "ko" : "") + k;
-      if (botCredited.has(key)) continue;
+      if (botCredited.has(key) || botCredited.size >= MAX_CREDITS) continue;
       for (const b of bots) if (k.startsWith(b.tag + ".")) {
         botCredited.add(key);
         if (ko) { b.st.kills++; b.st.streak++; b.st.best = Math.max(b.st.best, b.st.streak); } else b.st.hits++;
@@ -174,7 +174,7 @@
     const full = botTick++ % 10 === 0;   // names/looks/scores every 10th tick; motion, hits and shots every tick
     for (const b of bots) {
       const m = {
-        q: ++b.q, x: Math.round(b.x), y: Math.round(b.y), vx: Math.round(b.vx), vy: Math.round(b.vy), a: +b.a.toFixed(2),
+        q: ++b.q, rd: stats.round, x: Math.round(b.x), y: Math.round(b.y), vx: Math.round(b.vx), vy: Math.round(b.vy), a: +b.a.toFixed(2),
         t: 1, b: 0, d: b.dead ? 1 : 0, i: now < b.inv ? 1 : 0, ds: b.dead ? b.ds : 0, dk: b.dead ? b.dk || 0 : 0, da: b.dead ? +(b.da || 0).toFixed(2) : 0,
         l: Math.max(0, Math.round(b.lives * 100) / 100), hb: b.hitBy, ko: b.koBy, f: b.shotLog.map(e => e.d),
         tm: b.tm ?? -1, fc: b.fc ?? -1, cp: [stats.round, b.caps || 0], tg: b.tag

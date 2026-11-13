@@ -3,6 +3,8 @@
   "private": true,
   "description": "Bin Rocket Sky: a browser multiplayer space shooter with flying bins",
   "scripts": {
+    "test": "node --test tools/network.test.cjs",
+    "test:browser": "node tools/browser-test.mjs",
     "build": "node tools/build.mjs",
     "serve": "python3 -m http.server 8000"
   }

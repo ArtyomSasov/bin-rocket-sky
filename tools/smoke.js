@@ -21,12 +21,16 @@
   for (const w of solo ? [solo] : ["fire", "triple", "laser", "rocket", "scatter", "rail", "mine", "orb", "bolt", "shard", "nuke"]) {
     if (m.dead) await wait(3300);
     m.arsenal[w] = 30; m.weapon = w; await wait(1300);
-    const before = new Set(T.shots.filter(s => s.mine).map(s => s.id));
+    const before = new Set(T.myShotLog.map(e => e.d[0]));
     key("KeyF", 1); await wait(250); key("KeyF", 0);
-    fired[w] = [...new Set(T.shots.filter(s => s.mine && !before.has(s.id)).map(s => s.kind))].join(",");
+    // A shot may already have hit a wall or expired; inspect emitted shots, not only survivors.
+    fired[w] = [...new Set(T.myShotLog.filter(e => !before.has(e.d[0])).map(e => e.d[5]))].join(",");
   }
   out.fired = fired;
   if (!solo) {
+    // A nearby nuke kills through invulnerability; wait for its flight and respawn before equipping.
+    while (m.dead || T.shots.some(s => s.mine && s.kind === 3)) await wait(40);
+    m.inv = 1e15;
     const alt = {};
     for (const w of ["rocket", "scatter", "triple", "mine"]) {
       m.arsenal[w] = 30; m.weapon = w; await wait(1800);

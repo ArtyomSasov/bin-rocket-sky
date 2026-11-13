@@ -7,6 +7,7 @@
     cap(parts, MAX_PARTS); cap(impacts, 120); cap(rings, 80); cap(floaters, 60); cap(arcs, 40); cap(beams, 12);
     for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k);
     grabbed.prune(120000);
+    pruneNetwork(t);
     while (myDrops.length && Date.now() - myDrops[0][4] > DROP_LIFE) myDrops.shift();
   }, 1000);
   let resCheckAt = 0;
