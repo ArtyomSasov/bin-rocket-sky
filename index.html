@@ -180,8 +180,6 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
 .field { display: grid; gap: 6px; width: 100%; text-align: left; }
 .field label { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .field label small { text-transform: none; letter-spacing: 0; font-weight: 600; }
-.field .note { color: var(--muted); font-size: 12px; min-height: 1em; }
-#railFile { min-width: 0; flex: 1; font-size: 13px; color: var(--muted); }
 .field > input, .row input {
   min-width: 0;
   font: 700 16px var(--body); color: var(--ink);
@@ -330,7 +328,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   <form class="card chip" id="startForm">
     <canvas id="preview" width="220" height="220" aria-label="Preview of your bin rocket"></canvas>
     <h1>Bin Rocket <em>Sky</em></h1>
-    <p><b>Deathmatch:</b> 5-minute rounds, the pilot with the most kills wins. Scoop up sparks to level up, blast space junk and other bins with fire. You have 3 lives. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more lives and fancier fire. Planets pull you in and hurt if you slam into them (more on boost); shoot one apart for +25. Watch out for black holes, meteor showers and aliens. Grab weapon crates: triple shot, laser, homing rockets (slow: outrun them or shoot them down), scatter gun, railgun (pierces), mines, plasma orb (shoot it with the railgun or laser for a combo blast), lightning, shard cannon (shards ricochet), and the rare nuke. The violet Overdrive crystal triples your damage for 20 s (it levels everything around it). Medkits heal, shields soak damage. Black holes swallow anything that reaches the centre.</p>
+    <p><b>Deathmatch:</b> 5-minute rounds, the pilot with the most kills wins. Scoop up sparks to level up, blast space junk and other bins with fire. You start at 100% health. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more health and fancier fire. Planets pull you in and hurt if you slam into them (more on boost); shoot one apart for +25. Planets, wrecks and buildings break off piece by piece where you hit them. Watch out for black holes, meteor showers and aliens. Grab weapon crates: triple shot, laser, homing rockets (slow: outrun them or shoot them down), scatter gun, railgun (pierces), mines, plasma orb (shoot it with the railgun or laser for a combo blast), lightning, shard cannon (shards ricochet), and the rare nuke. The violet Overdrive crystal triples your damage for 20 s (it levels everything around it). Medkits heal, shields soak damage. Black holes swallow anything that reaches the centre.</p>
     <div class="field">
       <label for="nameInput">Pilot name</label>
       <input id="nameInput" maxlength="14" autocomplete="off" placeholder="Pilot name">
@@ -345,14 +343,6 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       <div class="segs" id="mapSize" role="group" aria-label="Map size"></div>
     </div>
     <button type="submit" class="go" id="goBtn">Take off</button>
-    <div class="field">
-      <label for="railFile">Railgun sound <small>(optional: your own file, kept only in this browser; other pilots hear the default)</small></label>
-      <div class="row">
-        <input type="file" id="railFile" accept="audio/*">
-        <button type="button" class="ghost" id="railReset" hidden>Use default</button>
-      </div>
-      <small id="railNote" class="note"></small>
-    </div>
     <details class="custom" id="customBox">
       <summary>Customize your bin</summary>
       <div class="opts" id="customOpts"></div>
@@ -807,19 +797,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       .then(b => audio.decodeAudioData(b)).then(b => { sfxBuf[n] = b; }).catch(() => {});   // missing file: the synth sound stays
   }
   // x, y: where it happens (quieter with distance, silent past ~2200); rate: pitch, with a little random spread
-  // a railgun sound the player picked from their own computer: stored in this browser only, never uploaded
-  let customRail = null;
-  const RAIL_KEY = "binrocket.railsfx";
-  function loadCustomRail() {
-    const data = store.get(RAIL_KEY);
-    if (!audio || !data) return;
-    const bin = atob(data.slice(data.indexOf(",") + 1)), bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    audio.decodeAudioData(bytes.buffer).then(b => { customRail = b; }, () => { railNote.textContent = "That file couldn't be played as audio."; });
-  }
   function sfx(name, vol = 1, rate = 1, x, y) {
-    const own = name === "rail" && customRail;
-    const b = own || sfxBuf[name], tune = own ? null : SFX_TUNE[name];
+    const b = sfxBuf[name], tune = SFX_TUNE[name];
     if (!audio || !b) return false;
     if (x !== undefined) {
       const d = Math.hypot(x - me.x, y - me.y);
@@ -1189,17 +1168,45 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const rg = q.createRadialGradient(lx, ly, rad * 0.8, lx, ly, rad * 1.7);
     rg.addColorStop(0, "rgba(15,8,18,0.9)"); rg.addColorStop(0.3, hot ? "rgba(255,120,40,0.5)" : "rgba(40,24,30,0.6)"); rg.addColorStop(1, "rgba(15,8,18,0)");
     q.fillStyle = rg; q.beginPath(); q.arc(lx, ly, rad * 1.7, 0, 6.29); q.fill();
+    // a broken rim: a dark lip right at the hole and a thin pale fracture line just behind it
+    const rim = (d, w, col) => {
+      q.beginPath();
+      for (let k = 0; k < 48; k++) { const a = k / 48 * 6.2832, rr = edge(a) + d; q.lineTo(lx + Math.cos(a) * rr, ly + Math.sin(a) * rr); }
+      q.closePath(); q.lineWidth = w; q.strokeStyle = col; q.stroke();
+    };
+    q.lineJoin = "round";
+    rim(1, 4, "rgba(8,4,12,0.55)");
+    rim(3.5, 1.2, "rgba(255,236,210,0.22)");
     q.restore();
+    if (hot) { (b.heat ||= []).push({ lx, ly, r: rad, t: performance.now() }); if (b.heat.length > 10) b.heat.shift(); }
     n += dropBareCells(b, i0 - 1, i1 + 1, j0 - 1, j1 + 1);
     sweepOrphans(b, i0 - 1, i1 + 1, j0 - 1, j1 + 1);
     b.mass -= n; b.dirty = true;
     return n;
   }
   // chips, dust and sparks flying out of a fresh crater
+  // (a budget per frame: a railgun tunnel digs many craters at once and shouldn't bury the screen in particles)
+  let fxT = 0, fxN = 0;
   function rubbleFx(b, x, y, rad, n) {
-    const big = rad >= 14, k = Math.min(big ? 8 : 2, 1 + (n >> 1));
-    for (let i = 0; i < k; i++) { const a = Math.random() * 6.28, v = 60 + Math.random() * 200; addDebris(x, y, Math.cos(a) * v + (b.vx || 0), Math.sin(a) * v + (b.vy || 0), 3 + Math.random() * (big ? 9 : 4), bodyCol(b)); }
-    for (let i = 0; i < (lowQ ? 3 : 7); i++) { const a = Math.random() * 6.28, v = 40 + Math.random() * 120; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.8 + Math.random() * 0.8, 4 + Math.random() * 5, "rgb(90,80,100)", 2); }
+    const t = performance.now();
+    if (t - fxT > 16) { fxT = t; fxN = 0; }
+    if (fxN > (lowQ ? 8 : 20)) return;
+    const big = rad >= 14, metal = !!WRECK_PAL[b.kind], k = Math.min(big ? 7 : 2, 1 + (n >> 1)), [nx, ny] = normalAt(b, x, y), out = Math.atan2(ny, nx), bvx = b.vx || 0, bvy = b.vy || 0;
+    fxN += k + 4;
+    for (let i = 0; i < k; i++) {
+      const a = out + (Math.random() - 0.5) * 2.2, v = 80 + Math.random() * (big ? 280 : 160);
+      addDebris(x, y, Math.cos(a) * v + bvx, Math.sin(a) * v + bvy, 2.5 + Math.random() * (big ? 8 : 3.5), bodyCol(b), 5 + Math.random() * 5);
+    }
+    for (let i = 0; i < (lowQ ? 2 : 5); i++) {
+      const a = out + (Math.random() - 0.5) * 1.8, v = 30 + Math.random() * 120;
+      puff(x, y, Math.cos(a) * v + bvx, Math.sin(a) * v + bvy, 0.9 + Math.random() * 1.1, 5 + Math.random() * Math.min(14, rad * 0.35), i % 2 ? bodyCol(b) : "rgb(90,80,100)", 2);
+    }
+    const m = Math.round((lowQ ? 3 : 8) * (big ? 1 : 0.5));
+    for (let i = 0; i < m; i++) {
+      const a = out + (Math.random() - 0.5) * 1.5, v = metal ? 320 + Math.random() * 520 : 120 + Math.random() * 260;
+      if (metal) puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.25 + Math.random() * 0.35, 1 + Math.random(), i % 3 ? "#fff1b8" : "#ff9a3c", 1, 0.06);
+      else puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.5 + Math.random() * 0.6, 1.2 + Math.random(), i % 2 ? "#ffb050" : "#ff7a30", 1);
+    }
   }
   // own: my shots (and my bots') on shared bodies are reported so everyone digs the same hole
   function carveAt(b, x, y, rad, own) {
@@ -1280,6 +1287,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const ox = x - b.x, oy = y - b.y, od = Math.hypot(ox, oy) || 1, v = 30 + Math.random() * 70;
       setFree(f, (b.vx || 0) + ox / od * v, (b.vy || 0) + oy / od * v);
       f.va = (Math.random() - 0.5) * 0.9;
+      for (let k = 0; k < (lowQ ? 3 : 8); k++) { const a = Math.random() * 6.28, v = 20 + Math.random() * 70; puff(x + (Math.random() - 0.5) * f.hw, y + (Math.random() - 0.5) * f.hh, Math.cos(a) * v + f.vx, Math.sin(a) * v + f.vy, 1.2 + Math.random(), 7 + Math.random() * 8, k % 2 ? bodyCol(b) : "rgb(90,80,100)", 2); }
+      for (let k = 0; k < Math.min(5, list.length >> 3); k++) { const a = Math.random() * 6.28, v = 40 + Math.random() * 110; addDebris(x, y, Math.cos(a) * v + f.vx, Math.sin(a) * v + f.vy, 3 + Math.random() * 5, bodyCol(b), 6 + Math.random() * 4); }
+      sfx("chunk", Math.min(0.9, 0.3 + list.length / 120), 0.7 + Math.random() * 0.3, x, y);
       while (rubble.length > 50) { const old = rubble.shift(); old.dead = true; }
     } else {
       for (let k = 0; k < Math.min(6, list.length); k++) { const a = Math.random() * 6.28, v = 40 + Math.random() * 120; addDebris(x, y, Math.cos(a) * v, Math.sin(a) * v, 4 + Math.random() * 6, bodyCol(b)); }
@@ -1391,6 +1401,13 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
     return null;
   }
+  // a scratch canvas for masking crater glow, grown as needed
+  let heatC = null;
+  function heatQ(S) {
+    if (!heatC) heatC = document.createElement("canvas").getContext("2d");
+    if (heatC.canvas.width < S) heatC.canvas.width = heatC.canvas.height = Math.min(2048, S);
+    return heatC;
+  }
   function drawBodies(now) {
     for (const b of bodies) {
       const x = sx(b.x), y = sy(b.y), ring = b.ringB && !b.free;
@@ -1404,6 +1421,23 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (ring) g.drawImage(b.ringB, x - b.ringHalf, y - b.ringHalf, b.ringHalf * 2, b.ringHalf * 2);
       g.save(); g.translate(x, y); g.rotate(b.a);
       g.drawImage(b.cv, -b.hw, -b.hh, b.hw * 2, b.hh * 2);
+      if (b.heat && b.heat.length) {
+        g.globalCompositeOperation = "lighter";
+        for (let i = b.heat.length - 1; i >= 0; i--) {
+          const h = b.heat[i], k = 1 - (now - h.t) / 2600;
+          if (k <= 0) { b.heat.splice(i, 1); continue; }
+          // the glow is masked by what's left of the body, so only the torn edge itself burns, not the empty hole
+          const R1 = h.r * 1.45, S = Math.ceil(R1 * 2), hq = heatQ(S), hg = hq.createRadialGradient(R1, R1, h.r * 0.8, R1, R1, R1);
+          hg.addColorStop(0, "rgba(255,120,40,0)");
+          hg.addColorStop(0.3, `rgba(255,${(70 + 170 * k) | 0},${(20 + 120 * k * k) | 0},${0.95 * k * k})`);
+          hg.addColorStop(1, "rgba(255,60,20,0)");
+          hq.globalCompositeOperation = "copy"; hq.fillStyle = hg; hq.fillRect(0, 0, S, S);
+          hq.globalCompositeOperation = "destination-in";
+          hq.drawImage(b.cv, (h.lx - R1) * BODY_RES, (h.ly - R1) * BODY_RES, S * BODY_RES, S * BODY_RES, 0, 0, S, S);
+          g.drawImage(hq.canvas, 0, 0, S, S, h.lx - R1 - b.hw, h.ly - R1 - b.hh, S, S);
+        }
+        g.globalCompositeOperation = "source-over";
+      }
       g.restore();
       if (ring) g.drawImage(b.ringF, x - b.ringHalf, y - b.ringHalf, b.ringHalf * 2, b.ringHalf * 2);
       if (b.kind === "lava" && b.planet) {
@@ -1495,9 +1529,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
   const impacts = [];   // short bright flashes where something hits
   const debris = [];    // wreckage of destroyed bins, drifting through space for a while
-  function addDebris(x, y, vx, vy, size, col) {
+  function addDebris(x, y, vx, vy, size, col, life = Infinity) {   // default: stays until the round ends
     const shape = Array.from({ length: 6 }, () => 0.55 + Math.random() * 0.5);
-    const life = Infinity;   // stays until the round ends
     debris.push({ x, y, vx, vy, size, col, shape, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 3, life, max: life, born: performance.now() });
     if (debris.length > 220) debris.shift();
   }
@@ -4686,21 +4719,6 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     });
     row.append(lab, sws); optsEl.appendChild(row);
   }
-  const railFile = document.getElementById("railFile"), railReset = document.getElementById("railReset"), railNote = document.getElementById("railNote");
-  const showRail = () => { const on = !!store.get(RAIL_KEY); railReset.hidden = !on; railNote.textContent = on ? "Your own railgun sound is on." : ""; };
-  showRail();
-  railFile.addEventListener("change", () => {
-    const f = railFile.files[0];
-    if (!f) return;
-    if (f.size > 1.5e6) { railNote.textContent = "That file is too big (keep it under 1.5 MB)."; return; }
-    const rd = new FileReader();
-    rd.onload = () => {
-      try { localStorage.setItem(RAIL_KEY, rd.result); } catch { railNote.textContent = "This browser wouldn't store the file."; return; }
-      showRail(); customRail = null; loadCustomRail();
-    };
-    rd.readAsDataURL(f);
-  });
-  railReset.addEventListener("click", () => { try { localStorage.removeItem(RAIL_KEY); } catch {} customRail = null; railFile.value = ""; showRail(); });
   const nameInput = document.getElementById("nameInput");
   nameInput.value = store.get("binrocket.name") || "Bin-" + Math.floor(10 + Math.random() * 89);
   const lobbyInput = document.getElementById("lobbyInput"), goBtn = document.getElementById("goBtn");
@@ -4733,7 +4751,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     me.name = nameInput.value.trim().slice(0, 14) || "Bin";
     store.set("binrocket.name", me.name);
     try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { audio = null; }
-    loadSfx(); loadCustomRail();
+    loadSfx();
     document.getElementById("start").hidden = true;
     fireBtn.hidden = false; boostBtn.hidden = false; mm.hidden = false; joyEl.hidden = false;
     me.inv = performance.now() + 2000;
