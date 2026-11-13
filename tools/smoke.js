@@ -44,6 +44,9 @@
   fr.sort((a, b) => a - b); out.frame = fr[300].toFixed(1) + "/" + fr[570].toFixed(1);
   out.botKills = T.bots.reduce((s, b) => s + b.st.kills, 0); out.botWeapons = [...new Set(T.bots.map(b => b.weapon))].join(",");
   if (T.bases) {
+    // Bots have already exercised combat; keep them from stealing a flag during the capture check.
+    for (const b of T.bots) { b.dead = true; b.fc = -1; b.respawnAt = Infinity; }
+    m.inv = 1e15;
     const ef = 1 - m.tm, B = T.bases;
     for (let i = 0; i < 60 && m.fc !== ef; i++) { m.dead = false; m.x = B[ef].x; m.y = B[ef].y; m.vx = m.vy = 0; await wait(40); }
     for (let i = 0; i < 120 && !m.caps; i++) { m.x = B[m.tm].x; m.y = B[m.tm].y; m.vx = m.vy = 0; await wait(40); }

@@ -24,7 +24,7 @@ function setup() {
     clamp: (v,a,b) => Math.max(a, Math.min(b,v)), num: (v,d) => Number.isFinite(v) ? v : d,
     remotes: new Map(), botById: new Map(), bots: [], drops: new Map(), grabbed: new Set(), credited: new Set(), myTag: 'local',
     stats: { round: 1, hits: 0, kills: 0, deaths: 0, streak: 0, best: 0 }, me: { score: 0 }, floaters: [],
-    showScore() {}, reportKill() {}, myKillAnnounce() {}, blip() {}, settleTeam() {}, applyTerrain() {},
+    pruneRockMotion() {}, clockNow: () => now, showScore() {}, reportKill() {}, myKillAnnounce() {}, blip() {}, settleTeam() {}, applyTerrain() {},
     mapOf: () => 'm', modeOf: () => 'd', mapThemeOf: () => 'c', setMapSize() {}, buildPlanets() {}, setMode() {}, spawnPoint: () => ({}),
     MODES: { d: { label: 'DM' } }, MODE: 'd', MAPS: { c: { label: 'Classic' } }, playing: true,
     sizeOf: () => 1, clockTarget: 0, clockOff: 0, lerpAng: () => 0, vw: 1, vh: 1, wrapD: x => x,

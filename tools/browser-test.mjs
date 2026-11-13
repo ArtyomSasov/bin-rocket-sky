@@ -11,7 +11,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const chromePath = process.env.BROWSER_PATH;
 assert.ok(chromePath, 'Set BROWSER_PATH to a Chrome/Chromium executable');
 execFileSync(process.execPath, ['tools/build.mjs'], { cwd: root });
-const hook = `window.__t = {me, stats, deathFx, hurt, ctfTick, roundTick, shoot, carveAt, nextTerrain, applyTerrain,
+const hook = `window.__t = {me, stats, updateJunk, rock, rockMotion, clockNow, get world(){return world}, deathFx, hurt, ctfTick, roundTick, shoot, carveAt, nextTerrain, applyTerrain,
  get bodies(){return bodies}, get det(){return det}, get bots(){return bots}, get shots(){return shots}, get mode(){return MODE},
  get bases(){return bases}, get flagCarrier(){return flagCarrier}, get remotes(){return remotes}, get seenShots(){return seenShots},
  get playing(){return playing}, get roundLive(){return roundLive}, get hitBy(){return hitBy}, get koBy(){return koBy},
@@ -126,6 +126,15 @@ try {
   await until(b, `${JSON.stringify(hole.removed)}.every(k=>__t.det[${hole.i}].cells[k]===0)`, 20000);
   const shot = await evaluate(a, `(()=>{__t.me.weapon='fire';__t.shoot(performance.now());return __t.myShotLog.at(-1).d[0]})()`);
   await until(b, `__t.seenShots.has(${JSON.stringify(shot)})`);
+  const knocked = await evaluate(a, `(()=>{const t=__t,k=t.world.rocks.find(k=>k.age>1&&k.age<15&&k.x>200&&k.y>200),old=k.vx;
+    t.me.x=k.x-k.r-25;t.me.y=k.y;t.me.vx=k.vx+400;t.me.vy=k.vy;t.me.lv=1;t.me.dead=false;
+    t.updateJunk(0.016,performance.now());const result={slot:k.slot,gen:k.gen,vx:k.vx,old};
+    t.me.x=100;t.me.y=100;t.me.vx=t.me.vy=0;return result;})()`);
+  assert.ok(knocked.vx>knocked.old);
+  await until(b, `__t.rockMotion.get(${knocked.slot})?.gen===${knocked.gen}`,5000);
+  const remoteSpeed=await evaluate(b, `__t.rockMotion.get(${knocked.slot}).vx`);
+  assert.ok(Math.abs(remoteSpeed-knocked.vx)<0.001);
+  console.log('PASS asteroid impulse persists and reaches the other browser');
   console.log('PASS two-broker visibility and late-join canvas terrain');
   await evaluate(b, '__mqtt[2].connected=false');
   const more = await evaluate(a, `(()=>{const b=__t.det[${hole.i}],before=Array.from(b.cells); __t.carveAt(b,b.x+90,b.y,50,true);return Array.from(b.cells).flatMap((v,k)=>before[k]&&!v?[k]:[]);})()`);
@@ -138,6 +147,7 @@ try {
   assert.deepEqual(reset, [0,0,0,0]); console.log('PASS real round reset');
   // Use the project's existing smoke sequence on a fresh host with all six bots.
   const smoke = await page();
+  await evaluate(smoke, "window.__code='M1C0SSMOK'");
   await evaluate(smoke, `new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/tools/smoke.js';s.onload=resolve;s.onerror=reject;document.body.append(s)})`);
   await until(smoke, '!!window.__smoke', 90000);
   const result = await evaluate(smoke, '__smoke');

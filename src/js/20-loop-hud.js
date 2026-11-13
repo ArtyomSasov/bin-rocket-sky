@@ -8,6 +8,7 @@
     for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k);
     grabbed.prune(120000);
     pruneNetwork(t);
+    pruneRockMotion(clockNow());
     while (myDrops.length && Date.now() - myDrops[0][4] > DROP_LIFE) myDrops.shift();
   }, 1000);
   let resCheckAt = 0;

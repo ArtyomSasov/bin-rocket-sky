@@ -45,7 +45,10 @@
 
     <div class="cols">
     <section class="pilot" aria-label="Your pilot">
-      <canvas id="preview" width="220" height="246" aria-label="How your bin will look"></canvas>
+      <div class="pilot-preview">
+        <canvas id="preview" width="220" height="246" aria-label="How your bin will look"></canvas>
+        <button type="button" class="ghost" id="randomLook">Random look</button>
+      </div>
       <div class="pilot-side">
         <input id="nameInput" maxlength="14" autocomplete="off" placeholder="Pilot name" aria-label="Pilot name">
         <div class="opts" id="customOpts"></div>

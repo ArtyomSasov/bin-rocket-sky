@@ -169,6 +169,7 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
 .tag { font-size: 13px !important; margin-top: -4px !important; }
 .pilot { width: 100%; display: grid; grid-template-columns: 170px 1fr; gap: 14px; align-items: start; text-align: left;
   border: 1px solid var(--line); border-radius: 14px; padding: 10px; background: rgba(255,255,255,.04); }
+.pilot-preview { align-self: stretch; display: grid; align-content: center; justify-items: center; gap: 12px; }
 .pilot #preview { width: 170px; height: 190px; border-radius: 12px; background: radial-gradient(circle at 50% 45%, rgba(79,214,200,.16), transparent 70%); }
 .pilot-side { display: grid; gap: 8px; min-width: 0; }
 .pilot .opts { margin-top: 0; gap: 7px; }

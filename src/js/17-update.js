@@ -239,7 +239,7 @@
   // space junk: shot apart for points, or crashed into
   // space junk: little rocks that take a few hits, chipping and shrinking, then crack into drifting chunks.
   // Everyone sees the same shots hit them, so they wear down alike; the one whose shot breaks a rock reports it (+2).
-  // Flying into one just bounces you off (it's too small to hurt), and a hard knock chips it.
+  // Collisions exchange momentum with the bin; a hard knock also chips the rock.
   const rockWear = new Map();   // rock key -> damage taken, in fireballs
   const rockHp = k => 2 + Math.round((k.r - 22) / 18 * 3);   // 2 fireballs for the smallest, 5 for the biggest
   function chipRock(k, units, fromX, fromY) {
@@ -278,16 +278,12 @@
         break;
       }
       if (grabbed.has(k.key) || !playing || me.dead) continue;
-      const dx = wrapD(me.x - k.x, W), dy = wrapD(me.y - k.y, H), d = Math.hypot(dx, dy), R = k.r + 26 * sizeOf(me.lv);
-      if (d < R && d > 0.01) {   // bounce off it
-        const nx = dx / d, ny = dy / d, vn = me.vx * nx + me.vy * ny;
-        me.x += nx * (R - d); me.y += ny * (R - d);
-        if (vn < 0) {
-          me.vx -= 1.6 * vn * nx; me.vy -= 1.6 * vn * ny;
-          impact(k.x + nx * k.r, k.y + ny * k.r, "#d9c8ff", Math.min(1.5, -vn / 300));
-          sfx("crash", Math.min(0.7, -vn / 800), 1.4);
-          if (-vn > 280 && chipRock(k, 1, me.x, me.y)) breakRock(k, true);   // a hard knock chips it
-        }
+      const speed = collideRock(me, k);
+      if (speed > 0) {
+        const dx = me.x - k.x, dy = me.y - k.y, d = Math.hypot(dx, dy);
+        impact(k.x + dx / d * k.r, k.y + dy / d * k.r, "#d9c8ff", Math.min(1.5, speed / 300));
+        sfx("crash", Math.min(0.7, speed / 800), 1.4);
+        if (speed > 280 && chipRock(k, 1, me.x, me.y)) breakRock(k, true);
       }
     }
     if (rockWear.size > 200) for (const key of rockWear.keys()) if (!world.rocks.some(k => k.key === key)) rockWear.delete(key);
@@ -535,6 +531,7 @@
       }
       const terrain = nextTerrain();
       if (terrain) msg.terrain = terrain;
+      msg.rk = nextRockMotion();
       net.send(msg);
     }
     boardAcc += dt;
@@ -631,6 +628,7 @@
       if (shownRound !== -1) { myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode); }   // every crater filled in again
       firstBlood = false; streaks.clear(); multi = 0;
       credited.clear(); botCredited.clear(); killSeen.clear(); ufoHits.clear();
+      rockMotion.clear();
       hitBy.length = 0; koBy.length = 0; myShotLog.length = 0; shots.length = 0; seenShots.clear();
       for (const b of bots) { b.hitBy.length = 0; b.koBy.length = 0; b.shotLog.length = 0; }
       slowAcc = 1; lastSlow = "";

@@ -52,6 +52,13 @@
     : key === "flame" ? (val === null ? "linear-gradient(#ffe08a,#ff5a1f)" : val === "rainbow" ? "linear-gradient(90deg,#ff6b6b,#ffe66b,#6bff95,#6bd5ff,#ff7bea)" : `rgb(${FLAMES[val].mid})`)
     : null;
   const lookPanels = [];
+  function setLook(ck) {
+    me.ck = ck;
+    store.set("binrocket.custom", JSON.stringify(me.ck));
+    for (const p of lookPanels) for (const o of p.querySelectorAll(".sw")) {
+      o.setAttribute("aria-pressed", String(+o.dataset.i === me.ck[CUSTOM_KEYS.indexOf(o.dataset.key)]));
+    }
+  }
   function lookPicker(el) {
   lookPanels.push(el);
   for (const key of CUSTOM_KEYS) {
@@ -66,9 +73,8 @@
       b.dataset.key = key; b.dataset.i = i;
       b.setAttribute("aria-pressed", String(me.ck[CUSTOM_KEYS.indexOf(key)] === i));
       b.addEventListener("click", () => {
-        me.ck = me.ck.slice(); me.ck[CUSTOM_KEYS.indexOf(key)] = i;   // others see it with my next state
-        store.set("binrocket.custom", JSON.stringify(me.ck));
-        for (const p of lookPanels) for (const o of p.querySelectorAll(`.sw[data-key="${key}"]`)) o.setAttribute("aria-pressed", String(+o.dataset.i === i));
+        const ck = me.ck.slice(); ck[CUSTOM_KEYS.indexOf(key)] = i;
+        setLook(ck);   // others see it with my next state
       });
       sws.appendChild(b);
     });
@@ -77,6 +83,9 @@
   }
   lookPicker(optsEl);
   lookPicker(document.getElementById("menuLook"));
+  document.getElementById("randomLook").addEventListener("click", () => {
+    setLook(CUSTOM_KEYS.map(key => Math.floor(Math.random() * CUSTOM[key].items.length)));
+  });
   const nameInput = document.getElementById("nameInput");
   nameInput.value = store.get("binrocket.name") || "Bin-" + Math.floor(10 + Math.random() * 89);
   const lobbyInput = document.getElementById("lobbyInput"), goBtn = document.getElementById("goBtn");

@@ -176,6 +176,7 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
 .tag { font-size: 13px !important; margin-top: -4px !important; }
 .pilot { width: 100%; display: grid; grid-template-columns: 170px 1fr; gap: 14px; align-items: start; text-align: left;
   border: 1px solid var(--line); border-radius: 14px; padding: 10px; background: rgba(255,255,255,.04); }
+.pilot-preview { align-self: stretch; display: grid; align-content: center; justify-items: center; gap: 12px; }
 .pilot #preview { width: 170px; height: 190px; border-radius: 12px; background: radial-gradient(circle at 50% 45%, rgba(79,214,200,.16), transparent 70%); }
 .pilot-side { display: grid; gap: 8px; min-width: 0; }
 .pilot .opts { margin-top: 0; gap: 7px; }
@@ -410,7 +411,10 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
 
     <div class="cols">
     <section class="pilot" aria-label="Your pilot">
-      <canvas id="preview" width="220" height="246" aria-label="How your bin will look"></canvas>
+      <div class="pilot-preview">
+        <canvas id="preview" width="220" height="246" aria-label="How your bin will look"></canvas>
+        <button type="button" class="ghost" id="randomLook">Random look</button>
+      </div>
       <div class="pilot-side">
         <input id="nameInput" maxlength="14" autocomplete="off" placeholder="Pilot name" aria-label="Pilot name">
         <div class="opts" id="customOpts"></div>
@@ -1891,18 +1895,71 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     });
   }
 
-  // ---------- space junk (shared via the same clock) ----------
+  // ---------- space junk (shared clock, with persistent collision trajectories) ----------
+  const rockMotion = new Map();   // slot -> latest impact; at most ROCKS entries
+  let rockMotionCursor = 0;
+  const rockGeneration = (i, now) => Math.floor((now / 1000 + hash(i, 9, 9) * ROCK_PERIOD) / ROCK_PERIOD);
+  // The derivative of bounceIn: keep velocity pointing inward after crossing an arena edge.
+  function rockAxis(x, v, dt, hi) {
+    const raw = x + v * dt, phase = mod(raw - 40, 2 * (hi - 40));
+    return [bounceIn(raw, 40, hi), phase < hi - 40 ? v : -v];
+  }
   function rock(i, now) {
     const tt = now / 1000 + hash(i, 9, 9) * ROCK_PERIOD;
     const gen = Math.floor(tt / ROCK_PERIOD), age = tt - gen * ROCK_PERIOD;
     const ang = hash(i, gen, 21) * 6.283, sp = 50 + hash(i, gen, 22) * 90;
+    const motion = rockMotion.get(i);
+    if (motion && motion.gen !== gen) rockMotion.delete(i);
+    const moved = motion && motion.gen === gen;
+    const dt = moved ? Math.max(0, (now - motion.at) / 1000) : age;
+    const [x, vx] = rockAxis(moved ? motion.x : hash(i, gen, 23) * W, moved ? motion.vx : Math.cos(ang) * sp, dt, W - 40);
+    const [y, vy] = rockAxis(moved ? motion.y : hash(i, gen, 24) * H, moved ? motion.vy : Math.sin(ang) * sp, dt, H - 40);
     return {
-      key: "m" + i + ":" + gen,
-      x: bounceIn(hash(i, gen, 23) * W + Math.cos(ang) * sp * age, 40, W - 40),
-      y: bounceIn(hash(i, gen, 24) * H + Math.sin(ang) * sp * age, 40, H - 40),
+      key: "m" + i + ":" + gen, slot: i, gen, x, y, vx, vy,
       r: 22 + hash(i, gen, 25) * 18, seed: i * 977 + gen,
       spin: age * (hash(i, gen, 26) - 0.5) * 2, age
     };
+  }
+  // Exchange normal momentum with restitution 0.6. Tangential velocity is unchanged.
+  function collideRock(pilot, k) {
+    const dx = pilot.x - k.x, dy = pilot.y - k.y, d = Math.hypot(dx, dy), R = k.r + 26 * sizeOf(pilot.lv);
+    if (d >= R || d <= 0.01) return 0;
+    const nx = dx / d, ny = dy / d;
+    pilot.x += nx * (R - d); pilot.y += ny * (R - d);
+    const vn = (pilot.vx - k.vx) * nx + (pilot.vy - k.vy) * ny;
+    if (vn >= 0) return 0;
+    const binMass = sizeOf(pilot.lv) ** 2, rockMass = (k.r / 30) ** 2;
+    const impulse = -1.6 * vn / (1 / binMass + 1 / rockMass);
+    pilot.vx += impulse * nx / binMass; pilot.vy += impulse * ny / binMass;
+    k.vx -= impulse * nx / rockMass; k.vy -= impulse * ny / rockMass;
+    rockMotion.set(k.slot, { slot: k.slot, gen: k.gen, at: clockNow(), x: k.x, y: k.y, vx: k.vx, vy: k.vy, by: myTag });
+    rockMotionCursor = [...rockMotion.keys()].indexOf(k.slot);   // send this impact on the next state
+    return -vn;
+  }
+  function pruneRockMotion(now) {
+    for (const [i, m] of rockMotion) if (i >= ROCKS || m.gen !== rockGeneration(i, now)) rockMotion.delete(i);
+  }
+  function nextRockMotion() {
+    pruneRockMotion(clockNow());
+    const list = [...rockMotion.values()], out = [];
+    for (let n = 0; n < Math.min(4, list.length); n++) {
+      const m = list[rockMotionCursor++ % list.length];
+      out.push([m.slot, m.gen, m.at, m.x, m.y, m.vx, m.vy, m.by]);
+    }
+    return out;
+  }
+  function applyRockMotion(list) {
+    const now = clockNow();
+    for (const e of list.slice(0, 4)) {
+      if (!Array.isArray(e) || e.length !== 8 || !e.slice(0, 7).every(Number.isFinite)) continue;
+      const [slot, gen, at, x, y, vx, vy, by] = e;
+      if (!Number.isInteger(slot) || slot < 0 || slot >= ROCKS || gen !== rockGeneration(slot, now) ||
+          at > now + 1000 || at < now - ROCK_PERIOD * 1000 || x < 40 || x > W - 40 || y < 40 || y > H - 40 ||
+          Math.abs(vx) > 4500 || Math.abs(vy) > 4500 || typeof by !== "string" || !/^[a-z0-9]{1,8}$/.test(by)) continue;
+      const old = rockMotion.get(slot);
+      if (old && old.gen === gen && (old.at > at || (old.at === at && old.by >= by))) continue;
+      rockMotion.set(slot, { slot, gen, at, x, y, vx, vy, by });
+    }
   }
 
   // ---------- hearts ----------
@@ -2986,6 +3043,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     if (Array.isArray(p.terrain)) applyTerrain(p.terrain);
     // Event IDs belong to one round; old reports must not survive a round reset.
     if (p.rd !== stats.round) { showScore(); return true; }
+    if (Array.isArray(p.rk)) applyRockMotion(p.rk);
     // credit for my fireballs that they report
     const validHit = k => typeof k === "string" && k.length <= 48;
     const mine = k => validHit(k) && k.startsWith(myTag + ".") && credited.size < MAX_CREDITS;
@@ -3760,7 +3818,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // space junk: shot apart for points, or crashed into
   // space junk: little rocks that take a few hits, chipping and shrinking, then crack into drifting chunks.
   // Everyone sees the same shots hit them, so they wear down alike; the one whose shot breaks a rock reports it (+2).
-  // Flying into one just bounces you off (it's too small to hurt), and a hard knock chips it.
+  // Collisions exchange momentum with the bin; a hard knock also chips the rock.
   const rockWear = new Map();   // rock key -> damage taken, in fireballs
   const rockHp = k => 2 + Math.round((k.r - 22) / 18 * 3);   // 2 fireballs for the smallest, 5 for the biggest
   function chipRock(k, units, fromX, fromY) {
@@ -3799,16 +3857,12 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
         break;
       }
       if (grabbed.has(k.key) || !playing || me.dead) continue;
-      const dx = wrapD(me.x - k.x, W), dy = wrapD(me.y - k.y, H), d = Math.hypot(dx, dy), R = k.r + 26 * sizeOf(me.lv);
-      if (d < R && d > 0.01) {   // bounce off it
-        const nx = dx / d, ny = dy / d, vn = me.vx * nx + me.vy * ny;
-        me.x += nx * (R - d); me.y += ny * (R - d);
-        if (vn < 0) {
-          me.vx -= 1.6 * vn * nx; me.vy -= 1.6 * vn * ny;
-          impact(k.x + nx * k.r, k.y + ny * k.r, "#d9c8ff", Math.min(1.5, -vn / 300));
-          sfx("crash", Math.min(0.7, -vn / 800), 1.4);
-          if (-vn > 280 && chipRock(k, 1, me.x, me.y)) breakRock(k, true);   // a hard knock chips it
-        }
+      const speed = collideRock(me, k);
+      if (speed > 0) {
+        const dx = me.x - k.x, dy = me.y - k.y, d = Math.hypot(dx, dy);
+        impact(k.x + dx / d * k.r, k.y + dy / d * k.r, "#d9c8ff", Math.min(1.5, speed / 300));
+        sfx("crash", Math.min(0.7, speed / 800), 1.4);
+        if (speed > 280 && chipRock(k, 1, me.x, me.y)) breakRock(k, true);
       }
     }
     if (rockWear.size > 200) for (const key of rockWear.keys()) if (!world.rocks.some(k => k.key === key)) rockWear.delete(key);
@@ -4056,6 +4110,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       }
       const terrain = nextTerrain();
       if (terrain) msg.terrain = terrain;
+      msg.rk = nextRockMotion();
       net.send(msg);
     }
     boardAcc += dt;
@@ -4152,6 +4207,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       if (shownRound !== -1) { myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode); }   // every crater filled in again
       firstBlood = false; streaks.clear(); multi = 0;
       credited.clear(); botCredited.clear(); killSeen.clear(); ufoHits.clear();
+      rockMotion.clear();
       hitBy.length = 0; koBy.length = 0; myShotLog.length = 0; shots.length = 0; seenShots.clear();
       for (const b of bots) { b.hitBy.length = 0; b.koBy.length = 0; b.shotLog.length = 0; }
       slowAcc = 1; lastSlow = "";
@@ -5727,6 +5783,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k);
     grabbed.prune(120000);
     pruneNetwork(t);
+    pruneRockMotion(clockNow());
     while (myDrops.length && Date.now() - myDrops[0][4] > DROP_LIFE) myDrops.shift();
   }, 1000);
   let resCheckAt = 0;
@@ -5920,6 +5977,13 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     : key === "flame" ? (val === null ? "linear-gradient(#ffe08a,#ff5a1f)" : val === "rainbow" ? "linear-gradient(90deg,#ff6b6b,#ffe66b,#6bff95,#6bd5ff,#ff7bea)" : `rgb(${FLAMES[val].mid})`)
     : null;
   const lookPanels = [];
+  function setLook(ck) {
+    me.ck = ck;
+    store.set("binrocket.custom", JSON.stringify(me.ck));
+    for (const p of lookPanels) for (const o of p.querySelectorAll(".sw")) {
+      o.setAttribute("aria-pressed", String(+o.dataset.i === me.ck[CUSTOM_KEYS.indexOf(o.dataset.key)]));
+    }
+  }
   function lookPicker(el) {
   lookPanels.push(el);
   for (const key of CUSTOM_KEYS) {
@@ -5934,9 +5998,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       b.dataset.key = key; b.dataset.i = i;
       b.setAttribute("aria-pressed", String(me.ck[CUSTOM_KEYS.indexOf(key)] === i));
       b.addEventListener("click", () => {
-        me.ck = me.ck.slice(); me.ck[CUSTOM_KEYS.indexOf(key)] = i;   // others see it with my next state
-        store.set("binrocket.custom", JSON.stringify(me.ck));
-        for (const p of lookPanels) for (const o of p.querySelectorAll(`.sw[data-key="${key}"]`)) o.setAttribute("aria-pressed", String(+o.dataset.i === i));
+        const ck = me.ck.slice(); ck[CUSTOM_KEYS.indexOf(key)] = i;
+        setLook(ck);   // others see it with my next state
       });
       sws.appendChild(b);
     });
@@ -5945,6 +6008,9 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   }
   lookPicker(optsEl);
   lookPicker(document.getElementById("menuLook"));
+  document.getElementById("randomLook").addEventListener("click", () => {
+    setLook(CUSTOM_KEYS.map(key => Math.floor(Math.random() * CUSTOM[key].items.length)));
+  });
   const nameInput = document.getElementById("nameInput");
   nameInput.value = store.get("binrocket.name") || "Bin-" + Math.floor(10 + Math.random() * 89);
   const lobbyInput = document.getElementById("lobbyInput"), goBtn = document.getElementById("goBtn");

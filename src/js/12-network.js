@@ -129,6 +129,7 @@
     if (Array.isArray(p.terrain)) applyTerrain(p.terrain);
     // Event IDs belong to one round; old reports must not survive a round reset.
     if (p.rd !== stats.round) { showScore(); return true; }
+    if (Array.isArray(p.rk)) applyRockMotion(p.rk);
     // credit for my fireballs that they report
     const validHit = k => typeof k === "string" && k.length <= 48;
     const mine = k => validHit(k) && k.startsWith(myTag + ".") && credited.size < MAX_CREDITS;
