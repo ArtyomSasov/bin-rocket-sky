@@ -63,17 +63,19 @@
   function addRemoteShot(owner, f) {
     if (!Array.isArray(f) || typeof f[0] !== "string" || f[0].length > 20 || seenShots.has(f[0])) return;
     if (!remotes.has(owner) || seenShots.size >= MAX_SEEN_SHOTS) return;
-    const kind = Number.isInteger(f[5]) && f[5] >= 0 && f[5] < SHOTS.length ? f[5] : 0, m = f[6] === 3 ? 3 : 1;
+    // m: Overdrive (x3), times the charge cannon's charge (0.25..1); anything else is ignored
+    const kind = Number.isInteger(f[5]) && f[5] >= 0 && f[5] < SHOTS.length ? f[5] : 0, m = kind === K.GAUSS && Number.isFinite(f[6]) ? clamp(f[6], 0.25, 3) : f[6] === 3 ? 3 : 1;
     const x = clamp(num(f[1], 0), 0, W), y = clamp(num(f[2], 0), 0, H);
     const sh = {
       id: f[0], kind, x, y, px: x, py: y, ox: x, oy: y, m,
       vx: clamp(num(f[3], 0), -4500, 4500), vy: clamp(num(f[4], 0), -4500, 4500),
-      life: Math.max(SHOTS[kind].life * 0.7, SHOTS[kind].life - 0.1), mine: false, owner   // a bit shorter: it was fired a moment ago
+      life: Math.max(SHOTS[kind].life * 0.7, SHOTS[kind].life - 0.1), mine: false, owner, bn: 0   // a bit shorter: it was fired a moment ago
     };
     // a peer can send anything: cap what one owner (and everyone together) can keep alive here
     let own = 0, ownMines = 0, ownBombs = 0;   // a big bomb is heavy to play out (blast, choir): one owner gets two at once
     for (const o of shots) if (o.owner === owner) { own++; if (o.kind === K.MINE) ownMines++; if (BOMBS[o.kind]) ownBombs++; }
     if (shots.length > 900 || own > 80 || (kind === K.MINE && ownMines >= 12) || (BOMBS[kind] && ownBombs >= 2)) return;
+    if (kind === K.TFRAG) for (const o of shots) if (o.owner === owner && o.kind === K.BEACON) o.life = 0;   // they jumped: their beacon is gone
     seenShots.set(f[0], performance.now());
     if (kind === K.PELLET) scatterPellets(sh); else if (kind === K.SHARD) shardSpray(sh); else shots.push(sh);
     if (kind === K.RAIL) railBeam(x, y, sh.vx, sh.vy);
@@ -137,6 +139,7 @@
     if (Number.isFinite(p.l)) r.lives = clamp(p.l, 0, maxLivesOf(r.lv));
     if (Array.isArray(p.g)) for (const k of p.g.slice(0, 48)) if (typeof k === "string" && /^[a-zA-Z][a-z0-9.:]{1,20}$/.test(k) && (grabbed.has(k) || grabbed.size < 16384)) grabbed.add(k);   // only pick-up keys
     if (p.rd === stats.round && Array.isArray(p.f)) for (const f of p.f.slice(0, 10)) addRemoteShot(id, f);
+    if (Array.isArray(p.gw) && p.gw.length === 6 && typeof p.gw[0] === "string" && p.gw.slice(1).every(Number.isFinite)) guideRemote(id, p.gw);
     if (Array.isArray(p.dr)) for (const d of p.dr.slice(0, 3)) {
       if (drops.size >= MAX_DROPS) break;
       if (!Array.isArray(d) || typeof d[0] !== "string" || d[0].length > 10 || drops.has(d[0])) continue;

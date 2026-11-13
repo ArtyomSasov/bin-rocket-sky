@@ -284,6 +284,55 @@
       g.restore();
       return;
     }
+    if (s.kind === K.SAW) {   // a spinning toothed blade
+      g.save(); g.translate(x, y); g.rotate(now / 25 + s.x * 0.01);
+      g.fillStyle = "rgba(214,221,232,0.25)"; g.beginPath(); g.arc(0, 0, 22, 0, 6.29); g.fill();
+      g.fillStyle = "#d6dde8"; g.beginPath();
+      for (let k = 0; k < 24; k++) { const a = k / 24 * 6.283, r = k % 2 ? 11 : 16; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+      g.closePath(); g.fill();
+      g.fillStyle = "#5a6684"; g.beginPath(); g.arc(0, 0, 4, 0, 6.29); g.fill();
+      g.restore();
+      return;
+    }
+    if (s.kind === K.GAMMA) {   // a big green ball, seething, with a wide glow
+      const r = 30 + Math.sin(now / 50 + s.x) * 3;
+      g.globalAlpha = 0.55; g.drawImage(dotSprite("#3dff6a"), x - r * 3.6, y - r * 3.6, r * 7.2, r * 7.2); g.globalAlpha = 1;
+      const og = g.createRadialGradient(x, y, 0, x, y, r * 1.6);
+      og.addColorStop(0, "#ffffff"); og.addColorStop(0.35, "rgba(190,255,190,0.95)"); og.addColorStop(0.75, "rgba(70,230,100,0.6)"); og.addColorStop(1, "rgba(30,200,60,0)");
+      g.fillStyle = og; g.beginPath(); g.arc(x, y, r * 1.6, 0, 6.29); g.fill();
+      g.strokeStyle = "rgba(200,255,200,0.7)"; g.lineWidth = 2;
+      for (let k = 0; k < 2; k++) { g.beginPath(); g.arc(x, y, r * (1.1 + 0.25 * k), now / (200 - k * 60), now / (200 - k * 60) + 4); g.stroke(); }
+      return;
+    }
+    if (s.kind === K.BEACON) {   // the teleporter's beacon: a cyan diamond with a beating ring
+      const p = (now / 600) % 1;
+      g.strokeStyle = `rgba(143,240,255,${1 - p})`; g.lineWidth = 2; g.beginPath(); g.arc(x, y, 12 + p * 40, 0, 6.29); g.stroke();
+      g.fillStyle = "#8ff0ff"; g.beginPath(); g.moveTo(x, y - 12); g.lineTo(x + 9, y); g.lineTo(x, y + 12); g.lineTo(x - 9, y); g.closePath(); g.fill();
+      g.fillStyle = "#ffffff"; g.beginPath(); g.arc(x, y, 3, 0, 6.29); g.fill();
+      return;
+    }
+    if (s.kind === K.TFRAG) {   // the arrival flash
+      const k = 1 - Math.max(0, s.life) / SHOTS[K.TFRAG].life;
+      g.strokeStyle = `rgba(200,250,255,${1 - k})`; g.lineWidth = 6; g.beginPath(); g.arc(x, y, 20 + k * 70, 0, 6.29); g.stroke();
+      return;
+    }
+    if (s.kind === K.BULLET) {   // a minigun tracer
+      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
+      g.strokeStyle = "rgba(255,224,138,0.9)"; g.lineWidth = 2.5; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-30, 0); g.lineTo(0, 0); g.stroke();
+      g.restore();
+      return;
+    }
+    if (s.kind === K.GAUSS) {   // a blue slug of light, thicker the more it was charged
+      const w = 3 + 9 * Math.min(1, s.m), L = 160 + 160 * Math.min(1, s.m);
+      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx)); g.lineCap = "round";
+      const lg = g.createLinearGradient(-L, 0, 0, 0);
+      lg.addColorStop(0, "rgba(80,140,255,0)"); lg.addColorStop(1, "rgba(160,210,255,0.95)");
+      g.strokeStyle = lg; g.lineWidth = w; g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
+      g.fillStyle = "#ffffff"; g.beginPath(); g.arc(0, 0, w * 0.6, 0, 6.29); g.fill();
+      g.restore();
+      return;
+    }
     if (s.kind === K.HOLY) {   // a golden orb under a halo; it pulses faster and shines wider as the fuse runs out
       const left = Math.max(0, s.life), hot = 1 - left / SHOTS[K.HOLY].life, pulse = 0.6 + 0.4 * Math.sin(now / (120 - 90 * hot));
       g.save(); g.translate(x, y);
@@ -720,6 +769,29 @@
         g.restore();
         g.fillStyle = "#1d1630"; g.beginPath(); g.moveTo(-11, -74); g.quadraticCurveTo(0, -98, 11, -74); g.fill();
         g.fillStyle = "#ffe14d"; g.save(); g.translate(-8, -46); g.scale(16 / 24, 16 / 24); g.fill(ICON_PATHS.nuke, "evenodd"); g.restore();
+      } else if (weapon === "saw") {   // a blade on an arm
+        g.fillStyle = "#3b2d5c"; rrect(-6, -26, 12, 30, 4); g.fill();
+        g.save(); g.translate(0, -38); g.rotate(now / 60); g.fillStyle = "#d6dde8"; g.beginPath();
+        for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, r = k % 2 ? 10 : 15; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+        g.closePath(); g.fill(); g.fillStyle = "#5a6684"; g.beginPath(); g.arc(0, 0, 4, 0, 6.29); g.fill(); g.restore();
+      } else if (weapon === "gamma") {   // a green ball in a cage
+        g.fillStyle = "#3b2d5c"; rrect(-12, -20, 24, 26, 6); g.fill();
+        const gg = g.createRadialGradient(0, -40, 2, 0, -40, 18); gg.addColorStop(0, "#ffffff"); gg.addColorStop(0.5, "#7dff8a"); gg.addColorStop(1, "rgba(60,220,90,0.2)");
+        g.fillStyle = gg; g.beginPath(); g.arc(0, -40, 18, 0, 6.29); g.fill();
+        g.strokeStyle = "#5a6684"; g.lineWidth = 3; for (const bx of [-12, 0, 12]) { g.beginPath(); g.moveTo(bx, -24); g.lineTo(bx * 0.6, -58); g.stroke(); }
+      } else if (weapon === "tele") {   // a little dish with a cyan tip
+        g.fillStyle = "#3b2d5c"; rrect(-5, -24, 10, 28, 3); g.fill();
+        g.fillStyle = "#5a6684"; g.beginPath(); g.ellipse(0, -28, 16, 6, 0, 0, 6.29); g.fill();
+        g.fillStyle = "#8ff0ff"; g.beginPath(); g.arc(0, -38, 5 + Math.sin(now / 150), 0, 6.29); g.fill();
+      } else if (weapon === "minigun") {   // a cluster of barrels that spins faster as it spins up
+        g.fillStyle = "#3b2d5c"; rrect(-13, -14, 26, 20, 5); g.fill();
+        const turn = now / 18;
+        for (let k = 0; k < 3; k++) { const off = Math.sin(turn + k * 2.094) * 7; g.fillStyle = k % 2 ? "#8a7fb0" : "#cfc6e8"; rrect(off - 2.5, -64, 5, 52, 2); g.fill(); }
+        g.fillStyle = "#ffe08a"; g.fillRect(-9, -66, 18, 4);
+      } else if (weapon === "gauss") {   // a long barrel in blue coils
+        g.fillStyle = "#3b2d5c"; rrect(-10, -6, 20, 16, 4); g.fill();
+        g.fillStyle = "#cfc6e8"; rrect(-4, -78, 8, 76, 3); g.fill();
+        for (let k = 0; k < 4; k++) { g.fillStyle = `rgba(127,184,255,${0.5 + 0.5 * Math.sin(now / 120 + k)})`; rrect(-8, -66 + k * 15, 16, 7, 3); g.fill(); }
       } else if (weapon === "holy") {   // the golden orb held up on a short post, halo above
         g.fillStyle = "#3b2d5c"; rrect(-5, -26, 10, 30, 3); g.fill();
         const og = g.createRadialGradient(-5, -44, 2, 0, -40, 17);
@@ -743,7 +815,15 @@
   // the crosshair: a ring ahead of the bin on the line its shots take, in the gun's colour; red and tighter when
   // someone you can hurt is on that line
   function drawAim(now) {
-    if (settings.aim === "off" || !playing || me.dead) return;
+    if (charge > 0 && playing && !me.dead) {   // the charge cannon filling up: a ring round the bin, white-hot when full
+      const x = sx(me.x), y = sy(me.y), R = 70 * sizeOf(me.lv), full = charge >= 1;
+      g.save(); g.lineCap = "round";
+      g.strokeStyle = "rgba(127,184,255,0.25)"; g.lineWidth = 6; g.beginPath(); g.arc(x, y, R, 0, 6.29); g.stroke();
+      g.strokeStyle = full && Math.floor(now / 90) % 2 ? "#ffffff" : "#7fb8ff"; g.lineWidth = 6;
+      g.beginPath(); g.arc(x, y, R, -Math.PI / 2, -Math.PI / 2 + charge * 6.283); g.stroke();
+      g.restore();
+    }
+    if (settings.aim === "off" || !playing || me.dead || guided) return;
     const w = WEAPONS[me.weapon], col = w.col || "#ffb43c", a = me.a + (w.back ? Math.PI : 0), ca = Math.cos(a), sa = Math.sin(a);
     const D = (w.back ? 120 : 250) * sizeOf(me.lv), x0 = sx(me.x), y0 = sy(me.y);
     let lock = false;

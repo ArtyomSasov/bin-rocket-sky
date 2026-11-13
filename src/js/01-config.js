@@ -45,29 +45,39 @@
   ];
   const tierOf = lv => TIERS.filter(t => lv >= t.from).pop();
   // shot kinds: what flies. The number is what goes over the network; everything per kind lives in SHOTS
-  const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10, HOLY: 11 };
+  const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10, HOLY: 11, SAW: 12, GAMMA: 13, BEACON: 14, TFRAG: 15, BULLET: 16, GAUSS: 17 };
   const MINE_R = 55, MINE_ARM = 0.7;   // mines go off when a bin comes this close, after arming
   // life: seconds; dmg: in lives (Lv 1 has 3 = 100%; pellets use pelletDmg, the nuke deals its damage in detonate);
-  // r: extra hit radius; col: colour; carve: crater radius; shove: push on the bin it hits; sfx: [sound, volume, pitch] of someone else's shot
+  // r: extra hit radius; col: colour; carve: crater radius; shove: push on the bin it hits; sfx: [sound, volume, pitch] of someone else's shot;
+  // pierce: passes through bins (each one hit once); bounce: ricochets off the fence and bodies this many times;
+  // inert: never hits anything itself (the big bombs blow up their own way, the teleporter's beacon just sits there)
   const SHOTS = [
     { name: "fireball",  life: 1.1,  dmg: 0.3,  r: 0,      col: "#ffb43c", carve: 16, shove: 0,   sfx: ["fire", 0.6, 1] },
     { name: "rocket",    life: 3.6,  dmg: 1.2,  r: 12,     col: "#ffb43c", carve: 52, shove: 0,   sfx: ["rocket", 0.6, 1] },
     { name: "laser",     life: 0.45, dmg: 0.18, r: 0,      col: "#7df9ff", carve: 9,  shove: 0,   sfx: ["laser", 0.2, 1] },
-    { name: "nuke",      life: 3.2,  dmg: 0,    r: 0,      col: "#ffe14d", carve: 0,  shove: 0,   sfx: ["rocket", 0.6, 0.6] },
+    { name: "nuke",      life: 6,    dmg: 0,    r: 0,      col: "#ffe14d", carve: 0,  shove: 0,   sfx: ["rocket", 0.6, 0.6], inert: true },
     { name: "pellet",    life: 0.64, dmg: 0,    r: 0,      col: "#ffd27a", carve: 9,  shove: 150, sfx: ["scatter", 0.6, 1] },
-    { name: "rail slug", life: 0.7,  dmg: 3,    r: 0,      col: "#e9c8ff", carve: 14, shove: 650, sfx: ["rail", 0.6, 1] },
+    { name: "rail slug", life: 0.7,  dmg: 3,    r: 0,      col: "#e9c8ff", carve: 14, shove: 650, sfx: ["rail", 0.6, 1], pierce: true },
     { name: "mine",      life: 25,   dmg: 1.7,  r: MINE_R, col: "#ff6b3c", carve: 50, shove: 0,   sfx: ["mine_drop", 0.6, 1] },
     { name: "plasma",    life: 3.2,  dmg: 1.4,  r: 30,     col: "#6fd8ff", carve: 60, shove: 300, sfx: ["shield_get", 0.6, 1.1] },
     { name: "lightning", life: 0.15, dmg: 0.22, r: 0,      col: "#bfefff", carve: 6,  shove: 0,   sfx: ["laser", 0.2, 1.7] },
-    { name: "shard",     life: 0.8,  dmg: 0.32, r: 0,      col: "#ff9a3c", carve: 10, shove: 0,   sfx: ["scatter", 0.6, 1] },
+    { name: "shard",     life: 0.8,  dmg: 0.32, r: 0,      col: "#ff9a3c", carve: 10, shove: 0,   sfx: ["scatter", 0.6, 1], bounce: 2 },
     { name: "slug",      life: 0.6,  dmg: 1,    r: 4,      col: "#ffe7a0", carve: 20, shove: 450, sfx: ["scatter", 0.6, 1] },
-    { name: "holy bomb", life: 3.6,  dmg: 0,    r: 0,      col: "#fff3b0", carve: 0,  shove: 0,   sfx: ["mine_drop", 0.8, 0.6] }
+    { name: "holy bomb", life: 3.6,  dmg: 0,    r: 0,      col: "#fff3b0", carve: 0,  shove: 0,   sfx: ["mine_drop", 0.8, 0.6], inert: true },
+    { name: "saw blade", life: 2.4,  dmg: 0.5,  r: 8,      col: "#d6dde8", carve: 12, shove: 180, sfx: ["scatter", 0.5, 1.7], pierce: true, bounce: 6 },
+    { name: "gamma orb", life: 4,    dmg: 2,    r: 34,     col: "#7dff8a", carve: 90, shove: 500, sfx: ["shield_get", 0.8, 0.55] },
+    { name: "beacon",    life: 15,   dmg: 0,    r: 0,      col: "#8ff0ff", carve: 0,  shove: 0,   sfx: ["mine_drop", 0.5, 1.5], inert: true },
+    { name: "telefrag",  life: 0.12, dmg: 99,   r: 40,     col: "#8ff0ff", carve: 0,  shove: 900, sfx: ["rail", 0.6, 1.6] },
+    { name: "bullet",    life: 0.5,  dmg: 0.09, r: 0,      col: "#ffe08a", carve: 6,  shove: 30,  sfx: ["fire", 0.3, 1.8] },
+    { name: "gauss slug", life: 0.6, dmg: 3,    r: 4,      col: "#7fb8ff", carve: 26, shove: 700, sfx: ["rail", 0.7, 0.8], pierce: true }
   ];
   // weapons: pick-ups swap the fireball for a while. Each gun is described here, and the player and the bots fire it
   // the same way (see volley):
   //   shot: [shot kind, speed]; spread: angles of the shots in one volley; back: fired behind the bin
   //   kick: recoil; feel: [view jolt, screen shake, muzzle flash size]; sfx: [sound, volume, pitch]; fx: extra muzzle effect
   //   alt: the alternate fire (right mouse button / C): the same fields plus cost (ammo) and cd (reload)
+  //   guided (alt): you steer the shot; spin: [slowest reload, fastest, seconds to spin up] while the trigger is held;
+  //   jitter: random spread (rad); charge: seconds to charge fully while held, it fires on release
   const WEAPONS = {
     fire:    { name: "Fireball", ammo: Infinity, cd: 0.22, shot: [K.FIRE, 1000], kick: 25, feel: [5, 0.05, 40], sfx: ["fire", 0.55] },
     triple:  { name: "Triple shot", ammo: 24, cd: 0.3, col: "#ffb43c", shot: [K.FIRE, 1000], spread: [-0.2, 0, 0.2], kick: 25, feel: [7, 0.07, 50], sfx: ["triple", 0.7],
@@ -75,7 +85,8 @@
     laser:   { name: "Laser", ammo: 90, cd: 0.08, col: "#7df9ff", shot: [K.LASER, 2300], kick: 8, feel: [2, 0.02, 30], sfx: ["laser", 0.45] },
     rocket:  { name: "Homing rockets", ammo: 8, cd: 0.7, col: "#ff5a6e", shot: [K.ROCKET, 260], kick: 90, feel: [12, 0.14, 70], sfx: ["rocket", 0.8],
                alt: { name: "Salvo", cost: 3, cd: 1.6, shot: [K.ROCKET, 300], spread: [-0.24, 0, 0.24], kick: 200, feel: [18, 0.23, 96], sfx: ["rocket", 1, 0.8] } },
-    nuke:    { name: "Nuke", ammo: 1, cd: 1.0, col: "#ffe14d", shot: [K.NUKE, 360], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.6] },
+    nuke:    { name: "Nuke", ammo: 1, cd: 1.0, col: "#ffe14d", shot: [K.NUKE, 360], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.6],
+               alt: { name: "Guided", cost: 1, cd: 1.0, shot: [K.NUKE, 420], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.5], guided: true } },
     scatter: { name: "Scatter gun", ammo: 16, cd: 0.7, col: "#ffd27a", shot: [K.PELLET, 1250], kick: 260, feel: [22, 0.3, 90], sfx: ["scatter", 1, 0.85], fx: "blast",
                alt: { name: "Slug", cost: 2, cd: 0.95, shot: [K.SLUG, 1900], kick: 340, feel: [24, 0.3, 108], sfx: ["scatter", 1, 0.65], fx: "slug" } },
     rail:    { name: "Railgun", ammo: 6, cd: 1.15, col: "#d9a8ff", shot: [K.RAIL, 4200], kick: 320, feel: [26, 0.35, 90], sfx: ["rail", 0.9], fx: "rail" },
@@ -84,12 +95,19 @@
     orb:     { name: "Plasma orb", ammo: 8, cd: 0.85, col: "#6fd8ff", shot: [K.ORB, 400], kick: 140, feel: [16, 0.18, 110], sfx: ["shield_get", 1, 0.9], fx: "plasma" },
     bolt:    { name: "Lightning", ammo: 90, cd: 0.11, col: "#bfefff", shot: [K.BOLT, 5600], kick: 4, feel: [2, 0.03, 35], sfx: ["laser", 0.22, 1.7] },
     holy:    { name: "Holy bomb", ammo: 1, cd: 1.2, col: "#fff3b0", shot: [K.HOLY, 700], kick: 120, feel: [20, 0.3, 110], sfx: ["mine_drop", 1, 0.6] },
+    saw:     { name: "Buzzsaw", ammo: 20, cd: 0.42, col: "#d6dde8", shot: [K.SAW, 1500], kick: 60, feel: [8, 0.08, 50], sfx: ["scatter", 0.55, 1.7],
+               alt: { name: "Fan", cost: 3, cd: 0.9, shot: [K.SAW, 1400], spread: [-0.22, 0, 0.22], kick: 120, feel: [12, 0.14, 70], sfx: ["scatter", 0.8, 1.4] } },
+    gamma:   { name: "Gamma orb", ammo: 3, cd: 1.6, col: "#7dff8a", shot: [K.GAMMA, 420], kick: 220, feel: [24, 0.35, 130], sfx: ["shield_get", 1, 0.5], fx: "gamma" },
+    tele:    { name: "Teleporter", ammo: 5, cd: 0.35, col: "#8ff0ff", shot: [K.BEACON, 950], kick: 0, feel: [3, 0.02, 30], sfx: ["mine_drop", 0.7, 1.5] },
+    minigun: { name: "Minigun", ammo: 160, cd: 0.09, spin: [0.16, 0.045, 1.2], jitter: 0.05, col: "#ffe08a", shot: [K.BULLET, 2600], kick: 10, feel: [2, 0.03, 30], sfx: ["fire", 0.35, 1.8] },
+    gauss:   { name: "Charge cannon", ammo: 8, cd: 1.4, charge: 1.1, col: "#7fb8ff", shot: [K.GAUSS, 3600], kick: 300, feel: [24, 0.35, 100], sfx: ["rail", 0.9, 0.75], fx: "rail" },
     shard:   { name: "Shard cannon", ammo: 14, cd: 0.75, col: "#ff9a3c", shot: [K.SHARD, 1500], kick: 150, feel: [16, 0.2, 80], sfx: ["scatter", 0.85, 1.25], fx: "flash" }
   };
-  const PICK_TYPES = ["triple", "laser", "rocket", "scatter", "rail", "mine", "orb", "bolt", "shard"], PICK_PERIOD = 24; let PICKS = 18;
+  const PICK_TYPES = ["triple", "laser", "rocket", "scatter", "rail", "mine", "orb", "bolt", "shard", "saw", "gamma", "tele", "minigun", "gauss"], PICK_PERIOD = 24; let PICKS = 18;
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
-  const SPLASH = { [K.ROCKET]: [170, 0.6, 0.15, 320], [K.ORB]: [160, 0.6, 0.2, 380] };
+  const SPLASH = { [K.ROCKET]: [170, 0.6, 0.15, 320], [K.ORB]: [160, 0.6, 0.2, 380], [K.GAMMA]: [260, 1, 0.3, 600] };
+  const GAMMA_ZAP = { r: 480, every: 0.3, dmg: 0.3 };   // the gamma orb zaps every enemy this close as it flies
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
   const AMP_PERIOD = 95, AMP_TIME = 20000;                   // Overdrive: a rare pick-up, triple damage for 20 s                        // mines go off when a bin comes this close, after arming
   // Doom-style supplies: medkits give lives back, shields add armour that soaks part of each hit
@@ -119,7 +137,7 @@
   const scoreLimit = code => { const s = scoreOf(code); return s ? SCORE_OPTS[s][MODES[modeOf(code)].flags ? 1 : 0] : 0; };
   let MODE = "d";
   const TEAM_NAME = ["Red", "Blue"], TEAM_HEX = ["#ff5a6e", "#4fa8ff"], TEAM_RGB = ["255,90,110", "79,168,255"];
-  const WEAPON_KEYS = ["fire", "triple", "laser", "rocket", "nuke", "scatter", "rail", "mine", "orb", "bolt", "shard", "holy"];   // index is what goes over the network
+  const WEAPON_KEYS = ["fire", "triple", "laser", "rocket", "nuke", "scatter", "rail", "mine", "orb", "bolt", "shard", "holy", "saw", "gamma", "tele", "minigun", "gauss"];   // index is what goes over the network
   // rounds on the shared clock: ROUND_PLAY seconds of fighting (the lobby's time limit), then 15 seconds of results
   let ROUND_PLAY = 300, SCORE_LIMIT = 0;
   const ROUND_BREAK = 15;
@@ -132,7 +150,7 @@
   // The holy bomb is thrown, bounces, sings a choir sing seconds before its fuse runs out, then outdoes the nuke
   const BOOM_LIFE = 4;
   // big-bomb crates, each on its own cycle: period (s), share of cycles it turns up in, and for how much of the cycle
-  const BOMB_CRATES = { nuke: { key: "N", period: 70, seed: 71, chance: 0.65, stay: 0.6 }, holy: { key: "H", period: 50, seed: 74, chance: 0.85, stay: 0.7 } };
+  const BOMB_CRATES = { nuke: { key: "N", period: 70, seed: 71, chance: 0.65, stay: 0.6 }, holy: { key: "H", period: 60, seed: 74, chance: 1, stay: 0.5 } };
   // wave: [reach, seconds to get there, push at the centre] of the blast wave that flings everything outward
   const BOMBS = { [K.NUKE]: { R: 1100, kill: 620, carve: 420, wave: [2100, 1.1, 2400] },
                   [K.HOLY]: { R: 2600, kill: 1800, carve: 700, wave: [4400, 1.6, 3400], sing: 2.1, holy: true, wipe: true } };   // wipe: bodies inside kill are erased whole
@@ -153,7 +171,12 @@
     amp: "M12 1l3 8 8 3-8 3-3 8-3-8-8-3 8-3z",
     shield: "M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z",
     nuke: "M14.10 8.36L17.25 2.91A10.5 10.5 0 0 0 6.75 2.91L9.90 8.36A4.2 4.2 0 0 1 14.10 8.36ZM7.80 12.00L1.50 12.00A10.5 10.5 0 0 0 6.75 21.09L9.90 15.64A4.2 4.2 0 0 1 7.80 12.00ZM14.10 15.64L17.25 21.09A10.5 10.5 0 0 0 22.50 12.00L16.20 12.00A4.2 4.2 0 0 1 14.10 15.64ZM12 9.8a2.2 2.2 0 1 0 0.01 0Z",
-    holy: "M12 10a6.5 6.5 0 1 0 0.01 0ZM12 1C6.5 1 3.5 2.4 3.5 4.2S6.5 7.4 12 7.4s8.5-1.4 8.5-3.2S17.5 1 12 1Zm0 1.7c4 0 6.4.8 6.4 1.5S16 5.7 12 5.7 5.6 4.9 5.6 4.2 8 2.7 12 2.7Z"
+    holy: "M12 10a6.5 6.5 0 1 0 0.01 0ZM12 1C6.5 1 3.5 2.4 3.5 4.2S6.5 7.4 12 7.4s8.5-1.4 8.5-3.2S17.5 1 12 1Zm0 1.7c4 0 6.4.8 6.4 1.5S16 5.7 12 5.7 5.6 4.9 5.6 4.2 8 2.7 12 2.7Z",
+    saw: "M23 12L19.67 14.27L21.53 17.5L17.51 17.8L17.5 21.53L13.87 19.78L12 23L9.73 19.67L6.5 21.53L6.2 17.51L2.47 17.5L4.22 13.87L1 12L4.33 9.73L2.47 6.5L6.49 6.2L6.5 2.47L10.13 4.22L12 1L14.27 4.33L17.5 2.47L17.8 6.49L21.53 6.5L19.78 10.13ZM12 9a3 3 0 1 0 0.01 0Z",
+    gamma: "M12 6.5a5.5 5.5 0 1 0 0.01 0ZM19.5 12.9L23.5 12.45L23.5 11.55L19.5 11.1ZM16.67 17.94L19.81 20.45L20.45 19.81L17.94 16.67ZM11.1 19.5L11.55 23.5L12.45 23.5L12.9 19.5ZM6.06 16.67L3.55 19.81L4.19 20.45L7.33 17.94ZM4.5 11.1L0.5 11.55L0.5 12.45L4.5 12.9ZM7.33 6.06L4.19 3.55L3.55 4.19L6.06 7.33ZM12.9 4.5L12.45 0.5L11.55 0.5L11.1 4.5ZM17.94 7.33L20.45 4.19L19.81 3.55L16.67 6.06Z",
+    tele: "M12 2a10 10 0 1 0 0.01 0ZM12 5a7 7 0 1 0 0.01 0ZM12 9.4a2.6 2.6 0 1 0 0.01 0Z",
+    minigun: "M3 6h14v3H3ZM3 10.5h14v3H3ZM3 15h14v3H3ZM16 4.5h6v15h-6Z",
+    gauss: "M2 10.5h4v3H2ZM8.5 10.5h2v3h-2ZM13 10.5h2v3h-2ZM17.5 10.5H22v3h-4.5ZM6 7h2.5v10H6ZM10.5 7H13v10h-2.5ZM15 7h2.5v10H15Z"
   };
   const ICON_PATHS = Object.fromEntries(Object.entries(ICONS).map(([k, d]) => [k, new Path2D(d)]));
   const FIRE_KEYS = ["Space", "KeyF", "KeyJ", "Enter"];

@@ -246,7 +246,7 @@
   }
   // ---------- how a bin dies depends on what got it ----------
   // 0 blown apart (fire, rockets, mines, shards, crashes...), 1 sliced by a rail slug, 2 fried by laser or lightning, 3 melted by plasma
-  const deathStyleOf = kind => kind === K.RAIL ? 1 : kind === K.LASER || kind === K.BOLT ? 2 : kind === K.ORB ? 3 : 0;
+  const deathStyleOf = kind => kind === K.RAIL || kind === K.SAW || kind === K.GAUSS ? 1 : kind === K.LASER || kind === K.BOLT || kind === K.GAMMA ? 2 : kind === K.ORB ? 3 : 0;
   function deathFx(b, ds, dk, da) {
     b = { ...b, ck: teamCk(b) };   // the wreck keeps the colours the bin flew in
     if (dk === 1) railCut(b, da);

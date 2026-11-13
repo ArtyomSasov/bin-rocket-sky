@@ -87,7 +87,7 @@
       if (!MODES[MODE].only && roundLive) {
         let best = null, bd = b.weapon === "fire" && td > 700 ? 1300 : 0;
         for (const c of world.picks) {
-          if (grabbed.has(c.key) || c.age < 0.05 || c.type === "mine") continue;   // mines are left for players
+          if (grabbed.has(c.key) || c.age < 0.05 || c.type === "mine" || c.type === "tele") continue;   // mines and the teleporter are left for players
           const d = Math.hypot(c.x - b.x, c.y - b.y);
           if (d < 34 + 30) {   // picked up
             grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
@@ -155,10 +155,10 @@
       }
       // anyone's shots can hit the bot (the bot's own excepted)
       for (const s of shots) {
-        if (s.life <= 0 || BOMBS[s.kind] || !canHurt(s, b, b.id)) continue;
+        if (s.life <= 0 || SHOTS[s.kind].inert || !canHurt(s, b, b.id)) continue;
         if (s.kind === K.MINE && SHOTS[K.MINE].life - s.life < MINE_ARM) continue;
         if (segHit(s, b.x, b.y, binR(b.lv) + SHOTS[s.kind].r)) {
-          if (s.kind === K.RAIL) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
+          if (SHOTS[s.kind].pierce) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
           shotBurst(s); hitConfirm(s, b.lv, b.x, b.y, remotes.get(b.id)); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
           if (s.kind === K.BOLT) boltChain(s, b.x, b.y, b.id, now);
           botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx));

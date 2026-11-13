@@ -1,7 +1,7 @@
   // ---------- fire & damage ----------
   // shots leave from the tip of the gun drawn on the wing (left and right in turn), not from the middle of the bin
-  const mountsOf = w => w === "nuke" || w === "holy" || w === "bolt" ? [[256, 150]] : [[50, 126], [256, 150]];   // art pixels, shared with drawMounts
-  const BARREL = { laser: 60, rocket: 50, triple: 42, nuke: 96, holy: 30, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48 };   // tip, in mount units
+  const mountsOf = w => ["nuke", "holy", "bolt", "gamma", "tele", "gauss"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // art pixels, shared with drawMounts
+  const BARREL = { laser: 60, rocket: 50, triple: 42, nuke: 96, holy: 30, saw: 40, gamma: 44, tele: 28, minigun: 58, gauss: 80, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48 };   // tip, in mount units
   let gunSide = 0;
   function muzzleAt(weapon) {
     const ms = mountsOf(weapon), [mx, my] = ms[gunSide++ % ms.length];
@@ -196,20 +196,21 @@
   function pelletShove(o, s, f = 150) { const v = Math.hypot(s.vx, s.vy) || 1; o.vx += s.vx / v * f; o.vy += s.vy / v * f; }
   // one volley from any pilot, me or a bot: the shots go out, get logged for the network, and the last one is returned
   // (muzzle effects start from it). pat: a weapon or its alt (shot, spread, back); from: the gun's muzzle, if known
-  function volley(p, now, pat, from, aim) {
-    const mine = p === me, [kind, speed] = pat.shot, amp = mine && me.ampUntil > now ? 3 : 1, ride = kind === K.BOLT ? 0 : 0.6;
+  // mul: extra damage (the charge cannon's charge), sent along with Overdrive's
+  function volley(p, now, pat, from, aim, mul = 1) {
+    const mine = p === me, [kind, speed] = pat.shot, amp = (mine && me.ampUntil > now ? 3 : 1) * mul, ride = kind === K.BOLT ? 0 : 0.6;
     const base = (aim ?? p.a) + (pat.back ? Math.PI : 0), sz = sizeOf(p.lv || 1);
     let s;
     for (const da of pat.spread || [0]) {
-      const bx = Math.cos(base + da), by = Math.sin(base + da);
+      const ja = pat.jitter ? (Math.random() - 0.5) * 2 * pat.jitter : 0, bx = Math.cos(base + da + ja), by = Math.sin(base + da + ja);
       const id = (mine ? myTag : p.tag) + "." + (mine ? shotSeq++ : p.seq++).toString(36);
       const ox = from ? from.x : p.x + bx * 42 * sz, oy = from ? from.y : p.y + by * 42 * sz;
       s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * speed + p.vx * ride, vy: by * speed + p.vy * ride,
-            life: SHOTS[kind].life, mine, m: amp, owner: mine ? undefined : p.id };
+            life: SHOTS[kind].life, mine, m: amp, owner: mine ? undefined : p.id, bn: 0 };
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else shots.push(s);
       if (kind === K.RAIL) railBeam(s.x, s.y, s.vx, s.vy);
       const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind];
-      if (amp > 1) d.push(amp);
+      if (amp !== 1) d.push(+amp.toFixed(2));
       if (mine) { myShotLog.push({ at: now, d }); stats.shots++; net.shot(d); }
       else { seenShots.set(id, performance.now()); p.shotLog.push({ at: now, d }); p.st.shots++; }
     }
@@ -239,23 +240,113 @@
     },
     rail(m) { flash = Math.max(flash, 0.12); rings.push({ x: m.x, y: m.y, t: 0, r: 70, col: "233,200,255", dur: 0.35, w: 6 }); },
     flash(m) { impacts.push({ x: m.x, y: m.y, t: 0, r: 50, col: "#ff9a3c" }); },
+    gamma(m) {   // a green shock ring and a spray of motes
+      rings.push({ x: m.x, y: m.y, t: 0, r: 120, col: "125,255,138", dur: 0.35, w: 8 });
+      for (let k = 0; k < 20; k++) { const a = me.a + (Math.random() - 0.5) * 1.4, v = 150 + Math.random() * 320; puff(m.x, m.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.35, 2.4, k % 2 ? "#7dff8a" : "#e9ffe0"); }
+    },
     plasma(m) {
       rings.push({ x: m.x, y: m.y, t: 0, r: 90, col: "140,225,255", dur: 0.3, w: 6 });
       for (let k = 0; k < 16; k++) { const a = me.a + (Math.random() - 0.5) * 1.2, v = 150 + Math.random() * 300; puff(m.x, m.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.3, 2, k % 2 ? "#9fe8ff" : "#ffffff"); }
     }
   };
   // fire the gun in hand (alt: its alternate fire, which needs its full ammo cost)
-  function shoot(now, alt) {
+  // mul: the charge cannon's charge (0.25..1)
+  function shoot(now, alt, mul = 1) {
     const k = me.weapon, w = WEAPONS[k], pat = alt ? w.alt : w;
     if (alt && !(pat && me.arsenal[k] >= pat.cost)) return;
-    fireCd = alt ? pat.cd : w.cd * (MODES[MODE].cdMul || 1);
+    if (k === "tele" && myBeacon()) { teleport(now); return; }   // the second shot jumps you to the beacon
+    const cdMul = MODES[MODE].cdMul || 1;
+    fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
     const gun = k === "fire" ? null : muzzleAt(k);
-    const muzzle = volley(me, now, pat, gun, k === "bolt" ? boltLock(me, gun) : undefined);
+    const muzzle = volley(me, now, pat, gun, k === "bolt" ? boltLock(me, gun) : undefined, mul);
     const [name, vol, pitch] = pat.sfx;
-    sfx(name, vol, pitch) || blip(160, 0.1, "sawtooth");
+    sfx(name, vol, w.charge ? pitch * (1.3 - 0.4 * mul) : pitch) || blip(160, 0.1, "sawtooth");   // a fuller charge sounds deeper
     if (pat.fx) MUZZLE_FX[pat.fx](muzzle);
-    shotFeel(k, muzzle, pat.kick, ...pat.feel);
-    spend(k, alt ? pat.cost : 1);
+    shotFeel(k, muzzle, pat.kick * (w.charge ? mul : 1), ...pat.feel);
+    if (pat.guided) startGuide(muzzle);
+    if (k !== "tele") spend(k, alt ? pat.cost : 1);   // the teleporter spends a charge on the jump, not on the throw
+  }
+  // ---- the minigun spins up while the trigger is held; the charge cannon charges while held and fires on release
+  let spin = 0, charge = 0;
+  function triggerTick(dt, now, ready, held) {
+    const w = WEAPONS[me.weapon];
+    spin = w.spin && held && playing && !me.dead ? Math.min(1, spin + dt / w.spin[2]) : Math.max(0, spin - dt * 1.5);
+    if (!w.charge) { charge = 0; return held && ready; }
+    if (held && playing && !me.dead) {
+      const was = charge;
+      charge = Math.min(1, charge + dt / w.charge);
+      if (Math.floor(was * 6) !== Math.floor(charge * 6)) blip(300 + charge * 500, 0.06, "sine");   // a rising whine
+      if (charge === 1 && was < 1) impacts.push({ x: me.x, y: me.y, t: 0, r: 60, col: w.col });
+      return false;
+    }
+    if (charge > 0 && ready) shoot(now, false, Math.max(0.25, charge));
+    charge = 0;
+    return false;
+  }
+  // ---- the teleporter: the first shot throws a beacon, the next one jumps you onto it; anyone sitting there is
+  // telefragged (a stationary shot that kills whatever bin it overlaps, judged by the victim like any other hit)
+  const TELEFRAG = { shot: [K.TFRAG, 0] };
+  const myBeacon = () => shots.find(s => s.mine && s.kind === K.BEACON && s.life > 0);
+  function teleport(now) {
+    const b = myBeacon();
+    b.life = 0;
+    for (const [x, y] of [[me.x, me.y], [b.x, b.y]]) {
+      rings.push({ x, y, t: 0, r: 160, col: "143,240,255", warp: true, dur: 0.4, w: 12 });
+      for (let k = 0; k < 24; k++) { const a = Math.random() * 6.283, v = 100 + Math.random() * 300; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.5, 2.5, k % 2 ? "#8ff0ff" : "#ffffff"); }
+    }
+    me.x = b.x; me.y = b.y; me.vx = me.vy = 0;
+    volley(me, now, TELEFRAG, { x: b.x, y: b.y });
+    me.vx = b.vx * 0.5; me.vy = b.vy * 0.5;
+    sfx("rail", 0.7, 1.6) || blip(900, 0.15, "sine");
+    flash = Math.max(flash, 0.15);
+    fireCd = 0.35;
+    spend("tele", 1);
+  }
+  // ---- the guided nuke (the nuke's alt fire): you steer it, the view rides along, firing again sets it off.
+  // Its course goes out with my state (gw) so everyone sees the same flight
+  let guided = null, guideArmed = false, guideOut = null, guideOutUntil = 0, camBackUntil = 0;
+  function startGuide(s) {
+    guided = s; guideArmed = false; s.life = SHOTS[K.NUKE].life;
+    announce("GUIDED NUKE", COARSE ? "steer it · tap fire to blow it" : "steer it · fire again to blow it", "#ffe14d");
+  }
+  // steering input (ix, iy) goes to the missile while it flies; returns true while guiding
+  function guideTick(dt, now, ix, iy, held) {
+    if (!guided) return false;
+    if (guided.life <= 0 || guided.boom || me.dead || !shots.includes(guided)) { endGuide(now, false); return false; }
+    if (!held) guideArmed = true;
+    else if (guideArmed) { endGuide(now, true); return false; }
+    const v = Math.hypot(guided.vx, guided.vy) || 1;
+    let a = Math.atan2(guided.vy, guided.vx);
+    if (Math.hypot(ix, iy) > 0.15) a = lerpAng(a, Math.atan2(iy, ix), Math.min(1, 3.2 * dt));
+    guided.vx = Math.cos(a) * v; guided.vy = Math.sin(a) * v;
+    guideOut = [guided.id, Math.round(guided.x), Math.round(guided.y), Math.round(guided.vx), Math.round(guided.vy), 0];
+    return true;
+  }
+  function endGuide(now, boom) {
+    const s = guided;
+    guided = null; camBackUntil = now + 700;
+    guideOut = [s.id, Math.round(s.x), Math.round(s.y), 0, 0, boom || s.boom ? 1 : 0]; guideOutUntil = now + 600;
+    if (boom) detonate(s, now);
+  }
+  // someone else's guided nuke: follow their reported course, and blow it where they did
+  function guideRemote(owner, gw) {
+    const s = shots.find(o => o.id === gw[0] && o.owner === owner && o.kind === K.NUKE);
+    if (!s || s.boom) return;
+    s.x = s.px = clamp(gw[1], 0, W); s.y = s.py = clamp(gw[2], 0, H);
+    if (gw[5] === 1) { detonate(s, performance.now()); return; }
+    s.vx = clamp(gw[3], -900, 900); s.vy = clamp(gw[4], -900, 900); s.life = Math.max(s.life, 1);
+  }
+  // ---- the gamma orb zaps every enemy near it as it flies (each victim judges its own zaps, like any hit)
+  function gammaZap(s, dt, now) {
+    s.zap = (s.zap || 0) - dt;
+    if (s.zap > 0) return;
+    s.zap = GAMMA_ZAP.every;
+    const near = o => Math.hypot(o.x - s.x, o.y - s.y) < GAMMA_ZAP.r, zap = o => arcs.push({ x1: s.x, y1: s.y, x2: o.x, y2: o.y, t: 0, col: "125,255,138" });
+    let any = false;
+    if (playing && !me.dead && canHurt(s, me, "me") && near(me)) { zap(me); any = true; hurtMe(s, now, GAMMA_ZAP.dmg * s.m, K.GAMMA); }
+    for (const b of bots) if (!b.dead && canHurt(s, b, b.id) && near(b)) { zap(b); any = true; botHurt(b, GAMMA_ZAP.dmg * s.m, s.id, now, false, K.GAMMA); }
+    for (const [rid, r] of remotes) if (!botById.has(rid) && !r.dead && canHurt(s, r, rid) && near(r)) { zap(r); any = true; }   // they judge their own
+    if (any) sfx("laser", 0.35, 0.6, s.x, s.y);
   }
   // feel, scaled per gun: recoil shoves the bin back, the view jolts, the screen shakes and the muzzle lights up
   function shotFeel(k, muzzle, kick, camK, shk, flashR) {
@@ -270,7 +361,7 @@
     if ((me.arsenal[k] -= n) > 0) { renderAmmo(k); return; }
     delete me.arsenal[k];
     // out of ammo: fall back to another gun you carry (never auto-pick the nuke), else the fireball
-    me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && w !== "holy" && me.arsenal[w]) || "fire";
+    me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && w !== "holy" && w !== "tele" && me.arsenal[w]) || "fire";
     renderWeapon();
   }
   // quick dodge: a burst forward (or toward where you steer) with a moment of invulnerability
@@ -366,11 +457,14 @@
   let flash = 0;
   // the holy bomb in flight: it slows down, bounces off the fence and bodies, glows brighter as the fuse runs out
   // and sings its choir once, a couple of seconds before it goes off
-  function holyFlight(s, dt) {
-    const k = Math.exp(-1.4 * dt); s.vx *= k; s.vy *= k;
+  function bounceFlight(s, dt, damp) {   // slows down, bounces off the fence and bodies (holy bomb, beacon)
+    const k = Math.exp(-damp * dt); s.vx *= k; s.vy *= k;
     if (s.x < 0 || s.x > W) { s.vx = -s.vx * 0.6; s.x = clamp(s.x, 0, W); }
     if (s.y < 0 || s.y > H) { s.vy = -s.vy * 0.6; s.y = clamp(s.y, 0, H); }
     if (solidAny(s.x, s.y)) { s.x = s.px; s.y = s.py; s.vx *= -0.5; s.vy *= -0.5; }
+  }
+  function holyFlight(s, dt) {
+    bounceFlight(s, dt, 1.4);
     if (!s.sang && s.life < BOMBS[K.HOLY].sing) { s.sang = true; choir(s.x, s.y); }
     if (Math.random() < dt * (s.sang ? 60 : 25)) {
       const a = Math.random() * 6.28, v = 40 + Math.random() * 120;

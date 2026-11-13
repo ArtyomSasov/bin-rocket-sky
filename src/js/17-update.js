@@ -15,9 +15,10 @@
     let boost = (shiftHeld || boostBtnDown) && boostDownAt >= 0 && now - boostDownAt > BOOST_HOLD * 1000;
     if (me.dead && now >= me.respawnAt) respawn(now);
     fireCd -= dt; shake = Math.max(0, shake - dt);
-    const ready = playing && roundLive && !me.dead && fireCd <= 0;
+    const held = firing || FIRE_KEYS.some(k => keys.has(k));
+    const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided;
     if (ready && (altFiring || keys.has("KeyC")) && WEAPONS[me.weapon].alt) shoot(now, true);
-    else if (ready && (firing || FIRE_KEYS.some(k => keys.has(k)))) shoot(now);
+    else if (triggerTick(dt, now, ready, held)) shoot(now);
     if (playing && !me.dead) {
       if (keys.has("KeyA") || keys.has("ArrowLeft")) ix -= 1;
       if (keys.has("KeyD") || keys.has("ArrowRight")) ix += 1;
@@ -26,13 +27,14 @@
       const jm = Math.hypot(joy.x, joy.y);
       if (jm > 0.12) { const m = Math.min(1, (jm - 0.12) / 0.8); ix += joy.x / jm * m; iy += joy.y / jm * m; }
       if (ptr.down) {
-        const dx = ptr.x - sx(me.x), dy = ptr.y - sy(me.y), d = Math.hypot(dx, dy);   // steer from where the bin is on screen
+        const from = guided || me, dx = ptr.x - sx(from.x), dy = ptr.y - sy(from.y), d = Math.hypot(dx, dy);   // steer from where the bin (or the guided nuke) is on screen
         if (d > 8) { const m = Math.min(1, d / 140); ix += dx / d * m; iy += dy / d * m; }
         if (d > Math.min(vw, vh) * 0.4) boost = true;
       }
     }
     const raw = Math.hypot(ix, iy);
     if (raw > 1) { ix /= raw; iy /= raw; }
+    if (guideTick(dt, now, ix, iy, held)) { ix = iy = 0; boost = false; }   // the stick flies the nuke; the bin coasts
     // input eases in/out over ~0.1 s, then velocity eases toward the wanted velocity: turns become arcs
     const ease = 1 - Math.exp(-10 * dt);
     steer.x += (ix - steer.x) * ease; steer.y += (iy - steer.y) * ease;
@@ -126,7 +128,10 @@
     const lead = Math.min(vw, vh) * 0.2, sp2 = Math.hypot(me.vx, me.vy), lk = me.dead ? 0 : Math.min(1, sp2 / 900) * lead / (sp2 || 1);
     const ce = 1 - Math.exp(-2.5 * dt);
     cam.lx += (me.vx * lk - cam.lx) * ce; cam.ly += (me.vy * lk - cam.ly) * ce;
-    cam.x = me.x + cam.lx; cam.y = me.y + cam.ly;
+    if (guided || now < camBackUntil) {   // riding along with the guided nuke, then easing back to the bin
+      const to = guided || me, ce2 = 1 - Math.exp(-(guided ? 10 : 6) * dt);
+      cam.x += (to.x + (guided ? 0 : cam.lx) - cam.x) * ce2; cam.y += (to.y + (guided ? 0 : cam.ly) - cam.y) * ce2;
+    } else { cam.x = me.x + cam.lx; cam.y = me.y + cam.ly; }
     // on boost the view pulls back a little (and eases in again after): speed you can feel
     const vzT = playing && !me.dead && boost ? 0.84 : 1;
     viewZoom += (vzT - viewZoom) * (1 - Math.exp(-(vzT < viewZoom ? 2.2 : 1.4) * dt));
@@ -142,9 +147,9 @@
       if (s.life <= 0) { if (SPLASH[s.kind]) splash(s, now); if (BOMBS[s.kind]) detonate(s, now); else if (s.kind === K.MINE && !s.boom) explode(s.x, s.y, 20, 180); shots.splice(i, 1); continue; }
       if (s.kind === K.ROCKET) steerRocket(s, dt);
       if (s.kind === K.ROCKET && s.life > 0) for (const o of shots) {   // rockets are big and slow: any enemy shot can blow one up mid-air
-        if (o === s || o.life <= 0 || BOMBS[o.kind] || o.kind === K.MINE || (o.mine ? s.mine : o.owner === s.owner)) continue;
+        if (o === s || o.life <= 0 || SHOTS[o.kind].inert || o.kind === K.MINE || (o.mine ? s.mine : o.owner === s.owner)) continue;
         if (isTeams() && teamOfShot(o) !== undefined && teamOfShot(o) === teamOfShot(s)) continue;   // a teammate's shot passes it
-        if (segHit(o, s.x, s.y, 24)) { s.life = 0; if (o.kind !== K.RAIL) o.life = 0; impact(s.x, s.y, "#ffb43c", 1.6); explode(s.x, s.y, 40, 300); sfx("boom_small", 0.8, 1.2, s.x, s.y); break; }
+        if (segHit(o, s.x, s.y, 24)) { s.life = 0; if (!SHOTS[o.kind].pierce) o.life = 0; impact(s.x, s.y, "#ffb43c", 1.6); explode(s.x, s.y, 40, 300); sfx("boom_small", 0.8, 1.2, s.x, s.y); break; }
       }
       if (s.life <= 0) continue;   // shot down: it blows up (splash) at the start of next frame
       if (s.kind === K.MINE) { const k = Math.exp(-2.5 * dt); s.vx *= k; s.vy *= k; }
@@ -153,16 +158,23 @@
       s.x += s.vx * dt; s.y += s.vy * dt;
       if (s.kind === K.NUKE && (s.x < 0 || s.x > W || s.y < 0 || s.y > H || solidAny(s.x, s.y) || nukeTouches(s))) { detonate(s, now); shots.splice(i, 1); continue; }
       if (s.kind === K.HOLY) { holyFlight(s, dt); continue; }
+      if (s.kind === K.BEACON) {   // the teleporter's beacon: slides to a stop and blinks
+        bounceFlight(s, dt, 2.2);
+        if (Math.random() < dt * 12) puff(s.x, s.y, (Math.random() - .5) * 60, (Math.random() - .5) * 60, 0.4, 2, "#8ff0ff");
+        continue;
+      }
+      if (s.kind === K.GAMMA) gammaZap(s, dt, now);
       if (s.kind === K.NUKE) {
         if (Math.random() < dt * 70) puff(s.x, s.y, -s.vx * 0.15 + (Math.random() - .5) * 50, -s.vy * 0.15 + (Math.random() - .5) * 50, 0.9, 3 + Math.random() * 3, Math.random() < 0.5 ? "#8a7fb0" : "#ffe14d");
         continue;
       }
       if (s.kind === K.MINE && (s.x < 0 || s.x > W || s.y < 0 || s.y > H)) { s.x = clamp(s.x, 0, W); s.y = clamp(s.y, 0, H); s.vx = s.vy = 0; }
-      if (s.kind === K.SHARD && s.bn < 2) {   // shards ricochet off the fence and off planets, losing a bit of speed
+      const bounce = SHOTS[s.kind].bounce;
+      if (bounce && s.bn < bounce) {   // shards and saws ricochet off the fence and off planets, losing a bit of speed
         let hit = false;
         if (s.x < 0 || s.x > W) { s.vx = -s.vx; s.x = clamp(s.x, 0, W); hit = true; }
         if (s.y < 0 || s.y > H) { s.vy = -s.vy; s.y = clamp(s.y, 0, H); hit = true; }
-        if (hit) { s.bn++; s.vx *= 0.85; s.vy *= 0.85; s.px = s.x; s.py = s.y; impact(s.x, s.y, "#ff9a3c", 0.5); }
+        if (hit) { s.bn++; s.vx *= 0.85; s.vy *= 0.85; s.px = s.x; s.py = s.y; impact(s.x, s.y, SHOTS[s.kind].col, 0.5); }
       }
       if ((s.kind === K.RAIL || s.kind === K.LASER) && s.life > 0) for (const o of shots) {
         if (o.kind === K.ORB && o.life > 0 && !o.combo && segHit(s, o.x, o.y, 45)) { comboBlast(o, s, now); if (s.kind === K.LASER) { s.life = 0; break; } }
@@ -172,15 +184,15 @@
       const hb = shotBody(s);
       if (hb) {
         const own = s.mine || botById.has(s.owner), dig = own || hb.b.free;
-        if (s.kind === K.RAIL) {   // the rail slug bores a tunnel straight through and keeps going
-          if (dig) for (let f = 0; f <= 1.0001; f += 0.125) { const px = s.px + (s.x - s.px) * f, py = s.py + (s.y - s.py) * f; if (solidAt(hb.b, px, py)) carveAt(hb.b, px, py, SHOTS[K.RAIL].carve, own); }
-          impact(hb.x, hb.y, SHOTS[K.RAIL].col, 0.8);
-        } else if (s.kind === K.SHARD && s.bn < 2) {   // shards chip and ricochet
-          if (dig) carveAt(hb.b, hb.x, hb.y, SHOTS[K.SHARD].carve, own);
+        if (s.kind === K.RAIL || s.kind === K.GAUSS) {   // rail and gauss slugs bore a tunnel straight through and keep going
+          if (dig) for (let f = 0; f <= 1.0001; f += 0.125) { const px = s.px + (s.x - s.px) * f, py = s.py + (s.y - s.py) * f; if (solidAt(hb.b, px, py)) carveAt(hb.b, px, py, SHOTS[s.kind].carve, own); }
+          impact(hb.x, hb.y, SHOTS[s.kind].col, 0.8);
+        } else if (bounce && s.bn < bounce) {   // shards and saws chip and ricochet
+          if (dig) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);
           const [nx, ny] = normalAt(hb.b, hb.x, hb.y), vn = s.vx * nx + s.vy * ny;
           if (vn < 0) { s.vx = (s.vx - 2 * vn * nx) * 0.85; s.vy = (s.vy - 2 * vn * ny) * 0.85; }
           s.x = hb.x + nx * 4; s.y = hb.y + ny * 4; s.px = s.x; s.py = s.y; s.bn++;
-          impact(s.x, s.y, "#ff9a3c", 0.5);
+          impact(s.x, s.y, SHOTS[s.kind].col, 0.5);
         } else {
           if (dig) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);
           s.x = hb.x; s.y = hb.y;
@@ -211,8 +223,8 @@
       } else if (Math.random() < dt * 40) puff(s.x, s.y, -s.vx * 0.08 + (Math.random() - .5) * 60, -s.vy * 0.08 + (Math.random() - .5) * 60, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 2, FIRE_COLS[(Math.random() * 4) | 0]);
       // enemy fireball hits me (I decide, then report the shot id)
       const armed = s.kind !== K.MINE || SHOTS[K.MINE].life - s.life >= MINE_ARM;
-      if (armed && canHurt(s, me, "me", s.kind === K.MINE) && segHit(s, me.x, me.y, binR(me.lv) + SHOTS[s.kind].r) && (s.kind !== K.RAIL || railOnce(s, "me"))) {
-        if (s.kind !== K.RAIL) s.life = 0;
+      if (armed && canHurt(s, me, "me", s.kind === K.MINE) && segHit(s, me.x, me.y, binR(me.lv) + SHOTS[s.kind].r) && (!SHOTS[s.kind].pierce || railOnce(s, "me"))) {
+        if (!SHOTS[s.kind].pierce) s.life = 0;
         s.direct = "me";   // its blast (if any) spares me: I took the direct hit
         shotBurst(s);
         if (SHOTS[s.kind].shove) pelletShove(me, s, SHOTS[s.kind].shove);
@@ -229,7 +241,7 @@
         if (botById.has(rid)) continue;
         if (r.inv || !canHurt(s, r, rid)) continue;
         if (armed && segHit(s, r.x, r.y, binR(r.lv) + SHOTS[s.kind].r)) {
-          if (s.kind === K.RAIL) { if (railOnce(s, rid)) { shotBurst(s); hitConfirm(s, r.lv, r.x, r.y, r); } continue; }
+          if (SHOTS[s.kind].pierce) { if (railOnce(s, rid)) { shotBurst(s); hitConfirm(s, r.lv, r.x, r.y, r); } continue; }
           s.life = 0; shotBurst(s); hitConfirm(s, r.lv, r.x, r.y, r); if (s.kind === K.BOLT) boltChain(s, r.x, r.y, rid, now); break;
         }
       }
@@ -271,8 +283,8 @@
       const k = world.rocks[i];
       if (grabbed.has(k.key) || k.age < 0.6) continue;
       for (const s of shots) {
-        if (s.life <= 0 || BOMBS[s.kind] || !segHit(s, k.x, k.y, k.r + 10)) continue;
-        if (s.kind !== K.RAIL) s.life = 0;
+        if (s.life <= 0 || SHOTS[s.kind].inert || !segHit(s, k.x, k.y, k.r + 10)) continue;
+        if (SHOTS[s.kind].pierce) { if (!railOnce(s, k.key)) continue; } else s.life = 0;
         impact(s.x, s.y, "#d9c8ff", 0.8);
         if (chipRock(k, Math.max(0.5, shotDmg(s) / DMG_UNIT), s.px, s.py)) breakRock(k, s.mine);
         break;
@@ -474,8 +486,8 @@
       if ((now - f.born) / 1000 < 4 && Math.random() < (lowQ ? 3 : 8) * dt) puff(f.x, f.y, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30, 1.4, 3 + Math.random() * 3, "rgb(60,54,72)", 2);
     }
     for (const s of shots) {
-      if (s.life <= 0 || BOMBS[s.kind] || s.kind === K.MINE) continue;
-      for (const o of hulks) if (segHit(s, o.x, o.y, 34 * sizeOf(o.lv)) && (s.kind !== K.RAIL || railOnce(s, o))) { o.vx += s.vx * (s.kind === K.RAIL ? 0.03 : 0.08); o.vy += s.vy * (s.kind === K.RAIL ? 0.03 : 0.08); o.spin += (Math.random() - 0.5); if (s.kind !== K.RAIL) s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.8); break; }
+      if (s.life <= 0 || SHOTS[s.kind].inert || s.kind === K.MINE) continue;
+      for (const o of hulks) if (segHit(s, o.x, o.y, 34 * sizeOf(o.lv)) && (!SHOTS[s.kind].pierce || railOnce(s, o))) { const pk = SHOTS[s.kind].pierce ? 0.03 : 0.08; o.vx += s.vx * pk; o.vy += s.vy * pk; o.spin += (Math.random() - 0.5); if (!SHOTS[s.kind].pierce) s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.8); break; }
       if (s.life <= 0) continue;
       for (const o of frags) if (segHit(s, o.x, o.y, o.s * 0.3)) { o.vx += s.vx * 0.12; o.vy += s.vy * 0.12; o.spin += (Math.random() - 0.5) * 2; s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.6); break; }
     }
@@ -526,6 +538,7 @@
       // always send the list when shots ride in the state, even empty: the Claude room merges presence
       // field by field, so an omitted "f" would keep old shots there forever and they could come back as ghosts
       if (net.shotsInState) msg.f = myShotLog.slice(-9).map(e => e.d);
+      if (guided || now < guideOutUntil) msg.gw = guideOut;   // my guided nuke's course (and where it blew)
       if (bots.length) {
         const bs = botStates(now);
         if (standalone) msg.bots = bs;   // the Claude room's presence is too small for bots: they stay local there

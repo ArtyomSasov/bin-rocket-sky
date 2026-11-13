@@ -99,7 +99,7 @@
         const m = meteor(ev, i);
         if (!m || grabbed.has(m.key)) continue;
         for (const s of shots) {
-          if (!s.mine || s.life <= 0 || BOMBS[s.kind] || !segHit(s, m.x, m.y, m.r + 12)) continue;
+          if (!s.mine || s.life <= 0 || SHOTS[s.kind].inert || !segHit(s, m.x, m.y, m.r + 12)) continue;
           s.life = 0; grabbed.add(m.key); pushCapped(myGrabs, m.key, 40);
           impact(s.x, s.y, "#ffb43c", 1.5);
           me.score += 2; showScore();
@@ -121,7 +121,7 @@
         if (grabbed.has(key)) continue;
         const p = ufoPos(ev, u, ev.et);
         for (const s of shots) {
-          if (!s.mine || s.life <= 0 || BOMBS[s.kind] || !segHit(s, p.x, p.y, 48)) continue;
+          if (!s.mine || s.life <= 0 || SHOTS[s.kind].inert || !segHit(s, p.x, p.y, 48)) continue;
           s.life = 0;
           const h = (ufoHits.get(key) || 0) + shotDmg(s) / DMG_UNIT; ufoHits.set(key, h);
           impact(s.x, s.y, "#7dffb0", 1); blip(260, 0.08, "square");
@@ -563,7 +563,7 @@
       const pts = [[x1, y1]];
       for (let s2 = 1; s2 < 8; s2++) { const t = s2 / 8, o = (Math.random() - 0.5) * 30; pts.push([x1 + (x2 - x1) * t - ny * o, y1 + (y2 - y1) * t + nx * o]); }
       pts.push([x2, y2]);
-      for (const [w, c] of [[8, `rgba(120,200,255,${0.35 * k})`], [2.5, `rgba(220,248,255,${k})`]]) {
+      for (const [w, c] of [[8, `rgba(${q.col || "120,200,255"},${0.35 * k})`], [2.5, `rgba(220,248,255,${k})`]]) {
         g.strokeStyle = c; g.lineWidth = w; g.beginPath(); pts.forEach(([px, py], i) => i ? g.lineTo(px, py) : g.moveTo(px, py)); g.stroke();
       }
     }
