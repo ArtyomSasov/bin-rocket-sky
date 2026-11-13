@@ -58,8 +58,21 @@ npm run build    # src/ -> index.html
 npm run serve    # http://localhost:8000
 ```
 
-Multiplayer goes through public MQTT brokers (HiveMQ, EMQX), so two browser tabs on the same lobby code
-already play together.
+Multiplayer goes through public MQTT brokers (HiveMQ, EMQX). Each active client sends the same state and
+recent shots to both connected brokers at up to 8 messages/s, keeping below the backup broker's rate limit.
+Two clients can play together as long as they share a reachable broker. Duplicate and older states are ignored.
+A silent player and its bots disappear after 7 seconds; losing one broker does not remove a player.
+
+The wire protocol uses `binrocket-sky/v2/` topics. Players must reload to this version to join each other;
+older v1 pages are isolated because their events do not identify the round. Taken terrain cells are sent in a
+rolling snapshot (one shared body per state), so late joins and reconnects recover holes after a full pass
+through the map. Detached rubble is still simulated locally.
+
+The public brokers do **not** authenticate player identities or enforce ownership of topics. Input validation,
+collection limits, and round/sequence checks protect the client from malformed and stale messages; they do
+not prevent impersonation or cheating. Do not treat lobby codes as private access credentials or scores as
+trusted. Closing that trust boundary requires an authenticated broker with topic ACLs; authoritative game
+rules additionally require a trusted server.
 
 ## Project structure
 
@@ -113,6 +126,15 @@ numeric prefixes set the order they run in.
   effects.
 
 ### Checking a change
+
+`npm test` runs the network, round and terrain regression tests using Node's built-in test runner.
+To check that the regressions fail against an earlier revision, use `TEST_REF=<commit> npm test`.
+
+`BROWSER_PATH=/path/to/chrome npm run test:browser` runs the game in real headless Chrome (Node 22+).
+It serves local assets and substitutes an in-process two-broker relay, with all external HTTPS requests
+intercepted: no test traffic reaches public brokers. It checks two-window visibility with one broker offline,
+late-join and reconnect terrain repair, round reset, the six-bot weapon/CTF smoke sequence, mobile rendering,
+browser exceptions and packet sizes. This does not test the availability or latency of the public brokers.
 
 Run `node tools/build.mjs --debug test.html`, serve it next to `sfx/`, and load `tools/smoke.js` in that page (see the comment at its top): it
 fires every gun and alt fire, plays every death effect, runs bots and a CTF capture, and reports frame

@@ -19,7 +19,7 @@
     for (const b of bots) if (b.fc >= 0 && flagCarrier[b.fc] && flagCarrier[b.fc].id !== b.tag) b.fc = -1;
     // grabbing and scoring, for me and my bots
     const actors = [];
-    if (playing && !me.dead && onTeam(me)) actors.push([me, myTag]);
+    if (roundLive && playing && !me.dead && onTeam(me)) actors.push([me, myTag]);
     if (roundLive) for (const b of bots) if (!b.dead && onTeam(b)) actors.push([b, b.tag]);
     for (const [o, tag] of actors) {
       const ef = 1 - o.tm, reach = 70 + 26 * sizeOf(o.lv || 1);

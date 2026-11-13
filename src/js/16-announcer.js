@@ -24,7 +24,7 @@
   const MULTI = ["", "", "DOUBLE KILL", "TRIPLE KILL", "ULTRA KILL", "RAMPAGE"];
   // someone (anyone) killed someone: one line in the feed, first blood, other pilots' sprees
   function reportKill(shotId, victim) {
-    if (killSeen.has(shotId) || !roundLive) return;
+    if (killSeen.has(shotId) || killSeen.size >= MAX_CREDITS || !roundLive) return;
     killSeen.add(shotId);
     const k = tagOwner(shotId.split(".")[0]), killer = k ? k.name : "Someone", ram = shotId.includes(".ram");
     const icon = ram ? RAM_ICON : ICONS[k ? k.weapon : "fire"];
