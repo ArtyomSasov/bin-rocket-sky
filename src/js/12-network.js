@@ -1,0 +1,213 @@
+  // ---------- networking ----------
+  // send(state) every 50 ms; shot(d) right away where the transport allows; otherwise shots ride in the state
+  const net = { send() {}, shot() {}, shotsInState: false, hz: 20 };
+  const netDot = document.getElementById("netDot"), netText = document.getElementById("netText");
+  const shareBtn = document.getElementById("shareBtn"), codeBtn = document.getElementById("codeBtn");
+  function copyText(text, btn, label, done) {
+    const ok = () => { btn.textContent = done; setTimeout(() => btn.textContent = label, 1600); };
+    const legacy = () => {
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      const copied = document.execCommand("copy"); ta.remove();
+      if (copied) ok(); else btn.textContent = text;
+    };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(ok, legacy);
+    else legacy();
+  }
+  // lobby choice (standalone hosting only)
+  const standalone = !(window.claude && typeof window.claude.use === "function");
+  let chooseLobby;
+  const lobbyChosen = new Promise(r => { chooseLobby = r; });
+  const CODE_ABC = "abcdefghjkmnpqrstuvwxyz23456789";
+  const normCode = v => v.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10);
+  function setStatus(on, text) { netDot.classList.toggle("on", on); netText.textContent = text; }
+
+  // how far ahead (s) to place a flyer from its last report: roughly the network delay we measured (~85-100 ms)
+  const LEAD = 0.09;
+  function addRemoteShot(owner, f) {
+    if (!Array.isArray(f) || typeof f[0] !== "string" || f[0].length > 20 || seenShots.has(f[0])) return;
+    seenShots.set(f[0], performance.now());
+    const kind = Number.isInteger(f[5]) && f[5] >= 0 && f[5] < SHOT_LIFE.length ? f[5] : 0, m = f[6] === 3 ? 3 : 1;
+    const x = clamp(num(f[1], 0), 0, W), y = clamp(num(f[2], 0), 0, H);
+    const sh = {
+      id: f[0], kind, x, y, px: x, py: y, ox: x, oy: y, m,
+      vx: clamp(num(f[3], 0), -4500, 4500), vy: clamp(num(f[4], 0), -4500, 4500),
+      life: Math.max(SHOT_LIFE[kind] * 0.7, SHOT_LIFE[kind] - 0.1), mine: false, owner   // a bit shorter: it was fired a moment ago
+    };
+    // a peer can send anything: cap what one owner (and everyone together) can keep alive here
+    let own = 0, ownMines = 0;
+    for (const o of shots) if (o.owner === owner) { own++; if (o.kind === 6) ownMines++; }
+    if (shots.length > 900 || own > 80 || (kind === 6 && ownMines >= 12)) return;
+    if (kind === 4) scatterPellets(sh); else if (kind === 9) shardSpray(sh); else shots.push(sh);
+    if (kind === 5) railBeam(x, y, sh.vx, sh.vy);
+    sfx(SHOT_SFX[kind], kind === 2 || kind === 8 ? 0.2 : 0.6, kind === 3 ? 0.6 : kind === 8 ? 1.7 : kind === 7 ? 1.4 : 1, x, y);
+    if (seenShots.size > 400) { const t = performance.now(); for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k); }
+  }
+  // Messages are partial: fast ones carry only motion, slow ones add name/look/score/lists.
+  function applyRemote(id, p) {
+    if (!p || typeof p !== "object") return;
+    const hasPos = Number.isFinite(p.x) && Number.isFinite(p.y);
+    let r = remotes.get(id);
+    if (!r) {
+      if (!hasPos) return;   // a flyer appears once we know where it is
+      r = { x: clamp(p.x, 0, W), y: clamp(p.y, 0, H), a: num(p.a, 0), ta: num(p.a, 0), tx: p.x, ty: p.y, vx: 0, vy: 0,
+            q: -1, name: "Bin", hue: 200, ck: [0, 0, 0, 0, 0], score: 0, lv: 1, lives: LIVES, thrust: 0, dead: false, inv: false };
+      remotes.set(id, r);
+    }
+    r.seen = performance.now();
+    if (Number.isFinite(p.ts)) {
+      const o = clamp(p.ts - Date.now(), -120000, 120000);
+      r.off = Number.isFinite(r.off) ? r.off + (o - r.off) * 0.1 : o;
+    }
+    // motion only from states newer than what we have (two brokers / reordering)
+    const fresh = !Number.isFinite(p.q) || p.q > r.q;
+    if (fresh && Number.isFinite(p.q)) r.q = p.q;
+    if (fresh && hasPos) {
+      r.vx = clamp(num(p.vx, 0), -1200, 1200); r.vy = clamp(num(p.vy, 0), -1200, 1200);
+      r.tx = clamp(p.x + r.vx * LEAD, 0, W); r.ty = clamp(p.y + r.vy * LEAD, 0, H);
+      if (Math.hypot(r.tx - r.x, r.ty - r.y) > 300) { r.x = r.tx; r.y = r.ty; }   // teleport (respawn, black hole)
+      if (Number.isFinite(p.a)) r.ta = p.a;
+      r.thrust = p.t ? 1 : 0;
+      const bf = p.b === 1 || p.b === 2 ? p.b : 0;
+      if (bf === 2 && r.boost !== 2) dashBurst(r);   // they just dashed
+      r.boost = bf;
+      const dead = p.d === 1;
+      if (dead && !r.dead) deathFx(r, p.ds, Number.isInteger(p.dk) && p.dk >= 0 && p.dk <= 3 ? p.dk : 0, num(p.da, 0));
+      r.dead = dead; r.inv = p.i === 1;
+    }
+    if (typeof p.tg === "string" && /^[a-z0-9]{1,8}$/.test(p.tg)) r.tag = p.tg;
+    if ("tm" in p) r.tm = p.tm === 0 || p.tm === 1 ? p.tm : undefined;
+    if ("fc" in p) r.fc = p.fc === 0 || p.fc === 1 ? p.fc : -1;
+    if (Array.isArray(p.cp) && Number.isInteger(p.cp[1])) { r.cpRound = p.cp[0]; r.caps = clamp(p.cp[1], 0, 99); }
+    if (typeof p.n === "string") r.name = p.n.slice(0, 14);
+    if (Number.isFinite(p.h)) r.hue = p.h % 360;
+    if ("ck" in p) r.ck = cleanCustom(p.ck);
+    if (Number.isFinite(p.s)) r.score = Math.max(0, Math.floor(p.s));
+    if (Number.isFinite(p.lv)) r.lv = clamp(Math.floor(p.lv), 1, MAX_LV);
+    if (Array.isArray(p.st) && p.st.length === 6 && p.st.every(Number.isInteger)) r.st = p.st;   // [round, kills, deaths, shots, hits, best]
+    if (Array.isArray(p.cv)) applyRemoteCarves(id, p.cv);
+    if (Number.isInteger(p.wp)) r.weapon = WEAPON_KEYS[p.wp] || "fire";
+    if (Number.isFinite(p.sh)) r.shield = clamp(p.sh, 0, MAX_SHIELD);
+    if ("am" in p) r.amp = p.am === 1;
+    if (Number.isFinite(p.l)) r.lives = clamp(p.l, 0, maxLivesOf(r.lv));
+    if (Array.isArray(p.g)) for (const k of p.g.slice(0, 48)) if (typeof k === "string" && k.length < 16) grabbed.add(k);
+    if (Array.isArray(p.f)) for (const f of p.f.slice(0, 10)) addRemoteShot(id, f);
+    if (Array.isArray(p.dr)) for (const d of p.dr.slice(0, 3)) {
+      if (!Array.isArray(d) || typeof d[0] !== "string" || d[0].length > 10 || drops.has(d[0])) continue;
+      drops.set(d[0], { x: clamp(num(d[1], 0), 0, W), y: clamp(num(d[2], 0), 0, H), n: clamp(Math.floor(num(d[3], 0)), 0, 40), born: performance.now() });
+    }
+    // credit for my fireballs that they report
+    const mine = k => typeof k === "string" && k.startsWith(myTag + ".");
+    for (const k of Array.isArray(p.hb) ? p.hb.slice(0, 16) : []) if (mine(k) && !credited.has(k)) {
+      credited.add(k); me.score += 1; stats.hits++; floaters.push({ x: r.x, y: r.y - 30, t: 0, txt: "Hit +1", gold: false });
+    }
+    if (bots.length) { creditBots(Array.isArray(p.hb) ? p.hb.slice(0, 16) : [], false); creditBots(Array.isArray(p.ko) ? p.ko.slice(0, 16) : [], true); }
+    for (const k of Array.isArray(p.ko) ? p.ko.slice(0, 16) : []) if (typeof k === "string") reportKill(k, r.name);
+    for (const k of Array.isArray(p.ko) ? p.ko.slice(0, 16) : []) if (mine(k) && !credited.has("ko" + k)) {
+      credited.add("ko" + k); me.score += 5; floaters.push({ x: r.x, y: r.y - 50, t: 0, txt: "KILL " + r.name, gold: true });
+      stats.kills++; stats.streak++; stats.best = Math.max(stats.best, stats.streak);
+      myKillAnnounce(performance.now());
+      blip(520, 0.35);
+    }
+    showScore();
+  }
+  function removeRemote(id) { remotes.delete(id); }
+
+  async function initNet() {
+    if (window.claude && typeof window.claude.use === "function") {
+      const room = await window.claude.use("room");
+      if (!room) { setStatus(false, "Solo flight · multiplayer needs a signed-in invite to this page"); return; }
+      net.send = p => room.presence(p).catch(() => {});
+      net.shotsInState = true;   // presence is the only channel every viewer may write
+      room.onPeers(ch => {
+        for (const p of ch.joined.concat(ch.updated)) if (!p.sameTab) applyRemote(p.peer, p.presence);
+        for (const p of ch.left) removeRemote(p.peer);
+      });
+      room.onConnection(c => setStatus(c, c ? "Live · everyone with this page open flies here" : "Reconnecting…"),
+        () => setStatus(false, "Solo flight"));
+      return;
+    }
+    // Standalone hosting: every player talks to public MQTT brokers over secure WebSocket.
+    // No direct browser-to-browser links, so office NATs and mobile networks don't matter.
+    // We listen on two brokers and publish on the first one that is connected (see BROKER_HZ for their limits).
+    await new Promise((res, rej) => {
+      const s = document.createElement("script");
+      s.src = "https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js";
+      s.onload = res; s.onerror = rej; document.head.appendChild(s);
+    }).catch(() => { setStatus(false, "Solo flight · could not load the multiplayer library"); throw new Error("mqtt"); });
+
+    const code = await lobbyChosen;          // picked on the start screen
+    setMapSize(mapOf(code));
+    buildPlanets(code);
+    setMode(modeOf(code));
+    Object.assign(me, spawnPoint(me.tm));
+    for (const b of bots) Object.assign(b, spawnPoint(b.tm));
+    history.replaceState(null, "", "#" + code);
+    const shown = code.toUpperCase();
+    document.getElementById("boardTitle").textContent = "Lobby " + shown + " · " + MODES[MODE].label;
+    shareBtn.hidden = false;
+    shareBtn.onclick = () => copyText(location.href, shareBtn, "Copy invite link", "Link copied");
+    codeBtn.hidden = false;
+    codeBtn.textContent = "Code " + shown + " · copy";
+    codeBtn.onclick = () => copyText(shown, codeBtn, "Code " + shown + " · copy", "Code copied");
+
+    // hz: messages per second we may publish there. Measured: HiveMQ delivers 32/s in full;
+    // the public EMQX broker silently drops everything above ~10/s per client.
+    const BROKER_HZ = [20, 9];
+    const BROKERS = ["wss://broker.hivemq.com:8884/mqtt", "wss://broker.emqx.io:8084/mqtt"];
+    const myId = "p" + Math.random().toString(36).slice(2, 10);
+    const base = "binrocket-sky/v1/" + code + "/";
+    const clients = BROKERS.map(url => {
+      const c = mqtt.connect(url, {
+        clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),
+        clean: true, keepalive: 20, reconnectPeriod: 2000, connectTimeout: 10000,
+        will: { topic: base + "l/" + myId, payload: "1", qos: 0, retain: false }
+      });
+      c.on("connect", () => { c.subscribe([base + "s/+", base + "l/+", base + "f/+"], { qos: 0 }); refresh(); });
+      c.on("close", refresh);
+      c.on("offline", refresh);
+      c.on("error", () => {});
+      c.on("message", (topic, payload) => {
+        const parts = topic.split("/");
+        const kind = parts[parts.length - 2], id = parts[parts.length - 1];
+        if (id === myId || !/^p[a-z0-9]{1,12}$/.test(id)) return;
+        if (kind === "l") { removeRemote(id); return; }
+        if (kind === "f" && payload.length < 200) { try { addRemoteShot(id, JSON.parse(payload.toString())); } catch {} return; }
+        if (kind !== "s" || payload.length > 16384) return;
+        let p; try { p = JSON.parse(payload.toString()); } catch { return; }
+        applyRemote(id, p);
+        if (Array.isArray(p.bots)) for (const e of p.bots.slice(0, 8)) {
+          if (Array.isArray(e) && typeof e[0] === "string" && /^pb[a-z0-9]{1,10}$/.test(e[0]) && !botById.has(e[0])) applyRemote(e[0], e[1]);
+        }
+      });
+      return c;
+    });
+    function refresh() {
+      const up = clients.filter(c => c.connected).length;
+      if (up) setStatus(true, "Lobby " + shown + " · online · " + (remotes.size + 1) + " in lobby");
+      else setStatus(false, "Lobby " + shown + " · reconnecting…");
+    }
+    setInterval(refresh, 2000);
+    const outbound = () => clients.find(c => c.connected);   // first connected broker in BROKERS order
+    // on the rate-limited backup, shots ride inside the (slower) state messages instead of their own
+    const onPrimary = () => outbound() === clients[0];
+    net.shot = d => { if (onPrimary()) clients[0].publish(base + "f/" + myId, JSON.stringify(d), { qos: 0 }); };
+    net.send = p => {
+      const c = outbound();
+      const i = clients.indexOf(c);
+      net.hz = i >= 0 ? BROKER_HZ[i] : BROKER_HZ[0];
+      net.shotsInState = i > 0;
+      if (c) c.publish(base + "s/" + myId, JSON.stringify(p), { qos: 0 });
+    };
+    addEventListener("pageshow", e => { if (e.persisted) location.reload(); });
+    addEventListener("pagehide", () => {
+      for (const c of clients) if (c.connected) { c.publish(base + "l/" + myId, "1"); c.end(true); }
+    });
+    // a tab coming back after sleep reconnects at once instead of waiting for the next retry
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) for (const c of clients) if (!c.connected) c.reconnect();
+    });
+    addEventListener("online", () => { for (const c of clients) if (!c.connected) c.reconnect(); });
+  }
+

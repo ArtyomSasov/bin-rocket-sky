@@ -1,0 +1,63 @@
+<title>Bin Rocket Sky</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Nunito:wght@600;800&display=swap">
+<!-- @styles -->
+
+<canvas id="c"></canvas>
+
+<div class="score chip"><b id="score">0</b><span>points</span><span class="lv"><b id="lvNum">Lv 1</b><span class="xpbar"><i id="xpFill"></i></span><span class="xpbar nrg" title="Boost energy"><i id="nrgFill"></i></span></span><span class="hp" id="hearts" role="img" aria-label="Health 100%"><span class="hpbar"><i id="hpFill"></i></span><b id="hpNum">100%</b></span><span class="shieldchip" id="shieldChip" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z"/></svg><b id="shieldNum">0</b></span><span class="ampchip" id="ampChip" hidden></span><span class="wpn" id="wpn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg>Fireball</span></div>
+<button class="fire boostbtn" id="boostBtn" aria-label="Boost: tap to dash, hold to boost" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l7 6-7 6zM12 6l7 6-7 6z"/></svg></button>
+<div class="joy" id="joy" hidden><i></i></div>
+<div class="arsenal" id="arsenal" hidden></div>
+<canvas class="minimap" id="minimap" width="280" height="280" aria-label="Mini map" hidden></canvas>
+<button class="fire" id="fireBtn" aria-label="Fire" hidden><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg></button>
+<div class="event" id="eventBanner" hidden></div>
+<div class="board chip"><h2 id="boardTitle">Flyers</h2><div class="round" id="roundInfo">Round 1 · 5:00</div><div class="bhead"><span>Pilot</span><span>Kills · Deaths</span></div><ol id="board"></ol></div>
+<div class="feed" id="feed" aria-live="off"></div>
+<div class="announce" id="announce"></div>
+<div class="results" id="results" hidden><div class="card chip rcard" id="resultsCard"></div></div>
+<div class="status">
+  <div class="chip" id="netChip"><span class="dot" id="netDot"></span><span id="netText">Connecting…</span></div>
+  <button class="ghost" id="codeBtn" hidden>Copy code</button>
+  <button class="ghost" id="shareBtn" hidden>Copy invite link</button>
+</div>
+
+<div class="start" id="start">
+  <form class="card chip" id="startForm">
+    <canvas id="preview" width="220" height="220" aria-label="Preview of your bin rocket"></canvas>
+    <h1>Bin Rocket <em>Sky</em></h1>
+    <p><b>Deathmatch:</b> 5-minute rounds, the pilot with the most kills wins. Scoop up sparks to level up, blast space junk and other bins with fire. You start at 100% health. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more health and fancier fire. Planets pull you in and hurt if you slam into them (more on boost); shoot one apart for +25. Planets, wrecks and buildings break off piece by piece where you hit them. Watch out for black holes, meteor showers and aliens. Grab weapon crates: triple shot, laser, homing rockets (slow: outrun them or shoot them down), scatter gun, railgun (pierces), mines, plasma orb (shoot it with the railgun or laser for a combo blast), lightning, shard cannon (shards ricochet), and the rare nuke. The violet Overdrive crystal triples your damage for 20 s (it levels everything around it). Medkits heal, shields soak damage. Black holes swallow anything that reaches the centre. Your bin has inertia: push the other way or hold X to brake. Modes for a new lobby: Deathmatch, Team Deathmatch, Capture the Flag, Nukes only and Railgun instagib.</p>
+    <div class="field">
+      <label for="nameInput">Pilot name</label>
+      <input id="nameInput" maxlength="14" autocomplete="off" placeholder="Pilot name">
+    </div>
+    <div class="field" id="lobbyBox" hidden>
+      <label for="lobbyInput">Lobby code <small>(type a friend's code or create your own)</small></label>
+      <div class="row">
+        <input id="lobbyInput" class="code" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="e.g. K7M2Q">
+        <button type="button" class="ghost" id="createBtn">Create new</button>
+      </div>
+      <label>Map size <small>(for a new lobby; a friend's code brings its own)</small></label>
+      <div class="segs" id="mapSize" role="group" aria-label="Map size"></div>
+      <label>Mode <small>(for a new lobby; a friend's code brings its own)</small></label>
+      <div class="segs" id="modePick" role="group" aria-label="Game mode"></div>
+    </div>
+    <button type="submit" class="go" id="goBtn">Take off</button>
+    <details class="custom" id="customBox">
+      <summary>Customize your bin</summary>
+      <div class="opts" id="customOpts"></div>
+    </details>
+    <div class="field">
+      <label>Bots <small>(they join your lobby; everyone can fight them)</small></label>
+      <div class="segs" id="botCount" role="group" aria-label="Number of bots"></div>
+      <div class="segs" id="botLevel" role="group" aria-label="Bot difficulty"></div>
+    </div>
+    <section class="controls" aria-labelledby="ctrlTitle">
+      <div class="ctrl-head"><span id="ctrlTitle">Controls</span><div class="ctabs" id="ctabs" role="tablist" aria-label="Device"></div></div>
+      <dl class="clist" id="clist"></dl>
+    </section>
+  </form>
+</div>
+
+<!-- @script -->

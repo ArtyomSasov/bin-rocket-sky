@@ -365,6 +365,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 <script>
 (() => {
   "use strict";
+  // ---------- config: world size, levels, weapons, shots, modes, supplies, rounds ----------
   // walled arena; its size comes from the lobby code's first letter (s/m/l/x), so everyone in a lobby shares it
   const MAP_SIZES = { s: [2600, "Small", 3], m: [4200, "Medium", 5], l: [6000, "Large", 9], x: [8000, "Huge", 14] };
   const mapOf = code => MAP_SIZES[String(code)[0]] ? String(code)[0] : "m";
@@ -1425,6 +1426,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     for (const b of bots) { b.fc = -1; b.caps = 0; }
     bases = MODES[MODE].flags ? [findBase(0), findBase(1)] : null;
   }
+  // ---------- body physics: pick-up placement, gravity, bouncing off bodies, shot hits ----------
   // pick-ups that would land inside a planet sit on its rim instead (same result on every client)
   function outside(o) {
     for (const p of planets) {
