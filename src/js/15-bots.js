@@ -28,6 +28,7 @@
   function botHurt(b, dmg, shotId, now, force, kind = -1, ang = 0) {
     if (b.dead || (!force && now < b.inv) || !roundLive) return;
     b.lives = Math.round((b.lives - dmg) * 1000) / 1000;
+    const shown = remotes.get(b.id); if (shown) shown.hitAt = performance.now();
     const byHole = shotId === "x" || shotId === "p";   // the black hole or a planet: nobody gets credit
     if (!byHole) pushCapped(b.hitBy, shotId, 12);
     if (b.lives <= 0) {
@@ -157,8 +158,8 @@
         if (s.life <= 0 || s.kind === K.NUKE || !canHurt(s, b, b.id)) continue;
         if (s.kind === K.MINE && SHOTS[K.MINE].life - s.life < MINE_ARM) continue;
         if (segHit(s, b.x, b.y, 38 + SHOTS[s.kind].r)) {
-          if (s.kind === K.RAIL) { if (!railOnce(s, b.id)) continue; } else s.life = 0;
-          shotBurst(s); hitConfirm(s, b.lv, b.x, b.y); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
+          if (s.kind === K.RAIL) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
+          shotBurst(s); hitConfirm(s, b.lv, b.x, b.y, remotes.get(b.id)); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
           if (s.kind === K.BOLT) boltChain(s, b.x, b.y, b.id, now);
           botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx));
         }

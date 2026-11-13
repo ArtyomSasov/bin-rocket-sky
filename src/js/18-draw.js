@@ -154,13 +154,22 @@
       hg.addColorStop(0, "rgba(195,139,255,0.55)"); hg.addColorStop(1, "rgba(195,139,255,0)");
       g.fillStyle = hg; g.beginPath(); g.arc(x, y, 26, 0, 6.29); g.fill();
     }
-    if (s.kind === K.ORB) {   // plasma orb: a swirling ball of light
-      const r = 15 + Math.sin(now / 60 + s.x) * 2;
-      const og = g.createRadialGradient(x, y, 0, x, y, r * 2.4);
-      og.addColorStop(0, "rgba(255,255,255,1)"); og.addColorStop(0.3, "rgba(150,230,255,0.9)"); og.addColorStop(1, "rgba(60,160,255,0)");
-      g.fillStyle = og; g.beginPath(); g.arc(x, y, r * 2.4, 0, 6.29); g.fill();
-      g.strokeStyle = "rgba(200,245,255,0.8)"; g.lineWidth = 2;
-      for (let k = 0; k < 2; k++) { g.beginPath(); g.ellipse(x, y, r * 1.3, r * 0.5, now / 150 + k * 1.6, 0, 6.29); g.stroke(); }
+    if (s.kind === K.ORB) {   // plasma orb: a big crackling ball, a wide glow, spinning rings and arcs licking out
+      const r = 25 + Math.sin(now / 60 + s.x) * 2.5;
+      g.globalAlpha = 0.5; g.drawImage(dotSprite("#3aa8ff"), x - r * 3.4, y - r * 3.4, r * 6.8, r * 6.8); g.globalAlpha = 1;
+      const og = g.createRadialGradient(x, y, 0, x, y, r * 1.7);
+      og.addColorStop(0, "rgba(255,255,255,1)"); og.addColorStop(0.35, "rgba(170,240,255,0.95)"); og.addColorStop(0.7, "rgba(70,170,255,0.6)"); og.addColorStop(1, "rgba(40,120,255,0)");
+      g.fillStyle = og; g.beginPath(); g.arc(x, y, r * 1.7, 0, 6.29); g.fill();
+      g.strokeStyle = "rgba(210,248,255,0.85)"; g.lineWidth = 2.5;
+      for (let k = 0; k < 3; k++) { g.beginPath(); g.ellipse(x, y, r * 1.35, r * 0.45, now / (130 + k * 40) + k * 2.1, 0, 6.29); g.stroke(); }
+      g.lineJoin = "round";
+      for (let k = 0; k < (lowQ ? 2 : 4); k++) {   // arcs crackling out of the ball
+        let a = Math.random() * 6.283, rr = r * 0.5, px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr;
+        g.strokeStyle = k % 2 ? "rgba(255,255,255,0.9)" : "rgba(140,225,255,0.85)"; g.lineWidth = 1.6;
+        g.beginPath(); g.moveTo(px, py);
+        for (let n = 0; n < 4; n++) { a += (Math.random() - 0.5) * 0.9; rr += r * (0.25 + Math.random() * 0.2); g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+        g.stroke();
+      }
       return;
     }
     if (s.kind === K.BOLT) {   // lightning: a jagged arc from the gun to where the bolt has reached
@@ -293,7 +302,7 @@
     }
     if (s.kind === K.ROCKET) {
       const a = Math.atan2(s.vy, s.vx), fl = 1 + Math.sin(now / 25 + s.x) * 0.25;
-      g.save(); g.translate(x, y); g.rotate(a); g.scale(1.6, 1.6);
+      g.save(); g.translate(x, y); g.rotate(a); g.scale(2, 2);
       const fg = g.createLinearGradient(-34 * fl, 0, -8, 0);
       fg.addColorStop(0, "rgba(255,60,20,0)"); fg.addColorStop(1, "rgba(255,210,90,0.95)");
       g.fillStyle = fg; g.beginPath(); g.moveTo(-8, -4); g.lineTo(-34 * fl, 0); g.lineTo(-8, 4); g.fill();
@@ -726,8 +735,11 @@
     g.restore();
     drawWings(lv, s);
     drawMounts(isMe ? me.weapon : b.weapon, s, now);
-    if (body) g.drawImage(b.ck ? tintedBody(teamCk(b)) : body, -s / 2, -s / 2, s, s);
-    else { g.fillStyle = "#4fd6c8"; g.fillRect(-s / 3, -s / 3, s / 1.5, s / 1.5); }
+    if (body) {
+      g.drawImage(b.ck ? tintedBody(teamCk(b)) : body, -s / 2, -s / 2, s, s);
+      const hf = b.hitAt ? Math.min(1, 1 - (now - b.hitAt) / 120) : 0;   // just hit: a white flash
+      if (hf > 0) { g.globalAlpha = hf * 0.85; g.drawImage(whiteBody(teamCk(b) || [0, 0, 0, 0, 0]), -s / 2, -s / 2, s, s); g.globalAlpha = 1; }
+    } else { g.fillStyle = "#4fd6c8"; g.fillRect(-s / 3, -s / 3, s / 1.5, s / 1.5); }
     const hat = b.ck ? customVal(b.ck, "hat") : null;
     drawArmor(lv, s, now, !hat);
     if (Number.isFinite(b.lives)) drawDamage(damageOf(b), s, now, x);

@@ -136,7 +136,7 @@
     for (let i = shots.length - 1; i >= 0; i--) {
       const s = shots[i];
       s.life -= dt;
-      if (s.life <= 0) { if (s.kind === K.ROCKET) rocketSplash(s, now); if (s.kind === K.ORB && !s.boom) explode(s.x, s.y, 24, 220); if (s.kind === K.NUKE) detonate(s, now); else if (s.kind === K.MINE && !s.boom) explode(s.x, s.y, 20, 180); shots.splice(i, 1); continue; }
+      if (s.life <= 0) { if (SPLASH[s.kind]) splash(s, now); if (s.kind === K.NUKE) detonate(s, now); else if (s.kind === K.MINE && !s.boom) explode(s.x, s.y, 20, 180); shots.splice(i, 1); continue; }
       if (s.kind === K.ROCKET) steerRocket(s, dt);
       if (s.kind === K.ROCKET && s.life > 0) for (const o of shots) {   // rockets are big and slow: any enemy shot can blow one up mid-air
         if (o === s || o.life <= 0 || o.kind === K.NUKE || o.kind === K.MINE || (o.mine ? s.mine : o.owner === s.owner)) continue;
@@ -179,14 +179,13 @@
         } else {
           if (dig) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);
           s.x = hb.x; s.y = hb.y;
-          if (s.kind === K.ROCKET) rocketSplash(s, now);
-          if (s.kind === K.ORB) s.boom = true;
-          impact(hb.x, hb.y, SHOTS[s.kind].col, s.kind === K.ROCKET || s.kind === K.MINE || s.kind === K.ORB ? 1.6 : 0.8);
-          if (s.kind === K.ROCKET || s.kind === K.MINE || s.kind === K.ORB) explode(hb.x, hb.y, 40, 260);
+          if (SPLASH[s.kind]) splash(s, now);
+          impact(hb.x, hb.y, SHOTS[s.kind].col, s.kind === K.MINE ? 1.6 : 0.8);
+          if (s.kind === K.MINE) explode(hb.x, hb.y, 40, 260);
           shots.splice(i, 1); continue;
         }
       }
-      if ((s.x < 0 || s.x > W || s.y < 0 || s.y > H) && s.kind === K.ROCKET) rocketSplash(s, now);
+      if ((s.x < 0 || s.x > W || s.y < 0 || s.y > H) && SPLASH[s.kind]) splash(s, now);
       if (s.x < 0 || s.x > W || s.y < 0 || s.y > H) { explode(clamp(s.x, 0, W), clamp(s.y, 0, H), s.kind === K.ROCKET ? 40 : 10, 160); shots.splice(i, 1); continue; }
       if (s.kind === K.ROCKET) {   // a thick billowing smoke trail with fire licking out of the motor
         const sp = Math.hypot(s.vx, s.vy) || 1, bx = s.x - s.vx / sp * 26, by = s.y - s.vy / sp * 26;
@@ -196,8 +195,8 @@
         if (Math.random() < dt * 15) puff(s.x, s.y, (Math.random() - .5) * 40, (Math.random() - .5) * 40, 0.2, 1.5, "#bff9ff");
       } else if (s.kind === K.RAIL) {   // the slug leaves a glowing wake along its whole path
         for (let k = 0; k < 4; k++) { const f = Math.random(); puff(s.px + (s.x - s.px) * f, s.py + (s.y - s.py) * f, (Math.random() - .5) * 30, (Math.random() - .5) * 30, 0.5 + Math.random() * 0.4, 1.6 + Math.random() * 1.6, k % 2 ? "#e9c8ff" : "#ffffff"); }
-      } else if (s.kind === K.ORB) {
-        if (Math.random() < dt * 40) puff(s.x, s.y, (Math.random() - .5) * 80, (Math.random() - .5) * 80, 0.35, 2 + Math.random() * 2, Math.random() < 0.5 ? "#6fd8ff" : "#ffffff");
+      } else if (s.kind === K.ORB) {   // a plasma wake: glowing motes peeling off, and crackle
+        if (Math.random() < dt * (lowQ ? 40 : 90)) puff(s.x + (Math.random() - .5) * 30, s.y + (Math.random() - .5) * 30, -s.vx * 0.15 + (Math.random() - .5) * 60, -s.vy * 0.15 + (Math.random() - .5) * 60, 0.5 + Math.random() * 0.4, 2.5 + Math.random() * 3, Math.random() < 0.6 ? "#6fd8ff" : "#ffffff");
       } else if (s.kind === K.SHARD) {
         if (Math.random() < dt * 30) puff(s.x, s.y, -s.vx * 0.05, -s.vy * 0.05, 0.2, 1.5, "#ffc070");
       } else if (s.kind === K.SLUG) {   // the slug drags a short hot trail
@@ -209,7 +208,7 @@
       const armed = s.kind !== K.MINE || SHOTS[K.MINE].life - s.life >= MINE_ARM;
       if (armed && canHurt(s, me, "me") && segHit(s, me.x, me.y, 12 + 26 * sizeOf(me.lv) + SHOTS[s.kind].r) && (s.kind !== K.RAIL || railOnce(s, "me"))) {
         if (s.kind !== K.RAIL) s.life = 0;
-        s.splashed = true;
+        s.direct = "me";   // its blast (if any) spares me: I took the direct hit
         shotBurst(s);
         if (SHOTS[s.kind].shove) pelletShove(me, s, SHOTS[s.kind].shove);
         if (s.kind === K.BOLT) boltChain(s, me.x, me.y, "me", now);
@@ -228,8 +227,8 @@
         if (botById.has(rid)) continue;
         if (r.inv || !canHurt(s, r, rid)) continue;
         if (armed && segHit(s, r.x, r.y, 16 + 26 * sizeOf(r.lv || 1) + SHOTS[s.kind].r)) {
-          if (s.kind === K.RAIL) { if (railOnce(s, rid)) { shotBurst(s); hitConfirm(s, r.lv, r.x, r.y); } continue; }
-          s.life = 0; shotBurst(s); hitConfirm(s, r.lv, r.x, r.y); if (s.kind === K.BOLT) boltChain(s, r.x, r.y, rid, now); break;
+          if (s.kind === K.RAIL) { if (railOnce(s, rid)) { shotBurst(s); hitConfirm(s, r.lv, r.x, r.y, r); } continue; }
+          s.life = 0; shotBurst(s); hitConfirm(s, r.lv, r.x, r.y, r); if (s.kind === K.BOLT) boltChain(s, r.x, r.y, rid, now); break;
         }
       }
     }

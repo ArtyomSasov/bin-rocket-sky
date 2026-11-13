@@ -62,6 +62,17 @@
     explode(b.x, b.y, lowQ ? 14 : 30, 220);
     smoke(b.x, b.y, lowQ ? 6 : 14, 60, 2);
   }
+  const whiteCache = new Map();
+  function whiteBody(ck) {   // the bin's silhouette in white, for the hit flash
+    const src = tintedBody(ck), key = ck.join(",") + "|" + (ck.team ?? "");
+    let c = whiteCache.get(key);
+    if (c) return c;
+    c = document.createElement("canvas"); c.width = src.width; c.height = src.height;
+    const x = c.getContext("2d");
+    x.drawImage(src, 0, 0); x.globalCompositeOperation = "source-atop"; x.fillStyle = "#ffffff"; x.fillRect(0, 0, c.width, c.height);
+    whiteCache.set(key, c);
+    return c;
+  }
   const darkCache = new Map();
   function darkBody(ck, amount = 0.58) {
     const src = tintedBody(ck), key = ck.join(",") + "|" + (ck.team ?? "") + "|" + amount;

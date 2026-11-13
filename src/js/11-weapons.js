@@ -94,7 +94,7 @@
     const dmg = CHAIN_DMG * (s.m || 1), cid = s.id + "c";
     if (best.id === "me") { if (hurt(now, dmg, false, K.BOLT, a)) { pushCapped(hitBy, cid, 12); if (me.dead) { meKilled(cid); killedBy(s.owner); } } }
     else if (botById.has(best.id)) botHurt(botById.get(best.id), dmg, cid, now, false, K.BOLT, a);
-    else if (s.mine) hitConfirm({ ...s, kind: K.BOLT }, t.lv, t.x, t.y);
+    else if (s.mine) hitConfirm({ ...s, kind: K.BOLT }, t.lv, t.x, t.y, t);
   }
   // homing: turns gently toward the nearest enemy ahead of it, never faster than a bin flies, so boost or a dash escapes it
   function steerRocket(s, dt) {
@@ -111,16 +111,49 @@
     const sp = Math.min(560, Math.hypot(s.vx, s.vy) + 380 * dt);
     s.vx = Math.cos(na) * sp; s.vy = Math.sin(na) * sp;
   }
-  function rocketSplash(s, now) {
-    if (s.splashed || !canHurt(s, me, "me")) return;
+  // the blast of a rocket or a plasma orb, wherever it ends: everyone sees it, and it hurts me and my bots nearby
+  // (whoever took the direct hit, s.direct, already got its damage)
+  function splash(s, now) {
+    blastFx(s);
+    if (s.splashed) return;
     s.splashed = true;
-    const d = Math.hypot(me.x - s.x, me.y - s.y), R = 140 + 26 * sizeOf(me.lv);
-    if (d > R) return;
-    me.vx += (me.x - s.x) / (d || 1) * 300; me.vy += (me.y - s.y) / (d || 1) * 300;
-    if (hurt(now, (0.6 * (1 - d / R) + 0.15) * (s.m || 1))) { pushCapped(hitBy, s.id, 12); if (me.dead) { meKilled(s.id); killedBy(s.owner); } }
+    const [R0, hi, lo, push] = SPLASH[s.kind], m = s.m || 1;
+    const hit = (o, id, rad) => {
+      const d = Math.hypot(o.x - s.x, o.y - s.y), R = R0 + rad;
+      if (d > R || id === s.direct || !canHurt(s, o, id)) return 0;
+      o.vx += (o.x - s.x) / (d || 1) * push; o.vy += (o.y - s.y) / (d || 1) * push;
+      return (hi * (1 - d / R) + lo) * m;
+    };
+    const dm = hit(me, "me", 26 * sizeOf(me.lv));
+    if (dm && hurt(now, dm, false, s.kind)) { pushCapped(hitBy, s.id, 12); if (me.dead) { meKilled(s.id); killedBy(s.owner); } }
+    for (const b of bots) { const db = hit(b, b.id, 38); if (db) botHurt(b, db, s.id, now, false, s.kind); }
+  }
+  // the look of a rocket or plasma blast, once per shot
+  function blastFx(s) {
+    if (s.fxDone) return;
+    s.fxDone = true; s.boom = true;
+    const x = s.x, y = s.y, near = Math.hypot(x - me.x, y - me.y) < 1400;
+    if (s.kind === K.ORB) {   // plasma: a blue-white flash, a warping shock ring, crackling sparks, a sizzle
+      impacts.push({ x, y, t: 0, r: 170, col: "#bff4ff" });
+      rings.push({ x, y, t: 0, r: 280, col: "120,220,255", warp: true, dur: 0.55, w: 16 });
+      rings.push({ x, y, t: -0.06, r: 170, col: "255,255,255", dur: 0.35, w: 6 });
+      for (let k = 0; k < (lowQ ? 18 : 48); k++) { const a = Math.random() * 6.283, v = 150 + Math.random() * 520; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.35 + Math.random() * 0.5, 1.2 + Math.random() * 1.6, k % 3 ? "#9fe8ff" : "#ffffff", 1, 0.05); }
+      for (let k = 0; k < 4; k++) { const a = Math.random() * 6.283; arcs.push({ x1: x, y1: y, x2: x + Math.cos(a) * 140, y2: y + Math.sin(a) * 140, t: 0 }); }
+      if (near) { sfx("boom_small", 0.9, 1.35, x, y); sfx("shield_hit", 0.8, 0.6, x, y); shake = Math.max(shake, 0.25 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
+    } else {   // rocket: a fat fireball with a warping shock ring and smoke
+      explode(x, y, lowQ ? 40 : 80, 420);
+      impacts.push({ x, y, t: 0, r: 140, col: "#fff2c0" });
+      rings.push({ x, y, t: 0, r: 240, col: "255,200,140", warp: true, dur: 0.5, w: 14 });
+      smoke(x, y, lowQ ? 5 : 12, 90, 2);
+      if (near) { sfx("boom_small", 1, 0.95, x, y); shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
+    }
   }
   let hitTickAt = 0;
-  function hitConfirm(s, lv, x, y) {
+  let hitStopUntil = 0;
+  function hitConfirm(s, lv, x, y, target) {
+    const t0 = performance.now();
+    if (target) target.hitAt = t0;
+    if (s.mine && shotDmg(s) >= 0.9) hitStopUntil = Math.max(hitStopUntil, t0 + (s.kind === K.RAIL ? 70 : 45));   // a heavy hit lands: the world stops for a beat
     if (!s.mine) return;
     const pct = Math.max(1, Math.round(shotDmg(s) / maxLivesOf(lv || 1) * 100));
     floaters.push({ x: x + (Math.random() - 0.5) * 30, y: y - 40, t: 0, txt: "-" + pct + "%", hit: true, col: SHOTS[s.kind].col, big: pct >= 40 });
@@ -152,11 +185,10 @@
   // what every client shows where a shot lands on a bin
   function shotBurst(s) {
     if (s.kind === K.MINE) { s.boom = true; explode(s.x, s.y, 50, 320); rings.push({ x: s.x, y: s.y, t: 0, r: 150, col: "255,140,80", dur: 0.45, w: 10 }); shake = Math.max(shake, 0.25); sfx("boom_small", 1, 0.9, s.x, s.y) || boomSound(0.6, 900, 0.35); return; }
-    if (s.kind === K.ROCKET) { explode(s.x, s.y, 40, 260); sfx("boom_small", 0.8, 1.15, s.x, s.y); } else sfx("hit", 0.55, 1.1, s.x, s.y);
+    if (SPLASH[s.kind]) blastFx(s); else sfx("hit", 0.55, 1.1, s.x, s.y);
     if (s.kind === K.RAIL) sparkShower(s.x, s.y, s.vx / 4200, s.vy / 4200, 1.2);
     if (s.kind === K.PELLET) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
     if (s.kind === K.SLUG) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
-    if (s.kind === K.ORB) { s.boom = true; explode(s.x, s.y, 50, 360); rings.push({ x: s.x, y: s.y, t: 0, r: 110, col: "160,235,255", dur: 0.4, w: 8 }); }
     if (s.kind === K.SHARD) sparkShower(s.x, s.y, s.vx / 1300, s.vy / 1300, 0.6);
     impact(s.x, s.y, SHOTS[s.kind].col, s.kind === K.ROCKET || s.kind === K.RAIL ? 2 : 1);
   }
@@ -173,7 +205,11 @@
       for (let k = 0; k < 14; k++) { const a = me.a + (Math.random() - 0.5) * 0.3, v = 300 + Math.random() * 500; puff(m.x, m.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.25, 2.5, FIRE_COLS[k % 4]); }
     },
     rail(m) { flash = Math.max(flash, 0.12); rings.push({ x: m.x, y: m.y, t: 0, r: 70, col: "233,200,255", dur: 0.35, w: 6 }); },
-    flash(m) { impacts.push({ x: m.x, y: m.y, t: 0, r: 50, col: "#ff9a3c" }); }
+    flash(m) { impacts.push({ x: m.x, y: m.y, t: 0, r: 50, col: "#ff9a3c" }); },
+    plasma(m) {
+      rings.push({ x: m.x, y: m.y, t: 0, r: 90, col: "140,225,255", dur: 0.3, w: 6 });
+      for (let k = 0; k < 16; k++) { const a = me.a + (Math.random() - 0.5) * 1.2, v = 150 + Math.random() * 300; puff(m.x, m.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.3, 2, k % 2 ? "#9fe8ff" : "#ffffff"); }
+    }
   };
   // fire the gun in hand (alt: its alternate fire, which needs its full ammo cost)
   function shoot(now, alt) {
@@ -386,6 +422,7 @@
       if (dmg <= 0) { me.hazardAt = now + 600; shake = Math.max(shake, 0.15); return true; }
     }
     me.lives = Math.max(0, Math.round((me.lives - dmg) * 1000) / 1000);
+    me.hitAt = now;
     hurtFlash = Math.min(1, hurtFlash + 0.35 + dmg * 0.4);
     me.hazardAt = now + 600; shake = Math.max(shake, 0.12 + Math.min(0.3, dmg * 0.2));
     renderHearts(true);
