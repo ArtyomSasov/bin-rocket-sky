@@ -71,9 +71,9 @@
       life: Math.max(SHOTS[kind].life * 0.7, SHOTS[kind].life - 0.1), mine: false, owner   // a bit shorter: it was fired a moment ago
     };
     // a peer can send anything: cap what one owner (and everyone together) can keep alive here
-    let own = 0, ownMines = 0;
-    for (const o of shots) if (o.owner === owner) { own++; if (o.kind === K.MINE) ownMines++; }
-    if (shots.length > 900 || own > 80 || (kind === K.MINE && ownMines >= 12)) return;
+    let own = 0, ownMines = 0, ownBombs = 0;   // a big bomb is heavy to play out (blast, choir): one owner gets two at once
+    for (const o of shots) if (o.owner === owner) { own++; if (o.kind === K.MINE) ownMines++; if (BOMBS[o.kind]) ownBombs++; }
+    if (shots.length > 900 || own > 80 || (kind === K.MINE && ownMines >= 12) || (BOMBS[kind] && ownBombs >= 2)) return;
     seenShots.set(f[0], performance.now());
     if (kind === K.PELLET) scatterPellets(sh); else if (kind === K.SHARD) shardSpray(sh); else shots.push(sh);
     if (kind === K.RAIL) railBeam(x, y, sh.vx, sh.vy);

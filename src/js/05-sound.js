@@ -87,8 +87,9 @@
     [0.25, [196, 293.7, 392, 493.9], [350, 650]],
     [1.3, [220, 293.7, 370, 587.3], [800, 1150]]
   ];
+  let choirUntil = 0;   // one choir at a time
   function choir(x, y) {
-    if (!audio) return;
+    if (!audio || audio.currentTime < choirUntil) return;
     const vol = 0.22 * (1 - Math.min(0.7, Math.hypot(x - me.x, y - me.y) / 6000));
     const out = audio.createGain(); out.gain.value = vol;
     out.connect(audio.destination); out.connect(getHall());
@@ -107,6 +108,7 @@
       }
       t = end;
     }
+    choirUntil = t;
   }
   function blip(f, dur, type) {
     if (!audio) return;
