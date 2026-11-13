@@ -89,6 +89,27 @@ bot.png           bin sprite
 The files in `src/js/` are sections of one script, not separate modules: they share variables, and the
 numeric prefixes set the order they run in.
 
+### How the game code is organised
+
+- **Data tables** (`01-config.js`): `SHOTS` (per shot kind `K.*`: life, damage, hit radius, crater, shove,
+  sound), `WEAPONS` (per gun: shot pattern, recoil, feel, sound, muzzle fx, alt fire), `MODES` (rules:
+  teams, flags, single gun, reload multipliers, instagib, supplies), `MAPS` (what fills the arena).
+  A new gun, mode or map is mostly a new row here.
+- **One firing path**: `volley(pilot, now, pattern, muzzle)` fires for the player and the bots alike.
+- **One damage rule**: `canHurt(shot, target, id)` decides every hit, splash, blast, homing target and
+  lightning jump (alive, not the shooter, not a teammate).
+- **Frame = ordered systems**: `update()` calls `steerAndShoot`, `flyMe`, `updateShots`, `updateJunk`,
+  `updateEvents`, `updateBots`, `ctfTick`, `updateRemotes`, `updatePickups`, `updateFx`, `netSend`;
+  `draw()` paints layers back to front (`drawSky` ... `drawPilots` ... `drawScreenFx`).
+- **Damage is decided by the victim**: each client reports the shot ids that hit it; shooters only show
+  effects.
+
+### Checking a change
+
+Build, open the page, and in the browser console load `tools/smoke.js` (see the comment at its top): it
+fires every gun and alt fire, plays every death effect, runs bots and a CTF capture, and reports frame
+times and errors.
+
 ## Credits
 
 Sound effects are CC0 from OpenGameArt (Kenney, rubberduck, zer0sol), see `sfx/CREDITS.txt`. The railgun

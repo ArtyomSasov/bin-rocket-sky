@@ -4896,20 +4896,17 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     g.restore(); g.globalAlpha = 1;
   }
 
-  function draw(now) {
-    g.save();
-    if (shake > 0) g.translate((Math.random() - .5) * shake * 40, (Math.random() - .5) * shake * 40);
-    g.translate(-camKick.x, -camKick.y);
-    drawSky(now);
-    drawWalls(now);
+  // space junk (behind the planets)
+  function drawJunk(now) {
     for (let i = 0; i < ROCKS; i++) {
       const k = world.rocks[i];
       if (grabbed.has(k.key)) continue;
       const x = sx(k.x), y = sy(k.y);
       if (onScreen(x, y, 50)) drawRock(k, x, y);
     }
-    drawBodies(now);   // after the junk: drifting rocks pass behind planets
-    drawEvents(now);
+  }
+  // spilled stars, weapon crates, medkits and shields, Overdrive, the nuke, sparks
+  function drawPickups(now) {
     for (const [id, d] of drops) {
       const age = now - d.born, fade = age > DROP_LIFE - 3000 && Math.floor(now / 120) % 2 ? 0.35 : 1;
       g.globalAlpha = fade;
@@ -4947,6 +4944,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const x = sx(s.x), y = sy(s.y);
       if (onScreen(x, y, 40)) drawSpark(x, y, s.gold ? 15 : 9, s.gold, now, s.age);
     }
+  }
+  // dead bins: hulks, fragments, melting bins, debris
+  function drawWreckage(now) {
     for (const h of hulks) {
       const x = sx(h.x), y = sy(h.y), s = BOT * sizeOf(h.lv);
       if (!onScreen(x, y, s)) continue;
@@ -5002,6 +5002,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       }
       g.restore();
     }
+  }
+  // additive layer: glowing particles and spark streaks, then the shots
+  function drawGlow(now) {
     // glow dots and spark streaks (additive)
     g.globalCompositeOperation = "lighter";
     g.lineCap = "round";
@@ -5024,7 +5027,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (onScreen(x, y, 60)) drawShot(s, x, y, now);
     }
     g.globalCompositeOperation = "source-over";
-    drawBlackHole(now);   // lenses the world behind it; bots and text are drawn on top, undistorted
+  }
+  // the other pilots, then me
+  function drawPilots(now) {
     // bots
     for (const r of remotes.values()) {
       if (r.dead) continue;
@@ -5038,7 +5043,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.font = `700 ${30 * TS}px ` + DISPLAY_FONT;
       g.fillText((killer ? "Killed by " + killer + " · " : "Boom! ") + "back in " + Math.max(1, Math.ceil((me.respawnAt - now) / 1000)) + "…", vw / 2, vh / 2);
     }
-    drawFlags(now);
+  }
+  // smoke over the bins, impact flashes, rail trails, chain lightning, shock rings, nuke blasts
+  function drawBlastFx(now) {
     // smoke on top of the bins, so a damaged bin visibly smokes
     for (const p of parts) {
       if (p.k !== 2) continue;
@@ -5138,6 +5145,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       }
       g.globalCompositeOperation = "source-over";
     }
+  }
+  // floating score text
+  function drawFloaters(now) {
     // floating score text
     g.textAlign = "center";
     for (const f of floaters) {
@@ -5147,13 +5157,36 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.fillText(f.txt, sx(f.x), sy(f.y) - f.t * 50);
     }
     g.globalAlpha = 1;
-    g.restore();
+  }
+  // whole-screen flashes: a blast's white-out, the red edge when hurt
+  function drawScreenFx(now) {
     if (flash > 0) { g.fillStyle = `rgba(255,252,235,${flash})`; g.fillRect(0, 0, vw, vh); }
     if (hurtFlash > 0) {   // taking damage: the edges of the screen flush red
       const vg = g.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.3, vw / 2, vh / 2, Math.max(vw, vh) * 0.75);
       vg.addColorStop(0, "rgba(255,30,40,0)"); vg.addColorStop(1, `rgba(255,30,40,${0.55 * hurtFlash})`);
       g.fillStyle = vg; g.fillRect(0, 0, vw, vh);
     }
+  }
+  // one frame, back to front. Everything inside the save/restore moves with the camera shake
+  function draw(now) {
+    g.save();
+    if (shake > 0) g.translate((Math.random() - .5) * shake * 40, (Math.random() - .5) * shake * 40);
+    g.translate(-camKick.x, -camKick.y);
+    drawSky(now);
+    drawWalls(now);
+    drawJunk(now);
+    drawBodies(now);   // after the junk: drifting rocks pass behind planets
+    drawEvents(now);
+    drawPickups(now);
+    drawWreckage(now);
+    drawGlow(now);
+    drawBlackHole(now);   // lenses the world behind it; bots and text are drawn on top, undistorted
+    drawPilots(now);
+    drawFlags(now);
+    drawBlastFx(now);
+    drawFloaters(now);
+    g.restore();
+    drawScreenFx(now);
   }
 
   // edge arrow toward an off-screen flyer
