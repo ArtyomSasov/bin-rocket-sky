@@ -238,6 +238,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   background: radial-gradient(circle at 50% 40%, #c8fff8, #4fd6c8 60%, #2aa79b);
   box-shadow: 0 4px 0 #1d7a70, 0 0 20px rgba(79, 214, 200, .5);
 }
+.altbtn {
+  right: calc(30px + env(safe-area-inset-right, 0px)); bottom: calc(150px + env(safe-area-inset-bottom, 0px));
+  width: 56px; height: 56px; font: 700 11px var(--display); color: #fff7e0; letter-spacing: .04em;
+  background: radial-gradient(circle at 50% 40%, #ffd2a0, #ff7a3c 60%, #c2401e);
+}
 .boostbtn svg { width: 28px; height: 28px; fill: #10302d; }
 .xpbar.nrg i { background: linear-gradient(90deg, #7df9ff, #ffffff); transition: none; }
 .minimap {
@@ -283,6 +288,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   box-shadow: none; touch-action: none; cursor: pointer;
 }
 .slot svg { width: 20px; height: 20px; fill: currentColor; }
+.slot b { position: absolute; left: 5px; right: 5px; bottom: 3px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.12); overflow: hidden; }
+.slot b::after { content: ""; position: absolute; inset: 0; transform-origin: left; transform: scaleX(var(--f)); background: var(--c); }
+.slot b.heat::after { background: linear-gradient(90deg, #7df9ff, #ffd36b 60%, #ff5a3c); }
+.slot b.hot { animation: hot .3s steps(2) infinite; }
+@keyframes hot { 50% { background: rgba(255,90,60,.7); } }
 .slot span { font: 700 10px var(--display); color: var(--ink); line-height: 1; }
 .slot i { position: absolute; left: 4px; top: 2px; font: 700 9px var(--display); font-style: normal; color: var(--muted); }
 .slot.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); box-shadow: 0 0 12px color-mix(in srgb, var(--c) 45%, transparent); }
@@ -301,6 +311,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   .event { top: calc(118px + env(safe-area-inset-top, 0px)); font-size: 13px; }
   .fire { bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
   .boostbtn { right: calc(104px + env(safe-area-inset-right, 0px)); }
+  .altbtn { bottom: calc(190px + env(safe-area-inset-bottom, 0px)); }
   .minimap { width: 96px; height: 96px; bottom: calc(108px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (max-width: 360px) { .score > span:first-of-type { display: none; } }
@@ -313,6 +324,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 <div class="joy" id="joy" hidden><i></i></div>
 <div class="arsenal" id="arsenal" hidden></div>
 <canvas class="minimap" id="minimap" width="280" height="280" aria-label="Mini map" hidden></canvas>
+<button class="fire altbtn" id="altBtn" aria-label="Alternate fire" hidden><span id="altName">ALT</span></button>
 <button class="fire" id="fireBtn" aria-label="Fire" hidden><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg></button>
 <div class="event" id="eventBanner" hidden></div>
 <div class="board chip"><h2 id="boardTitle">Flyers</h2><div class="round" id="roundInfo">Round 1 · 5:00</div><div class="bhead"><span>Pilot</span><span>Kills · Deaths</span></div><ol id="board"></ol></div>
@@ -392,7 +404,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const WEAPONS = {
     fire:   { name: "Fireball",    ammo: Infinity, cd: 0.22 },
     triple: { name: "Triple shot", ammo: 24, cd: 0.3, col: "#ffb43c" },
-    laser:  { name: "Laser",       ammo: 45, cd: 0.08, col: "#7df9ff" },
+    laser:  { name: "Laser",       ammo: 90, cd: 0.08, col: "#7df9ff" },   // also limited by heat (see LASER_HEAT)
     rocket: { name: "Homing rockets", ammo: 8, cd: 0.7, col: "#ff5a6e" },
     nuke:   { name: "Nuke",        ammo: 1,  cd: 1.0,  col: "#ffe14d" },
     scatter: { name: "Scatter gun", ammo: 16, cd: 0.7,  col: "#ffd27a" },
@@ -403,13 +415,13 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     shard:  { name: "Shard cannon", ammo: 14, cd: 0.75, col: "#ff9a3c" }
   };
   const PICK_TYPES = ["triple", "laser", "rocket", "scatter", "rail", "mine", "orb", "bolt", "shard"], PICK_PERIOD = 24; let PICKS = 18;
-  // by shot kind: 0 fireball, 1 rocket, 2 laser, 3 nuke, 4 scatter pellet, 5 rail slug, 6 mine, 7 plasma orb, 8 lightning, 9 shard
-  const SHOT_LIFE = [1.1, 3.6, 0.45, 3.2, 0.38, 0.7, 25, 2.4, 0.15, 0.9];
-  const SHOT_DMG  = [0.3, 1.2, 0.18, 0, 0, 2, 1.5, 0.9, 0.2, 0.3];      // pellets use pelletDmg(); in lives (Lv 1 has 3 = 100%)
+  // by shot kind: 0 fireball, 1 rocket, 2 laser, 3 nuke, 4 scatter pellet, 5 rail slug, 6 mine, 7 plasma orb, 8 lightning, 9 shard, 10 shotgun slug
+  const SHOT_LIFE = [1.1, 3.6, 0.45, 3.2, 0.38, 0.7, 25, 2.4, 0.15, 0.9, 0.6];
+  const SHOT_DMG  = [0.3, 1.2, 0.18, 0, 0, 2, 1.5, 0.9, 0.2, 0.3, 1];      // pellets use pelletDmg(); in lives (Lv 1 has 3 = 100%)
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs                 // the nuke deals its damage through detonate()
-  const SHOT_COL  = ["#ffb43c", "#ffb43c", "#7df9ff", "#ffe14d", "#ffd27a", "#e9c8ff", "#ff6b3c", "#6fd8ff", "#bfefff", "#ff9a3c"];
+  const SHOT_COL  = ["#ffb43c", "#ffb43c", "#7df9ff", "#ffe14d", "#ffd27a", "#e9c8ff", "#ff6b3c", "#6fd8ff", "#bfefff", "#ff9a3c", "#ffe7a0"];
   const MINE_R = 55, MINE_ARM = 0.7;
-  const SHOT_R = [0, 10, 0, 0, 0, 0, MINE_R, 16, 0, 0];      // extra hit radius by kind (mines go off near you, orbs are big)
+  const SHOT_R = [0, 10, 0, 0, 0, 0, MINE_R, 16, 0, 0, 4];      // extra hit radius by kind (mines go off near you, orbs are big)
   const AMP_PERIOD = 95, AMP_TIME = 20000;                   // Overdrive: a rare pick-up, triple damage for 20 s                        // mines go off when a bin comes this close, after arming
   // nuke: everything inside NUKE_KILL dies outright, the rest of the blast (out to NUKE_R) takes heavy damage
   // Doom-style supplies: medkits give lives back, shields add armour that soaks damage before lives
@@ -715,7 +727,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     lives: LIVES, dead: false, respawnAt: 0, inv: 0, xp: 0, lv: 1, weapon: "fire", arsenal: { fire: Infinity }, ampUntil: 0, carry: 0, ds: 0, shield: 0, boostFx: 0, dashAt: -1e9
   };
   const myTag = Math.random().toString(36).slice(2, 7);
-  let shotSeq = 0, fireCd = 0, firing = false, shake = 0, hurtFlash = 0;
+  let shotSeq = 0, fireCd = 0, firing = false, altFiring = false, shake = 0, hurtFlash = 0;
   const camKick = { x: 0, y: 0 };
   const shots = [];            // live fireballs: {id, x, y, vx, vy, life, mine}
   const myShotLog = [];        // recent own shots, shared so others can see them
@@ -757,7 +769,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if ((e.code === "ShiftLeft" || e.code === "ShiftRight") && !e.repeat && e.target.tagName !== "INPUT") { boostDownAt = performance.now(); dash(boostDownAt); }
   });
   addEventListener("keyup", e => keys.delete(e.code));
-  addEventListener("blur", () => { keys.clear(); ptr.down = false; firing = false; boostBtnDown = false; joyEnd(); });
+  addEventListener("blur", () => { keys.clear(); ptr.down = false; firing = false; altFiring = false; boostBtnDown = false; joyEnd(); });
   const fireBtn = document.getElementById("fireBtn");
   const boostBtn = document.getElementById("boostBtn");
   boostBtn.addEventListener("pointerdown", e => {
@@ -785,6 +797,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       cv.setPointerCapture(e.pointerId);
       return;
     }
+    if (e.button === 2) { altFiring = true; return; }   // right button: alternate fire
     ptr.down = true; ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; cv.setPointerCapture(e.pointerId);
   });
   cv.addEventListener("pointermove", e => {
@@ -802,7 +815,12 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
     ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom;
   });
-  const up = e => { if (e.pointerId === joy.id) joyEnd(); else ptr.down = false; };
+  const up = e => { if (e.pointerId === joy.id) joyEnd(); else if (e.button === 2) altFiring = false; else ptr.down = false; };
+  addEventListener("pointerup", e => { if (e.button === 2) altFiring = false; });
+  const altBtn = document.getElementById("altBtn");
+  altBtn.addEventListener("pointerdown", e => { e.preventDefault(); altFiring = true; altBtn.setPointerCapture(e.pointerId); });
+  for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) altBtn.addEventListener(ev, () => { altFiring = false; });
+  altBtn.addEventListener("contextmenu", e => e.preventDefault());
   for (const el of [cv, fireBtn]) el.addEventListener("contextmenu", e => e.preventDefault());
   cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
 
@@ -886,7 +904,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     src.start();
     return true;
   }
-  const SHOT_SFX = ["fire", "rocket", "laser", "rocket", "scatter", "rail", "mine_drop", "shield_get", "laser", "scatter"];
+  const SHOT_SFX = ["fire", "rocket", "laser", "rocket", "scatter", "rail", "mine_drop", "shield_get", "laser", "scatter", "scatter"];
   function blip(f, dur, type) {
     if (!audio) return;
     const o = audio.createOscillator(), v = audio.createGain(), t = audio.currentTime;
@@ -912,7 +930,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const WRECK_TYPES = ["hull", "tower", "crates", "ring"];
   const WRECK_PAL = { hull: ["#7d8aa3", "#5a6478", "#9aa6bf"], tower: ["#8f8aa0", "#6d6880", "#4a4660"], crates: ["#c0503c", "#3c78c0", "#d8a83c", "#4a9a6a"], ring: ["#8a93ad", "#5e6680", "#c8d0e8"] };
   const WRECK_N = { s: 6, m: 10, l: 16, x: 24 };
-  const CARVE_R = [16, 46, 9, 0, 9, 14, 45, 30, 6, 10];   // crater radius by shot kind
+  const CARVE_R = [16, 46, 9, 0, 9, 14, 45, 30, 6, 10, 20];   // crater radius by shot kind
   const BODY_RES = matchMedia("(pointer: coarse)").matches ? 0.6 : 1;   // art baked at lower resolution on phones
   let planets = [], moons = [], wrecks = [], det = [], rubble = [], bodies = [], worldCode = "lobby", mapKey = "m", rubbleSeq = 0;
 
@@ -2145,6 +2163,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (s.kind === 1) { explode(s.x, s.y, 40, 260); sfx("boom_small", 0.8, 1.15, s.x, s.y); } else sfx("hit", 0.55, 1.1, s.x, s.y);
     if (s.kind === 5) sparkShower(s.x, s.y, s.vx / 4200, s.vy / 4200, 1.2);
     if (s.kind === 4) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
+    if (s.kind === 10) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
     if (s.kind === 7) { s.boom = true; explode(s.x, s.y, 50, 360); rings.push({ x: s.x, y: s.y, t: 0, r: 110, col: "160,235,255", dur: 0.4, w: 8 }); }
     if (s.kind === 9) sparkShower(s.x, s.y, s.vx / 1300, s.vy / 1300, 0.6);
     impact(s.x, s.y, SHOT_COL[s.kind], s.kind === 1 || s.kind === 5 ? 2 : 1);
@@ -2196,12 +2215,58 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     camKick.x += bx * camK; camKick.y += by * camK; shake = Math.max(shake, shk);
     if (flashR) impacts.push({ x: muzzle.x, y: muzzle.y, t: 0, r: flashR, col: WEAPONS[me.weapon].col || "#ffb43c" });
     for (let k = 0; k < 6; k++) puff(muzzle.x, muzzle.y, bx * 200 + (Math.random() - .5) * 160, by * 200 + (Math.random() - .5) * 160, 0.25, 2.5, me.weapon === "laser" ? "#bff9ff" : FIRE_COLS[k % 4]);
-    if (me.weapon !== "fire" && --me.arsenal[me.weapon] <= 0) {
-      delete me.arsenal[me.weapon];
+    if (me.weapon === "laser") { laserHeat = Math.min(1, laserHeat + LASER_HEAT.perShot); heatAt = now; if (laserHeat >= 1) overheat(); }
+    spend(me.weapon, 1);
+  }
+  function spend(k, n) {
+    if (k !== "fire" && (me.arsenal[k] -= n) <= 0) {
+      delete me.arsenal[k];
       // out of ammo: fall back to another gun you carry (never auto-pick the nuke), else the fireball
-      me.weapon = WEAPON_KEYS.find(k => k !== "fire" && k !== "nuke" && me.arsenal[k]) || "fire";
+      me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && me.arsenal[w]) || "fire";
     }
     renderWeapon();
+  }
+  // the laser runs hot: about a second and a half of fire overheats it, then it is locked until it has cooled down a lot
+  const LASER_HEAT = { perShot: 0.075, cool: 0.55, wait: 0.25, unlock: 0.3 };
+  let laserHeat = 0, heatAt = 0, overheated = false;
+  function overheat() {
+    overheated = true;
+    sfx("crash", 0.5, 1.6) || blip(300, 0.2, "square");
+    floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: "OVERHEAT", hit: true, col: "#ff6b3c" });
+    smoke(me.x, me.y, 6, 60, 1);
+  }
+  function heatTick(dt, now) {
+    if (now - heatAt > LASER_HEAT.wait * 1000) laserHeat = Math.max(0, laserHeat - LASER_HEAT.cool * dt);
+    if (overheated && laserHeat <= LASER_HEAT.unlock) overheated = false;
+    const bar = arsenalEl.querySelector('[data-w="laser"] b');
+    if (bar) { bar.style.setProperty("--f", laserHeat.toFixed(3)); bar.classList.toggle("hot", overheated); }
+  }
+  // alternate fire (right mouse button or C; on phones the small button by the fire button)
+  const ALT = {
+    rocket:  { name: "Salvo", cost: 3, cd: 1.6 },    // three rockets at once
+    scatter: { name: "Slug",  cost: 2, cd: 0.95 },   // one heavy slug that flies far, instead of the spread
+    triple:  { name: "Focus", cost: 1, cd: 0.3 },    // all three balls nearly straight
+    mine:    { name: "Throw", cost: 1, cd: 0.6 }     // lob a mine ahead instead of dropping it behind
+  };
+  function shootAlt(now) {
+    const k = me.weapon, alt = ALT[k], n = me.arsenal[k];
+    if (!alt || !(n >= 1)) return;
+    fireCd = alt.cd;
+    const gun = muzzleAt(k), bx = Math.cos(me.a), by = Math.sin(me.a);
+    let muzzle, kick = 60, camK = 10;
+    if (k === "rocket") { for (const da of [-0.24, 0, 0.24]) muzzle = fireOne(now, me.a + da, 1, 300, gun); sfx("rocket", 1, 0.8); kick = 200; camK = 18; }
+    else if (k === "scatter") {
+      muzzle = fireOne(now, me.a, 10, 1900, gun); kick = 340; camK = 24;
+      if (!sfx("scatter", 1, 0.65)) boomSound(0.4, 900, 0.5);
+      setTimeout(() => sfx("pump", 0.6, 0.9), 300);
+      for (let j = 0; j < 14; j++) { const a = me.a + (Math.random() - 0.5) * 0.3, v = 300 + Math.random() * 500; puff(muzzle.x, muzzle.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.25, 2.5, FIRE_COLS[j % 4]); }
+    }
+    else if (k === "triple") { for (const da of [-0.035, 0, 0.035]) muzzle = fireOne(now, me.a + da, 0, 1050, gun); sfx("triple", 0.8, 0.9); }
+    else { muzzle = fireOne(now, me.a, 6, 700, gun); sfx("mine_drop", 0.8, 0.8); kick = 40; camK = 4; }
+    me.vx -= bx * kick; me.vy -= by * kick;
+    camKick.x += bx * camK; camKick.y += by * camK; shake = Math.max(shake, camK / 80);
+    impacts.push({ x: muzzle.x, y: muzzle.y, t: 0, r: 60 + camK * 2, col: WEAPONS[k].col });
+    spend(k, Math.min(n, alt.cost));
   }
   // quick dodge: a burst forward (or toward where you steer) with a moment of invulnerability
   function dash(now) {
@@ -2236,10 +2301,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const list = owned();
     arsenalEl.hidden = !playing || list.length < 2;
     arsenalEl.innerHTML = list.map((k, i) => {
-      const n = me.arsenal[k];
+      const n = me.arsenal[k], f = k === "laser" ? laserHeat : Number.isFinite(n) ? Math.min(1, n / WEAPONS[k].ammo) : 1;
       return `<button type="button" class="slot${k === me.weapon ? " on" : ""}" data-w="${k}" style="--c:${WEAPONS[k].col || "#ffb43c"}" aria-label="${WEAPONS[k].name}">`
-        + `<i>${i + 1}</i><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICONS[k]}"/></svg><span>${Number.isFinite(n) ? n : "∞"}</span></button>`;
+        + `<i>${i + 1}</i><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICONS[k]}"/></svg><span>${Number.isFinite(n) ? n : "∞"}</span>`
+        + `<b class="${k === "laser" ? "heat" : "ammo"}${k === "laser" && overheated ? " hot" : ""}" style="--f:${f.toFixed(3)}"></b></button>`;
     }).join("");
+    const alt = ALT[me.weapon];
+    document.getElementById("altBtn").hidden = !playing || !COARSE || !alt;
+    if (alt) { document.getElementById("altName").textContent = alt.name.toUpperCase(); if (!COARSE) el.append(" · right click: " + alt.name); }
   }
   function selectWeapon(k) {
     if (!me.arsenal[k] || k === me.weapon) return;
@@ -2769,24 +2838,34 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const byHole = shotId === "x" || shotId === "p";   // the black hole or a planet: nobody gets credit
     if (!byHole) pushCapped(b.hitBy, shotId, 12);
     if (b.lives <= 0) {
-      b.dead = true; b.respawnAt = now + 3000; b.fc = -1; b.ds = 1 + Math.floor(Math.random() * 4); b.dk = deathStyleOf(kind); b.da = ang;
+      b.dead = true; b.respawnAt = now + 3000; b.fc = -1; b.weapon = "fire"; b.ds = 1 + Math.floor(Math.random() * 4); b.dk = deathStyleOf(kind); b.da = ang;
       b.st.deaths++; b.st.streak = 0;
       if (byHole) feedPush(`<span class="v">${esc(b.name)}</span> ${shotId === "p" ? "crashed into a planet" : "was swallowed by the black hole"}`);
       else pushCapped(b.koBy, shotId, 12);
     }
   }
+  // what a bot shoots with: the mode's gun, or a gun from a crate it grabbed (mines are left for players)
+  const BOT_GUN = { fire: [0, 880], triple: [0, 880], laser: [2, 2300], rocket: [1, 260], nuke: [3, 360], scatter: [4, 1250], rail: [5, 4200], orb: [7, 520], bolt: [8, 5600], shard: [9, 1300] };
+  const botWeapon = b => MODE === "n" ? "nuke" : MODE === "r" ? "rail" : b.weapon || "fire";
+  // fires once; returns the gun's reload time
   function botFire(b, now) {
-    const bx = Math.cos(b.a), by = Math.sin(b.a);
-    const id = b.tag + "." + (b.seq++).toString(36);
-    const kind = MODE === "n" ? 3 : MODE === "r" ? 5 : 0, sp = kind === 3 ? 360 : kind === 5 ? 4200 : 880, ride = kind === 0 ? 0.6 : 0;
-    const s = { id, kind, x: b.x + bx * 42, y: b.y + by * 42, px: b.x, py: b.y, vx: bx * sp + b.vx * ride, vy: by * sp + b.vy * ride, life: SHOT_LIFE[kind], mine: false, owner: b.id };
-    shots.push(s); seenShots.set(id, performance.now());
-    if (kind === 5) railBeam(s.x, s.y, s.vx, s.vy);
-    sfx(kind === 5 ? "rail" : kind === 3 ? "rocket" : "fire", kind === 5 ? 0.6 : 0.45, kind === 3 ? 0.6 : 1.05, b.x, b.y);
-    const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind];
-    b.shotLog.push({ at: now, d });
+    const w = botWeapon(b), [kind, sp] = BOT_GUN[w], ride = kind === 8 ? 0 : 0.6;
+    for (const da of w === "triple" ? [-0.2, 0, 0.2] : [0]) {
+      const bx = Math.cos(b.a + da), by = Math.sin(b.a + da);
+      const id = b.tag + "." + (b.seq++).toString(36);
+      const s = { id, kind, x: b.x + bx * 42, y: b.y + by * 42, ox: b.x + bx * 42, oy: b.y + by * 42, px: b.x, py: b.y,
+                  vx: bx * sp + b.vx * ride, vy: by * sp + b.vy * ride, life: SHOT_LIFE[kind], mine: false, owner: b.id };
+      if (kind === 4) scatterPellets(s); else if (kind === 9) shardSpray(s); else shots.push(s);
+      seenShots.set(id, performance.now());
+      if (kind === 5) railBeam(s.x, s.y, s.vx, s.vy);
+      b.shotLog.push({ at: now, d: [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind] });
+    }
+    sfx(SHOT_SFX[kind], kind === 2 || kind === 8 ? 0.25 : kind === 5 ? 0.6 : 0.45, kind === 3 ? 0.6 : kind === 8 ? 1.7 : 1.05, b.x, b.y);
     b.st.shots++;
+    const bx = Math.cos(b.a), by = Math.sin(b.a);
     b.vx -= bx * 25; b.vy -= by * 25;
+    if (MODE !== "n" && MODE !== "r" && w !== "fire" && --b.ammo <= 0) b.weapon = "fire";
+    return WEAPONS[w].cd;
   }
   function updateBots(dt, now) {
     if (!bots.length) return;
@@ -2823,6 +2902,22 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         else if (!b.attacker && Math.hypot(home.x - b.x, home.y - b.y) > 500) goal = home;   // guard
         if (goal) { const gx = goal.x - b.x, gy = goal.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * w; dy += gy / gd * w; }
       }
+      if (!MODES[MODE].only && roundLive) {
+        let best = null, bd = (b.weapon || "fire") === "fire" && td > 700 ? 1300 : 0;
+        for (const c of world.picks) {
+          if (grabbed.has(c.key) || c.age < 0.05 || !BOT_GUN[c.type]) continue;
+          const d = Math.hypot(c.x - b.x, c.y - b.y);
+          if (d < 34 + 30) {   // picked up
+            grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
+            b.weapon = c.type; b.ammo = Math.ceil(WEAPONS[c.type].ammo * (c.type === "laser" || c.type === "bolt" ? 0.4 : 1));
+            for (let k = 0; k < 20; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 200; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.5, 2, WEAPONS[c.type].col); }
+            sfx("weapon_get", 0.5, 1, c.x, c.y);
+            best = null; break;
+          }
+          if (d < bd) { bd = d; best = c; }
+        }
+        if (best) { const gx = best.x - b.x, gy = best.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * 1.4; dy += gy / gd * 1.4; }
+      }
       const m = 260;   // keep off the fence
       if (b.x < m) dx += (m - b.x) / m * 2.5; if (b.x > W - m) dx -= (b.x - W + m) / m * 2.5;
       if (b.y < m) dy += (m - b.y) / m * 2.5; if (b.y > H - m) dy -= (b.y - H + m) / m * 2.5;
@@ -2854,7 +2949,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
                       : Math.atan2(b.vy, b.vx);
       b.a = lerpAng(b.a, aim, 1 - Math.exp(-5 * dt));
       b.fireCd -= dt;
-      if (tgt && roundLive && td < 950 && Math.abs(angD(aim - b.a)) < 0.3 && b.fireCd <= 0) { botFire(b, now); b.fireCd = b.L.cd * (0.7 + Math.random() * 0.6) * (MODE === "n" ? 6 : MODE === "r" ? 3 : 1); }
+      if (tgt && roundLive && td < 950 && Math.abs(angD(aim - b.a)) < 0.3 && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
+        b.fireCd = (MODE === "n" ? b.L.cd * 6 : MODE === "r" ? b.L.cd * 3 : cd < 0.15 ? cd * 2 : Math.max(b.L.cd, cd * 1.3)) * (0.7 + Math.random() * 0.6); }
       // another pilot ramming my bot on boost (the bot is the victim, so its owner decides)
       for (const [rid, r] of remotes) {
         if (botById.has(rid) || r.dead || !(r.boost > 0) || !r.tag || mates(r, b)) continue;
@@ -2880,7 +2976,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         if (s.kind === 6 && SHOT_LIFE[6] - s.life < MINE_ARM) continue;
         if (segHit(s, b.x, b.y, 38 + SHOT_R[s.kind])) {
           if (s.kind === 5) { if (!railOnce(s, b.id)) continue; } else s.life = 0;
-          shotBurst(s); hitConfirm(s, b.lv, b.x, b.y); if (s.kind === 4 || s.kind === 5) pelletShove(b, s, s.kind === 5 ? 650 : 150);
+          shotBurst(s); hitConfirm(s, b.lv, b.x, b.y); if (s.kind === 4 || s.kind === 5 || s.kind === 10) pelletShove(b, s, s.kind === 5 ? 650 : s.kind === 10 ? 450 : 150);
           if (s.kind === 8) boltChain(s, b.x, b.y, b.id, now);
           botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx));
         }
@@ -2900,7 +2996,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         l: Math.max(0, Math.round(b.lives * 100) / 100), hb: b.hitBy, ko: b.koBy, f: b.shotLog.map(e => e.d),
         tm: b.tm ?? -1, fc: b.fc ?? -1, cp: [stats.round, b.caps || 0], tg: b.tag
       };
-      if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, lv: 1, sh: 0, wp: 0, tg: b.tag,
+      if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, lv: 1, sh: 0, wp: WEAPON_KEYS.indexOf(botWeapon(b)), tg: b.tag,
         st: [stats.round, b.st.kills, b.st.deaths, b.st.shots, b.st.hits, b.st.best] });
       applyRemote(b.id, m);   // show it here
       out.push([b.id, m]);
@@ -3015,7 +3111,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     let boost = (shiftHeld || boostBtnDown) && boostDownAt >= 0 && now - boostDownAt > BOOST_HOLD * 1000;
     if (me.dead && now >= me.respawnAt) respawn(now);
     fireCd -= dt; shake = Math.max(0, shake - dt);
-    if (playing && roundLive && !me.dead && fireCd <= 0 && (firing || FIRE_KEYS.some(k => keys.has(k)))) shoot(now);
+    heatTick(dt, now);
+    const ready = playing && roundLive && !me.dead && fireCd <= 0;
+    if (ready && (altFiring || keys.has("KeyC")) && ALT[me.weapon]) shootAlt(now);
+    else if (ready && (firing || FIRE_KEYS.some(k => keys.has(k))) && !(me.weapon === "laser" && overheated)) shoot(now);
     if (playing && !me.dead) {
       if (keys.has("KeyA") || keys.has("ArrowLeft")) ix -= 1;
       if (keys.has("KeyD") || keys.has("ArrowRight")) ix += 1;
@@ -3176,6 +3275,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         if (Math.random() < dt * 40) puff(s.x, s.y, (Math.random() - .5) * 80, (Math.random() - .5) * 80, 0.35, 2 + Math.random() * 2, Math.random() < 0.5 ? "#6fd8ff" : "#ffffff");
       } else if (s.kind === 9) {
         if (Math.random() < dt * 30) puff(s.x, s.y, -s.vx * 0.05, -s.vy * 0.05, 0.2, 1.5, "#ffc070");
+      } else if (s.kind === 10) {   // the slug drags a short hot trail
+        if (Math.random() < dt * 50) puff(s.x, s.y, -s.vx * 0.05, -s.vy * 0.05, 0.25, 2, Math.random() < 0.5 ? "#ffe7a0" : "#ffb43c");
       } else if (s.kind === 4 || s.kind === 6 || s.kind === 8) {
         // pellets are too short-lived for a trail; mines just sit there blinking
       } else if (Math.random() < dt * 40) puff(s.x, s.y, -s.vx * 0.08 + (Math.random() - .5) * 60, -s.vy * 0.08 + (Math.random() - .5) * 60, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 2, FIRE_COLS[(Math.random() * 4) | 0]);
@@ -3185,7 +3286,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         if (s.kind !== 5) s.life = 0;
         s.splashed = true;
         shotBurst(s);
-        if (s.kind === 4 || s.kind === 5) pelletShove(me, s, s.kind === 5 ? 650 : 150);
+        if (s.kind === 4 || s.kind === 5 || s.kind === 10) pelletShove(me, s, s.kind === 5 ? 650 : s.kind === 10 ? 450 : 150);
         if (s.kind === 8) boltChain(s, me.x, me.y, "me", now);
         if (hurt(now, shotDmg(s), false, s.kind, Math.atan2(s.vy, s.vx))) {
           pushCapped(hitBy, s.id, 12);
@@ -3552,7 +3653,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         floaters.push({ x: me.x, y: me.y - 90, t: 0, txt: "ROUND " + (rd.idx % 1000) + " · FIGHT!", gold: true });
         sfx("v_fight", 1);
       }
-      for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0 });
+      for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0, weapon: "fire" });
       me.fc = -1; me.caps = 0;
       hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0;
       if (shownRound !== -1) { myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode); }   // every crater filled in again
@@ -3776,6 +3877,17 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.strokeStyle = lg; g.lineWidth = 5; g.lineCap = "round";
       g.beginPath(); g.moveTo(-26, 0); g.lineTo(0, 0); g.stroke();
       g.fillStyle = "#fff4e0"; g.beginPath(); g.moveTo(5, 0); g.lineTo(-3, -3); g.lineTo(-3, 3); g.fill();
+      g.restore();
+      return;
+    }
+    if (s.kind === 10) {   // shotgun slug: one fat white-hot ball with a long streak
+      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
+      const lg = g.createLinearGradient(-80, 0, 0, 0);
+      lg.addColorStop(0, "rgba(255,150,40,0)"); lg.addColorStop(1, "rgba(255,240,190,0.95)");
+      g.strokeStyle = lg; g.lineWidth = 11; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-80, 0); g.lineTo(0, 0); g.stroke();
+      g.fillStyle = "rgba(255,210,110,0.4)"; g.beginPath(); g.arc(0, 0, 16, 0, 6.29); g.fill();
+      g.fillStyle = "#fffaf0"; g.beginPath(); g.arc(0, 0, 6, 0, 6.29); g.fill();
       g.restore();
       return;
     }
@@ -5028,11 +5140,15 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     mctx.strokeStyle = "rgba(255,255,255,0.25)"; mctx.lineWidth = 1.5;
     mctx.strokeRect(vx0, vy0, vw * k, vh * k);
     // weapon crates
-    for (const c of world.picks) {
-      if (grabbed.has(c.key)) continue;
-      const [x, y] = P(c.x, c.y);
-      mctx.fillStyle = WEAPONS[c.type].col; mctx.fillRect(x - 3, y - 3, 6, 6);
-    }
+    const wt = clockNow();
+    world.picks.forEach((c, i) => {
+      if (!grabbed.has(c.key)) { const [x, y] = P(c.x, c.y); mctx.fillStyle = WEAPONS[c.type].col; mctx.fillRect(x - 3, y - 3, 6, 6); return; }
+      const nx = pickup(i, wt + (1 - c.age) * PICK_PERIOD * 1000 + 50), [x, y] = P(nx.x, nx.y);   // taken: show where the next one lands
+      mctx.strokeStyle = WEAPONS[nx.type].col; mctx.globalAlpha = 0.55; mctx.lineWidth = 1;
+      mctx.strokeRect(x - 2.5, y - 2.5, 5, 5);
+      mctx.lineWidth = 1.5; mctx.beginPath(); mctx.arc(x, y, 5.5, -1.57, -1.57 + c.age * 6.283); mctx.stroke();
+      mctx.globalAlpha = 1;
+    });
     for (const c of world.supplies) {
       if (grabbed.has(c.key)) continue;
       const [x, y] = P(c.x, c.y), sp = SUPPLIES[c.type];
@@ -5104,25 +5220,32 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       ["Fire", `${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY("Return")})`],
       ["Dash", `tap ${KEY("⇧ Shift")} — a quick dodge forward`],
       ["Boost", `hold ${KEY("⇧ Shift")} — uses the blue energy bar`],
-      ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`]] },
+      ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`],
+      ["Alt fire", `right mouse button or ${KEY("C")}: rocket salvo, shotgun slug, focused triple, thrown mine`],
+      ["Brake", `hold ${KEY("X")} (or push the other way)`]] },
     windows: { label: "Windows", rows: [
       ["Fly", `${KEY("W")}${KEY("A")}${KEY("S")}${KEY("D")} or arrows · or hold the left mouse button and point`],
       ["Fire", `${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY("Enter")})`],
       ["Dash", `tap ${KEY("Shift")} — a quick dodge forward`],
       ["Boost", `hold ${KEY("Shift")} — uses the blue energy bar`],
-      ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`]] },
+      ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`],
+      ["Alt fire", `right mouse button or ${KEY("C")}: rocket salvo, shotgun slug, focused triple, thrown mine`],
+      ["Brake", `hold ${KEY("X")} (or push the other way)`]] },
     linux: { label: "Linux", rows: [
       ["Fly", `${KEY("W")}${KEY("A")}${KEY("S")}${KEY("D")} or arrows · or hold the left mouse button and point`],
       ["Fire", `${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY("Enter")})`],
       ["Dash", `tap ${KEY("Shift")} — a quick dodge forward`],
       ["Boost", `hold ${KEY("Shift")} — uses the blue energy bar`],
-      ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`]] },
+      ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`],
+      ["Alt fire", `right mouse button or ${KEY("C")}: rocket salvo, shotgun slug, focused triple, thrown mine`],
+      ["Brake", `hold ${KEY("X")} (or push the other way)`]] },
     phone: { label: "Phone", rows: [
       ["Fly", "put your thumb anywhere on the left side: a joystick appears under it, push it where you want to go"],
       ["Fire", "orange flame button (bottom right)"],
       ["Dash", "tap the teal button — a quick dodge forward"],
       ["Boost", "hold the teal button"],
-      ["Weapon", "tap a gun in the bar above the fire button"]] }
+      ["Weapon", "tap a gun in the bar above the fire button"],
+      ["Alt fire", "the small orange button above the fire button (rockets, shotgun, triple shot, mines)"]] }
   };
   function detectDevice() {
     const ua = navigator.userAgent, plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";

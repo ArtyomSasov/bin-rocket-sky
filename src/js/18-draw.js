@@ -172,6 +172,17 @@
       g.restore();
       return;
     }
+    if (s.kind === 10) {   // shotgun slug: one fat white-hot ball with a long streak
+      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
+      const lg = g.createLinearGradient(-80, 0, 0, 0);
+      lg.addColorStop(0, "rgba(255,150,40,0)"); lg.addColorStop(1, "rgba(255,240,190,0.95)");
+      g.strokeStyle = lg; g.lineWidth = 11; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-80, 0); g.lineTo(0, 0); g.stroke();
+      g.fillStyle = "rgba(255,210,110,0.4)"; g.beginPath(); g.arc(0, 0, 16, 0, 6.29); g.fill();
+      g.fillStyle = "#fffaf0"; g.beginPath(); g.arc(0, 0, 6, 0, 6.29); g.fill();
+      g.restore();
+      return;
+    }
     if (s.kind === 4) {   // scatter pellet: a short hot streak
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
       const lg = g.createLinearGradient(-44, 0, 0, 0);

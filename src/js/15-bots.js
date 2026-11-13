@@ -31,24 +31,34 @@
     const byHole = shotId === "x" || shotId === "p";   // the black hole or a planet: nobody gets credit
     if (!byHole) pushCapped(b.hitBy, shotId, 12);
     if (b.lives <= 0) {
-      b.dead = true; b.respawnAt = now + 3000; b.fc = -1; b.ds = 1 + Math.floor(Math.random() * 4); b.dk = deathStyleOf(kind); b.da = ang;
+      b.dead = true; b.respawnAt = now + 3000; b.fc = -1; b.weapon = "fire"; b.ds = 1 + Math.floor(Math.random() * 4); b.dk = deathStyleOf(kind); b.da = ang;
       b.st.deaths++; b.st.streak = 0;
       if (byHole) feedPush(`<span class="v">${esc(b.name)}</span> ${shotId === "p" ? "crashed into a planet" : "was swallowed by the black hole"}`);
       else pushCapped(b.koBy, shotId, 12);
     }
   }
+  // what a bot shoots with: the mode's gun, or a gun from a crate it grabbed (mines are left for players)
+  const BOT_GUN = { fire: [0, 880], triple: [0, 880], laser: [2, 2300], rocket: [1, 260], nuke: [3, 360], scatter: [4, 1250], rail: [5, 4200], orb: [7, 520], bolt: [8, 5600], shard: [9, 1300] };
+  const botWeapon = b => MODE === "n" ? "nuke" : MODE === "r" ? "rail" : b.weapon || "fire";
+  // fires once; returns the gun's reload time
   function botFire(b, now) {
-    const bx = Math.cos(b.a), by = Math.sin(b.a);
-    const id = b.tag + "." + (b.seq++).toString(36);
-    const kind = MODE === "n" ? 3 : MODE === "r" ? 5 : 0, sp = kind === 3 ? 360 : kind === 5 ? 4200 : 880, ride = kind === 0 ? 0.6 : 0;
-    const s = { id, kind, x: b.x + bx * 42, y: b.y + by * 42, px: b.x, py: b.y, vx: bx * sp + b.vx * ride, vy: by * sp + b.vy * ride, life: SHOT_LIFE[kind], mine: false, owner: b.id };
-    shots.push(s); seenShots.set(id, performance.now());
-    if (kind === 5) railBeam(s.x, s.y, s.vx, s.vy);
-    sfx(kind === 5 ? "rail" : kind === 3 ? "rocket" : "fire", kind === 5 ? 0.6 : 0.45, kind === 3 ? 0.6 : 1.05, b.x, b.y);
-    const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind];
-    b.shotLog.push({ at: now, d });
+    const w = botWeapon(b), [kind, sp] = BOT_GUN[w], ride = kind === 8 ? 0 : 0.6;
+    for (const da of w === "triple" ? [-0.2, 0, 0.2] : [0]) {
+      const bx = Math.cos(b.a + da), by = Math.sin(b.a + da);
+      const id = b.tag + "." + (b.seq++).toString(36);
+      const s = { id, kind, x: b.x + bx * 42, y: b.y + by * 42, ox: b.x + bx * 42, oy: b.y + by * 42, px: b.x, py: b.y,
+                  vx: bx * sp + b.vx * ride, vy: by * sp + b.vy * ride, life: SHOT_LIFE[kind], mine: false, owner: b.id };
+      if (kind === 4) scatterPellets(s); else if (kind === 9) shardSpray(s); else shots.push(s);
+      seenShots.set(id, performance.now());
+      if (kind === 5) railBeam(s.x, s.y, s.vx, s.vy);
+      b.shotLog.push({ at: now, d: [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind] });
+    }
+    sfx(SHOT_SFX[kind], kind === 2 || kind === 8 ? 0.25 : kind === 5 ? 0.6 : 0.45, kind === 3 ? 0.6 : kind === 8 ? 1.7 : 1.05, b.x, b.y);
     b.st.shots++;
+    const bx = Math.cos(b.a), by = Math.sin(b.a);
     b.vx -= bx * 25; b.vy -= by * 25;
+    if (MODE !== "n" && MODE !== "r" && w !== "fire" && --b.ammo <= 0) b.weapon = "fire";
+    return WEAPONS[w].cd;
   }
   function updateBots(dt, now) {
     if (!bots.length) return;
@@ -85,6 +95,22 @@
         else if (!b.attacker && Math.hypot(home.x - b.x, home.y - b.y) > 500) goal = home;   // guard
         if (goal) { const gx = goal.x - b.x, gy = goal.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * w; dy += gy / gd * w; }
       }
+      if (!MODES[MODE].only && roundLive) {
+        let best = null, bd = (b.weapon || "fire") === "fire" && td > 700 ? 1300 : 0;
+        for (const c of world.picks) {
+          if (grabbed.has(c.key) || c.age < 0.05 || !BOT_GUN[c.type]) continue;
+          const d = Math.hypot(c.x - b.x, c.y - b.y);
+          if (d < 34 + 30) {   // picked up
+            grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
+            b.weapon = c.type; b.ammo = Math.ceil(WEAPONS[c.type].ammo * (c.type === "laser" || c.type === "bolt" ? 0.4 : 1));
+            for (let k = 0; k < 20; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 200; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.5, 2, WEAPONS[c.type].col); }
+            sfx("weapon_get", 0.5, 1, c.x, c.y);
+            best = null; break;
+          }
+          if (d < bd) { bd = d; best = c; }
+        }
+        if (best) { const gx = best.x - b.x, gy = best.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * 1.4; dy += gy / gd * 1.4; }
+      }
       const m = 260;   // keep off the fence
       if (b.x < m) dx += (m - b.x) / m * 2.5; if (b.x > W - m) dx -= (b.x - W + m) / m * 2.5;
       if (b.y < m) dy += (m - b.y) / m * 2.5; if (b.y > H - m) dy -= (b.y - H + m) / m * 2.5;
@@ -116,7 +142,8 @@
                       : Math.atan2(b.vy, b.vx);
       b.a = lerpAng(b.a, aim, 1 - Math.exp(-5 * dt));
       b.fireCd -= dt;
-      if (tgt && roundLive && td < 950 && Math.abs(angD(aim - b.a)) < 0.3 && b.fireCd <= 0) { botFire(b, now); b.fireCd = b.L.cd * (0.7 + Math.random() * 0.6) * (MODE === "n" ? 6 : MODE === "r" ? 3 : 1); }
+      if (tgt && roundLive && td < 950 && Math.abs(angD(aim - b.a)) < 0.3 && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
+        b.fireCd = (MODE === "n" ? b.L.cd * 6 : MODE === "r" ? b.L.cd * 3 : cd < 0.15 ? cd * 2 : Math.max(b.L.cd, cd * 1.3)) * (0.7 + Math.random() * 0.6); }
       // another pilot ramming my bot on boost (the bot is the victim, so its owner decides)
       for (const [rid, r] of remotes) {
         if (botById.has(rid) || r.dead || !(r.boost > 0) || !r.tag || mates(r, b)) continue;
@@ -142,7 +169,7 @@
         if (s.kind === 6 && SHOT_LIFE[6] - s.life < MINE_ARM) continue;
         if (segHit(s, b.x, b.y, 38 + SHOT_R[s.kind])) {
           if (s.kind === 5) { if (!railOnce(s, b.id)) continue; } else s.life = 0;
-          shotBurst(s); hitConfirm(s, b.lv, b.x, b.y); if (s.kind === 4 || s.kind === 5) pelletShove(b, s, s.kind === 5 ? 650 : 150);
+          shotBurst(s); hitConfirm(s, b.lv, b.x, b.y); if (s.kind === 4 || s.kind === 5 || s.kind === 10) pelletShove(b, s, s.kind === 5 ? 650 : s.kind === 10 ? 450 : 150);
           if (s.kind === 8) boltChain(s, b.x, b.y, b.id, now);
           botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx));
         }
@@ -162,7 +189,7 @@
         l: Math.max(0, Math.round(b.lives * 100) / 100), hb: b.hitBy, ko: b.koBy, f: b.shotLog.map(e => e.d),
         tm: b.tm ?? -1, fc: b.fc ?? -1, cp: [stats.round, b.caps || 0], tg: b.tag
       };
-      if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, lv: 1, sh: 0, wp: 0, tg: b.tag,
+      if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, lv: 1, sh: 0, wp: WEAPON_KEYS.indexOf(botWeapon(b)), tg: b.tag,
         st: [stats.round, b.st.kills, b.st.deaths, b.st.shots, b.st.hits, b.st.best] });
       applyRemote(b.id, m);   // show it here
       out.push([b.id, m]);

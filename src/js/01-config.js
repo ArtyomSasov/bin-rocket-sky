@@ -26,7 +26,7 @@
   const WEAPONS = {
     fire:   { name: "Fireball",    ammo: Infinity, cd: 0.22 },
     triple: { name: "Triple shot", ammo: 24, cd: 0.3, col: "#ffb43c" },
-    laser:  { name: "Laser",       ammo: 45, cd: 0.08, col: "#7df9ff" },
+    laser:  { name: "Laser",       ammo: 90, cd: 0.08, col: "#7df9ff" },   // also limited by heat (see LASER_HEAT)
     rocket: { name: "Homing rockets", ammo: 8, cd: 0.7, col: "#ff5a6e" },
     nuke:   { name: "Nuke",        ammo: 1,  cd: 1.0,  col: "#ffe14d" },
     scatter: { name: "Scatter gun", ammo: 16, cd: 0.7,  col: "#ffd27a" },
@@ -37,13 +37,13 @@
     shard:  { name: "Shard cannon", ammo: 14, cd: 0.75, col: "#ff9a3c" }
   };
   const PICK_TYPES = ["triple", "laser", "rocket", "scatter", "rail", "mine", "orb", "bolt", "shard"], PICK_PERIOD = 24; let PICKS = 18;
-  // by shot kind: 0 fireball, 1 rocket, 2 laser, 3 nuke, 4 scatter pellet, 5 rail slug, 6 mine, 7 plasma orb, 8 lightning, 9 shard
-  const SHOT_LIFE = [1.1, 3.6, 0.45, 3.2, 0.38, 0.7, 25, 2.4, 0.15, 0.9];
-  const SHOT_DMG  = [0.3, 1.2, 0.18, 0, 0, 2, 1.5, 0.9, 0.2, 0.3];      // pellets use pelletDmg(); in lives (Lv 1 has 3 = 100%)
+  // by shot kind: 0 fireball, 1 rocket, 2 laser, 3 nuke, 4 scatter pellet, 5 rail slug, 6 mine, 7 plasma orb, 8 lightning, 9 shard, 10 shotgun slug
+  const SHOT_LIFE = [1.1, 3.6, 0.45, 3.2, 0.38, 0.7, 25, 2.4, 0.15, 0.9, 0.6];
+  const SHOT_DMG  = [0.3, 1.2, 0.18, 0, 0, 2, 1.5, 0.9, 0.2, 0.3, 1];      // pellets use pelletDmg(); in lives (Lv 1 has 3 = 100%)
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs                 // the nuke deals its damage through detonate()
-  const SHOT_COL  = ["#ffb43c", "#ffb43c", "#7df9ff", "#ffe14d", "#ffd27a", "#e9c8ff", "#ff6b3c", "#6fd8ff", "#bfefff", "#ff9a3c"];
+  const SHOT_COL  = ["#ffb43c", "#ffb43c", "#7df9ff", "#ffe14d", "#ffd27a", "#e9c8ff", "#ff6b3c", "#6fd8ff", "#bfefff", "#ff9a3c", "#ffe7a0"];
   const MINE_R = 55, MINE_ARM = 0.7;
-  const SHOT_R = [0, 10, 0, 0, 0, 0, MINE_R, 16, 0, 0];      // extra hit radius by kind (mines go off near you, orbs are big)
+  const SHOT_R = [0, 10, 0, 0, 0, 0, MINE_R, 16, 0, 0, 4];      // extra hit radius by kind (mines go off near you, orbs are big)
   const AMP_PERIOD = 95, AMP_TIME = 20000;                   // Overdrive: a rare pick-up, triple damage for 20 s                        // mines go off when a bin comes this close, after arming
   // nuke: everything inside NUKE_KILL dies outright, the rest of the blast (out to NUKE_R) takes heavy damage
   // Doom-style supplies: medkits give lives back, shields add armour that soaks damage before lives

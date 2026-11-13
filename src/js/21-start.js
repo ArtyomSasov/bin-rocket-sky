@@ -6,25 +6,32 @@
       ["Fire", `${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY("Return")})`],
       ["Dash", `tap ${KEY("⇧ Shift")} — a quick dodge forward`],
       ["Boost", `hold ${KEY("⇧ Shift")} — uses the blue energy bar`],
-      ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`]] },
+      ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`],
+      ["Alt fire", `right mouse button or ${KEY("C")}: rocket salvo, shotgun slug, focused triple, thrown mine`],
+      ["Brake", `hold ${KEY("X")} (or push the other way)`]] },
     windows: { label: "Windows", rows: [
       ["Fly", `${KEY("W")}${KEY("A")}${KEY("S")}${KEY("D")} or arrows · or hold the left mouse button and point`],
       ["Fire", `${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY("Enter")})`],
       ["Dash", `tap ${KEY("Shift")} — a quick dodge forward`],
       ["Boost", `hold ${KEY("Shift")} — uses the blue energy bar`],
-      ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`]] },
+      ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`],
+      ["Alt fire", `right mouse button or ${KEY("C")}: rocket salvo, shotgun slug, focused triple, thrown mine`],
+      ["Brake", `hold ${KEY("X")} (or push the other way)`]] },
     linux: { label: "Linux", rows: [
       ["Fly", `${KEY("W")}${KEY("A")}${KEY("S")}${KEY("D")} or arrows · or hold the left mouse button and point`],
       ["Fire", `${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY("Enter")})`],
       ["Dash", `tap ${KEY("Shift")} — a quick dodge forward`],
       ["Boost", `hold ${KEY("Shift")} — uses the blue energy bar`],
-      ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`]] },
+      ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`],
+      ["Alt fire", `right mouse button or ${KEY("C")}: rocket salvo, shotgun slug, focused triple, thrown mine`],
+      ["Brake", `hold ${KEY("X")} (or push the other way)`]] },
     phone: { label: "Phone", rows: [
       ["Fly", "put your thumb anywhere on the left side: a joystick appears under it, push it where you want to go"],
       ["Fire", "orange flame button (bottom right)"],
       ["Dash", "tap the teal button — a quick dodge forward"],
       ["Boost", "hold the teal button"],
-      ["Weapon", "tap a gun in the bar above the fire button"]] }
+      ["Weapon", "tap a gun in the bar above the fire button"],
+      ["Alt fire", "the small orange button above the fire button (rockets, shotgun, triple shot, mines)"]] }
   };
   function detectDevice() {
     const ua = navigator.userAgent, plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";

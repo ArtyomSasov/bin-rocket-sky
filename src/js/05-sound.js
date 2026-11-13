@@ -78,7 +78,7 @@
     src.start();
     return true;
   }
-  const SHOT_SFX = ["fire", "rocket", "laser", "rocket", "scatter", "rail", "mine_drop", "shield_get", "laser", "scatter"];
+  const SHOT_SFX = ["fire", "rocket", "laser", "rocket", "scatter", "rail", "mine_drop", "shield_get", "laser", "scatter", "scatter"];
   function blip(f, dur, type) {
     if (!audio) return;
     const o = audio.createOscillator(), v = audio.createGain(), t = audio.currentTime;

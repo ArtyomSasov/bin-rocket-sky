@@ -57,11 +57,15 @@
     mctx.strokeStyle = "rgba(255,255,255,0.25)"; mctx.lineWidth = 1.5;
     mctx.strokeRect(vx0, vy0, vw * k, vh * k);
     // weapon crates
-    for (const c of world.picks) {
-      if (grabbed.has(c.key)) continue;
-      const [x, y] = P(c.x, c.y);
-      mctx.fillStyle = WEAPONS[c.type].col; mctx.fillRect(x - 3, y - 3, 6, 6);
-    }
+    const wt = clockNow();
+    world.picks.forEach((c, i) => {
+      if (!grabbed.has(c.key)) { const [x, y] = P(c.x, c.y); mctx.fillStyle = WEAPONS[c.type].col; mctx.fillRect(x - 3, y - 3, 6, 6); return; }
+      const nx = pickup(i, wt + (1 - c.age) * PICK_PERIOD * 1000 + 50), [x, y] = P(nx.x, nx.y);   // taken: show where the next one lands
+      mctx.strokeStyle = WEAPONS[nx.type].col; mctx.globalAlpha = 0.55; mctx.lineWidth = 1;
+      mctx.strokeRect(x - 2.5, y - 2.5, 5, 5);
+      mctx.lineWidth = 1.5; mctx.beginPath(); mctx.arc(x, y, 5.5, -1.57, -1.57 + c.age * 6.283); mctx.stroke();
+      mctx.globalAlpha = 1;
+    });
     for (const c of world.supplies) {
       if (grabbed.has(c.key)) continue;
       const [x, y] = P(c.x, c.y), sp = SUPPLIES[c.type];

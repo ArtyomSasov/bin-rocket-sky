@@ -231,6 +231,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   background: radial-gradient(circle at 50% 40%, #c8fff8, #4fd6c8 60%, #2aa79b);
   box-shadow: 0 4px 0 #1d7a70, 0 0 20px rgba(79, 214, 200, .5);
 }
+.altbtn {
+  right: calc(30px + env(safe-area-inset-right, 0px)); bottom: calc(150px + env(safe-area-inset-bottom, 0px));
+  width: 56px; height: 56px; font: 700 11px var(--display); color: #fff7e0; letter-spacing: .04em;
+  background: radial-gradient(circle at 50% 40%, #ffd2a0, #ff7a3c 60%, #c2401e);
+}
 .boostbtn svg { width: 28px; height: 28px; fill: #10302d; }
 .xpbar.nrg i { background: linear-gradient(90deg, #7df9ff, #ffffff); transition: none; }
 .minimap {
@@ -276,6 +281,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   box-shadow: none; touch-action: none; cursor: pointer;
 }
 .slot svg { width: 20px; height: 20px; fill: currentColor; }
+.slot b { position: absolute; left: 5px; right: 5px; bottom: 3px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.12); overflow: hidden; }
+.slot b::after { content: ""; position: absolute; inset: 0; transform-origin: left; transform: scaleX(var(--f)); background: var(--c); }
+.slot b.heat::after { background: linear-gradient(90deg, #7df9ff, #ffd36b 60%, #ff5a3c); }
+.slot b.hot { animation: hot .3s steps(2) infinite; }
+@keyframes hot { 50% { background: rgba(255,90,60,.7); } }
 .slot span { font: 700 10px var(--display); color: var(--ink); line-height: 1; }
 .slot i { position: absolute; left: 4px; top: 2px; font: 700 9px var(--display); font-style: normal; color: var(--muted); }
 .slot.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); box-shadow: 0 0 12px color-mix(in srgb, var(--c) 45%, transparent); }
@@ -294,6 +304,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   .event { top: calc(118px + env(safe-area-inset-top, 0px)); font-size: 13px; }
   .fire { bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
   .boostbtn { right: calc(104px + env(safe-area-inset-right, 0px)); }
+  .altbtn { bottom: calc(190px + env(safe-area-inset-bottom, 0px)); }
   .minimap { width: 96px; height: 96px; bottom: calc(108px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (max-width: 360px) { .score > span:first-of-type { display: none; } }

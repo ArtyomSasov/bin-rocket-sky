@@ -5,7 +5,7 @@
     lives: LIVES, dead: false, respawnAt: 0, inv: 0, xp: 0, lv: 1, weapon: "fire", arsenal: { fire: Infinity }, ampUntil: 0, carry: 0, ds: 0, shield: 0, boostFx: 0, dashAt: -1e9
   };
   const myTag = Math.random().toString(36).slice(2, 7);
-  let shotSeq = 0, fireCd = 0, firing = false, shake = 0, hurtFlash = 0;
+  let shotSeq = 0, fireCd = 0, firing = false, altFiring = false, shake = 0, hurtFlash = 0;
   const camKick = { x: 0, y: 0 };
   const shots = [];            // live fireballs: {id, x, y, vx, vy, life, mine}
   const myShotLog = [];        // recent own shots, shared so others can see them
@@ -47,7 +47,7 @@
     if ((e.code === "ShiftLeft" || e.code === "ShiftRight") && !e.repeat && e.target.tagName !== "INPUT") { boostDownAt = performance.now(); dash(boostDownAt); }
   });
   addEventListener("keyup", e => keys.delete(e.code));
-  addEventListener("blur", () => { keys.clear(); ptr.down = false; firing = false; boostBtnDown = false; joyEnd(); });
+  addEventListener("blur", () => { keys.clear(); ptr.down = false; firing = false; altFiring = false; boostBtnDown = false; joyEnd(); });
   const fireBtn = document.getElementById("fireBtn");
   const boostBtn = document.getElementById("boostBtn");
   boostBtn.addEventListener("pointerdown", e => {
@@ -75,6 +75,7 @@
       cv.setPointerCapture(e.pointerId);
       return;
     }
+    if (e.button === 2) { altFiring = true; return; }   // right button: alternate fire
     ptr.down = true; ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; cv.setPointerCapture(e.pointerId);
   });
   cv.addEventListener("pointermove", e => {
@@ -92,7 +93,12 @@
     }
     ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom;
   });
-  const up = e => { if (e.pointerId === joy.id) joyEnd(); else ptr.down = false; };
+  const up = e => { if (e.pointerId === joy.id) joyEnd(); else if (e.button === 2) altFiring = false; else ptr.down = false; };
+  addEventListener("pointerup", e => { if (e.button === 2) altFiring = false; });
+  const altBtn = document.getElementById("altBtn");
+  altBtn.addEventListener("pointerdown", e => { e.preventDefault(); altFiring = true; altBtn.setPointerCapture(e.pointerId); });
+  for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) altBtn.addEventListener(ev, () => { altFiring = false; });
+  altBtn.addEventListener("contextmenu", e => e.preventDefault());
   for (const el of [cv, fireBtn]) el.addEventListener("contextmenu", e => e.preventDefault());
   cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
 

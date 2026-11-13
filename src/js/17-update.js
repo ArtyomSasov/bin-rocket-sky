@@ -17,7 +17,10 @@
     let boost = (shiftHeld || boostBtnDown) && boostDownAt >= 0 && now - boostDownAt > BOOST_HOLD * 1000;
     if (me.dead && now >= me.respawnAt) respawn(now);
     fireCd -= dt; shake = Math.max(0, shake - dt);
-    if (playing && roundLive && !me.dead && fireCd <= 0 && (firing || FIRE_KEYS.some(k => keys.has(k)))) shoot(now);
+    heatTick(dt, now);
+    const ready = playing && roundLive && !me.dead && fireCd <= 0;
+    if (ready && (altFiring || keys.has("KeyC")) && ALT[me.weapon]) shootAlt(now);
+    else if (ready && (firing || FIRE_KEYS.some(k => keys.has(k))) && !(me.weapon === "laser" && overheated)) shoot(now);
     if (playing && !me.dead) {
       if (keys.has("KeyA") || keys.has("ArrowLeft")) ix -= 1;
       if (keys.has("KeyD") || keys.has("ArrowRight")) ix += 1;
@@ -178,6 +181,8 @@
         if (Math.random() < dt * 40) puff(s.x, s.y, (Math.random() - .5) * 80, (Math.random() - .5) * 80, 0.35, 2 + Math.random() * 2, Math.random() < 0.5 ? "#6fd8ff" : "#ffffff");
       } else if (s.kind === 9) {
         if (Math.random() < dt * 30) puff(s.x, s.y, -s.vx * 0.05, -s.vy * 0.05, 0.2, 1.5, "#ffc070");
+      } else if (s.kind === 10) {   // the slug drags a short hot trail
+        if (Math.random() < dt * 50) puff(s.x, s.y, -s.vx * 0.05, -s.vy * 0.05, 0.25, 2, Math.random() < 0.5 ? "#ffe7a0" : "#ffb43c");
       } else if (s.kind === 4 || s.kind === 6 || s.kind === 8) {
         // pellets are too short-lived for a trail; mines just sit there blinking
       } else if (Math.random() < dt * 40) puff(s.x, s.y, -s.vx * 0.08 + (Math.random() - .5) * 60, -s.vy * 0.08 + (Math.random() - .5) * 60, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 2, FIRE_COLS[(Math.random() * 4) | 0]);
@@ -187,7 +192,7 @@
         if (s.kind !== 5) s.life = 0;
         s.splashed = true;
         shotBurst(s);
-        if (s.kind === 4 || s.kind === 5) pelletShove(me, s, s.kind === 5 ? 650 : 150);
+        if (s.kind === 4 || s.kind === 5 || s.kind === 10) pelletShove(me, s, s.kind === 5 ? 650 : s.kind === 10 ? 450 : 150);
         if (s.kind === 8) boltChain(s, me.x, me.y, "me", now);
         if (hurt(now, shotDmg(s), false, s.kind, Math.atan2(s.vy, s.vx))) {
           pushCapped(hitBy, s.id, 12);
@@ -554,7 +559,7 @@
         floaters.push({ x: me.x, y: me.y - 90, t: 0, txt: "ROUND " + (rd.idx % 1000) + " · FIGHT!", gold: true });
         sfx("v_fight", 1);
       }
-      for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0 });
+      for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0, weapon: "fire" });
       me.fc = -1; me.caps = 0;
       hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0;
       if (shownRound !== -1) { myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode); }   // every crater filled in again

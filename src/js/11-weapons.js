@@ -143,6 +143,7 @@
     if (s.kind === 1) { explode(s.x, s.y, 40, 260); sfx("boom_small", 0.8, 1.15, s.x, s.y); } else sfx("hit", 0.55, 1.1, s.x, s.y);
     if (s.kind === 5) sparkShower(s.x, s.y, s.vx / 4200, s.vy / 4200, 1.2);
     if (s.kind === 4) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
+    if (s.kind === 10) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
     if (s.kind === 7) { s.boom = true; explode(s.x, s.y, 50, 360); rings.push({ x: s.x, y: s.y, t: 0, r: 110, col: "160,235,255", dur: 0.4, w: 8 }); }
     if (s.kind === 9) sparkShower(s.x, s.y, s.vx / 1300, s.vy / 1300, 0.6);
     impact(s.x, s.y, SHOT_COL[s.kind], s.kind === 1 || s.kind === 5 ? 2 : 1);
@@ -194,12 +195,58 @@
     camKick.x += bx * camK; camKick.y += by * camK; shake = Math.max(shake, shk);
     if (flashR) impacts.push({ x: muzzle.x, y: muzzle.y, t: 0, r: flashR, col: WEAPONS[me.weapon].col || "#ffb43c" });
     for (let k = 0; k < 6; k++) puff(muzzle.x, muzzle.y, bx * 200 + (Math.random() - .5) * 160, by * 200 + (Math.random() - .5) * 160, 0.25, 2.5, me.weapon === "laser" ? "#bff9ff" : FIRE_COLS[k % 4]);
-    if (me.weapon !== "fire" && --me.arsenal[me.weapon] <= 0) {
-      delete me.arsenal[me.weapon];
+    if (me.weapon === "laser") { laserHeat = Math.min(1, laserHeat + LASER_HEAT.perShot); heatAt = now; if (laserHeat >= 1) overheat(); }
+    spend(me.weapon, 1);
+  }
+  function spend(k, n) {
+    if (k !== "fire" && (me.arsenal[k] -= n) <= 0) {
+      delete me.arsenal[k];
       // out of ammo: fall back to another gun you carry (never auto-pick the nuke), else the fireball
-      me.weapon = WEAPON_KEYS.find(k => k !== "fire" && k !== "nuke" && me.arsenal[k]) || "fire";
+      me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && me.arsenal[w]) || "fire";
     }
     renderWeapon();
+  }
+  // the laser runs hot: about a second and a half of fire overheats it, then it is locked until it has cooled down a lot
+  const LASER_HEAT = { perShot: 0.075, cool: 0.55, wait: 0.25, unlock: 0.3 };
+  let laserHeat = 0, heatAt = 0, overheated = false;
+  function overheat() {
+    overheated = true;
+    sfx("crash", 0.5, 1.6) || blip(300, 0.2, "square");
+    floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: "OVERHEAT", hit: true, col: "#ff6b3c" });
+    smoke(me.x, me.y, 6, 60, 1);
+  }
+  function heatTick(dt, now) {
+    if (now - heatAt > LASER_HEAT.wait * 1000) laserHeat = Math.max(0, laserHeat - LASER_HEAT.cool * dt);
+    if (overheated && laserHeat <= LASER_HEAT.unlock) overheated = false;
+    const bar = arsenalEl.querySelector('[data-w="laser"] b');
+    if (bar) { bar.style.setProperty("--f", laserHeat.toFixed(3)); bar.classList.toggle("hot", overheated); }
+  }
+  // alternate fire (right mouse button or C; on phones the small button by the fire button)
+  const ALT = {
+    rocket:  { name: "Salvo", cost: 3, cd: 1.6 },    // three rockets at once
+    scatter: { name: "Slug",  cost: 2, cd: 0.95 },   // one heavy slug that flies far, instead of the spread
+    triple:  { name: "Focus", cost: 1, cd: 0.3 },    // all three balls nearly straight
+    mine:    { name: "Throw", cost: 1, cd: 0.6 }     // lob a mine ahead instead of dropping it behind
+  };
+  function shootAlt(now) {
+    const k = me.weapon, alt = ALT[k], n = me.arsenal[k];
+    if (!alt || !(n >= 1)) return;
+    fireCd = alt.cd;
+    const gun = muzzleAt(k), bx = Math.cos(me.a), by = Math.sin(me.a);
+    let muzzle, kick = 60, camK = 10;
+    if (k === "rocket") { for (const da of [-0.24, 0, 0.24]) muzzle = fireOne(now, me.a + da, 1, 300, gun); sfx("rocket", 1, 0.8); kick = 200; camK = 18; }
+    else if (k === "scatter") {
+      muzzle = fireOne(now, me.a, 10, 1900, gun); kick = 340; camK = 24;
+      if (!sfx("scatter", 1, 0.65)) boomSound(0.4, 900, 0.5);
+      setTimeout(() => sfx("pump", 0.6, 0.9), 300);
+      for (let j = 0; j < 14; j++) { const a = me.a + (Math.random() - 0.5) * 0.3, v = 300 + Math.random() * 500; puff(muzzle.x, muzzle.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.25, 2.5, FIRE_COLS[j % 4]); }
+    }
+    else if (k === "triple") { for (const da of [-0.035, 0, 0.035]) muzzle = fireOne(now, me.a + da, 0, 1050, gun); sfx("triple", 0.8, 0.9); }
+    else { muzzle = fireOne(now, me.a, 6, 700, gun); sfx("mine_drop", 0.8, 0.8); kick = 40; camK = 4; }
+    me.vx -= bx * kick; me.vy -= by * kick;
+    camKick.x += bx * camK; camKick.y += by * camK; shake = Math.max(shake, camK / 80);
+    impacts.push({ x: muzzle.x, y: muzzle.y, t: 0, r: 60 + camK * 2, col: WEAPONS[k].col });
+    spend(k, Math.min(n, alt.cost));
   }
   // quick dodge: a burst forward (or toward where you steer) with a moment of invulnerability
   function dash(now) {
@@ -234,10 +281,14 @@
     const list = owned();
     arsenalEl.hidden = !playing || list.length < 2;
     arsenalEl.innerHTML = list.map((k, i) => {
-      const n = me.arsenal[k];
+      const n = me.arsenal[k], f = k === "laser" ? laserHeat : Number.isFinite(n) ? Math.min(1, n / WEAPONS[k].ammo) : 1;
       return `<button type="button" class="slot${k === me.weapon ? " on" : ""}" data-w="${k}" style="--c:${WEAPONS[k].col || "#ffb43c"}" aria-label="${WEAPONS[k].name}">`
-        + `<i>${i + 1}</i><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICONS[k]}"/></svg><span>${Number.isFinite(n) ? n : "∞"}</span></button>`;
+        + `<i>${i + 1}</i><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICONS[k]}"/></svg><span>${Number.isFinite(n) ? n : "∞"}</span>`
+        + `<b class="${k === "laser" ? "heat" : "ammo"}${k === "laser" && overheated ? " hot" : ""}" style="--f:${f.toFixed(3)}"></b></button>`;
     }).join("");
+    const alt = ALT[me.weapon];
+    document.getElementById("altBtn").hidden = !playing || !COARSE || !alt;
+    if (alt) { document.getElementById("altName").textContent = alt.name.toUpperCase(); if (!COARSE) el.append(" · right click: " + alt.name); }
   }
   function selectWeapon(k) {
     if (!me.arsenal[k] || k === me.weapon) return;
