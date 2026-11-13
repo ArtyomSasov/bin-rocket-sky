@@ -21,7 +21,7 @@
   const pelletDmg = s => { const d = Math.hypot(s.x - s.ox, s.y - s.oy); return d < 170 ? 0.27 : d < 320 ? 0.18 : 0.09; };
   // how someone else's shot sounds here (quieter with distance)
   const shotSound = (kind, x, y) => { const [name, vol, pitch] = SHOTS[kind].sfx; sfx(name, vol, pitch, x, y); };
-  const shotDmg = s => MODE === "r" && s.kind === K.RAIL ? 99 : (s.kind === K.PELLET ? pelletDmg(s) : SHOTS[s.kind].dmg) * (s.m || 1);
+  const shotDmg = s => MODES[MODE].instagib && s.kind === K.RAIL ? 99 : (s.kind === K.PELLET ? pelletDmg(s) : SHOTS[s.kind].dmg) * (s.m || 1);
   // team modes: whose side a shot is on (no friendly fire)
   const teamOfShot = s => s.mine ? me.tm : botById.has(s.owner) ? botById.get(s.owner).tm : remotes.has(s.owner) ? remotes.get(s.owner).tm : undefined;
   const friendly = (s, tm) => mates({ tm }, { tm: teamOfShot(s) });
@@ -179,7 +179,7 @@
   function shoot(now, alt) {
     const k = me.weapon, w = WEAPONS[k], pat = alt ? w.alt : w;
     if (alt && !(pat && me.arsenal[k] >= pat.cost)) return;
-    fireCd = alt ? pat.cd : w.cd * (MODE === "n" ? 2.2 : 1);
+    fireCd = alt ? pat.cd : w.cd * (MODES[MODE].cdMul || 1);
     const muzzle = volley(me, now, pat, k === "fire" ? null : muzzleAt(k));
     const [name, vol, pitch] = pat.sfx;
     sfx(name, vol, pitch) || blip(160, 0.1, "sawtooth");

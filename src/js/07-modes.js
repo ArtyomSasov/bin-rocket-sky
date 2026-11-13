@@ -2,6 +2,8 @@
   let bases = null;   // capture the flag: [red, blue] home pads
   const isTeams = () => !!MODES[MODE].teams;
   const onTeam = o => o.tm === 0 || o.tm === 1;   // tm is 0, 1 or undefined (outside team modes, or not heard yet)
+  // a pilot's look as drawn: in team modes the body and lid take the team colour
+  const teamCk = o => isTeams() && onTeam(o) ? Object.assign((o.ck || [0, 0, 0, 0, 0]).slice(), { team: o.tm }) : o.ck;
   const mates = (a, b) => isTeams() && onTeam(a) && a.tm === b.tm;
   function baseArsenal() {
     const o = MODES[MODE].only;

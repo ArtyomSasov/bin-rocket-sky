@@ -492,10 +492,10 @@
     for (const r of remotes.values()) {
       if (r.dead) continue;
       const x = sx(r.x), y = sy(r.y);
-      if (onScreen(x, y, BOT * 2)) { teamRing(x, y, r.tm, r.lv); drawBot({ ...r, blink: r.inv }, x, y, now, false); }
+      if (onScreen(x, y, BOT * 2)) drawBot({ ...r, blink: r.inv }, x, y, now, false);
       else drawPointer(r, x, y);
     }
-    if (!me.dead) { teamRing(vw / 2, vh / 2, me.tm, me.lv); drawBot({ ...me, name: playing ? me.name : "", blink: now < me.inv }, vw / 2, vh / 2, now, true); }
+    if (!me.dead) drawBot({ ...me, name: playing ? me.name : "", blink: now < me.inv }, vw / 2, vh / 2, now, true);
     else {
       g.textAlign = "center"; g.fillStyle = "#ffffff";
       g.font = `700 ${30 * TS}px ` + DISPLAY_FONT;

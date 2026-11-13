@@ -64,7 +64,7 @@
   }
   const darkCache = new Map();
   function darkBody(ck, amount = 0.58) {
-    const src = tintedBody(ck), key = ck.join(",") + "|" + amount;
+    const src = tintedBody(ck), key = ck.join(",") + "|" + (ck.team ?? "") + "|" + amount;
     let c = darkCache.get(key);
     if (c) return c;
     c = document.createElement("canvas"); c.width = src.width; c.height = src.height;
@@ -237,6 +237,7 @@
   // 0 blown apart (fire, rockets, mines, shards, crashes...), 1 sliced by a rail slug, 2 fried by laser or lightning, 3 melted by plasma
   const deathStyleOf = kind => kind === K.RAIL ? 1 : kind === K.LASER || kind === K.BOLT ? 2 : kind === K.ORB ? 3 : 0;
   function deathFx(b, ds, dk, da) {
+    b = { ...b, ck: teamCk(b) };   // the wreck keeps the colours the bin flew in
     if (dk === 1) railCut(b, da);
     else if (dk === 2) electrocute(b);
     else if (dk === 3) meltDown(b);

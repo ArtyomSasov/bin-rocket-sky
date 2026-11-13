@@ -131,7 +131,8 @@
       b.a = lerpAng(b.a, aim, 1 - Math.exp(-5 * dt));
       b.fireCd -= dt;
       if (tgt && roundLive && td < 950 && Math.abs(angD(aim - b.a)) < 0.3 && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
-        b.fireCd = (MODE === "n" ? b.L.cd * 6 : MODE === "r" ? b.L.cd * 3 : cd < 0.15 ? cd * 2 : Math.max(b.L.cd, cd * 1.3)) * (0.7 + Math.random() * 0.6); }
+        const md = MODES[MODE];
+        b.fireCd = (md.botCd ? b.L.cd * md.botCd : cd < 0.15 ? cd * 2 : Math.max(b.L.cd, cd * 1.3)) * (0.7 + Math.random() * 0.6); }
       // another pilot ramming my bot on boost (the bot is the victim, so its owner decides)
       for (const [rid, r] of remotes) {
         if (botById.has(rid) || r.dead || !(r.boost > 0) || !r.tag || mates(r, b)) continue;

@@ -17,7 +17,7 @@
     for (let i = 0; i < world.picks.length; i++) world.picks[i] = pickup(i, wt);
     world.nuke = solo ? null : nukePickup(wt);
     world.amp = solo ? null : ampPickup(wt);
-    world.supplies.length = MODE === "r" ? 0 : SUPPLY_SLOTS;
+    world.supplies.length = MODES[MODE].noSupplies ? 0 : SUPPLY_SLOTS;
     roundTick(now);
     for (let i = 0; i < world.supplies.length; i++) world.supplies[i] = supply(i, wt);
     update(dt, now); draw(now);

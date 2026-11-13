@@ -467,12 +467,15 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     mega:   { name: "Mega shield", col: "#4fa8ff", armor: 4, icon: "shield", big: true }
   };
   // game modes: picked with a new lobby and carried in its code ("<size>1<mode>...", e.g. M1CK7QX); a plain code is deathmatch
+  // rules: teams (Red/Blue, no friendly fire); flags (capture the flag); only: the one gun everyone has (no crates,
+  // nukes or Overdrive); cdMul: reload multiplier for players, botCd: for bots (x their usual pace); instagib: a hit
+  // kills; noSupplies: no medkits or shields
   const MODES = {
     d: { name: "Deathmatch", label: "Deathmatch" },
     t: { name: "Team Deathmatch", label: "Team DM", teams: true },
     c: { name: "Capture the Flag", label: "CTF", teams: true, flags: true },
-    n: { name: "Nukes only", label: "Nukes", only: "nuke" },
-    r: { name: "Railgun instagib", label: "Instagib", only: "rail" }
+    n: { name: "Nukes only", label: "Nukes", only: "nuke", cdMul: 2.2, botCd: 6 },
+    r: { name: "Railgun instagib", label: "Instagib", only: "rail", botCd: 3, instagib: true, noSupplies: true }
   };
   const modeOf = code => { const c = String(code); return c[1] === "1" && MODES[c[2]] ? c[2] : "d"; };
   let MODE = "d";
@@ -526,7 +529,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const n = Array.isArray(v) ? Math.floor(Number(v[i])) : 0;
     return n >= 0 && n < CUSTOM[k].items.length ? n : 0;
   });
-  const customVal = (ck, key) => CUSTOM[key].items[ck[CUSTOM_KEYS.indexOf(key)]][1];
+  // team modes paint every bin's body and lid in its team's colour (the rest of the look stays the pilot's own)
+  const TEAM_SKIN = [{ body: 352, lid: 8 }, { body: 212, lid: 226 }];   // hues: Red, Blue
+  const customVal = (ck, key) => ck.team !== undefined && TEAM_SKIN[ck.team][key] !== undefined ? TEAM_SKIN[ck.team][key]
+    : CUSTOM[key].items[ck[CUSTOM_KEYS.indexOf(key)]][1];
 
   const img = new Image(); img.src = "bot.png";
   // the art with its painted flame removed: our animated fire is drawn behind it from the nozzle
@@ -1478,6 +1484,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   let bases = null;   // capture the flag: [red, blue] home pads
   const isTeams = () => !!MODES[MODE].teams;
   const onTeam = o => o.tm === 0 || o.tm === 1;   // tm is 0, 1 or undefined (outside team modes, or not heard yet)
+  // a pilot's look as drawn: in team modes the body and lid take the team colour
+  const teamCk = o => isTeams() && onTeam(o) ? Object.assign((o.ck || [0, 0, 0, 0, 0]).slice(), { team: o.tm }) : o.ck;
   const mates = (a, b) => isTeams() && onTeam(a) && a.tm === b.tm;
   function baseArsenal() {
     const o = MODES[MODE].only;
@@ -1754,7 +1762,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
   const darkCache = new Map();
   function darkBody(ck, amount = 0.58) {
-    const src = tintedBody(ck), key = ck.join(",") + "|" + amount;
+    const src = tintedBody(ck), key = ck.join(",") + "|" + (ck.team ?? "") + "|" + amount;
     let c = darkCache.get(key);
     if (c) return c;
     c = document.createElement("canvas"); c.width = src.width; c.height = src.height;
@@ -1927,6 +1935,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   // 0 blown apart (fire, rockets, mines, shards, crashes...), 1 sliced by a rail slug, 2 fried by laser or lightning, 3 melted by plasma
   const deathStyleOf = kind => kind === K.RAIL ? 1 : kind === K.LASER || kind === K.BOLT ? 2 : kind === K.ORB ? 3 : 0;
   function deathFx(b, ds, dk, da) {
+    b = { ...b, ck: teamCk(b) };   // the wreck keeps the colours the bin flew in
     if (dk === 1) railCut(b, da);
     else if (dk === 2) electrocute(b);
     else if (dk === 3) meltDown(b);
@@ -2112,7 +2121,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const pelletDmg = s => { const d = Math.hypot(s.x - s.ox, s.y - s.oy); return d < 170 ? 0.27 : d < 320 ? 0.18 : 0.09; };
   // how someone else's shot sounds here (quieter with distance)
   const shotSound = (kind, x, y) => { const [name, vol, pitch] = SHOTS[kind].sfx; sfx(name, vol, pitch, x, y); };
-  const shotDmg = s => MODE === "r" && s.kind === K.RAIL ? 99 : (s.kind === K.PELLET ? pelletDmg(s) : SHOTS[s.kind].dmg) * (s.m || 1);
+  const shotDmg = s => MODES[MODE].instagib && s.kind === K.RAIL ? 99 : (s.kind === K.PELLET ? pelletDmg(s) : SHOTS[s.kind].dmg) * (s.m || 1);
   // team modes: whose side a shot is on (no friendly fire)
   const teamOfShot = s => s.mine ? me.tm : botById.has(s.owner) ? botById.get(s.owner).tm : remotes.has(s.owner) ? remotes.get(s.owner).tm : undefined;
   const friendly = (s, tm) => mates({ tm }, { tm: teamOfShot(s) });
@@ -2270,7 +2279,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function shoot(now, alt) {
     const k = me.weapon, w = WEAPONS[k], pat = alt ? w.alt : w;
     if (alt && !(pat && me.arsenal[k] >= pat.cost)) return;
-    fireCd = alt ? pat.cd : w.cd * (MODE === "n" ? 2.2 : 1);
+    fireCd = alt ? pat.cd : w.cd * (MODES[MODE].cdMul || 1);
     const muzzle = volley(me, now, pat, k === "fire" ? null : muzzleAt(k));
     const [name, vol, pitch] = pat.sfx;
     sfx(name, vol, pitch) || blip(160, 0.1, "sawtooth");
@@ -2994,7 +3003,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       b.a = lerpAng(b.a, aim, 1 - Math.exp(-5 * dt));
       b.fireCd -= dt;
       if (tgt && roundLive && td < 950 && Math.abs(angD(aim - b.a)) < 0.3 && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
-        b.fireCd = (MODE === "n" ? b.L.cd * 6 : MODE === "r" ? b.L.cd * 3 : cd < 0.15 ? cd * 2 : Math.max(b.L.cd, cd * 1.3)) * (0.7 + Math.random() * 0.6); }
+        const md = MODES[MODE];
+        b.fireCd = (md.botCd ? b.L.cd * md.botCd : cd < 0.15 ? cd * 2 : Math.max(b.L.cd, cd * 1.3)) * (0.7 + Math.random() * 0.6); }
       // another pilot ramming my bot on boost (the bot is the victim, so its owner decides)
       for (const [rid, r] of remotes) {
         if (botById.has(rid) || r.dead || !(r.boost > 0) || !r.tag || mates(r, b)) continue;
@@ -4404,15 +4414,6 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     g.closePath();
   }
 
-  // team modes: a ring in the team's colour under every bin
-  function teamRing(x, y, tm, lv) {
-    if (!isTeams() || (tm !== 0 && tm !== 1)) return;
-    const R = 44 * sizeOf(lv || 1);
-    g.globalCompositeOperation = "lighter";
-    g.strokeStyle = `rgba(${TEAM_RGB[tm]},0.75)`; g.lineWidth = 3.5;
-    g.beginPath(); g.ellipse(x, y + R * 0.2, R, R * 0.75, 0, 0, 6.29); g.stroke();
-    g.globalCompositeOperation = "source-over";
-  }
   function drawBot(b, x, y, now, isMe) {
     const lv = b.lv || 1, sz = sizeOf(lv), tier = tierOf(lv), S = BOT * sz;
     if (b.blink && Math.floor(now / 90) % 2) g.globalAlpha = 0.35;
@@ -4478,7 +4479,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     g.restore();
     drawWings(lv, s);
     drawMounts(isMe ? me.weapon : b.weapon, s, now);
-    if (body) g.drawImage(b.ck ? tintedBody(b.ck) : body, -s / 2, -s / 2, s, s);
+    if (body) g.drawImage(b.ck ? tintedBody(teamCk(b)) : body, -s / 2, -s / 2, s, s);
     else { g.fillStyle = "#4fd6c8"; g.fillRect(-s / 3, -s / 3, s / 1.5, s / 1.5); }
     const hat = b.ck ? customVal(b.ck, "hat") : null;
     drawArmor(lv, s, now, !hat);
@@ -5001,10 +5002,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     for (const r of remotes.values()) {
       if (r.dead) continue;
       const x = sx(r.x), y = sy(r.y);
-      if (onScreen(x, y, BOT * 2)) { teamRing(x, y, r.tm, r.lv); drawBot({ ...r, blink: r.inv }, x, y, now, false); }
+      if (onScreen(x, y, BOT * 2)) drawBot({ ...r, blink: r.inv }, x, y, now, false);
       else drawPointer(r, x, y);
     }
-    if (!me.dead) { teamRing(vw / 2, vh / 2, me.tm, me.lv); drawBot({ ...me, name: playing ? me.name : "", blink: now < me.inv }, vw / 2, vh / 2, now, true); }
+    if (!me.dead) drawBot({ ...me, name: playing ? me.name : "", blink: now < me.inv }, vw / 2, vh / 2, now, true);
     else {
       g.textAlign = "center"; g.fillStyle = "#ffffff";
       g.font = `700 ${30 * TS}px ` + DISPLAY_FONT;
@@ -5158,7 +5159,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     for (let i = 0; i < world.picks.length; i++) world.picks[i] = pickup(i, wt);
     world.nuke = solo ? null : nukePickup(wt);
     world.amp = solo ? null : ampPickup(wt);
-    world.supplies.length = MODE === "r" ? 0 : SUPPLY_SLOTS;
+    world.supplies.length = MODES[MODE].noSupplies ? 0 : SUPPLY_SLOTS;
     roundTick(now);
     for (let i = 0; i < world.supplies.length; i++) world.supplies[i] = supply(i, wt);
     update(dt, now); draw(now);

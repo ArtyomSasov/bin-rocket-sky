@@ -652,15 +652,6 @@
     g.closePath();
   }
 
-  // team modes: a ring in the team's colour under every bin
-  function teamRing(x, y, tm, lv) {
-    if (!isTeams() || (tm !== 0 && tm !== 1)) return;
-    const R = 44 * sizeOf(lv || 1);
-    g.globalCompositeOperation = "lighter";
-    g.strokeStyle = `rgba(${TEAM_RGB[tm]},0.75)`; g.lineWidth = 3.5;
-    g.beginPath(); g.ellipse(x, y + R * 0.2, R, R * 0.75, 0, 0, 6.29); g.stroke();
-    g.globalCompositeOperation = "source-over";
-  }
   function drawBot(b, x, y, now, isMe) {
     const lv = b.lv || 1, sz = sizeOf(lv), tier = tierOf(lv), S = BOT * sz;
     if (b.blink && Math.floor(now / 90) % 2) g.globalAlpha = 0.35;
@@ -726,7 +717,7 @@
     g.restore();
     drawWings(lv, s);
     drawMounts(isMe ? me.weapon : b.weapon, s, now);
-    if (body) g.drawImage(b.ck ? tintedBody(b.ck) : body, -s / 2, -s / 2, s, s);
+    if (body) g.drawImage(b.ck ? tintedBody(teamCk(b)) : body, -s / 2, -s / 2, s, s);
     else { g.fillStyle = "#4fd6c8"; g.fillRect(-s / 3, -s / 3, s / 1.5, s / 1.5); }
     const hat = b.ck ? customVal(b.ck, "hat") : null;
     drawArmor(lv, s, now, !hat);

@@ -87,12 +87,15 @@
     mega:   { name: "Mega shield", col: "#4fa8ff", armor: 4, icon: "shield", big: true }
   };
   // game modes: picked with a new lobby and carried in its code ("<size>1<mode>...", e.g. M1CK7QX); a plain code is deathmatch
+  // rules: teams (Red/Blue, no friendly fire); flags (capture the flag); only: the one gun everyone has (no crates,
+  // nukes or Overdrive); cdMul: reload multiplier for players, botCd: for bots (x their usual pace); instagib: a hit
+  // kills; noSupplies: no medkits or shields
   const MODES = {
     d: { name: "Deathmatch", label: "Deathmatch" },
     t: { name: "Team Deathmatch", label: "Team DM", teams: true },
     c: { name: "Capture the Flag", label: "CTF", teams: true, flags: true },
-    n: { name: "Nukes only", label: "Nukes", only: "nuke" },
-    r: { name: "Railgun instagib", label: "Instagib", only: "rail" }
+    n: { name: "Nukes only", label: "Nukes", only: "nuke", cdMul: 2.2, botCd: 6 },
+    r: { name: "Railgun instagib", label: "Instagib", only: "rail", botCd: 3, instagib: true, noSupplies: true }
   };
   const modeOf = code => { const c = String(code); return c[1] === "1" && MODES[c[2]] ? c[2] : "d"; };
   let MODE = "d";
@@ -146,7 +149,10 @@
     const n = Array.isArray(v) ? Math.floor(Number(v[i])) : 0;
     return n >= 0 && n < CUSTOM[k].items.length ? n : 0;
   });
-  const customVal = (ck, key) => CUSTOM[key].items[ck[CUSTOM_KEYS.indexOf(key)]][1];
+  // team modes paint every bin's body and lid in its team's colour (the rest of the look stays the pilot's own)
+  const TEAM_SKIN = [{ body: 352, lid: 8 }, { body: 212, lid: 226 }];   // hues: Red, Blue
+  const customVal = (ck, key) => ck.team !== undefined && TEAM_SKIN[ck.team][key] !== undefined ? TEAM_SKIN[ck.team][key]
+    : CUSTOM[key].items[ck[CUSTOM_KEYS.indexOf(key)]][1];
 
   const img = new Image(); img.src = "bot.png";
   // the art with its painted flame removed: our animated fire is drawn behind it from the nozzle
