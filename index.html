@@ -111,6 +111,7 @@ body {
 .board li { display: flex; justify-content: space-between; gap: 12px; white-space: nowrap; }
 .board li .nm { overflow: hidden; text-overflow: ellipsis; }
 .board li .pts { font-variant-numeric: tabular-nums; font-weight: 800; }
+.board li.team { font-weight: 800; border-bottom: 1px solid var(--line); padding-bottom: 3px; }
 .board li.me .nm::after { content: " (you)"; color: var(--muted); font-weight: 600; }
 .status {
   position: fixed;
@@ -328,7 +329,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   <form class="card chip" id="startForm">
     <canvas id="preview" width="220" height="220" aria-label="Preview of your bin rocket"></canvas>
     <h1>Bin Rocket <em>Sky</em></h1>
-    <p><b>Deathmatch:</b> 5-minute rounds, the pilot with the most kills wins. Scoop up sparks to level up, blast space junk and other bins with fire. You start at 100% health. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more health and fancier fire. Planets pull you in and hurt if you slam into them (more on boost); shoot one apart for +25. Planets, wrecks and buildings break off piece by piece where you hit them. Watch out for black holes, meteor showers and aliens. Grab weapon crates: triple shot, laser, homing rockets (slow: outrun them or shoot them down), scatter gun, railgun (pierces), mines, plasma orb (shoot it with the railgun or laser for a combo blast), lightning, shard cannon (shards ricochet), and the rare nuke. The violet Overdrive crystal triples your damage for 20 s (it levels everything around it). Medkits heal, shields soak damage. Black holes swallow anything that reaches the centre.</p>
+    <p><b>Deathmatch:</b> 5-minute rounds, the pilot with the most kills wins. Scoop up sparks to level up, blast space junk and other bins with fire. You start at 100% health. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more health and fancier fire. Planets pull you in and hurt if you slam into them (more on boost); shoot one apart for +25. Planets, wrecks and buildings break off piece by piece where you hit them. Watch out for black holes, meteor showers and aliens. Grab weapon crates: triple shot, laser, homing rockets (slow: outrun them or shoot them down), scatter gun, railgun (pierces), mines, plasma orb (shoot it with the railgun or laser for a combo blast), lightning, shard cannon (shards ricochet), and the rare nuke. The violet Overdrive crystal triples your damage for 20 s (it levels everything around it). Medkits heal, shields soak damage. Black holes swallow anything that reaches the centre. Modes for a new lobby: Deathmatch, Team Deathmatch, Capture the Flag, Nukes only and Railgun instagib.</p>
     <div class="field">
       <label for="nameInput">Pilot name</label>
       <input id="nameInput" maxlength="14" autocomplete="off" placeholder="Pilot name">
@@ -341,6 +342,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       </div>
       <label>Map size <small>(for a new lobby; a friend's code brings its own)</small></label>
       <div class="segs" id="mapSize" role="group" aria-label="Map size"></div>
+      <label>Mode <small>(for a new lobby; a friend's code brings its own)</small></label>
+      <div class="segs" id="modePick" role="group" aria-label="Game mode"></div>
     </div>
     <button type="submit" class="go" id="goBtn">Take off</button>
     <details class="custom" id="customBox">
@@ -386,8 +389,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const tierOf = lv => TIERS.filter(t => lv >= t.from).pop();
   // weapons: pick-ups swap the fireball for a while
   const WEAPONS = {
-    fire:   { name: "Fireball",    ammo: Infinity, cd: 0.2 },
-    triple: { name: "Triple shot", ammo: 30, cd: 0.24, col: "#ffb43c" },
+    fire:   { name: "Fireball",    ammo: Infinity, cd: 0.22 },
+    triple: { name: "Triple shot", ammo: 24, cd: 0.3, col: "#ffb43c" },
     laser:  { name: "Laser",       ammo: 45, cd: 0.08, col: "#7df9ff" },
     rocket: { name: "Homing rockets", ammo: 8, cd: 0.7, col: "#ff5a6e" },
     nuke:   { name: "Nuke",        ammo: 1,  cd: 1.0,  col: "#ffe14d" },
@@ -400,8 +403,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   };
   const PICK_TYPES = ["triple", "laser", "rocket", "scatter", "rail", "mine", "orb", "bolt", "shard"], PICK_PERIOD = 24; let PICKS = 18;
   // by shot kind: 0 fireball, 1 rocket, 2 laser, 3 nuke, 4 scatter pellet, 5 rail slug, 6 mine, 7 plasma orb, 8 lightning, 9 shard
-  const SHOT_LIFE = [1.1, 3.6, 0.45, 3.2, 0.38, 0.7, 25, 2.4, 0.1, 0.9];
-  const SHOT_DMG  = [0.35, 1.2, 0.2, 0, 0, 2, 1.5, 0.9, 0.2, 0.3];      // pellets use pelletDmg(); in lives (Lv 1 has 3 = 100%)
+  const SHOT_LIFE = [1.1, 3.6, 0.45, 3.2, 0.38, 0.7, 25, 2.4, 0.15, 0.9];
+  const SHOT_DMG  = [0.3, 1.2, 0.18, 0, 0, 2, 1.5, 0.9, 0.2, 0.3];      // pellets use pelletDmg(); in lives (Lv 1 has 3 = 100%)
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs                 // the nuke deals its damage through detonate()
   const SHOT_COL  = ["#ffb43c", "#ffb43c", "#7df9ff", "#ffe14d", "#ffd27a", "#e9c8ff", "#ff6b3c", "#6fd8ff", "#bfefff", "#ff9a3c"];
   const MINE_R = 55, MINE_ARM = 0.7;
@@ -415,6 +418,17 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     shield: { name: "Shield",      col: "#4fe39a", armor: 2, icon: "shield" },
     mega:   { name: "Mega shield", col: "#4fa8ff", armor: 4, icon: "shield", big: true }
   };
+  // game modes: picked with a new lobby and carried in its code ("<size>1<mode>...", e.g. M1CK7QX); a plain code is deathmatch
+  const MODES = {
+    d: { name: "Deathmatch", label: "Deathmatch" },
+    t: { name: "Team Deathmatch", label: "Team DM", teams: true },
+    c: { name: "Capture the Flag", label: "CTF", teams: true, flags: true },
+    n: { name: "Nukes only", label: "Nukes", only: "nuke" },
+    r: { name: "Railgun instagib", label: "Instagib", only: "rail" }
+  };
+  const modeOf = code => { const c = String(code); return c[1] === "1" && MODES[c[2]] ? c[2] : "d"; };
+  let MODE = "d";
+  const TEAM_NAME = ["Red", "Blue"], TEAM_HEX = ["#ff5a6e", "#4fa8ff"], TEAM_RGB = ["255,90,110", "79,168,255"];
   const WEAPON_KEYS = ["fire", "triple", "laser", "rocket", "nuke", "scatter", "rail", "mine", "orb", "bolt", "shard"];   // index is what goes over the network
   // deathmatch rounds on the shared clock: 5 minutes of fighting, then 15 seconds of results
   const ROUND_PLAY = 300, ROUND_BREAK = 15, ROUND_LEN = ROUND_PLAY + ROUND_BREAK;
@@ -561,48 +575,13 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     return c;
   }
 
-  // ---------- pre-rendered nebula tile (smoky trails) ----------
-  const NEB = 1400;
-  const neb = document.createElement("canvas"); neb.width = neb.height = NEB;
-  (() => {
-    const n = neb.getContext("2d");
-    for (let p = 0; p < 9; p++) {
-      let x = hash(p, 1, 9) * NEB, y = hash(p, 2, 9) * NEB, ang = hash(p, 3, 9) * 6.28;
-      for (let i = 0; i < 140; i++) {
-        ang += (hash(p, i, 4) - 0.5) * 0.5;
-        x += Math.cos(ang) * 14; y += Math.sin(ang) * 14;
-        const r = 26 + hash(p, i, 5) * 46;
-        for (const ox of [-NEB, 0, NEB]) for (const oy of [-NEB, 0, NEB]) {
-          const cx0 = mod(x, NEB) + ox, cy0 = mod(y, NEB) + oy;
-          if (cx0 < -r || cx0 > NEB + r || cy0 < -r || cy0 > NEB + r) continue;
-          const gr = n.createRadialGradient(cx0, cy0, 0, cx0, cy0, r);
-          gr.addColorStop(0, "rgba(236,220,255,0.07)"); gr.addColorStop(1, "rgba(236,220,255,0)");
-          n.fillStyle = gr; n.beginPath(); n.arc(cx0, cy0, r, 0, 6.29); n.fill();
-        }
-      }
-    }
-  })();
-
-  // ---------- deep-space backdrop: colour nebulae, bright stars, a distant ringed planet, a galaxy ----------
+  // ---------- deep-space backdrop: bright stars everywhere, plus landmarks (see buildSky) ----------
   const seamless = (size, paint) => {   // paint(ctx, x, y) is called for each wrap copy so the tile repeats cleanly
     const c = document.createElement("canvas"); c.width = c.height = size;
     const x = c.getContext("2d");
     for (const ox of [-size, 0, size]) for (const oy of [-size, 0, size]) paint(x, ox, oy);
     return c;
   };
-  const NEB2 = 1800;
-  const nebula = (seed, cols, count, rmin, rmax, amin, amax) => seamless(NEB2, (n, ox, oy) => {
-    for (let i = 0; i < count; i++) {
-      const x = hash(i, 3, seed) * NEB2 + ox, y = hash(i, 4, seed) * NEB2 + oy, r = rmin + hash(i, 5, seed) * (rmax - rmin);
-      if (x < -r || x > NEB2 + r || y < -r || y > NEB2 + r) continue;
-      const c = cols[i % cols.length], a = amin + hash(i, 6, seed) * (amax - amin);
-      const gr = n.createRadialGradient(x, y, 0, x, y, r);
-      gr.addColorStop(0, `rgba(${c},${a})`); gr.addColorStop(0.5, `rgba(${c},${a * 0.45})`); gr.addColorStop(1, `rgba(${c},0)`);
-      n.fillStyle = gr; n.beginPath(); n.arc(x, y, r, 0, 6.29); n.fill();
-    }
-  });
-  const colorNeb = nebula(61, ["255,80,200", "110,90,255", "255,120,160", "170,90,255"], 24, 220, 520, 0.08, 0.16);
-  const colorNeb2 = nebula(64, ["60,200,255", "70,230,190", "120,140,255", "255,170,120"], 18, 160, 420, 0.06, 0.13);
   const STAR_TILE = 1200;
   const brightStars = seamless(STAR_TILE, (n, ox, oy) => {
     const cols = ["#ffffff", "#cfe3ff", "#ffe9c4", "#ffd0f0", "#c9fff6"];
@@ -635,6 +614,92 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     return c;
   })();
 
+  // the Milky Way: a long glowing band of packed stars with dark dust lanes, fading out at both ends
+  const milkyCv = (() => {
+    const Wd = 1800, Hd = 560, c = document.createElement("canvas"); c.width = Wd; c.height = Hd;
+    const x = c.getContext("2d"), mid = Hd / 2;
+    const band = x.createLinearGradient(0, 0, 0, Hd);
+    band.addColorStop(0, "rgba(160,150,255,0)"); band.addColorStop(0.5, "rgba(190,175,255,0.14)"); band.addColorStop(1, "rgba(160,150,255,0)");
+    x.fillStyle = band; x.fillRect(0, 0, Wd, Hd);
+    for (let i = 0; i < 46; i++) {   // brighter star clouds along it
+      const cx = hash(i, 1, 71) * Wd, cy = mid + (hash(i, 2, 71) - 0.5) * Hd * 0.3, r = 50 + hash(i, 3, 71) * 150;
+      const col = ["255,220,200", "200,190,255", "255,200,235", "190,225,255"][i % 4], gr = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+      gr.addColorStop(0, `rgba(${col},${0.06 + hash(i, 4, 71) * 0.07})`); gr.addColorStop(1, `rgba(${col},0)`);
+      x.fillStyle = gr; x.beginPath(); x.arc(cx, cy, r, 0, 6.29); x.fill();
+    }
+    for (let i = 0; i < 5200; i++) {   // packed stars, thickest along the middle
+      const sx2 = hash(i, 5, 71) * Wd, sy2 = mid + (hash(i, 6, 71) + hash(i, 7, 71) + hash(i, 8, 71) - 1.5) * Hd * 0.32, b = hash(i, 9, 71);
+      x.fillStyle = `rgba(${b < 0.15 ? "255,225,200" : b < 0.3 ? "200,215,255" : "245,240,255"},${0.25 + b * 0.6})`;
+      const s = b > 0.97 ? 2 : b > 0.8 ? 1.4 : 1; x.fillRect(sx2, sy2, s, s);
+    }
+    x.globalCompositeOperation = "destination-out";   // dark dust lanes winding through the middle
+    for (let i = 0; i < 70; i++) {
+      const cx = i / 70 * Wd, cy = mid + Math.sin(i * 0.37) * 28 + (hash(i, 10, 71) - 0.5) * 30, r = 26 + hash(i, 11, 71) * 46;
+      const gr = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+      gr.addColorStop(0, "rgba(0,0,0,0.55)"); gr.addColorStop(1, "rgba(0,0,0,0)");
+      x.fillStyle = gr; x.beginPath(); x.arc(cx, cy, r, 0, 6.29); x.fill();
+    }
+    x.globalCompositeOperation = "destination-in";
+    const ends = x.createLinearGradient(0, 0, Wd, 0);
+    ends.addColorStop(0, "rgba(0,0,0,0)"); ends.addColorStop(0.25, "rgba(0,0,0,1)"); ends.addColorStop(0.75, "rgba(0,0,0,1)"); ends.addColorStop(1, "rgba(0,0,0,0)");
+    x.fillStyle = ends; x.fillRect(0, 0, Wd, Hd);
+    return c;
+  })();
+  // a nebula: a lumpy cloud of glowing gas in a few colours with stars inside, soft at the edges
+  const nebCloud = (seed, cols) => {
+    const S = 900, c = document.createElement("canvas"); c.width = c.height = S;
+    const x = c.getContext("2d");
+    for (let i = 0; i < 46; i++) {
+      const a = hash(i, 1, seed) * 6.283, d = (hash(i, 2, seed) + hash(i, 3, seed)) * 0.5 * S * 0.32;
+      const cx = S / 2 + Math.cos(a) * d * 1.3, cy = S / 2 + Math.sin(a) * d * 0.8, r = 70 + hash(i, 4, seed) * 170, col = cols[i % cols.length];
+      const gr = x.createRadialGradient(cx, cy, 0, cx, cy, r), al = 0.05 + hash(i, 5, seed) * 0.09;
+      gr.addColorStop(0, `rgba(${col},${al})`); gr.addColorStop(0.5, `rgba(${col},${al * 0.45})`); gr.addColorStop(1, `rgba(${col},0)`);
+      x.fillStyle = gr; x.beginPath(); x.arc(cx, cy, r, 0, 6.29); x.fill();
+    }
+    for (let i = 0; i < 120; i++) { x.fillStyle = `rgba(255,255,255,${0.3 + hash(i, 6, seed) * 0.6})`; x.fillRect(S / 2 + (hash(i, 7, seed) - 0.5) * S * 0.6, S / 2 + (hash(i, 8, seed) - 0.5) * S * 0.45, 1.3, 1.3); }
+    x.globalCompositeOperation = "destination-in";
+    const fade = x.createRadialGradient(S / 2, S / 2, S * 0.15, S / 2, S / 2, S / 2);
+    fade.addColorStop(0, "rgba(0,0,0,1)"); fade.addColorStop(1, "rgba(0,0,0,0)");
+    x.fillStyle = fade; x.fillRect(0, 0, S, S);
+    return c;
+  };
+  const NEB_ART = [
+    nebCloud(61, ["255,80,200", "130,90,255", "255,130,170"]),
+    nebCloud(64, ["60,200,255", "70,230,190", "110,140,255"]),
+    nebCloud(67, ["255,140,80", "255,80,110", "255,200,120"])
+  ];
+  // a far gas giant (lit from one side, with a thin ring)
+  const farPlanet = (base, band) => {
+    const S = 360, R = 110, c = document.createElement("canvas"); c.width = c.height = S;
+    const x = c.getContext("2d"), m = S / 2;
+    x.save(); x.beginPath(); x.arc(m, m, R, 0, 6.29); x.clip();
+    x.fillStyle = base; x.fillRect(0, 0, S, S);
+    for (let k = 0; k < 9; k++) { x.fillStyle = k % 2 ? band : "rgba(255,255,255,0.06)"; x.fillRect(0, m - R + k * R * 0.23 + Math.sin(k) * 6, S, R * 0.1 + (k % 3) * 4); }
+    const sh = x.createRadialGradient(m - R * 0.45, m - R * 0.4, R * 0.2, m, m, R * 1.25);
+    sh.addColorStop(0, "rgba(0,0,0,0)"); sh.addColorStop(0.6, "rgba(2,3,12,0.55)"); sh.addColorStop(1, "rgba(2,3,12,0.97)");
+    x.fillStyle = sh; x.fillRect(0, 0, S, S);
+    x.restore();
+    x.strokeStyle = "rgba(220,210,255,0.35)"; x.lineWidth = 5;
+    x.beginPath(); x.ellipse(m, m, R * 1.6, R * 0.32, -0.25, 0, 6.29); x.stroke();
+    x.strokeStyle = "rgba(220,210,255,0.15)"; x.lineWidth = 12;
+    x.beginPath(); x.ellipse(m, m, R * 1.85, R * 0.4, -0.25, 0, 6.29); x.stroke();
+    return c;
+  };
+  const FAR_PLANETS = [farPlanet("#6a4a8a", "rgba(255,190,220,0.18)"), farPlanet("#3a6a7a", "rgba(180,240,255,0.18)"), farPlanet("#8a5a3a", "rgba(255,210,150,0.2)")];
+  // the landmarks of this lobby's sky: placed on the map (same for everyone), drawn with parallax: the lower par,
+  // the farther away it is and the slower it slides past
+  let sky = [];
+  function buildSky(seed) {
+    const r = k => hash(seed, k, 909), big = Math.max(1, W / 4200);
+    sky = [{ img: milkyCv, x: r(1) * W, y: r(2) * H, par: 0.22, rot: r(3) * 3.14, sc: 1.5 * big, a: 0.95, glow: true }];
+    for (let i = 0; i < Math.round(2 * big); i++)
+      sky.push({ img: galaxyCv, x: r(10 + i) * W, y: r(20 + i) * H, par: 0.28 + r(30 + i) * 0.06, rot: r(40 + i) * 6.28, sc: 0.8 + r(50 + i) * 0.9, a: 0.85, glow: true, spin: 0.01 });
+    for (let i = 0; i < Math.round(4 * big); i++)
+      sky.push({ img: NEB_ART[i % 3], x: r(60 + i) * W, y: r(70 + i) * H, par: 0.35 + r(80 + i) * 0.15, rot: r(90 + i) * 6.28, sc: 1.1 + r(100 + i) * 0.9, a: 0.9, glow: true });
+    for (let i = 0; i < Math.round(1.5 * big); i++)
+      sky.push({ img: FAR_PLANETS[i % 3], x: r(110 + i) * W, y: r(120 + i) * H, par: 0.5 + r(130 + i) * 0.1, rot: 0, sc: 0.28 + r(140 + i) * 0.22, a: 0.6 });   // small and dim: never mistaken for a real planet
+    sky.sort((p, q) => p.par - q.par);
+  }
   const DUST = [[0.25, 700, 60, 1, 0.5], [0.8, 900, 50, 1.6, 0.8]].map(([par, tile, count, size, alpha]) => {
     const c = document.createElement("canvas"); c.width = c.height = tile;
     const x = c.getContext("2d"); x.fillStyle = `rgba(255,240,255,${alpha})`;
@@ -1050,6 +1115,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
   function buildPlanets(code) {
     worldCode = code;
+    buildSky(String(code).split("").reduce((s, ch) => (Math.imul(s, 31) + ch.charCodeAt(0)) | 0, 11));
     let seed = 7;
     for (const ch of String(code)) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) | 0;
     planets = []; moons = []; wrecks = []; rubble = [];
@@ -1330,10 +1396,34 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     for (const b of bodies) if (b.dirty && now - b.lastSplit > 120) splitBody(b, now);
     if (bodies.some(b => b.dead || b.mass <= 0)) { for (const b of bodies) if (b.mass <= 0) b.dead = true; rubble = rubble.filter(b => !b.dead); rebuildBodies(); }
   }
-  function spawnPoint() {
-    let x = rndIn(W, 300), y = rndIn(H, 300);
-    for (let k = 0; k < 30 && inBody(x, y, 160); k++) { x = rndIn(W, 300); y = rndIn(H, 300); }
+  function spawnPoint(tm) {
+    const half = bases && (tm === 0 || tm === 1), rx = () => half ? (tm ? W / 2 : 0) + rndIn(W / 2, 300) : rndIn(W, 300);
+    let x = rx(), y = rndIn(H, 300);
+    for (let k = 0; k < 30 && inBody(x, y, 160); k++) { x = rx(); y = rndIn(H, 300); }
     return { x, y };
+  }
+  // ---------- game modes ----------
+  let bases = null;   // capture the flag: [red, blue] home pads
+  const isTeams = () => !!MODES[MODE].teams;
+  const mates = (a, b) => isTeams() && (a.tm === 0 || a.tm === 1) && a.tm === b.tm;
+  function baseArsenal() { const o = MODES[MODE].only; me.arsenal = o ? { [o]: Infinity } : { fire: Infinity }; me.weapon = o || "fire"; }
+  function findBase(t) {
+    const x = t ? W - Math.max(380, W * 0.1) : Math.max(380, W * 0.1);
+    for (let k = 0; k < 40; k++) { const y = H / 2 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 120; if (!inBody(x, y, 260)) return { x, y }; }
+    return { x, y: H / 2 };
+  }
+  function setMode(m) {
+    MODE = MODES[m] ? m : "d";
+    baseArsenal(); renderWeapon();
+    if (isTeams()) {   // join the smaller team; my bots fill in, starting with the other side
+      const n = [0, 0];
+      for (const [id, r] of remotes) if (!botById.has(id) && (r.tm === 0 || r.tm === 1)) n[r.tm]++;
+      me.tm = n[0] < n[1] ? 0 : n[1] < n[0] ? 1 : (Math.random() < 0.5 ? 0 : 1);
+      bots.forEach((b, i) => { b.tm = (me.tm + 1 + i) % 2; b.attacker = i % 4 < 2; });
+    } else { me.tm = undefined; for (const b of bots) b.tm = undefined; }
+    me.fc = -1; me.caps = 0;
+    for (const b of bots) { b.fc = -1; b.caps = 0; }
+    bases = MODES[MODE].flags ? [findBase(0), findBase(1)] : null;
   }
   // pick-ups that would land inside a planet sit on its rim instead (same result on every client)
   function outside(o) {
@@ -1552,11 +1642,12 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
   // dead but intact: a dark, cracked, engine-off bin tumbling slowly, smoking and sparking for ~12 s
   const hulks = [];
-  function makeHulk(b) {
+  function makeHulk(b, zap) {
     const life = Infinity;   // stays until the round ends
     hulks.push({ x: b.x, y: b.y, vx: (b.vx || 0) * 0.5 + (Math.random() - 0.5) * 60, vy: (b.vy || 0) * 0.5 + (Math.random() - 0.5) * 60,
-                 a: b.a, spin: (Math.random() - 0.5) * 1.6, lv: b.lv || 1, ck: b.ck, life, max: life, born: performance.now() });
+                 a: b.a, spin: (Math.random() - 0.5) * (zap ? 0.6 : 1.6), lv: b.lv || 1, ck: b.ck, life, max: life, born: performance.now(), zap: !!zap });
     if (hulks.length > 30) hulks.shift();
+    if (zap) return;
     impacts.push({ x: b.x, y: b.y, t: 0, r: 70, col: "#ff9a2e" });
     rings.push({ x: b.x, y: b.y, t: 0, r: 140, col: "255,200,160", warp: true });
     explode(b.x, b.y, lowQ ? 14 : 30, 220);
@@ -1656,7 +1747,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
   // draw a piece once into its own canvas (art + wings + armour, clipped), plus a second canvas with the
   // hot fracture lines kept only where the piece has paint, so nothing glows in empty space
-  function renderPiece(piece, s, lv, ck) {
+  function renderPiece(piece, s, lv, ck, hot = "255,140,50", core = "255,240,200", lw = 1) {
     const res = 1.5, cw = Math.ceil(s * res), mk = () => { const c = document.createElement("canvas"); c.width = c.height = cw; return c; };
     const base = mk(), glow = mk(), bctx = base.getContext("2d"), gctx = glow.getContext("2d");
     const P = (px, py) => [(px / 320 - 0.5) * s, (py / 320 - 0.5) * s];
@@ -1674,8 +1765,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     gctx.lineJoin = "round"; gctx.lineCap = "round";
     for (const e of piece.edges) {
       gctx.beginPath(); e.forEach(([px, py], i) => { const [X, Y] = P(px, py); i ? gctx.lineTo(X, Y) : gctx.moveTo(X, Y); });
-      gctx.strokeStyle = "rgba(255,140,50,0.9)"; gctx.lineWidth = s * 0.035; gctx.stroke();
-      gctx.strokeStyle = "rgba(255,240,200,0.85)"; gctx.lineWidth = s * 0.012; gctx.stroke();
+      gctx.strokeStyle = `rgba(${hot},0.9)`; gctx.lineWidth = s * 0.035 * lw; gctx.stroke();
+      gctx.strokeStyle = `rgba(${core},0.85)`; gctx.lineWidth = s * 0.012 * lw; gctx.stroke();
     }
     gctx.setTransform(1, 0, 0, 1, 0, 0);
     gctx.globalCompositeOperation = "destination-in"; gctx.drawImage(base, 0, 0);
@@ -1728,6 +1819,134 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     for (let k = 0; k < (lowQ ? 3 : 6); k++) {
       const a = Math.random() * 6.28, v = 60 + Math.random() * 200;
       addDebris(b.x, b.y, Math.cos(a) * v + (b.vx || 0) * 0.3, Math.sin(a) * v + (b.vy || 0) * 0.3, (4 + Math.random() * 7) * sz, k % 3 ? bodyCol : lidCol);
+    }
+  }
+  // ---------- how a bin dies depends on what got it ----------
+  // 0 blown apart (fire, rockets, mines, shards, crashes...), 1 sliced by a rail slug, 2 fried by laser or lightning, 3 melted by plasma
+  const deathStyleOf = kind => kind === 5 ? 1 : kind === 2 || kind === 8 ? 2 : kind === 7 ? 3 : 0;
+  function deathFx(b, ds, dk, da) {
+    if (dk === 1) railCut(b, da);
+    else if (dk === 2) electrocute(b);
+    else if (dk === 3) meltDown(b);
+    else if (ds === 1) makeHulk(b); else binExplosion(b, ds >= 2 && ds <= 4 ? ds : 3);
+  }
+  // the sprite square (0..320) cut in two along a straight line at angle a (sprite frame), off the middle by off;
+  // the cut has a fine saw-tooth edge
+  function sliceSprite(a, off) {
+    const dx = Math.cos(a), dy = Math.sin(a), c = [160 - dy * off, 150 + dx * off];
+    const exit = sg => {
+      const ex = dx * sg, ey = dy * sg; let t = Infinity;
+      if (ex > 1e-6) t = Math.min(t, (320 - c[0]) / ex); if (ex < -1e-6) t = Math.min(t, -c[0] / ex);
+      if (ey > 1e-6) t = Math.min(t, (320 - c[1]) / ey); if (ey < -1e-6) t = Math.min(t, -c[1] / ey);
+      return [c[0] + ex * t, c[1] + ey * t];
+    };
+    const p0 = exit(-1), p1 = exit(1), cut = [];
+    for (let k = 0; k <= 18; k++) {
+      const t = k / 18, j = k === 0 || k === 18 ? 0 : (k % 2 ? 2.5 : -2.5);
+      cut.push([p0[0] + (p1[0] - p0[0]) * t - dy * j, p0[1] + (p1[1] - p0[1]) * t + dx * j]);
+    }
+    const side = q => (q[0] - c[0]) * dy - (q[1] - c[1]) * dx;
+    const out = [];
+    for (const sg of [1, -1]) {
+      const cs = [[0, 0], [320, 0], [320, 320], [0, 320]].filter(q => side(q) * sg > 0);
+      if (!cs.length) continue;
+      const all = [...cs, p0, p1], mx = all.reduce((t, q) => t + q[0], 0) / all.length, my = all.reduce((t, q) => t + q[1], 0) / all.length;
+      const poly = [...cut, ...cs].sort((q1, q2) => Math.atan2(q1[1] - my, q1[0] - mx) - Math.atan2(q2[1] - my, q2[0] - mx));
+      out.push({ poly, edges: [cut], cx: mx, cy: my });
+    }
+    return out;
+  }
+  // railgun: the slug saws the bin clean in two along its path; the halves drift apart with glowing violet cuts
+  function railCut(b, da) {
+    const sz = sizeOf(b.lv || 1), s = BOT * sz, rot = b.a + Math.PI / 2 - SPRITE_TILT, nx = -Math.sin(da), ny = Math.cos(da);
+    for (const piece of sliceSprite(da - rot, (Math.random() - 0.5) * 36)) {
+      const ox = (piece.cx / 320 - 0.5) * s, oy = (piece.cy / 320 - 0.5) * s;
+      const wx = ox * Math.cos(rot) - oy * Math.sin(rot), wy = ox * Math.sin(rot) + oy * Math.cos(rot);
+      const sg = Math.sign(wx * nx + wy * ny) || 1, v = 90 + Math.random() * 50;
+      const [img, glow] = renderPiece(piece, s, b.lv || 1, b.ck || [0, 0, 0, 0, 0], "200,120,255", "255,245,255", 1.8);
+      frags.push({ cx: piece.cx, cy: piece.cy, img, glow, x: b.x + wx, y: b.y + wy,
+                   vx: nx * sg * v + Math.cos(da) * 110 + (b.vx || 0) * 0.3, vy: ny * sg * v + Math.sin(da) * 110 + (b.vy || 0) * 0.3,
+                   a: rot, spin: sg * (0.25 + Math.random() * 0.4), s, life: Infinity, max: Infinity, born: performance.now() });
+    }
+    while (frags.length > 60) frags.shift();
+    const L = s * 0.75;
+    for (let k = 0; k < (lowQ ? 14 : 40); k++) {   // sparks spraying off both sides of the cut
+      const t = (Math.random() - 0.5) * L, px = b.x + Math.cos(da) * t, py = b.y + Math.sin(da) * t;
+      const a = da + (Math.random() < 0.5 ? 1.57 : -1.57) + (Math.random() - 0.5) * 0.7, v = 160 + Math.random() * 380;
+      puff(px, py, Math.cos(a) * v, Math.sin(a) * v, 0.35 + Math.random() * 0.5, 1 + Math.random(), k % 3 ? "#e9c8ff" : "#ffffff", 1, 0.05);
+    }
+    impacts.push({ x: b.x, y: b.y, t: 0, r: 100 * sz, col: "#e9c8ff" });
+    rings.push({ x: b.x, y: b.y, t: 0, r: 170 * sz, col: "217,168,255", dur: 0.4, w: 6 });
+    smoke(b.x, b.y, lowQ ? 4 : 10, 50, 2);
+    if (Math.hypot(b.x - me.x, b.y - me.y) < 1400) sfx("chunk", 1, 0.7, b.x, b.y);
+  }
+  // laser or lightning: the charge fries it where it is; the charred shell twitches with arcs, then smokes
+  function electrocute(b) {
+    const sz = sizeOf(b.lv || 1);
+    makeHulk(b, true);
+    impacts.push({ x: b.x, y: b.y, t: 0, r: 140 * sz, col: "#bfefff" });
+    impacts.push({ x: b.x, y: b.y, t: -0.12, r: 100 * sz, col: "#6fc2ff" });
+    rings.push({ x: b.x, y: b.y, t: 0, r: 180 * sz, col: "150,220,255", dur: 0.35, w: 5 });
+    for (let k = 0; k < (lowQ ? 16 : 44); k++) {
+      const a = Math.random() * 6.28, v = 200 + Math.random() * 500;
+      puff(b.x, b.y, Math.cos(a) * v, Math.sin(a) * v, 0.3 + Math.random() * 0.4, 1 + Math.random(), k % 2 ? "#bfefff" : "#ffffff", 1, 0.05);
+    }
+    smoke(b.x, b.y, lowQ ? 5 : 12, 40, 2.5);
+    if (Math.hypot(b.x - me.x, b.y - me.y) < 1400) { sfx("laser", 0.8, 0.5, b.x, b.y); sfx("hit", 0.6, 0.6, b.x, b.y); }
+  }
+  // plasma: the bin glows white-hot, slumps and drips like wax, then cools into molten blobs
+  const melts = [];
+  function meltDown(b) {
+    const sz = sizeOf(b.lv || 1), s = BOT * sz;
+    const [img] = renderPiece({ poly: [[0, 0], [320, 0], [320, 320], [0, 320]], edges: [], cx: 160, cy: 160 }, s, b.lv || 1, b.ck || [0, 0, 0, 0, 0]);
+    const hot = document.createElement("canvas"); hot.width = img.width; hot.height = img.height;
+    const hq = hot.getContext("2d"), gr = hq.createLinearGradient(0, 0, 0, hot.height);
+    hq.drawImage(img, 0, 0); hq.globalCompositeOperation = "source-in";
+    gr.addColorStop(0, "#ffe7a0"); gr.addColorStop(0.5, "#ff9a30"); gr.addColorStop(1, "#e8400e");
+    hq.fillStyle = gr; hq.fillRect(0, 0, hot.width, hot.height);
+    const drip = Array.from({ length: 10 }, () => 0.5 + Math.random() * 0.9);
+    melts.push({ x: b.x, y: b.y, vx: (b.vx || 0) * 0.3, vy: (b.vy || 0) * 0.3, a: b.a + Math.PI / 2 - SPRITE_TILT, img, hot, s, sz, drip, t: 0 });
+    if (melts.length > 8) melts.shift();
+    impacts.push({ x: b.x, y: b.y, t: 0, r: 130 * sz, col: "#9fe8ff" });
+    rings.push({ x: b.x, y: b.y, t: 0, r: 170 * sz, col: "160,235,255", dur: 0.45, w: 8 });
+    if (Math.hypot(b.x - me.x, b.y - me.y) < 1400) { sfx("shield_hit", 0.9, 0.55, b.x, b.y); sfx("boom_small", 0.6, 0.7, b.x, b.y); }
+  }
+  const MELT_T = 2.6;
+  function updateMelts(dt) {
+    for (let i = melts.length - 1; i >= 0; i--) {
+      const m = melts[i];
+      m.t += dt; m.x += m.vx * dt; m.y += m.vy * dt; m.vx *= 0.99; m.vy *= 0.99;
+      const k = Math.min(1, m.t / MELT_T), down = m.a + Math.PI / 2;
+      if (Math.random() < (lowQ ? 6 : 16) * dt) {   // molten drops falling off the sagging bottom
+        const o = (Math.random() - 0.5) * m.s * 0.8, bx = m.x + Math.cos(m.a) * o + Math.cos(down) * m.s * (0.3 + k * 0.2), by = m.y + Math.sin(m.a) * o + Math.sin(down) * m.s * (0.3 + k * 0.2);
+        puff(bx, by, Math.cos(down) * (40 + Math.random() * 60), Math.sin(down) * (40 + Math.random() * 60), 0.6 + Math.random() * 0.6, 1.5 + Math.random() * 2, Math.random() < 0.5 ? "#ffb040" : "#ffe08a");
+      }
+      if (Math.random() < 5 * dt) puff(m.x + (Math.random() - 0.5) * m.s * 0.5, m.y + (Math.random() - 0.5) * m.s * 0.5, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30, 1.6, 5 + Math.random() * 5, "rgb(70,62,86)", 2);
+      if (m.t >= MELT_T) {   // set: a few glowing blobs of slag drift away
+        for (let n = 0; n < (lowQ ? 4 : 7); n++) { const a = Math.random() * 6.28, v = 20 + Math.random() * 70; addDebris(m.x + Math.cos(down) * m.s * 0.3, m.y + Math.sin(down) * m.s * 0.3, Math.cos(a) * v + m.vx, Math.sin(a) * v + m.vy, (4 + Math.random() * 6) * m.sz, n % 2 ? "#7a4a3a" : "#5a3a40"); }
+        smoke(m.x, m.y, lowQ ? 4 : 10, 40, 2.5);
+        melts.splice(i, 1);
+      }
+    }
+  }
+  function drawMelts(now) {
+    for (const m of melts) {
+      const x = sx(m.x), y = sy(m.y), s = m.s;
+      if (!onScreen(x, y, s)) continue;
+      const k = Math.min(1, m.t / MELT_T), e = k * k * (3 - 2 * k), n = m.drip.length, sw = m.img.width / n, w = s / n;
+      const fade = 1 - Math.max(0, (m.t - MELT_T + 0.5) / 0.5);
+      const heat = 0.75 * Math.min(1, m.t / 0.35) * (1 - Math.max(0, (m.t - 1.6) / 1)) * (0.8 + 0.2 * Math.sin(now / 45));
+      g.save(); g.translate(x, y); g.rotate(m.a);
+      for (const [src, alpha, mode] of [[m.img, fade, "source-over"], [m.hot, Math.max(0, heat) * fade, "lighter"]]) {
+        if (alpha <= 0) continue;
+        g.globalCompositeOperation = mode; g.globalAlpha = alpha;
+        for (let i = 0; i < n; i++) {   // each strip sags and drips by its own amount
+          const d = m.drip[i], top = -s / 2 + s * 0.55 * e * d, bot = s / 2 + s * 0.25 * e * d * d;
+          g.drawImage(src, i * sw, 0, sw + 0.5, m.img.height, -s / 2 + i * w - w * 0.15 * e, top, w * (1 + 0.3 * e), bot - top);
+        }
+      }
+      g.restore();
+      g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
     }
   }
   const TRAIL = ["#ffe3f6", "#ffffff", "#ffd2a0", "#f3c6ff"];
@@ -1799,8 +2018,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
   }
   // a pellet hurts more the closer it was fired from (the classic shotgun falloff); it also shoves what it hits
-  const pelletDmg = s => { const d = Math.hypot(s.x - s.ox, s.y - s.oy); return d < 170 ? 0.4 : d < 320 ? 0.25 : 0.12; };
-  const shotDmg = s => (s.kind === 4 ? pelletDmg(s) : SHOT_DMG[s.kind]) * (s.m || 1);
+  const pelletDmg = s => { const d = Math.hypot(s.x - s.ox, s.y - s.oy); return d < 170 ? 0.27 : d < 320 ? 0.18 : 0.09; };
+  const shotDmg = s => MODE === "r" && s.kind === 5 ? 99 : (s.kind === 4 ? pelletDmg(s) : SHOT_DMG[s.kind]) * (s.m || 1);
+  // team modes: whose side a shot is on (no friendly fire)
+  const teamOfShot = s => s.mine ? me.tm : botById.has(s.owner) ? botById.get(s.owner).tm : remotes.has(s.owner) ? remotes.get(s.owner).tm : undefined;
+  const friendly = (s, tm) => isTeams() && (tm === 0 || tm === 1) && teamOfShot(s) === tm;
   // shard cannon: one record becomes six hot shards that bounce off walls and planets
   function shardSpray(s) {
     for (let k = 0; k < 6; k++) {
@@ -1824,20 +2046,22 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (d < 1600) { shake = Math.max(shake, (big ? 0.7 : 0.35) * (1 - d / 1600)); if (big) flash = Math.max(flash, 0.35 * (1 - d / 1600)); }
     sfx(big ? "boom_big" : "boom_small", 1, big ? 1.25 : 1.4, x, y);
     if (s.mine) floaters.push({ x, y: y - 60, t: 0, txt: "COMBO!", gold: true });
-    if (!s.mine && playing && !me.dead && d < R + 26 * sizeOf(me.lv)) {
+    if (!s.mine && playing && !me.dead && !friendly(s, me.tm) && d < R + 26 * sizeOf(me.lv)) {
       me.vx += (me.x - x) / (d || 1) * 700; me.vy += (me.y - y) / (d || 1) * 700;
-      if (hurt(now, base * Math.max(0.25, 1 - d / R))) { pushCapped(hitBy, s.id, 12); if (me.dead) { meKilled(s.id); killedBy(s.owner); } }
+      if (hurt(now, base * Math.max(0.25, 1 - d / R), false, 7)) { pushCapped(hitBy, s.id, 12); if (me.dead) { meKilled(s.id); killedBy(s.owner); } }
     }
     for (const b of bots) {
-      if (b.dead || b.id === s.owner) continue;
+      if (b.dead || b.id === s.owner || friendly(s, b.tm)) continue;
       const bd = Math.hypot(b.x - x, b.y - y);
-      if (bd < R + 40) { b.vx += (b.x - x) / (bd || 1) * 700; b.vy += (b.y - y) / (bd || 1) * 700; botHurt(b, base * Math.max(0.25, 1 - bd / R), s.id, now, false); }
+      if (bd < R + 40) { b.vx += (b.x - x) / (bd || 1) * 700; b.vy += (b.y - y) / (bd || 1) * 700; botHurt(b, base * Math.max(0.25, 1 - bd / R), s.id, now, false, 7); }
     }
   }
   // the rail slug goes straight through bins and junk (each one once), only planets and walls stop it
   function railOnce(s, key) { if (!s.hits) s.hits = new Set(); if (s.hits.has(key)) return false; s.hits.add(key); return true; }
   // its beam is drawn at once along the whole path, so the shot reads as instant
   const beams = [];
+  const arcs = [];   // lightning jumping from the bin it hit to the next one
+  const BEAM_T = 1.1;   // a rail trail lingers: the hot core goes fast, the spiral slowly unwinds
   function railBeam(x, y, vx, vy) {
     const v = Math.hypot(vx, vy) || 1, dx = vx / v, dy = vy / v, max = 4200 * SHOT_LIFE[5];
     let L = 0;
@@ -1849,6 +2073,24 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     beams.push({ x1: x, y1: y, x2: x + dx * L, y2: y + dy * L, t: 0 });
     if (beams.length > 12) beams.shift();
   }
+  const CHAIN_R = 320, CHAIN_DMG = 0.12;
+  function boltChain(s, hx, hy, hitId, now) {
+    if (s.chained) return;
+    s.chained = true;
+    let best = null, bd = CHAIN_R;
+    const consider = (id, o) => { if (id === hitId || id === s.owner || o.dead || friendly(s, o.tm)) return; const d = Math.hypot(o.x - hx, o.y - hy); if (d < bd) { bd = d; best = { id, o }; } };
+    if (!s.mine && playing) consider("me", me);
+    for (const [id, r] of remotes) consider(id, r);
+    if (!best) return;
+    const t = best.o, a = Math.atan2(t.y - hy, t.x - hx);
+    arcs.push({ x1: hx, y1: hy, x2: t.x, y2: t.y, t: 0 });
+    impact(t.x, t.y, "#bfefff", 0.8);
+    sfx("laser", 0.3, 2.2, t.x, t.y);
+    const dmg = CHAIN_DMG * (s.m || 1), cid = s.id + "c";
+    if (best.id === "me") { if (hurt(now, dmg, false, 8, a)) { pushCapped(hitBy, cid, 12); if (me.dead) { meKilled(cid); killedBy(s.owner); } } }
+    else if (botById.has(best.id)) botHurt(botById.get(best.id), dmg, cid, now, false, 8, a);
+    else if (s.mine) hitConfirm({ ...s, kind: 8 }, t.lv, t.x, t.y);
+  }
   // homing: turns gently toward the nearest enemy ahead of it, never faster than a bin flies, so boost or a dash escapes it
   function steerRocket(s, dt) {
     const cur = Math.atan2(s.vy, s.vx);
@@ -1857,15 +2099,15 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const d = Math.hypot(x - s.x, y - s.y);
       if (d < bd && Math.abs(angD(Math.atan2(y - s.y, x - s.x) - cur)) < 1.25) { bd = d; best = { x, y }; }
     };
-    if (!s.mine && playing && !me.dead) consider(me, me.x, me.y);
-    for (const [id, r] of remotes) if (!r.dead && id !== s.owner) consider(r, r.x, r.y);
-    for (const b of bots) if (!b.dead && b.id !== s.owner && !(s.mine && botById.has(b.id))) consider(b, b.x, b.y);
+    if (!s.mine && playing && !me.dead && !friendly(s, me.tm)) consider(me, me.x, me.y);
+    for (const [id, r] of remotes) if (!r.dead && id !== s.owner && !friendly(s, r.tm)) consider(r, r.x, r.y);
+    for (const b of bots) if (!b.dead && b.id !== s.owner && !(s.mine && botById.has(b.id)) && !friendly(s, b.tm)) consider(b, b.x, b.y);
     const na = best ? cur + clamp(angD(Math.atan2(best.y - s.y, best.x - s.x) - cur), -2.3 * dt, 2.3 * dt) : cur;
     const sp = Math.min(560, Math.hypot(s.vx, s.vy) + 380 * dt);
     s.vx = Math.cos(na) * sp; s.vy = Math.sin(na) * sp;
   }
   function rocketSplash(s, now) {
-    if (s.splashed || s.mine || !playing || me.dead) return;
+    if (s.splashed || s.mine || !playing || me.dead || friendly(s, me.tm)) return;
     s.splashed = true;
     const d = Math.hypot(me.x - s.x, me.y - s.y), R = 140 + 26 * sizeOf(me.lv);
     if (d > R) return;
@@ -1876,7 +2118,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function hitConfirm(s, lv, x, y) {
     if (!s.mine) return;
     const pct = Math.max(1, Math.round(shotDmg(s) / maxLivesOf(lv || 1) * 100));
-    floaters.push({ x: x + (Math.random() - 0.5) * 30, y: y - 40, t: 0, txt: "-" + pct + "%", hit: true });
+    floaters.push({ x: x + (Math.random() - 0.5) * 30, y: y - 40, t: 0, txt: "-" + pct + "%", hit: true, col: SHOT_COL[s.kind], big: pct >= 40 });
     const t = performance.now();
     if (t - hitTickAt > 60) { hitTickAt = t; sfx("hit", 0.4, 1.8); }
   }
@@ -1907,7 +2149,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
   function shoot(now) {
     const w = WEAPONS[me.weapon];
-    fireCd = w.cd;
+    fireCd = w.cd * (MODE === "n" ? 2.2 : 1);
     const bx = Math.cos(me.a), by = Math.sin(me.a);
     let muzzle;
     const gun = me.weapon === "fire" ? null : muzzleAt(me.weapon);
@@ -2064,7 +2306,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
     if (d < 2600) { shake = Math.max(shake, 1.4 * (1 - d / 2600)); flash = Math.max(flash, d < NUKE_R * 1.6 ? 1 : 1 - (d - NUKE_R * 1.6) / (2600 - NUKE_R * 1.6)); }
     blip(30, 2.2, "sawtooth"); blip(55, 1.6, "square"); blip(90, 1.0, "sawtooth");
-    if (!s.mine && playing && !me.dead && d < NUKE_R) {
+    if (!s.mine && playing && !me.dead && !friendly(s, me.tm) && d < NUKE_R) {
       const push = 1500 * (1 - d / NUKE_R) + 400;
       me.vx += (me.x - x) / (d || 1) * push; me.vy += (me.y - y) / (d || 1) * push;
       const wasHit = d < NUKE_KILL ? hurt(now, 99, true) : hurt(now, NUKE_DMG);
@@ -2072,7 +2314,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
     for (const b of bots) {
       const bd = Math.hypot(b.x - x, b.y - y);
-      if (b.dead || b.id === s.owner || bd > NUKE_R) continue;
+      if (b.dead || b.id === s.owner || bd > NUKE_R || friendly(s, b.tm)) continue;
       b.vx += (b.x - x) / (bd || 1) * 1200; b.vy += (b.y - y) / (bd || 1) * 1200;
       botHurt(b, bd < NUKE_KILL ? 99 : NUKE_DMG, s.id, now, bd < NUKE_KILL);
     }
@@ -2097,7 +2339,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     document.getElementById("shieldNum").textContent = Math.ceil(me.shield / maxLivesOf(me.lv) * 100) + "%";
   }
   let shieldHitAt = -1e9;
-  function hurt(now, dmg = 1, force = false) {
+  function hurt(now, dmg = 1, force = false, kind = -1, ang = 0) {   // kind, ang: the shot that hit (picks how the bin dies)
     if (!roundLive) return false;
     if (me.dead || (!force && now < me.inv)) return false;
     // armour soaks the hit first (black hole and the nuke's core ignore it)
@@ -2110,18 +2352,20 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (dmg <= 0) { me.hazardAt = now + 600; shake = Math.max(shake, 0.15); return true; }
     }
     me.lives = Math.max(0, Math.round((me.lives - dmg) * 1000) / 1000);
-    hurtFlash = Math.min(1, hurtFlash + 0.35 + dmg * 0.4);   // rounded so float dust can't leave you at "1%" me.hazardAt = now + 600; shake = Math.max(shake, 0.12 + Math.min(0.3, dmg * 0.2));
+    hurtFlash = Math.min(1, hurtFlash + 0.35 + dmg * 0.4);
+    me.hazardAt = now + 600; shake = Math.max(shake, 0.12 + Math.min(0.3, dmg * 0.2));
     renderHearts(true);
     sfx("hit", 1, 0.85) || blip(110, 0.3, "square");
     if (me.lives <= 0) {
       stats.deaths++; stats.streak = 0;
       me.ds = 1 + Math.floor(Math.random() * 4);   // pieces the bin breaks into: 1 = intact dead hulk, 2-4 = shattered
-      if (me.ds === 1) makeHulk(me); else binExplosion(me, me.ds);
+      me.dk = deathStyleOf(kind); me.da = ang;
+      deathFx(me, me.ds, me.dk, me.da);
       me.dead = true; me.respawnAt = now + 3000; me.vx = me.vy = 0;
       spillStars(now);
       if (me.lv > 1) floaters.push({ x: me.x, y: me.y - 80, t: 0, txt: "Level reset", gold: false });
       me.xp = 0; me.lv = 1;   // a destroyed bin starts over from level 1
-      me.weapon = "fire"; me.arsenal = { fire: Infinity }; me.ampUntil = 0; renderWeapon();   // and its guns are lost with it
+      baseArsenal(); me.ampUntil = 0; me.fc = -1; renderWeapon();   // its guns are lost with it (and a carried flag goes home)
       renderLevel();
       blip(60, 0.6, "sawtooth");
     } else explode(me.x, me.y, 18, 180);
@@ -2166,7 +2410,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function respawn(now) {
     killer = "";
     me.dead = false; me.lives = maxLivesOf(me.lv); me.inv = now + 2000; me.shield = 0; renderShield();
-    Object.assign(me, spawnPoint()); me.vx = 0; me.vy = -60;
+    Object.assign(me, spawnPoint(me.tm)); me.vx = 0; me.vy = -60;
     renderHearts(false);
   }
 
@@ -2245,10 +2489,13 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (bf === 2 && r.boost !== 2) dashBurst(r);   // they just dashed
       r.boost = bf;
       const dead = p.d === 1;
-      if (dead && !r.dead) { if (p.ds === 1) makeHulk(r); else binExplosion(r, p.ds >= 2 && p.ds <= 4 ? p.ds : 3); }
+      if (dead && !r.dead) deathFx(r, p.ds, Number.isInteger(p.dk) && p.dk >= 0 && p.dk <= 3 ? p.dk : 0, num(p.da, 0));
       r.dead = dead; r.inv = p.i === 1;
     }
     if (typeof p.tg === "string" && /^[a-z0-9]{1,8}$/.test(p.tg)) r.tag = p.tg;
+    if ("tm" in p) r.tm = p.tm === 0 || p.tm === 1 ? p.tm : undefined;
+    if ("fc" in p) r.fc = p.fc === 0 || p.fc === 1 ? p.fc : -1;
+    if (Array.isArray(p.cp) && Number.isInteger(p.cp[1])) { r.cpRound = p.cp[0]; r.caps = clamp(p.cp[1], 0, 99); }
     if (typeof p.n === "string") r.name = p.n.slice(0, 14);
     if (Number.isFinite(p.h)) r.hue = p.h % 360;
     if ("ck" in p) r.ck = cleanCustom(p.ck);
@@ -2309,11 +2556,12 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const code = await lobbyChosen;          // picked on the start screen
     setMapSize(mapOf(code));
     buildPlanets(code);
-    Object.assign(me, spawnPoint());
-    for (const b of bots) Object.assign(b, spawnPoint());
+    setMode(modeOf(code));
+    Object.assign(me, spawnPoint(me.tm));
+    for (const b of bots) Object.assign(b, spawnPoint(b.tm));
     history.replaceState(null, "", "#" + code);
     const shown = code.toUpperCase();
-    document.getElementById("boardTitle").textContent = "Lobby " + shown;
+    document.getElementById("boardTitle").textContent = "Lobby " + shown + " · " + MODES[MODE].label;
     shareBtn.hidden = false;
     shareBtn.onclick = () => copyText(location.href, shareBtn, "Copy invite link", "Link copied");
     codeBtn.hidden = false;
@@ -2409,6 +2657,83 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (hash(gen, 71, 1) > 0.65 || age > 0.6) return null;   // turns up in about 2 of 3 cycles, for ~40 s
     return outside({ key: "N" + gen, type: "nuke", age, x: 300 + hash(gen, 72, 1) * (W - 600), y: 300 + hash(gen, 72, 2) * (H - 600) });
   }
+  // ---------- capture the flag ----------
+  // A flag is carried by whoever claims it (a tie goes to the lowest tag, the same on every screen); nobody holding it
+  // means it sits on its pad. The carrier's death sends it home. You score by bringing theirs to your pad while yours is home.
+  const flagCarrier = [null, null];   // per team's flag: { id, o } of who has it
+  let flagWas = ["", ""];
+  const whoName = o => o === me ? "You" : o.name || "Someone";
+  function ctfTick(now) {
+    if (!bases) return;
+    for (const f of [0, 1]) {
+      let best = null;
+      const claim = (id, o) => { if (!id || o.dead || o.fc !== f || o.tm === f || (o.tm !== 0 && o.tm !== 1)) return; if (!best || id < best.id) best = { id, o }; };
+      if (playing) claim(myTag, me);
+      for (const r of remotes.values()) claim(r.tag, r);
+      flagCarrier[f] = best;
+    }
+    if (me.fc >= 0 && flagCarrier[me.fc] && flagCarrier[me.fc].o !== me) me.fc = -1;   // someone else got it first
+    for (const b of bots) if (b.fc >= 0 && flagCarrier[b.fc] && flagCarrier[b.fc].id !== b.tag) b.fc = -1;
+    // grabbing and scoring, for me and my bots
+    const actors = [];
+    if (playing && !me.dead && (me.tm === 0 || me.tm === 1)) actors.push([me, myTag]);
+    if (roundLive) for (const b of bots) if (!b.dead && (b.tm === 0 || b.tm === 1)) actors.push([b, b.tag]);
+    for (const [o, tag] of actors) {
+      const ef = 1 - o.tm, reach = 70 + 26 * sizeOf(o.lv || 1);
+      if (o.fc !== ef && !flagCarrier[ef] && Math.hypot(o.x - bases[ef].x, o.y - bases[ef].y) < reach) { o.fc = ef; flagCarrier[ef] = { id: tag, o }; }
+      else if (o.fc === ef && !flagCarrier[o.tm] && Math.hypot(o.x - bases[o.tm].x, o.y - bases[o.tm].y) < reach) {
+        o.fc = -1; o.caps = (o.caps || 0) + 1; flagCarrier[ef] = null;
+        if (o === me) { me.score += 25; showScore(); gainXp(10, now); }
+      }
+    }
+    // tell everyone what happened to each flag
+    for (const f of [0, 1]) {
+      const c = flagCarrier[f], id = c ? c.id : "";
+      if (id === flagWas[f]) continue;
+      const pad = bases[f];
+      if (c) {
+        const mine = c.o === me;
+        announce(mine ? "YOU HAVE THE FLAG" : whoName(c.o) + " has the " + TEAM_NAME[f] + " flag", mine ? "bring it to your pad" : "", TEAM_HEX[f], 1, !mine && f !== me.tm);
+        sfx("shield_get", 0.9, 0.8);
+      } else {
+        const capturedBy = flagWas[f] && [...remotes.values(), me, ...bots].find(o => (o === me ? myTag : o.tag) === flagWas[f]);
+        const scored = capturedBy && !capturedBy.dead;
+        announce(scored ? TEAM_NAME[1 - f] + " team scores!" : TEAM_NAME[f] + " flag returned", scored ? whoName(capturedBy) + " captured the " + TEAM_NAME[f] + " flag" : "", TEAM_HEX[scored ? 1 - f : f], scored ? 2 : 1, !scored);
+        if (scored) { sfx("level_up", 1); rings.push({ x: pad.x, y: pad.y, t: 0, r: 420, col: TEAM_RGB[1 - f], warp: true, dur: 0.8, w: 18 }); }
+        renderBoard();
+      }
+      flagWas[f] = id;
+    }
+  }
+  function drawFlag(x, y, t, now) {
+    const col = TEAM_HEX[t];
+    g.strokeStyle = "#e8e4f0"; g.lineWidth = 3 * TS; g.lineCap = "round";
+    g.beginPath(); g.moveTo(x, y + 34 * TS); g.lineTo(x, y - 38 * TS); g.stroke();
+    g.fillStyle = col; g.beginPath(); g.moveTo(x, y - 38 * TS);
+    for (let i = 0; i <= 8; i++) g.lineTo(x + i * 5.5 * TS, y - 38 * TS + Math.sin(now / 140 + i * 0.7) * 3.5 * TS * i / 8);
+    for (let i = 8; i >= 0; i--) g.lineTo(x + i * 5.5 * TS, y - 14 * TS + Math.sin(now / 140 + i * 0.7) * 3.5 * TS * i / 8);
+    g.closePath(); g.fill();
+    g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.5;
+    g.drawImage(dotSprite(col), x - 20 * TS, y - 60 * TS, 70 * TS, 70 * TS);
+    g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
+  }
+  function drawFlags(now) {
+    if (!bases) return;
+    for (const t of [0, 1]) {
+      const b = bases[t], x = sx(b.x), y = sy(b.y);
+      if (onScreen(x, y, 160)) {   // the pad: a glowing ring that turns
+        g.globalCompositeOperation = "lighter";
+        const pg = g.createRadialGradient(x, y, 20, x, y, 120);
+        pg.addColorStop(0, `rgba(${TEAM_RGB[t]},0.3)`); pg.addColorStop(1, `rgba(${TEAM_RGB[t]},0)`);
+        g.fillStyle = pg; g.beginPath(); g.arc(x, y, 120, 0, 6.29); g.fill();
+        g.globalCompositeOperation = "source-over";
+        g.strokeStyle = `rgba(${TEAM_RGB[t]},0.85)`; g.lineWidth = 3; g.setLineDash([12, 9]); g.lineDashOffset = -now / 40;
+        g.beginPath(); g.arc(x, y, 86, 0, 6.29); g.stroke(); g.setLineDash([]);
+      }
+      const c = flagCarrier[t], fx = c ? sx(c.o.x) + 22 : x, fy = c ? sy(c.o.y) - 26 : y;
+      if (onScreen(fx, fy, 90)) drawFlag(fx, fy, t, now);
+    }
+  }
   // ---------- bots (simulated here, broadcast like real pilots) ----------
   const BOT_NAMES = ["Rusty", "Bolt", "Zappy", "Clank", "Nova", "Sprocket", "Dusty", "Orbit"];
   const BOT_LEVELS = { easy: { aim: 0.26, cd: 0.7, speed: 0.75, label: "Easy" }, normal: { aim: 0.13, cd: 0.45, speed: 0.9, label: "Normal" }, hard: { aim: 0.05, cd: 0.3, speed: 1, label: "Hard" } };
@@ -2436,13 +2761,13 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       }
     }
   }
-  function botHurt(b, dmg, shotId, now, force) {
+  function botHurt(b, dmg, shotId, now, force, kind = -1, ang = 0) {
     if (b.dead || (!force && now < b.inv) || !roundLive) return;
     b.lives = Math.round((b.lives - dmg) * 1000) / 1000;
     const byHole = shotId === "x" || shotId === "p";   // the black hole or a planet: nobody gets credit
     if (!byHole) pushCapped(b.hitBy, shotId, 12);
     if (b.lives <= 0) {
-      b.dead = true; b.respawnAt = now + 3000; b.ds = 1 + Math.floor(Math.random() * 4);
+      b.dead = true; b.respawnAt = now + 3000; b.fc = -1; b.ds = 1 + Math.floor(Math.random() * 4); b.dk = deathStyleOf(kind); b.da = ang;
       b.st.deaths++; b.st.streak = 0;
       if (byHole) feedPush(`<span class="v">${esc(b.name)}</span> ${shotId === "p" ? "crashed into a planet" : "was swallowed by the black hole"}`);
       else pushCapped(b.koBy, shotId, 12);
@@ -2451,10 +2776,12 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function botFire(b, now) {
     const bx = Math.cos(b.a), by = Math.sin(b.a);
     const id = b.tag + "." + (b.seq++).toString(36);
-    const s = { id, kind: 0, x: b.x + bx * 42, y: b.y + by * 42, px: b.x, py: b.y, vx: bx * 880 + b.vx * 0.6, vy: by * 880 + b.vy * 0.6, life: SHOT_LIFE[0], mine: false, owner: b.id };
+    const kind = MODE === "n" ? 3 : MODE === "r" ? 5 : 0, sp = kind === 3 ? 360 : kind === 5 ? 4200 : 880, ride = kind === 0 ? 0.6 : 0;
+    const s = { id, kind, x: b.x + bx * 42, y: b.y + by * 42, px: b.x, py: b.y, vx: bx * sp + b.vx * ride, vy: by * sp + b.vy * ride, life: SHOT_LIFE[kind], mine: false, owner: b.id };
     shots.push(s); seenShots.set(id, performance.now());
-    sfx("fire", 0.45, 1.05, b.x, b.y);
-    const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), 0];
+    if (kind === 5) railBeam(s.x, s.y, s.vx, s.vy);
+    sfx(kind === 5 ? "rail" : kind === 3 ? "rocket" : "fire", kind === 5 ? 0.6 : 0.45, kind === 3 ? 0.6 : 1.05, b.x, b.y);
+    const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind];
     b.shotLog.push({ at: now, d });
     b.st.shots++;
     b.vx -= bx * 25; b.vy -= by * 25;
@@ -2467,13 +2794,13 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       while (b.shotLog.length && now - b.shotLog[0].at > 700) b.shotLog.shift();
       if (b.dead) {
         if (now < b.respawnAt) continue;
-        Object.assign(b, { dead: false, lives: LIVES, inv: now + 2000, ...spawnPoint(), vx: 0, vy: 0 });
+        Object.assign(b, { dead: false, lives: LIVES, inv: now + 2000, ...spawnPoint(b.tm), vx: 0, vy: 0 });
       }
       // nearest living target: me or anyone else in the lobby (other bots included)
       let tgt = null, td = 1700;
-      if (playing && !me.dead) { const d = Math.hypot(me.x - b.x, me.y - b.y); if (d < td) { td = d; tgt = me; } }
+      if (playing && !me.dead && !mates(b, me)) { const d = Math.hypot(me.x - b.x, me.y - b.y); if (d < td) { td = d; tgt = me; } }
       for (const [rid, r] of remotes) {
-        if (rid === b.id || r.dead) continue;
+        if (rid === b.id || r.dead || mates(r, b)) continue;
         const d = Math.hypot(r.x - b.x, r.y - b.y);
         if (d < td) { td = d; tgt = r; }
       }
@@ -2484,6 +2811,15 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         if (Math.random() < dt * 0.4) b.side = -b.side;
       } else {
         b.wander += (Math.random() - 0.5) * dt * 2; dx = Math.cos(b.wander); dy = Math.sin(b.wander);
+      }
+      if (bases && (b.tm === 0 || b.tm === 1)) {
+        const ef = 1 - b.tm, home = bases[b.tm], thief = flagCarrier[b.tm];
+        let goal = null, w = 1.6;
+        if (b.fc === ef) { goal = home; w = 3; }                                  // bring it home
+        else if (thief) goal = thief.o;                                          // get our flag back
+        else if (b.attacker && !flagCarrier[ef]) goal = bases[ef];               // go and grab theirs
+        else if (!b.attacker && Math.hypot(home.x - b.x, home.y - b.y) > 500) goal = home;   // guard
+        if (goal) { const gx = goal.x - b.x, gy = goal.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * w; dy += gy / gd * w; }
       }
       const m = 260;   // keep off the fence
       if (b.x < m) dx += (m - b.x) / m * 2.5; if (b.x > W - m) dx -= (b.x - W + m) / m * 2.5;
@@ -2516,10 +2852,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
                       : Math.atan2(b.vy, b.vx);
       b.a = lerpAng(b.a, aim, 1 - Math.exp(-5 * dt));
       b.fireCd -= dt;
-      if (tgt && roundLive && td < 950 && Math.abs(angD(aim - b.a)) < 0.3 && b.fireCd <= 0) { botFire(b, now); b.fireCd = b.L.cd * (0.7 + Math.random() * 0.6); }
+      if (tgt && roundLive && td < 950 && Math.abs(angD(aim - b.a)) < 0.3 && b.fireCd <= 0) { botFire(b, now); b.fireCd = b.L.cd * (0.7 + Math.random() * 0.6) * (MODE === "n" ? 6 : MODE === "r" ? 3 : 1); }
       // another pilot ramming my bot on boost (the bot is the victim, so its owner decides)
       for (const [rid, r] of remotes) {
-        if (botById.has(rid) || r.dead || !(r.boost > 0) || !r.tag) continue;
+        if (botById.has(rid) || r.dead || !(r.boost > 0) || !r.tag || mates(r, b)) continue;
         if (Math.hypot(r.x - b.x, r.y - b.y) < 31 * (sizeOf(r.lv || 1) + 1) && (!b.rammedBy || now - b.rammedBy > 400)) {
           b.rammedBy = now;
           const dx = b.x - r.x, dy = b.y - r.y, d = Math.hypot(dx, dy) || 1;
@@ -2528,7 +2864,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         }
       }
       // ramming a bot on boost
-      if (playing && !me.dead && me.boostFx > 0 && Math.hypot(me.x - b.x, me.y - b.y) < 31 * (sizeOf(me.lv) + 1) && (!b.rammedAt || now - b.rammedAt > 400)) {
+      if (playing && !me.dead && !mates(b, me) && me.boostFx > 0 && Math.hypot(me.x - b.x, me.y - b.y) < 31 * (sizeOf(me.lv) + 1) && (!b.rammedAt || now - b.rammedAt > 400)) {
         b.rammedAt = now;
         const dx = b.x - me.x, dy = b.y - me.y, d = Math.hypot(dx, dy) || 1;
         b.vx += dx / d * 900; b.vy += dy / d * 900; me.vx -= dx / d * 260; me.vy -= dy / d * 260;
@@ -2538,12 +2874,13 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       }
       // anyone's shots can hit the bot (the bot's own excepted)
       for (const s of shots) {
-        if (s.life <= 0 || s.owner === b.id || s.kind === 3) continue;
+        if (s.life <= 0 || s.owner === b.id || s.kind === 3 || friendly(s, b.tm)) continue;
         if (s.kind === 6 && SHOT_LIFE[6] - s.life < MINE_ARM) continue;
         if (segHit(s, b.x, b.y, 38 + SHOT_R[s.kind])) {
           if (s.kind === 5) { if (!railOnce(s, b.id)) continue; } else s.life = 0;
           shotBurst(s); hitConfirm(s, b.lv, b.x, b.y); if (s.kind === 4 || s.kind === 5) pelletShove(b, s, s.kind === 5 ? 650 : 150);
-          botHurt(b, shotDmg(s), s.id, now, false);
+          if (s.kind === 8) boltChain(s, b.x, b.y, b.id, now);
+          botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx));
         }
       }
     }
@@ -2557,8 +2894,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     for (const b of bots) {
       const m = {
         q: ++b.q, x: Math.round(b.x), y: Math.round(b.y), vx: Math.round(b.vx), vy: Math.round(b.vy), a: +b.a.toFixed(2),
-        t: 1, b: 0, d: b.dead ? 1 : 0, i: now < b.inv ? 1 : 0, ds: b.dead ? b.ds : 0,
-        l: Math.max(0, Math.round(b.lives * 100) / 100), hb: b.hitBy, ko: b.koBy, f: b.shotLog.map(e => e.d)
+        t: 1, b: 0, d: b.dead ? 1 : 0, i: now < b.inv ? 1 : 0, ds: b.dead ? b.ds : 0, dk: b.dead ? b.dk || 0 : 0, da: b.dead ? +(b.da || 0).toFixed(2) : 0,
+        l: Math.max(0, Math.round(b.lives * 100) / 100), hb: b.hitBy, ko: b.koBy, f: b.shotLog.map(e => e.d),
+        tm: b.tm ?? -1, fc: b.fc ?? -1, cp: [stats.round, b.caps || 0], tg: b.tag
       };
       if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, lv: 1, sh: 0, wp: 0, tg: b.tag,
         st: [stats.round, b.st.kills, b.st.deaths, b.st.shots, b.st.hits, b.st.best] });
@@ -2647,13 +2985,13 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       }
     }
   }
-  function announce(text, sub, col, level = 1) {
+  function announce(text, sub, col, level = 1, silent = false) {
     annEl.innerHTML = `<b>${esc(text)}</b>${sub ? `<span>${esc(sub)}</span>` : ""}`;
     annEl.style.setProperty("--ac", col);
     annEl.classList.remove("show"); void annEl.offsetWidth; annEl.classList.add("show");
     sting(level);
     const voice = { "ULTRA KILL": "v_multikill", "RAMPAGE": "v_multikill", "OVERDRIVE": "v_powerup" }[text];
-    setTimeout(() => { if (!(voice && sfx(voice, 1))) speak(text); }, 180);
+    if (!silent) setTimeout(() => { if (!(voice && sfx(voice, 1))) speak(text); }, 180);
   }
 
   // ---------- update ----------
@@ -2819,23 +3157,29 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       } else if (Math.random() < dt * 40) puff(s.x, s.y, -s.vx * 0.08 + (Math.random() - .5) * 60, -s.vy * 0.08 + (Math.random() - .5) * 60, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 2, FIRE_COLS[(Math.random() * 4) | 0]);
       // enemy fireball hits me (I decide, then report the shot id)
       const armed = s.kind !== 6 || SHOT_LIFE[6] - s.life >= MINE_ARM;
-      if (armed && !s.mine && playing && !me.dead && segHit(s, me.x, me.y, 12 + 26 * sizeOf(me.lv) + SHOT_R[s.kind]) && (s.kind !== 5 || railOnce(s, "me"))) {
+      if (armed && !s.mine && playing && !me.dead && !friendly(s, me.tm) && segHit(s, me.x, me.y, 12 + 26 * sizeOf(me.lv) + SHOT_R[s.kind]) && (s.kind !== 5 || railOnce(s, "me"))) {
         if (s.kind !== 5) s.life = 0;
         s.splashed = true;
         shotBurst(s);
         if (s.kind === 4 || s.kind === 5) pelletShove(me, s, s.kind === 5 ? 650 : 150);
-        if (hurt(now, shotDmg(s))) {
+        if (s.kind === 8) boltChain(s, me.x, me.y, "me", now);
+        if (hurt(now, shotDmg(s), false, s.kind, Math.atan2(s.vy, s.vx))) {
           pushCapped(hitBy, s.id, 12);
           if (me.dead) { meKilled(s.id); killedBy(s.owner); }
         }
       }
+      // someone else's bolt hitting a third pilot can still jump to me or my bots
+      if (s.kind === 8 && !s.mine && !s.chained && s.life > 0) for (const [rid, r] of remotes) {
+        if (rid === s.owner || r.dead || botById.has(rid)) continue;
+        if (segHit(s, r.x, r.y, 16 + 26 * sizeOf(r.lv || 1))) { s.life = 0; boltChain(s, r.x, r.y, rid, now); break; }
+      }
       // my fireball reaches another bin: fizzle here, they confirm the hit
       if (s.mine && s.life > 0) for (const [rid, r] of remotes) {
         if (botById.has(rid)) continue;
-        if (r.dead || r.inv) continue;
+        if (r.dead || r.inv || mates(r, me)) continue;
         if (armed && segHit(s, r.x, r.y, 16 + 26 * sizeOf(r.lv || 1) + SHOT_R[s.kind])) {
           if (s.kind === 5) { if (railOnce(s, rid)) { shotBurst(s); hitConfirm(s, r.lv, r.x, r.y); } continue; }
-          s.life = 0; shotBurst(s); hitConfirm(s, r.lv, r.x, r.y); break;
+          s.life = 0; shotBurst(s); hitConfirm(s, r.lv, r.x, r.y); if (s.kind === 8) boltChain(s, r.x, r.y, rid, now); break;
         }
       }
     }
@@ -2869,6 +3213,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     updateEvents(dt, now);
 
     updateBots(dt, now);
+    ctfTick(now);
 
     // shared clock: drift smoothly toward the average offset
     let offSum = 0, offN = 1;
@@ -2897,7 +3242,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         if (rammed || mineRam) { sparkShower(me.x - dx / 2, me.y - dy / 2, -dy, dx, 1.3); sparkShower(me.x - dx / 2, me.y - dy / 2, dy, -dx, 1.3); shake = Math.max(shake, 0.4); }
         sfx("ram", rammed ? 1 : 0.6) || blip(rammed ? 120 : 220, 0.2, "square");
         // they rammed me on boost: I take the damage and report it so they get the credit
-        if (rammed && r.tag) {
+        if (rammed && r.tag && !mates(r, me)) {
           const id = r.tag + ".ram" + Math.floor(now);
           if (hurt(now, r.boost === 2 ? 1.2 : 0.6)) {
             pushCapped(hitBy, id, 12);
@@ -3003,6 +3348,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
     const partCap = lowQ ? MAX_PARTS / 3 : MAX_PARTS;
     if (parts.length > partCap) parts.splice(0, parts.length - partCap);
+    updateMelts(dt);
     for (let i = hulks.length - 1; i >= 0; i--) {
       const h = hulks[i];
       h.life -= dt;
@@ -3015,7 +3361,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const sz = sizeOf(h.lv);
       const hAge = (now - h.born) / 1000;
       if (hAge < 15 && Math.random() < (lowQ ? 6 : 14) * dt) puff(h.x + (Math.random() - 0.5) * 40 * sz, h.y + (Math.random() - 0.5) * 40 * sz, (Math.random() - 0.5) * 40, (Math.random() - 0.5) * 40, 1.6, 4 + Math.random() * 4, "rgb(52,46,64)", 2);
-      if (hAge < 6 && Math.random() < 2.5 * dt) impact(h.x + (Math.random() - 0.5) * 50 * sz, h.y + (Math.random() - 0.5) * 50 * sz, "#ff9a2e", 0.5);
+      if (h.zap && hAge < 2.8) {
+        if (Math.random() < 10 * dt) { const a = Math.random() * 6.28, v = 150 + Math.random() * 300; puff(h.x, h.y, Math.cos(a) * v, Math.sin(a) * v, 0.25 + Math.random() * 0.3, 1 + Math.random(), Math.random() < 0.5 ? "#bfefff" : "#ffffff", 1, 0.05); }
+        if (Math.random() < 3 * dt) { impact(h.x + (Math.random() - 0.5) * 40 * sz, h.y + (Math.random() - 0.5) * 40 * sz, "#9fe8ff", 0.5); sfx("laser", 0.25, 2 + Math.random(), h.x, h.y); }
+      } else if (hAge < 6 && Math.random() < 2.5 * dt) impact(h.x + (Math.random() - 0.5) * 50 * sz, h.y + (Math.random() - 0.5) * 50 * sz, "#ff9a2e", 0.5);
       // it is solid: bump off it
       const dx = me.x - h.x, dy = me.y - h.y, d = Math.hypot(dx, dy);
       if (playing && !me.dead && d > 0.01 && d < 31 * (sizeOf(me.lv) + sz) && (!h.bump || now - h.bump > 300)) {
@@ -3067,7 +3416,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if ((now - d.born) / 1000 < 3 && Math.random() < (lowQ ? 1 : 3) * dt) puff(d.x, d.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 1.2, 2 + Math.random() * 2, "rgb(80,72,98)", 2);
     }
     for (let i = impacts.length - 1; i >= 0; i--) { impacts[i].t += dt; if (impacts[i].t > 0.22) impacts.splice(i, 1); }
-    for (let i = beams.length - 1; i >= 0; i--) { beams[i].t += dt; if (beams[i].t > 0.55) beams.splice(i, 1); }
+    for (let i = beams.length - 1; i >= 0; i--) { beams[i].t += dt; if (beams[i].t > BEAM_T) beams.splice(i, 1); }
+    for (let i = arcs.length - 1; i >= 0; i--) { arcs[i].t += dt; if (arcs[i].t > 0.3) arcs.splice(i, 1); }
     for (let i = rings.length - 1; i >= 0; i--) { rings[i].t += dt; if (rings[i].t > (rings[i].dur || 0.6)) rings.splice(i, 1); }
     for (let i = booms.length - 1; i >= 0; i--) { booms[i].t += dt; if (booms[i].t > BOOM_LIFE) booms.splice(i, 1); }
     // nuke aftershocks: smaller blasts popping around the blast zone for a second
@@ -3088,9 +3438,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const msg = {
         q: ++sendSeq, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),
         vx: Math.round(me.vx), vy: Math.round(me.vy), a: +me.a.toFixed(2),
-        t: me.thrust > 0.3 ? 1 : 0, b: me.boostFx, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0, ds: me.dead ? me.ds : 0
+        t: me.thrust > 0.3 ? 1 : 0, b: me.boostFx, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0, ds: me.dead ? me.ds : 0,
+        dk: me.dead ? me.dk : 0, da: me.dead ? +me.da.toFixed(2) : 0
       };
       const slow = {
+        tm: me.tm ?? -1, fc: me.fc ?? -1, cp: [stats.round, me.caps || 0],
         tg: myTag, n: me.name, h: me.hue, ck: me.ck, s: me.score, l: Math.round(me.lives * 100) / 100, am: me.ampUntil > now ? 1 : 0, lv: me.lv, sh: Math.round(me.shield * 100) / 100, wp: WEAPON_KEYS.indexOf(me.weapon), g: myGrabs, hb: hitBy, ko: koBy,
         st: [stats.round, stats.kills, stats.deaths, stats.shots, stats.hits, stats.best],
         cv: myCarves.filter(e => performance.now() - e.at < 4000).map(e => e.d),
@@ -3114,15 +3466,22 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const boardEl = document.getElementById("board");
   // everyone's numbers for the current round (others' come from their latest state)
   function playerRows() {
-    const rows = [{ name: me.name || "You", hue: me.hue, me: true, score: me.score, kills: stats.kills, deaths: stats.deaths, shots: stats.shots, hits: stats.hits, best: stats.best }];
+    const rows = [{ name: me.name || "You", hue: me.hue, me: true, score: me.score, kills: stats.kills, deaths: stats.deaths, shots: stats.shots, hits: stats.hits, best: stats.best, tm: me.tm, caps: me.caps || 0 }];
     for (const r of remotes.values()) {
       const st = r.st && r.st[0] === stats.round ? r.st : [0, 0, 0, 0, 0, 0];
-      rows.push({ name: r.name, hue: r.hue, score: r.score, kills: st[1], deaths: st[2], shots: st[3], hits: st[4], best: st[5] });
+      rows.push({ name: r.name, hue: r.hue, score: r.score, kills: st[1], deaths: st[2], shots: st[3], hits: st[4], best: st[5], tm: r.tm, caps: r.cpRound === stats.round ? r.caps || 0 : 0 });
     }
     return rows;
   }
   const esc = t => String(t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const acc = r => r.shots ? Math.round(r.hits / r.shots * 100) : 0;
+  function teamWinLine() {
+    if (!isTeams()) return "";
+    const t = teamTotals(), flags = MODES[MODE].flags, sc = i => flags ? t.c[i] + " flags, " + t.k[i] + " kills" : t.k[i] + " kills";
+    if (!t.lead) return "A draw · " + sc(0) + " each side";
+    const w = t.lead > 0 ? 0 : 1;
+    return `<span style="color:${TEAM_HEX[w]}">${TEAM_NAME[w]} team wins</span> · ${sc(w)} to ${sc(1 - w)}`;
+  }
   function showResults(roundNo) {
     const rows = playerRows().sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
     const top = rows[0];
@@ -3138,9 +3497,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     ].filter(([, who]) => who);
     const card = document.getElementById("resultsCard");
     card.innerHTML = `<h2>Round ${roundNo} over</h2>
-      <div class="winner">${top.kills ? "Winner: " + esc(top.name) + " · " + top.kills + " kills" : "Nobody scored a kill"}</div>
+      <div class="winner">${teamWinLine() || (top.kills ? "Winner: " + esc(top.name) + " · " + top.kills + " kills" : "Nobody scored a kill")}</div>
       <table><thead><tr><th>Pilot</th><th>Kills</th><th>Deaths</th><th>Accuracy</th></tr></thead><tbody>
-      ${rows.map(r => `<tr class="${r.me ? "me" : ""}"><td>${esc(r.name)}${r.me ? " (you)" : ""}</td><td>${r.kills}</td><td>${r.deaths}</td><td>${r.shots ? acc(r) + "%" : "–"}</td></tr>`).join("")}
+      ${rows.map(r => `<tr class="${r.me ? "me" : ""}"><td${isTeams() && (r.tm === 0 || r.tm === 1) ? ` style="color:${TEAM_HEX[r.tm]}"` : ""}>${esc(r.name)}${r.me ? " (you)" : ""}</td><td>${r.kills}</td><td>${r.deaths}</td><td>${r.shots ? acc(r) + "%" : "–"}</td></tr>`).join("")}
       </tbody></table>
       <div class="awards">${awards.map(([title, who, why]) => `<div class="award"><b>${title}</b><span>${esc(who.name)}</span><small>${why(who)}</small></div>`).join("")}</div>
       <div class="next" id="nextRound"></div>`;
@@ -3154,7 +3513,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const rows = playerRows();
     if (rows.length < 2) return;
     const top = rows.reduce((a, b) => b.kills > a.kills || (b.kills === a.kills && b.deaths < a.deaths) ? b : a);
-    setTimeout(() => sfx(top.me && stats.kills > 0 ? (stats.deaths === 0 ? "v_flawless" : "v_win") : "v_lose", 1), 600);
+    const won = isTeams() ? (teamTotals().lead || 0) * (me.tm === 0 ? 1 : -1) > 0 : top.me && stats.kills > 0;
+    setTimeout(() => sfx(won ? (stats.deaths === 0 ? "v_flawless" : "v_win") : "v_lose", 1), 600);
   }
   function roundTick(now) {
     const rd = roundAt(clockNow());
@@ -3163,13 +3523,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       Object.assign(stats, { round: rd.idx, kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 });
       if (shownRound !== -1 && playing) {
         me.score = 0; showScore(); me.xp = 0; me.lv = 1; renderLevel();
-        me.weapon = "fire"; me.arsenal = { fire: Infinity }; me.ampUntil = 0; renderWeapon();
+        baseArsenal(); me.ampUntil = 0; renderWeapon();
         if (!me.dead) { me.lives = maxLivesOf(1); me.shield = 0; renderShield(); renderHearts(false); me.inv = now + 2000; }
         floaters.push({ x: me.x, y: me.y - 90, t: 0, txt: "ROUND " + (rd.idx % 1000) + " · FIGHT!", gold: true });
         sfx("v_fight", 1);
       }
-      for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, dead: false, ...spawnPoint(), inv: now + 2000 });
-      hulks.length = 0; frags.length = 0; debris.length = 0;
+      for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0 });
+      me.fc = -1; me.caps = 0;
+      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0;
       if (shownRound !== -1) { myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode); }   // every crater filled in again
       firstBlood = false; streaks.clear(); multi = 0;
       shownRound = rd.idx;
@@ -3191,14 +3552,30 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (nx) nx.textContent = "Next round in " + Math.ceil(ROUND_LEN - rd.ph) + " s";
     }
   }
+  // team totals: kills, and flags captured
+  function teamTotals() {
+    const k = [0, 0], c = [0, 0];
+    for (const r of playerRows()) if (r.tm === 0 || r.tm === 1) { k[r.tm] += r.kills; c[r.tm] += r.caps; }
+    return { k, c, lead: MODES[MODE].flags ? (c[0] - c[1] || k[0] - k[1]) : k[0] - k[1] };
+  }
   function renderBoard() {
     const rows = playerRows();
     rows.sort((a, b) => b.kills - a.kills || a.deaths - b.deaths || b.score - a.score);
     const shown = rows.slice(0, 8);
     if (!shown.some(r => r.me)) shown[7] = rows.find(r => r.me);
-    boardEl.replaceChildren(...shown.map(r => {
+    const team = [];
+    if (isTeams()) {   // the two teams first: kills, or captures in CTF
+      const t = teamTotals(), flags = MODES[MODE].flags;
+      for (const i of [0, 1]) {
+        const li = document.createElement("li"); li.className = "team";
+        const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = TEAM_NAME[i] + " team"; nm.style.color = TEAM_HEX[i];
+        const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = flags ? t.c[i] + " flags · " + t.k[i] : String(t.k[i]);
+        li.append(nm, pts); team.push(li);
+      }
+    }
+    boardEl.replaceChildren(...team, ...shown.map(r => {
       const li = document.createElement("li"); if (r.me) li.className = "me";
-      const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = r.name; nm.style.color = `hsl(${r.hue} 90% 80%)`;
+      const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = r.name; nm.style.color = isTeams() && (r.tm === 0 || r.tm === 1) ? TEAM_HEX[r.tm] : `hsl(${r.hue} 90% 80%)`;
       const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = r.kills + " · " + r.deaths;
       li.append(nm, pts); return li;
     }));
@@ -3216,25 +3593,26 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   let nextComet = 0, lastSky = 0;
   function drawSky(now) {
     const t = now / 1000, sdt = Math.min(0.05, (now - lastSky) / 1000); lastSky = now;
-    const gr = g.createLinearGradient(0, 0, vw * 0.3, vh);
-    gr.addColorStop(0, "#060920"); gr.addColorStop(0.5, "#170f3f"); gr.addColorStop(1, "#33175a");
+    const gr = g.createLinearGradient(0, 0, vw * 0.3, vh);   // deep space: nearly black, a touch of blue and violet
+    gr.addColorStop(0, "#010208"); gr.addColorStop(0.55, "#04061a"); gr.addColorStop(1, "#0a0619");
     g.fillStyle = gr; g.fillRect(0, 0, vw, vh);
     const tile = (img, size, par, dx, dy) => {
       const ox = -mod(me.x * par + dx, size), oy = -mod(me.y * par + dy, size);
       for (let x = ox; x < vw; x += size) for (let y = oy; y < vh; y += size) g.drawImage(img, x, y);
     };
-    // far away: a slowly turning galaxy and a ringed planet with an orbiting moon
-    const far = 0.04;
-    const gx = vw * 0.14 - (me.x - W / 2) * far * 0.6, gy = vh * 0.72 - (me.y - H / 2) * far * 0.6;
-    g.save(); g.globalAlpha = 0.75; g.translate(gx, gy); g.rotate(t * 0.03); g.drawImage(galaxyCv, -210, -210); g.restore(); g.globalAlpha = 1;
-    // two glowing nebula layers drifting against each other, then the soft smoky trails
-    g.globalCompositeOperation = "lighter";
-    tile(colorNeb, NEB2, 0.22, t * 9, t * 4);
-    if (!lowQ) tile(colorNeb2, NEB2, 0.32, -t * 7, t * 6);
+    // landmarks: the Milky Way, far galaxies, nebulae and gas giants, each at its own spot, sliding by with parallax
+    for (const L of sky) {
+      if (lowQ && L.img === NEB_ART[2]) continue;
+      const x = vw / 2 + (L.x - me.x) * L.par, y = vh / 2 + (L.y - me.y) * L.par, half = Math.max(L.img.width, L.img.height) * L.sc / 2;
+      if (!onScreen(x, y, half)) continue;
+      g.globalCompositeOperation = L.glow ? "lighter" : "source-over"; g.globalAlpha = L.a;
+      g.save(); g.translate(x, y); g.rotate(L.rot + (L.spin || 0) * t); g.scale(L.sc, L.sc);
+      g.drawImage(L.img, -L.img.width / 2, -L.img.height / 2);
+      g.restore();
+    }
     g.globalCompositeOperation = "source-over";
-    g.globalAlpha = 0.45; tile(neb, NEB, 0.6, t * 5, -t * 2); g.globalAlpha = 1;
     // bright stars as a layer, plus single stars that each twinkle on their own beat
-    g.globalAlpha = 0.85 + 0.15 * Math.sin(t * 1.1);
+    g.globalAlpha = 0.7 + 0.15 * Math.sin(t * 1.1);
     tile(brightStars, STAR_TILE, 0.45, 0, 0);
     g.globalAlpha = 1;
     g.globalCompositeOperation = "lighter";
@@ -3273,7 +3651,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
     g.globalAlpha = 1;
     const vg = g.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.35, vw / 2, vh / 2, Math.max(vw, vh) * 0.75);
-    vg.addColorStop(0, "rgba(4,2,14,0)"); vg.addColorStop(1, "rgba(4,2,14,0.55)");
+    vg.addColorStop(0, "rgba(0,0,6,0)"); vg.addColorStop(1, "rgba(0,0,6,0.65)");
     g.fillStyle = vg; g.fillRect(0, 0, vw, vh);
   }
 
@@ -3356,6 +3734,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.lineJoin = "round"; g.lineCap = "round";
       for (const [w, c] of [[9, "rgba(120,200,255,0.35)"], [3.5, "rgba(190,240,255,0.9)"], [1.4, "#ffffff"]]) {
         g.strokeStyle = c; g.lineWidth = w; g.beginPath(); pts.forEach(([px, py], i) => i ? g.lineTo(px, py) : g.moveTo(px, py)); g.stroke();
+      }
+      for (let f = 0; f < (lowQ ? 1 : 3); f++) {   // forks splitting off the main bolt
+        let [fx, fy] = pts[2 + ((Math.random() * 6) | 0)], a = Math.atan2(ny, nx) + (Math.random() < 0.5 ? 1 : -1) * (0.4 + Math.random() * 0.6);
+        const fork = [[fx, fy]];
+        for (let k = 0; k < 3; k++) { a += (Math.random() - 0.5) * 0.9; const st = 14 + Math.random() * 18; fx += Math.cos(a) * st; fy += Math.sin(a) * st; fork.push([fx, fy]); }
+        for (const [w, c] of [[4, "rgba(120,200,255,0.3)"], [1.2, "rgba(220,248,255,0.9)"]]) {
+          g.strokeStyle = c; g.lineWidth = w; g.beginPath(); fork.forEach(([px, py], i) => i ? g.lineTo(px, py) : g.moveTo(px, py)); g.stroke();
+        }
       }
       return;
     }
@@ -3826,6 +4212,15 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     g.closePath();
   }
 
+  // team modes: a ring in the team's colour under every bin
+  function teamRing(x, y, tm, lv) {
+    if (!isTeams() || (tm !== 0 && tm !== 1)) return;
+    const R = 44 * sizeOf(lv || 1);
+    g.globalCompositeOperation = "lighter";
+    g.strokeStyle = `rgba(${TEAM_RGB[tm]},0.75)`; g.lineWidth = 3.5;
+    g.beginPath(); g.ellipse(x, y + R * 0.2, R, R * 0.75, 0, 0, 6.29); g.stroke();
+    g.globalCompositeOperation = "source-over";
+  }
   function drawBot(b, x, y, now, isMe) {
     const lv = b.lv || 1, sz = sizeOf(lv), tier = tierOf(lv), S = BOT * sz;
     if (b.blink && Math.floor(now / 90) % 2) g.globalAlpha = 0.35;
@@ -3915,7 +4310,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.fillStyle = "rgba(20,12,40,0.55)";
       const w = g.measureText(label).width + 12 * TS;
       rrect(x - w / 2, top, w, 19 * TS, 9 * TS); g.fill();
-      g.fillStyle = `hsl(${b.hue} 90% ${isMe ? 85 : 78}%)`;
+      g.fillStyle = isTeams() && (b.tm === 0 || b.tm === 1) ? TEAM_HEX[b.tm] : `hsl(${b.hue} 90% ${isMe ? 85 : 78}%)`;
       g.fillText(label, x, top + 14 * TS);
     }
   }
@@ -4306,7 +4701,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       }
       g.globalAlpha = 1;
     }
-    for (let i = 0; i < PICKS; i++) {
+    for (let i = 0; i < world.picks.length; i++) {
       const c = world.picks[i];
       if (grabbed.has(c.key)) continue;
       const x = sx(c.x), y = sy(c.y) + Math.sin(now / 400 + i) * 6;
@@ -4338,8 +4733,23 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.globalAlpha = Math.min(1, h.life / 2);
       g.save(); g.translate(x, y); g.rotate(h.a + Math.PI / 2 - SPRITE_TILT);
       drawWings(h.lv, s);
-      if (body) g.drawImage(darkBody(h.ck || [0, 0, 0, 0, 0]), -s / 2, -s / 2, s, s);
+      if (body) g.drawImage(darkBody(h.ck || [0, 0, 0, 0, 0], h.zap ? 0.8 : 0.58), -s / 2, -s / 2, s, s);
       drawDamage(1, s, now, h.x);
+      const zk = h.zap ? 1 - (now - h.born) / 2800 : 0;
+      if (zk > 0) {   // fried: blue arcs crawl over the shell and it flickers
+        g.globalCompositeOperation = "lighter";
+        if (Math.random() < 0.5) { g.globalAlpha = 0.35 * zk; g.drawImage(dotSprite("#7fd8ff"), -s * 0.6, -s * 0.6, s * 1.2, s * 1.2); }
+        g.lineJoin = "round"; g.lineCap = "round";
+        for (let k = 0; k < 3; k++) {
+          let a = Math.random() * 6.28, r = s * (0.15 + Math.random() * 0.3), px = Math.cos(a) * r, py = Math.sin(a) * r;
+          const pts = [[px, py]];
+          for (let n = 0; n < 5; n++) { a += (Math.random() - 0.5) * 1.6; r = clamp(r + (Math.random() - 0.5) * s * 0.2, s * 0.08, s * 0.48); pts.push([Math.cos(a) * r, Math.sin(a) * r]); }
+          for (const [w, c] of [[6, "rgba(120,200,255,0.35)"], [2, "rgba(200,240,255,0.95)"]]) {
+            g.globalAlpha = zk; g.strokeStyle = c; g.lineWidth = w; g.beginPath(); pts.forEach(([x2, y2], i) => i ? g.lineTo(x2, y2) : g.moveTo(x2, y2)); g.stroke();
+          }
+        }
+        g.globalCompositeOperation = "source-over";
+      }
       g.restore();
       g.globalAlpha = 1;
     }
@@ -4354,6 +4764,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.restore();
       g.globalAlpha = 1;
     }
+    drawMelts(now);
     // wreckage: jagged pieces in the bin's colours with a scorched edge, fading out at the end
     for (const d of debris) {
       const x = sx(d.x), y = sy(d.y);
@@ -4398,15 +4809,16 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     for (const r of remotes.values()) {
       if (r.dead) continue;
       const x = sx(r.x), y = sy(r.y);
-      if (onScreen(x, y, BOT * 2)) drawBot({ ...r, blink: r.inv }, x, y, now, false);
+      if (onScreen(x, y, BOT * 2)) { teamRing(x, y, r.tm, r.lv); drawBot({ ...r, blink: r.inv }, x, y, now, false); }
       else drawPointer(r, x, y);
     }
-    if (!me.dead) drawBot({ ...me, name: playing ? me.name : "", blink: now < me.inv }, vw / 2, vh / 2, now, true);
+    if (!me.dead) { teamRing(vw / 2, vh / 2, me.tm, me.lv); drawBot({ ...me, name: playing ? me.name : "", blink: now < me.inv }, vw / 2, vh / 2, now, true); }
     else {
       g.textAlign = "center"; g.fillStyle = "#ffffff";
       g.font = `700 ${30 * TS}px ` + DISPLAY_FONT;
       g.fillText((killer ? "Killed by " + killer + " · " : "Boom! ") + "back in " + Math.max(1, Math.ceil((me.respawnAt - now) / 1000)) + "…", vw / 2, vh / 2);
     }
+    drawFlags(now);
     // smoke on top of the bins, so a damaged bin visibly smokes
     for (const p of parts) {
       if (p.k !== 2) continue;
@@ -4427,20 +4839,39 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.globalAlpha = 1 - k; g.fillStyle = fg; g.beginPath(); g.arc(x, y, r, 0, 6.29); g.fill();
     }
     g.globalAlpha = 1;
-    for (const b of beams) {   // rail beams: a white-hot core in a violet glow, thinning as it fades, with a spiral of sparks
-      const k = 1 - b.t / 0.55, x1 = sx(b.x1), y1 = sy(b.y1), x2 = sx(b.x2), y2 = sy(b.y2);
-      g.lineCap = "round";
-      g.strokeStyle = `rgba(190,120,255,${0.35 * k})`; g.lineWidth = 26 * k + 4;
-      g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
-      g.strokeStyle = `rgba(233,200,255,${0.8 * k})`; g.lineWidth = 8 * k + 1;
-      g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
-      g.strokeStyle = `rgba(255,255,255,${k})`; g.lineWidth = 2.5 * k + 0.5;
-      g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
-      const L = Math.hypot(x2 - x1, y2 - y1), nx = (x2 - x1) / (L || 1), ny = (y2 - y1) / (L || 1), r = 9 + b.t * 50;
-      g.fillStyle = `rgba(217,168,255,${0.8 * k})`;
-      for (let d = 0; d < L; d += lowQ ? 36 : 18) {
-        const a = d / 26 + b.t * 9, o = Math.sin(a) * r;
-        g.fillRect(x1 + nx * d - ny * o - 1.5, y1 + ny * d + nx * o - 1.5, 3, 3);
+    for (const b of beams) {   // rail trails: a white-hot core in a violet glow that goes quickly, and a double spiral that lingers and unwinds
+      const k = 1 - b.t / BEAM_T, kc = Math.max(0, 1 - b.t / 0.4), x1 = sx(b.x1), y1 = sy(b.y1), x2 = sx(b.x2), y2 = sy(b.y2);
+      g.lineCap = "round"; g.lineJoin = "round";
+      if (kc > 0) {
+        g.strokeStyle = `rgba(190,120,255,${0.35 * kc})`; g.lineWidth = 26 * kc + 4;
+        g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+        g.strokeStyle = `rgba(233,200,255,${0.8 * kc})`; g.lineWidth = 8 * kc + 1;
+        g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+        g.strokeStyle = `rgba(255,255,255,${kc})`; g.lineWidth = 2.5 * kc + 0.5;
+        g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+      }
+      // only the part on screen is traced, so a long trail stays cheap
+      const L = Math.hypot(x2 - x1, y2 - y1), nx = (x2 - x1) / (L || 1), ny = (y2 - y1) / (L || 1), r = 8 + b.t * 26;
+      const proj = (px, py) => (px - x1) * nx + (py - y1) * ny, ds = [proj(0, 0), proj(vw, 0), proj(0, vh), proj(vw, vh)];
+      const d0 = Math.max(0, Math.min(...ds) - 40), d1 = Math.min(L, Math.max(...ds) + 40), step = lowQ ? 10 : 5;
+      for (const [ph, col] of [[0, "217,168,255"], [Math.PI, "255,230,255"]]) {
+        g.strokeStyle = `rgba(${col},${0.75 * k})`; g.lineWidth = 2 * k + 0.6;
+        g.beginPath();
+        for (let d = d0; d <= d1; d += step) {
+          const a = d / 22 + ph + b.t * 4, o = Math.sin(a) * r;
+          const px = x1 + nx * d - ny * o, py = y1 + ny * d + nx * o;
+          d === d0 ? g.moveTo(px, py) : g.lineTo(px, py);
+        }
+        g.stroke();
+      }
+    }
+    for (const q of arcs) {   // chain lightning
+      const k = 1 - q.t / 0.3, x1 = sx(q.x1), y1 = sy(q.y1), x2 = sx(q.x2), y2 = sy(q.y2), L = Math.hypot(x2 - x1, y2 - y1) || 1, nx = (x2 - x1) / L, ny = (y2 - y1) / L;
+      const pts = [[x1, y1]];
+      for (let s2 = 1; s2 < 8; s2++) { const t = s2 / 8, o = (Math.random() - 0.5) * 30; pts.push([x1 + (x2 - x1) * t - ny * o, y1 + (y2 - y1) * t + nx * o]); }
+      pts.push([x2, y2]);
+      for (const [w, c] of [[8, `rgba(120,200,255,${0.35 * k})`], [2.5, `rgba(220,248,255,${k})`]]) {
+        g.strokeStyle = c; g.lineWidth = w; g.beginPath(); pts.forEach(([px, py], i) => i ? g.lineTo(px, py) : g.moveTo(px, py)); g.stroke();
       }
     }
     for (const q of rings) {
@@ -4489,8 +4920,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     g.textAlign = "center";
     for (const f of floaters) {
       g.globalAlpha = 1 - f.t;
-      g.font = `700 ${(f.gold ? 26 : f.hit ? 20 : 18) * TS}px ` + DISPLAY_FONT;
-      g.fillStyle = f.gold ? "#ffd36b" : f.hit ? "#ff6b6b" : "#ffffff";
+      g.font = `700 ${(f.gold ? 26 : f.big ? 30 : f.hit ? 20 : 18) * TS}px ` + DISPLAY_FONT;
+      g.fillStyle = f.gold ? "#ffd36b" : f.col || (f.hit ? "#ff6b6b" : "#ffffff");
       g.fillText(f.txt, sx(f.x), sy(f.y) - f.t * 50);
     }
     g.globalAlpha = 1;
@@ -4528,11 +4959,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const wt = clockNow();
     for (let i = 0; i < SLOTS; i++) world.sparks[i] = spark(i, wt);
     for (let i = 0; i < ROCKS; i++) world.rocks[i] = rock(i, wt);
-    for (let i = 0; i < PICKS; i++) world.picks[i] = pickup(i, wt);
-    world.nuke = nukePickup(wt);
-    world.amp = ampPickup(wt);
+    const solo = !!MODES[MODE].only;
+    world.picks.length = solo ? 0 : PICKS;
+    for (let i = 0; i < world.picks.length; i++) world.picks[i] = pickup(i, wt);
+    world.nuke = solo ? null : nukePickup(wt);
+    world.amp = solo ? null : ampPickup(wt);
+    world.supplies.length = MODE === "r" ? 0 : SUPPLY_SLOTS;
     roundTick(now);
-    for (let i = 0; i < SUPPLY_SLOTS; i++) world.supplies[i] = supply(i, wt);
+    for (let i = 0; i < world.supplies.length; i++) world.supplies[i] = supply(i, wt);
     update(dt, now); draw(now);
     if (!playing) drawPreview(now);
     else { drawMinimap(now); renderEnergy(); }
@@ -4607,8 +5041,13 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     for (const r of remotes.values()) {
       if (r.dead) continue;
       const [x, y] = P(r.x, r.y);
-      mctx.fillStyle = `hsl(${r.hue} 90% 70%)`;
+      mctx.fillStyle = isTeams() && (r.tm === 0 || r.tm === 1) ? TEAM_HEX[r.tm] : `hsl(${r.hue} 90% 70%)`;
       mctx.beginPath(); mctx.arc(x, y, 4 + r.lv * 0.3, 0, 6.29); mctx.fill();
+    }
+    if (bases) for (const t of [0, 1]) {   // pads and flags
+      const [bx, by] = P(bases[t].x, bases[t].y), c = flagCarrier[t], [fx, fy] = c ? P(c.o.x, c.o.y) : [bx, by];
+      mctx.strokeStyle = TEAM_HEX[t]; mctx.lineWidth = 2; mctx.beginPath(); mctx.arc(bx, by, 7, 0, 6.29); mctx.stroke();
+      if (!c || Math.floor(now / 250) % 2) { mctx.fillStyle = TEAM_HEX[t]; mctx.fillRect(fx, fy - 9, 2, 10); mctx.fillRect(fx + 2, fy - 9, 7, 5); }
     }
     // you: an arrow pointing where you fly
     if (!me.dead) {
@@ -4727,7 +5166,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const syncGo = () => {
     if (!standalone) { goBtn.textContent = "Take off"; return; }
     goBtn.disabled = !codeOk();
-    goBtn.textContent = codeOk() ? "Join lobby " + lobbyInput.value.toUpperCase() + " · " + MAP_SIZES[mapOf(normCode(lobbyInput.value))][1] + " map" : "Enter a code (4+ characters) or create one";
+    const c = normCode(lobbyInput.value);
+    goBtn.textContent = codeOk() ? "Join " + lobbyInput.value.toUpperCase() + " · " + MODES[modeOf(c)].name + " · " + MAP_SIZES[mapOf(c)][1] + " map" : "Enter a code (4+ characters) or create one";
   };
   if (standalone) {
     document.getElementById("lobbyBox").hidden = false;
@@ -4735,7 +5175,12 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (fromLink.length >= 4) lobbyInput.value = fromLink.toUpperCase();
     lobbyInput.addEventListener("input", () => { lobbyInput.value = lobbyInput.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); syncGo(); });
     let mapPick = MAP_SIZES[store.get("binrocket.map")] ? store.get("binrocket.map") : "m";
-    const newCode = () => { let c = mapPick; for (let i = 0; i < 4; i++) c += CODE_ABC[(Math.random() * CODE_ABC.length) | 0]; lobbyInput.value = c.toUpperCase(); syncGo(); };
+    let modePick = MODES[store.get("binrocket.mode")] ? store.get("binrocket.mode") : "d";
+    const newCode = () => { let c = mapPick + (modePick === "d" ? "" : "1" + modePick); for (let i = 0; i < 4; i++) c += CODE_ABC[(Math.random() * CODE_ABC.length) | 0]; lobbyInput.value = c.toUpperCase(); syncGo(); };
+    segButtons(document.getElementById("modePick"), Object.entries(MODES).map(([k, v]) => [k, v.label]), modePick, v => {
+      modePick = v; store.set("binrocket.mode", v);
+      if (createdCode) newCode();
+    });
     segButtons(document.getElementById("mapSize"), Object.entries(MAP_SIZES).map(([k, v]) => [k, v[1]]), mapPick, v => {
       mapPick = v; store.set("binrocket.map", v);
       if (createdCode) newCode();   // a code you just made follows the size you pick
