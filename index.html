@@ -853,7 +853,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function newBody(id, kind, w, h, cs) {
     const gw = Math.max(1, Math.ceil(w / cs)), gh = Math.max(1, Math.ceil(h / cs)), c = document.createElement("canvas");
     c.width = Math.max(1, Math.ceil(gw * cs * BODY_RES)); c.height = Math.max(1, Math.ceil(gh * cs * BODY_RES));
-    const q = c.getContext("2d");
+    const q = c.getContext("2d", { willReadFrequently: true });   // read back after every crater
     q.scale(BODY_RES, BODY_RES);
     return { id, kind, cs, gw, gh, hw: gw * cs / 2, hh: gh * cs / 2, r: Math.hypot(gw * cs, gh * cs) / 2, rr: Math.max(gw, gh) * cs / 2,
              cells: new Uint8Array(gw * gh), cv: c, q, x: 0, y: 0, a: 0, vx: 0, vy: 0, va: 0, mass: 0, mass0: 0, free: false, dead: false, dirty: false, lastSplit: 0 };
@@ -1870,7 +1870,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const d = Math.hypot(me.x - s.x, me.y - s.y), R = 140 + 26 * sizeOf(me.lv);
     if (d > R) return;
     me.vx += (me.x - s.x) / (d || 1) * 300; me.vy += (me.y - s.y) / (d || 1) * 300;
-    if (hurt(now, 0.6 * (1 - d / R) + 0.15)) { pushCapped(hitBy, s.id, 12); if (me.dead) { meKilled(s.id); killedBy(s.owner); } }
+    if (hurt(now, (0.6 * (1 - d / R) + 0.15) * (s.m || 1))) { pushCapped(hitBy, s.id, 12); if (me.dead) { meKilled(s.id); killedBy(s.owner); } }
   }
   let hitTickAt = 0;
   function hitConfirm(s, lv, x, y) {
@@ -2756,6 +2756,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         if (o === s || o.life <= 0 || o.kind === 3 || o.kind === 6 || (o.mine ? s.mine : o.owner === s.owner)) continue;
         if (segHit(o, s.x, s.y, 24)) { s.life = 0; if (o.kind !== 5) o.life = 0; impact(s.x, s.y, "#ffb43c", 1.6); explode(s.x, s.y, 40, 300); sfx("boom_small", 0.8, 1.2, s.x, s.y); break; }
       }
+      if (s.life <= 0) continue;   // shot down: it blows up (splash) at the start of next frame
       if (s.kind === 6) { const k = Math.exp(-2.5 * dt); s.vx *= k; s.vy *= k; }
       if (s.kind === 3) { const v = Math.hypot(s.vx, s.vy), nv = Math.min(720, v + 260 * dt); s.vx *= nv / v; s.vy *= nv / v; }
       s.px = s.x; s.py = s.y;
