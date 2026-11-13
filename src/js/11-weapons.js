@@ -25,6 +25,9 @@
   // team modes: whose side a shot is on (no friendly fire)
   const teamOfShot = s => s.mine ? me.tm : botById.has(s.owner) ? botById.get(s.owner).tm : remotes.has(s.owner) ? remotes.get(s.owner).tm : undefined;
   const friendly = (s, tm) => mates({ tm }, { tm: teamOfShot(s) });
+  // THE rule for whether a shot may hurt someone (id: their key, "me" for me): alive, not the shooter, not on the
+  // shooter's team; my own shots never hurt me. Every hit, splash, blast, homing and chain asks this.
+  const canHurt = (s, o, id) => !o.dead && id !== s.owner && !friendly(s, o.tm) && (o !== me || (playing && !s.mine));
   // shard cannon: one record becomes six hot shards that bounce off walls and planets
   function shardSpray(s) {
     for (let k = 0; k < 6; k++) {
@@ -48,12 +51,12 @@
     if (d < 1600) { shake = Math.max(shake, (big ? 0.7 : 0.35) * (1 - d / 1600)); if (big) flash = Math.max(flash, 0.35 * (1 - d / 1600)); }
     sfx(big ? "boom_big" : "boom_small", 1, big ? 1.25 : 1.4, x, y);
     if (s.mine) floaters.push({ x, y: y - 60, t: 0, txt: "COMBO!", gold: true });
-    if (!s.mine && playing && !me.dead && !friendly(s, me.tm) && d < R + 26 * sizeOf(me.lv)) {
+    if (canHurt(s, me, "me") && d < R + 26 * sizeOf(me.lv)) {
       me.vx += (me.x - x) / (d || 1) * 700; me.vy += (me.y - y) / (d || 1) * 700;
       if (hurt(now, base * Math.max(0.25, 1 - d / R), false, K.ORB)) { pushCapped(hitBy, s.id, 12); if (me.dead) { meKilled(s.id); killedBy(s.owner); } }
     }
     for (const b of bots) {
-      if (b.dead || b.id === s.owner || friendly(s, b.tm)) continue;
+      if (!canHurt(s, b, b.id)) continue;
       const bd = Math.hypot(b.x - x, b.y - y);
       if (bd < R + 40) { b.vx += (b.x - x) / (bd || 1) * 700; b.vy += (b.y - y) / (bd || 1) * 700; botHurt(b, base * Math.max(0.25, 1 - bd / R), s.id, now, false, K.ORB); }
     }
@@ -80,8 +83,8 @@
     if (s.chained) return;
     s.chained = true;
     let best = null, bd = CHAIN_R;
-    const consider = (id, o) => { if (id === hitId || id === s.owner || o.dead || friendly(s, o.tm)) return; const d = Math.hypot(o.x - hx, o.y - hy); if (d < bd) { bd = d; best = { id, o }; } };
-    if (!s.mine && playing) consider("me", me);
+    const consider = (id, o) => { if (id === hitId || !canHurt(s, o, id)) return; const d = Math.hypot(o.x - hx, o.y - hy); if (d < bd) { bd = d; best = { id, o }; } };
+    consider("me", me);
     for (const [id, r] of remotes) consider(id, r);
     if (!best) return;
     const t = best.o, a = Math.atan2(t.y - hy, t.x - hx);
@@ -101,15 +104,15 @@
       const d = Math.hypot(x - s.x, y - s.y);
       if (d < bd && Math.abs(angD(Math.atan2(y - s.y, x - s.x) - cur)) < 1.25) { bd = d; best = { x, y }; }
     };
-    if (!s.mine && playing && !me.dead && !friendly(s, me.tm)) consider(me, me.x, me.y);
-    for (const [id, r] of remotes) if (!r.dead && id !== s.owner && !friendly(s, r.tm)) consider(r, r.x, r.y);
-    for (const b of bots) if (!b.dead && b.id !== s.owner && !(s.mine && botById.has(b.id)) && !friendly(s, b.tm)) consider(b, b.x, b.y);
+    if (canHurt(s, me, "me")) consider(me, me.x, me.y);
+    for (const [id, r] of remotes) if (canHurt(s, r, id)) consider(r, r.x, r.y);
+    for (const b of bots) if (canHurt(s, b, b.id) && !(s.mine && botById.has(b.id))) consider(b, b.x, b.y);
     const na = best ? cur + clamp(angD(Math.atan2(best.y - s.y, best.x - s.x) - cur), -2.3 * dt, 2.3 * dt) : cur;
     const sp = Math.min(560, Math.hypot(s.vx, s.vy) + 380 * dt);
     s.vx = Math.cos(na) * sp; s.vy = Math.sin(na) * sp;
   }
   function rocketSplash(s, now) {
-    if (s.splashed || s.mine || !playing || me.dead || friendly(s, me.tm)) return;
+    if (s.splashed || !canHurt(s, me, "me")) return;
     s.splashed = true;
     const d = Math.hypot(me.x - s.x, me.y - s.y), R = 140 + 26 * sizeOf(me.lv);
     if (d > R) return;
@@ -372,7 +375,7 @@
     }
     if (d < 2600) { shake = Math.max(shake, 1.4 * (1 - d / 2600)); flash = Math.max(flash, d < NUKE_R * 1.6 ? 1 : 1 - (d - NUKE_R * 1.6) / (2600 - NUKE_R * 1.6)); }
     blip(30, 2.2, "sawtooth"); blip(55, 1.6, "square"); blip(90, 1.0, "sawtooth");
-    if (!s.mine && playing && !me.dead && !friendly(s, me.tm) && d < NUKE_R) {
+    if (canHurt(s, me, "me") && d < NUKE_R) {
       const push = 1500 * (1 - d / NUKE_R) + 400;
       me.vx += (me.x - x) / (d || 1) * push; me.vy += (me.y - y) / (d || 1) * push;
       const wasHit = d < NUKE_KILL ? hurt(now, 99, true) : hurt(now, NUKE_DMG);
@@ -380,7 +383,7 @@
     }
     for (const b of bots) {
       const bd = Math.hypot(b.x - x, b.y - y);
-      if (b.dead || b.id === s.owner || bd > NUKE_R || friendly(s, b.tm)) continue;
+      if (bd > NUKE_R || !canHurt(s, b, b.id)) continue;
       b.vx += (b.x - x) / (bd || 1) * 1200; b.vy += (b.y - y) / (bd || 1) * 1200;
       botHurt(b, bd < NUKE_KILL ? 99 : NUKE_DMG, s.id, now, bd < NUKE_KILL);
     }

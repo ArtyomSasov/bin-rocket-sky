@@ -188,7 +188,7 @@
       } else if (Math.random() < dt * 40) puff(s.x, s.y, -s.vx * 0.08 + (Math.random() - .5) * 60, -s.vy * 0.08 + (Math.random() - .5) * 60, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 2, FIRE_COLS[(Math.random() * 4) | 0]);
       // enemy fireball hits me (I decide, then report the shot id)
       const armed = s.kind !== K.MINE || SHOTS[K.MINE].life - s.life >= MINE_ARM;
-      if (armed && !s.mine && playing && !me.dead && !friendly(s, me.tm) && segHit(s, me.x, me.y, 12 + 26 * sizeOf(me.lv) + SHOTS[s.kind].r) && (s.kind !== K.RAIL || railOnce(s, "me"))) {
+      if (armed && canHurt(s, me, "me") && segHit(s, me.x, me.y, 12 + 26 * sizeOf(me.lv) + SHOTS[s.kind].r) && (s.kind !== K.RAIL || railOnce(s, "me"))) {
         if (s.kind !== K.RAIL) s.life = 0;
         s.splashed = true;
         shotBurst(s);
@@ -201,13 +201,13 @@
       }
       // someone else's bolt hitting a third pilot can still jump to me or my bots
       if (s.kind === K.BOLT && !s.mine && !s.chained && s.life > 0) for (const [rid, r] of remotes) {
-        if (rid === s.owner || r.dead || r.inv || botById.has(rid) || friendly(s, r.tm)) continue;
+        if (r.inv || botById.has(rid) || !canHurt(s, r, rid)) continue;
         if (segHit(s, r.x, r.y, 16 + 26 * sizeOf(r.lv || 1))) { s.life = 0; boltChain(s, r.x, r.y, rid, now); break; }
       }
       // my fireball reaches another bin: fizzle here, they confirm the hit
       if (s.mine && s.life > 0) for (const [rid, r] of remotes) {
         if (botById.has(rid)) continue;
-        if (r.dead || r.inv || mates(r, me)) continue;
+        if (r.inv || !canHurt(s, r, rid)) continue;
         if (armed && segHit(s, r.x, r.y, 16 + 26 * sizeOf(r.lv || 1) + SHOTS[s.kind].r)) {
           if (s.kind === K.RAIL) { if (railOnce(s, rid)) { shotBurst(s); hitConfirm(s, r.lv, r.x, r.y); } continue; }
           s.life = 0; shotBurst(s); hitConfirm(s, r.lv, r.x, r.y); if (s.kind === K.BOLT) boltChain(s, r.x, r.y, rid, now); break;

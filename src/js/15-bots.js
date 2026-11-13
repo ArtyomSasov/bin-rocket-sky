@@ -164,7 +164,7 @@
       }
       // anyone's shots can hit the bot (the bot's own excepted)
       for (const s of shots) {
-        if (s.life <= 0 || s.owner === b.id || s.kind === K.NUKE || friendly(s, b.tm)) continue;
+        if (s.life <= 0 || s.kind === K.NUKE || !canHurt(s, b, b.id)) continue;
         if (s.kind === K.MINE && SHOTS[K.MINE].life - s.life < MINE_ARM) continue;
         if (segHit(s, b.x, b.y, 38 + SHOTS[s.kind].r)) {
           if (s.kind === K.RAIL) { if (!railOnce(s, b.id)) continue; } else s.life = 0;
