@@ -766,7 +766,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const me = {
     x: rndIn(W, 300), y: rndIn(H, 300), vx: 0, vy: -40, a: -Math.PI / 2,
     thrust: 0, score: 0, name: "", hue: Math.floor(Math.random() * 360), ck: [0, 0, 0, 0, 0],
-    lives: LIVES, dead: false, respawnAt: 0, inv: 0, xp: 0, lv: 1, weapon: "fire", arsenal: { fire: Infinity }, ampUntil: 0, carry: 0, ds: 0, shield: 0, boostFx: 0, dashAt: -1e9
+    lives: LIVES, dead: false, respawnAt: 0, inv: 0, xp: 0, lv: 1, weapon: "fire", arsenal: { fire: Infinity }, ampUntil: 0, carry: 0, ds: 0, shield: 0, boostFx: 0, dashAt: -1e9, bank: 0, boostOn: false
   };
   const myTag = Math.random().toString(36).slice(2, 7);
   let shotSeq = 0, fireCd = 0, firing = false, altFiring = false, shake = 0, hurtFlash = 0;
@@ -794,6 +794,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const stats = { round: -1, kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 };
   // smooth steering + boost: input eases in, energy drains while boosting and refills after a short pause
   const steer = { x: 0, y: 0 };
+  // the camera looks a little ahead of where you fly (cam: the world point at the centre of the screen)
+  const cam = { x: 0, y: 0, lx: 0, ly: 0 };
   const BOOST_HOLD = 0.18;           // s: a press shorter than this is just a dash
   let energy = 100, energyRegenAt = 0, dashReadyAt = 0, boostDownAt = -1, boostBtnDown = false;
   let audio = null;
@@ -1236,14 +1238,17 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     posesAt(clockNow(), 0);
     if (inBody(me.x, me.y, 80)) Object.assign(me, spawnPoint());
   }
+  const TAU_MOD = a => a - Math.floor(a / (2 * Math.PI)) * 2 * Math.PI;
   // where every shared body is at this moment (planets sit still, moons orbit, wrecks bob and turn)
   function posesAt(t, dt) {
     const s = t / 1000;
     for (const b of det) {
       if (b.free || b.dead) continue;
       const ox = b.x, oy = b.y;
-      if (b.moon) { const a = b.ph + b.dir * 6.283 * s / b.period; b.x = b.p.x + Math.cos(a) * b.orbit; b.y = b.p.y + Math.sin(a) * b.orbit; b.a = a; }
-      else if (b.wreck) { const o = Math.sin(s / b.T * 6.283 + b.ph) * b.A; b.x = b.bx + Math.cos(b.dirA) * o; b.y = b.by + Math.sin(b.dirA) * o; b.a = b.a0 + b.spin * s; }
+      // angles are wrapped to 0..2π: the shared clock is huge (s ~ 1.7e9), and canvas rotate() keeps angles in single
+      // precision, so an unwrapped 3e7 rad drew a wreck up to a radian off from where hits were tested
+      if (b.moon) { const a = TAU_MOD(b.ph + b.dir * 6.283 * s / b.period); b.x = b.p.x + Math.cos(a) * b.orbit; b.y = b.p.y + Math.sin(a) * b.orbit; b.a = a; }
+      else if (b.wreck) { const o = Math.sin(s / b.T * 6.283 + b.ph) * b.A; b.x = b.bx + Math.cos(b.dirA) * o; b.y = b.by + Math.sin(b.dirA) * o; b.a = TAU_MOD(b.a0 + b.spin * s); }
       if (dt > 0) { b.vx = (b.x - ox) / dt; b.vy = (b.y - oy) / dt; }
     }
   }
@@ -2327,7 +2332,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     dashBurst(me);
     const sm = Math.hypot(steer.x, steer.y);
     const a = sm > 0.2 ? Math.atan2(steer.y, steer.x) : me.a;
-    me.vx += Math.cos(a) * 720; me.vy += Math.sin(a) * 720;
+    me.vx += Math.cos(a) * 900; me.vy += Math.sin(a) * 900;
     me.inv = Math.max(me.inv, now + 280);
     for (let k = 0; k < 22; k++) {
       const b = a + Math.PI + (Math.random() - 0.5) * 1.2, v = 120 + Math.random() * 220;
@@ -3175,7 +3180,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const jm = Math.hypot(joy.x, joy.y);
       if (jm > 0.12) { const m = Math.min(1, (jm - 0.12) / 0.8); ix += joy.x / jm * m; iy += joy.y / jm * m; }
       if (ptr.down) {
-        const dx = ptr.x - vw / 2, dy = ptr.y - vh / 2, d = Math.hypot(dx, dy);
+        const dx = ptr.x - sx(me.x), dy = ptr.y - sy(me.y), d = Math.hypot(dx, dy);   // steer from where the bin is on screen
         if (d > 8) { const m = Math.min(1, d / 140); ix += dx / d * m; iy += dy / d * m; }
         if (d > Math.min(vw, vh) * 0.4) boost = true;
       }
@@ -3196,7 +3201,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function flyMe(dt, now, im, boost) {
     // inertia: thrust pushes the bin and it keeps its speed, coasting down only slowly. Pushing against your motion
     // fires the retro thrusters (they bite harder), X is an air brake; past top speed the excess (a hit, a blast) bleeds off
-    const top = boost ? 880 : 560, acc = boost ? 1250 : 720;
+    const top = boost ? 880 : 560, acc = boost ? 1500 : 980;
     const braking = playing && !me.dead && keys.has("KeyX");
     if (playing && !me.dead) {
       const sp0 = Math.hypot(me.vx, me.vy);
@@ -3205,7 +3210,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         const va = me.vx * ux + me.vy * uy;   // speed already going this way: thrust fades out as it nears top speed
         const k = Math.max(0, Math.min(acc * Math.min(1, im) * (along < 0 ? 1 - 0.8 * along : 1) * dt, (top * Math.min(1, im) - va) * Math.min(1, 6 * dt)));
         me.vx += ux * k; me.vy += uy * k;
-        const lat = -me.vx * uy + me.vy * ux, ld = lat * (1 - Math.exp(-1.2 * dt));   // sideways slip fades: turns sweep in arcs
+        const lat = -me.vx * uy + me.vy * ux, ld = lat * (1 - Math.exp(-2.2 * dt));   // sideways slip fades: turns sweep in tight arcs
         me.vx += uy * ld; me.vy -= ux * ld;
       } else { const d = Math.exp(-0.45 * dt); me.vx *= d; me.vy *= d; }
       if (braking) {
@@ -3257,9 +3262,25 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     // face where you steer, not where you drift: recoil, bumps and the black hole's pull move the bin
     // but no longer spin it (shooting while standing still used to flip it round and round)
     const steerMag = Math.hypot(steer.x, steer.y);
-    if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-7 * dt));
+    const a0 = me.a;
+    if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-13 * dt));
     else if (!playing && sp > 25) me.a = lerpAng(me.a, Math.atan2(me.vy, me.vx), 1 - Math.exp(-6 * dt));
     me.thrust += ((playing ? Math.min(1, im) * (boost ? 1.4 : 1) : 0.6) - me.thrust) * Math.min(1, dt * 6);
+    // the bin banks into a turn (drawn as a lean), and settles back when flying straight
+    const turn = dt > 0 ? angD(me.a - a0) / dt : 0;
+    me.bank += (clamp(turn * 0.09, -0.4, 0.4) - me.bank) * Math.min(1, dt * 8);
+    // lighting the boost gives a shove forward and a flash of exhaust
+    if (boost && !me.boostOn && playing && !me.dead) {
+      me.vx += Math.cos(me.a) * 220; me.vy += Math.sin(me.a) * 220;
+      camKick.x -= Math.cos(me.a) * 10; camKick.y -= Math.sin(me.a) * 10;
+      impacts.push({ x: me.x - Math.cos(me.a) * 40, y: me.y - Math.sin(me.a) * 40, t: 0, r: 70, col: "#9ff3ff" });
+    }
+    me.boostOn = boost;
+    // the camera leads the bin by up to ~a fifth of the screen in the direction it flies
+    const lead = Math.min(vw, vh) * 0.2, sp2 = Math.hypot(me.vx, me.vy), lk = me.dead ? 0 : Math.min(1, sp2 / 900) * lead / (sp2 || 1);
+    const ce = 1 - Math.exp(-2.5 * dt);
+    cam.lx += (me.vx * lk - cam.lx) * ce; cam.ly += (me.vy * lk - cam.ly) * ce;
+    cam.x = me.x + cam.lx; cam.y = me.y + cam.ly;
     if (!me.dead) { trailFrom(me, 0.6 + me.thrust * 1.6 + me.boostFx * 1.5, dt); if (playing) damageFx(me, dt); afterburner(me, me.boostFx, dt); }
   }
   // every shot in flight: homing, ricochets, digging into bodies, hitting me (I decide) or reaching others
@@ -3368,31 +3389,60 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     while (myShotLog.length && now - myShotLog[0].at > 700) myShotLog.shift();
   }
   // space junk: shot apart for points, or crashed into
+  // space junk: little rocks that take a few hits, chipping and shrinking, then crack into drifting chunks.
+  // Everyone sees the same shots hit them, so they wear down alike; the one whose shot breaks a rock reports it (+2).
+  // Flying into one just bounces you off (it's too small to hurt), and a hard knock chips it.
+  const rockWear = new Map();   // rock key -> damage taken, in fireballs
+  const rockHp = k => 2 + Math.round((k.r - 22) / 18 * 3);   // 2 fireballs for the smallest, 5 for the biggest
+  function chipRock(k, units, fromX, fromY) {
+    const taken = (rockWear.get(k.key) || 0) + units;
+    rockWear.set(k.key, taken);
+    const a = Math.atan2(fromY - k.y, fromX - k.x);
+    for (let j = 0; j < (lowQ ? 2 : 4); j++) {   // chips fly off the side that was hit
+      const b = a + (Math.random() - 0.5) * 1.6, v = 80 + Math.random() * 180;
+      addDebris(k.x + Math.cos(a) * k.r * 0.8, k.y + Math.sin(a) * k.r * 0.8, Math.cos(b) * v, Math.sin(b) * v, 2 + Math.random() * 3, j % 2 ? "#6d5a90" : "#8a76ad", 4 + Math.random() * 3);
+    }
+    smoke(k.x + Math.cos(a) * k.r * 0.7, k.y + Math.sin(a) * k.r * 0.7, lowQ ? 2 : 4, 50, 1);
+    sfx("chunk", 0.35, 1.5, k.x, k.y);
+    return taken >= rockHp(k);
+  }
+  function breakRock(k, mine) {
+    grabbed.add(k.key); rockWear.delete(k.key);
+    if (mine) { pushCapped(myGrabs, k.key, 40); me.score += 2; showScore(); floaters.push({ x: k.x, y: k.y, t: 0, txt: "+2", gold: false }); }
+    const n = 3 + Math.floor(k.r / 15);   // it cracks into a few big chunks that drift apart, like a dead bin's wreckage
+    for (let j = 0; j < n; j++) {
+      const a = j / n * 6.283 + Math.random() * 0.6, v = 40 + Math.random() * 90;
+      addDebris(k.x + Math.cos(a) * k.r * 0.4, k.y + Math.sin(a) * k.r * 0.4, Math.cos(a) * v, Math.sin(a) * v, k.r * (0.3 + Math.random() * 0.2), j % 2 ? "#6d5a90" : "#8a76ad", 18 + Math.random() * 8);
+    }
+    smoke(k.x, k.y, lowQ ? 4 : 10, 60, 1.6);
+    impact(k.x, k.y, "#d9c8ff", 1.2);
+    sfx("chunk", 0.7, 0.9, k.x, k.y) || blip(300, 0.2, "square");
+  }
   function updateJunk(dt, now) {
-    // space junk
     for (let i = 0; i < ROCKS; i++) {
       const k = world.rocks[i];
       if (grabbed.has(k.key) || k.age < 0.6) continue;
       for (const s of shots) {
         if (s.life <= 0 || s.kind === K.NUKE || !segHit(s, k.x, k.y, k.r + 10)) continue;
         if (s.kind !== K.RAIL) s.life = 0;
-        impact(s.x, s.y, "#d9c8ff", 1);
-        if (s.mine) {
-          grabbed.add(k.key); pushCapped(myGrabs, k.key, 40);
-          me.score += 2; showScore();
-          floaters.push({ x: k.x, y: k.y, t: 0, txt: "+2", gold: false });
-          explode(k.x, k.y, 30, 220); sfx("chunk", 0.5, 1.3, k.x, k.y) || blip(300, 0.2, "square");
-        }
+        impact(s.x, s.y, "#d9c8ff", 0.8);
+        if (chipRock(k, Math.max(0.5, shotDmg(s) / DMG_UNIT), s.px, s.py)) breakRock(k, s.mine);
         break;
       }
-      if (grabbed.has(k.key)) continue;
-      if (playing && !me.dead && Math.hypot(wrapD(k.x - me.x, W), wrapD(k.y - me.y, H)) < k.r + 26 * sizeOf(me.lv) && now >= me.inv && now >= (me.hazardAt || 0)) {
-        grabbed.add(k.key); pushCapped(myGrabs, k.key, 40);
-        explode(k.x, k.y, 30, 220);
-        impact((k.x + me.x) / 2, (k.y + me.y) / 2, "#ffb43c", 1.5);
-        hurt(now, 0.5);
+      if (grabbed.has(k.key) || !playing || me.dead) continue;
+      const dx = wrapD(me.x - k.x, W), dy = wrapD(me.y - k.y, H), d = Math.hypot(dx, dy), R = k.r + 26 * sizeOf(me.lv);
+      if (d < R && d > 0.01) {   // bounce off it
+        const nx = dx / d, ny = dy / d, vn = me.vx * nx + me.vy * ny;
+        me.x += nx * (R - d); me.y += ny * (R - d);
+        if (vn < 0) {
+          me.vx -= 1.6 * vn * nx; me.vy -= 1.6 * vn * ny;
+          impact(k.x + nx * k.r, k.y + ny * k.r, "#d9c8ff", Math.min(1.5, -vn / 300));
+          sfx("crash", Math.min(0.7, -vn / 800), 1.4);
+          if (-vn > 280 && chipRock(k, 1, me.x, me.y)) breakRock(k, true);   // a hard knock chips it
+        }
       }
     }
+    if (rockWear.size > 200) for (const key of rockWear.keys()) if (!world.rocks.some(k => k.key === key)) rockWear.delete(key);
   }
   // the shared clock and the other pilots: extrapolated and eased toward their reported spots
   function updateRemotes(dt, now) {
@@ -3788,8 +3838,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
 
   // ---------- draw ----------
-  function sx(x) { return vw / 2 + wrapD(x - me.x, W); }
-  function sy(y) { return vh / 2 + wrapD(y - me.y, H); }
+  function sx(x) { return vw / 2 + wrapD(x - cam.x, W); }
+  function sy(y) { return vh / 2 + wrapD(y - cam.y, H); }
   function onScreen(x, y, m) { return x > -m && x < vw + m && y > -m && y < vh + m; }
 
   // live background: everything drifts on its own (not only when you move), stars twinkle one by one,
@@ -3817,13 +3867,13 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     skyLayers();
     g.drawImage(skyBase, 0, 0, vw, vh);
     const tile = (img, size, par, dx, dy) => {
-      const ox = -mod(me.x * par + dx, size), oy = -mod(me.y * par + dy, size);
+      const ox = -mod(cam.x * par + dx, size), oy = -mod(cam.y * par + dy, size);
       for (let x = ox; x < vw; x += size) for (let y = oy; y < vh; y += size) g.drawImage(img, x, y);
     };
     // landmarks: the Milky Way, far galaxies, nebulae and gas giants, each at its own spot, sliding by with parallax
     for (const L of sky) {
       if (lowQ && L.img === NEB_ART[2]) continue;
-      const x = vw / 2 + (L.x - me.x) * L.par, y = vh / 2 + (L.y - me.y) * L.par, half = Math.hypot(L.img.width, L.img.height) * L.sc / 2;
+      const x = vw / 2 + (L.x - cam.x) * L.par, y = vh / 2 + (L.y - cam.y) * L.par, half = Math.hypot(L.img.width, L.img.height) * L.sc / 2;
       if (!onScreen(x, y, half)) continue;
       g.globalCompositeOperation = L.glow ? "lighter" : "source-over"; g.globalAlpha = L.a;
       g.save(); g.translate(x, y); g.rotate(L.rot + (L.spin || 0) * t); g.scale(L.sc, L.sc);
@@ -3837,7 +3887,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     g.globalAlpha = 1;
     g.globalCompositeOperation = "lighter";
     for (const st of TWINKLE) {
-      const x = mod(st.x * 2400 - me.x * 0.35, vw + 200) - 100, y = mod(st.y * 1600 - me.y * 0.35, vh + 200) - 100;
+      const x = mod(st.x * 2400 - cam.x * 0.35, vw + 200) - 100, y = mod(st.y * 1600 - cam.y * 0.35, vh + 200) - 100;
       const a = Math.max(0, Math.sin(t * st.sp + st.ph));
       if (a < 0.05) continue;
       g.globalAlpha = a;
@@ -3865,7 +3915,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     g.globalCompositeOperation = "source-over";
     // dust layers (pre-rendered tiles, gently twinkling as a whole)
     for (const d of DUST) {
-      const bx = -mod(me.x * d.par, d.tile), by = -mod(me.y * d.par, d.tile);
+      const bx = -mod(cam.x * d.par, d.tile), by = -mod(cam.y * d.par, d.tile);
       g.globalAlpha = 0.75 + 0.25 * Math.sin(now / 700 + d.par * 9);
       for (let tx = bx; tx < vw; tx += d.tile) for (let ty = by; ty < vh; ty += d.tile) g.drawImage(d.c, tx, ty);
     }
@@ -3909,7 +3959,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
 
   function drawRock(k, x, y) {
-    g.save(); g.translate(x, y); g.rotate(k.spin);
+    const wear = Math.min(1, (rockWear.get(k.key) || 0) / rockHp(k));
+    g.save(); g.translate(x, y); g.rotate(k.spin); g.scale(1 - wear * 0.35, 1 - wear * 0.35);
     g.globalAlpha = Math.min(1, k.age / 0.6);
     const gr = g.createLinearGradient(-k.r, -k.r, k.r, k.r);
     gr.addColorStop(0, "#8a76ad"); gr.addColorStop(1, "#3b2d5c");
@@ -3925,6 +3976,13 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.beginPath();
       g.arc((hash(k.seed, c, 32) - .5) * k.r, (hash(k.seed, c, 33) - .5) * k.r, k.r * (0.12 + hash(k.seed, c, 34) * 0.12), 0, 6.29);
       g.fill();
+    }
+    if (wear > 0) {   // cracks spreading from the middle as it wears down
+      g.strokeStyle = `rgba(20,12,40,${0.4 + wear * 0.4})`; g.lineWidth = 1.5;
+      for (let c = 0; c < Math.ceil(wear * 5); c++) {
+        const a = hash(k.seed, c, 35) * 6.283; g.beginPath(); g.moveTo(0, 0);
+        g.lineTo(Math.cos(a) * k.r * 0.5, Math.sin(a) * k.r * 0.5); g.lineTo(Math.cos(a + 0.3) * k.r * 0.85, Math.sin(a + 0.3) * k.r * 0.85); g.stroke();
+      }
     }
     g.restore(); g.globalAlpha = 1;
   }
@@ -4482,7 +4540,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
     g.save();
     g.translate(x, y);
-    g.rotate(b.a + Math.PI / 2 - SPRITE_TILT + Math.sin(now / 300 + x * 0.01) * 0.05);
+    g.rotate(b.a + Math.PI / 2 - SPRITE_TILT + Math.sin(now / 300 + x * 0.01) * 0.05 + (b.bank || 0) * 0.35);
+    if (b.bank) g.scale(1 - Math.abs(b.bank) * 0.3, 1);   // rolling into the turn
     const s = S * (1 + Math.sin(now / 55 + y) * 0.015 * (0.5 + b.thrust));
     // fire first, from the engine opening, so the bin's rim sits on top of it
     g.save();
@@ -5037,7 +5096,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (onScreen(x, y, BOT * 2)) drawBot({ ...r, blink: r.inv }, x, y, now, false);
       else drawPointer(r, x, y);
     }
-    if (!me.dead) drawBot({ ...me, name: playing ? me.name : "", blink: now < me.inv }, vw / 2, vh / 2, now, true);
+    if (!me.dead) drawBot({ ...me, name: playing ? me.name : "", blink: now < me.inv }, sx(me.x), sy(me.y), now, true);
     else {
       g.textAlign = "center"; g.fillStyle = "#ffffff";
       g.font = `700 ${30 * TS}px ` + DISPLAY_FONT;
@@ -5255,7 +5314,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       else { mctx.beginPath(); mctx.arc(x, y, sz, 0, 6.29); mctx.fill(); }
     }
     // what your screen shows
-    const [vx0, vy0] = P(me.x - vw / 2, me.y - vh / 2);
+    const [vx0, vy0] = P(cam.x - vw / 2, cam.y - vh / 2);
     mctx.strokeStyle = "rgba(255,255,255,0.25)"; mctx.lineWidth = 1.5;
     mctx.strokeRect(vx0, vy0, vw * k, vh * k);
     // weapon crates

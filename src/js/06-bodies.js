@@ -276,14 +276,17 @@
     posesAt(clockNow(), 0);
     if (inBody(me.x, me.y, 80)) Object.assign(me, spawnPoint());
   }
+  const TAU_MOD = a => a - Math.floor(a / (2 * Math.PI)) * 2 * Math.PI;
   // where every shared body is at this moment (planets sit still, moons orbit, wrecks bob and turn)
   function posesAt(t, dt) {
     const s = t / 1000;
     for (const b of det) {
       if (b.free || b.dead) continue;
       const ox = b.x, oy = b.y;
-      if (b.moon) { const a = b.ph + b.dir * 6.283 * s / b.period; b.x = b.p.x + Math.cos(a) * b.orbit; b.y = b.p.y + Math.sin(a) * b.orbit; b.a = a; }
-      else if (b.wreck) { const o = Math.sin(s / b.T * 6.283 + b.ph) * b.A; b.x = b.bx + Math.cos(b.dirA) * o; b.y = b.by + Math.sin(b.dirA) * o; b.a = b.a0 + b.spin * s; }
+      // angles are wrapped to 0..2π: the shared clock is huge (s ~ 1.7e9), and canvas rotate() keeps angles in single
+      // precision, so an unwrapped 3e7 rad drew a wreck up to a radian off from where hits were tested
+      if (b.moon) { const a = TAU_MOD(b.ph + b.dir * 6.283 * s / b.period); b.x = b.p.x + Math.cos(a) * b.orbit; b.y = b.p.y + Math.sin(a) * b.orbit; b.a = a; }
+      else if (b.wreck) { const o = Math.sin(s / b.T * 6.283 + b.ph) * b.A; b.x = b.bx + Math.cos(b.dirA) * o; b.y = b.by + Math.sin(b.dirA) * o; b.a = TAU_MOD(b.a0 + b.spin * s); }
       if (dt > 0) { b.vx = (b.x - ox) / dt; b.vy = (b.y - oy) / dt; }
     }
   }

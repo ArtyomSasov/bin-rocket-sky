@@ -53,7 +53,7 @@
       else { mctx.beginPath(); mctx.arc(x, y, sz, 0, 6.29); mctx.fill(); }
     }
     // what your screen shows
-    const [vx0, vy0] = P(me.x - vw / 2, me.y - vh / 2);
+    const [vx0, vy0] = P(cam.x - vw / 2, cam.y - vh / 2);
     mctx.strokeStyle = "rgba(255,255,255,0.25)"; mctx.lineWidth = 1.5;
     mctx.strokeRect(vx0, vy0, vw * k, vh * k);
     // weapon crates

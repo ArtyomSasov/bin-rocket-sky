@@ -500,7 +500,7 @@
       if (onScreen(x, y, BOT * 2)) drawBot({ ...r, blink: r.inv }, x, y, now, false);
       else drawPointer(r, x, y);
     }
-    if (!me.dead) drawBot({ ...me, name: playing ? me.name : "", blink: now < me.inv }, vw / 2, vh / 2, now, true);
+    if (!me.dead) drawBot({ ...me, name: playing ? me.name : "", blink: now < me.inv }, sx(me.x), sy(me.y), now, true);
     else {
       g.textAlign = "center"; g.fillStyle = "#ffffff";
       g.font = `700 ${30 * TS}px ` + DISPLAY_FONT;

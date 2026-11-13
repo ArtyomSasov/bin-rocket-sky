@@ -227,7 +227,7 @@
     dashBurst(me);
     const sm = Math.hypot(steer.x, steer.y);
     const a = sm > 0.2 ? Math.atan2(steer.y, steer.x) : me.a;
-    me.vx += Math.cos(a) * 720; me.vy += Math.sin(a) * 720;
+    me.vx += Math.cos(a) * 900; me.vy += Math.sin(a) * 900;
     me.inv = Math.max(me.inv, now + 280);
     for (let k = 0; k < 22; k++) {
       const b = a + Math.PI + (Math.random() - 0.5) * 1.2, v = 120 + Math.random() * 220;

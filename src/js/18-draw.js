@@ -1,6 +1,6 @@
   // ---------- draw ----------
-  function sx(x) { return vw / 2 + wrapD(x - me.x, W); }
-  function sy(y) { return vh / 2 + wrapD(y - me.y, H); }
+  function sx(x) { return vw / 2 + wrapD(x - cam.x, W); }
+  function sy(y) { return vh / 2 + wrapD(y - cam.y, H); }
   function onScreen(x, y, m) { return x > -m && x < vw + m && y > -m && y < vh + m; }
 
   // live background: everything drifts on its own (not only when you move), stars twinkle one by one,
@@ -28,13 +28,13 @@
     skyLayers();
     g.drawImage(skyBase, 0, 0, vw, vh);
     const tile = (img, size, par, dx, dy) => {
-      const ox = -mod(me.x * par + dx, size), oy = -mod(me.y * par + dy, size);
+      const ox = -mod(cam.x * par + dx, size), oy = -mod(cam.y * par + dy, size);
       for (let x = ox; x < vw; x += size) for (let y = oy; y < vh; y += size) g.drawImage(img, x, y);
     };
     // landmarks: the Milky Way, far galaxies, nebulae and gas giants, each at its own spot, sliding by with parallax
     for (const L of sky) {
       if (lowQ && L.img === NEB_ART[2]) continue;
-      const x = vw / 2 + (L.x - me.x) * L.par, y = vh / 2 + (L.y - me.y) * L.par, half = Math.hypot(L.img.width, L.img.height) * L.sc / 2;
+      const x = vw / 2 + (L.x - cam.x) * L.par, y = vh / 2 + (L.y - cam.y) * L.par, half = Math.hypot(L.img.width, L.img.height) * L.sc / 2;
       if (!onScreen(x, y, half)) continue;
       g.globalCompositeOperation = L.glow ? "lighter" : "source-over"; g.globalAlpha = L.a;
       g.save(); g.translate(x, y); g.rotate(L.rot + (L.spin || 0) * t); g.scale(L.sc, L.sc);
@@ -48,7 +48,7 @@
     g.globalAlpha = 1;
     g.globalCompositeOperation = "lighter";
     for (const st of TWINKLE) {
-      const x = mod(st.x * 2400 - me.x * 0.35, vw + 200) - 100, y = mod(st.y * 1600 - me.y * 0.35, vh + 200) - 100;
+      const x = mod(st.x * 2400 - cam.x * 0.35, vw + 200) - 100, y = mod(st.y * 1600 - cam.y * 0.35, vh + 200) - 100;
       const a = Math.max(0, Math.sin(t * st.sp + st.ph));
       if (a < 0.05) continue;
       g.globalAlpha = a;
@@ -76,7 +76,7 @@
     g.globalCompositeOperation = "source-over";
     // dust layers (pre-rendered tiles, gently twinkling as a whole)
     for (const d of DUST) {
-      const bx = -mod(me.x * d.par, d.tile), by = -mod(me.y * d.par, d.tile);
+      const bx = -mod(cam.x * d.par, d.tile), by = -mod(cam.y * d.par, d.tile);
       g.globalAlpha = 0.75 + 0.25 * Math.sin(now / 700 + d.par * 9);
       for (let tx = bx; tx < vw; tx += d.tile) for (let ty = by; ty < vh; ty += d.tile) g.drawImage(d.c, tx, ty);
     }
@@ -120,7 +120,8 @@
   }
 
   function drawRock(k, x, y) {
-    g.save(); g.translate(x, y); g.rotate(k.spin);
+    const wear = Math.min(1, (rockWear.get(k.key) || 0) / rockHp(k));
+    g.save(); g.translate(x, y); g.rotate(k.spin); g.scale(1 - wear * 0.35, 1 - wear * 0.35);
     g.globalAlpha = Math.min(1, k.age / 0.6);
     const gr = g.createLinearGradient(-k.r, -k.r, k.r, k.r);
     gr.addColorStop(0, "#8a76ad"); gr.addColorStop(1, "#3b2d5c");
@@ -136,6 +137,13 @@
       g.beginPath();
       g.arc((hash(k.seed, c, 32) - .5) * k.r, (hash(k.seed, c, 33) - .5) * k.r, k.r * (0.12 + hash(k.seed, c, 34) * 0.12), 0, 6.29);
       g.fill();
+    }
+    if (wear > 0) {   // cracks spreading from the middle as it wears down
+      g.strokeStyle = `rgba(20,12,40,${0.4 + wear * 0.4})`; g.lineWidth = 1.5;
+      for (let c = 0; c < Math.ceil(wear * 5); c++) {
+        const a = hash(k.seed, c, 35) * 6.283; g.beginPath(); g.moveTo(0, 0);
+        g.lineTo(Math.cos(a) * k.r * 0.5, Math.sin(a) * k.r * 0.5); g.lineTo(Math.cos(a + 0.3) * k.r * 0.85, Math.sin(a + 0.3) * k.r * 0.85); g.stroke();
+      }
     }
     g.restore(); g.globalAlpha = 1;
   }
@@ -693,7 +701,8 @@
     }
     g.save();
     g.translate(x, y);
-    g.rotate(b.a + Math.PI / 2 - SPRITE_TILT + Math.sin(now / 300 + x * 0.01) * 0.05);
+    g.rotate(b.a + Math.PI / 2 - SPRITE_TILT + Math.sin(now / 300 + x * 0.01) * 0.05 + (b.bank || 0) * 0.35);
+    if (b.bank) g.scale(1 - Math.abs(b.bank) * 0.3, 1);   // rolling into the turn
     const s = S * (1 + Math.sin(now / 55 + y) * 0.015 * (0.5 + b.thrust));
     // fire first, from the engine opening, so the bin's rim sits on top of it
     g.save();

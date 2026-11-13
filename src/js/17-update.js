@@ -27,7 +27,7 @@
       const jm = Math.hypot(joy.x, joy.y);
       if (jm > 0.12) { const m = Math.min(1, (jm - 0.12) / 0.8); ix += joy.x / jm * m; iy += joy.y / jm * m; }
       if (ptr.down) {
-        const dx = ptr.x - vw / 2, dy = ptr.y - vh / 2, d = Math.hypot(dx, dy);
+        const dx = ptr.x - sx(me.x), dy = ptr.y - sy(me.y), d = Math.hypot(dx, dy);   // steer from where the bin is on screen
         if (d > 8) { const m = Math.min(1, d / 140); ix += dx / d * m; iy += dy / d * m; }
         if (d > Math.min(vw, vh) * 0.4) boost = true;
       }
@@ -48,7 +48,7 @@
   function flyMe(dt, now, im, boost) {
     // inertia: thrust pushes the bin and it keeps its speed, coasting down only slowly. Pushing against your motion
     // fires the retro thrusters (they bite harder), X is an air brake; past top speed the excess (a hit, a blast) bleeds off
-    const top = boost ? 880 : 560, acc = boost ? 1250 : 720;
+    const top = boost ? 880 : 560, acc = boost ? 1500 : 980;
     const braking = playing && !me.dead && keys.has("KeyX");
     if (playing && !me.dead) {
       const sp0 = Math.hypot(me.vx, me.vy);
@@ -57,7 +57,7 @@
         const va = me.vx * ux + me.vy * uy;   // speed already going this way: thrust fades out as it nears top speed
         const k = Math.max(0, Math.min(acc * Math.min(1, im) * (along < 0 ? 1 - 0.8 * along : 1) * dt, (top * Math.min(1, im) - va) * Math.min(1, 6 * dt)));
         me.vx += ux * k; me.vy += uy * k;
-        const lat = -me.vx * uy + me.vy * ux, ld = lat * (1 - Math.exp(-1.2 * dt));   // sideways slip fades: turns sweep in arcs
+        const lat = -me.vx * uy + me.vy * ux, ld = lat * (1 - Math.exp(-2.2 * dt));   // sideways slip fades: turns sweep in tight arcs
         me.vx += uy * ld; me.vy -= ux * ld;
       } else { const d = Math.exp(-0.45 * dt); me.vx *= d; me.vy *= d; }
       if (braking) {
@@ -109,9 +109,25 @@
     // face where you steer, not where you drift: recoil, bumps and the black hole's pull move the bin
     // but no longer spin it (shooting while standing still used to flip it round and round)
     const steerMag = Math.hypot(steer.x, steer.y);
-    if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-7 * dt));
+    const a0 = me.a;
+    if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-13 * dt));
     else if (!playing && sp > 25) me.a = lerpAng(me.a, Math.atan2(me.vy, me.vx), 1 - Math.exp(-6 * dt));
     me.thrust += ((playing ? Math.min(1, im) * (boost ? 1.4 : 1) : 0.6) - me.thrust) * Math.min(1, dt * 6);
+    // the bin banks into a turn (drawn as a lean), and settles back when flying straight
+    const turn = dt > 0 ? angD(me.a - a0) / dt : 0;
+    me.bank += (clamp(turn * 0.09, -0.4, 0.4) - me.bank) * Math.min(1, dt * 8);
+    // lighting the boost gives a shove forward and a flash of exhaust
+    if (boost && !me.boostOn && playing && !me.dead) {
+      me.vx += Math.cos(me.a) * 220; me.vy += Math.sin(me.a) * 220;
+      camKick.x -= Math.cos(me.a) * 10; camKick.y -= Math.sin(me.a) * 10;
+      impacts.push({ x: me.x - Math.cos(me.a) * 40, y: me.y - Math.sin(me.a) * 40, t: 0, r: 70, col: "#9ff3ff" });
+    }
+    me.boostOn = boost;
+    // the camera leads the bin by up to ~a fifth of the screen in the direction it flies
+    const lead = Math.min(vw, vh) * 0.2, sp2 = Math.hypot(me.vx, me.vy), lk = me.dead ? 0 : Math.min(1, sp2 / 900) * lead / (sp2 || 1);
+    const ce = 1 - Math.exp(-2.5 * dt);
+    cam.lx += (me.vx * lk - cam.lx) * ce; cam.ly += (me.vy * lk - cam.ly) * ce;
+    cam.x = me.x + cam.lx; cam.y = me.y + cam.ly;
     if (!me.dead) { trailFrom(me, 0.6 + me.thrust * 1.6 + me.boostFx * 1.5, dt); if (playing) damageFx(me, dt); afterburner(me, me.boostFx, dt); }
   }
   // every shot in flight: homing, ricochets, digging into bodies, hitting me (I decide) or reaching others
@@ -220,31 +236,60 @@
     while (myShotLog.length && now - myShotLog[0].at > 700) myShotLog.shift();
   }
   // space junk: shot apart for points, or crashed into
+  // space junk: little rocks that take a few hits, chipping and shrinking, then crack into drifting chunks.
+  // Everyone sees the same shots hit them, so they wear down alike; the one whose shot breaks a rock reports it (+2).
+  // Flying into one just bounces you off (it's too small to hurt), and a hard knock chips it.
+  const rockWear = new Map();   // rock key -> damage taken, in fireballs
+  const rockHp = k => 2 + Math.round((k.r - 22) / 18 * 3);   // 2 fireballs for the smallest, 5 for the biggest
+  function chipRock(k, units, fromX, fromY) {
+    const taken = (rockWear.get(k.key) || 0) + units;
+    rockWear.set(k.key, taken);
+    const a = Math.atan2(fromY - k.y, fromX - k.x);
+    for (let j = 0; j < (lowQ ? 2 : 4); j++) {   // chips fly off the side that was hit
+      const b = a + (Math.random() - 0.5) * 1.6, v = 80 + Math.random() * 180;
+      addDebris(k.x + Math.cos(a) * k.r * 0.8, k.y + Math.sin(a) * k.r * 0.8, Math.cos(b) * v, Math.sin(b) * v, 2 + Math.random() * 3, j % 2 ? "#6d5a90" : "#8a76ad", 4 + Math.random() * 3);
+    }
+    smoke(k.x + Math.cos(a) * k.r * 0.7, k.y + Math.sin(a) * k.r * 0.7, lowQ ? 2 : 4, 50, 1);
+    sfx("chunk", 0.35, 1.5, k.x, k.y);
+    return taken >= rockHp(k);
+  }
+  function breakRock(k, mine) {
+    grabbed.add(k.key); rockWear.delete(k.key);
+    if (mine) { pushCapped(myGrabs, k.key, 40); me.score += 2; showScore(); floaters.push({ x: k.x, y: k.y, t: 0, txt: "+2", gold: false }); }
+    const n = 3 + Math.floor(k.r / 15);   // it cracks into a few big chunks that drift apart, like a dead bin's wreckage
+    for (let j = 0; j < n; j++) {
+      const a = j / n * 6.283 + Math.random() * 0.6, v = 40 + Math.random() * 90;
+      addDebris(k.x + Math.cos(a) * k.r * 0.4, k.y + Math.sin(a) * k.r * 0.4, Math.cos(a) * v, Math.sin(a) * v, k.r * (0.3 + Math.random() * 0.2), j % 2 ? "#6d5a90" : "#8a76ad", 18 + Math.random() * 8);
+    }
+    smoke(k.x, k.y, lowQ ? 4 : 10, 60, 1.6);
+    impact(k.x, k.y, "#d9c8ff", 1.2);
+    sfx("chunk", 0.7, 0.9, k.x, k.y) || blip(300, 0.2, "square");
+  }
   function updateJunk(dt, now) {
-    // space junk
     for (let i = 0; i < ROCKS; i++) {
       const k = world.rocks[i];
       if (grabbed.has(k.key) || k.age < 0.6) continue;
       for (const s of shots) {
         if (s.life <= 0 || s.kind === K.NUKE || !segHit(s, k.x, k.y, k.r + 10)) continue;
         if (s.kind !== K.RAIL) s.life = 0;
-        impact(s.x, s.y, "#d9c8ff", 1);
-        if (s.mine) {
-          grabbed.add(k.key); pushCapped(myGrabs, k.key, 40);
-          me.score += 2; showScore();
-          floaters.push({ x: k.x, y: k.y, t: 0, txt: "+2", gold: false });
-          explode(k.x, k.y, 30, 220); sfx("chunk", 0.5, 1.3, k.x, k.y) || blip(300, 0.2, "square");
-        }
+        impact(s.x, s.y, "#d9c8ff", 0.8);
+        if (chipRock(k, Math.max(0.5, shotDmg(s) / DMG_UNIT), s.px, s.py)) breakRock(k, s.mine);
         break;
       }
-      if (grabbed.has(k.key)) continue;
-      if (playing && !me.dead && Math.hypot(wrapD(k.x - me.x, W), wrapD(k.y - me.y, H)) < k.r + 26 * sizeOf(me.lv) && now >= me.inv && now >= (me.hazardAt || 0)) {
-        grabbed.add(k.key); pushCapped(myGrabs, k.key, 40);
-        explode(k.x, k.y, 30, 220);
-        impact((k.x + me.x) / 2, (k.y + me.y) / 2, "#ffb43c", 1.5);
-        hurt(now, 0.5);
+      if (grabbed.has(k.key) || !playing || me.dead) continue;
+      const dx = wrapD(me.x - k.x, W), dy = wrapD(me.y - k.y, H), d = Math.hypot(dx, dy), R = k.r + 26 * sizeOf(me.lv);
+      if (d < R && d > 0.01) {   // bounce off it
+        const nx = dx / d, ny = dy / d, vn = me.vx * nx + me.vy * ny;
+        me.x += nx * (R - d); me.y += ny * (R - d);
+        if (vn < 0) {
+          me.vx -= 1.6 * vn * nx; me.vy -= 1.6 * vn * ny;
+          impact(k.x + nx * k.r, k.y + ny * k.r, "#d9c8ff", Math.min(1.5, -vn / 300));
+          sfx("crash", Math.min(0.7, -vn / 800), 1.4);
+          if (-vn > 280 && chipRock(k, 1, me.x, me.y)) breakRock(k, true);   // a hard knock chips it
+        }
       }
     }
+    if (rockWear.size > 200) for (const key of rockWear.keys()) if (!world.rocks.some(k => k.key === key)) rockWear.delete(key);
   }
   // the shared clock and the other pilots: extrapolated and eased toward their reported spots
   function updateRemotes(dt, now) {

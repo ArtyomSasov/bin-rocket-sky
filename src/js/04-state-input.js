@@ -2,7 +2,7 @@
   const me = {
     x: rndIn(W, 300), y: rndIn(H, 300), vx: 0, vy: -40, a: -Math.PI / 2,
     thrust: 0, score: 0, name: "", hue: Math.floor(Math.random() * 360), ck: [0, 0, 0, 0, 0],
-    lives: LIVES, dead: false, respawnAt: 0, inv: 0, xp: 0, lv: 1, weapon: "fire", arsenal: { fire: Infinity }, ampUntil: 0, carry: 0, ds: 0, shield: 0, boostFx: 0, dashAt: -1e9
+    lives: LIVES, dead: false, respawnAt: 0, inv: 0, xp: 0, lv: 1, weapon: "fire", arsenal: { fire: Infinity }, ampUntil: 0, carry: 0, ds: 0, shield: 0, boostFx: 0, dashAt: -1e9, bank: 0, boostOn: false
   };
   const myTag = Math.random().toString(36).slice(2, 7);
   let shotSeq = 0, fireCd = 0, firing = false, altFiring = false, shake = 0, hurtFlash = 0;
@@ -30,6 +30,8 @@
   const stats = { round: -1, kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 };
   // smooth steering + boost: input eases in, energy drains while boosting and refills after a short pause
   const steer = { x: 0, y: 0 };
+  // the camera looks a little ahead of where you fly (cam: the world point at the centre of the screen)
+  const cam = { x: 0, y: 0, lx: 0, ly: 0 };
   const BOOST_HOLD = 0.18;           // s: a press shorter than this is just a dash
   let energy = 100, energyRegenAt = 0, dashReadyAt = 0, boostDownAt = -1, boostBtnDown = false;
   let audio = null;
