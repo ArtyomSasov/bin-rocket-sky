@@ -50,14 +50,25 @@
     shard:  { name: "Shard cannon", ammo: 14, cd: 0.75, shot: [9, 1300], col: "#ff9a3c" }
   };
   const PICK_TYPES = ["triple", "laser", "rocket", "scatter", "rail", "mine", "orb", "bolt", "shard"], PICK_PERIOD = 24; let PICKS = 18;
-  // by shot kind: 0 fireball, 1 rocket, 2 laser, 3 nuke, 4 scatter pellet, 5 rail slug, 6 mine, 7 plasma orb, 8 lightning, 9 shard, 10 shotgun slug
-  const SHOT_LIFE = [1.1, 3.6, 0.45, 3.2, 0.38, 0.7, 25, 2.4, 0.15, 0.9, 0.6];
-  const SHOT_DMG  = [0.3, 1.2, 0.18, 0, 0, 2, 1.5, 0.9, 0.2, 0.3, 1];      // pellets use pelletDmg(); in lives (Lv 1 has 3 = 100%)
-  const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs                 // the nuke deals its damage through detonate()
-  const SHOT_COL  = ["#ffb43c", "#ffb43c", "#7df9ff", "#ffe14d", "#ffd27a", "#e9c8ff", "#ff6b3c", "#6fd8ff", "#bfefff", "#ff9a3c", "#ffe7a0"];
-  const MINE_R = 55, MINE_ARM = 0.7;
-  const SHOT_R = [0, 10, 0, 0, 0, 0, MINE_R, 16, 0, 0, 4];
-  const SHOT_SHOVE = { 4: 150, 5: 650, 10: 450 };          // how hard a hit pushes the bin it hits, by kind      // extra hit radius by kind (mines go off near you, orbs are big)
+  // shot kinds: what flies. The number is what goes over the network; everything per kind lives in SHOTS
+  const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10 };
+  const MINE_R = 55, MINE_ARM = 0.7;   // mines go off when a bin comes this close, after arming
+  // life: seconds; dmg: in lives (Lv 1 has 3 = 100%; pellets use pelletDmg, the nuke deals its damage in detonate);
+  // r: extra hit radius; col: colour; carve: crater radius; shove: push on the bin it hits; sfx: [sound, volume, pitch] of someone else's shot
+  const SHOTS = [
+    { name: "fireball",  life: 1.1,  dmg: 0.3,  r: 0,      col: "#ffb43c", carve: 16, shove: 0,   sfx: ["fire", 0.6, 1] },
+    { name: "rocket",    life: 3.6,  dmg: 1.2,  r: 10,     col: "#ffb43c", carve: 46, shove: 0,   sfx: ["rocket", 0.6, 1] },
+    { name: "laser",     life: 0.45, dmg: 0.18, r: 0,      col: "#7df9ff", carve: 9,  shove: 0,   sfx: ["laser", 0.2, 1] },
+    { name: "nuke",      life: 3.2,  dmg: 0,    r: 0,      col: "#ffe14d", carve: 0,  shove: 0,   sfx: ["rocket", 0.6, 0.6] },
+    { name: "pellet",    life: 0.38, dmg: 0,    r: 0,      col: "#ffd27a", carve: 9,  shove: 150, sfx: ["scatter", 0.6, 1] },
+    { name: "rail slug", life: 0.7,  dmg: 2,    r: 0,      col: "#e9c8ff", carve: 14, shove: 650, sfx: ["rail", 0.6, 1] },
+    { name: "mine",      life: 25,   dmg: 1.5,  r: MINE_R, col: "#ff6b3c", carve: 45, shove: 0,   sfx: ["mine_drop", 0.6, 1] },
+    { name: "plasma",    life: 2.4,  dmg: 0.9,  r: 16,     col: "#6fd8ff", carve: 30, shove: 0,   sfx: ["shield_get", 0.6, 1.4] },
+    { name: "lightning", life: 0.15, dmg: 0.2,  r: 0,      col: "#bfefff", carve: 6,  shove: 0,   sfx: ["laser", 0.2, 1.7] },
+    { name: "shard",     life: 0.9,  dmg: 0.3,  r: 0,      col: "#ff9a3c", carve: 10, shove: 0,   sfx: ["scatter", 0.6, 1] },
+    { name: "slug",      life: 0.6,  dmg: 1,    r: 4,      col: "#ffe7a0", carve: 20, shove: 450, sfx: ["scatter", 0.6, 1] }
+  ];
+  const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
   const AMP_PERIOD = 95, AMP_TIME = 20000;                   // Overdrive: a rare pick-up, triple damage for 20 s                        // mines go off when a bin comes this close, after arming
   // nuke: everything inside NUKE_KILL dies outright, the rest of the blast (out to NUKE_R) takes heavy damage
   // Doom-style supplies: medkits give lives back, shields add armour that soaks damage before lives

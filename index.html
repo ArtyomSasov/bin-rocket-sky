@@ -430,14 +430,25 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     shard:  { name: "Shard cannon", ammo: 14, cd: 0.75, shot: [9, 1300], col: "#ff9a3c" }
   };
   const PICK_TYPES = ["triple", "laser", "rocket", "scatter", "rail", "mine", "orb", "bolt", "shard"], PICK_PERIOD = 24; let PICKS = 18;
-  // by shot kind: 0 fireball, 1 rocket, 2 laser, 3 nuke, 4 scatter pellet, 5 rail slug, 6 mine, 7 plasma orb, 8 lightning, 9 shard, 10 shotgun slug
-  const SHOT_LIFE = [1.1, 3.6, 0.45, 3.2, 0.38, 0.7, 25, 2.4, 0.15, 0.9, 0.6];
-  const SHOT_DMG  = [0.3, 1.2, 0.18, 0, 0, 2, 1.5, 0.9, 0.2, 0.3, 1];      // pellets use pelletDmg(); in lives (Lv 1 has 3 = 100%)
-  const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs                 // the nuke deals its damage through detonate()
-  const SHOT_COL  = ["#ffb43c", "#ffb43c", "#7df9ff", "#ffe14d", "#ffd27a", "#e9c8ff", "#ff6b3c", "#6fd8ff", "#bfefff", "#ff9a3c", "#ffe7a0"];
-  const MINE_R = 55, MINE_ARM = 0.7;
-  const SHOT_R = [0, 10, 0, 0, 0, 0, MINE_R, 16, 0, 0, 4];
-  const SHOT_SHOVE = { 4: 150, 5: 650, 10: 450 };          // how hard a hit pushes the bin it hits, by kind      // extra hit radius by kind (mines go off near you, orbs are big)
+  // shot kinds: what flies. The number is what goes over the network; everything per kind lives in SHOTS
+  const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10 };
+  const MINE_R = 55, MINE_ARM = 0.7;   // mines go off when a bin comes this close, after arming
+  // life: seconds; dmg: in lives (Lv 1 has 3 = 100%; pellets use pelletDmg, the nuke deals its damage in detonate);
+  // r: extra hit radius; col: colour; carve: crater radius; shove: push on the bin it hits; sfx: [sound, volume, pitch] of someone else's shot
+  const SHOTS = [
+    { name: "fireball",  life: 1.1,  dmg: 0.3,  r: 0,      col: "#ffb43c", carve: 16, shove: 0,   sfx: ["fire", 0.6, 1] },
+    { name: "rocket",    life: 3.6,  dmg: 1.2,  r: 10,     col: "#ffb43c", carve: 46, shove: 0,   sfx: ["rocket", 0.6, 1] },
+    { name: "laser",     life: 0.45, dmg: 0.18, r: 0,      col: "#7df9ff", carve: 9,  shove: 0,   sfx: ["laser", 0.2, 1] },
+    { name: "nuke",      life: 3.2,  dmg: 0,    r: 0,      col: "#ffe14d", carve: 0,  shove: 0,   sfx: ["rocket", 0.6, 0.6] },
+    { name: "pellet",    life: 0.38, dmg: 0,    r: 0,      col: "#ffd27a", carve: 9,  shove: 150, sfx: ["scatter", 0.6, 1] },
+    { name: "rail slug", life: 0.7,  dmg: 2,    r: 0,      col: "#e9c8ff", carve: 14, shove: 650, sfx: ["rail", 0.6, 1] },
+    { name: "mine",      life: 25,   dmg: 1.5,  r: MINE_R, col: "#ff6b3c", carve: 45, shove: 0,   sfx: ["mine_drop", 0.6, 1] },
+    { name: "plasma",    life: 2.4,  dmg: 0.9,  r: 16,     col: "#6fd8ff", carve: 30, shove: 0,   sfx: ["shield_get", 0.6, 1.4] },
+    { name: "lightning", life: 0.15, dmg: 0.2,  r: 0,      col: "#bfefff", carve: 6,  shove: 0,   sfx: ["laser", 0.2, 1.7] },
+    { name: "shard",     life: 0.9,  dmg: 0.3,  r: 0,      col: "#ff9a3c", carve: 10, shove: 0,   sfx: ["scatter", 0.6, 1] },
+    { name: "slug",      life: 0.6,  dmg: 1,    r: 4,      col: "#ffe7a0", carve: 20, shove: 450, sfx: ["scatter", 0.6, 1] }
+  ];
+  const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
   const AMP_PERIOD = 95, AMP_TIME = 20000;                   // Overdrive: a rare pick-up, triple damage for 20 s                        // mines go off when a bin comes this close, after arming
   // nuke: everything inside NUKE_KILL dies outright, the rest of the blast (out to NUKE_R) takes heavy damage
   // Doom-style supplies: medkits give lives back, shields add armour that soaks damage before lives
@@ -924,7 +935,6 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     src.start();
     return true;
   }
-  const SHOT_SFX = ["fire", "rocket", "laser", "rocket", "scatter", "rail", "mine_drop", "shield_get", "laser", "scatter", "scatter"];
   function blip(f, dur, type) {
     if (!audio) return;
     const o = audio.createOscillator(), v = audio.createGain(), t = audio.currentTime;
@@ -950,7 +960,6 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const WRECK_TYPES = ["hull", "tower", "crates", "ring"];
   const WRECK_PAL = { hull: ["#7d8aa3", "#5a6478", "#9aa6bf"], tower: ["#8f8aa0", "#6d6880", "#4a4660"], crates: ["#c0503c", "#3c78c0", "#d8a83c", "#4a9a6a"], ring: ["#8a93ad", "#5e6680", "#c8d0e8"] };
   const WRECK_N = { s: 6, m: 10, l: 16, x: 24 };
-  const CARVE_R = [16, 46, 9, 0, 9, 14, 45, 30, 6, 10, 20];   // crater radius by shot kind
   const BODY_RES = matchMedia("(pointer: coarse)").matches ? 0.6 : 1;   // art baked at lower resolution on phones
   let planets = [], moons = [], wrecks = [], det = [], rubble = [], bodies = [], worldCode = "lobby", mapKey = "m", rubbleSeq = 0;
 
@@ -1908,7 +1917,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
   // ---------- how a bin dies depends on what got it ----------
   // 0 blown apart (fire, rockets, mines, shards, crashes...), 1 sliced by a rail slug, 2 fried by laser or lightning, 3 melted by plasma
-  const deathStyleOf = kind => kind === 5 ? 1 : kind === 2 || kind === 8 ? 2 : kind === 7 ? 3 : 0;
+  const deathStyleOf = kind => kind === K.RAIL ? 1 : kind === K.LASER || kind === K.BOLT ? 2 : kind === K.ORB ? 3 : 0;
   function deathFx(b, ds, dk, da) {
     if (dk === 1) railCut(b, da);
     else if (dk === 2) electrocute(b);
@@ -2093,7 +2102,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
   // a pellet hurts more the closer it was fired from (the classic shotgun falloff); it also shoves what it hits
   const pelletDmg = s => { const d = Math.hypot(s.x - s.ox, s.y - s.oy); return d < 170 ? 0.27 : d < 320 ? 0.18 : 0.09; };
-  const shotDmg = s => MODE === "r" && s.kind === 5 ? 99 : (s.kind === 4 ? pelletDmg(s) : SHOT_DMG[s.kind]) * (s.m || 1);
+  // how someone else's shot sounds here (quieter with distance)
+  const shotSound = (kind, x, y) => { const [name, vol, pitch] = SHOTS[kind].sfx; sfx(name, vol, pitch, x, y); };
+  const shotDmg = s => MODE === "r" && s.kind === K.RAIL ? 99 : (s.kind === K.PELLET ? pelletDmg(s) : SHOTS[s.kind].dmg) * (s.m || 1);
   // team modes: whose side a shot is on (no friendly fire)
   const teamOfShot = s => s.mine ? me.tm : botById.has(s.owner) ? botById.get(s.owner).tm : remotes.has(s.owner) ? remotes.get(s.owner).tm : undefined;
   const friendly = (s, tm) => mates({ tm }, { tm: teamOfShot(s) });
@@ -2107,7 +2118,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   // a rail slug (or a laser) through a plasma orb sets it off: a huge blast credited to whoever pulled the trigger
   function comboBlast(o, s, now) {
     o.combo = true; o.life = 0; o.boom = true;
-    const big = s.kind === 5, R = big ? 300 : 190, base = (big ? 2.4 : 1.1) * (s.m || 1), x = o.x, y = o.y;
+    const big = s.kind === K.RAIL, R = big ? 300 : 190, base = (big ? 2.4 : 1.1) * (s.m || 1), x = o.x, y = o.y;
     const own = s.mine || botById.has(s.owner);
     for (const b of [...bodies]) if (Math.hypot(b.x - x, b.y - y) - b.r < R * 0.5 && (own || b.free)) carveAt(b, x, y, big ? 130 : 80, own);
     rings.push({ x, y, t: 0, r: R * 1.4, col: "160,235,255", warp: true, dur: 0.7, w: big ? 22 : 12 });
@@ -2122,12 +2133,12 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (s.mine) floaters.push({ x, y: y - 60, t: 0, txt: "COMBO!", gold: true });
     if (!s.mine && playing && !me.dead && !friendly(s, me.tm) && d < R + 26 * sizeOf(me.lv)) {
       me.vx += (me.x - x) / (d || 1) * 700; me.vy += (me.y - y) / (d || 1) * 700;
-      if (hurt(now, base * Math.max(0.25, 1 - d / R), false, 7)) { pushCapped(hitBy, s.id, 12); if (me.dead) { meKilled(s.id); killedBy(s.owner); } }
+      if (hurt(now, base * Math.max(0.25, 1 - d / R), false, K.ORB)) { pushCapped(hitBy, s.id, 12); if (me.dead) { meKilled(s.id); killedBy(s.owner); } }
     }
     for (const b of bots) {
       if (b.dead || b.id === s.owner || friendly(s, b.tm)) continue;
       const bd = Math.hypot(b.x - x, b.y - y);
-      if (bd < R + 40) { b.vx += (b.x - x) / (bd || 1) * 700; b.vy += (b.y - y) / (bd || 1) * 700; botHurt(b, base * Math.max(0.25, 1 - bd / R), s.id, now, false, 7); }
+      if (bd < R + 40) { b.vx += (b.x - x) / (bd || 1) * 700; b.vy += (b.y - y) / (bd || 1) * 700; botHurt(b, base * Math.max(0.25, 1 - bd / R), s.id, now, false, K.ORB); }
     }
   }
   // the rail slug goes straight through bins and junk (each one once), only planets and walls stop it
@@ -2137,7 +2148,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const arcs = [];   // lightning jumping from the bin it hit to the next one
   const BEAM_T = 1.1;   // a rail trail lingers: the hot core goes fast, the spiral slowly unwinds
   function railBeam(x, y, vx, vy) {
-    const v = Math.hypot(vx, vy) || 1, dx = vx / v, dy = vy / v, max = 4200 * SHOT_LIFE[5];
+    const v = Math.hypot(vx, vy) || 1, dx = vx / v, dy = vy / v, max = 4200 * SHOTS[K.RAIL].life;
     let L = 0;
     while (L < max) {
       L += 30;
@@ -2161,9 +2172,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     impact(t.x, t.y, "#bfefff", 0.8);
     sfx("laser", 0.3, 2.2, t.x, t.y);
     const dmg = CHAIN_DMG * (s.m || 1), cid = s.id + "c";
-    if (best.id === "me") { if (hurt(now, dmg, false, 8, a)) { pushCapped(hitBy, cid, 12); if (me.dead) { meKilled(cid); killedBy(s.owner); } } }
-    else if (botById.has(best.id)) botHurt(botById.get(best.id), dmg, cid, now, false, 8, a);
-    else if (s.mine) hitConfirm({ ...s, kind: 8 }, t.lv, t.x, t.y);
+    if (best.id === "me") { if (hurt(now, dmg, false, K.BOLT, a)) { pushCapped(hitBy, cid, 12); if (me.dead) { meKilled(cid); killedBy(s.owner); } } }
+    else if (botById.has(best.id)) botHurt(botById.get(best.id), dmg, cid, now, false, K.BOLT, a);
+    else if (s.mine) hitConfirm({ ...s, kind: K.BOLT }, t.lv, t.x, t.y);
   }
   // homing: turns gently toward the nearest enemy ahead of it, never faster than a bin flies, so boost or a dash escapes it
   function steerRocket(s, dt) {
@@ -2192,7 +2203,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function hitConfirm(s, lv, x, y) {
     if (!s.mine) return;
     const pct = Math.max(1, Math.round(shotDmg(s) / maxLivesOf(lv || 1) * 100));
-    floaters.push({ x: x + (Math.random() - 0.5) * 30, y: y - 40, t: 0, txt: "-" + pct + "%", hit: true, col: SHOT_COL[s.kind], big: pct >= 40 });
+    floaters.push({ x: x + (Math.random() - 0.5) * 30, y: y - 40, t: 0, txt: "-" + pct + "%", hit: true, col: SHOTS[s.kind].col, big: pct >= 40 });
     const t = performance.now();
     if (t - hitTickAt > 60) { hitTickAt = t; sfx("hit", 0.4, 1.8); }
   }
@@ -2202,8 +2213,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const id = myTag + "." + (shotSeq++).toString(36);
     const ox = from ? from.x : me.x + bx * 42 * sz, oy = from ? from.y : me.y + by * 42 * sz;
     const amp = me.ampUntil > now ? 3 : 1;
-    const s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : me.x, py: from ? oy : me.y, vx: bx * speed + me.vx * (kind === 8 ? 0 : 0.6), vy: by * speed + me.vy * (kind === 8 ? 0 : 0.6), life: SHOT_LIFE[kind], mine: true, m: amp };
-    if (kind === 4) scatterPellets(s); else if (kind === 9) shardSpray(s); else shots.push(s);
+    const s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : me.x, py: from ? oy : me.y, vx: bx * speed + me.vx * (kind === K.BOLT ? 0 : 0.6), vy: by * speed + me.vy * (kind === K.BOLT ? 0 : 0.6), life: SHOTS[kind].life, mine: true, m: amp };
+    if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else shots.push(s);
     const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind];
     if (amp > 1) d.push(amp);
     myShotLog.push({ at: now, d });
@@ -2213,14 +2224,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   }
   // what every client shows where a shot lands on a bin
   function shotBurst(s) {
-    if (s.kind === 6) { s.boom = true; explode(s.x, s.y, 50, 320); rings.push({ x: s.x, y: s.y, t: 0, r: 150, col: "255,140,80", dur: 0.45, w: 10 }); shake = Math.max(shake, 0.25); sfx("boom_small", 1, 0.9, s.x, s.y) || boomSound(0.6, 900, 0.35); return; }
-    if (s.kind === 1) { explode(s.x, s.y, 40, 260); sfx("boom_small", 0.8, 1.15, s.x, s.y); } else sfx("hit", 0.55, 1.1, s.x, s.y);
-    if (s.kind === 5) sparkShower(s.x, s.y, s.vx / 4200, s.vy / 4200, 1.2);
-    if (s.kind === 4) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
-    if (s.kind === 10) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
-    if (s.kind === 7) { s.boom = true; explode(s.x, s.y, 50, 360); rings.push({ x: s.x, y: s.y, t: 0, r: 110, col: "160,235,255", dur: 0.4, w: 8 }); }
-    if (s.kind === 9) sparkShower(s.x, s.y, s.vx / 1300, s.vy / 1300, 0.6);
-    impact(s.x, s.y, SHOT_COL[s.kind], s.kind === 1 || s.kind === 5 ? 2 : 1);
+    if (s.kind === K.MINE) { s.boom = true; explode(s.x, s.y, 50, 320); rings.push({ x: s.x, y: s.y, t: 0, r: 150, col: "255,140,80", dur: 0.45, w: 10 }); shake = Math.max(shake, 0.25); sfx("boom_small", 1, 0.9, s.x, s.y) || boomSound(0.6, 900, 0.35); return; }
+    if (s.kind === K.ROCKET) { explode(s.x, s.y, 40, 260); sfx("boom_small", 0.8, 1.15, s.x, s.y); } else sfx("hit", 0.55, 1.1, s.x, s.y);
+    if (s.kind === K.RAIL) sparkShower(s.x, s.y, s.vx / 4200, s.vy / 4200, 1.2);
+    if (s.kind === K.PELLET) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
+    if (s.kind === K.SLUG) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
+    if (s.kind === K.ORB) { s.boom = true; explode(s.x, s.y, 50, 360); rings.push({ x: s.x, y: s.y, t: 0, r: 110, col: "160,235,255", dur: 0.4, w: 8 }); }
+    if (s.kind === K.SHARD) sparkShower(s.x, s.y, s.vx / 1300, s.vy / 1300, 0.6);
+    impact(s.x, s.y, SHOTS[s.kind].col, s.kind === K.ROCKET || s.kind === K.RAIL ? 2 : 1);
   }
   function shoot(now) {
     const w = WEAPONS[me.weapon], [kind, sp] = w.shot;
@@ -2582,20 +2593,20 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function addRemoteShot(owner, f) {
     if (!Array.isArray(f) || typeof f[0] !== "string" || f[0].length > 20 || seenShots.has(f[0])) return;
     seenShots.set(f[0], performance.now());
-    const kind = Number.isInteger(f[5]) && f[5] >= 0 && f[5] < SHOT_LIFE.length ? f[5] : 0, m = f[6] === 3 ? 3 : 1;
+    const kind = Number.isInteger(f[5]) && f[5] >= 0 && f[5] < SHOTS.length ? f[5] : 0, m = f[6] === 3 ? 3 : 1;
     const x = clamp(num(f[1], 0), 0, W), y = clamp(num(f[2], 0), 0, H);
     const sh = {
       id: f[0], kind, x, y, px: x, py: y, ox: x, oy: y, m,
       vx: clamp(num(f[3], 0), -4500, 4500), vy: clamp(num(f[4], 0), -4500, 4500),
-      life: Math.max(SHOT_LIFE[kind] * 0.7, SHOT_LIFE[kind] - 0.1), mine: false, owner   // a bit shorter: it was fired a moment ago
+      life: Math.max(SHOTS[kind].life * 0.7, SHOTS[kind].life - 0.1), mine: false, owner   // a bit shorter: it was fired a moment ago
     };
     // a peer can send anything: cap what one owner (and everyone together) can keep alive here
     let own = 0, ownMines = 0;
-    for (const o of shots) if (o.owner === owner) { own++; if (o.kind === 6) ownMines++; }
-    if (shots.length > 900 || own > 80 || (kind === 6 && ownMines >= 12)) return;
-    if (kind === 4) scatterPellets(sh); else if (kind === 9) shardSpray(sh); else shots.push(sh);
-    if (kind === 5) railBeam(x, y, sh.vx, sh.vy);
-    sfx(SHOT_SFX[kind], kind === 2 || kind === 8 ? 0.2 : 0.6, kind === 3 ? 0.6 : kind === 8 ? 1.7 : kind === 7 ? 1.4 : 1, x, y);
+    for (const o of shots) if (o.owner === owner) { own++; if (o.kind === K.MINE) ownMines++; }
+    if (shots.length > 900 || own > 80 || (kind === K.MINE && ownMines >= 12)) return;
+    if (kind === K.PELLET) scatterPellets(sh); else if (kind === K.SHARD) shardSpray(sh); else shots.push(sh);
+    if (kind === K.RAIL) railBeam(x, y, sh.vx, sh.vy);
+    shotSound(kind, x, y);
     if (seenShots.size > 400) { const t = performance.now(); for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k); }
   }
   // Messages are partial: fast ones carry only motion, slow ones add name/look/score/lists.
@@ -2917,18 +2928,18 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   const botWeapon = b => MODES[MODE].only || b.weapon;
   // fires once; returns the gun's reload time
   function botFire(b, now) {
-    const w = botWeapon(b), [kind, sp] = WEAPONS[w].shot, ride = kind === 8 ? 0 : 0.6;
+    const w = botWeapon(b), [kind, sp] = WEAPONS[w].shot, ride = kind === K.BOLT ? 0 : 0.6;
     for (const da of w === "triple" ? [-0.2, 0, 0.2] : [0]) {
       const bx = Math.cos(b.a + da), by = Math.sin(b.a + da);
       const id = b.tag + "." + (b.seq++).toString(36);
       const s = { id, kind, x: b.x + bx * 42, y: b.y + by * 42, ox: b.x + bx * 42, oy: b.y + by * 42, px: b.x, py: b.y,
-                  vx: bx * sp + b.vx * ride, vy: by * sp + b.vy * ride, life: SHOT_LIFE[kind], mine: false, owner: b.id };
-      if (kind === 4) scatterPellets(s); else if (kind === 9) shardSpray(s); else shots.push(s);
+                  vx: bx * sp + b.vx * ride, vy: by * sp + b.vy * ride, life: SHOTS[kind].life, mine: false, owner: b.id };
+      if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else shots.push(s);
       seenShots.set(id, performance.now());
-      if (kind === 5) railBeam(s.x, s.y, s.vx, s.vy);
+      if (kind === K.RAIL) railBeam(s.x, s.y, s.vx, s.vy);
       b.shotLog.push({ at: now, d: [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind] });
     }
-    sfx(SHOT_SFX[kind], kind === 2 || kind === 8 ? 0.25 : kind === 5 ? 0.6 : 0.45, kind === 3 ? 0.6 : kind === 8 ? 1.7 : 1.05, b.x, b.y);
+    shotSound(kind, b.x, b.y);
     b.st.shots++;
     const bx = Math.cos(b.a), by = Math.sin(b.a);
     b.vx -= bx * 25; b.vy -= by * 25;
@@ -3040,12 +3051,12 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       }
       // anyone's shots can hit the bot (the bot's own excepted)
       for (const s of shots) {
-        if (s.life <= 0 || s.owner === b.id || s.kind === 3 || friendly(s, b.tm)) continue;
-        if (s.kind === 6 && SHOT_LIFE[6] - s.life < MINE_ARM) continue;
-        if (segHit(s, b.x, b.y, 38 + SHOT_R[s.kind])) {
-          if (s.kind === 5) { if (!railOnce(s, b.id)) continue; } else s.life = 0;
-          shotBurst(s); hitConfirm(s, b.lv, b.x, b.y); if (SHOT_SHOVE[s.kind]) pelletShove(b, s, SHOT_SHOVE[s.kind]);
-          if (s.kind === 8) boltChain(s, b.x, b.y, b.id, now);
+        if (s.life <= 0 || s.owner === b.id || s.kind === K.NUKE || friendly(s, b.tm)) continue;
+        if (s.kind === K.MINE && SHOTS[K.MINE].life - s.life < MINE_ARM) continue;
+        if (segHit(s, b.x, b.y, 38 + SHOTS[s.kind].r)) {
+          if (s.kind === K.RAIL) { if (!railOnce(s, b.id)) continue; } else s.life = 0;
+          shotBurst(s); hitConfirm(s, b.lv, b.x, b.y); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
+          if (s.kind === K.BOLT) boltChain(s, b.x, b.y, b.id, now);
           botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx));
         }
       }
@@ -3279,90 +3290,90 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     for (let i = shots.length - 1; i >= 0; i--) {
       const s = shots[i];
       s.life -= dt;
-      if (s.life <= 0) { if (s.kind === 1) rocketSplash(s, now); if (s.kind === 7 && !s.boom) explode(s.x, s.y, 24, 220); if (s.kind === 3) detonate(s, now); else if (s.kind === 6 && !s.boom) explode(s.x, s.y, 20, 180); shots.splice(i, 1); continue; }
-      if (s.kind === 1) steerRocket(s, dt);
-      if (s.kind === 1 && s.life > 0) for (const o of shots) {   // rockets are big and slow: any enemy shot can blow one up mid-air
-        if (o === s || o.life <= 0 || o.kind === 3 || o.kind === 6 || (o.mine ? s.mine : o.owner === s.owner)) continue;
-        if (segHit(o, s.x, s.y, 24)) { s.life = 0; if (o.kind !== 5) o.life = 0; impact(s.x, s.y, "#ffb43c", 1.6); explode(s.x, s.y, 40, 300); sfx("boom_small", 0.8, 1.2, s.x, s.y); break; }
+      if (s.life <= 0) { if (s.kind === K.ROCKET) rocketSplash(s, now); if (s.kind === K.ORB && !s.boom) explode(s.x, s.y, 24, 220); if (s.kind === K.NUKE) detonate(s, now); else if (s.kind === K.MINE && !s.boom) explode(s.x, s.y, 20, 180); shots.splice(i, 1); continue; }
+      if (s.kind === K.ROCKET) steerRocket(s, dt);
+      if (s.kind === K.ROCKET && s.life > 0) for (const o of shots) {   // rockets are big and slow: any enemy shot can blow one up mid-air
+        if (o === s || o.life <= 0 || o.kind === K.NUKE || o.kind === K.MINE || (o.mine ? s.mine : o.owner === s.owner)) continue;
+        if (segHit(o, s.x, s.y, 24)) { s.life = 0; if (o.kind !== K.RAIL) o.life = 0; impact(s.x, s.y, "#ffb43c", 1.6); explode(s.x, s.y, 40, 300); sfx("boom_small", 0.8, 1.2, s.x, s.y); break; }
       }
       if (s.life <= 0) continue;   // shot down: it blows up (splash) at the start of next frame
-      if (s.kind === 6) { const k = Math.exp(-2.5 * dt); s.vx *= k; s.vy *= k; }
-      if (s.kind === 3) { const v = Math.hypot(s.vx, s.vy), nv = Math.min(720, v + 260 * dt); s.vx *= nv / v; s.vy *= nv / v; }
+      if (s.kind === K.MINE) { const k = Math.exp(-2.5 * dt); s.vx *= k; s.vy *= k; }
+      if (s.kind === K.NUKE) { const v = Math.hypot(s.vx, s.vy), nv = Math.min(720, v + 260 * dt); s.vx *= nv / v; s.vy *= nv / v; }
       s.px = s.x; s.py = s.y;
       s.x += s.vx * dt; s.y += s.vy * dt;
-      if (s.kind === 3 && (s.x < 0 || s.x > W || s.y < 0 || s.y > H || solidAny(s.x, s.y) || nukeTouches(s))) { detonate(s, now); shots.splice(i, 1); continue; }
-      if (s.kind === 3) {
+      if (s.kind === K.NUKE && (s.x < 0 || s.x > W || s.y < 0 || s.y > H || solidAny(s.x, s.y) || nukeTouches(s))) { detonate(s, now); shots.splice(i, 1); continue; }
+      if (s.kind === K.NUKE) {
         if (Math.random() < dt * 70) puff(s.x, s.y, -s.vx * 0.15 + (Math.random() - .5) * 50, -s.vy * 0.15 + (Math.random() - .5) * 50, 0.9, 3 + Math.random() * 3, Math.random() < 0.5 ? "#8a7fb0" : "#ffe14d");
         continue;
       }
-      if (s.kind === 6 && (s.x < 0 || s.x > W || s.y < 0 || s.y > H)) { s.x = clamp(s.x, 0, W); s.y = clamp(s.y, 0, H); s.vx = s.vy = 0; }
-      if (s.kind === 9 && s.bn < 2) {   // shards ricochet off the fence and off planets, losing a bit of speed
+      if (s.kind === K.MINE && (s.x < 0 || s.x > W || s.y < 0 || s.y > H)) { s.x = clamp(s.x, 0, W); s.y = clamp(s.y, 0, H); s.vx = s.vy = 0; }
+      if (s.kind === K.SHARD && s.bn < 2) {   // shards ricochet off the fence and off planets, losing a bit of speed
         let hit = false;
         if (s.x < 0 || s.x > W) { s.vx = -s.vx; s.x = clamp(s.x, 0, W); hit = true; }
         if (s.y < 0 || s.y > H) { s.vy = -s.vy; s.y = clamp(s.y, 0, H); hit = true; }
         if (hit) { s.bn++; s.vx *= 0.85; s.vy *= 0.85; s.px = s.x; s.py = s.y; impact(s.x, s.y, "#ff9a3c", 0.5); }
       }
-      if ((s.kind === 5 || s.kind === 2) && s.life > 0) for (const o of shots) {
-        if (o.kind === 7 && o.life > 0 && !o.combo && segHit(s, o.x, o.y, 45)) { comboBlast(o, s, now); if (s.kind === 2) { s.life = 0; break; } }
+      if ((s.kind === K.RAIL || s.kind === K.LASER) && s.life > 0) for (const o of shots) {
+        if (o.kind === K.ORB && o.life > 0 && !o.combo && segHit(s, o.x, o.y, 45)) { comboBlast(o, s, now); if (s.kind === K.LASER) { s.life = 0; break; } }
       }
       // planets, moons, wrecks and rubble: the shot digs a crater where it lands (my shots and my bots' report theirs;
       // others' craters on shared bodies arrive over the network, but anyone's shot chips local rubble)
       const hb = shotBody(s);
       if (hb) {
         const own = s.mine || botById.has(s.owner), dig = own || hb.b.free;
-        if (s.kind === 5) {   // the rail slug bores a tunnel straight through and keeps going
-          if (dig) for (let f = 0; f <= 1.0001; f += 0.125) { const px = s.px + (s.x - s.px) * f, py = s.py + (s.y - s.py) * f; if (solidAt(hb.b, px, py)) carveAt(hb.b, px, py, CARVE_R[5], own); }
-          impact(hb.x, hb.y, SHOT_COL[5], 0.8);
-        } else if (s.kind === 9 && s.bn < 2) {   // shards chip and ricochet
-          if (dig) carveAt(hb.b, hb.x, hb.y, CARVE_R[9], own);
+        if (s.kind === K.RAIL) {   // the rail slug bores a tunnel straight through and keeps going
+          if (dig) for (let f = 0; f <= 1.0001; f += 0.125) { const px = s.px + (s.x - s.px) * f, py = s.py + (s.y - s.py) * f; if (solidAt(hb.b, px, py)) carveAt(hb.b, px, py, SHOTS[K.RAIL].carve, own); }
+          impact(hb.x, hb.y, SHOTS[K.RAIL].col, 0.8);
+        } else if (s.kind === K.SHARD && s.bn < 2) {   // shards chip and ricochet
+          if (dig) carveAt(hb.b, hb.x, hb.y, SHOTS[K.SHARD].carve, own);
           const [nx, ny] = normalAt(hb.b, hb.x, hb.y), vn = s.vx * nx + s.vy * ny;
           if (vn < 0) { s.vx = (s.vx - 2 * vn * nx) * 0.85; s.vy = (s.vy - 2 * vn * ny) * 0.85; }
           s.x = hb.x + nx * 4; s.y = hb.y + ny * 4; s.px = s.x; s.py = s.y; s.bn++;
           impact(s.x, s.y, "#ff9a3c", 0.5);
         } else {
-          if (dig) carveAt(hb.b, hb.x, hb.y, CARVE_R[s.kind], own);
+          if (dig) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);
           s.x = hb.x; s.y = hb.y;
-          if (s.kind === 1) rocketSplash(s, now);
-          if (s.kind === 7) s.boom = true;
-          impact(hb.x, hb.y, SHOT_COL[s.kind], s.kind === 1 || s.kind === 6 || s.kind === 7 ? 1.6 : 0.8);
-          if (s.kind === 1 || s.kind === 6 || s.kind === 7) explode(hb.x, hb.y, 40, 260);
+          if (s.kind === K.ROCKET) rocketSplash(s, now);
+          if (s.kind === K.ORB) s.boom = true;
+          impact(hb.x, hb.y, SHOTS[s.kind].col, s.kind === K.ROCKET || s.kind === K.MINE || s.kind === K.ORB ? 1.6 : 0.8);
+          if (s.kind === K.ROCKET || s.kind === K.MINE || s.kind === K.ORB) explode(hb.x, hb.y, 40, 260);
           shots.splice(i, 1); continue;
         }
       }
-      if ((s.x < 0 || s.x > W || s.y < 0 || s.y > H) && s.kind === 1) rocketSplash(s, now);
-      if (s.x < 0 || s.x > W || s.y < 0 || s.y > H) { explode(clamp(s.x, 0, W), clamp(s.y, 0, H), s.kind === 1 ? 40 : 10, 160); shots.splice(i, 1); continue; }
-      if (s.kind === 1) {   // a thick billowing smoke trail with fire licking out of the motor
+      if ((s.x < 0 || s.x > W || s.y < 0 || s.y > H) && s.kind === K.ROCKET) rocketSplash(s, now);
+      if (s.x < 0 || s.x > W || s.y < 0 || s.y > H) { explode(clamp(s.x, 0, W), clamp(s.y, 0, H), s.kind === K.ROCKET ? 40 : 10, 160); shots.splice(i, 1); continue; }
+      if (s.kind === K.ROCKET) {   // a thick billowing smoke trail with fire licking out of the motor
         const sp = Math.hypot(s.vx, s.vy) || 1, bx = s.x - s.vx / sp * 26, by = s.y - s.vy / sp * 26;
         if (Math.random() < dt * (lowQ ? 30 : 70)) puff(bx, by, -s.vx * 0.08 + (Math.random() - .5) * 50, -s.vy * 0.08 + (Math.random() - .5) * 50, 1.2 + Math.random() * 1.0, 6 + Math.random() * 6, "rgb(120,110,140)", 2);
         if (Math.random() < dt * 60) puff(bx, by, -s.vx * 0.4 + (Math.random() - .5) * 60, -s.vy * 0.4 + (Math.random() - .5) * 60, 0.2 + Math.random() * 0.2, 3 + Math.random() * 3, FIRE_COLS[(Math.random() * 3) | 0]);
-      } else if (s.kind === 2) {
+      } else if (s.kind === K.LASER) {
         if (Math.random() < dt * 15) puff(s.x, s.y, (Math.random() - .5) * 40, (Math.random() - .5) * 40, 0.2, 1.5, "#bff9ff");
-      } else if (s.kind === 5) {   // the slug leaves a glowing wake along its whole path
+      } else if (s.kind === K.RAIL) {   // the slug leaves a glowing wake along its whole path
         for (let k = 0; k < 4; k++) { const f = Math.random(); puff(s.px + (s.x - s.px) * f, s.py + (s.y - s.py) * f, (Math.random() - .5) * 30, (Math.random() - .5) * 30, 0.5 + Math.random() * 0.4, 1.6 + Math.random() * 1.6, k % 2 ? "#e9c8ff" : "#ffffff"); }
-      } else if (s.kind === 7) {
+      } else if (s.kind === K.ORB) {
         if (Math.random() < dt * 40) puff(s.x, s.y, (Math.random() - .5) * 80, (Math.random() - .5) * 80, 0.35, 2 + Math.random() * 2, Math.random() < 0.5 ? "#6fd8ff" : "#ffffff");
-      } else if (s.kind === 9) {
+      } else if (s.kind === K.SHARD) {
         if (Math.random() < dt * 30) puff(s.x, s.y, -s.vx * 0.05, -s.vy * 0.05, 0.2, 1.5, "#ffc070");
-      } else if (s.kind === 10) {   // the slug drags a short hot trail
+      } else if (s.kind === K.SLUG) {   // the slug drags a short hot trail
         if (Math.random() < dt * 50) puff(s.x, s.y, -s.vx * 0.05, -s.vy * 0.05, 0.25, 2, Math.random() < 0.5 ? "#ffe7a0" : "#ffb43c");
-      } else if (s.kind === 4 || s.kind === 6 || s.kind === 8) {
+      } else if (s.kind === K.PELLET || s.kind === K.MINE || s.kind === K.BOLT) {
         // pellets are too short-lived for a trail; mines just sit there blinking
       } else if (Math.random() < dt * 40) puff(s.x, s.y, -s.vx * 0.08 + (Math.random() - .5) * 60, -s.vy * 0.08 + (Math.random() - .5) * 60, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 2, FIRE_COLS[(Math.random() * 4) | 0]);
       // enemy fireball hits me (I decide, then report the shot id)
-      const armed = s.kind !== 6 || SHOT_LIFE[6] - s.life >= MINE_ARM;
-      if (armed && !s.mine && playing && !me.dead && !friendly(s, me.tm) && segHit(s, me.x, me.y, 12 + 26 * sizeOf(me.lv) + SHOT_R[s.kind]) && (s.kind !== 5 || railOnce(s, "me"))) {
-        if (s.kind !== 5) s.life = 0;
+      const armed = s.kind !== K.MINE || SHOTS[K.MINE].life - s.life >= MINE_ARM;
+      if (armed && !s.mine && playing && !me.dead && !friendly(s, me.tm) && segHit(s, me.x, me.y, 12 + 26 * sizeOf(me.lv) + SHOTS[s.kind].r) && (s.kind !== K.RAIL || railOnce(s, "me"))) {
+        if (s.kind !== K.RAIL) s.life = 0;
         s.splashed = true;
         shotBurst(s);
-        if (SHOT_SHOVE[s.kind]) pelletShove(me, s, SHOT_SHOVE[s.kind]);
-        if (s.kind === 8) boltChain(s, me.x, me.y, "me", now);
+        if (SHOTS[s.kind].shove) pelletShove(me, s, SHOTS[s.kind].shove);
+        if (s.kind === K.BOLT) boltChain(s, me.x, me.y, "me", now);
         if (hurt(now, shotDmg(s), false, s.kind, Math.atan2(s.vy, s.vx))) {
           pushCapped(hitBy, s.id, 12);
           if (me.dead) { meKilled(s.id); killedBy(s.owner); }
         }
       }
       // someone else's bolt hitting a third pilot can still jump to me or my bots
-      if (s.kind === 8 && !s.mine && !s.chained && s.life > 0) for (const [rid, r] of remotes) {
+      if (s.kind === K.BOLT && !s.mine && !s.chained && s.life > 0) for (const [rid, r] of remotes) {
         if (rid === s.owner || r.dead || r.inv || botById.has(rid) || friendly(s, r.tm)) continue;
         if (segHit(s, r.x, r.y, 16 + 26 * sizeOf(r.lv || 1))) { s.life = 0; boltChain(s, r.x, r.y, rid, now); break; }
       }
@@ -3370,9 +3381,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if (s.mine && s.life > 0) for (const [rid, r] of remotes) {
         if (botById.has(rid)) continue;
         if (r.dead || r.inv || mates(r, me)) continue;
-        if (armed && segHit(s, r.x, r.y, 16 + 26 * sizeOf(r.lv || 1) + SHOT_R[s.kind])) {
-          if (s.kind === 5) { if (railOnce(s, rid)) { shotBurst(s); hitConfirm(s, r.lv, r.x, r.y); } continue; }
-          s.life = 0; shotBurst(s); hitConfirm(s, r.lv, r.x, r.y); if (s.kind === 8) boltChain(s, r.x, r.y, rid, now); break;
+        if (armed && segHit(s, r.x, r.y, 16 + 26 * sizeOf(r.lv || 1) + SHOTS[s.kind].r)) {
+          if (s.kind === K.RAIL) { if (railOnce(s, rid)) { shotBurst(s); hitConfirm(s, r.lv, r.x, r.y); } continue; }
+          s.life = 0; shotBurst(s); hitConfirm(s, r.lv, r.x, r.y); if (s.kind === K.BOLT) boltChain(s, r.x, r.y, rid, now); break;
         }
       }
     }
@@ -3383,8 +3394,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       const k = world.rocks[i];
       if (grabbed.has(k.key) || k.age < 0.6) continue;
       for (const s of shots) {
-        if (s.life <= 0 || s.kind === 3 || !segHit(s, k.x, k.y, k.r + 10)) continue;
-        if (s.kind !== 5) s.life = 0;
+        if (s.life <= 0 || s.kind === K.NUKE || !segHit(s, k.x, k.y, k.r + 10)) continue;
+        if (s.kind !== K.RAIL) s.life = 0;
         impact(s.x, s.y, "#d9c8ff", 1);
         if (s.mine) {
           grabbed.add(k.key); pushCapped(myGrabs, k.key, 40);
@@ -3589,8 +3600,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       if ((now - f.born) / 1000 < 4 && Math.random() < (lowQ ? 3 : 8) * dt) puff(f.x, f.y, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30, 1.4, 3 + Math.random() * 3, "rgb(60,54,72)", 2);
     }
     for (const s of shots) {
-      if (s.life <= 0 || s.kind === 3 || s.kind === 6) continue;
-      for (const o of hulks) if (segHit(s, o.x, o.y, 34 * sizeOf(o.lv)) && (s.kind !== 5 || railOnce(s, o))) { o.vx += s.vx * (s.kind === 5 ? 0.03 : 0.08); o.vy += s.vy * (s.kind === 5 ? 0.03 : 0.08); o.spin += (Math.random() - 0.5); if (s.kind !== 5) s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.8); break; }
+      if (s.life <= 0 || s.kind === K.NUKE || s.kind === K.MINE) continue;
+      for (const o of hulks) if (segHit(s, o.x, o.y, 34 * sizeOf(o.lv)) && (s.kind !== K.RAIL || railOnce(s, o))) { o.vx += s.vx * (s.kind === K.RAIL ? 0.03 : 0.08); o.vy += s.vy * (s.kind === K.RAIL ? 0.03 : 0.08); o.spin += (Math.random() - 0.5); if (s.kind !== K.RAIL) s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.8); break; }
       if (s.life <= 0) continue;
       for (const o of frags) if (segHit(s, o.x, o.y, o.s * 0.3)) { o.vx += s.vx * 0.12; o.vy += s.vy * 0.12; o.spin += (Math.random() - 0.5) * 2; s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.6); break; }
     }
@@ -3922,7 +3933,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       hg.addColorStop(0, "rgba(195,139,255,0.55)"); hg.addColorStop(1, "rgba(195,139,255,0)");
       g.fillStyle = hg; g.beginPath(); g.arc(x, y, 26, 0, 6.29); g.fill();
     }
-    if (s.kind === 7) {   // plasma orb: a swirling ball of light
+    if (s.kind === K.ORB) {   // plasma orb: a swirling ball of light
       const r = 15 + Math.sin(now / 60 + s.x) * 2;
       const og = g.createRadialGradient(x, y, 0, x, y, r * 2.4);
       og.addColorStop(0, "rgba(255,255,255,1)"); og.addColorStop(0.3, "rgba(150,230,255,0.9)"); og.addColorStop(1, "rgba(60,160,255,0)");
@@ -3931,7 +3942,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       for (let k = 0; k < 2; k++) { g.beginPath(); g.ellipse(x, y, r * 1.3, r * 0.5, now / 150 + k * 1.6, 0, 6.29); g.stroke(); }
       return;
     }
-    if (s.kind === 8) {   // lightning: a jagged arc from the gun to where the bolt has reached
+    if (s.kind === K.BOLT) {   // lightning: a jagged arc from the gun to where the bolt has reached
       const x0 = x - (s.x - s.ox), y0 = y - (s.y - s.oy), L = Math.hypot(x - x0, y - y0) || 1, nx = (x - x0) / L, ny = (y - y0) / L;
       const pts = [[x0, y0]];
       for (let k = 1; k < 9; k++) { const t = k / 9, o = (Math.random() - 0.5) * 22; pts.push([x0 + (x - x0) * t - ny * o, y0 + (y - y0) * t + nx * o]); }
@@ -3950,7 +3961,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       }
       return;
     }
-    if (s.kind === 9) {   // shard: a white-hot splinter
+    if (s.kind === K.SHARD) {   // shard: a white-hot splinter
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
       const lg = g.createLinearGradient(-26, 0, 0, 0);
       lg.addColorStop(0, "rgba(255,120,30,0)"); lg.addColorStop(1, "rgba(255,200,120,0.95)");
@@ -3960,7 +3971,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.restore();
       return;
     }
-    if (s.kind === 10) {   // shotgun slug: one fat white-hot ball with a long streak
+    if (s.kind === K.SLUG) {   // shotgun slug: one fat white-hot ball with a long streak
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
       const lg = g.createLinearGradient(-80, 0, 0, 0);
       lg.addColorStop(0, "rgba(255,150,40,0)"); lg.addColorStop(1, "rgba(255,240,190,0.95)");
@@ -3971,7 +3982,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.restore();
       return;
     }
-    if (s.kind === 4) {   // scatter pellet: a short hot streak
+    if (s.kind === K.PELLET) {   // scatter pellet: a short hot streak
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
       const lg = g.createLinearGradient(-44, 0, 0, 0);
       lg.addColorStop(0, "rgba(255,150,40,0)"); lg.addColorStop(1, "rgba(255,235,160,0.95)");
@@ -3982,7 +3993,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.restore();
       return;
     }
-    if (s.kind === 5) {   // rail slug: a long violet-white beam
+    if (s.kind === K.RAIL) {   // rail slug: a long violet-white beam
       const L = 280;
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
       const lg = g.createLinearGradient(-L, 0, 0, 0);
@@ -3997,8 +4008,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.restore();
       return;
     }
-    if (s.kind === 6) {   // mine: spiked ball, blinks faster once armed, shows its trigger radius
-      const armed = SHOT_LIFE[6] - s.life >= MINE_ARM, ending = s.life < 3;
+    if (s.kind === K.MINE) {   // mine: spiked ball, blinks faster once armed, shows its trigger radius
+      const armed = SHOTS[K.MINE].life - s.life >= MINE_ARM, ending = s.life < 3;
       const on = Math.floor(now / (armed ? (ending ? 90 : 260) : 120)) % 2 === 0;
       g.save(); g.translate(x, y);
       if (armed) {
@@ -4022,7 +4033,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.restore();
       return;
     }
-    if (s.kind === 3) {
+    if (s.kind === K.NUKE) {
       const a = Math.atan2(s.vy, s.vx), fl = 1 + Math.sin(now / 22 + s.x) * 0.25;
       g.save(); g.translate(x, y); g.rotate(a);
       g.globalCompositeOperation = "lighter";
@@ -4041,7 +4052,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.globalCompositeOperation = "lighter";
       return;
     }
-    if (s.kind === 2) {   // laser: a long bolt of light with a pulsing glow and a hot flare at the head
+    if (s.kind === K.LASER) {   // laser: a long bolt of light with a pulsing glow and a hot flare at the head
       const a = Math.atan2(s.vy, s.vx), L = 130, pw = 1 + 0.25 * Math.sin(now / 30 + s.x);
       g.save(); g.translate(x, y); g.rotate(a);
       g.lineCap = "round";
@@ -4059,7 +4070,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       g.restore();
       return;
     }
-    if (s.kind === 1) {
+    if (s.kind === K.ROCKET) {
       const a = Math.atan2(s.vy, s.vx), fl = 1 + Math.sin(now / 25 + s.x) * 0.25;
       g.save(); g.translate(x, y); g.rotate(a); g.scale(1.6, 1.6);
       const fg = g.createLinearGradient(-34 * fl, 0, -8, 0);
@@ -4632,7 +4643,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         const m = meteor(ev, i);
         if (!m || grabbed.has(m.key)) continue;
         for (const s of shots) {
-          if (!s.mine || s.life <= 0 || s.kind === 3 || !segHit(s, m.x, m.y, m.r + 12)) continue;
+          if (!s.mine || s.life <= 0 || s.kind === K.NUKE || !segHit(s, m.x, m.y, m.r + 12)) continue;
           s.life = 0; grabbed.add(m.key); pushCapped(myGrabs, m.key, 40);
           impact(s.x, s.y, "#ffb43c", 1.5);
           me.score += 2; showScore();
@@ -4654,7 +4665,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         if (grabbed.has(key)) continue;
         const p = ufoPos(ev, u, ev.et);
         for (const s of shots) {
-          if (!s.mine || s.life <= 0 || s.kind === 3 || !segHit(s, p.x, p.y, 48)) continue;
+          if (!s.mine || s.life <= 0 || s.kind === K.NUKE || !segHit(s, p.x, p.y, 48)) continue;
           s.life = 0;
           const h = (ufoHits.get(key) || 0) + shotDmg(s) / DMG_UNIT; ufoHits.set(key, h);
           impact(s.x, s.y, "#7dffb0", 1); blip(260, 0.08, "square");

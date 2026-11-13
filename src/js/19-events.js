@@ -99,7 +99,7 @@
         const m = meteor(ev, i);
         if (!m || grabbed.has(m.key)) continue;
         for (const s of shots) {
-          if (!s.mine || s.life <= 0 || s.kind === 3 || !segHit(s, m.x, m.y, m.r + 12)) continue;
+          if (!s.mine || s.life <= 0 || s.kind === K.NUKE || !segHit(s, m.x, m.y, m.r + 12)) continue;
           s.life = 0; grabbed.add(m.key); pushCapped(myGrabs, m.key, 40);
           impact(s.x, s.y, "#ffb43c", 1.5);
           me.score += 2; showScore();
@@ -121,7 +121,7 @@
         if (grabbed.has(key)) continue;
         const p = ufoPos(ev, u, ev.et);
         for (const s of shots) {
-          if (!s.mine || s.life <= 0 || s.kind === 3 || !segHit(s, p.x, p.y, 48)) continue;
+          if (!s.mine || s.life <= 0 || s.kind === K.NUKE || !segHit(s, p.x, p.y, 48)) continue;
           s.life = 0;
           const h = (ufoHits.get(key) || 0) + shotDmg(s) / DMG_UNIT; ufoHits.set(key, h);
           impact(s.x, s.y, "#7dffb0", 1); blip(260, 0.08, "square");

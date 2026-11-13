@@ -19,7 +19,9 @@
   }
   // a pellet hurts more the closer it was fired from (the classic shotgun falloff); it also shoves what it hits
   const pelletDmg = s => { const d = Math.hypot(s.x - s.ox, s.y - s.oy); return d < 170 ? 0.27 : d < 320 ? 0.18 : 0.09; };
-  const shotDmg = s => MODE === "r" && s.kind === 5 ? 99 : (s.kind === 4 ? pelletDmg(s) : SHOT_DMG[s.kind]) * (s.m || 1);
+  // how someone else's shot sounds here (quieter with distance)
+  const shotSound = (kind, x, y) => { const [name, vol, pitch] = SHOTS[kind].sfx; sfx(name, vol, pitch, x, y); };
+  const shotDmg = s => MODE === "r" && s.kind === K.RAIL ? 99 : (s.kind === K.PELLET ? pelletDmg(s) : SHOTS[s.kind].dmg) * (s.m || 1);
   // team modes: whose side a shot is on (no friendly fire)
   const teamOfShot = s => s.mine ? me.tm : botById.has(s.owner) ? botById.get(s.owner).tm : remotes.has(s.owner) ? remotes.get(s.owner).tm : undefined;
   const friendly = (s, tm) => mates({ tm }, { tm: teamOfShot(s) });
@@ -33,7 +35,7 @@
   // a rail slug (or a laser) through a plasma orb sets it off: a huge blast credited to whoever pulled the trigger
   function comboBlast(o, s, now) {
     o.combo = true; o.life = 0; o.boom = true;
-    const big = s.kind === 5, R = big ? 300 : 190, base = (big ? 2.4 : 1.1) * (s.m || 1), x = o.x, y = o.y;
+    const big = s.kind === K.RAIL, R = big ? 300 : 190, base = (big ? 2.4 : 1.1) * (s.m || 1), x = o.x, y = o.y;
     const own = s.mine || botById.has(s.owner);
     for (const b of [...bodies]) if (Math.hypot(b.x - x, b.y - y) - b.r < R * 0.5 && (own || b.free)) carveAt(b, x, y, big ? 130 : 80, own);
     rings.push({ x, y, t: 0, r: R * 1.4, col: "160,235,255", warp: true, dur: 0.7, w: big ? 22 : 12 });
@@ -48,12 +50,12 @@
     if (s.mine) floaters.push({ x, y: y - 60, t: 0, txt: "COMBO!", gold: true });
     if (!s.mine && playing && !me.dead && !friendly(s, me.tm) && d < R + 26 * sizeOf(me.lv)) {
       me.vx += (me.x - x) / (d || 1) * 700; me.vy += (me.y - y) / (d || 1) * 700;
-      if (hurt(now, base * Math.max(0.25, 1 - d / R), false, 7)) { pushCapped(hitBy, s.id, 12); if (me.dead) { meKilled(s.id); killedBy(s.owner); } }
+      if (hurt(now, base * Math.max(0.25, 1 - d / R), false, K.ORB)) { pushCapped(hitBy, s.id, 12); if (me.dead) { meKilled(s.id); killedBy(s.owner); } }
     }
     for (const b of bots) {
       if (b.dead || b.id === s.owner || friendly(s, b.tm)) continue;
       const bd = Math.hypot(b.x - x, b.y - y);
-      if (bd < R + 40) { b.vx += (b.x - x) / (bd || 1) * 700; b.vy += (b.y - y) / (bd || 1) * 700; botHurt(b, base * Math.max(0.25, 1 - bd / R), s.id, now, false, 7); }
+      if (bd < R + 40) { b.vx += (b.x - x) / (bd || 1) * 700; b.vy += (b.y - y) / (bd || 1) * 700; botHurt(b, base * Math.max(0.25, 1 - bd / R), s.id, now, false, K.ORB); }
     }
   }
   // the rail slug goes straight through bins and junk (each one once), only planets and walls stop it
@@ -63,7 +65,7 @@
   const arcs = [];   // lightning jumping from the bin it hit to the next one
   const BEAM_T = 1.1;   // a rail trail lingers: the hot core goes fast, the spiral slowly unwinds
   function railBeam(x, y, vx, vy) {
-    const v = Math.hypot(vx, vy) || 1, dx = vx / v, dy = vy / v, max = 4200 * SHOT_LIFE[5];
+    const v = Math.hypot(vx, vy) || 1, dx = vx / v, dy = vy / v, max = 4200 * SHOTS[K.RAIL].life;
     let L = 0;
     while (L < max) {
       L += 30;
@@ -87,9 +89,9 @@
     impact(t.x, t.y, "#bfefff", 0.8);
     sfx("laser", 0.3, 2.2, t.x, t.y);
     const dmg = CHAIN_DMG * (s.m || 1), cid = s.id + "c";
-    if (best.id === "me") { if (hurt(now, dmg, false, 8, a)) { pushCapped(hitBy, cid, 12); if (me.dead) { meKilled(cid); killedBy(s.owner); } } }
-    else if (botById.has(best.id)) botHurt(botById.get(best.id), dmg, cid, now, false, 8, a);
-    else if (s.mine) hitConfirm({ ...s, kind: 8 }, t.lv, t.x, t.y);
+    if (best.id === "me") { if (hurt(now, dmg, false, K.BOLT, a)) { pushCapped(hitBy, cid, 12); if (me.dead) { meKilled(cid); killedBy(s.owner); } } }
+    else if (botById.has(best.id)) botHurt(botById.get(best.id), dmg, cid, now, false, K.BOLT, a);
+    else if (s.mine) hitConfirm({ ...s, kind: K.BOLT }, t.lv, t.x, t.y);
   }
   // homing: turns gently toward the nearest enemy ahead of it, never faster than a bin flies, so boost or a dash escapes it
   function steerRocket(s, dt) {
@@ -118,7 +120,7 @@
   function hitConfirm(s, lv, x, y) {
     if (!s.mine) return;
     const pct = Math.max(1, Math.round(shotDmg(s) / maxLivesOf(lv || 1) * 100));
-    floaters.push({ x: x + (Math.random() - 0.5) * 30, y: y - 40, t: 0, txt: "-" + pct + "%", hit: true, col: SHOT_COL[s.kind], big: pct >= 40 });
+    floaters.push({ x: x + (Math.random() - 0.5) * 30, y: y - 40, t: 0, txt: "-" + pct + "%", hit: true, col: SHOTS[s.kind].col, big: pct >= 40 });
     const t = performance.now();
     if (t - hitTickAt > 60) { hitTickAt = t; sfx("hit", 0.4, 1.8); }
   }
@@ -128,8 +130,8 @@
     const id = myTag + "." + (shotSeq++).toString(36);
     const ox = from ? from.x : me.x + bx * 42 * sz, oy = from ? from.y : me.y + by * 42 * sz;
     const amp = me.ampUntil > now ? 3 : 1;
-    const s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : me.x, py: from ? oy : me.y, vx: bx * speed + me.vx * (kind === 8 ? 0 : 0.6), vy: by * speed + me.vy * (kind === 8 ? 0 : 0.6), life: SHOT_LIFE[kind], mine: true, m: amp };
-    if (kind === 4) scatterPellets(s); else if (kind === 9) shardSpray(s); else shots.push(s);
+    const s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : me.x, py: from ? oy : me.y, vx: bx * speed + me.vx * (kind === K.BOLT ? 0 : 0.6), vy: by * speed + me.vy * (kind === K.BOLT ? 0 : 0.6), life: SHOTS[kind].life, mine: true, m: amp };
+    if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else shots.push(s);
     const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind];
     if (amp > 1) d.push(amp);
     myShotLog.push({ at: now, d });
@@ -139,14 +141,14 @@
   }
   // what every client shows where a shot lands on a bin
   function shotBurst(s) {
-    if (s.kind === 6) { s.boom = true; explode(s.x, s.y, 50, 320); rings.push({ x: s.x, y: s.y, t: 0, r: 150, col: "255,140,80", dur: 0.45, w: 10 }); shake = Math.max(shake, 0.25); sfx("boom_small", 1, 0.9, s.x, s.y) || boomSound(0.6, 900, 0.35); return; }
-    if (s.kind === 1) { explode(s.x, s.y, 40, 260); sfx("boom_small", 0.8, 1.15, s.x, s.y); } else sfx("hit", 0.55, 1.1, s.x, s.y);
-    if (s.kind === 5) sparkShower(s.x, s.y, s.vx / 4200, s.vy / 4200, 1.2);
-    if (s.kind === 4) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
-    if (s.kind === 10) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
-    if (s.kind === 7) { s.boom = true; explode(s.x, s.y, 50, 360); rings.push({ x: s.x, y: s.y, t: 0, r: 110, col: "160,235,255", dur: 0.4, w: 8 }); }
-    if (s.kind === 9) sparkShower(s.x, s.y, s.vx / 1300, s.vy / 1300, 0.6);
-    impact(s.x, s.y, SHOT_COL[s.kind], s.kind === 1 || s.kind === 5 ? 2 : 1);
+    if (s.kind === K.MINE) { s.boom = true; explode(s.x, s.y, 50, 320); rings.push({ x: s.x, y: s.y, t: 0, r: 150, col: "255,140,80", dur: 0.45, w: 10 }); shake = Math.max(shake, 0.25); sfx("boom_small", 1, 0.9, s.x, s.y) || boomSound(0.6, 900, 0.35); return; }
+    if (s.kind === K.ROCKET) { explode(s.x, s.y, 40, 260); sfx("boom_small", 0.8, 1.15, s.x, s.y); } else sfx("hit", 0.55, 1.1, s.x, s.y);
+    if (s.kind === K.RAIL) sparkShower(s.x, s.y, s.vx / 4200, s.vy / 4200, 1.2);
+    if (s.kind === K.PELLET) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
+    if (s.kind === K.SLUG) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
+    if (s.kind === K.ORB) { s.boom = true; explode(s.x, s.y, 50, 360); rings.push({ x: s.x, y: s.y, t: 0, r: 110, col: "160,235,255", dur: 0.4, w: 8 }); }
+    if (s.kind === K.SHARD) sparkShower(s.x, s.y, s.vx / 1300, s.vy / 1300, 0.6);
+    impact(s.x, s.y, SHOTS[s.kind].col, s.kind === K.ROCKET || s.kind === K.RAIL ? 2 : 1);
   }
   function shoot(now) {
     const w = WEAPONS[me.weapon], [kind, sp] = w.shot;

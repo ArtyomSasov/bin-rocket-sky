@@ -28,20 +28,20 @@
   function addRemoteShot(owner, f) {
     if (!Array.isArray(f) || typeof f[0] !== "string" || f[0].length > 20 || seenShots.has(f[0])) return;
     seenShots.set(f[0], performance.now());
-    const kind = Number.isInteger(f[5]) && f[5] >= 0 && f[5] < SHOT_LIFE.length ? f[5] : 0, m = f[6] === 3 ? 3 : 1;
+    const kind = Number.isInteger(f[5]) && f[5] >= 0 && f[5] < SHOTS.length ? f[5] : 0, m = f[6] === 3 ? 3 : 1;
     const x = clamp(num(f[1], 0), 0, W), y = clamp(num(f[2], 0), 0, H);
     const sh = {
       id: f[0], kind, x, y, px: x, py: y, ox: x, oy: y, m,
       vx: clamp(num(f[3], 0), -4500, 4500), vy: clamp(num(f[4], 0), -4500, 4500),
-      life: Math.max(SHOT_LIFE[kind] * 0.7, SHOT_LIFE[kind] - 0.1), mine: false, owner   // a bit shorter: it was fired a moment ago
+      life: Math.max(SHOTS[kind].life * 0.7, SHOTS[kind].life - 0.1), mine: false, owner   // a bit shorter: it was fired a moment ago
     };
     // a peer can send anything: cap what one owner (and everyone together) can keep alive here
     let own = 0, ownMines = 0;
-    for (const o of shots) if (o.owner === owner) { own++; if (o.kind === 6) ownMines++; }
-    if (shots.length > 900 || own > 80 || (kind === 6 && ownMines >= 12)) return;
-    if (kind === 4) scatterPellets(sh); else if (kind === 9) shardSpray(sh); else shots.push(sh);
-    if (kind === 5) railBeam(x, y, sh.vx, sh.vy);
-    sfx(SHOT_SFX[kind], kind === 2 || kind === 8 ? 0.2 : 0.6, kind === 3 ? 0.6 : kind === 8 ? 1.7 : kind === 7 ? 1.4 : 1, x, y);
+    for (const o of shots) if (o.owner === owner) { own++; if (o.kind === K.MINE) ownMines++; }
+    if (shots.length > 900 || own > 80 || (kind === K.MINE && ownMines >= 12)) return;
+    if (kind === K.PELLET) scatterPellets(sh); else if (kind === K.SHARD) shardSpray(sh); else shots.push(sh);
+    if (kind === K.RAIL) railBeam(x, y, sh.vx, sh.vy);
+    shotSound(kind, x, y);
     if (seenShots.size > 400) { const t = performance.now(); for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k); }
   }
   // Messages are partial: fast ones carry only motion, slow ones add name/look/score/lists.

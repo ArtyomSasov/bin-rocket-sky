@@ -14,7 +14,6 @@
   const WRECK_TYPES = ["hull", "tower", "crates", "ring"];
   const WRECK_PAL = { hull: ["#7d8aa3", "#5a6478", "#9aa6bf"], tower: ["#8f8aa0", "#6d6880", "#4a4660"], crates: ["#c0503c", "#3c78c0", "#d8a83c", "#4a9a6a"], ring: ["#8a93ad", "#5e6680", "#c8d0e8"] };
   const WRECK_N = { s: 6, m: 10, l: 16, x: 24 };
-  const CARVE_R = [16, 46, 9, 0, 9, 14, 45, 30, 6, 10, 20];   // crater radius by shot kind
   const BODY_RES = matchMedia("(pointer: coarse)").matches ? 0.6 : 1;   // art baked at lower resolution on phones
   let planets = [], moons = [], wrecks = [], det = [], rubble = [], bodies = [], worldCode = "lobby", mapKey = "m", rubbleSeq = 0;
 

@@ -41,18 +41,18 @@
   const botWeapon = b => MODES[MODE].only || b.weapon;
   // fires once; returns the gun's reload time
   function botFire(b, now) {
-    const w = botWeapon(b), [kind, sp] = WEAPONS[w].shot, ride = kind === 8 ? 0 : 0.6;
+    const w = botWeapon(b), [kind, sp] = WEAPONS[w].shot, ride = kind === K.BOLT ? 0 : 0.6;
     for (const da of w === "triple" ? [-0.2, 0, 0.2] : [0]) {
       const bx = Math.cos(b.a + da), by = Math.sin(b.a + da);
       const id = b.tag + "." + (b.seq++).toString(36);
       const s = { id, kind, x: b.x + bx * 42, y: b.y + by * 42, ox: b.x + bx * 42, oy: b.y + by * 42, px: b.x, py: b.y,
-                  vx: bx * sp + b.vx * ride, vy: by * sp + b.vy * ride, life: SHOT_LIFE[kind], mine: false, owner: b.id };
-      if (kind === 4) scatterPellets(s); else if (kind === 9) shardSpray(s); else shots.push(s);
+                  vx: bx * sp + b.vx * ride, vy: by * sp + b.vy * ride, life: SHOTS[kind].life, mine: false, owner: b.id };
+      if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else shots.push(s);
       seenShots.set(id, performance.now());
-      if (kind === 5) railBeam(s.x, s.y, s.vx, s.vy);
+      if (kind === K.RAIL) railBeam(s.x, s.y, s.vx, s.vy);
       b.shotLog.push({ at: now, d: [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind] });
     }
-    sfx(SHOT_SFX[kind], kind === 2 || kind === 8 ? 0.25 : kind === 5 ? 0.6 : 0.45, kind === 3 ? 0.6 : kind === 8 ? 1.7 : 1.05, b.x, b.y);
+    shotSound(kind, b.x, b.y);
     b.st.shots++;
     const bx = Math.cos(b.a), by = Math.sin(b.a);
     b.vx -= bx * 25; b.vy -= by * 25;
@@ -164,12 +164,12 @@
       }
       // anyone's shots can hit the bot (the bot's own excepted)
       for (const s of shots) {
-        if (s.life <= 0 || s.owner === b.id || s.kind === 3 || friendly(s, b.tm)) continue;
-        if (s.kind === 6 && SHOT_LIFE[6] - s.life < MINE_ARM) continue;
-        if (segHit(s, b.x, b.y, 38 + SHOT_R[s.kind])) {
-          if (s.kind === 5) { if (!railOnce(s, b.id)) continue; } else s.life = 0;
-          shotBurst(s); hitConfirm(s, b.lv, b.x, b.y); if (SHOT_SHOVE[s.kind]) pelletShove(b, s, SHOT_SHOVE[s.kind]);
-          if (s.kind === 8) boltChain(s, b.x, b.y, b.id, now);
+        if (s.life <= 0 || s.owner === b.id || s.kind === K.NUKE || friendly(s, b.tm)) continue;
+        if (s.kind === K.MINE && SHOTS[K.MINE].life - s.life < MINE_ARM) continue;
+        if (segHit(s, b.x, b.y, 38 + SHOTS[s.kind].r)) {
+          if (s.kind === K.RAIL) { if (!railOnce(s, b.id)) continue; } else s.life = 0;
+          shotBurst(s); hitConfirm(s, b.lv, b.x, b.y); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
+          if (s.kind === K.BOLT) boltChain(s, b.x, b.y, b.id, now);
           botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx));
         }
       }

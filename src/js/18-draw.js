@@ -146,7 +146,7 @@
       hg.addColorStop(0, "rgba(195,139,255,0.55)"); hg.addColorStop(1, "rgba(195,139,255,0)");
       g.fillStyle = hg; g.beginPath(); g.arc(x, y, 26, 0, 6.29); g.fill();
     }
-    if (s.kind === 7) {   // plasma orb: a swirling ball of light
+    if (s.kind === K.ORB) {   // plasma orb: a swirling ball of light
       const r = 15 + Math.sin(now / 60 + s.x) * 2;
       const og = g.createRadialGradient(x, y, 0, x, y, r * 2.4);
       og.addColorStop(0, "rgba(255,255,255,1)"); og.addColorStop(0.3, "rgba(150,230,255,0.9)"); og.addColorStop(1, "rgba(60,160,255,0)");
@@ -155,7 +155,7 @@
       for (let k = 0; k < 2; k++) { g.beginPath(); g.ellipse(x, y, r * 1.3, r * 0.5, now / 150 + k * 1.6, 0, 6.29); g.stroke(); }
       return;
     }
-    if (s.kind === 8) {   // lightning: a jagged arc from the gun to where the bolt has reached
+    if (s.kind === K.BOLT) {   // lightning: a jagged arc from the gun to where the bolt has reached
       const x0 = x - (s.x - s.ox), y0 = y - (s.y - s.oy), L = Math.hypot(x - x0, y - y0) || 1, nx = (x - x0) / L, ny = (y - y0) / L;
       const pts = [[x0, y0]];
       for (let k = 1; k < 9; k++) { const t = k / 9, o = (Math.random() - 0.5) * 22; pts.push([x0 + (x - x0) * t - ny * o, y0 + (y - y0) * t + nx * o]); }
@@ -174,7 +174,7 @@
       }
       return;
     }
-    if (s.kind === 9) {   // shard: a white-hot splinter
+    if (s.kind === K.SHARD) {   // shard: a white-hot splinter
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
       const lg = g.createLinearGradient(-26, 0, 0, 0);
       lg.addColorStop(0, "rgba(255,120,30,0)"); lg.addColorStop(1, "rgba(255,200,120,0.95)");
@@ -184,7 +184,7 @@
       g.restore();
       return;
     }
-    if (s.kind === 10) {   // shotgun slug: one fat white-hot ball with a long streak
+    if (s.kind === K.SLUG) {   // shotgun slug: one fat white-hot ball with a long streak
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
       const lg = g.createLinearGradient(-80, 0, 0, 0);
       lg.addColorStop(0, "rgba(255,150,40,0)"); lg.addColorStop(1, "rgba(255,240,190,0.95)");
@@ -195,7 +195,7 @@
       g.restore();
       return;
     }
-    if (s.kind === 4) {   // scatter pellet: a short hot streak
+    if (s.kind === K.PELLET) {   // scatter pellet: a short hot streak
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
       const lg = g.createLinearGradient(-44, 0, 0, 0);
       lg.addColorStop(0, "rgba(255,150,40,0)"); lg.addColorStop(1, "rgba(255,235,160,0.95)");
@@ -206,7 +206,7 @@
       g.restore();
       return;
     }
-    if (s.kind === 5) {   // rail slug: a long violet-white beam
+    if (s.kind === K.RAIL) {   // rail slug: a long violet-white beam
       const L = 280;
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
       const lg = g.createLinearGradient(-L, 0, 0, 0);
@@ -221,8 +221,8 @@
       g.restore();
       return;
     }
-    if (s.kind === 6) {   // mine: spiked ball, blinks faster once armed, shows its trigger radius
-      const armed = SHOT_LIFE[6] - s.life >= MINE_ARM, ending = s.life < 3;
+    if (s.kind === K.MINE) {   // mine: spiked ball, blinks faster once armed, shows its trigger radius
+      const armed = SHOTS[K.MINE].life - s.life >= MINE_ARM, ending = s.life < 3;
       const on = Math.floor(now / (armed ? (ending ? 90 : 260) : 120)) % 2 === 0;
       g.save(); g.translate(x, y);
       if (armed) {
@@ -246,7 +246,7 @@
       g.restore();
       return;
     }
-    if (s.kind === 3) {
+    if (s.kind === K.NUKE) {
       const a = Math.atan2(s.vy, s.vx), fl = 1 + Math.sin(now / 22 + s.x) * 0.25;
       g.save(); g.translate(x, y); g.rotate(a);
       g.globalCompositeOperation = "lighter";
@@ -265,7 +265,7 @@
       g.globalCompositeOperation = "lighter";
       return;
     }
-    if (s.kind === 2) {   // laser: a long bolt of light with a pulsing glow and a hot flare at the head
+    if (s.kind === K.LASER) {   // laser: a long bolt of light with a pulsing glow and a hot flare at the head
       const a = Math.atan2(s.vy, s.vx), L = 130, pw = 1 + 0.25 * Math.sin(now / 30 + s.x);
       g.save(); g.translate(x, y); g.rotate(a);
       g.lineCap = "round";
@@ -283,7 +283,7 @@
       g.restore();
       return;
     }
-    if (s.kind === 1) {
+    if (s.kind === K.ROCKET) {
       const a = Math.atan2(s.vy, s.vx), fl = 1 + Math.sin(now / 25 + s.x) * 0.25;
       g.save(); g.translate(x, y); g.rotate(a); g.scale(1.6, 1.6);
       const fg = g.createLinearGradient(-34 * fl, 0, -8, 0);
