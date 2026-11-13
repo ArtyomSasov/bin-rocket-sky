@@ -1,6 +1,14 @@
   // ---------- loop ----------
   let last = performance.now(), frameAvg = 1 / 60;
   const world = { sparks: [], rocks: [], picks: [], nuke: null, amp: null, supplies: [] };   // shared-clock objects, computed once per frame
+  // once a second, also in a background tab: the network keeps adding effects and ids there while no frame runs
+  setInterval(() => {
+    const t = performance.now(), cap = (list, n) => { if (list.length > n) list.splice(0, list.length - n); };
+    cap(parts, MAX_PARTS); cap(impacts, 120); cap(rings, 80); cap(floaters, 60); cap(arcs, 40); cap(beams, 12);
+    for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k);
+    grabbed.prune(120000);
+    while (myDrops.length && Date.now() - myDrops[0][4] > DROP_LIFE) myDrops.shift();
+  }, 1000);
   let resCheckAt = 0;
   function frame(now) {
     requestAnimationFrame(frame);

@@ -449,27 +449,32 @@
     }
   }
   // own: my shots (and my bots') on shared bodies are reported so everyone digs the same hole
+  // the ragged edge of a shared crater comes from its own numbers, so every client cuts exactly the same shape
+  const carveRnd = (lx, ly, r, sq) => { let n = 0; return () => hash(lx * 31 + ly, sq * 7 + n++, r); };
   function carveAt(b, x, y, rad, own) {
     if (b.dead) return 0;
-    const [lx, ly] = toLocal(b, x, y), n = carveLocal(b, lx, ly, rad, true);
+    const [lx0, ly0] = toLocal(b, x, y), lx = Math.round(lx0), ly = Math.round(ly0), r = Math.round(rad);
+    const shared = own && !b.free, sq = shared ? ++carveSeq : 0;
+    const n = carveLocal(b, lx, ly, r, true, shared ? carveRnd(lx, ly, r, sq) : Math.random);
     if (!n) return 0;
     rubbleFx(b, x, y, rad, n);
     if (own) b.lastOwn = true;
-    if (own && !b.free) {
-      myCarves.push({ at: performance.now(), d: [stats.round, det.indexOf(b), Math.round(lx), Math.round(ly), Math.round(rad), ++carveSeq] });
-      if (myCarves.length > 60) myCarves.shift();
+    if (shared) {
+      myCarves.push({ at: performance.now(), d: [stats.round, det.indexOf(b), lx, ly, r, sq] });
+      if (myCarves.length > MAX_CARVES) myCarves.shift();   // a rail tunnel is dozens of carves: room for a few seconds of them
     }
     return n;
   }
+  const MAX_CARVES = 320;
   function applyRemoteCarves(id, list) {
-    for (const e of list.slice(0, 60)) {
+    for (const e of list.slice(0, MAX_CARVES)) {
       if (!Array.isArray(e) || e.length !== 6 || !e.every(Number.isInteger)) continue;
       const [rd, bi, lx, ly, r, sq] = e, key = id + ":" + sq;
       if (rd !== stats.round || seenCarves.has(key)) continue;
       seenCarves.add(key);
       const b = det[bi];
       if (!b || b.dead || b.free || r < 2 || r > 700 || Math.abs(lx) > 3000 || Math.abs(ly) > 3000) continue;
-      const n = carveLocal(b, lx, ly, r, true);
+      const n = carveLocal(b, lx, ly, r, true, carveRnd(lx, ly, r, sq));
       if (n) { const [x, y] = toWorld(b, lx, ly); rubbleFx(b, x, y, r, n); }
     }
     if (seenCarves.size > 4000) seenCarves.clear();

@@ -24,7 +24,8 @@
   const shotDmg = s => MODES[MODE].instagib && s.kind === K.RAIL ? 99 : (s.kind === K.PELLET ? pelletDmg(s) : SHOTS[s.kind].dmg) * (s.m || 1);
   // team modes: whose side a shot is on (no friendly fire)
   const teamOfShot = s => s.mine ? me.tm : botById.has(s.owner) ? botById.get(s.owner).tm : remotes.has(s.owner) ? remotes.get(s.owner).tm : undefined;
-  const friendly = (s, tm) => mates({ tm }, { tm: teamOfShot(s) });
+  // in team modes a shot whose shooter's team hasn't come in yet hurts nobody (it would be friendly fire half the time)
+  const friendly = (s, tm) => isTeams() && onTeam({ tm }) && (teamOfShot(s) === undefined || teamOfShot(s) === tm);
   // THE rule for whether a shot may hurt someone (id: their key, "me" for me): alive, not the shooter, not on the
   // shooter's team; my own shots never hurt me. Every hit, splash, blast, homing and chain asks this.
   // the shooter's own shot: it only hurts them through a blast (blast = true: rockets, plasma, mines, nukes, combos)
@@ -71,7 +72,7 @@
     for (const b of bots) {
       if (!canHurt(s, b, b.id, true)) continue;
       const bd = Math.hypot(b.x - x, b.y - y);
-      if (bd < R + 40) { b.vx += (b.x - x) / (bd || 1) * 700; b.vy += (b.y - y) / (bd || 1) * 700; botHurt(b, base * Math.max(0.25, 1 - bd / R) * selfMul(s, b.id), s.id, now, false, K.ORB); }
+      if (bd < R + 26 * sizeOf(b.lv || 1)) { b.vx += (b.x - x) / (bd || 1) * 700; b.vy += (b.y - y) / (bd || 1) * 700; botHurt(b, base * Math.max(0.25, 1 - bd / R) * selfMul(s, b.id), s.id, now, false, K.ORB); }
     }
   }
   // the rail slug goes straight through bins and junk (each one once), only planets and walls stop it
@@ -137,7 +138,7 @@
       if (d < bd && Math.abs(angD(Math.atan2(y - s.y, x - s.x) - cur)) < 1.25) { bd = d; best = { x, y }; }
     };
     if (canHurt(s, me, "me")) consider(me, me.x, me.y);
-    for (const [id, r] of remotes) if (canHurt(s, r, id)) consider(r, r.x, r.y);
+    for (const [id, r] of remotes) if (!botById.has(id) && canHurt(s, r, id)) consider(r, r.x, r.y);   // my bots: from bots below
     for (const b of bots) if (canHurt(s, b, b.id) && !(s.mine && botById.has(b.id))) consider(b, b.x, b.y);
     const na = best ? cur + clamp(angD(Math.atan2(best.y - s.y, best.x - s.x) - cur), -2.3 * dt, 2.3 * dt) : cur;
     const sp = Math.min(560, Math.hypot(s.vx, s.vy) + 380 * dt);
@@ -158,7 +159,7 @@
     };
     const dm = hit(me, "me", 26 * sizeOf(me.lv));
     if (dm) hurtMe(s, now, dm);
-    for (const b of bots) { const db = hit(b, b.id, 38); if (db) botHurt(b, db * selfMul(s, b.id), s.id, now, false, s.kind); }
+    for (const b of bots) { const db = hit(b, b.id, 26 * sizeOf(b.lv || 1)); if (db) botHurt(b, db * selfMul(s, b.id), s.id, now, false, s.kind); }
   }
   // the look of a rocket or plasma blast, once per shot
   function blastFx(s) {

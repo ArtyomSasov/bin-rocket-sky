@@ -19,6 +19,7 @@
   const mapThemeOf = code => { const m = String(code).match(/^[a-z0-9](?:1[a-z])?0([a-z])/); return m && MAPS[m[1]] ? m[1] : "c"; };
   let W = 4200, H = 4200, PLANET_N = 5;
   const BOT = 84;                    // sprite size on screen
+  const binR = lv => 14 + 26 * sizeOf(lv || 1);   // a bin's hit circle: the same on the victim's screen and the shooter's
   let SLOTS = 100; const PERIOD = 16;     // spark slots, seconds per respawn cycle
   const SPRITE_TILT = 0.24;          // the art leans right a little (its engine points down-left)
   const NOZZLE = [140 / 320 - 0.5, 186 / 320 - 0.5];   // engine opening in the art, as a fraction of size

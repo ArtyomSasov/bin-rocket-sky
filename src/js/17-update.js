@@ -144,6 +144,7 @@
       if (s.kind === K.ROCKET) steerRocket(s, dt);
       if (s.kind === K.ROCKET && s.life > 0) for (const o of shots) {   // rockets are big and slow: any enemy shot can blow one up mid-air
         if (o === s || o.life <= 0 || o.kind === K.NUKE || o.kind === K.MINE || (o.mine ? s.mine : o.owner === s.owner)) continue;
+        if (isTeams() && teamOfShot(o) !== undefined && teamOfShot(o) === teamOfShot(s)) continue;   // a teammate's shot passes it
         if (segHit(o, s.x, s.y, 24)) { s.life = 0; if (o.kind !== K.RAIL) o.life = 0; impact(s.x, s.y, "#ffb43c", 1.6); explode(s.x, s.y, 40, 300); sfx("boom_small", 0.8, 1.2, s.x, s.y); break; }
       }
       if (s.life <= 0) continue;   // shot down: it blows up (splash) at the start of next frame
@@ -210,7 +211,7 @@
       } else if (Math.random() < dt * 40) puff(s.x, s.y, -s.vx * 0.08 + (Math.random() - .5) * 60, -s.vy * 0.08 + (Math.random() - .5) * 60, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 2, FIRE_COLS[(Math.random() * 4) | 0]);
       // enemy fireball hits me (I decide, then report the shot id)
       const armed = s.kind !== K.MINE || SHOTS[K.MINE].life - s.life >= MINE_ARM;
-      if (armed && canHurt(s, me, "me", s.kind === K.MINE) && segHit(s, me.x, me.y, 12 + 26 * sizeOf(me.lv) + SHOTS[s.kind].r) && (s.kind !== K.RAIL || railOnce(s, "me"))) {
+      if (armed && canHurt(s, me, "me", s.kind === K.MINE) && segHit(s, me.x, me.y, binR(me.lv) + SHOTS[s.kind].r) && (s.kind !== K.RAIL || railOnce(s, "me"))) {
         if (s.kind !== K.RAIL) s.life = 0;
         s.direct = "me";   // its blast (if any) spares me: I took the direct hit
         shotBurst(s);
@@ -221,13 +222,13 @@
       // someone else's bolt hitting a third pilot can still jump to me or my bots
       if (s.kind === K.BOLT && !s.mine && !s.chained && s.life > 0) for (const [rid, r] of remotes) {
         if (r.inv || botById.has(rid) || !canHurt(s, r, rid)) continue;
-        if (segHit(s, r.x, r.y, 16 + 26 * sizeOf(r.lv || 1))) { s.life = 0; boltChain(s, r.x, r.y, rid, now); break; }
+        if (segHit(s, r.x, r.y, binR(r.lv))) { s.life = 0; boltChain(s, r.x, r.y, rid, now); break; }
       }
       // my fireball reaches another bin: fizzle here, they confirm the hit
       if (s.mine && s.life > 0) for (const [rid, r] of remotes) {
         if (botById.has(rid)) continue;
         if (r.inv || !canHurt(s, r, rid)) continue;
-        if (armed && segHit(s, r.x, r.y, 16 + 26 * sizeOf(r.lv || 1) + SHOTS[s.kind].r)) {
+        if (armed && segHit(s, r.x, r.y, binR(r.lv) + SHOTS[s.kind].r)) {
           if (s.kind === K.RAIL) { if (railOnce(s, rid)) { shotBurst(s); hitConfirm(s, r.lv, r.x, r.y, r); } continue; }
           s.life = 0; shotBurst(s); hitConfirm(s, r.lv, r.x, r.y, r); if (s.kind === K.BOLT) boltChain(s, r.x, r.y, rid, now); break;
         }
@@ -411,7 +412,6 @@
         }
       }
     }
-    if (grabbed.size > 600) { const keep = [...grabbed].slice(-300); grabbed.clear(); keep.forEach(k => grabbed.add(k)); }
   }
   // particles, wreckage, fragments, flashes, rings, floating text
   function updateFx(dt, now) {
@@ -514,7 +514,7 @@
         q: ++sendSeq, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),
         vx: Math.round(me.vx), vy: Math.round(me.vy), a: +me.a.toFixed(2),
         t: me.thrust > 0.3 ? 1 : 0, b: me.boostFx, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0, ds: me.dead ? me.ds : 0,
-        dk: me.dead ? me.dk : 0, da: me.dead ? +me.da.toFixed(2) : 0
+        dk: me.dead ? me.dk : 0, da: me.dead ? +me.da.toFixed(2) : 0, tm: me.tm ?? -1   // the team rides every message: shots need it
       };
       const slow = {
         tm: me.tm ?? -1, fc: me.fc ?? -1, cp: [stats.round, me.caps || 0],
@@ -568,7 +568,7 @@
     return rows;
   }
   const esc = t => String(t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-  const acc = r => r.shots ? Math.round(r.hits / r.shots * 100) : 0;
+  const acc = r => r.shots ? Math.min(100, Math.round(r.hits / r.shots * 100)) : 0;
   function teamWinLine() {
     if (!isTeams()) return "";
     const t = teamTotals(), flags = MODES[MODE].flags, sc = i => flags ? t.c[i] + " flags, " + t.k[i] + " kills" : t.k[i] + " kills";
@@ -627,6 +627,7 @@
       hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0;
       if (shownRound !== -1) { myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode); }   // every crater filled in again
       firstBlood = false; streaks.clear(); multi = 0;
+      credited.clear(); botCredited.clear(); killSeen.clear(); ufoHits.clear();   // ids of the last round can't come back
       shownRound = rd.idx;
       document.getElementById("results").hidden = true;
     }

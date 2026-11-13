@@ -157,7 +157,7 @@
       for (const s of shots) {
         if (s.life <= 0 || s.kind === K.NUKE || !canHurt(s, b, b.id)) continue;
         if (s.kind === K.MINE && SHOTS[K.MINE].life - s.life < MINE_ARM) continue;
-        if (segHit(s, b.x, b.y, 38 + SHOTS[s.kind].r)) {
+        if (segHit(s, b.x, b.y, binR(b.lv) + SHOTS[s.kind].r)) {
           if (s.kind === K.RAIL) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
           shotBurst(s); hitConfirm(s, b.lv, b.x, b.y, remotes.get(b.id)); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
           if (s.kind === K.BOLT) boltChain(s, b.x, b.y, b.id, now);

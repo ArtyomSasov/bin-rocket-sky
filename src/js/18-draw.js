@@ -203,7 +203,7 @@
       g.globalAlpha = 0.9; g.drawImage(dotSprite("#bfefff"), x - 28, y - 28, 56, 56); g.globalAlpha = 1;   // where it lands
       g.drawImage(dotSprite("#d8f6ff"), x0 - 18, y0 - 18, 36, 36);   // and at the gun
       for (let f = 0; f < (lowQ ? 1 : 3); f++) {   // forks splitting off the main bolt
-        let [fx, fy] = pts[2 + ((Math.random() * 6) | 0)], a = Math.atan2(ny, nx) + (Math.random() < 0.5 ? 1 : -1) * (0.4 + Math.random() * 0.6);
+        let [fx, fy] = pts[1 + ((Math.random() * (pts.length - 2)) | 0)], a = Math.atan2(ny, nx) + (Math.random() < 0.5 ? 1 : -1) * (0.4 + Math.random() * 0.6);
         const fork = [[fx, fy]];
         for (let k = 0; k < 3; k++) { a += (Math.random() - 0.5) * 0.9; const st = 14 + Math.random() * 18; fx += Math.cos(a) * st; fy += Math.sin(a) * st; fork.push([fx, fy]); }
         for (const [w, c] of [[4, "rgba(120,200,255,0.3)"], [1.2, "rgba(220,248,255,0.9)"]]) {

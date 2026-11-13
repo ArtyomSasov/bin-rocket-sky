@@ -3,6 +3,7 @@
   // means it sits on its pad. The carrier's death sends it home. You score by bringing theirs to your pad while yours is home.
   const flagCarrier = [null, null];   // per team's flag: { id, o } of who has it
   let flagWas = ["", ""];
+  const flagHeld = [null, null];   // per flag: who took it and their capture count then (a capture is that count going up)
   const whoName = o => o === me ? "You" : o.name || "Someone";
   function ctfTick(now) {
     if (!bases) return;
@@ -10,7 +11,8 @@
       let best = null;
       const claim = (id, o) => { if (!id || o.dead || o.fc !== f || o.tm === f || (o.tm !== 0 && o.tm !== 1)) return; if (!best || id < best.id) best = { id, o }; };
       if (playing) claim(myTag, me);
-      for (const r of remotes.values()) claim(r.tag, r);
+      for (const [id, r] of remotes) if (!botById.has(id)) claim(r.tag, r);
+      for (const b of bots) claim(b.tag, b);
       flagCarrier[f] = best;
     }
     if (me.fc >= 0 && flagCarrier[me.fc] && flagCarrier[me.fc].o !== me) me.fc = -1;   // someone else got it first
@@ -33,12 +35,15 @@
       if (id === flagWas[f]) continue;
       const pad = bases[f];
       if (c) {
+        flagHeld[f] = { o: c.o, caps: c.o.caps || 0 };
         const mine = c.o === me;
         announce(mine ? "YOU HAVE THE FLAG" : whoName(c.o) + " has the " + TEAM_NAME[f] + " flag", mine ? "bring it to your pad" : "", TEAM_HEX[f], 1, !mine && f !== me.tm);
         sfx("shield_get", 0.9, 0.8);
       } else {
-        const capturedBy = flagWas[f] && [...remotes.values(), me, ...bots].find(o => (o === me ? myTag : o.tag) === flagWas[f]);
-        const scored = capturedBy && !capturedBy.dead;
+        // scored only if the carrier's captures went up (their capture and letting go arrive in the same state);
+        // otherwise they died or dropped it and it went home
+        const held = flagHeld[f], capturedBy = held && held.o, scored = !!held && (held.o.caps || 0) > held.caps;
+        flagHeld[f] = null;
         announce(scored ? TEAM_NAME[1 - f] + " team scores!" : TEAM_NAME[f] + " flag returned", scored ? whoName(capturedBy) + " captured the " + TEAM_NAME[f] + " flag" : "", TEAM_HEX[scored ? 1 - f : f], scored ? 2 : 1, !scored);
         if (scored) { sfx("level_up", 1); rings.push({ x: pad.x, y: pad.y, t: 0, r: 420, col: TEAM_RGB[1 - f], warp: true, dur: 0.8, w: 18 }); }
         renderBoard();

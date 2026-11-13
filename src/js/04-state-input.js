@@ -18,7 +18,16 @@
   let deaths = 0;
   const DROP_LIFE = 20000;
   const remotes = new Map();   // id -> remote bot
-  const grabbed = new Set();   // "slot:gen" already taken by anyone
+  // "slot:gen" of pick-ups already taken by anyone; a key is forgotten two minutes after it was last taken,
+  // by when its item has long been replaced by the next generation
+  class AgedSet extends Set {
+    constructor() { super(); this.at = new Map(); }
+    add(k) { this.at.set(k, performance.now()); return super.add(k); }
+    delete(k) { this.at.delete(k); return super.delete(k); }
+    clear() { this.at.clear(); super.clear(); }
+    prune(age) { const t = performance.now(); for (const [k, a] of this.at) if (t - a > age) this.delete(k); }
+  }
+  const grabbed = new AgedSet();
   const myGrabs = [];
   const parts = [];
   const floaters = [];

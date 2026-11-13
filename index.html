@@ -477,6 +477,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   const mapThemeOf = code => { const m = String(code).match(/^[a-z0-9](?:1[a-z])?0([a-z])/); return m && MAPS[m[1]] ? m[1] : "c"; };
   let W = 4200, H = 4200, PLANET_N = 5;
   const BOT = 84;                    // sprite size on screen
+  const binR = lv => 14 + 26 * sizeOf(lv || 1);   // a bin's hit circle: the same on the victim's screen and the shooter's
   let SLOTS = 100; const PERIOD = 16;     // spark slots, seconds per respawn cycle
   const SPRITE_TILT = 0.24;          // the art leans right a little (its engine points down-left)
   const NOZZLE = [140 / 320 - 0.5, 186 / 320 - 0.5];   // engine opening in the art, as a fraction of size
@@ -897,7 +898,16 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   let deaths = 0;
   const DROP_LIFE = 20000;
   const remotes = new Map();   // id -> remote bot
-  const grabbed = new Set();   // "slot:gen" already taken by anyone
+  // "slot:gen" of pick-ups already taken by anyone; a key is forgotten two minutes after it was last taken,
+  // by when its item has long been replaced by the next generation
+  class AgedSet extends Set {
+    constructor() { super(); this.at = new Map(); }
+    add(k) { this.at.set(k, performance.now()); return super.add(k); }
+    delete(k) { this.at.delete(k); return super.delete(k); }
+    clear() { this.at.clear(); super.clear(); }
+    prune(age) { const t = performance.now(); for (const [k, a] of this.at) if (t - a > age) this.delete(k); }
+  }
+  const grabbed = new AgedSet();
   const myGrabs = [];
   const parts = [];
   const floaters = [];
@@ -1526,27 +1536,32 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     }
   }
   // own: my shots (and my bots') on shared bodies are reported so everyone digs the same hole
+  // the ragged edge of a shared crater comes from its own numbers, so every client cuts exactly the same shape
+  const carveRnd = (lx, ly, r, sq) => { let n = 0; return () => hash(lx * 31 + ly, sq * 7 + n++, r); };
   function carveAt(b, x, y, rad, own) {
     if (b.dead) return 0;
-    const [lx, ly] = toLocal(b, x, y), n = carveLocal(b, lx, ly, rad, true);
+    const [lx0, ly0] = toLocal(b, x, y), lx = Math.round(lx0), ly = Math.round(ly0), r = Math.round(rad);
+    const shared = own && !b.free, sq = shared ? ++carveSeq : 0;
+    const n = carveLocal(b, lx, ly, r, true, shared ? carveRnd(lx, ly, r, sq) : Math.random);
     if (!n) return 0;
     rubbleFx(b, x, y, rad, n);
     if (own) b.lastOwn = true;
-    if (own && !b.free) {
-      myCarves.push({ at: performance.now(), d: [stats.round, det.indexOf(b), Math.round(lx), Math.round(ly), Math.round(rad), ++carveSeq] });
-      if (myCarves.length > 60) myCarves.shift();
+    if (shared) {
+      myCarves.push({ at: performance.now(), d: [stats.round, det.indexOf(b), lx, ly, r, sq] });
+      if (myCarves.length > MAX_CARVES) myCarves.shift();   // a rail tunnel is dozens of carves: room for a few seconds of them
     }
     return n;
   }
+  const MAX_CARVES = 320;
   function applyRemoteCarves(id, list) {
-    for (const e of list.slice(0, 60)) {
+    for (const e of list.slice(0, MAX_CARVES)) {
       if (!Array.isArray(e) || e.length !== 6 || !e.every(Number.isInteger)) continue;
       const [rd, bi, lx, ly, r, sq] = e, key = id + ":" + sq;
       if (rd !== stats.round || seenCarves.has(key)) continue;
       seenCarves.add(key);
       const b = det[bi];
       if (!b || b.dead || b.free || r < 2 || r > 700 || Math.abs(lx) > 3000 || Math.abs(ly) > 3000) continue;
-      const n = carveLocal(b, lx, ly, r, true);
+      const n = carveLocal(b, lx, ly, r, true, carveRnd(lx, ly, r, sq));
       if (n) { const [x, y] = toWorld(b, lx, ly); rubbleFx(b, x, y, r, n); }
     }
     if (seenCarves.size > 4000) seenCarves.clear();
@@ -2308,7 +2323,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   const shotDmg = s => MODES[MODE].instagib && s.kind === K.RAIL ? 99 : (s.kind === K.PELLET ? pelletDmg(s) : SHOTS[s.kind].dmg) * (s.m || 1);
   // team modes: whose side a shot is on (no friendly fire)
   const teamOfShot = s => s.mine ? me.tm : botById.has(s.owner) ? botById.get(s.owner).tm : remotes.has(s.owner) ? remotes.get(s.owner).tm : undefined;
-  const friendly = (s, tm) => mates({ tm }, { tm: teamOfShot(s) });
+  // in team modes a shot whose shooter's team hasn't come in yet hurts nobody (it would be friendly fire half the time)
+  const friendly = (s, tm) => isTeams() && onTeam({ tm }) && (teamOfShot(s) === undefined || teamOfShot(s) === tm);
   // THE rule for whether a shot may hurt someone (id: their key, "me" for me): alive, not the shooter, not on the
   // shooter's team; my own shots never hurt me. Every hit, splash, blast, homing and chain asks this.
   // the shooter's own shot: it only hurts them through a blast (blast = true: rockets, plasma, mines, nukes, combos)
@@ -2355,7 +2371,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     for (const b of bots) {
       if (!canHurt(s, b, b.id, true)) continue;
       const bd = Math.hypot(b.x - x, b.y - y);
-      if (bd < R + 40) { b.vx += (b.x - x) / (bd || 1) * 700; b.vy += (b.y - y) / (bd || 1) * 700; botHurt(b, base * Math.max(0.25, 1 - bd / R) * selfMul(s, b.id), s.id, now, false, K.ORB); }
+      if (bd < R + 26 * sizeOf(b.lv || 1)) { b.vx += (b.x - x) / (bd || 1) * 700; b.vy += (b.y - y) / (bd || 1) * 700; botHurt(b, base * Math.max(0.25, 1 - bd / R) * selfMul(s, b.id), s.id, now, false, K.ORB); }
     }
   }
   // the rail slug goes straight through bins and junk (each one once), only planets and walls stop it
@@ -2421,7 +2437,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       if (d < bd && Math.abs(angD(Math.atan2(y - s.y, x - s.x) - cur)) < 1.25) { bd = d; best = { x, y }; }
     };
     if (canHurt(s, me, "me")) consider(me, me.x, me.y);
-    for (const [id, r] of remotes) if (canHurt(s, r, id)) consider(r, r.x, r.y);
+    for (const [id, r] of remotes) if (!botById.has(id) && canHurt(s, r, id)) consider(r, r.x, r.y);   // my bots: from bots below
     for (const b of bots) if (canHurt(s, b, b.id) && !(s.mine && botById.has(b.id))) consider(b, b.x, b.y);
     const na = best ? cur + clamp(angD(Math.atan2(best.y - s.y, best.x - s.x) - cur), -2.3 * dt, 2.3 * dt) : cur;
     const sp = Math.min(560, Math.hypot(s.vx, s.vy) + 380 * dt);
@@ -2442,7 +2458,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     };
     const dm = hit(me, "me", 26 * sizeOf(me.lv));
     if (dm) hurtMe(s, now, dm);
-    for (const b of bots) { const db = hit(b, b.id, 38); if (db) botHurt(b, db * selfMul(s, b.id), s.id, now, false, s.kind); }
+    for (const b of bots) { const db = hit(b, b.id, 26 * sizeOf(b.lv || 1)); if (db) botHurt(b, db * selfMul(s, b.id), s.id, now, false, s.kind); }
   }
   // the look of a rocket or plasma blast, once per shot
   function blastFx(s) {
@@ -2817,10 +2833,11 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // the lobby browser (standalone hosting only)
   const LOBBY_BROKER = "wss://broker.hivemq.com:8884/mqtt", LOBBY_TOPIC = "binrocket-sky/v1/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
+  let lobbyRenderPending = false;
   function renderLobbies() {
     const el = document.getElementById("lobbyList"), now = Date.now();
     for (const [c, l] of openLobbies) if (now - l.at > LOBBY_TTL) openLobbies.delete(c);
-    const list = [...openLobbies].sort((a, b) => b[1].n - a[1].n);
+    const list = [...openLobbies].sort((a, b) => b[1].n - a[1].n).slice(0, 20);
     document.getElementById("tabJoin").textContent = list.length ? `Join a game (${list.length})` : "Join a friend";
     if (!el) return;
     el.replaceChildren(...list.map(([c, l]) => {
@@ -2935,7 +2952,12 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     }
     showScore();
   }
-  function removeRemote(id) { remotes.delete(id); }
+  const botsOf = new Map();   // host id -> the ids of the bots it flies
+  function removeRemote(id) {
+    remotes.delete(id);
+    for (const b of botsOf.get(id) || []) remotes.delete(b);
+    botsOf.delete(id);
+  }
 
   async function initNet() {
     if (window.claude && typeof window.claude.use === "function") {
@@ -2969,8 +2991,9 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       if (payload.length > 300) return;
       let p; try { p = JSON.parse(payload.toString()); } catch { return; }
       if (!p || typeof p.c !== "string" || !/^[a-z0-9]{4,10}$/.test(p.c) || !Number.isInteger(p.n) || p.n < 1 || p.n > 64) return;
+      if (!openLobbies.has(p.c) && openLobbies.size >= 60) return;   // the topic is public: keep the list bounded
       openLobbies.set(p.c, { n: p.n, b: Number.isInteger(p.b) ? clamp(p.b, 0, 64) : 0, at: Date.now() });
-      renderLobbies();
+      if (!lobbyRenderPending) { lobbyRenderPending = true; setTimeout(() => { lobbyRenderPending = false; renderLobbies(); }, 500); }
     });
 
     const code = await lobbyChosen;          // picked on the start screen
@@ -3014,8 +3037,12 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
         if (kind !== "s" || payload.length > 16384) return;
         let p; try { p = JSON.parse(payload.toString()); } catch { return; }
         applyRemote(id, p);
-        if (Array.isArray(p.bots)) for (const e of p.bots.slice(0, 8)) {
-          if (Array.isArray(e) && typeof e[0] === "string" && /^pb[a-z0-9]{1,10}$/.test(e[0]) && !botById.has(e[0])) applyRemote(e[0], e[1]);
+        if (Array.isArray(p.bots)) {
+          const ids = [];
+          for (const e of p.bots.slice(0, 8)) {
+            if (Array.isArray(e) && typeof e[0] === "string" && /^pb[a-z0-9]{1,10}$/.test(e[0]) && !botById.has(e[0])) { applyRemote(e[0], e[1]); ids.push(e[0]); }
+          }
+          botsOf.set(id, ids);
         }
       });
       return c;
@@ -3091,6 +3118,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // means it sits on its pad. The carrier's death sends it home. You score by bringing theirs to your pad while yours is home.
   const flagCarrier = [null, null];   // per team's flag: { id, o } of who has it
   let flagWas = ["", ""];
+  const flagHeld = [null, null];   // per flag: who took it and their capture count then (a capture is that count going up)
   const whoName = o => o === me ? "You" : o.name || "Someone";
   function ctfTick(now) {
     if (!bases) return;
@@ -3098,7 +3126,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       let best = null;
       const claim = (id, o) => { if (!id || o.dead || o.fc !== f || o.tm === f || (o.tm !== 0 && o.tm !== 1)) return; if (!best || id < best.id) best = { id, o }; };
       if (playing) claim(myTag, me);
-      for (const r of remotes.values()) claim(r.tag, r);
+      for (const [id, r] of remotes) if (!botById.has(id)) claim(r.tag, r);
+      for (const b of bots) claim(b.tag, b);
       flagCarrier[f] = best;
     }
     if (me.fc >= 0 && flagCarrier[me.fc] && flagCarrier[me.fc].o !== me) me.fc = -1;   // someone else got it first
@@ -3121,12 +3150,15 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       if (id === flagWas[f]) continue;
       const pad = bases[f];
       if (c) {
+        flagHeld[f] = { o: c.o, caps: c.o.caps || 0 };
         const mine = c.o === me;
         announce(mine ? "YOU HAVE THE FLAG" : whoName(c.o) + " has the " + TEAM_NAME[f] + " flag", mine ? "bring it to your pad" : "", TEAM_HEX[f], 1, !mine && f !== me.tm);
         sfx("shield_get", 0.9, 0.8);
       } else {
-        const capturedBy = flagWas[f] && [...remotes.values(), me, ...bots].find(o => (o === me ? myTag : o.tag) === flagWas[f]);
-        const scored = capturedBy && !capturedBy.dead;
+        // scored only if the carrier's captures went up (their capture and letting go arrive in the same state);
+        // otherwise they died or dropped it and it went home
+        const held = flagHeld[f], capturedBy = held && held.o, scored = !!held && (held.o.caps || 0) > held.caps;
+        flagHeld[f] = null;
         announce(scored ? TEAM_NAME[1 - f] + " team scores!" : TEAM_NAME[f] + " flag returned", scored ? whoName(capturedBy) + " captured the " + TEAM_NAME[f] + " flag" : "", TEAM_HEX[scored ? 1 - f : f], scored ? 2 : 1, !scored);
         if (scored) { sfx("level_up", 1); rings.push({ x: pad.x, y: pad.y, t: 0, r: 420, col: TEAM_RGB[1 - f], warp: true, dur: 0.8, w: 18 }); }
         renderBoard();
@@ -3320,7 +3352,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       for (const s of shots) {
         if (s.life <= 0 || s.kind === K.NUKE || !canHurt(s, b, b.id)) continue;
         if (s.kind === K.MINE && SHOTS[K.MINE].life - s.life < MINE_ARM) continue;
-        if (segHit(s, b.x, b.y, 38 + SHOTS[s.kind].r)) {
+        if (segHit(s, b.x, b.y, binR(b.lv) + SHOTS[s.kind].r)) {
           if (s.kind === K.RAIL) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
           shotBurst(s); hitConfirm(s, b.lv, b.x, b.y, remotes.get(b.id)); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
           if (s.kind === K.BOLT) boltChain(s, b.x, b.y, b.id, now);
@@ -3584,6 +3616,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       if (s.kind === K.ROCKET) steerRocket(s, dt);
       if (s.kind === K.ROCKET && s.life > 0) for (const o of shots) {   // rockets are big and slow: any enemy shot can blow one up mid-air
         if (o === s || o.life <= 0 || o.kind === K.NUKE || o.kind === K.MINE || (o.mine ? s.mine : o.owner === s.owner)) continue;
+        if (isTeams() && teamOfShot(o) !== undefined && teamOfShot(o) === teamOfShot(s)) continue;   // a teammate's shot passes it
         if (segHit(o, s.x, s.y, 24)) { s.life = 0; if (o.kind !== K.RAIL) o.life = 0; impact(s.x, s.y, "#ffb43c", 1.6); explode(s.x, s.y, 40, 300); sfx("boom_small", 0.8, 1.2, s.x, s.y); break; }
       }
       if (s.life <= 0) continue;   // shot down: it blows up (splash) at the start of next frame
@@ -3650,7 +3683,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       } else if (Math.random() < dt * 40) puff(s.x, s.y, -s.vx * 0.08 + (Math.random() - .5) * 60, -s.vy * 0.08 + (Math.random() - .5) * 60, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 2, FIRE_COLS[(Math.random() * 4) | 0]);
       // enemy fireball hits me (I decide, then report the shot id)
       const armed = s.kind !== K.MINE || SHOTS[K.MINE].life - s.life >= MINE_ARM;
-      if (armed && canHurt(s, me, "me", s.kind === K.MINE) && segHit(s, me.x, me.y, 12 + 26 * sizeOf(me.lv) + SHOTS[s.kind].r) && (s.kind !== K.RAIL || railOnce(s, "me"))) {
+      if (armed && canHurt(s, me, "me", s.kind === K.MINE) && segHit(s, me.x, me.y, binR(me.lv) + SHOTS[s.kind].r) && (s.kind !== K.RAIL || railOnce(s, "me"))) {
         if (s.kind !== K.RAIL) s.life = 0;
         s.direct = "me";   // its blast (if any) spares me: I took the direct hit
         shotBurst(s);
@@ -3661,13 +3694,13 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       // someone else's bolt hitting a third pilot can still jump to me or my bots
       if (s.kind === K.BOLT && !s.mine && !s.chained && s.life > 0) for (const [rid, r] of remotes) {
         if (r.inv || botById.has(rid) || !canHurt(s, r, rid)) continue;
-        if (segHit(s, r.x, r.y, 16 + 26 * sizeOf(r.lv || 1))) { s.life = 0; boltChain(s, r.x, r.y, rid, now); break; }
+        if (segHit(s, r.x, r.y, binR(r.lv))) { s.life = 0; boltChain(s, r.x, r.y, rid, now); break; }
       }
       // my fireball reaches another bin: fizzle here, they confirm the hit
       if (s.mine && s.life > 0) for (const [rid, r] of remotes) {
         if (botById.has(rid)) continue;
         if (r.inv || !canHurt(s, r, rid)) continue;
-        if (armed && segHit(s, r.x, r.y, 16 + 26 * sizeOf(r.lv || 1) + SHOTS[s.kind].r)) {
+        if (armed && segHit(s, r.x, r.y, binR(r.lv) + SHOTS[s.kind].r)) {
           if (s.kind === K.RAIL) { if (railOnce(s, rid)) { shotBurst(s); hitConfirm(s, r.lv, r.x, r.y, r); } continue; }
           s.life = 0; shotBurst(s); hitConfirm(s, r.lv, r.x, r.y, r); if (s.kind === K.BOLT) boltChain(s, r.x, r.y, rid, now); break;
         }
@@ -3851,7 +3884,6 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
         }
       }
     }
-    if (grabbed.size > 600) { const keep = [...grabbed].slice(-300); grabbed.clear(); keep.forEach(k => grabbed.add(k)); }
   }
   // particles, wreckage, fragments, flashes, rings, floating text
   function updateFx(dt, now) {
@@ -3954,7 +3986,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
         q: ++sendSeq, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),
         vx: Math.round(me.vx), vy: Math.round(me.vy), a: +me.a.toFixed(2),
         t: me.thrust > 0.3 ? 1 : 0, b: me.boostFx, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0, ds: me.dead ? me.ds : 0,
-        dk: me.dead ? me.dk : 0, da: me.dead ? +me.da.toFixed(2) : 0
+        dk: me.dead ? me.dk : 0, da: me.dead ? +me.da.toFixed(2) : 0, tm: me.tm ?? -1   // the team rides every message: shots need it
       };
       const slow = {
         tm: me.tm ?? -1, fc: me.fc ?? -1, cp: [stats.round, me.caps || 0],
@@ -4008,7 +4040,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     return rows;
   }
   const esc = t => String(t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-  const acc = r => r.shots ? Math.round(r.hits / r.shots * 100) : 0;
+  const acc = r => r.shots ? Math.min(100, Math.round(r.hits / r.shots * 100)) : 0;
   function teamWinLine() {
     if (!isTeams()) return "";
     const t = teamTotals(), flags = MODES[MODE].flags, sc = i => flags ? t.c[i] + " flags, " + t.k[i] + " kills" : t.k[i] + " kills";
@@ -4067,6 +4099,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0;
       if (shownRound !== -1) { myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode); }   // every crater filled in again
       firstBlood = false; streaks.clear(); multi = 0;
+      credited.clear(); botCredited.clear(); killSeen.clear(); ufoHits.clear();   // ids of the last round can't come back
       shownRound = rd.idx;
       document.getElementById("results").hidden = true;
     }
@@ -4320,7 +4353,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       g.globalAlpha = 0.9; g.drawImage(dotSprite("#bfefff"), x - 28, y - 28, 56, 56); g.globalAlpha = 1;   // where it lands
       g.drawImage(dotSprite("#d8f6ff"), x0 - 18, y0 - 18, 36, 36);   // and at the gun
       for (let f = 0; f < (lowQ ? 1 : 3); f++) {   // forks splitting off the main bolt
-        let [fx, fy] = pts[2 + ((Math.random() * 6) | 0)], a = Math.atan2(ny, nx) + (Math.random() < 0.5 ? 1 : -1) * (0.4 + Math.random() * 0.6);
+        let [fx, fy] = pts[1 + ((Math.random() * (pts.length - 2)) | 0)], a = Math.atan2(ny, nx) + (Math.random() < 0.5 ? 1 : -1) * (0.4 + Math.random() * 0.6);
         const fork = [[fx, fy]];
         for (let k = 0; k < 3; k++) { a += (Math.random() - 0.5) * 0.9; const st = 14 + Math.random() * 18; fx += Math.cos(a) * st; fy += Math.sin(a) * st; fork.push([fx, fy]); }
         for (const [w, c] of [[4, "rgba(120,200,255,0.3)"], [1.2, "rgba(220,248,255,0.9)"]]) {
@@ -5591,7 +5624,15 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   }
   // one frame, back to front. Everything inside the save/restore moves with the camera shake
   function draw(now) {
+    // every frame starts from a clean canvas state: if some effect throws mid-frame, that frame is lost,
+    // not the look of every frame after it (a left-over "lighter" mode once washed the whole screen white)
+    applyView(); g.globalCompositeOperation = "source-over"; g.globalAlpha = 1; g.setLineDash([]);
     g.save();
+    try { drawWorld(now); g.restore(); }
+    catch (e) { if (g.reset) g.reset(); else g.restore(); applyView(); throw e; }   // a frame that failed half-way leaves nothing behind
+    drawScreenFx(now);
+  }
+  function drawWorld(now) {
     if (shake > 0) g.translate((Math.random() - .5) * shake * 40, (Math.random() - .5) * shake * 40);
     g.translate(-camKick.x, -camKick.y);
     drawSky(now);
@@ -5608,8 +5649,6 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     drawFlags(now);
     drawBlastFx(now);
     drawFloaters(now);
-    g.restore();
-    drawScreenFx(now);
   }
 
   // edge arrow toward an off-screen flyer
@@ -5626,6 +5665,14 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // ---------- loop ----------
   let last = performance.now(), frameAvg = 1 / 60;
   const world = { sparks: [], rocks: [], picks: [], nuke: null, amp: null, supplies: [] };   // shared-clock objects, computed once per frame
+  // once a second, also in a background tab: the network keeps adding effects and ids there while no frame runs
+  setInterval(() => {
+    const t = performance.now(), cap = (list, n) => { if (list.length > n) list.splice(0, list.length - n); };
+    cap(parts, MAX_PARTS); cap(impacts, 120); cap(rings, 80); cap(floaters, 60); cap(arcs, 40); cap(beams, 12);
+    for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k);
+    grabbed.prune(120000);
+    while (myDrops.length && Date.now() - myDrops[0][4] > DROP_LIFE) myDrops.shift();
+  }, 1000);
   let resCheckAt = 0;
   function frame(now) {
     requestAnimationFrame(frame);

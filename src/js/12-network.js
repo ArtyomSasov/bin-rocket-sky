@@ -18,10 +18,11 @@
   // the lobby browser (standalone hosting only)
   const LOBBY_BROKER = "wss://broker.hivemq.com:8884/mqtt", LOBBY_TOPIC = "binrocket-sky/v1/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
+  let lobbyRenderPending = false;
   function renderLobbies() {
     const el = document.getElementById("lobbyList"), now = Date.now();
     for (const [c, l] of openLobbies) if (now - l.at > LOBBY_TTL) openLobbies.delete(c);
-    const list = [...openLobbies].sort((a, b) => b[1].n - a[1].n);
+    const list = [...openLobbies].sort((a, b) => b[1].n - a[1].n).slice(0, 20);
     document.getElementById("tabJoin").textContent = list.length ? `Join a game (${list.length})` : "Join a friend";
     if (!el) return;
     el.replaceChildren(...list.map(([c, l]) => {
@@ -136,7 +137,12 @@
     }
     showScore();
   }
-  function removeRemote(id) { remotes.delete(id); }
+  const botsOf = new Map();   // host id -> the ids of the bots it flies
+  function removeRemote(id) {
+    remotes.delete(id);
+    for (const b of botsOf.get(id) || []) remotes.delete(b);
+    botsOf.delete(id);
+  }
 
   async function initNet() {
     if (window.claude && typeof window.claude.use === "function") {
@@ -170,8 +176,9 @@
       if (payload.length > 300) return;
       let p; try { p = JSON.parse(payload.toString()); } catch { return; }
       if (!p || typeof p.c !== "string" || !/^[a-z0-9]{4,10}$/.test(p.c) || !Number.isInteger(p.n) || p.n < 1 || p.n > 64) return;
+      if (!openLobbies.has(p.c) && openLobbies.size >= 60) return;   // the topic is public: keep the list bounded
       openLobbies.set(p.c, { n: p.n, b: Number.isInteger(p.b) ? clamp(p.b, 0, 64) : 0, at: Date.now() });
-      renderLobbies();
+      if (!lobbyRenderPending) { lobbyRenderPending = true; setTimeout(() => { lobbyRenderPending = false; renderLobbies(); }, 500); }
     });
 
     const code = await lobbyChosen;          // picked on the start screen
@@ -215,8 +222,12 @@
         if (kind !== "s" || payload.length > 16384) return;
         let p; try { p = JSON.parse(payload.toString()); } catch { return; }
         applyRemote(id, p);
-        if (Array.isArray(p.bots)) for (const e of p.bots.slice(0, 8)) {
-          if (Array.isArray(e) && typeof e[0] === "string" && /^pb[a-z0-9]{1,10}$/.test(e[0]) && !botById.has(e[0])) applyRemote(e[0], e[1]);
+        if (Array.isArray(p.bots)) {
+          const ids = [];
+          for (const e of p.bots.slice(0, 8)) {
+            if (Array.isArray(e) && typeof e[0] === "string" && /^pb[a-z0-9]{1,10}$/.test(e[0]) && !botById.has(e[0])) { applyRemote(e[0], e[1]); ids.push(e[0]); }
+          }
+          botsOf.set(id, ids);
         }
       });
       return c;

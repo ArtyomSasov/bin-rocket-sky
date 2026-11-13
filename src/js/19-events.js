@@ -638,7 +638,15 @@
   }
   // one frame, back to front. Everything inside the save/restore moves with the camera shake
   function draw(now) {
+    // every frame starts from a clean canvas state: if some effect throws mid-frame, that frame is lost,
+    // not the look of every frame after it (a left-over "lighter" mode once washed the whole screen white)
+    applyView(); g.globalCompositeOperation = "source-over"; g.globalAlpha = 1; g.setLineDash([]);
     g.save();
+    try { drawWorld(now); g.restore(); }
+    catch (e) { if (g.reset) g.reset(); else g.restore(); applyView(); throw e; }   // a frame that failed half-way leaves nothing behind
+    drawScreenFx(now);
+  }
+  function drawWorld(now) {
     if (shake > 0) g.translate((Math.random() - .5) * shake * 40, (Math.random() - .5) * shake * 40);
     g.translate(-camKick.x, -camKick.y);
     drawSky(now);
@@ -655,8 +663,6 @@
     drawFlags(now);
     drawBlastFx(now);
     drawFloaters(now);
-    g.restore();
-    drawScreenFx(now);
   }
 
   // edge arrow toward an off-screen flyer
