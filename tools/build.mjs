@@ -3,6 +3,7 @@
 //   node tools/build.mjs                 -> index.html (what GitHub Pages serves)
 //   node tools/build.mjs --body out.html -> the same page without <!doctype>/<html>/<head> wrappers
 //                                           (the form a claude.ai artifact is published from)
+//   node tools/build.mjs --debug out.html -> a full page with test hooks on window.__t (for tools/smoke.js)
 //
 // The game ships as a single HTML file so it can be hosted anywhere (and published as an artifact) with
 // only sfx/ and bot.png next to it. The source lives in src/:
@@ -31,7 +32,16 @@ const body = template
   .replace("<!-- @script -->\n", () => script);
 
 const args = process.argv.slice(2);
-if (args[0] === "--body") {
+// test hooks: read-only views of the game's state for tools/smoke.js (never in the published page)
+const HOOK = '  window.__t = { me, deathFx: (...a) => deathFx(...a), hurt: (...a) => hurt(...a), get bodies() { return bodies; }, get bots() { return bots; }, ' +
+  'get shots() { return shots; }, get mode() { return MODE; }, get bases() { return bases; }, get flagCarrier() { return flagCarrier; } };\n';
+if (args[0] === "--debug") {
+  if (!args[1]) throw new Error("usage: node tools/build.mjs --debug <out.html>");
+  const mark = '  buildPlanets("lobby");\n';
+  if (body.split(mark).length !== 2) throw new Error("debug hook anchor not found");
+  writeFileSync(args[1], "<!doctype html>\n<html><head><meta charset=utf-8></head><body>\n" + body.replace(mark, mark + HOOK) + "</body></html>\n");
+  console.log(`wrote ${args[1]} (debug hooks)`);
+} else if (args[0] === "--body") {
   if (!args[1]) throw new Error("usage: node tools/build.mjs --body <out.html>");
   writeFileSync(args[1], body);
   console.log(`wrote ${args[1]} (${parts.length} script sections)`);

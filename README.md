@@ -106,7 +106,7 @@ numeric prefixes set the order they run in.
 
 ### Checking a change
 
-Build, open the page, and in the browser console load `tools/smoke.js` (see the comment at its top): it
+Run `node tools/build.mjs --debug test.html`, serve it next to `sfx/`, and load `tools/smoke.js` in that page (see the comment at its top): it
 fires every gun and alt fire, plays every death effect, runs bots and a CTF capture, and reports frame
 times and errors.
 
