@@ -75,7 +75,7 @@
       cv.setPointerCapture(e.pointerId);
       return;
     }
-    if (e.button === 2) { altFiring = true; return; }   // right button: alternate fire
+    if (e.button === 2) return;   // the right button is alternate fire (see below), it doesn't steer
     ptr.down = true; ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; cv.setPointerCapture(e.pointerId);
   });
   cv.addEventListener("pointermove", e => {
@@ -93,8 +93,11 @@
     }
     ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom;
   });
-  const up = e => { if (e.pointerId === joy.id) joyEnd(); else if (e.button === 2) altFiring = false; else ptr.down = false; };
-  addEventListener("pointerup", e => { if (e.button === 2) altFiring = false; });
+  const up = e => { if (e.pointerId === joy.id) joyEnd(); else if (e.button !== 2) ptr.down = false; };
+  // right mouse button = alternate fire. Pressing or releasing a second button while another is held only sends
+  // pointermove, so the buttons mask is read on every mouse event
+  const syncAlt = e => { if (e.pointerType === "mouse") altFiring = (e.buttons & 2) !== 0; };
+  for (const ev of ["pointerdown", "pointermove", "pointerup"]) addEventListener(ev, syncAlt);
   const altBtn = document.getElementById("altBtn");
   altBtn.addEventListener("pointerdown", e => { e.preventDefault(); altFiring = true; altBtn.setPointerCapture(e.pointerId); });
   for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) altBtn.addEventListener(ev, () => { altFiring = false; });

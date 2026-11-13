@@ -20,7 +20,7 @@
     // landmarks: the Milky Way, far galaxies, nebulae and gas giants, each at its own spot, sliding by with parallax
     for (const L of sky) {
       if (lowQ && L.img === NEB_ART[2]) continue;
-      const x = vw / 2 + (L.x - me.x) * L.par, y = vh / 2 + (L.y - me.y) * L.par, half = Math.max(L.img.width, L.img.height) * L.sc / 2;
+      const x = vw / 2 + (L.x - me.x) * L.par, y = vh / 2 + (L.y - me.y) * L.par, half = Math.hypot(L.img.width, L.img.height) * L.sc / 2;
       if (!onScreen(x, y, half)) continue;
       g.globalCompositeOperation = L.glow ? "lighter" : "source-over"; g.globalAlpha = L.a;
       g.save(); g.translate(x, y); g.rotate(L.rot + (L.spin || 0) * t); g.scale(L.sc, L.sc);

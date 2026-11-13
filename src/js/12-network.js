@@ -141,6 +141,7 @@
     setMapSize(mapOf(code));
     buildPlanets(code);
     setMode(modeOf(code));
+    setTimeout(settleTeam, 2500);   // by then everyone's team has come in over the network
     Object.assign(me, spawnPoint(me.tm));
     for (const b of bots) Object.assign(b, spawnPoint(b.tm));
     history.replaceState(null, "", "#" + code);

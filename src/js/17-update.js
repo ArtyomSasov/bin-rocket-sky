@@ -201,7 +201,7 @@
       }
       // someone else's bolt hitting a third pilot can still jump to me or my bots
       if (s.kind === 8 && !s.mine && !s.chained && s.life > 0) for (const [rid, r] of remotes) {
-        if (rid === s.owner || r.dead || botById.has(rid)) continue;
+        if (rid === s.owner || r.dead || r.inv || botById.has(rid) || friendly(s, r.tm)) continue;
         if (segHit(s, r.x, r.y, 16 + 26 * sizeOf(r.lv || 1))) { s.life = 0; boltChain(s, r.x, r.y, rid, now); break; }
       }
       // my fireball reaches another bin: fizzle here, they confirm the hit
