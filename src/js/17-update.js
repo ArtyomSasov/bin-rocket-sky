@@ -497,6 +497,7 @@
     for (let i = beams.length - 1; i >= 0; i--) { beams[i].t += dt; if (beams[i].t > BEAM_T) beams.splice(i, 1); }
     for (let i = arcs.length - 1; i >= 0; i--) { arcs[i].t += dt; if (arcs[i].t > 0.3) arcs.splice(i, 1); }
     for (let i = rings.length - 1; i >= 0; i--) { rings[i].t += dt; if (rings[i].t > (rings[i].dur || 0.6)) rings.splice(i, 1); }
+    waveTick(dt);
     for (let i = booms.length - 1; i >= 0; i--) { booms[i].t += dt; if (booms[i].t > BOOM_LIFE) booms.splice(i, 1); }
     flash = Math.max(0, flash - dt * 1.4);
     for (let i = floaters.length - 1; i >= 0; i--) { floaters[i].t += dt; if (floaters[i].t > 1) floaters.splice(i, 1); }

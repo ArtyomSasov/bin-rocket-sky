@@ -133,7 +133,9 @@
   const BOOM_LIFE = 4;
   // big-bomb crates, each on its own cycle: period (s), share of cycles it turns up in, and for how much of the cycle
   const BOMB_CRATES = { nuke: { key: "N", period: 70, seed: 71, chance: 0.65, stay: 0.6 }, holy: { key: "H", period: 50, seed: 74, chance: 0.85, stay: 0.7 } };
-  const BOMBS = { [K.NUKE]: { R: 1100, kill: 620, carve: 420 }, [K.HOLY]: { R: 1600, kill: 950, carve: 560, sing: 2.1, holy: true } };
+  // wave: [reach, seconds to get there, push at the centre] of the blast wave that flings everything outward
+  const BOMBS = { [K.NUKE]: { R: 1100, kill: 620, carve: 420, wave: [2100, 1.1, 2400] },
+                  [K.HOLY]: { R: 2600, kill: 1800, carve: 700, wave: [4400, 1.6, 3400], sing: 2.1, holy: true, wipe: true } };   // wipe: bodies inside kill are erased whole
   const bombDmg = (bm, d) => d < bm.kill ? 99 : 1.5 + 2.5 * (1 - (d - bm.kill) / (bm.R - bm.kill));
   // weapon icons (24x24 SVG path data, even-odd fill): used on crates (canvas) and in the HUD (SVG)
   const ICONS = {

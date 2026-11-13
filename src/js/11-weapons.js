@@ -377,19 +377,66 @@
       puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.8, 2 + Math.random() * 2, Math.random() < 0.5 ? "#fff3b0" : "#ffffff");
     }
   }
+  // the blast wave: a ring racing out from a big bomb (eased like its drawn ring), flinging whatever it sweeps over
+  // outward as it passes: pilots, bots, rubble, wreckage, sparks, shots; the bomber's browser also shares the push on
+  // the junk rocks. You feel it (shake, thump) when it reaches you, not at the flash
+  const waves = [];
+  function waveTick(dt) {
+    for (let i = waves.length - 1; i >= 0; i--) {
+      const w = waves[i], r0 = w.r;
+      w.t += dt;
+      const k = Math.min(1, w.t / w.dur);
+      w.r = w.max * (1 - (1 - k) * (1 - k));
+      const swept = (o, id = o) => {   // each thing is pushed once, even if it flies out ahead of the front and gets caught again
+        if (w.hit.has(id)) return -1;
+        const d = Math.hypot(o.x - w.x, o.y - w.y);
+        if (d < r0 || d >= w.r) return -1;
+        w.hit.add(id); return d;
+      };
+      const push = (o, d, mass) => { const f = w.power * Math.pow(1 - d / w.max, 0.6) / mass; o.vx += (o.x - w.x) / (d || 1) * f; o.vy += (o.y - w.y) / (d || 1) * f; };
+      let d;
+      if (playing && !me.dead && (d = swept(me)) >= 0) {
+        push(me, d, 1);
+        const near = 1 - d / w.max;
+        shake = Math.max(shake, 0.3 + 1.3 * near);
+        camKick.x += (me.x - w.x) / (d || 1) * 40 * near; camKick.y += (me.y - w.y) / (d || 1) * 40 * near;
+        sfx("boom_low", 0.3 + 0.7 * near, w.holy ? 0.9 : 1.2) || boomSound(1.2, 300, 0.4 * near + 0.1);
+      }
+      for (const b of bots) if (!b.dead && (d = swept(b)) >= 0) push(b, d, 1);
+      for (const b of rubble) if ((d = swept(b)) >= 0) push(b, d, Math.max(1, Math.sqrt(b.mass / 200)));
+      for (const list of [hulks, frags, debris]) for (const o of list) if ((d = swept(o)) >= 0) push(o, d, 1);
+      for (const o of parts) if ((d = swept(o)) >= 0) push(o, d, 2.5);
+      for (const o of shots) if (!BOMBS[o.kind] && (d = swept(o)) >= 0) push(o, d, 3);
+      if (w.mine) for (const r of world.rocks) if (!grabbed.has(r.key) && (d = swept(r, r.key)) >= 0) {
+        push(r, d, Math.max(1, (r.r / 30) ** 2));
+        r.vx = clamp(r.vx, -4000, 4000); r.vy = clamp(r.vy, -4000, 4000);
+        rockMotion.set(r.slot, { slot: r.slot, gen: r.gen, at: clockNow(), x: r.x, y: r.y, vx: r.vx, vy: r.vy, by: myTag });
+      }
+      // a wall of dust riding the front
+      for (let j = 0, n = (lowQ ? 5 : 14) * (1 - k); j < n; j++) {
+        const a = Math.random() * 6.283, px = w.x + Math.cos(a) * w.r, py = w.y + Math.sin(a) * w.r, v = w.max / w.dur * 0.5 * (1 - k);
+        if (px > -100 && px < W + 100 && py > -100 && py < H + 100) puff(px, py, Math.cos(a) * v, Math.sin(a) * v, 0.6, 5 + Math.random() * 6, w.holy ? "#fff3c8" : "#ffc68a", 1);
+      }
+      if (k >= 1) waves.splice(i, 1);
+    }
+  }
   function detonate(s, now) {
     if (s.boom) return;
     s.boom = true; s.life = 0;
     const bm = BOMBS[s.kind], R = bm.R, holy = !!bm.holy;
     const x = clamp(s.x, 0, W), y = clamp(s.y, 0, H), d = Math.hypot(me.x - x, me.y - y);
     const q = lowQ ? 0.35 : 1, far = R * 2.4;
-    shove(x, y, R * 1.4, holy ? 2000 : 1600);
-    for (const b of [...bodies]) {   // a big bomb scoops a huge crater out of anything nearby
-      if (Math.hypot(b.x - x, b.y - y) - b.r < R * 0.5 && (s.mine || b.free)) carveAt(b, x, y, bm.carve, s.mine);
+    const [wr, wdur, wpow] = bm.wave;
+    waves.push({ x, y, t: 0, r: 0, max: wr, dur: wdur, power: wpow, mine: s.mine, holy, hit: new Set() });   // hit: what it has pushed (objects, or keys for the junk rocks, rebuilt every frame)
+    for (const b of [...bodies]) {   // a big bomb scoops a huge crater out of anything nearby (the holy one erases it)
+      if (!s.mine && !b.free) continue;
+      const bd = Math.hypot(b.x - x, b.y - y);
+      if (bm.wipe && bd - b.r < bm.kill) carveAt(b, b.x, b.y, bm.carve, s.mine);
+      else if (bd - b.r < R * 0.5) carveAt(b, x, y, bm.carve, s.mine);
     }
     booms.push({ x, y, t: 0, seed: Math.random() * 100, R, holy });
     // three shock waves: a fast bright one, a heavy one, and a faint far one, all bending the view
-    rings.push({ x, y, t: 0, r: R * 1.25, col: "255,250,230", warp: true, dur: 0.9, w: 26 });
+    rings.push({ x, y, t: 0, r: wr, col: "255,250,230", warp: true, dur: wdur, w: 46 });   // the blast wave itself
     rings.push({ x, y, t: -0.12, r: R * 0.95, col: holy ? "255,236,160" : "255,190,110", warp: true, dur: 1.2, w: 34 });
     rings.push({ x, y, t: -0.3, r: R * 1.8, col: "255,220,180", dur: 1.6, w: 14 });
     explode(x, y, Math.round(140 * q), 1300);
@@ -404,14 +451,11 @@
     if (d < far) { shake = Math.max(shake, (holy ? 1.8 : 1.4) * (1 - d / far)); flash = Math.max(flash, d < R * 1.6 ? 1 : 1 - (d - R * 1.6) / (far - R * 1.6)); }
     blip(30, 2.2, "sawtooth"); blip(55, 1.6, "square"); blip(90, 1.0, "sawtooth");
     if (canHurt(s, me, "me", true) && d < R) {   // your own bomb too: get clear of it
-      const push = 1500 * (1 - d / R) + 400;
-      me.vx += (me.x - x) / (d || 1) * push; me.vy += (me.y - y) / (d || 1) * push;
       hurtMe(s, now, bombDmg(bm, d), s.kind, 0, d < bm.kill);
     }
     for (const b of bots) {
       const bd = Math.hypot(b.x - x, b.y - y);
       if (bd > R || !canHurt(s, b, b.id, true)) continue;
-      b.vx += (b.x - x) / (bd || 1) * 1200; b.vy += (b.y - y) / (bd || 1) * 1200;
       botHurt(b, bd < bm.kill ? 99 : bombDmg(bm, bd) * selfMul(s, b.id), s.id, now, bd < bm.kill);
     }
     if (!s.mine) return;
