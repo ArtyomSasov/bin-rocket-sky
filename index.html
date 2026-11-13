@@ -3155,10 +3155,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (left === ampShown) return;
     ampShown = left; ampChip.hidden = !left; ampChip.textContent = "OVERDRIVE x3 · " + left + "s";
   }
-  function update(dt, now) {
-    ampHud(now);
-    const kd = Math.exp(-14 * dt); camKick.x *= kd; camKick.y *= kd;
-    hurtFlash = Math.max(0, hurtFlash - dt * 2.2);
+  // controls: respawn when due, fire, read the stick / keys / mouse, boost energy
+  function steerAndShoot(dt, now) {
     // input → acceleration
     let ix = 0, iy = 0;
     const shiftHeld = keys.has("ShiftLeft") || keys.has("ShiftRight");
@@ -3192,6 +3190,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     me.boostFx = now - me.dashAt < 350 ? 2 : boost ? 1 : 0;
     if (boost) { energy = Math.max(0, energy - 20 * dt); energyRegenAt = now + 700; }   // a full bar is ~5 s of boost
     else if (now > energyRegenAt) energy = Math.min(100, energy + 22 * dt);
+    return { im, boost };
+  }
+  // my flight: thrust with inertia, gravity, bumping off bodies and the fence, facing, exhaust
+  function flyMe(dt, now, im, boost) {
     // inertia: thrust pushes the bin and it keeps its speed, coasting down only slowly. Pushing against your motion
     // fires the retro thrusters (they bite harder), X is an air brake; past top speed the excess (a hit, a blast) bleeds off
     const top = boost ? 880 : 560, acc = boost ? 1250 : 720;
@@ -3220,7 +3222,6 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     const sp = Math.hypot(me.vx, me.vy);
     if (!playing) { me.vx = Math.cos(now / 2400) * 120; me.vy = Math.sin(now / 3100) * 90 - 40; }
     if (me.dead) { me.vx = me.vy = 0; }
-    bodyTick(now, dt);
     if (!me.dead) gravityOn(me, dt);
     me.x += me.vx * dt; me.y += me.vy * dt;
     // walls: crash, lose a life, bounce back in
@@ -3260,7 +3261,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     else if (!playing && sp > 25) me.a = lerpAng(me.a, Math.atan2(me.vy, me.vx), 1 - Math.exp(-6 * dt));
     me.thrust += ((playing ? Math.min(1, im) * (boost ? 1.4 : 1) : 0.6) - me.thrust) * Math.min(1, dt * 6);
     if (!me.dead) { trailFrom(me, 0.6 + me.thrust * 1.6 + me.boostFx * 1.5, dt); if (playing) damageFx(me, dt); afterburner(me, me.boostFx, dt); }
-
+  }
+  // every shot in flight: homing, ricochets, digging into bodies, hitting me (I decide) or reaching others
+  function updateShots(dt, now) {
     // fireballs
     for (let i = shots.length - 1; i >= 0; i--) {
       const s = shots[i];
@@ -3363,7 +3366,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       }
     }
     while (myShotLog.length && now - myShotLog[0].at > 700) myShotLog.shift();
-
+  }
+  // space junk: shot apart for points, or crashed into
+  function updateJunk(dt, now) {
     // space junk
     for (let i = 0; i < ROCKS; i++) {
       const k = world.rocks[i];
@@ -3388,12 +3393,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         hurt(now, 0.5);
       }
     }
-
-    updateEvents(dt, now);
-
-    updateBots(dt, now);
-    ctfTick(now);
-
+  }
+  // the shared clock and the other pilots: extrapolated and eased toward their reported spots
+  function updateRemotes(dt, now) {
     // shared clock: drift smoothly toward the average offset
     let offSum = 0, offN = 1;
     for (const r of remotes.values()) if (Number.isFinite(r.off)) { offSum += r.off; offN++; }
@@ -3430,7 +3432,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
         }
       }
     }
-
+  }
+  // sparks, spilled stars, medkits and shields, Overdrive and weapon crates
+  function updatePickups(dt, now) {
     // sparks
     if (playing && !me.dead) {
       for (let i = 0; i < SLOTS; i++) {
@@ -3511,7 +3515,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       }
     }
     if (grabbed.size > 600) { const keep = [...grabbed].slice(-300); grabbed.clear(); keep.forEach(k => grabbed.add(k)); }
-
+  }
+  // particles, wreckage, fragments, flashes, rings, nuke aftershocks, floating text
+  function updateFx(dt, now) {
     // flying through smoke and sparks shoves them aside (faster = harder)
     const meSp = Math.hypot(me.vx, me.vy), pushR = 46 * sizeOf(me.lv), pushR2 = pushR * pushR, canPush = playing && !me.dead && meSp > 60;
     for (let i = parts.length - 1; i >= 0; i--) {
@@ -3610,7 +3616,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
     flash = Math.max(0, flash - dt * 1.4);
     for (let i = floaters.length - 1; i >= 0; i--) { floaters[i].t += dt; if (floaters[i].t > 1) floaters.splice(i, 1); }
-
+  }
+  // my state (and my bots') out to everyone, at the transport's rate; the scoreboard twice a second
+  function netSend(dt, now) {
     sendAcc += dt; slowAcc += dt;
     if (playing && sendAcc >= 1 / net.hz) {
       sendAcc = 0;
@@ -3640,6 +3648,25 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
     boardAcc += dt;
     if (boardAcc > 0.5) { boardAcc = 0; renderBoard(); renderFeed(); }
+  }
+  // one simulation step. The order matters: controls, then the world moves, then shots resolve against where
+  // everything is now, then the rest reacts, and last what happened goes out over the network
+  function update(dt, now) {
+    ampHud(now);
+    const kd = Math.exp(-14 * dt); camKick.x *= kd; camKick.y *= kd;
+    hurtFlash = Math.max(0, hurtFlash - dt * 2.2);
+    const { im, boost } = steerAndShoot(dt, now);
+    bodyTick(now, dt);
+    flyMe(dt, now, im, boost);
+    updateShots(dt, now);
+    updateJunk(dt, now);
+    updateEvents(dt, now);
+    updateBots(dt, now);
+    ctfTick(now);
+    updateRemotes(dt, now);
+    updatePickups(dt, now);
+    updateFx(dt, now);
+    netSend(dt, now);
   }
 
   const boardEl = document.getElementById("board");
