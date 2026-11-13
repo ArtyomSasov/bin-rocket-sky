@@ -38,6 +38,10 @@
     world.supplies.length = MODES[MODE].noSupplies ? 0 : SUPPLY_SLOTS;
     roundTick(now);
     for (let i = 0; i < world.supplies.length; i++) world.supplies[i] = supply(i, wt);
+    // a black hole drags the junk and the pick-ups in too; what it swallows is gone (on every screen alike)
+    for (const o of [...world.sparks, ...world.rocks, ...world.picks, ...world.supplies, world.nuke, world.amp]) {
+      if (o && !(o.slot !== undefined && rockMotion.has(o.slot)) && holePull(o, wt, 0) > 0.9) grabbed.add(o.key);
+    }
     update(now < hitStopUntil ? 0 : dt, now); draw(now);
     if (!playing) drawPreview(now);
     else { drawMinimap(now); renderEnergy(); }
@@ -57,67 +61,23 @@
     const scoreChip = document.querySelector(".score");
     new ResizeObserver(() => { mm.style.top = scoreChip.getBoundingClientRect().bottom + 8 + "px"; }).observe(scoreChip);
   }
+  // the map shows only who is where: the pilots (and in CTF the pads and flags), nothing else to sort through
   function drawMinimap(now) {
     const S = mm.width, k = (S - 16) / W, o = 8;
     const P = (x, y) => [o + x * k, o + y * k];
     mctx.clearRect(0, 0, S, S);
     mctx.strokeStyle = "rgba(189,255,246,0.5)"; mctx.lineWidth = 2;
     mctx.strokeRect(o, o, W * k, H * k);
-    for (const b of bodies) {
-      if (b.free && b.mass < 60) continue;
-      const [x, y] = P(b.x, b.y), sz = Math.max(2, b.rr * k * Math.sqrt(b.mass / b.mass0));
-      mctx.fillStyle = b.planet ? `rgba(${PLANET_PAL[b.kind].glow},0.45)` : "rgba(200,190,220,0.4)";
-      if (b.wreck || b.free) mctx.fillRect(x - sz * 0.7, y - sz * 0.7, sz * 1.4, sz * 1.4);
-      else { mctx.beginPath(); mctx.arc(x, y, sz, 0, 6.29); mctx.fill(); }
-    }
     // what your screen shows
     const [vx0, vy0] = P(cam.x - vw / 2, cam.y - vh / 2);
     mctx.strokeStyle = "rgba(255,255,255,0.25)"; mctx.lineWidth = 1.5;
     mctx.strokeRect(vx0, vy0, vw * k, vh * k);
-    // weapon crates
-    const wt = clockNow();
-    world.picks.forEach((c, i) => {
-      if (!grabbed.has(c.key)) { const [x, y] = P(c.x, c.y); mctx.fillStyle = WEAPONS[c.type].col; mctx.fillRect(x - 3, y - 3, 6, 6); return; }
-      const nx = pickup(i, wt + (1 - c.age) * PICK_PERIOD * 1000 + 50), [x, y] = P(nx.x, nx.y);   // taken: show where the next one lands
-      mctx.strokeStyle = WEAPONS[nx.type].col; mctx.globalAlpha = 0.55; mctx.lineWidth = 1;
-      mctx.strokeRect(x - 2.5, y - 2.5, 5, 5);
-      mctx.lineWidth = 1.5; mctx.beginPath(); mctx.arc(x, y, 5.5, -1.57, -1.57 + c.age * 6.283); mctx.stroke();
-      mctx.globalAlpha = 1;
-    });
-    for (const c of world.supplies) {
-      if (grabbed.has(c.key)) continue;
-      const [x, y] = P(c.x, c.y), sp = SUPPLIES[c.type];
-      mctx.fillStyle = sp.col;
-      if (sp.heal) { mctx.fillRect(x - 1.5, y - 4.5, 3, 9); mctx.fillRect(x - 4.5, y - 1.5, 9, 3); }
-      else { mctx.beginPath(); mctx.arc(x, y, 3.5, 0, 6.29); mctx.fill(); }
-    }
-    if (world.amp && !grabbed.has(world.amp.key) && Math.floor(now / 250) % 2) {
-      const [x, y] = P(world.amp.x, world.amp.y);
-      mctx.fillStyle = "#c38bff"; mctx.beginPath(); mctx.moveTo(x, y - 7); mctx.lineTo(x + 5, y); mctx.lineTo(x, y + 7); mctx.lineTo(x - 5, y); mctx.closePath(); mctx.fill();
-    }
-    if (world.nuke && !grabbed.has(world.nuke.key) && Math.floor(now / 250) % 2) {
-      const [x, y] = P(world.nuke.x, world.nuke.y);
-      mctx.fillStyle = "#ffe14d"; mctx.beginPath(); mctx.moveTo(x, y - 8); mctx.lineTo(x + 7, y + 5); mctx.lineTo(x - 7, y + 5); mctx.closePath(); mctx.fill();
-    }
-    // event hazards
-    const ev = eventAt(clockNow());
-    if (ev.active && ev.type === "blackhole") {
-      const bh = blackHole(ev), [x, y] = P(bh.x, bh.y);
-      mctx.fillStyle = `rgba(195,139,255,${0.5 + 0.3 * Math.sin(now / 200)})`;
-      mctx.beginPath(); mctx.arc(x, y, 9 * bh.k + 2, 0, 6.29); mctx.fill();
-      mctx.fillStyle = "#05010c"; mctx.beginPath(); mctx.arc(x, y, 4 * bh.k, 0, 6.29); mctx.fill();
-    }
-    if (ev.active && ev.type === "aliens") for (let u = 0; u < UFO_N; u++) {
-      if (grabbed.has("e" + ev.cyc + "u" + u)) continue;
-      const p = ufoPos(ev, u, ev.et), [x, y] = P(p.x, p.y);
-      mctx.fillStyle = "#7dffb0"; mctx.beginPath(); mctx.ellipse(x, y, 6, 3, 0, 0, 6.29); mctx.fill();
-    }
     // other flyers
     for (const r of remotes.values()) {
       if (r.dead) continue;
       const [x, y] = P(r.x, r.y);
       mctx.fillStyle = isTeams() && onTeam(r) ? TEAM_HEX[r.tm] : `hsl(${r.hue} 90% 70%)`;
-      mctx.beginPath(); mctx.arc(x, y, 4 + r.lv * 0.3, 0, 6.29); mctx.fill();
+      mctx.beginPath(); mctx.arc(x, y, 4.5 + r.lv * 0.3, 0, 6.29); mctx.fill();
     }
     if (bases) for (const t of [0, 1]) {   // pads and flags
       const [bx, by] = P(bases[t].x, bases[t].y), c = flagCarrier[t], [fx, fy] = c ? P(c.o.x, c.o.y) : [bx, by];

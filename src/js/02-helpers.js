@@ -76,4 +76,30 @@
     tintCache.set(key, c);
     return c;
   }
-
+  // ---------- world event timing (shared clock; used from the first frame, by the bodies too) ----------
+  const EV_CYCLE = 45, EV_START = 10, EV_LEN = 25;
+  const EV_TYPES = ["blackhole", "meteors", "aliens", "goldrain"];
+  function eventAt(ms) {
+    const t = ms / 1000, cyc = Math.floor(t / EV_CYCLE), ph = t - cyc * EV_CYCLE;
+    return {
+      cyc, ph, et: ph - EV_START,
+      type: EV_TYPES[Math.floor(hash(cyc, 77, 1) * EV_TYPES.length)],
+      active: ph >= EV_START && ph < EV_START + EV_LEN,
+      warn: ph >= EV_START - 5 && ph < EV_START
+    };
+  }
+  const ramp = ev => Math.max(0, Math.min(1, ev.et / 2, (EV_LEN - ev.et) / 2));
+  const blackHole = ev => ({ x: 500 + hash(ev.cyc, 78, 1) * (W - 1000), y: 500 + hash(ev.cyc, 78, 2) * (H - 1000), k: ramp(ev) });
+  // the black hole's pull on everything that moves by the shared clock (planets, moons, wrecks, junk, pick-ups):
+  // a spiral toward the hole that deepens through the event and eases back over HOLE_BACK seconds after it, the
+  // same in every browser. heavy (0..1): how much it resists. Returns how far in it was dragged (0..0.97)
+  const HOLE_BACK = 8, HOLE_EAT = 70;   // HOLE_EAT: radius of the horizon that eats whatever reaches it
+  function holePull(o, t, heavy) {
+    const ev = eventAt(t);
+    if (ev.type !== "blackhole" || ev.et <= 0 || ev.et >= EV_LEN + HOLE_BACK) return 0;
+    const back = (ev.et - EV_LEN) / HOLE_BACK, g = ev.et <= EV_LEN ? (ev.et / EV_LEN) ** 1.5 : 1 - back * back * (3 - 2 * back);
+    const bh = blackHole(ev), dx = o.x - bh.x, dy = o.y - bh.y, d = Math.hypot(dx, dy);
+    const u = Math.min(0.97, g * (1 - heavy) / (1 + (d / 900) ** 2)), a = u * 2.2, c = Math.cos(a), s = Math.sin(a), k = 1 - u;
+    o.x = bh.x + (dx * c - dy * s) * k; o.y = bh.y + (dx * s + dy * c) * k;
+    return u;
+  }

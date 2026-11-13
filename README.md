@@ -102,7 +102,7 @@ src/index.html    markup; the build puts the styles and script in place of <!-- 
 src/styles.css    all styling
 src/js/           the game code, one file per section, joined in file-name order into one scope
   01-config.js         world size, levels, weapons, shot tables, modes, supplies, rounds
-  02-helpers.js        maths and colour helpers, bin recolouring
+  02-helpers.js        maths and colour helpers, bin recolouring, world event timing
   03-sky-art.js        stars, the Milky Way, galaxies, nebulae, far planets (placed per lobby)
   04-state-input.js    player state, keyboard / mouse / touch input
   05-sound.js          sound loading, mixing and synthesized fallbacks
@@ -111,16 +111,16 @@ src/js/           the game code, one file per section, joined in file-name order
   08-body-physics.js   gravity, bouncing, shots hitting bodies
   09-sparks-junk-health.js  shared pick-ups on the common clock, health bar
   10-effects.js        particles, explosions, deaths by weapon (sliced, fried, melted)
-  11-weapons.js        firing, damage, rockets, rail, lightning, combos, nukes
+  11-weapons.js        firing, damage, rockets, rail, lightning, combos, nukes and the holy bomb
   12-network.js        lobby, MQTT / Claude room transport, remote players and shots
-  13-crates.js         weapon crates, nuke and Overdrive pick-ups
+  13-crates.js         weapon crates, nuke / holy bomb and Overdrive pick-ups
   14-ctf.js            capture-the-flag rules and drawing
   15-bots.js           bots
   16-announcer.js      announcer, kill streaks
   17-update.js         the per-frame simulation (flight with inertia, hits, pick-ups)
   18-draw.js           rendering
-  19-events.js         world events: black hole, meteors, aliens, gold rain
-  20-loop-hud.js       main loop, energy bar, mini map
+  19-events.js         world events: black hole (pulls in planets, wrecks, junk and pick-ups), meteors, aliens, gold rain
+  20-loop-hud.js       main loop, energy bar, mini map (pilots only)
   21-start.js          start screen, lobby and mode pickers
 tools/build.mjs   the build
 sfx/              sound effects (see sfx/CREDITS.txt)

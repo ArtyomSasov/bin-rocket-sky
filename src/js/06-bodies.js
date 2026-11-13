@@ -288,6 +288,7 @@
         }
         p.mass0 = p.mass; p.dirty = false; p.bare = true;   // bare rock: no atmosphere
       }
+      p.hx = p.x; p.hy = p.y;   // home: where it sits when no black hole is pulling it
       planets.push(p);
       return p;
     };
@@ -340,8 +341,10 @@
       const ox = b.x, oy = b.y;
       // angles are wrapped to 0..2π: the shared clock is huge (s ~ 1.7e9), and canvas rotate() keeps angles in single
       // precision, so an unwrapped 3e7 rad drew a wreck up to a radian off from where hits were tested
-      if (b.moon) { const a = TAU_MOD(b.ph + b.dir * 6.283 * s / b.period); b.x = b.p.x + Math.cos(a) * b.orbit; b.y = b.p.y + Math.sin(a) * b.orbit; b.a = a; }
+      if (b.moon) { const a = TAU_MOD(b.ph + b.dir * 6.283 * s / b.period); b.x = b.p.hx + Math.cos(a) * b.orbit; b.y = b.p.hy + Math.sin(a) * b.orbit; b.a = a; }
       else if (b.wreck) { const o = Math.sin(s / b.T * 6.283 + b.ph) * b.A; b.x = b.bx + Math.cos(b.dirA) * o; b.y = b.by + Math.sin(b.dirA) * o; b.a = TAU_MOD(b.a0 + b.spin * s); }
+      else { b.x = b.hx; b.y = b.hy; }
+      holePull(b, t, b.moon || b.wreck ? 0.2 : 0.55);   // a black hole drags it in (planets resist more)
       if (dt > 0) { b.vx = (b.x - ox) / dt; b.vy = (b.y - oy) / dt; }
     }
   }

@@ -102,11 +102,12 @@ body {
 .gear { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; padding: 4px; border-radius: 8px; background: transparent; border: 0; box-shadow: none; color: var(--muted); cursor: pointer; }
 .gear svg { width: 100%; height: 100%; fill: currentColor; }
 .gear:hover { color: var(--ink); }
-.settings { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(4,2,14,.55); z-index: 20; }
+.settings { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px)); background: rgba(4,2,14,.55); z-index: 20; }
 .settings[hidden] { display: none; }
 .settings .card { width: min(380px, 100%); display: grid; gap: 14px; text-align: left; padding: 18px; background: var(--panel); }
 .settings h2 { margin: 0; font: 700 22px var(--display); }
-.settings .card { max-height: calc(100vh - 32px); overflow-y: auto; }
+/* dvh: the part of the screen the browser's own bars leave visible (100vh reaches under a phone's bottom bar) */
+.settings .card { max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px - env(safe-area-inset-bottom, 0px)); overflow-y: auto; }
 .settings:not(.ingame) .menu-only, .settings:not(.ingame) .menu-hint { display: none; }
 .menu-hint { margin: -8px 0 0; color: var(--muted); font-size: 12px; }
 .settings small { color: var(--muted); font-size: 12px; }
@@ -326,10 +327,10 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 .slot i { position: absolute; left: 4px; top: 2px; font: 700 9px var(--display); font-style: normal; color: var(--muted); }
 .slot.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); box-shadow: 0 0 12px color-mix(in srgb, var(--c) 45%, transparent); }
 @media (pointer: coarse) {
-  .arsenal { left: auto; transform: none; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(156px + env(safe-area-inset-bottom, 0px)); flex-wrap: wrap-reverse; justify-content: flex-end; max-width: 60vw; }
+  /* touch: one row along the very bottom, under the fire buttons, so the alt-fire button never covers it */
+  .arsenal { left: auto; transform: none; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(6px + env(safe-area-inset-bottom, 0px)); flex-wrap: nowrap; justify-content: flex-end; max-width: calc(100vw - 32px); overflow-x: auto; }
   .slot i { display: none; }
 }
-@media (pointer: coarse) and (max-width: 480px) { .arsenal { bottom: calc(196px + env(safe-area-inset-bottom, 0px)); } }
 @keyframes bob { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-8px) rotate(4deg); } }
 @media (prefers-reduced-motion: reduce) { .card img { animation: none; } }
 @media (max-width: 480px) {

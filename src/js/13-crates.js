@@ -26,5 +26,5 @@
   function nukePickup(now) {
     const t = now / 1000, gen = Math.floor(t / NUKE_PERIOD), age = t / NUKE_PERIOD - gen;
     if (hash(gen, 71, 1) > 0.65 || age > 0.6) return null;   // turns up in about 2 of 3 cycles, for ~40 s
-    return outside({ key: "N" + gen, type: "nuke", age, x: 300 + hash(gen, 72, 1) * (W - 600), y: 300 + hash(gen, 72, 2) * (H - 600) });
+    return outside({ key: "N" + gen, type: hash(gen, 73, 1) < HOLY_CHANCE ? "holy" : "nuke", age, x: 300 + hash(gen, 72, 1) * (W - 600), y: 300 + hash(gen, 72, 2) * (H - 600) });
   }

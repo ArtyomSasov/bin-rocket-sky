@@ -78,6 +78,36 @@
     src.start();
     return true;
   }
+  // the holy bomb's choir, synthesized: four sung syllables "Hal-le-lu-jah", each a D-major-ish chord of detuned
+  // saw voices through two vowel formant filters (a, e, u, a), with vibrato and the hall's echo. Heard map-wide,
+  // quieter far away
+  const CHOIR = [   // [seconds, chord in Hz, formants of the vowel]
+    [0.55, [146.8, 293.7, 370, 440], [800, 1150]],
+    [0.3, [146.8, 293.7, 370, 440], [450, 1900]],
+    [0.25, [196, 293.7, 392, 493.9], [350, 650]],
+    [1.3, [220, 293.7, 370, 587.3], [800, 1150]]
+  ];
+  function choir(x, y) {
+    if (!audio) return;
+    const vol = 0.22 * (1 - Math.min(0.7, Math.hypot(x - me.x, y - me.y) / 6000));
+    const out = audio.createGain(); out.gain.value = vol;
+    out.connect(audio.destination); out.connect(getHall());
+    let t = audio.currentTime + 0.05;
+    for (const [dur, chord, [f1, f2]] of CHOIR) {
+      const syl = audio.createGain(), end = t + dur;
+      syl.gain.setValueAtTime(0.0001, t); syl.gain.exponentialRampToValueAtTime(1, t + 0.07);
+      syl.gain.setValueAtTime(1, end - 0.08); syl.gain.exponentialRampToValueAtTime(0.0001, end + 0.12);
+      for (const f of [f1, f2]) { const bp = audio.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = f; bp.Q.value = 6; syl.connect(bp).connect(out); }
+      const lfo = audio.createOscillator(), depth = audio.createGain();
+      lfo.frequency.value = 5.2; depth.gain.value = 4;
+      lfo.connect(depth); lfo.start(t); lfo.stop(end + 0.15);
+      for (const f of chord) for (const det of [-7, 6]) {
+        const o = audio.createOscillator(); o.type = "sawtooth"; o.frequency.value = f; o.detune.value = det;
+        depth.connect(o.detune); o.connect(syl); o.start(t); o.stop(end + 0.15);
+      }
+      t = end;
+    }
+  }
   function blip(f, dur, type) {
     if (!audio) return;
     const o = audio.createOscillator(), v = audio.createGain(), t = audio.currentTime;

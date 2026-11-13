@@ -1,23 +1,11 @@
   // ---------- world events (same for everyone: computed from the shared clock) ----------
-  const EV_CYCLE = 45, EV_START = 10, EV_LEN = 25;
-  const EV_TYPES = ["blackhole", "meteors", "aliens", "goldrain"];
   const EV_INFO = {
     blackhole: { warn: "A black hole is forming", on: "BLACK HOLE · boost away from it!", col: "#c38bff" },
     meteors:   { warn: "Meteor shower incoming",  on: "METEOR SHOWER · dodge or shoot them", col: "#ff9a2e" },
     aliens:    { warn: "Alien ships detected",    on: "ALIEN ATTACK · 6 hits downs a saucer (+15)", col: "#7dffb0" },
     goldrain:  { warn: "Gold rain is coming",     on: "GOLD RAIN · grab the gold sparks!", col: "#ffd36b" }
   };
-  function eventAt(ms) {
-    const t = ms / 1000, cyc = Math.floor(t / EV_CYCLE), ph = t - cyc * EV_CYCLE;
-    return {
-      cyc, ph, et: ph - EV_START,
-      type: EV_TYPES[Math.floor(hash(cyc, 77, 1) * EV_TYPES.length)],
-      active: ph >= EV_START && ph < EV_START + EV_LEN,
-      warn: ph >= EV_START - 5 && ph < EV_START
-    };
-  }
-  const ramp = ev => Math.max(0, Math.min(1, ev.et / 2, (EV_LEN - ev.et) / 2));
-  const blackHole = ev => ({ x: 500 + hash(ev.cyc, 78, 1) * (W - 1000), y: 500 + hash(ev.cyc, 78, 2) * (H - 1000), k: ramp(ev) });
+  let holeBite = 0;
   function meteor(ev, i) {
     const t0 = hash(ev.cyc, i, 81) * 21, age = ev.et - t0;
     if (age < 0 || age > 4.5) return null;
@@ -75,6 +63,18 @@
         if (d < 60 * bh.k) { s.life = 0; continue; }
         if (d < 1500) { const acc = bh.k * 9e7 / (d * d + 1.5e4); s.vx += dx / d * acc * dt; s.vy += dy / d * acc * dt; }
       }
+      // loose rubble and flying wreckage fall in the same way
+      for (const list of [rubble, hulks, frags, debris]) for (const o of list) {
+        const dx = bh.x - o.x, dy = bh.y - o.y, d = Math.hypot(dx, dy) || 1;
+        if (d < 1500) { const acc = bh.k * 4e7 / (d * d + 1.5e4); o.vx += dx / d * acc * dt; o.vy += dy / d * acc * dt; }
+      }
+      // the horizon eats whatever reaches it: planets and wrecks lose the part that crosses it, bite by bite
+      holeBite += dt;
+      if (holeBite > 0.15) {
+        holeBite = 0;
+        const eat = HOLE_EAT * bh.k;
+        for (const b of [...bodies]) if (Math.hypot(b.x - bh.x, b.y - bh.y) - b.r < eat) carveAt(b, bh.x, bh.y, eat + 20, false);
+      }
     }
     if (!ev.active || !playing || me.dead || !roundLive) return;   // events leave you alone during the results break
     const mr = 30 * sizeOf(me.lv);
@@ -99,7 +99,7 @@
         const m = meteor(ev, i);
         if (!m || grabbed.has(m.key)) continue;
         for (const s of shots) {
-          if (!s.mine || s.life <= 0 || s.kind === K.NUKE || !segHit(s, m.x, m.y, m.r + 12)) continue;
+          if (!s.mine || s.life <= 0 || BOMBS[s.kind] || !segHit(s, m.x, m.y, m.r + 12)) continue;
           s.life = 0; grabbed.add(m.key); pushCapped(myGrabs, m.key, 40);
           impact(s.x, s.y, "#ffb43c", 1.5);
           me.score += 2; showScore();
@@ -121,7 +121,7 @@
         if (grabbed.has(key)) continue;
         const p = ufoPos(ev, u, ev.et);
         for (const s of shots) {
-          if (!s.mine || s.life <= 0 || s.kind === K.NUKE || !segHit(s, p.x, p.y, 48)) continue;
+          if (!s.mine || s.life <= 0 || BOMBS[s.kind] || !segHit(s, p.x, p.y, 48)) continue;
           s.life = 0;
           const h = (ufoHits.get(key) || 0) + shotDmg(s) / DMG_UNIT; ufoHits.set(key, h);
           impact(s.x, s.y, "#7dffb0", 1); blip(260, 0.08, "square");
@@ -398,7 +398,7 @@
     }
     if (world.nuke && !grabbed.has(world.nuke.key)) {
       const x = sx(world.nuke.x), y = sy(world.nuke.y);
-      if (onScreen(x, y, 90)) drawNukeCrate(world.nuke, x, y, now); else if (playing) drawEdgeArrow(x, y, "#ffe14d");
+      if (onScreen(x, y, 90)) drawNukeCrate(world.nuke, x, y, now); else if (playing) drawEdgeArrow(x, y, WEAPONS[world.nuke.type].col);
     }
     // sparks
     for (let i = 0; i < SLOTS; i++) {
@@ -578,11 +578,12 @@
     g.globalCompositeOperation = "source-over";
     for (const b of booms) {
       const x = sx(b.x), y = sy(b.y), T = b.t;
-      if (!onScreen(x, y, NUKE_R)) continue;
+      const R = b.R;
+      if (!onScreen(x, y, R)) continue;
       const grow = Math.min(1, T / 0.8), e = 1 - Math.pow(1 - grow, 3);
-      const fr = NUKE_R * 0.8 * e * (T > 1.6 ? 1 - (T - 1.6) / (BOOM_LIFE - 1.6) * 0.3 : 1);
+      const fr = R * 0.8 * e * (T > 1.6 ? 1 - (T - 1.6) / (BOOM_LIFE - 1.6) * 0.3 : 1);
       const heat = T < 0.3 ? 1 : Math.max(0, 1 - (T - 0.3) / (BOOM_LIFE - 0.3));
-      const cool = Math.min(1, T / 1.5);   // white -> orange -> deep red as it cools
+      const cool = b.holy ? 0 : Math.min(1, T / 1.5);   // white -> orange -> deep red as it cools (the holy one stays white-gold)
       g.globalCompositeOperation = "lighter";
       // churning edge: blobs around the rim, drifting
       for (let j = 0; j < (lowQ ? 6 : 14); j++) {
@@ -602,12 +603,21 @@
       g.fillStyle = cg; g.beginPath(); g.arc(x, y, fr, 0, 6.29); g.fill();
       // blinding first instant
       if (T < 0.4) {
-        const fl = g.createRadialGradient(x, y, 0, x, y, NUKE_R * 1.8);
+        const fl = g.createRadialGradient(x, y, 0, x, y, R * 1.8);
         fl.addColorStop(0, `rgba(255,255,255,${1 - T / 0.4})`); fl.addColorStop(0.4, `rgba(255,245,220,${0.6 * (1 - T / 0.4)})`); fl.addColorStop(1, "rgba(255,255,255,0)");
-        g.fillStyle = fl; g.beginPath(); g.arc(x, y, NUKE_R * 1.8, 0, 6.29); g.fill();
+        g.fillStyle = fl; g.beginPath(); g.arc(x, y, R * 1.8, 0, 6.29); g.fill();
+      }
+      if (b.holy && T < 3) {   // long beams of light fanning out of the holy blast
+        const a0 = b.seed, fade = T < 0.3 ? T / 0.3 : 1 - (T - 0.3) / 2.7;
+        for (let j = 0; j < (lowQ ? 6 : 12); j++) {
+          const a = a0 + j * 0.5236 + T * 0.15, len = R * (1.2 + 0.4 * Math.sin(j * 2.3 + a0)), wd = 0.05 + 0.03 * Math.sin(j * 1.7);
+          const rg = g.createRadialGradient(x, y, 0, x, y, len);
+          rg.addColorStop(0, `rgba(255,252,230,${0.55 * fade})`); rg.addColorStop(1, "rgba(255,240,180,0)");
+          g.fillStyle = rg; g.beginPath(); g.moveTo(x, y); g.arc(x, y, len, a - wd, a + wd); g.closePath(); g.fill();
+        }
       }
       if (T < 1.4) {   // a white-hot shock shell racing out ahead of the fireball
-        const k = T / 1.4, rr = NUKE_R * (0.2 + 1.1 * (1 - Math.pow(1 - k, 2)));
+        const k = T / 1.4, rr = R * (0.2 + 1.1 * (1 - Math.pow(1 - k, 2)));
         const sg = g.createRadialGradient(x, y, rr * 0.82, x, y, rr);
         sg.addColorStop(0, "rgba(255,255,255,0)"); sg.addColorStop(0.7, `rgba(255,240,200,${0.5 * (1 - k)})`); sg.addColorStop(1, "rgba(255,200,140,0)");
         g.fillStyle = sg; g.beginPath(); g.arc(x, y, rr, 0, 6.29); g.fill();

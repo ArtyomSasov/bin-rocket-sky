@@ -284,6 +284,28 @@
       g.restore();
       return;
     }
+    if (s.kind === K.HOLY) {   // a golden orb under a halo; it pulses faster and shines wider as the fuse runs out
+      const left = Math.max(0, s.life), hot = 1 - left / SHOTS[K.HOLY].life, pulse = 0.6 + 0.4 * Math.sin(now / (120 - 90 * hot));
+      g.save(); g.translate(x, y);
+      g.globalCompositeOperation = "lighter";
+      const gr = 60 + 140 * hot * pulse, gl = g.createRadialGradient(0, 0, 4, 0, 0, gr);
+      gl.addColorStop(0, `rgba(255,248,200,${0.5 + 0.4 * hot})`); gl.addColorStop(1, "rgba(255,230,140,0)");
+      g.fillStyle = gl; g.beginPath(); g.arc(0, 0, gr, 0, 6.29); g.fill();
+      for (let k = 0; k < 8; k++) {   // slow turning rays
+        const a = now / 900 + k * 0.785, len = 50 + 90 * hot;
+        g.strokeStyle = `rgba(255,245,200,${0.25 + 0.35 * hot})`; g.lineWidth = 3;
+        g.beginPath(); g.moveTo(Math.cos(a) * 16, Math.sin(a) * 16); g.lineTo(Math.cos(a) * len, Math.sin(a) * len); g.stroke();
+      }
+      g.globalCompositeOperation = "source-over";
+      const og = g.createRadialGradient(-4, -4, 2, 0, 0, 14);
+      og.addColorStop(0, "#fffbe6"); og.addColorStop(0.5, "#ffd76a"); og.addColorStop(1, "#b07a1e");
+      g.fillStyle = og; g.beginPath(); g.arc(0, 0, 14, 0, 6.29); g.fill();
+      g.strokeStyle = "#fff3b0"; g.lineWidth = 3;
+      g.beginPath(); g.ellipse(0, -22 + Math.sin(now / 200) * 2, 13, 4, 0, 0, 6.29); g.stroke();
+      g.restore();
+      g.globalCompositeOperation = "lighter";
+      return;
+    }
     if (s.kind === K.NUKE) {
       const a = Math.atan2(s.vy, s.vx), fl = 1 + Math.sin(now / 22 + s.x) * 0.25;
       g.save(); g.translate(x, y); g.rotate(a);
@@ -441,20 +463,20 @@
     g.fillStyle = "#f3e6ff"; g.beginPath(); g.moveTo(0, -24); g.lineTo(6, 0); g.lineTo(0, 24); g.lineTo(-4, 0); g.closePath(); g.fill();
     g.restore();
   }
-  function drawNukeCrate(c, x, y, now) {
-    const k = Math.min(1, c.age * 40), pulse = 0.6 + 0.4 * Math.sin(now / 180);
+  function drawNukeCrate(c, x, y, now) {   // also the holy bomb's crate: white and gold
+    const k = Math.min(1, c.age * 40), pulse = 0.6 + 0.4 * Math.sin(now / 180), col = WEAPONS[c.type].col, rgb = c.type === "holy" ? "255,243,176" : "255,225,77";
     const gl = g.createRadialGradient(x, y, 6, x, y, 90);
-    gl.addColorStop(0, `rgba(255,225,77,${0.55 * pulse})`); gl.addColorStop(1, "rgba(255,225,77,0)");
+    gl.addColorStop(0, `rgba(${rgb},${0.55 * pulse})`); gl.addColorStop(1, `rgba(${rgb},0)`);
     g.fillStyle = gl; g.beginPath(); g.arc(x, y, 90, 0, 6.29); g.fill();
     g.save(); g.translate(x, y); g.rotate(Math.sin(now / 900) * 0.15); g.scale(k * 1.35, k * 1.35);
     rrect(-20, -20, 40, 40, 9); g.save(); g.clip();
-    for (let i = -6; i < 6; i++) { g.fillStyle = i % 2 ? "#1d1630" : "#ffe14d"; g.beginPath(); g.moveTo(i * 8, -20); g.lineTo(i * 8 + 8, -20); g.lineTo(i * 8 + 48, 20); g.lineTo(i * 8 + 40, 20); g.fill(); }
+    for (let i = -6; i < 6; i++) { g.fillStyle = i % 2 ? "#1d1630" : col; g.beginPath(); g.moveTo(i * 8, -20); g.lineTo(i * 8 + 8, -20); g.lineTo(i * 8 + 48, 20); g.lineTo(i * 8 + 40, 20); g.fill(); }
     g.restore();
     g.fillStyle = "#1d1630"; rrect(-14, -14, 28, 28, 6); g.fill();
-    g.fillStyle = "#ffe14d"; g.save(); g.translate(-11, -11); g.scale(22 / 24, 22 / 24); g.fill(ICON_PATHS.nuke, "evenodd"); g.restore();
+    g.fillStyle = col; g.save(); g.translate(-11, -11); g.scale(22 / 24, 22 / 24); g.fill(ICON_PATHS[c.type], "evenodd"); g.restore();
     g.restore();
-    g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.textAlign = "center"; g.fillStyle = "#ffe14d";
-    g.fillText("NUKE", x, y + 44);
+    g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.textAlign = "center"; g.fillStyle = col;
+    g.fillText(WEAPONS[c.type].name.toUpperCase(), x, y + 44);
   }
 
   // armour that grows with level, drawn in the art's own frame (P maps art pixels of the 320px sprite)
@@ -698,6 +720,12 @@
         g.restore();
         g.fillStyle = "#1d1630"; g.beginPath(); g.moveTo(-11, -74); g.quadraticCurveTo(0, -98, 11, -74); g.fill();
         g.fillStyle = "#ffe14d"; g.save(); g.translate(-8, -46); g.scale(16 / 24, 16 / 24); g.fill(ICON_PATHS.nuke, "evenodd"); g.restore();
+      } else if (weapon === "holy") {   // the golden orb held up on a short post, halo above
+        g.fillStyle = "#3b2d5c"; rrect(-5, -26, 10, 30, 3); g.fill();
+        const og = g.createRadialGradient(-5, -44, 2, 0, -40, 17);
+        og.addColorStop(0, "#fffbe6"); og.addColorStop(0.5, "#ffd76a"); og.addColorStop(1, "#b07a1e");
+        g.fillStyle = og; g.beginPath(); g.arc(0, -40, 17, 0, 6.29); g.fill();
+        g.strokeStyle = "#fff3b0"; g.lineWidth = 4; g.beginPath(); g.ellipse(0, -68, 15, 5, 0, 0, 6.29); g.stroke();
       }
       g.restore();
     }

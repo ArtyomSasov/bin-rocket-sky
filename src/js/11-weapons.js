@@ -1,7 +1,7 @@
   // ---------- fire & damage ----------
   // shots leave from the tip of the gun drawn on the wing (left and right in turn), not from the middle of the bin
-  const mountsOf = w => w === "nuke" || w === "bolt" ? [[256, 150]] : [[50, 126], [256, 150]];   // art pixels, shared with drawMounts
-  const BARREL = { laser: 60, rocket: 50, triple: 42, nuke: 96, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48 };   // tip, in mount units
+  const mountsOf = w => w === "nuke" || w === "holy" || w === "bolt" ? [[256, 150]] : [[50, 126], [256, 150]];   // art pixels, shared with drawMounts
+  const BARREL = { laser: 60, rocket: 50, triple: 42, nuke: 96, holy: 30, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48 };   // tip, in mount units
   let gunSide = 0;
   function muzzleAt(weapon) {
     const ms = mountsOf(weapon), [mx, my] = ms[gunSide++ % ms.length];
@@ -271,7 +271,7 @@
     if ((me.arsenal[k] -= n) > 0) { renderAmmo(k); return; }
     delete me.arsenal[k];
     // out of ammo: fall back to another gun you carry (never auto-pick the nuke), else the fireball
-    me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && me.arsenal[w]) || "fire";
+    me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && w !== "holy" && me.arsenal[w]) || "fire";
     renderWeapon();
   }
   // the laser runs hot: about a second and a half of fire overheats it, then it is locked until it has cooled down a lot
@@ -379,56 +379,70 @@
     for (const k of world.rocks) if (!grabbed.has(k.key) && k.age >= 0.6 && segHit(s, k.x, k.y, k.r + 10)) return true;
     return false;
   }
-  const booms = [];   // nuke fireballs on screen
+  const booms = [];   // big-bomb fireballs on screen
   let flash = 0;
+  // the holy bomb in flight: it slows down, bounces off the fence and bodies, glows brighter as the fuse runs out
+  // and sings its choir once, a couple of seconds before it goes off
+  function holyFlight(s, dt) {
+    const k = Math.exp(-1.4 * dt); s.vx *= k; s.vy *= k;
+    if (s.x < 0 || s.x > W) { s.vx = -s.vx * 0.6; s.x = clamp(s.x, 0, W); }
+    if (s.y < 0 || s.y > H) { s.vy = -s.vy * 0.6; s.y = clamp(s.y, 0, H); }
+    if (solidAny(s.x, s.y)) { s.x = s.px; s.y = s.py; s.vx *= -0.5; s.vy *= -0.5; }
+    if (!s.sang && s.life < BOMBS[K.HOLY].sing) { s.sang = true; choir(s.x, s.y); }
+    if (Math.random() < dt * (s.sang ? 60 : 25)) {
+      const a = Math.random() * 6.28, v = 40 + Math.random() * 120;
+      puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.8, 2 + Math.random() * 2, Math.random() < 0.5 ? "#fff3b0" : "#ffffff");
+    }
+  }
   function detonate(s, now) {
     if (s.boom) return;
     s.boom = true; s.life = 0;
+    const bm = BOMBS[s.kind], R = bm.R, holy = !!bm.holy;
     const x = clamp(s.x, 0, W), y = clamp(s.y, 0, H), d = Math.hypot(me.x - x, me.y - y);
-    const q = lowQ ? 0.35 : 1;
-    shove(x, y, NUKE_R * 1.4, 1600);
-    for (const b of [...bodies]) {   // a nuke scoops a huge crater out of anything nearby
-      if (Math.hypot(b.x - x, b.y - y) - b.r < NUKE_R * 0.5 && (s.mine || b.free)) carveAt(b, x, y, 420, s.mine);
+    const q = lowQ ? 0.35 : 1, far = R * 2.4;
+    shove(x, y, R * 1.4, holy ? 2000 : 1600);
+    for (const b of [...bodies]) {   // a big bomb scoops a huge crater out of anything nearby
+      if (Math.hypot(b.x - x, b.y - y) - b.r < R * 0.5 && (s.mine || b.free)) carveAt(b, x, y, bm.carve, s.mine);
     }
-    booms.push({ x, y, t: 0, seed: Math.random() * 100 });
+    booms.push({ x, y, t: 0, seed: Math.random() * 100, R, holy });
     // three shock waves: a fast bright one, a heavy one, and a faint far one, all bending the view
-    rings.push({ x, y, t: 0, r: NUKE_R * 1.25, col: "255,250,230", warp: true, dur: 0.9, w: 26 });
-    rings.push({ x, y, t: -0.12, r: NUKE_R * 0.95, col: "255,190,110", warp: true, dur: 1.2, w: 34 });
-    rings.push({ x, y, t: -0.3, r: NUKE_R * 1.8, col: "255,220,180", dur: 1.6, w: 14 });
+    rings.push({ x, y, t: 0, r: R * 1.25, col: "255,250,230", warp: true, dur: 0.9, w: 26 });
+    rings.push({ x, y, t: -0.12, r: R * 0.95, col: holy ? "255,236,160" : "255,190,110", warp: true, dur: 1.2, w: 34 });
+    rings.push({ x, y, t: -0.3, r: R * 1.8, col: "255,220,180", dur: 1.6, w: 14 });
     explode(x, y, Math.round(140 * q), 1300);
-    if (!sfx("boom_big", 1, 0.7, x, y)) boomSound(2.6, 700, 0.6);
-    sfx("boom_low", 1, 0.6, x, y);
-    for (let k = 0; k < 120 * q; k++) {   // long glowing streaks thrown out with the blast
-      const a = Math.random() * 6.28, v = 700 + Math.random() * 1100;
-      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 1.2 + Math.random() * 1.2, 2 + Math.random() * 2, Math.random() < 0.5 ? "#ffb43c" : "#fff2c0", 1, 0.06);
+    if (!sfx("boom_big", 1, holy ? 0.8 : 1, x, y)) boomSound(2.6, 700, 0.6);
+    sfx("boom_low", 1, holy ? 0.5 : 0.6, x, y);
+    for (let k = 0; k < (holy ? 200 : 120) * q; k++) {   // long glowing streaks thrown out with the blast
+      const a = Math.random() * 6.28, v = 700 + Math.random() * (holy ? 1600 : 1100);
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 1.2 + Math.random() * 1.2, 2 + Math.random() * 2, Math.random() < 0.5 ? (holy ? "#ffe9a0" : "#ffb43c") : "#fff2c0", 1, 0.06);
     }
     smoke(x, y, Math.round(60 * q), 560, 6);
-    rings.push({ x, y, t: -0.5, r: NUKE_R * 2.4, col: "255,140,80", dur: 2.2, w: 22 });   // the slow heat wave rolling far out
-    if (d < 2600) { shake = Math.max(shake, 1.4 * (1 - d / 2600)); flash = Math.max(flash, d < NUKE_R * 1.6 ? 1 : 1 - (d - NUKE_R * 1.6) / (2600 - NUKE_R * 1.6)); }
+    rings.push({ x, y, t: -0.5, r: far, col: holy ? "255,240,190" : "255,140,80", dur: 2.2, w: 22 });   // the slow heat wave rolling far out
+    if (d < far) { shake = Math.max(shake, (holy ? 1.8 : 1.4) * (1 - d / far)); flash = Math.max(flash, d < R * 1.6 ? 1 : 1 - (d - R * 1.6) / (far - R * 1.6)); }
     blip(30, 2.2, "sawtooth"); blip(55, 1.6, "square"); blip(90, 1.0, "sawtooth");
-    if (canHurt(s, me, "me", true) && d < NUKE_R) {   // your own nuke too: get clear of it
-      const push = 1500 * (1 - d / NUKE_R) + 400;
+    if (canHurt(s, me, "me", true) && d < R) {   // your own bomb too: get clear of it
+      const push = 1500 * (1 - d / R) + 400;
       me.vx += (me.x - x) / (d || 1) * push; me.vy += (me.y - y) / (d || 1) * push;
-      hurtMe(s, now, nukeDmg(d), K.NUKE, 0, d < NUKE_KILL);
+      hurtMe(s, now, bombDmg(bm, d), s.kind, 0, d < bm.kill);
     }
     for (const b of bots) {
       const bd = Math.hypot(b.x - x, b.y - y);
-      if (bd > NUKE_R || !canHurt(s, b, b.id, true)) continue;
+      if (bd > R || !canHurt(s, b, b.id, true)) continue;
       b.vx += (b.x - x) / (bd || 1) * 1200; b.vy += (b.y - y) / (bd || 1) * 1200;
-      botHurt(b, bd < NUKE_KILL ? 99 : nukeDmg(bd) * selfMul(s, b.id), s.id, now, bd < NUKE_KILL);
+      botHurt(b, bd < bm.kill ? 99 : bombDmg(bm, bd) * selfMul(s, b.id), s.id, now, bd < bm.kill);
     }
     if (!s.mine) return;
     // the shooter wipes out everything in the blast and shares the result
     const take = (key, pts) => { grabbed.add(key); pushCapped(myGrabs, key, 40); me.score += pts; };
-    for (const k of world.rocks) if (!grabbed.has(k.key) && Math.hypot(k.x - x, k.y - y) < NUKE_R) take(k.key, 2);
+    for (const k of world.rocks) if (!grabbed.has(k.key) && Math.hypot(k.x - x, k.y - y) < R) take(k.key, 2);
     const ev = eventAt(clockNow());
     if (ev.active && ev.type === "meteors") for (let i = 0; i < 40; i++) {
       const m = meteor(ev, i);
-      if (m && !grabbed.has(m.key) && Math.hypot(m.x - x, m.y - y) < NUKE_R) take(m.key, 2);
+      if (m && !grabbed.has(m.key) && Math.hypot(m.x - x, m.y - y) < R) take(m.key, 2);
     }
     if (ev.active && ev.type === "aliens") for (let u = 0; u < UFO_N; u++) {
       const key = "e" + ev.cyc + "u" + u, p = ufoPos(ev, u, ev.et);
-      if (!grabbed.has(key) && Math.hypot(p.x - x, p.y - y) < NUKE_R) { take(key, 15); gainXp(5, now); }
+      if (!grabbed.has(key) && Math.hypot(p.x - x, p.y - y) < R) { take(key, 15); gainXp(5, now); }
     }
     showScore();
   }
