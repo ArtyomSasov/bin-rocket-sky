@@ -99,6 +99,18 @@ body {
 @keyframes ann { 0% { opacity: 0; transform: translateX(-50%) scale(2.2); } 9% { opacity: 1; transform: translateX(-50%) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-24px) scale(1); } }
 @media (max-width: 480px) { .announce b { font-size: 32px; } .announce { top: 30%; } }
 @media (prefers-reduced-motion: reduce) { .announce.show { animation-duration: 2.3s; animation-name: annFade; } @keyframes annFade { 0%, 80% { opacity: 1; } 100% { opacity: 0; } } }
+.gear { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; padding: 4px; border-radius: 8px; background: transparent; border: 0; box-shadow: none; color: var(--muted); cursor: pointer; }
+.gear svg { width: 100%; height: 100%; fill: currentColor; }
+.gear:hover { color: var(--ink); }
+.settings { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(4,2,14,.55); z-index: 20; }
+.settings[hidden] { display: none; }
+.settings .card { width: min(380px, 100%); display: grid; gap: 14px; text-align: left; padding: 18px; background: var(--panel); }
+.settings h2 { margin: 0; font: 700 22px var(--display); }
+.settings .card { max-height: calc(100vh - 32px); overflow-y: auto; }
+.settings:not(.ingame) .menu-only, .settings:not(.ingame) .menu-hint { display: none; }
+.menu-hint { margin: -8px 0 0; color: var(--muted); font-size: 12px; }
+.settings small { color: var(--muted); font-size: 12px; }
+#startGear { width: 100%; }
 .board h2 { margin: 0 0 6px; font: 600 11px/1 var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .board ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
 .board li { display: flex; justify-content: space-between; gap: 12px; white-space: nowrap; }
@@ -147,13 +159,17 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
   background: var(--panel);
 }
 #preview { width: 150px; height: 150px; }
+#startForm { width: min(980px, 100%); }
+.cols { width: 100%; display: grid; gap: 14px; grid-template-columns: 1fr; align-items: start; }
+.side { display: grid; gap: 14px; align-content: start; min-width: 0; }
+@media (min-width: 860px) { .cols { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); } }
 .tag { font-size: 13px !important; margin-top: -4px !important; }
-.pilot { width: 100%; display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: start; text-align: left;
+.pilot { width: 100%; display: grid; grid-template-columns: 170px 1fr; gap: 14px; align-items: start; text-align: left;
   border: 1px solid var(--line); border-radius: 14px; padding: 10px; background: rgba(255,255,255,.04); }
-.pilot #preview { width: 150px; height: 150px; border-radius: 12px; background: radial-gradient(circle at 50% 45%, rgba(79,214,200,.16), transparent 70%); }
+.pilot #preview { width: 170px; height: 190px; border-radius: 12px; background: radial-gradient(circle at 50% 45%, rgba(79,214,200,.16), transparent 70%); }
 .pilot-side { display: grid; gap: 8px; min-width: 0; }
 .pilot .opts { margin-top: 0; gap: 7px; }
-@media (max-width: 420px) { .pilot { grid-template-columns: 1fr; justify-items: center; } .pilot-side { width: 100%; } }
+@media (max-width: 480px) { .pilot { grid-template-columns: 1fr; justify-items: center; } .pilot-side { width: 100%; } }
 .play { width: 100%; display: grid; gap: 10px; text-align: left; }
 .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(255,255,255,.05); border: 1px solid var(--line); }
 .tabs button { font: 700 14px var(--display); padding: 8px; border-radius: 9px; background: transparent; color: var(--muted); border: 0; box-shadow: none; }
@@ -324,6 +340,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   body.playing .score > span:first-of-type, body.playing .score .wpn, body.playing .score .xpbar:not(.nrg) { display: none; }
   body.playing .board { padding: 5px 9px; font-size: 11px; min-width: 0; max-width: 42vw; opacity: .9; cursor: pointer; }
   body.playing .board h2, body.playing .board .bhead { display: none; }
+  body.playing .board { padding-right: 34px; }
   body.playing .board .round { margin: 0; font-size: 11px; }
   body.playing .board:not(.open) li:not(.me):not(.team) { display: none; }
   body.playing .board li.team { border-bottom: 0; padding-bottom: 0; }

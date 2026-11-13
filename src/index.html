@@ -14,9 +14,23 @@
 <button class="fire altbtn" id="altBtn" aria-label="Alternate fire" hidden><span id="altName">ALT</span></button>
 <button class="fire" id="fireBtn" aria-label="Fire" hidden><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg></button>
 <div class="event" id="eventBanner" hidden></div>
-<div class="board chip"><h2 id="boardTitle">Flyers</h2><div class="round" id="roundInfo">Round 1 · 5:00</div><div class="bhead"><span>Pilot</span><span>Kills · Deaths</span></div><ol id="board"></ol></div>
+<div class="board chip"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><h2 id="boardTitle">Flyers</h2><div class="round" id="roundInfo">Round 1 · 5:00</div><div class="bhead"><span>Pilot</span><span>Kills · Deaths</span></div><ol id="board"></ol></div>
 <div class="feed" id="feed" aria-live="off"></div>
 <div class="announce" id="announce"></div>
+<div class="settings" id="settings" hidden>
+  <div class="card chip" role="dialog" aria-labelledby="setTitle">
+    <h2 id="setTitle">Graphics</h2>
+    <p class="menu-hint">The game goes on while this is open.</p>
+    <div class="pick menu-only"><span>Your look</span><div class="opts" id="menuLook"></div></div>
+    <div class="pick"><span>Resolution</span><div class="segs" id="setRes" role="group" aria-label="Resolution"></div>
+      <small>Auto lowers it when the game runs slow. Pick a lower one on a big or slow screen.</small></div>
+    <div class="pick"><span>Effects</span><div class="segs" id="setFx" role="group" aria-label="Effects"></div></div>
+    <div class="pick"><span>Crosshair</span><div class="segs" id="setAim" role="group" aria-label="Crosshair"></div>
+      <div class="segs" id="setAimCol" role="group" aria-label="Crosshair colour"></div></div>
+    <button type="button" class="go" id="setDone">Back to the game</button>
+    <button type="button" class="ghost menu-only" id="setLeave">Leave to the start screen</button>
+  </div>
+</div>
 <div class="results" id="results" hidden><div class="card chip rcard" id="resultsCard"></div></div>
 <div class="status">
   <div class="chip" id="netChip"><span class="dot" id="netDot"></span><span id="netText">Connecting…</span></div>
@@ -29,14 +43,16 @@
     <h1>Bin Rocket <em>Sky</em></h1>
     <p class="tag">Space battles of flying bins: shoot, smash planets apart, win the round.</p>
 
+    <div class="cols">
     <section class="pilot" aria-label="Your pilot">
-      <canvas id="preview" width="220" height="220" aria-label="How your bin will look"></canvas>
+      <canvas id="preview" width="220" height="246" aria-label="How your bin will look"></canvas>
       <div class="pilot-side">
         <input id="nameInput" maxlength="14" autocomplete="off" placeholder="Pilot name" aria-label="Pilot name">
         <div class="opts" id="customOpts"></div>
       </div>
     </section>
 
+    <div class="side">
     <section class="play" id="lobbyBox" hidden>
       <div class="tabs" role="tablist" aria-label="Game">
         <button type="button" role="tab" id="tabNew" aria-selected="true">New game</button>
@@ -61,7 +77,10 @@
     </div>
 
     <button type="submit" class="go" id="goBtn">Take off</button>
+    </div>
+    </div>
 
+    <button type="button" class="ghost" id="startGear">Graphics settings</button>
     <section class="controls" aria-labelledby="ctrlTitle">
       <span id="ctrlTitle">Controls</span>
       <dl class="clist" id="clist"></dl>

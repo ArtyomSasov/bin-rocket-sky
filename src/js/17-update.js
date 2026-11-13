@@ -206,16 +206,13 @@
       } else if (Math.random() < dt * 40) puff(s.x, s.y, -s.vx * 0.08 + (Math.random() - .5) * 60, -s.vy * 0.08 + (Math.random() - .5) * 60, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 2, FIRE_COLS[(Math.random() * 4) | 0]);
       // enemy fireball hits me (I decide, then report the shot id)
       const armed = s.kind !== K.MINE || SHOTS[K.MINE].life - s.life >= MINE_ARM;
-      if (armed && canHurt(s, me, "me") && segHit(s, me.x, me.y, 12 + 26 * sizeOf(me.lv) + SHOTS[s.kind].r) && (s.kind !== K.RAIL || railOnce(s, "me"))) {
+      if (armed && canHurt(s, me, "me", s.kind === K.MINE) && segHit(s, me.x, me.y, 12 + 26 * sizeOf(me.lv) + SHOTS[s.kind].r) && (s.kind !== K.RAIL || railOnce(s, "me"))) {
         if (s.kind !== K.RAIL) s.life = 0;
         s.direct = "me";   // its blast (if any) spares me: I took the direct hit
         shotBurst(s);
         if (SHOTS[s.kind].shove) pelletShove(me, s, SHOTS[s.kind].shove);
         if (s.kind === K.BOLT) boltChain(s, me.x, me.y, "me", now);
-        if (hurt(now, shotDmg(s), false, s.kind, Math.atan2(s.vy, s.vx))) {
-          pushCapped(hitBy, s.id, 12);
-          if (me.dead) { meKilled(s.id); killedBy(s.owner); }
-        }
+        hurtMe(s, now, shotDmg(s), s.kind, Math.atan2(s.vy, s.vx));
       }
       // someone else's bolt hitting a third pilot can still jump to me or my bots
       if (s.kind === K.BOLT && !s.mine && !s.chained && s.life > 0) for (const [rid, r] of remotes) {
@@ -400,11 +397,11 @@
         if (Math.hypot(c.x - me.x, c.y - me.y) < 26 + 30 * sizeOf(me.lv)) {
           grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
           const w = WEAPONS[c.type];
-          const had = !!me.arsenal[c.type];   // a gun you already carry just gets more ammo; a new one goes straight into your hands
+          const had = !!me.arsenal[c.type];   // a gun you already carry just gets more ammo; a new one joins the gun bar
           me.arsenal[c.type] = Math.min(w.ammo * 2, (me.arsenal[c.type] || 0) + w.ammo);
-          if (!had) me.weapon = c.type;
-          renderWeapon();
-          floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: had ? "+AMMO " + w.name.toUpperCase() : w.name.toUpperCase() + "!", gold: true });
+          renderWeapon();   // it goes into the gun bar; the gun in your hands stays until you switch
+          const slot = owned().indexOf(c.type) + 1, key = COARSE ? "" : " · press " + slot;
+          floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: had ? "+AMMO " + w.name.toUpperCase() : w.name.toUpperCase() + key, gold: true });
           for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 220; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, w.col); }
           if (!sfx("weapon_get", 0.8)) [440, 660, 880].forEach((f, j) => setTimeout(() => blip(f, 0.1, "square"), j * 60));
         }
@@ -412,7 +409,7 @@
     }
     if (grabbed.size > 600) { const keep = [...grabbed].slice(-300); grabbed.clear(); keep.forEach(k => grabbed.add(k)); }
   }
-  // particles, wreckage, fragments, flashes, rings, nuke aftershocks, floating text
+  // particles, wreckage, fragments, flashes, rings, floating text
   function updateFx(dt, now) {
     // flying through smoke and sparks shoves them aside (faster = harder)
     const meSp = Math.hypot(me.vx, me.vy), pushR = 46 * sizeOf(me.lv), pushR2 = pushR * pushR, canPush = playing && !me.dead && meSp > 60;
@@ -501,15 +498,6 @@
     for (let i = arcs.length - 1; i >= 0; i--) { arcs[i].t += dt; if (arcs[i].t > 0.3) arcs.splice(i, 1); }
     for (let i = rings.length - 1; i >= 0; i--) { rings[i].t += dt; if (rings[i].t > (rings[i].dur || 0.6)) rings.splice(i, 1); }
     for (let i = booms.length - 1; i >= 0; i--) { booms[i].t += dt; if (booms[i].t > BOOM_LIFE) booms.splice(i, 1); }
-    // nuke aftershocks: smaller blasts popping around the blast zone for a second
-    for (let i = aftershocks.length - 1; i >= 0; i--) {
-      const a = aftershocks[i];
-      if (now < a.at) continue;
-      aftershocks.splice(i, 1);
-      explode(a.x, a.y, lowQ ? 12 : 30, 300);
-      impacts.push({ x: a.x, y: a.y, t: 0, r: 110, col: "#ff9a2e" });
-      sfx("boom_small", 0.7, 0.8, a.x, a.y) || blip(70 + Math.random() * 40, 0.3, "sawtooth");
-    }
     flash = Math.max(0, flash - dt * 1.4);
     for (let i = floaters.length - 1; i >= 0; i--) { floaters[i].t += dt; if (floaters[i].t > 1) floaters.splice(i, 1); }
   }

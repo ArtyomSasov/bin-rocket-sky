@@ -579,8 +579,8 @@
     for (const b of booms) {
       const x = sx(b.x), y = sy(b.y), T = b.t;
       if (!onScreen(x, y, NUKE_R)) continue;
-      const grow = Math.min(1, T / 0.7), e = 1 - Math.pow(1 - grow, 3);
-      const fr = NUKE_R * 0.62 * e * (T > 1.2 ? 1 - (T - 1.2) / (BOOM_LIFE - 1.2) * 0.35 : 1);
+      const grow = Math.min(1, T / 0.8), e = 1 - Math.pow(1 - grow, 3);
+      const fr = NUKE_R * 0.8 * e * (T > 1.6 ? 1 - (T - 1.6) / (BOOM_LIFE - 1.6) * 0.3 : 1);
       const heat = T < 0.3 ? 1 : Math.max(0, 1 - (T - 0.3) / (BOOM_LIFE - 0.3));
       const cool = Math.min(1, T / 1.5);   // white -> orange -> deep red as it cools
       g.globalCompositeOperation = "lighter";
@@ -601,10 +601,16 @@
       cg.addColorStop(1, "rgba(200,40,20,0)");
       g.fillStyle = cg; g.beginPath(); g.arc(x, y, fr, 0, 6.29); g.fill();
       // blinding first instant
-      if (T < 0.25) {
-        const fl = g.createRadialGradient(x, y, 0, x, y, NUKE_R * 1.4);
-        fl.addColorStop(0, `rgba(255,255,255,${1 - T / 0.25})`); fl.addColorStop(1, "rgba(255,255,255,0)");
-        g.fillStyle = fl; g.beginPath(); g.arc(x, y, NUKE_R * 1.4, 0, 6.29); g.fill();
+      if (T < 0.4) {
+        const fl = g.createRadialGradient(x, y, 0, x, y, NUKE_R * 1.8);
+        fl.addColorStop(0, `rgba(255,255,255,${1 - T / 0.4})`); fl.addColorStop(0.4, `rgba(255,245,220,${0.6 * (1 - T / 0.4)})`); fl.addColorStop(1, "rgba(255,255,255,0)");
+        g.fillStyle = fl; g.beginPath(); g.arc(x, y, NUKE_R * 1.8, 0, 6.29); g.fill();
+      }
+      if (T < 1.4) {   // a white-hot shock shell racing out ahead of the fireball
+        const k = T / 1.4, rr = NUKE_R * (0.2 + 1.1 * (1 - Math.pow(1 - k, 2)));
+        const sg = g.createRadialGradient(x, y, rr * 0.82, x, y, rr);
+        sg.addColorStop(0, "rgba(255,255,255,0)"); sg.addColorStop(0.7, `rgba(255,240,200,${0.5 * (1 - k)})`); sg.addColorStop(1, "rgba(255,200,140,0)");
+        g.fillStyle = sg; g.beginPath(); g.arc(x, y, rr, 0, 6.29); g.fill();
       }
       g.globalCompositeOperation = "source-over";
     }
@@ -645,6 +651,7 @@
     drawGlow(now);
     drawBlackHole(now);   // lenses the world behind it; bots and text are drawn on top, undistorted
     drawPilots(now);
+    drawAim(now);
     drawFlags(now);
     drawBlastFx(now);
     drawFloaters(now);

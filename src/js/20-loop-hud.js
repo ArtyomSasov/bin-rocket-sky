@@ -7,10 +7,11 @@
     const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
     if (raw < 0.25) {   // ignore pauses (tab switch)
       frameAvg += (raw - frameAvg) * 0.05;
-      if (!lowQ && frameAvg > 1 / 42) lowQ = true;          // under ~42 fps: lighten the load
+      if (settings.fx === "low") lowQ = true;               // the player asked for light effects
+      else if (!lowQ && frameAvg > 1 / 42) lowQ = true;     // under ~42 fps: lighten the load
       else if (lowQ && frameAvg < 1 / 56) lowQ = false;     // back above ~56 fps: full effects
       // dynamic resolution: below ~50 fps draw fewer pixels (down to 55%), and climb back once it runs smoothly
-      if (now - resCheckAt > 1500) {
+      if (settings.res === "auto" && now - resCheckAt > 1500) {
         resCheckAt = now;
         if (frameAvg > 1 / 50 && resScale > 0.55) { resScale = Math.max(0.55, resScale - 0.15); resize(); }
         else if (frameAvg < 1 / 58 && resScale < 1) { resScale = Math.min(1, resScale + 0.15); resize(); }

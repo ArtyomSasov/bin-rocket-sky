@@ -22,6 +22,19 @@
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch {} }
   };
+  // graphics settings, kept in this browser: res "auto" (drops when slow) or a fixed share of the screen's resolution,
+  // fx "high" or "low" (lighter effects), aim: the crosshair ("off", "small", "big"), aimCol: its colour
+  const settings = (() => {
+    const d = { res: "auto", fx: "high", aim: "small", aimCol: "gun" };
+    try {
+      const v = JSON.parse(store.get("binrocket.gfx"));
+      if (!v || typeof v !== "object") return d;
+      if (typeof v.aim === "boolean") v.aim = v.aim ? "small" : "off";   // older saves had the crosshair as on/off
+      return { ...d, ...v };
+    } catch { return d; }
+  })();
+  const saveSettings = () => store.set("binrocket.gfx", JSON.stringify(settings));
+
 
   // ---------- bin recolouring (cached per body/lid colour pair) ----------
   function rgb2hsl(r, gg, b) {

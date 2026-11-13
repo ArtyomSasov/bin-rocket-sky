@@ -681,6 +681,30 @@
     g.closePath();
   }
 
+  // the crosshair: a ring ahead of the bin on the line its shots take, in the gun's colour; red and tighter when
+  // someone you can hurt is on that line
+  function drawAim(now) {
+    if (settings.aim === "off" || !playing || me.dead) return;
+    const w = WEAPONS[me.weapon], col = w.col || "#ffb43c", a = me.a + (w.back ? Math.PI : 0), ca = Math.cos(a), sa = Math.sin(a);
+    const D = (w.back ? 120 : 250) * sizeOf(me.lv), x0 = sx(me.x), y0 = sy(me.y);
+    let lock = false;
+    for (const [id, r] of remotes) {   // anyone near the line of fire, within reach
+      if (r.dead || mates(r, me)) continue;
+      const dx = r.x - me.x, dy = r.y - me.y, along = dx * ca + dy * sa, off = Math.abs(-dx * sa + dy * ca);
+      if (along > 0 && along < 1300 && off < 30 + 26 * sizeOf(r.lv || 1)) { lock = true; break; }
+    }
+    const big = settings.aim === "big", own = { white: "#ffffff", green: "#5dff8a", red: "#ff5a5a" }[settings.aimCol];
+    const x = x0 + ca * D, y = y0 + sa * D, c = lock ? (settings.aimCol === "red" ? "#ffffff" : "#ff5a5a") : own || col, R = (lock ? 10 : 13) * (big ? 1.7 : 1);
+    g.save();
+    g.globalAlpha = 0.28; g.strokeStyle = c; g.lineWidth = 1.5; g.setLineDash([6, 8]);
+    g.beginPath(); g.moveTo(x0 + ca * 40 * sizeOf(me.lv), y0 + sa * 40 * sizeOf(me.lv)); g.lineTo(x - ca * R, y - sa * R); g.stroke();
+    g.setLineDash([]); g.globalAlpha = 0.9; g.lineWidth = big ? 3 : 2;
+    g.translate(x, y); g.rotate(now / 900);
+    g.beginPath(); g.arc(0, 0, R, 0, 6.29); g.stroke();
+    for (let k = 0; k < 4; k++) { g.rotate(Math.PI / 2); g.beginPath(); g.moveTo(R + 3, 0); g.lineTo(R + (big ? 14 : 9), 0); g.stroke(); }
+    g.fillStyle = c; g.beginPath(); g.arc(0, 0, 2, 0, 6.29); g.fill();
+    g.restore();
+  }
   function drawBot(b, x, y, now, isMe) {
     const lv = b.lv || 1, sz = sizeOf(lv), tier = tierOf(lv), S = BOT * sz;
     if (b.blink && Math.floor(now / 90) % 2) g.globalAlpha = 0.35;

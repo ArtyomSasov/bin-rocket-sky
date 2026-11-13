@@ -108,7 +108,9 @@
   const ROUND_PLAY = 300, ROUND_BREAK = 15, ROUND_LEN = ROUND_PLAY + ROUND_BREAK;
   const roundAt = ms => { const t = ms / 1000, idx = Math.floor(t / ROUND_LEN), ph = t - idx * ROUND_LEN; return { idx, ph, live: ph < ROUND_PLAY, left: ROUND_PLAY - ph }; };
   const SUPPLY_PERIOD = 20, MAX_SHIELD = 6; let SUPPLY_SLOTS = 14;
-  const NUKE_R = 900, NUKE_KILL = 480, NUKE_DMG = 3, NUKE_PERIOD = 70, BOOM_LIFE = 3.2;
+  // nuke: one huge blast. Inside NUKE_KILL nothing survives; out to NUKE_R the damage falls from 4 to 1.5 lives
+  const NUKE_R = 1100, NUKE_KILL = 620, NUKE_PERIOD = 70, BOOM_LIFE = 4;
+  const nukeDmg = d => d < NUKE_KILL ? 99 : 1.5 + 2.5 * (1 - (d - NUKE_KILL) / (NUKE_R - NUKE_KILL));
   // weapon icons (24x24 SVG path data, even-odd fill): used on crates (canvas) and in the HUD (SVG)
   const ICONS = {
     fire: "M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z",
@@ -178,7 +180,7 @@
   let g = cv.getContext("2d", { alpha: false });   // swapped briefly to draw the start-screen preview
   const DISPLAY_FONT = getComputedStyle(document.documentElement).getPropertyValue('--display');
   let vw = 0, vh = 0, dpr = 1, zoom = 1;
-  let resScale = 1;   // lowered by the frame loop when the device can't keep up (dynamic resolution)
+  let resScale = 1;   // share of the screen's resolution we draw at: a fixed setting, or lowered by the frame loop when slow
   let TS = 1;   // text scale: undoes the camera zoom so labels stay readable
   function resize() {
     dpr = Math.min(MAX_DPR, window.devicePixelRatio || 1) * resScale;

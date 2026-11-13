@@ -27,7 +27,20 @@
   const friendly = (s, tm) => mates({ tm }, { tm: teamOfShot(s) });
   // THE rule for whether a shot may hurt someone (id: their key, "me" for me): alive, not the shooter, not on the
   // shooter's team; my own shots never hurt me. Every hit, splash, blast, homing and chain asks this.
-  const canHurt = (s, o, id) => !o.dead && id !== s.owner && !friendly(s, o.tm) && (o !== me || (playing && !s.mine));
+  // the shooter's own shot: it only hurts them through a blast (blast = true: rockets, plasma, mines, nukes, combos)
+  const ownShot = (s, o, id) => (o === me && s.mine) || id === s.owner;
+  const SELF_DMG = 0.6;   // your own blast hurts you a bit less than it hurts others
+  const canHurt = (s, o, id, blast = false) => ownShot(s, o, id) ? blast && !o.dead && (o !== me || playing)
+    : !o.dead && !friendly(s, o.tm) && (o !== me || (playing && !s.mine));
+  // I take damage from shot s: its shooter gets the credit, unless it was my own (then nobody does)
+  function hurtMe(s, now, dmg, kind = s.kind, ang = 0, force = false) {
+    if (!hurt(now, s.mine ? dmg * SELF_DMG : dmg, force, kind, ang)) return false;
+    if (s.mine) { if (me.dead) killer = "your own blast"; return true; }
+    pushCapped(hitBy, s.id, 12);
+    if (me.dead) { meKilled(s.id); killedBy(s.owner); }
+    return true;
+  }
+  const selfMul = (s, id) => id === s.owner ? SELF_DMG : 1;
   // shard cannon: one record becomes six hot shards that bounce off walls and planets
   function shardSpray(s) {
     for (let k = 0; k < 6; k++) {
@@ -51,14 +64,14 @@
     if (d < 1600) { shake = Math.max(shake, (big ? 0.7 : 0.35) * (1 - d / 1600)); if (big) flash = Math.max(flash, 0.35 * (1 - d / 1600)); }
     sfx(big ? "boom_big" : "boom_small", 1, big ? 1.25 : 1.4, x, y);
     if (s.mine) floaters.push({ x, y: y - 60, t: 0, txt: "COMBO!", gold: true });
-    if (canHurt(s, me, "me") && d < R + 26 * sizeOf(me.lv)) {
+    if (canHurt(s, me, "me", true) && d < R + 26 * sizeOf(me.lv)) {
       me.vx += (me.x - x) / (d || 1) * 700; me.vy += (me.y - y) / (d || 1) * 700;
-      if (hurt(now, base * Math.max(0.25, 1 - d / R), false, K.ORB)) { pushCapped(hitBy, s.id, 12); if (me.dead) { meKilled(s.id); killedBy(s.owner); } }
+      hurtMe(s, now, base * Math.max(0.25, 1 - d / R), K.ORB);
     }
     for (const b of bots) {
-      if (!canHurt(s, b, b.id)) continue;
+      if (!canHurt(s, b, b.id, true)) continue;
       const bd = Math.hypot(b.x - x, b.y - y);
-      if (bd < R + 40) { b.vx += (b.x - x) / (bd || 1) * 700; b.vy += (b.y - y) / (bd || 1) * 700; botHurt(b, base * Math.max(0.25, 1 - bd / R), s.id, now, false, K.ORB); }
+      if (bd < R + 40) { b.vx += (b.x - x) / (bd || 1) * 700; b.vy += (b.y - y) / (bd || 1) * 700; botHurt(b, base * Math.max(0.25, 1 - bd / R) * selfMul(s, b.id), s.id, now, false, K.ORB); }
     }
   }
   // the rail slug goes straight through bins and junk (each one once), only planets and walls stop it
@@ -120,13 +133,13 @@
     const [R0, hi, lo, push] = SPLASH[s.kind], m = s.m || 1;
     const hit = (o, id, rad) => {
       const d = Math.hypot(o.x - s.x, o.y - s.y), R = R0 + rad;
-      if (d > R || id === s.direct || !canHurt(s, o, id)) return 0;
+      if (d > R || id === s.direct || !canHurt(s, o, id, true)) return 0;
       o.vx += (o.x - s.x) / (d || 1) * push; o.vy += (o.y - s.y) / (d || 1) * push;
       return (hi * (1 - d / R) + lo) * m;
     };
     const dm = hit(me, "me", 26 * sizeOf(me.lv));
-    if (dm && hurt(now, dm, false, s.kind)) { pushCapped(hitBy, s.id, 12); if (me.dead) { meKilled(s.id); killedBy(s.owner); } }
-    for (const b of bots) { const db = hit(b, b.id, 38); if (db) botHurt(b, db, s.id, now, false, s.kind); }
+    if (dm) hurtMe(s, now, dm);
+    for (const b of bots) { const db = hit(b, b.id, 38); if (db) botHurt(b, db * selfMul(s, b.id), s.id, now, false, s.kind); }
   }
   // the look of a rocket or plasma blast, once per shot
   function blastFx(s) {
@@ -346,7 +359,6 @@
     return false;
   }
   const booms = [];   // nuke fireballs on screen
-  const aftershocks = [];
   let flash = 0;
   function detonate(s, now) {
     if (s.boom) return;
@@ -362,31 +374,27 @@
     rings.push({ x, y, t: 0, r: NUKE_R * 1.25, col: "255,250,230", warp: true, dur: 0.9, w: 26 });
     rings.push({ x, y, t: -0.12, r: NUKE_R * 0.95, col: "255,190,110", warp: true, dur: 1.2, w: 34 });
     rings.push({ x, y, t: -0.3, r: NUKE_R * 1.8, col: "255,220,180", dur: 1.6, w: 14 });
-    explode(x, y, Math.round(260 * q), 1150);
+    explode(x, y, Math.round(140 * q), 1300);
     if (!sfx("boom_big", 1, 0.7, x, y)) boomSound(2.6, 700, 0.6);
     sfx("boom_low", 1, 0.6, x, y);
-    for (let k = 0; k < 160 * q; k++) {   // embers flung far out
-      const a = Math.random() * 6.28, v = 500 + Math.random() * 900;
-      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 1.6 + Math.random() * 1.6, 1 + Math.random() * 1.6, Math.random() < 0.5 ? "#ffb43c" : "#ffe08a");
+    for (let k = 0; k < 120 * q; k++) {   // long glowing streaks thrown out with the blast
+      const a = Math.random() * 6.28, v = 700 + Math.random() * 1100;
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 1.2 + Math.random() * 1.2, 2 + Math.random() * 2, Math.random() < 0.5 ? "#ffb43c" : "#fff2c0", 1, 0.06);
     }
-    smoke(x, y, Math.round(70 * q), 460, 5.5);
-    for (let k = 0; k < 9; k++) {   // aftershocks across the blast zone
-      const a = Math.random() * 6.28, r = NUKE_R * (0.25 + Math.random() * 0.6);
-      aftershocks.push({ x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, at: now + 150 + Math.random() * 1100 });
-    }
+    smoke(x, y, Math.round(60 * q), 560, 6);
+    rings.push({ x, y, t: -0.5, r: NUKE_R * 2.4, col: "255,140,80", dur: 2.2, w: 22 });   // the slow heat wave rolling far out
     if (d < 2600) { shake = Math.max(shake, 1.4 * (1 - d / 2600)); flash = Math.max(flash, d < NUKE_R * 1.6 ? 1 : 1 - (d - NUKE_R * 1.6) / (2600 - NUKE_R * 1.6)); }
     blip(30, 2.2, "sawtooth"); blip(55, 1.6, "square"); blip(90, 1.0, "sawtooth");
-    if (canHurt(s, me, "me") && d < NUKE_R) {
+    if (canHurt(s, me, "me", true) && d < NUKE_R) {   // your own nuke too: get clear of it
       const push = 1500 * (1 - d / NUKE_R) + 400;
       me.vx += (me.x - x) / (d || 1) * push; me.vy += (me.y - y) / (d || 1) * push;
-      const wasHit = d < NUKE_KILL ? hurt(now, 99, true) : hurt(now, NUKE_DMG);
-      if (wasHit) { pushCapped(hitBy, s.id, 12); if (me.dead) { meKilled(s.id); killedBy(s.owner); } }
+      hurtMe(s, now, nukeDmg(d), K.NUKE, 0, d < NUKE_KILL);
     }
     for (const b of bots) {
       const bd = Math.hypot(b.x - x, b.y - y);
-      if (bd > NUKE_R || !canHurt(s, b, b.id)) continue;
+      if (bd > NUKE_R || !canHurt(s, b, b.id, true)) continue;
       b.vx += (b.x - x) / (bd || 1) * 1200; b.vy += (b.y - y) / (bd || 1) * 1200;
-      botHurt(b, bd < NUKE_KILL ? 99 : NUKE_DMG, s.id, now, bd < NUKE_KILL);
+      botHurt(b, bd < NUKE_KILL ? 99 : nukeDmg(bd) * selfMul(s, b.id), s.id, now, bd < NUKE_KILL);
     }
     if (!s.mine) return;
     // the shooter wipes out everything in the blast and shares the result

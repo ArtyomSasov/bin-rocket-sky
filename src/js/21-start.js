@@ -42,7 +42,7 @@
     const k = pv.width / 150;
     pctx.setTransform(1, 0, 0, 1, 0, 0); pctx.clearRect(0, 0, pv.width, pv.height);
     pctx.setTransform(k * 1.25, 0, 0, k * 1.25, 0, 0);
-    drawBot({ ...me, name: "", blink: false, thrust: 0.9, a: -Math.PI / 2 + Math.sin(now / 900) * 0.25 }, 60, 50, now, true);
+    drawBot({ ...me, name: "", blink: false, thrust: 0.9, a: -Math.PI / 2 + Math.sin(now / 900) * 0.25 }, 60, 66, now, true);   // low enough for a hat or halo
     } finally { g = main; TS = mainTS; }
   }
   me.ck = cleanCustom((() => { try { return JSON.parse(store.get("binrocket.custom")); } catch { return null; } })());
@@ -51,6 +51,9 @@
     : key === "lid" ? (val === null ? "#9d8fc8" : `hsl(${val} 45% 60%)`)
     : key === "flame" ? (val === null ? "linear-gradient(#ffe08a,#ff5a1f)" : val === "rainbow" ? "linear-gradient(90deg,#ff6b6b,#ffe66b,#6bff95,#6bd5ff,#ff7bea)" : `rgb(${FLAMES[val].mid})`)
     : null;
+  const lookPanels = [];
+  function lookPicker(el) {
+  lookPanels.push(el);
   for (const key of CUSTOM_KEYS) {
     const row = document.createElement("div"); row.className = "opt-row";
     const lab = document.createElement("span"); lab.textContent = CUSTOM[key].label;
@@ -60,16 +63,20 @@
       b.type = "button"; b.className = "sw"; b.title = name; b.setAttribute("aria-label", CUSTOM[key].label + ": " + name);
       const bg = swatchBg(key, val);
       if (bg) b.style.setProperty("--c", bg); else { b.classList.add("txt"); b.textContent = name; }
+      b.dataset.key = key; b.dataset.i = i;
       b.setAttribute("aria-pressed", String(me.ck[CUSTOM_KEYS.indexOf(key)] === i));
       b.addEventListener("click", () => {
-        me.ck = me.ck.slice(); me.ck[CUSTOM_KEYS.indexOf(key)] = i;
+        me.ck = me.ck.slice(); me.ck[CUSTOM_KEYS.indexOf(key)] = i;   // others see it with my next state
         store.set("binrocket.custom", JSON.stringify(me.ck));
-        for (const o of sws.children) o.setAttribute("aria-pressed", String(o === b));
+        for (const p of lookPanels) for (const o of p.querySelectorAll(`.sw[data-key="${key}"]`)) o.setAttribute("aria-pressed", String(+o.dataset.i === i));
       });
       sws.appendChild(b);
     });
-    row.append(lab, sws); optsEl.appendChild(row);
+    row.append(lab, sws); el.appendChild(row);
   }
+  }
+  lookPicker(optsEl);
+  lookPicker(document.getElementById("menuLook"));
   const nameInput = document.getElementById("nameInput");
   nameInput.value = store.get("binrocket.name") || "Bin-" + Math.floor(10 + Math.random() * 89);
   const lobbyInput = document.getElementById("lobbyInput"), goBtn = document.getElementById("goBtn");
@@ -118,6 +125,24 @@
     if (fromLink.length >= 4) { lobbyInput.value = fromLink.toUpperCase(); setTab(true); }   // an invite link opens on Join
   }
   syncGo();
+  // graphics settings: the gear on the scoreboard, or the button on the start card
+  const setEl = document.getElementById("settings");
+  const pickRes = v => { settings.res = v; saveSettings(); resScale = v === "auto" ? 1 : v; resize(); };
+  segButtons(document.getElementById("setRes"), [["auto", "Auto"], [1, "100%"], [0.75, "75%"], [0.5, "50%"]], settings.res, pickRes);
+  segButtons(document.getElementById("setFx"), [["high", "Full"], ["low", "Light"]], settings.fx, v => { settings.fx = v; saveSettings(); if (v === "high") lowQ = false; });
+  segButtons(document.getElementById("setAim"), [["off", "Off"], ["small", "Small"], ["big", "Big"]], settings.aim, v => { settings.aim = v; saveSettings(); });
+  segButtons(document.getElementById("setAimCol"), [["gun", "Gun colour"], ["white", "White"], ["green", "Green"], ["red", "Red"]], settings.aimCol, v => { settings.aimCol = v; saveSettings(); });
+  if (settings.res !== "auto") { resScale = settings.res; resize(); }
+  const openSettings = e => { e && e.stopPropagation(); setEl.classList.toggle("ingame", playing); document.getElementById("setTitle").textContent = playing ? "Menu" : "Graphics"; document.getElementById("setDone").textContent = playing ? "Back to the game" : "Done"; setEl.hidden = false; };
+  document.getElementById("gearBtn").addEventListener("click", openSettings);
+  document.getElementById("startGear").addEventListener("click", openSettings);
+  document.getElementById("setDone").addEventListener("click", () => { setEl.hidden = true; cv.focus(); });
+  setEl.addEventListener("click", e => { if (e.target === setEl) setEl.hidden = true; });
+  addEventListener("keydown", e => {
+    if (e.key !== "Escape") return;
+    if (!setEl.hidden) { setEl.hidden = true; cv.focus(); } else if (playing) openSettings();
+  });
+  document.getElementById("setLeave").addEventListener("click", () => { location.href = location.pathname + location.search; });   // back to the start screen
   // on a small screen the scoreboard shows only you (and the teams); a tap opens the whole table
   document.querySelector(".board").addEventListener("click", e => e.currentTarget.classList.toggle("open"));
   document.getElementById("startForm").addEventListener("submit", e => {
