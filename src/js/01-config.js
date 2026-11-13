@@ -22,19 +22,19 @@
     { from: 10, outer: [255, 80, 200], mid: [255, 210, 80], core: [255, 255, 255], aura: [255, 220, 120] }
   ];
   const tierOf = lv => TIERS.filter(t => lv >= t.from).pop();
-  // weapons: pick-ups swap the fireball for a while
+  // weapons: pick-ups swap the fireball for a while; shot: [shot kind, speed] it fires
   const WEAPONS = {
-    fire:   { name: "Fireball",    ammo: Infinity, cd: 0.22 },
-    triple: { name: "Triple shot", ammo: 24, cd: 0.3, col: "#ffb43c" },
-    laser:  { name: "Laser",       ammo: 90, cd: 0.08, col: "#7df9ff" },   // also limited by heat (see LASER_HEAT)
-    rocket: { name: "Homing rockets", ammo: 8, cd: 0.7, col: "#ff5a6e" },
-    nuke:   { name: "Nuke",        ammo: 1,  cd: 1.0,  col: "#ffe14d" },
-    scatter: { name: "Scatter gun", ammo: 16, cd: 0.7,  col: "#ffd27a" },
-    rail:   { name: "Railgun",     ammo: 6,  cd: 1.15, col: "#d9a8ff" },
-    mine:   { name: "Mines",       ammo: 6,  cd: 0.6,  col: "#ff6b3c" },
-    orb:    { name: "Plasma orb",  ammo: 12, cd: 0.55, col: "#6fd8ff" },
-    bolt:   { name: "Lightning",   ammo: 90, cd: 0.11, col: "#bfefff" },
-    shard:  { name: "Shard cannon", ammo: 14, cd: 0.75, col: "#ff9a3c" }
+    fire:   { name: "Fireball",    ammo: Infinity, cd: 0.22, shot: [0, 880] },
+    triple: { name: "Triple shot", ammo: 24, cd: 0.3, shot: [0, 880], col: "#ffb43c" },
+    laser:  { name: "Laser",       ammo: 90, cd: 0.08, shot: [2, 2300], col: "#7df9ff" },   // also limited by heat (see LASER_HEAT)
+    rocket: { name: "Homing rockets", ammo: 8, cd: 0.7, shot: [1, 260], col: "#ff5a6e" },
+    nuke:   { name: "Nuke",        ammo: 1,  cd: 1.0, shot: [3, 360],  col: "#ffe14d" },
+    scatter: { name: "Scatter gun", ammo: 16, cd: 0.7, shot: [4, 1250],  col: "#ffd27a" },
+    rail:   { name: "Railgun",     ammo: 6,  cd: 1.15, shot: [5, 4200], col: "#d9a8ff" },
+    mine:   { name: "Mines",       ammo: 6,  cd: 0.6, shot: [6, 140],  col: "#ff6b3c" },
+    orb:    { name: "Plasma orb",  ammo: 12, cd: 0.55, shot: [7, 520], col: "#6fd8ff" },
+    bolt:   { name: "Lightning",   ammo: 90, cd: 0.11, shot: [8, 5600], col: "#bfefff" },
+    shard:  { name: "Shard cannon", ammo: 14, cd: 0.75, shot: [9, 1300], col: "#ff9a3c" }
   };
   const PICK_TYPES = ["triple", "laser", "rocket", "scatter", "rail", "mine", "orb", "bolt", "shard"], PICK_PERIOD = 24; let PICKS = 18;
   // by shot kind: 0 fireball, 1 rocket, 2 laser, 3 nuke, 4 scatter pellet, 5 rail slug, 6 mine, 7 plasma orb, 8 lightning, 9 shard, 10 shotgun slug
@@ -43,7 +43,8 @@
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs                 // the nuke deals its damage through detonate()
   const SHOT_COL  = ["#ffb43c", "#ffb43c", "#7df9ff", "#ffe14d", "#ffd27a", "#e9c8ff", "#ff6b3c", "#6fd8ff", "#bfefff", "#ff9a3c", "#ffe7a0"];
   const MINE_R = 55, MINE_ARM = 0.7;
-  const SHOT_R = [0, 10, 0, 0, 0, 0, MINE_R, 16, 0, 0, 4];      // extra hit radius by kind (mines go off near you, orbs are big)
+  const SHOT_R = [0, 10, 0, 0, 0, 0, MINE_R, 16, 0, 0, 4];
+  const SHOT_SHOVE = { 4: 150, 5: 650, 10: 450 };          // how hard a hit pushes the bin it hits, by kind      // extra hit radius by kind (mines go off near you, orbs are big)
   const AMP_PERIOD = 95, AMP_TIME = 20000;                   // Overdrive: a rare pick-up, triple damage for 20 s                        // mines go off when a bin comes this close, after arming
   // nuke: everything inside NUKE_KILL dies outright, the rest of the blast (out to NUKE_R) takes heavy damage
   // Doom-style supplies: medkits give lives back, shields add armour that soaks damage before lives

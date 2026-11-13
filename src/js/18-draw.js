@@ -8,11 +8,25 @@
   const TWINKLE = Array.from({ length: 70 }, (_, i) => ({ x: hash(i, 1, 66), y: hash(i, 2, 66), r: 0.8 + hash(i, 3, 66) * 1.8, ph: hash(i, 4, 66) * 6.28, sp: 0.6 + hash(i, 5, 66) * 2.2, col: ["#ffffff", "#cfe3ff", "#ffe9c4", "#ffd0f0"][i % 4] }));
   const comets = [];
   let nextComet = 0, lastSky = 0;
+  // the sky's base colour and its dark edges, painted once per screen size
+  let skyBase = null, skyEdge = null;
+  function skyLayers() {
+    if (skyBase && skyBase.width === Math.ceil(vw) && skyBase.height === Math.ceil(vh)) return;
+    const mk = () => { const c = document.createElement("canvas"); c.width = Math.ceil(vw); c.height = Math.ceil(vh); return c; };
+    skyBase = mk(); skyEdge = mk();
+    let q = skyBase.getContext("2d");
+    const gr = q.createLinearGradient(0, 0, vw * 0.3, vh);   // deep space: nearly black, a touch of blue and violet
+    gr.addColorStop(0, "#010208"); gr.addColorStop(0.55, "#04061a"); gr.addColorStop(1, "#0a0619");
+    q.fillStyle = gr; q.fillRect(0, 0, vw, vh);
+    q = skyEdge.getContext("2d");
+    const vg = q.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.35, vw / 2, vh / 2, Math.max(vw, vh) * 0.75);
+    vg.addColorStop(0, "rgba(0,0,6,0)"); vg.addColorStop(1, "rgba(0,0,6,0.65)");
+    q.fillStyle = vg; q.fillRect(0, 0, vw, vh);
+  }
   function drawSky(now) {
     const t = now / 1000, sdt = Math.min(0.05, (now - lastSky) / 1000); lastSky = now;
-    const gr = g.createLinearGradient(0, 0, vw * 0.3, vh);   // deep space: nearly black, a touch of blue and violet
-    gr.addColorStop(0, "#010208"); gr.addColorStop(0.55, "#04061a"); gr.addColorStop(1, "#0a0619");
-    g.fillStyle = gr; g.fillRect(0, 0, vw, vh);
+    skyLayers();
+    g.drawImage(skyBase, 0, 0, vw, vh);
     const tile = (img, size, par, dx, dy) => {
       const ox = -mod(me.x * par + dx, size), oy = -mod(me.y * par + dy, size);
       for (let x = ox; x < vw; x += size) for (let y = oy; y < vh; y += size) g.drawImage(img, x, y);
@@ -67,9 +81,7 @@
       for (let tx = bx; tx < vw; tx += d.tile) for (let ty = by; ty < vh; ty += d.tile) g.drawImage(d.c, tx, ty);
     }
     g.globalAlpha = 1;
-    const vg = g.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.35, vw / 2, vh / 2, Math.max(vw, vh) * 0.75);
-    vg.addColorStop(0, "rgba(0,0,6,0)"); vg.addColorStop(1, "rgba(0,0,6,0.65)");
-    g.fillStyle = vg; g.fillRect(0, 0, vw, vh);
+    g.drawImage(skyEdge, 0, 0, vw, vh);
   }
 
   function drawSpark(x, y, r, gold, now, appear) {
@@ -738,7 +750,7 @@
       g.fillStyle = "rgba(20,12,40,0.55)";
       const w = g.measureText(label).width + 12 * TS;
       rrect(x - w / 2, top, w, 19 * TS, 9 * TS); g.fill();
-      g.fillStyle = isTeams() && (b.tm === 0 || b.tm === 1) ? TEAM_HEX[b.tm] : `hsl(${b.hue} 90% ${isMe ? 85 : 78}%)`;
+      g.fillStyle = isTeams() && onTeam(b) ? TEAM_HEX[b.tm] : `hsl(${b.hue} 90% ${isMe ? 85 : 78}%)`;
       g.fillText(label, x, top + 14 * TS);
     }
   }

@@ -70,8 +70,9 @@
   })();
   // a nebula: a lumpy cloud of glowing gas in a few colours with stars inside, soft at the edges
   const nebCloud = (seed, cols) => {
-    const S = 900, c = document.createElement("canvas"); c.width = c.height = S;
+    const S = 900, c = document.createElement("canvas"); c.width = c.height = S / 2;   // soft: built at half size, drawn twice as big
     const x = c.getContext("2d");
+    x.scale(0.5, 0.5);
     for (let i = 0; i < 46; i++) {
       const a = hash(i, 1, seed) * 6.283, d = (hash(i, 2, seed) + hash(i, 3, seed)) * 0.5 * S * 0.32;
       const cx = S / 2 + Math.cos(a) * d * 1.3, cy = S / 2 + Math.sin(a) * d * 0.8, r = 70 + hash(i, 4, seed) * 170, col = cols[i % cols.length];
@@ -118,7 +119,7 @@
     for (let i = 0; i < Math.round(2 * big); i++)
       sky.push({ img: galaxyCv, x: r(10 + i) * W, y: r(20 + i) * H, par: 0.28 + r(30 + i) * 0.06, rot: r(40 + i) * 6.28, sc: 0.8 + r(50 + i) * 0.9, a: 0.85, glow: true, spin: 0.01 });
     for (let i = 0; i < Math.round(4 * big); i++)
-      sky.push({ img: NEB_ART[i % 3], x: r(60 + i) * W, y: r(70 + i) * H, par: 0.35 + r(80 + i) * 0.15, rot: r(90 + i) * 6.28, sc: 1.1 + r(100 + i) * 0.9, a: 0.9, glow: true });
+      sky.push({ img: NEB_ART[i % 3], x: r(60 + i) * W, y: r(70 + i) * H, par: 0.35 + r(80 + i) * 0.15, rot: r(90 + i) * 6.28, sc: 2 * (1.1 + r(100 + i) * 0.9), a: 0.9, glow: true });
     for (let i = 0; i < Math.round(1.5 * big); i++)
       sky.push({ img: FAR_PLANETS[i % 3], x: r(110 + i) * W, y: r(120 + i) * H, par: 0.5 + r(130 + i) * 0.1, rot: 0, sc: 0.28 + r(140 + i) * 0.22, a: 0.6 });   // small and dim: never mistaken for a real planet
     sky.sort((p, q) => p.par - q.par);

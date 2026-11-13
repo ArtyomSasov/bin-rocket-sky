@@ -10,7 +10,7 @@
   }
   const tagOwner = tag => {
     if (tag === myTag) return { name: me.name || "You", weapon: me.weapon, me: true };
-    for (const b of bots) if (b.tag === tag) return { name: b.name, weapon: "fire" };
+    for (const b of bots) if (b.tag === tag) return { name: b.name, weapon: botWeapon(b) };
     for (const r of remotes.values()) if (r.tag === tag) return { name: r.name, weapon: r.weapon || "fire" };
     return null;
   };

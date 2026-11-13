@@ -98,7 +98,7 @@
     for (const r of remotes.values()) {
       if (r.dead) continue;
       const [x, y] = P(r.x, r.y);
-      mctx.fillStyle = isTeams() && (r.tm === 0 || r.tm === 1) ? TEAM_HEX[r.tm] : `hsl(${r.hue} 90% 70%)`;
+      mctx.fillStyle = isTeams() && onTeam(r) ? TEAM_HEX[r.tm] : `hsl(${r.hue} 90% 70%)`;
       mctx.beginPath(); mctx.arc(x, y, 4 + r.lv * 0.3, 0, 6.29); mctx.fill();
     }
     if (bases) for (const t of [0, 1]) {   // pads and flags

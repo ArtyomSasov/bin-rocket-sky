@@ -17,8 +17,8 @@
     for (const b of bots) if (b.fc >= 0 && flagCarrier[b.fc] && flagCarrier[b.fc].id !== b.tag) b.fc = -1;
     // grabbing and scoring, for me and my bots
     const actors = [];
-    if (playing && !me.dead && (me.tm === 0 || me.tm === 1)) actors.push([me, myTag]);
-    if (roundLive) for (const b of bots) if (!b.dead && (b.tm === 0 || b.tm === 1)) actors.push([b, b.tag]);
+    if (playing && !me.dead && onTeam(me)) actors.push([me, myTag]);
+    if (roundLive) for (const b of bots) if (!b.dead && onTeam(b)) actors.push([b, b.tag]);
     for (const [o, tag] of actors) {
       const ef = 1 - o.tm, reach = 70 + 26 * sizeOf(o.lv || 1);
       if (o.fc !== ef && !flagCarrier[ef] && Math.hypot(o.x - bases[ef].x, o.y - bases[ef].y) < reach) { o.fc = ef; flagCarrier[ef] = { id: tag, o }; }
@@ -64,9 +64,7 @@
       const b = bases[t], x = sx(b.x), y = sy(b.y);
       if (onScreen(x, y, 160)) {   // the pad: a glowing ring that turns
         g.globalCompositeOperation = "lighter";
-        const pg = g.createRadialGradient(x, y, 20, x, y, 120);
-        pg.addColorStop(0, `rgba(${TEAM_RGB[t]},0.3)`); pg.addColorStop(1, `rgba(${TEAM_RGB[t]},0)`);
-        g.fillStyle = pg; g.beginPath(); g.arc(x, y, 120, 0, 6.29); g.fill();
+        g.globalAlpha = 0.3; g.drawImage(dotSprite(TEAM_HEX[t]), x - 120, y - 120, 240, 240); g.globalAlpha = 1;
         g.globalCompositeOperation = "source-over";
         g.strokeStyle = `rgba(${TEAM_RGB[t]},0.85)`; g.lineWidth = 3; g.setLineDash([12, 9]); g.lineDashOffset = -now / 40;
         g.beginPath(); g.arc(x, y, 86, 0, 6.29); g.stroke(); g.setLineDash([]);

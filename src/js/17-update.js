@@ -192,7 +192,7 @@
         if (s.kind !== 5) s.life = 0;
         s.splashed = true;
         shotBurst(s);
-        if (s.kind === 4 || s.kind === 5 || s.kind === 10) pelletShove(me, s, s.kind === 5 ? 650 : s.kind === 10 ? 450 : 150);
+        if (SHOT_SHOVE[s.kind]) pelletShove(me, s, SHOT_SHOVE[s.kind]);
         if (s.kind === 8) boltChain(s, me.x, me.y, "me", now);
         if (hurt(now, shotDmg(s), false, s.kind, Math.atan2(s.vy, s.vx))) {
           pushCapped(hitBy, s.id, 12);
@@ -530,7 +530,7 @@
     card.innerHTML = `<h2>Round ${roundNo} over</h2>
       <div class="winner">${teamWinLine() || (top.kills ? "Winner: " + esc(top.name) + " · " + top.kills + " kills" : "Nobody scored a kill")}</div>
       <table><thead><tr><th>Pilot</th><th>Kills</th><th>Deaths</th><th>Accuracy</th></tr></thead><tbody>
-      ${rows.map(r => `<tr class="${r.me ? "me" : ""}"><td${isTeams() && (r.tm === 0 || r.tm === 1) ? ` style="color:${TEAM_HEX[r.tm]}"` : ""}>${esc(r.name)}${r.me ? " (you)" : ""}</td><td>${r.kills}</td><td>${r.deaths}</td><td>${r.shots ? acc(r) + "%" : "–"}</td></tr>`).join("")}
+      ${rows.map(r => `<tr class="${r.me ? "me" : ""}"><td${isTeams() && onTeam(r) ? ` style="color:${TEAM_HEX[r.tm]}"` : ""}>${esc(r.name)}${r.me ? " (you)" : ""}</td><td>${r.kills}</td><td>${r.deaths}</td><td>${r.shots ? acc(r) + "%" : "–"}</td></tr>`).join("")}
       </tbody></table>
       <div class="awards">${awards.map(([title, who, why]) => `<div class="award"><b>${title}</b><span>${esc(who.name)}</span><small>${why(who)}</small></div>`).join("")}</div>
       <div class="next" id="nextRound"></div>`;
@@ -586,7 +586,7 @@
   // team totals: kills, and flags captured
   function teamTotals() {
     const k = [0, 0], c = [0, 0];
-    for (const r of playerRows()) if (r.tm === 0 || r.tm === 1) { k[r.tm] += r.kills; c[r.tm] += r.caps; }
+    for (const r of playerRows()) if (onTeam(r)) { k[r.tm] += r.kills; c[r.tm] += r.caps; }
     return { k, c, lead: MODES[MODE].flags ? (c[0] - c[1] || k[0] - k[1]) : k[0] - k[1] };
   }
   function renderBoard() {
@@ -606,7 +606,7 @@
     }
     boardEl.replaceChildren(...team, ...shown.map(r => {
       const li = document.createElement("li"); if (r.me) li.className = "me";
-      const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = r.name; nm.style.color = isTeams() && (r.tm === 0 || r.tm === 1) ? TEAM_HEX[r.tm] : `hsl(${r.hue} 90% 80%)`;
+      const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = r.name; nm.style.color = isTeams() && onTeam(r) ? TEAM_HEX[r.tm] : `hsl(${r.hue} 90% 80%)`;
       const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = r.kills + " · " + r.deaths;
       li.append(nm, pts); return li;
     }));

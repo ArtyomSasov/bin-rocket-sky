@@ -77,7 +77,11 @@
       r.dead = dead; r.inv = p.i === 1;
     }
     if (typeof p.tg === "string" && /^[a-z0-9]{1,8}$/.test(p.tg)) r.tag = p.tg;
-    if ("tm" in p) r.tm = p.tm === 0 || p.tm === 1 ? p.tm : undefined;
+    if ("tm" in p) {
+      const was = r.tm;
+      r.tm = p.tm === 0 || p.tm === 1 ? p.tm : undefined;
+      if (was === undefined && r.tm !== undefined && !botById.has(id)) settleTeam();   // a pilot's team just came in
+    }
     if ("fc" in p) r.fc = p.fc === 0 || p.fc === 1 ? p.fc : -1;
     if (Array.isArray(p.cp) && Number.isInteger(p.cp[1])) { r.cpRound = p.cp[0]; r.caps = clamp(p.cp[1], 0, 99); }
     if (typeof p.n === "string") r.name = p.n.slice(0, 14);
@@ -141,7 +145,6 @@
     setMapSize(mapOf(code));
     buildPlanets(code);
     setMode(modeOf(code));
-    setTimeout(settleTeam, 2500);   // by then everyone's team has come in over the network
     Object.assign(me, spawnPoint(me.tm));
     for (const b of bots) Object.assign(b, spawnPoint(b.tm));
     history.replaceState(null, "", "#" + code);

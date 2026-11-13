@@ -10,7 +10,7 @@
         hue: Math.floor(Math.random() * 360), ck: [Math.floor(Math.random() * 7), Math.floor(Math.random() * 6), Math.floor(Math.random() * 5), Math.floor(Math.random() * 5), Math.floor(Math.random() * 6)],
         ...spawnPoint(), vx: 0, vy: 0, a: Math.random() * 6.28, lives: LIVES, dead: false, respawnAt: 0, inv: 0, ds: 0,
         fireCd: 1 + Math.random(), side: Math.random() < 0.5 ? 1 : -1, wander: Math.random() * 6.28, seq: 0, q: 0,
-        shotLog: [], hitBy: [], koBy: [], st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 } };
+        weapon: "fire", shotLog: [], hitBy: [], koBy: [], st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 } };
       bots.push(b); botById.set(id, b);
     }
   }
@@ -38,11 +38,10 @@
     }
   }
   // what a bot shoots with: the mode's gun, or a gun from a crate it grabbed (mines are left for players)
-  const BOT_GUN = { fire: [0, 880], triple: [0, 880], laser: [2, 2300], rocket: [1, 260], nuke: [3, 360], scatter: [4, 1250], rail: [5, 4200], orb: [7, 520], bolt: [8, 5600], shard: [9, 1300] };
-  const botWeapon = b => MODE === "n" ? "nuke" : MODE === "r" ? "rail" : b.weapon || "fire";
+  const botWeapon = b => MODES[MODE].only || b.weapon;
   // fires once; returns the gun's reload time
   function botFire(b, now) {
-    const w = botWeapon(b), [kind, sp] = BOT_GUN[w], ride = kind === 8 ? 0 : 0.6;
+    const w = botWeapon(b), [kind, sp] = WEAPONS[w].shot, ride = kind === 8 ? 0 : 0.6;
     for (const da of w === "triple" ? [-0.2, 0, 0.2] : [0]) {
       const bx = Math.cos(b.a + da), by = Math.sin(b.a + da);
       const id = b.tag + "." + (b.seq++).toString(36);
@@ -57,7 +56,7 @@
     b.st.shots++;
     const bx = Math.cos(b.a), by = Math.sin(b.a);
     b.vx -= bx * 25; b.vy -= by * 25;
-    if (MODE !== "n" && MODE !== "r" && w !== "fire" && --b.ammo <= 0) b.weapon = "fire";
+    if (!MODES[MODE].only && w !== "fire" && --b.ammo <= 0) b.weapon = "fire";
     return WEAPONS[w].cd;
   }
   function updateBots(dt, now) {
@@ -86,7 +85,7 @@
       } else {
         b.wander += (Math.random() - 0.5) * dt * 2; dx = Math.cos(b.wander); dy = Math.sin(b.wander);
       }
-      if (bases && (b.tm === 0 || b.tm === 1)) {
+      if (bases && onTeam(b)) {
         const ef = 1 - b.tm, home = bases[b.tm], thief = flagCarrier[b.tm];
         let goal = null, w = 1.6;
         if (b.fc === ef) { goal = home; w = 3; }                                  // bring it home
@@ -96,9 +95,9 @@
         if (goal) { const gx = goal.x - b.x, gy = goal.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * w; dy += gy / gd * w; }
       }
       if (!MODES[MODE].only && roundLive) {
-        let best = null, bd = (b.weapon || "fire") === "fire" && td > 700 ? 1300 : 0;
+        let best = null, bd = b.weapon === "fire" && td > 700 ? 1300 : 0;
         for (const c of world.picks) {
-          if (grabbed.has(c.key) || c.age < 0.05 || !BOT_GUN[c.type]) continue;
+          if (grabbed.has(c.key) || c.age < 0.05 || c.type === "mine") continue;   // mines are left for players
           const d = Math.hypot(c.x - b.x, c.y - b.y);
           if (d < 34 + 30) {   // picked up
             grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
@@ -169,7 +168,7 @@
         if (s.kind === 6 && SHOT_LIFE[6] - s.life < MINE_ARM) continue;
         if (segHit(s, b.x, b.y, 38 + SHOT_R[s.kind])) {
           if (s.kind === 5) { if (!railOnce(s, b.id)) continue; } else s.life = 0;
-          shotBurst(s); hitConfirm(s, b.lv, b.x, b.y); if (s.kind === 4 || s.kind === 5 || s.kind === 10) pelletShove(b, s, s.kind === 5 ? 650 : s.kind === 10 ? 450 : 150);
+          shotBurst(s); hitConfirm(s, b.lv, b.x, b.y); if (SHOT_SHOVE[s.kind]) pelletShove(b, s, SHOT_SHOVE[s.kind]);
           if (s.kind === 8) boltChain(s, b.x, b.y, b.id, now);
           botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx));
         }

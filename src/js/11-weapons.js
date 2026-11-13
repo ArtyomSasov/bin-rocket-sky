@@ -22,7 +22,7 @@
   const shotDmg = s => MODE === "r" && s.kind === 5 ? 99 : (s.kind === 4 ? pelletDmg(s) : SHOT_DMG[s.kind]) * (s.m || 1);
   // team modes: whose side a shot is on (no friendly fire)
   const teamOfShot = s => s.mine ? me.tm : botById.has(s.owner) ? botById.get(s.owner).tm : remotes.has(s.owner) ? remotes.get(s.owner).tm : undefined;
-  const friendly = (s, tm) => isTeams() && (tm === 0 || tm === 1) && teamOfShot(s) === tm;
+  const friendly = (s, tm) => mates({ tm }, { tm: teamOfShot(s) });
   // shard cannon: one record becomes six hot shards that bounce off walls and planets
   function shardSpray(s) {
     for (let k = 0; k < 6; k++) {
@@ -149,15 +149,15 @@
     impact(s.x, s.y, SHOT_COL[s.kind], s.kind === 1 || s.kind === 5 ? 2 : 1);
   }
   function shoot(now) {
-    const w = WEAPONS[me.weapon];
+    const w = WEAPONS[me.weapon], [kind, sp] = w.shot;
     fireCd = w.cd * (MODE === "n" ? 2.2 : 1);
     let muzzle;
     const gun = me.weapon === "fire" ? null : muzzleAt(me.weapon);
-    if (me.weapon === "triple") { for (const da of [-0.2, 0, 0.2]) muzzle = fireOne(now, me.a + da, 0, 880, gun); sfx("triple", 0.7) || blip(170, 0.12, "sawtooth"); }
-    else if (me.weapon === "laser") { muzzle = fireOne(now, me.a, 2, 2300, gun); sfx("laser", 0.45) || blip(1200, 0.06, "square"); }
-    else if (me.weapon === "rocket") { muzzle = fireOne(now, me.a, 1, 260, gun); sfx("rocket", 0.8) || blip(90, 0.25, "sawtooth"); }
+    if (me.weapon === "triple") { for (const da of [-0.2, 0, 0.2]) muzzle = fireOne(now, me.a + da, kind, sp, gun); sfx("triple", 0.7) || blip(170, 0.12, "sawtooth"); }
+    else if (me.weapon === "laser") { muzzle = fireOne(now, me.a, kind, sp, gun); sfx("laser", 0.45) || blip(1200, 0.06, "square"); }
+    else if (me.weapon === "rocket") { muzzle = fireOne(now, me.a, kind, sp, gun); sfx("rocket", 0.8) || blip(90, 0.25, "sawtooth"); }
     else if (me.weapon === "scatter") {
-      muzzle = fireOne(now, me.a, 4, 1250, gun);
+      muzzle = fireOne(now, me.a, kind, sp, gun);
       // a heavy blast: flash, a cone of fire and smoke, a thump, then the pump racking
       if (!sfx("scatter", 1, 0.85)) { boomSound(0.35, 1400, 0.5); blip(55, 0.25, "square"); }
       setTimeout(() => { if (!sfx("pump", 0.6)) { blip(420, 0.05, "square"); setTimeout(() => blip(300, 0.06, "square"), 90); } }, 260);
@@ -170,22 +170,22 @@
       shake = Math.max(shake, 0.3);
     }
     else if (me.weapon === "rail") {
-      muzzle = fireOne(now, me.a, 5, 4200, gun);
+      muzzle = fireOne(now, me.a, kind, sp, gun);
       railBeam(muzzle.x, muzzle.y, muzzle.vx, muzzle.vy);
       shake = Math.max(shake, 0.35); flash = Math.max(flash, 0.12);
       if (!sfx("rail", 0.9)) { blip(1800, 0.05, "sine"); blip(140, 0.4, "sawtooth"); }
       rings.push({ x: muzzle.x, y: muzzle.y, t: 0, r: 70, col: "233,200,255", dur: 0.35, w: 6 });
     }
-    else if (me.weapon === "mine") { muzzle = fireOne(now, me.a + Math.PI, 6, 140, gun); sfx("mine_drop", 0.7) || blip(260, 0.1, "triangle"); }
-    else if (me.weapon === "orb") { muzzle = fireOne(now, me.a, 7, 520, gun); sfx("shield_get", 0.8, 1.4) || blip(300, 0.2, "sine"); }
-    else if (me.weapon === "bolt") { muzzle = fireOne(now, me.a, 8, 5600, gun); sfx("laser", 0.22, 1.7) || blip(1600, 0.03, "sawtooth"); }
+    else if (me.weapon === "mine") { muzzle = fireOne(now, me.a + Math.PI, kind, sp, gun); sfx("mine_drop", 0.7) || blip(260, 0.1, "triangle"); }
+    else if (me.weapon === "orb") { muzzle = fireOne(now, me.a, kind, sp, gun); sfx("shield_get", 0.8, 1.4) || blip(300, 0.2, "sine"); }
+    else if (me.weapon === "bolt") { muzzle = fireOne(now, me.a, kind, sp, gun); sfx("laser", 0.22, 1.7) || blip(1600, 0.03, "sawtooth"); }
     else if (me.weapon === "shard") {
-      muzzle = fireOne(now, me.a, 9, 1300, gun);
+      muzzle = fireOne(now, me.a, kind, sp, gun);
       if (!sfx("scatter", 0.85, 1.25)) boomSound(0.3, 2000, 0.4);
       impacts.push({ x: muzzle.x, y: muzzle.y, t: 0, r: 50, col: "#ff9a3c" });
     }
-    else if (me.weapon === "nuke") { muzzle = fireOne(now, me.a, 3, 360, gun); sfx("rocket", 1, 0.6) || blip(55, 0.7, "sawtooth"); }
-    else { muzzle = fireOne(now, me.a, 0, 880); sfx("fire", 0.55) || blip(150, 0.12, "sawtooth"); }
+    else if (me.weapon === "nuke") { muzzle = fireOne(now, me.a, kind, sp, gun); sfx("rocket", 1, 0.6) || blip(55, 0.7, "sawtooth"); }
+    else { muzzle = fireOne(now, me.a, kind, sp); sfx("fire", 0.55) || blip(150, 0.12, "sawtooth"); }
     const kick = { nuke: 160, rail: 320, scatter: 260, rocket: 90, laser: 8, mine: 0, orb: 40, bolt: 4, shard: 150 }[me.weapon] ?? 25;
     const [camK, shk, flashR] = { fire: [5, 0.05, 40], triple: [7, 0.07, 50], laser: [2, 0.02, 30], rocket: [12, 0.14, 70], scatter: [22, 0.3, 90],
       rail: [26, 0.35, 90], mine: [0, 0, 0], orb: [10, 0.1, 70], bolt: [2, 0.03, 35], shard: [16, 0.2, 80], nuke: [30, 0.5, 120] }[me.weapon] || [5, 0.05, 40];
@@ -202,11 +202,11 @@
     for (let j = 0; j < 6; j++) puff(muzzle.x, muzzle.y, bx * 200 + (Math.random() - .5) * 160, by * 200 + (Math.random() - .5) * 160, 0.25, 2.5, k === "laser" ? "#bff9ff" : FIRE_COLS[j % 4]);
   }
   function spend(k, n) {
-    if (k !== "fire" && (me.arsenal[k] -= n) <= 0) {
-      delete me.arsenal[k];
-      // out of ammo: fall back to another gun you carry (never auto-pick the nuke), else the fireball
-      me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && me.arsenal[w]) || "fire";
-    }
+    if (k === "fire") return;
+    if ((me.arsenal[k] -= n) > 0) { renderAmmo(k); return; }
+    delete me.arsenal[k];
+    // out of ammo: fall back to another gun you carry (never auto-pick the nuke), else the fireball
+    me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && me.arsenal[w]) || "fire";
     renderWeapon();
   }
   // the laser runs hot: about a second and a half of fire overheats it, then it is locked until it has cooled down a lot
@@ -225,28 +225,28 @@
     if (heatBar && shown !== heatShown) { heatShown = shown; heatBar.style.setProperty("--f", laserHeat.toFixed(2)); heatBar.classList.toggle("hot", overheated); }
   }
   // alternate fire (right mouse button or C; on phones the small button by the fire button)
-  const ALT = {
-    rocket:  { name: "Salvo", cost: 3, cd: 1.6 },    // three rockets at once
-    scatter: { name: "Slug",  cost: 2, cd: 0.95 },   // one heavy slug that flies far, instead of the spread
-    triple:  { name: "Focus", cost: 1, cd: 0.3 },    // all three balls nearly straight
-    mine:    { name: "Throw", cost: 1, cd: 0.6 }     // lob a mine ahead instead of dropping it behind
+  const ALT = {   // kick: recoil, camK: how hard the view jolts
+    rocket:  { name: "Salvo", cost: 3, cd: 1.6,  kick: 200, camK: 18 },   // three rockets at once
+    scatter: { name: "Slug",  cost: 2, cd: 0.95, kick: 340, camK: 24 },   // one heavy slug that flies far, instead of the spread
+    triple:  { name: "Focus", cost: 1, cd: 0.3,  kick: 60,  camK: 10 },   // all three balls nearly straight
+    mine:    { name: "Throw", cost: 1, cd: 0.6,  kick: 40,  camK: 4 }     // lob a mine ahead instead of dropping it behind
   };
   function shootAlt(now) {
     const k = me.weapon, alt = ALT[k];
     if (!alt || !(me.arsenal[k] >= alt.cost)) return;   // a salvo needs three rockets, a slug two shells
     fireCd = alt.cd;
     const gun = muzzleAt(k);
-    let muzzle, kick = 60, camK = 10;
-    if (k === "rocket") { for (const da of [-0.24, 0, 0.24]) muzzle = fireOne(now, me.a + da, 1, 300, gun); sfx("rocket", 1, 0.8); kick = 200; camK = 18; }
+    let muzzle;
+    if (k === "rocket") { for (const da of [-0.24, 0, 0.24]) muzzle = fireOne(now, me.a + da, 1, 300, gun); sfx("rocket", 1, 0.8); }
     else if (k === "scatter") {
-      muzzle = fireOne(now, me.a, 10, 1900, gun); kick = 340; camK = 24;
+      muzzle = fireOne(now, me.a, 10, 1900, gun);
       if (!sfx("scatter", 1, 0.65)) boomSound(0.4, 900, 0.5);
       setTimeout(() => sfx("pump", 0.6, 0.9), 300);
       for (let j = 0; j < 14; j++) { const a = me.a + (Math.random() - 0.5) * 0.3, v = 300 + Math.random() * 500; puff(muzzle.x, muzzle.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.25, 2.5, FIRE_COLS[j % 4]); }
     }
     else if (k === "triple") { for (const da of [-0.035, 0, 0.035]) muzzle = fireOne(now, me.a + da, 0, 1050, gun); sfx("triple", 0.8, 0.9); }
-    else { muzzle = fireOne(now, me.a, 6, 700, gun); sfx("mine_drop", 0.8, 0.8); kick = 40; camK = 4; }
-    shotFeel(k, muzzle, kick, camK, camK / 80, 60 + camK * 2);
+    else { muzzle = fireOne(now, me.a, 6, 700, gun); sfx("mine_drop", 0.8, 0.8); }
+    shotFeel(k, muzzle, alt.kick, alt.camK, alt.camK / 80, 60 + alt.camK * 2);
     spend(k, alt.cost);
   }
   // quick dodge: a burst forward (or toward where you steer) with a moment of invulnerability
@@ -272,25 +272,36 @@
   }
   const arsenalEl = document.getElementById("arsenal");
   const owned = () => WEAPON_KEYS.filter(k => me.arsenal[k]);
+  const ammoFill = k => Math.min(1, me.arsenal[k] / WEAPONS[k].ammo);
+  const chipText = () => { const n = me.arsenal[me.weapon], alt = ALT[me.weapon];
+    return WEAPONS[me.weapon].name + (Number.isFinite(n) ? " · " + n : "") + (alt && !COARSE ? " · right click: " + alt.name : ""); };
+  // after a shot: just the numbers of that gun
+  function renderAmmo(k) {
+    const n = me.arsenal[k], slot = arsenalEl.querySelector(`[data-w="${k}"]`);
+    if (k === me.weapon) document.getElementById("wpn").lastChild.nodeValue = chipText();
+    if (!slot) return;
+    slot.querySelector("span").textContent = Number.isFinite(n) ? n : "∞";
+    if (k !== "laser") slot.querySelector("b").style.setProperty("--f", ammoFill(k).toFixed(3));
+  }
   function renderWeapon() {
-    const w = WEAPONS[me.weapon], ammo = me.arsenal[me.weapon];
+    const w = WEAPONS[me.weapon];
     const el = document.getElementById("wpn");
     el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICONS[me.weapon]}"/></svg>`;
-    el.append(w.name + (Number.isFinite(ammo) ? " · " + ammo : ""));
+    el.append(chipText());
     el.style.color = w.col || "";
     // the weapon bar: every gun you carry, tap/click or 1-8 / Q / E / mouse wheel to switch
     const list = owned();
     arsenalEl.hidden = !playing || list.length < 2;
     arsenalEl.innerHTML = list.map((k, i) => {
-      const n = me.arsenal[k], f = k === "laser" ? laserHeat : Number.isFinite(n) ? Math.min(1, n / WEAPONS[k].ammo) : 1;
+      const n = me.arsenal[k];   // the laser's bar shows heat, filled in by heatTick
       return `<button type="button" class="slot${k === me.weapon ? " on" : ""}" data-w="${k}" style="--c:${WEAPONS[k].col || "#ffb43c"}" aria-label="${WEAPONS[k].name}">`
         + `<i>${i + 1}</i><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICONS[k]}"/></svg><span>${Number.isFinite(n) ? n : "∞"}</span>`
-        + `<b class="${k === "laser" ? "heat" : "ammo"}${k === "laser" && overheated ? " hot" : ""}" style="--f:${f.toFixed(3)}"></b></button>`;
+        + (k === "laser" ? `<b class="heat"></b>` : `<b style="--f:${(Number.isFinite(n) ? ammoFill(k) : 1).toFixed(3)}"></b>`) + `</button>`;
     }).join("");
     heatBar = arsenalEl.querySelector('[data-w="laser"] b'); heatShown = "";
     const alt = ALT[me.weapon];
     document.getElementById("altBtn").hidden = !playing || !COARSE || !alt;
-    if (alt) { document.getElementById("altName").textContent = alt.name.toUpperCase(); if (!COARSE) el.append(" · right click: " + alt.name); }
+    if (alt) document.getElementById("altName").textContent = alt.name.toUpperCase();
   }
   function selectWeapon(k) {
     if (!me.arsenal[k] || k === me.weapon) return;

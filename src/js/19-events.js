@@ -537,6 +537,8 @@
       const L = Math.hypot(x2 - x1, y2 - y1), nx = (x2 - x1) / (L || 1), ny = (y2 - y1) / (L || 1), r = 8 + b.t * 26;
       const proj = (px, py) => (px - x1) * nx + (py - y1) * ny, ds = [proj(0, 0), proj(vw, 0), proj(0, vh), proj(vw, vh)];
       const d0 = Math.max(0, Math.min(...ds) - 40), d1 = Math.min(L, Math.max(...ds) + 40), step = lowQ ? 10 : 5;
+      const side = (px, py) => (px - x1) * -ny + (py - y1) * nx, ss = [side(0, 0), side(vw, 0), side(0, vh), side(vw, vh)];
+      if (Math.min(...ss) > r + 40 || Math.max(...ss) < -r - 40) continue;   // the whole screen is off to one side of the trail
       for (const [ph, col] of [[0, "217,168,255"], [Math.PI, "255,230,255"]]) {
         g.strokeStyle = `rgba(${col},${0.75 * k})`; g.lineWidth = 2 * k + 0.6;
         g.beginPath();

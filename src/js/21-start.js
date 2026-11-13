@@ -1,30 +1,18 @@
   // ---------- controls help, tailored to the device ----------
   const KEY = k => `<kbd>${k}</kbd>`;
+  // desktop rows differ only in a few key names
+  const desk = (label, shift, enter, mouse) => ({ label, rows: [
+    ["Fly", `${KEY("W")}${KEY("A")}${KEY("S")}${KEY("D")} or arrows · or hold ${mouse} and point`],
+    ["Fire", `${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY(enter)})`],
+    ["Dash", `tap ${KEY(shift)} — a quick dodge forward`],
+    ["Boost", `hold ${KEY(shift)} — uses the blue energy bar`],
+    ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`],
+    ["Alt fire", `right mouse button or ${KEY("C")}: rocket salvo, shotgun slug, focused triple, thrown mine`],
+    ["Brake", `hold ${KEY("X")} (or push the other way)`]] });
   const CONTROLS = {
-    mac: { label: "Mac", rows: [
-      ["Fly", `${KEY("W")}${KEY("A")}${KEY("S")}${KEY("D")} or arrows · or hold the trackpad / mouse button and point`],
-      ["Fire", `${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY("Return")})`],
-      ["Dash", `tap ${KEY("⇧ Shift")} — a quick dodge forward`],
-      ["Boost", `hold ${KEY("⇧ Shift")} — uses the blue energy bar`],
-      ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`],
-      ["Alt fire", `right mouse button or ${KEY("C")}: rocket salvo, shotgun slug, focused triple, thrown mine`],
-      ["Brake", `hold ${KEY("X")} (or push the other way)`]] },
-    windows: { label: "Windows", rows: [
-      ["Fly", `${KEY("W")}${KEY("A")}${KEY("S")}${KEY("D")} or arrows · or hold the left mouse button and point`],
-      ["Fire", `${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY("Enter")})`],
-      ["Dash", `tap ${KEY("Shift")} — a quick dodge forward`],
-      ["Boost", `hold ${KEY("Shift")} — uses the blue energy bar`],
-      ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`],
-      ["Alt fire", `right mouse button or ${KEY("C")}: rocket salvo, shotgun slug, focused triple, thrown mine`],
-      ["Brake", `hold ${KEY("X")} (or push the other way)`]] },
-    linux: { label: "Linux", rows: [
-      ["Fly", `${KEY("W")}${KEY("A")}${KEY("S")}${KEY("D")} or arrows · or hold the left mouse button and point`],
-      ["Fire", `${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY("Enter")})`],
-      ["Dash", `tap ${KEY("Shift")} — a quick dodge forward`],
-      ["Boost", `hold ${KEY("Shift")} — uses the blue energy bar`],
-      ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`],
-      ["Alt fire", `right mouse button or ${KEY("C")}: rocket salvo, shotgun slug, focused triple, thrown mine`],
-      ["Brake", `hold ${KEY("X")} (or push the other way)`]] },
+    mac: desk("Mac", "⇧ Shift", "Return", "the trackpad / mouse button"),
+    windows: desk("Windows", "Shift", "Enter", "the left mouse button"),
+    linux: desk("Linux", "Shift", "Enter", "the left mouse button"),
     phone: { label: "Phone", rows: [
       ["Fly", "put your thumb anywhere on the left side: a joystick appears under it, push it where you want to go"],
       ["Fire", "orange flame button (bottom right)"],

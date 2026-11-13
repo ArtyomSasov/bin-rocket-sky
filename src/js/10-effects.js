@@ -123,17 +123,26 @@
   // real pieces of the ship: the sprite (with wings and armour) is cut along jagged lines from a point
   // near its middle; every piece keeps its part of the picture and drifts off on its own
   const frags = [];
+  // where a ray from c along (dx, dy) leaves the 320x320 sprite square
+  function spriteExit(c, dx, dy) {
+    let t = Infinity;
+    if (dx > 1e-6) t = Math.min(t, (320 - c[0]) / dx); if (dx < -1e-6) t = Math.min(t, -c[0] / dx);
+    if (dy > 1e-6) t = Math.min(t, (320 - c[1]) / dy); if (dy < -1e-6) t = Math.min(t, -c[1] / dy);
+    return [c[0] + dx * t, c[1] + dy * t];
+  }
+  // a broken-off piece of bin as a drifting fragment; vel(wx, wy) gives its speed and spin from where it sits
+  function addFrag(b, piece, s, rot, imgs, vel) {
+    const ox = (piece.cx / 320 - 0.5) * s, oy = (piece.cy / 320 - 0.5) * s;
+    const wx = ox * Math.cos(rot) - oy * Math.sin(rot), wy = ox * Math.sin(rot) + oy * Math.cos(rot), [vx, vy, spin] = vel(wx, wy);
+    frags.push({ cx: piece.cx, cy: piece.cy, img: imgs[0], glow: imgs[1], x: b.x + wx, y: b.y + wy, vx, vy,
+                 a: rot, spin, s, life: Infinity, max: Infinity, born: performance.now() });
+    while (frags.length > 60) frags.shift();   // each piece holds two small pre-rendered canvases
+  }
   function cutSprite(n) {
     const c = [150 + (Math.random() - 0.5) * 40, 140 + (Math.random() - 0.5) * 40];
     const base = Math.random() * 6.283;
     const angs = Array.from({ length: n }, (_, i) => base + i * 6.283 / n + (Math.random() - 0.5) * 0.5);
-    const toEdge = a => {
-      const dx = Math.cos(a), dy = Math.sin(a);
-      let t = Infinity;
-      if (dx > 0) t = Math.min(t, (320 - c[0]) / dx); if (dx < 0) t = Math.min(t, -c[0] / dx);
-      if (dy > 0) t = Math.min(t, (320 - c[1]) / dy); if (dy < 0) t = Math.min(t, -c[1] / dy);
-      return [c[0] + dx * t, c[1] + dy * t];
-    };
+    const toEdge = a => spriteExit(c, Math.cos(a), Math.sin(a));
     const cuts = angs.map(a => {
       const e = toEdge(a), pts = [c];
       for (const f of [0.3, 0.55, 0.8]) {
@@ -183,16 +192,10 @@
   }
   function shatter(b, n) {
     const s = BOT * sizeOf(b.lv || 1), rot = b.a + Math.PI / 2 - SPRITE_TILT;
-    for (const piece of cutSprite(n)) {
-      const ox = (piece.cx / 320 - 0.5) * s, oy = (piece.cy / 320 - 0.5) * s;
-      const wx = ox * Math.cos(rot) - oy * Math.sin(rot), wy = ox * Math.sin(rot) + oy * Math.cos(rot);
-      const d = Math.hypot(wx, wy) || 1, v = 70 + Math.random() * 150, life = Infinity;
-      const [img0, glow0] = renderPiece(piece, s, b.lv || 1, b.ck || [0, 0, 0, 0, 0]);
-      frags.push({ cx: piece.cx, cy: piece.cy, img: img0, glow: glow0, x: b.x + wx, y: b.y + wy,
-                   vx: wx / d * v + (b.vx || 0) * 0.4, vy: wy / d * v + (b.vy || 0) * 0.4,
-                   a: rot, spin: (Math.random() - 0.5) * 1.3, s, life, max: life, born: performance.now() });
-    }
-    while (frags.length > 60) frags.shift();   // each piece holds two small pre-rendered canvases
+    for (const piece of cutSprite(n)) addFrag(b, piece, s, rot, renderPiece(piece, s, b.lv || 1, b.ck || [0, 0, 0, 0, 0]), (wx, wy) => {
+      const d = Math.hypot(wx, wy) || 1, v = 70 + Math.random() * 150;   // flung out from the middle
+      return [wx / d * v + (b.vx || 0) * 0.4, wy / d * v + (b.vy || 0) * 0.4, (Math.random() - 0.5) * 1.3];
+    });
   }
   function shove(x, y, r, power) {
     for (const list of [hulks, frags, debris]) for (const o of list) {
@@ -243,13 +246,7 @@
   // the cut has a fine saw-tooth edge
   function sliceSprite(a, off) {
     const dx = Math.cos(a), dy = Math.sin(a), c = [160 - dy * off, 150 + dx * off];
-    const exit = sg => {
-      const ex = dx * sg, ey = dy * sg; let t = Infinity;
-      if (ex > 1e-6) t = Math.min(t, (320 - c[0]) / ex); if (ex < -1e-6) t = Math.min(t, -c[0] / ex);
-      if (ey > 1e-6) t = Math.min(t, (320 - c[1]) / ey); if (ey < -1e-6) t = Math.min(t, -c[1] / ey);
-      return [c[0] + ex * t, c[1] + ey * t];
-    };
-    const p0 = exit(-1), p1 = exit(1), cut = [];
+    const p0 = spriteExit(c, -dx, -dy), p1 = spriteExit(c, dx, dy), cut = [];
     for (let k = 0; k <= 18; k++) {
       const t = k / 18, j = k === 0 || k === 18 ? 0 : (k % 2 ? 2.5 : -2.5);
       cut.push([p0[0] + (p1[0] - p0[0]) * t - dy * j, p0[1] + (p1[1] - p0[1]) * t + dx * j]);
@@ -268,16 +265,11 @@
   // railgun: the slug saws the bin clean in two along its path; the halves drift apart with glowing violet cuts
   function railCut(b, da) {
     const sz = sizeOf(b.lv || 1), s = BOT * sz, rot = b.a + Math.PI / 2 - SPRITE_TILT, nx = -Math.sin(da), ny = Math.cos(da);
-    for (const piece of sliceSprite(da - rot, (Math.random() - 0.5) * 36)) {
-      const ox = (piece.cx / 320 - 0.5) * s, oy = (piece.cy / 320 - 0.5) * s;
-      const wx = ox * Math.cos(rot) - oy * Math.sin(rot), wy = ox * Math.sin(rot) + oy * Math.cos(rot);
-      const sg = Math.sign(wx * nx + wy * ny) || 1, v = 90 + Math.random() * 50;
-      const [img, glow] = renderPiece(piece, s, b.lv || 1, b.ck || [0, 0, 0, 0, 0], "200,120,255", "255,245,255", 1.8);
-      frags.push({ cx: piece.cx, cy: piece.cy, img, glow, x: b.x + wx, y: b.y + wy,
-                   vx: nx * sg * v + Math.cos(da) * 110 + (b.vx || 0) * 0.3, vy: ny * sg * v + Math.sin(da) * 110 + (b.vy || 0) * 0.3,
-                   a: rot, spin: sg * (0.25 + Math.random() * 0.4), s, life: Infinity, max: Infinity, born: performance.now() });
-    }
-    while (frags.length > 60) frags.shift();
+    for (const piece of sliceSprite(da - rot, (Math.random() - 0.5) * 36))
+      addFrag(b, piece, s, rot, renderPiece(piece, s, b.lv || 1, b.ck || [0, 0, 0, 0, 0], "200,120,255", "255,245,255", 1.8), (wx, wy) => {
+        const sg = Math.sign(wx * nx + wy * ny) || 1, v = 90 + Math.random() * 50;   // the halves part across the cut, carried along the slug's path
+        return [nx * sg * v + Math.cos(da) * 110 + (b.vx || 0) * 0.3, ny * sg * v + Math.sin(da) * 110 + (b.vy || 0) * 0.3, sg * (0.25 + Math.random() * 0.4)];
+      });
     const L = s * 0.75;
     for (let k = 0; k < (lowQ ? 14 : 40); k++) {   // sparks spraying off both sides of the cut
       const t = (Math.random() - 0.5) * L, px = b.x + Math.cos(da) * t, py = b.y + Math.sin(da) * t;
@@ -287,7 +279,7 @@
     impacts.push({ x: b.x, y: b.y, t: 0, r: 100 * sz, col: "#e9c8ff" });
     rings.push({ x: b.x, y: b.y, t: 0, r: 170 * sz, col: "217,168,255", dur: 0.4, w: 6 });
     smoke(b.x, b.y, lowQ ? 4 : 10, 50, 2);
-    if (Math.hypot(b.x - me.x, b.y - me.y) < 1400) sfx("chunk", 1, 0.7, b.x, b.y);
+    sfx("chunk", 1, 0.7, b.x, b.y);
   }
   // laser or lightning: the charge fries it where it is; the charred shell twitches with arcs, then smokes
   function electrocute(b) {
@@ -301,7 +293,7 @@
       puff(b.x, b.y, Math.cos(a) * v, Math.sin(a) * v, 0.3 + Math.random() * 0.4, 1 + Math.random(), k % 2 ? "#bfefff" : "#ffffff", 1, 0.05);
     }
     smoke(b.x, b.y, lowQ ? 5 : 12, 40, 2.5);
-    if (Math.hypot(b.x - me.x, b.y - me.y) < 1400) { sfx("laser", 0.8, 0.5, b.x, b.y); sfx("hit", 0.6, 0.6, b.x, b.y); }
+    sfx("laser", 0.8, 0.5, b.x, b.y); sfx("hit", 0.6, 0.6, b.x, b.y);
   }
   // plasma: the bin glows white-hot, slumps and drips like wax, then cools into molten blobs
   const melts = [];
@@ -318,7 +310,7 @@
     if (melts.length > 8) melts.shift();
     impacts.push({ x: b.x, y: b.y, t: 0, r: 130 * sz, col: "#9fe8ff" });
     rings.push({ x: b.x, y: b.y, t: 0, r: 170 * sz, col: "160,235,255", dur: 0.45, w: 8 });
-    if (Math.hypot(b.x - me.x, b.y - me.y) < 1400) { sfx("shield_hit", 0.9, 0.55, b.x, b.y); sfx("boom_small", 0.6, 0.7, b.x, b.y); }
+    sfx("shield_hit", 0.9, 0.55, b.x, b.y); sfx("boom_small", 0.6, 0.7, b.x, b.y);
   }
   const MELT_T = 2.6;
   function updateMelts(dt) {
@@ -330,7 +322,7 @@
         const o = (Math.random() - 0.5) * m.s * 0.8, bx = m.x + Math.cos(m.a) * o + Math.cos(down) * m.s * (0.3 + k * 0.2), by = m.y + Math.sin(m.a) * o + Math.sin(down) * m.s * (0.3 + k * 0.2);
         puff(bx, by, Math.cos(down) * (40 + Math.random() * 60), Math.sin(down) * (40 + Math.random() * 60), 0.6 + Math.random() * 0.6, 1.5 + Math.random() * 2, Math.random() < 0.5 ? "#ffb040" : "#ffe08a");
       }
-      if (Math.random() < 5 * dt) puff(m.x + (Math.random() - 0.5) * m.s * 0.5, m.y + (Math.random() - 0.5) * m.s * 0.5, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30, 1.6, 5 + Math.random() * 5, "rgb(70,62,86)", 2);
+      if (Math.random() < 5 * dt) smoke(m.x + (Math.random() - 0.5) * m.s * 0.5, m.y + (Math.random() - 0.5) * m.s * 0.5, 1, 15, 1.6);
       if (m.t >= MELT_T) {   // set: a few glowing blobs of slag drift away
         for (let n = 0; n < (lowQ ? 4 : 7); n++) { const a = Math.random() * 6.28, v = 20 + Math.random() * 70; addDebris(m.x + Math.cos(down) * m.s * 0.3, m.y + Math.sin(down) * m.s * 0.3, Math.cos(a) * v + m.vx, Math.sin(a) * v + m.vy, (4 + Math.random() * 6) * m.sz, n % 2 ? "#7a4a3a" : "#5a3a40"); }
         smoke(m.x, m.y, lowQ ? 4 : 10, 40, 2.5);
