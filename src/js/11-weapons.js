@@ -441,9 +441,9 @@
   function hurt(now, dmg = 1, force = false, kind = -1, ang = 0) {   // kind, ang: the shot that hit (picks how the bin dies)
     if (!roundLive) return false;
     if (me.dead || (!force && now < me.inv)) return false;
-    // armour soaks the hit first (black hole and the nuke's core ignore it)
+    // armour soaks part of the hit first (black hole and the nuke's core ignore it)
     if (!force && me.shield > 0) {
-      const absorbed = Math.min(me.shield, dmg);
+      const absorbed = Math.min(me.shield, dmg * ARMOR_SOAK);   // armour soaks part of the hit, the rest gets through
       me.shield = Math.round((me.shield - absorbed) * 1000) / 1000; dmg = Math.round((dmg - absorbed) * 1000) / 1000;   // no float dust left behind
       shieldHitAt = now; renderShield();
       impacts.push({ x: me.x, y: me.y, t: 0, r: 90 * sizeOf(me.lv), col: "#6fc2ff" });

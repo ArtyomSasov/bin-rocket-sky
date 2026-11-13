@@ -24,6 +24,22 @@ Small drifting asteroids exchange momentum with the bin on collision: speed and 
 Bots (2, 4 or 6, three skill levels) join any mode and play its rules. Only the lobby's host (whoever made the
 code, remembered in that browser) brings bots; players who join with the code play with the host's.
 
+## Your own server
+
+By default players meet through free public MQTT brokers (HiveMQ, then EMQX). They are shared with the
+world, so ping can jump. With your own broker close to your players it is steadier:
+
+```sh
+cd server
+DOMAIN=game.example.com docker compose up -d     # a domain pointing at this machine, ports 80/443 open
+```
+
+Then open the game as `https://artyomsasov.github.io/bin-rocket-sky/?broker=wss://game.example.com/mqtt`
+(everyone in a lobby must use the same broker). `server/` holds Mosquitto (WebSockets) behind Caddy, which
+fetches the TLS certificate itself. The game shows each player's ping in the scoreboard.
+
+The game logic stays in the browsers (damage is decided by whoever is hit); the broker only relays messages.
+
 ## Finding a game
 
 The start screen's "Join" tab lists the games running right now (mode, map, size, pilots and bots); click one

@@ -20,9 +20,15 @@
   const remotes = new Map();   // id -> remote bot
   // "slot:gen" of pick-ups already taken by anyone; a key is forgotten two minutes after it was last taken,
   // by when its item has long been replaced by the next generation
+  // (and never more than GRAB_CAP keys: other pilots' lists feed it, so a flood can't grow it without bound)
+  const GRAB_CAP = 1000;
   class AgedSet extends Set {
     constructor() { super(); this.at = new Map(); }
-    add(k) { this.at.set(k, performance.now()); return super.add(k); }
+    add(k) {
+      this.at.delete(k); this.at.set(k, performance.now());   // re-adding moves it to the young end
+      if (this.at.size > GRAB_CAP) for (const old of this.at.keys()) { this.delete(old); if (this.at.size <= GRAB_CAP) break; }
+      return super.add(k);
+    }
     delete(k) { this.at.delete(k); return super.delete(k); }
     clear() { this.at.clear(); super.clear(); }
     prune(age) { const t = performance.now(); for (const [k, a] of this.at) if (t - a > age) this.delete(k); }

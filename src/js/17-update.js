@@ -513,7 +513,7 @@
         dk: me.dead ? me.dk : 0, da: me.dead ? +me.da.toFixed(2) : 0, tm: me.tm ?? -1   // the team rides every message: shots need it
       };
       const slow = {
-        tm: me.tm ?? -1, fc: me.fc ?? -1, cp: [stats.round, me.caps || 0],
+        tm: me.tm ?? -1, fc: me.fc ?? -1, cp: [stats.round, me.caps || 0], pg: Math.round(myPing / 10) * 10, bc: bots.length ? [bots.length, bots[0].level] : 0,
         tg: myTag, n: me.name, h: me.hue, ck: me.ck, s: me.score, l: Math.round(me.lives * 100) / 100, am: me.ampUntil > now ? 1 : 0, lv: me.lv, sh: Math.round(me.shield * 100) / 100, wp: WEAPON_KEYS.indexOf(me.weapon), g: myGrabs, hb: hitBy, ko: koBy,
         st: [stats.round, stats.kills, stats.deaths, stats.shots, stats.hits, stats.best],
         // Keep live deltas within the packet budget; rolling terrain snapshots repair older holes.
@@ -560,10 +560,10 @@
   const boardEl = document.getElementById("board");
   // everyone's numbers for the current round (others' come from their latest state)
   function playerRows() {
-    const rows = [{ name: me.name || "You", hue: me.hue, me: true, score: me.score, kills: stats.kills, deaths: stats.deaths, shots: stats.shots, hits: stats.hits, best: stats.best, tm: me.tm, caps: me.caps || 0 }];
+    const rows = [{ name: me.name || "You", hue: me.hue, me: true, ping: myPing, score: me.score, kills: stats.kills, deaths: stats.deaths, shots: stats.shots, hits: stats.hits, best: stats.best, tm: me.tm, caps: me.caps || 0 }];
     for (const r of remotes.values()) {
       const st = r.st && r.st[0] === stats.round ? r.st : [0, 0, 0, 0, 0, 0];
-      rows.push({ name: r.name, hue: r.hue, score: r.score, kills: st[1], deaths: st[2], shots: st[3], hits: st[4], best: st[5], tm: r.tm, caps: r.cpRound === stats.round ? r.caps || 0 : 0 });
+      rows.push({ name: r.name, hue: r.hue, ping: r.ping, score: r.score, kills: st[1], deaths: st[2], shots: st[3], hits: st[4], best: st[5], tm: r.tm, caps: r.cpRound === stats.round ? r.caps || 0 : 0 });
     }
     return rows;
   }
@@ -610,6 +610,12 @@
     const won = isTeams() ? (teamTotals().lead || 0) * (me.tm === 0 ? 1 : -1) > 0 : top.me && stats.kills > 0;
     setTimeout(() => sfx(won ? (stats.deaths === 0 ? "v_flawless" : "v_win") : "v_lose", 1), 600);
   }
+  let decidedRound = -1;
+  // the best score in the lobby, in the unit the limit counts: kills, team kills, or flags
+  function leaderScore() {
+    if (isTeams()) { const t = teamTotals(); return MODES[MODE].flags ? Math.max(...t.c) : Math.max(...t.k); }
+    return Math.max(0, ...playerRows().map(r => r.kills));
+  }
   function roundTick(now) {
     const rd = roundAt(clockNow());
     if (rd.idx !== stats.round) {
@@ -635,11 +641,17 @@
       shownRound = rd.idx;
       document.getElementById("results").hidden = true;
     }
-    roundLive = rd.live;
+    // the score limit: once someone (or a team) reaches it, the round is decided; results show until the next one
+    if (rd.live && SCORE_LIMIT && decidedRound !== rd.idx && leaderScore() >= SCORE_LIMIT) {
+      decidedRound = rd.idx;
+      announce("ROUND DECIDED", "score limit " + SCORE_LIMIT + " reached", "#ffd36b", 2);
+    }
+    const live = rd.live && decidedRound !== rd.idx;
+    roundLive = live;
     const info = document.getElementById("roundInfo");
-    if (rd.live) {
+    if (live) {
       const m = Math.floor(rd.left / 60), sec = Math.floor(rd.left % 60);
-      info.textContent = "Round " + (rd.idx % 1000) + " · " + m + ":" + String(sec).padStart(2, "0");
+      info.textContent = "Round " + (rd.idx % 1000) + " · " + m + ":" + String(sec).padStart(2, "0") + (SCORE_LIMIT ? " · first to " + SCORE_LIMIT : "");
       info.classList.toggle("last", rd.left < 30);
     } else {
       info.textContent = "Results · next round in " + Math.ceil(ROUND_LEN - rd.ph) + "s";
@@ -676,6 +688,7 @@
       const li = document.createElement("li"); if (r.me) li.className = "me";
       const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = r.name; nm.style.color = isTeams() && onTeam(r) ? TEAM_HEX[r.tm] : `hsl(${r.hue} 90% 80%)`;
       const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = r.kills + " · " + r.deaths;
+      if (r.ping) { const pg = document.createElement("small"); pg.className = "pg " + (r.ping < 90 ? "good" : r.ping < 180 ? "ok" : "bad"); pg.textContent = Math.round(r.ping) + "ms"; nm.append(" ", pg); }
       li.append(nm, pts); return li;
     }));
   }

@@ -6,7 +6,7 @@
     const L = BOT_LEVELS[level];
     for (let i = 0; i < n; i++) {
       const id = "pb" + Math.random().toString(36).slice(2, 8);
-      const b = { id, tag: "b" + Math.random().toString(36).slice(2, 7), name: BOT_NAMES[(bots.length) % BOT_NAMES.length] + " (bot)", L,
+      const b = { id, tag: "b" + Math.random().toString(36).slice(2, 7), name: BOT_NAMES[(bots.length) % BOT_NAMES.length] + " (bot)", L, level,
         hue: Math.floor(Math.random() * 360), ck: [Math.floor(Math.random() * 7), Math.floor(Math.random() * 6), Math.floor(Math.random() * 5), Math.floor(Math.random() * 5), Math.floor(Math.random() * 6)],
         ...spawnPoint(), vx: 0, vy: 0, a: Math.random() * 6.28, lives: LIVES, dead: false, respawnAt: 0, inv: 0, ds: 0,
         fireCd: 1 + Math.random(), side: Math.random() < 0.5 ? 1 : -1, wander: Math.random() * 6.28, seq: 0, q: 0,

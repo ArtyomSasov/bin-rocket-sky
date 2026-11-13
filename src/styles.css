@@ -110,7 +110,13 @@ body {
 .settings:not(.ingame) .menu-only, .settings:not(.ingame) .menu-hint { display: none; }
 .menu-hint { margin: -8px 0 0; color: var(--muted); font-size: 12px; }
 .settings small { color: var(--muted); font-size: 12px; }
-#startGear { width: 100%; }
+#startForm { position: relative; }
+.card-gear { width: auto; height: auto; top: 14px; right: 14px; display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+  border: 1px solid var(--line); border-radius: 10px; font: 700 12px var(--display); }
+.card-gear svg { width: 16px; height: 16px; }
+.board .ping, .board .pg { font-size: 11px; font-weight: 700; }
+.board .pg { opacity: .8; }
+.good { color: #5dff8a; } .ok { color: #ffd36b; } .bad { color: #ff6b6b; }
 .board h2 { margin: 0 0 6px; font: 600 11px/1 var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .board ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
 .board li { display: flex; justify-content: space-between; gap: 12px; white-space: nowrap; }

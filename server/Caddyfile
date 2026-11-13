@@ -1,0 +1,7 @@
+{$DOMAIN} {
+	# the game connects to wss://<domain>/mqtt
+	handle /mqtt* {
+		reverse_proxy mosquitto:9001
+	}
+	respond "Bin Rocket Sky game server" 200
+}

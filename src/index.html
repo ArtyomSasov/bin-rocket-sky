@@ -14,7 +14,7 @@
 <button class="fire altbtn" id="altBtn" aria-label="Alternate fire" hidden><span id="altName">ALT</span></button>
 <button class="fire" id="fireBtn" aria-label="Fire" hidden><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg></button>
 <div class="event" id="eventBanner" hidden></div>
-<div class="board chip"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><h2 id="boardTitle">Flyers</h2><div class="round" id="roundInfo">Round 1 · 5:00</div><div class="bhead"><span>Pilot</span><span>Kills · Deaths</span></div><ol id="board"></ol></div>
+<div class="board chip"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><h2 id="boardTitle">Flyers</h2><div class="round" id="roundInfo">Round 1 · 5:00</div><div class="ping" id="pingInfo"></div><div class="bhead"><span>Pilot</span><span>Kills · Deaths</span></div><ol id="board"></ol></div>
 <div class="feed" id="feed" aria-live="off"></div>
 <div class="announce" id="announce"></div>
 <div class="settings" id="settings" hidden>
@@ -40,6 +40,7 @@
 
 <div class="start" id="start">
   <form class="card chip" id="startForm">
+    <button type="button" class="gear card-gear" id="startGear" aria-label="Graphics settings" title="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg><span>Graphics</span></button>
     <h1>Bin Rocket <em>Sky</em></h1>
     <p class="tag">Space battles of flying bins: shoot, smash planets apart, win the round.</p>
 
@@ -65,10 +66,12 @@
         <div class="pick"><span>Mode</span><div class="cards" id="modePick" role="group" aria-label="Game mode"></div></div>
         <div class="pick"><span>Map</span><div class="cards" id="themePick" role="group" aria-label="Map"></div></div>
         <div class="pick"><span>Size</span><div class="segs" id="mapSize" role="group" aria-label="Map size"></div></div>
+        <div class="pick"><span>Round length</span><div class="segs" id="timePick" role="group" aria-label="Round length"></div></div>
+        <div class="pick"><span>Score limit <small>(ends the round early)</small></span><div class="segs" id="scorePick" role="group" aria-label="Score limit"></div></div>
         <p class="codeline" id="codeLine"></p>
       </div>
       <div class="pane" id="paneJoin" hidden>
-        <input id="lobbyInput" class="code" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Friend's code, e.g. K7M2Q" aria-label="Lobby code">
+        <input id="lobbyInput" class="code" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Friend's code, e.g. K7M2Q" aria-label="Lobby code">
         <p class="codeline" id="joinLine">The code brings its own mode and map.</p>
         <p class="codeline">Bots and settings come from whoever made the lobby.</p>
         <div class="pick"><span>Open games</span><div class="lobbies" id="lobbyList"></div></div>
@@ -84,7 +87,6 @@
     </div>
     </div>
 
-    <button type="button" class="ghost" id="startGear">Graphics settings</button>
     <section class="controls" aria-labelledby="ctrlTitle">
       <span id="ctrlTitle">Controls</span>
       <dl class="clist" id="clist"></dl>

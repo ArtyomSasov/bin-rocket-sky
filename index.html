@@ -117,7 +117,13 @@ body {
 .settings:not(.ingame) .menu-only, .settings:not(.ingame) .menu-hint { display: none; }
 .menu-hint { margin: -8px 0 0; color: var(--muted); font-size: 12px; }
 .settings small { color: var(--muted); font-size: 12px; }
-#startGear { width: 100%; }
+#startForm { position: relative; }
+.card-gear { width: auto; height: auto; top: 14px; right: 14px; display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+  border: 1px solid var(--line); border-radius: 10px; font: 700 12px var(--display); }
+.card-gear svg { width: 16px; height: 16px; }
+.board .ping, .board .pg { font-size: 11px; font-weight: 700; }
+.board .pg { opacity: .8; }
+.good { color: #5dff8a; } .ok { color: #ffd36b; } .bad { color: #ff6b6b; }
 .board h2 { margin: 0 0 6px; font: 600 11px/1 var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .board ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
 .board li { display: flex; justify-content: space-between; gap: 12px; white-space: nowrap; }
@@ -380,7 +386,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
 <button class="fire altbtn" id="altBtn" aria-label="Alternate fire" hidden><span id="altName">ALT</span></button>
 <button class="fire" id="fireBtn" aria-label="Fire" hidden><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg></button>
 <div class="event" id="eventBanner" hidden></div>
-<div class="board chip"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><h2 id="boardTitle">Flyers</h2><div class="round" id="roundInfo">Round 1 · 5:00</div><div class="bhead"><span>Pilot</span><span>Kills · Deaths</span></div><ol id="board"></ol></div>
+<div class="board chip"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><h2 id="boardTitle">Flyers</h2><div class="round" id="roundInfo">Round 1 · 5:00</div><div class="ping" id="pingInfo"></div><div class="bhead"><span>Pilot</span><span>Kills · Deaths</span></div><ol id="board"></ol></div>
 <div class="feed" id="feed" aria-live="off"></div>
 <div class="announce" id="announce"></div>
 <div class="settings" id="settings" hidden>
@@ -406,6 +412,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
 
 <div class="start" id="start">
   <form class="card chip" id="startForm">
+    <button type="button" class="gear card-gear" id="startGear" aria-label="Graphics settings" title="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg><span>Graphics</span></button>
     <h1>Bin Rocket <em>Sky</em></h1>
     <p class="tag">Space battles of flying bins: shoot, smash planets apart, win the round.</p>
 
@@ -431,10 +438,12 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
         <div class="pick"><span>Mode</span><div class="cards" id="modePick" role="group" aria-label="Game mode"></div></div>
         <div class="pick"><span>Map</span><div class="cards" id="themePick" role="group" aria-label="Map"></div></div>
         <div class="pick"><span>Size</span><div class="segs" id="mapSize" role="group" aria-label="Map size"></div></div>
+        <div class="pick"><span>Round length</span><div class="segs" id="timePick" role="group" aria-label="Round length"></div></div>
+        <div class="pick"><span>Score limit <small>(ends the round early)</small></span><div class="segs" id="scorePick" role="group" aria-label="Score limit"></div></div>
         <p class="codeline" id="codeLine"></p>
       </div>
       <div class="pane" id="paneJoin" hidden>
-        <input id="lobbyInput" class="code" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Friend's code, e.g. K7M2Q" aria-label="Lobby code">
+        <input id="lobbyInput" class="code" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Friend's code, e.g. K7M2Q" aria-label="Lobby code">
         <p class="codeline" id="joinLine">The code brings its own mode and map.</p>
         <p class="codeline">Bots and settings come from whoever made the lobby.</p>
         <div class="pick"><span>Open games</span><div class="lobbies" id="lobbyList"></div></div>
@@ -450,7 +459,6 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     </div>
     </div>
 
-    <button type="button" class="ghost" id="startGear">Graphics settings</button>
     <section class="controls" aria-labelledby="ctrlTitle">
       <span id="ctrlTitle">Controls</span>
       <dl class="clist" id="clist"></dl>
@@ -478,7 +486,14 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     w: { name: "Waste depot", label: "Depot", hint: "skips, refuse trucks, giant bins", planets: 0.3, wrecks: 2.6, wgap: 100, wreckTypes: ["skip", "truck", "wheelie", "truck", "bales", "skip", "truck"] },
     o: { name: "Open space", label: "Open", hint: "nearly empty: duels", planets: 0.25, pR: [110, 170], moons: 0, wrecks: 0.25 }
   };
-  const mapThemeOf = code => { const m = String(code).match(/^[a-z0-9](?:1[a-z])?0([a-z])/); return m && MAPS[m[1]] ? m[1] : "c"; };
+  // A lobby code: the size letter, then settings as pairs ("1"+letter mode, "0"+letter map, "1"+digit time limit,
+  // "0"+digit score limit), then random letters. Random letters never use 0 or 1, so the pairs can't be mistaken.
+  const codeOpts = code => {
+    const o = {};
+    for (const [, a, b] of String(code).slice(1).matchAll(/([01])([a-z0-9])/g)) o[a + (/\d/.test(b) ? "d" : "l")] = b;
+    return { mode: o["1l"], map: o["0l"], time: o["1d"], score: o["0d"] };
+  };
+  const mapThemeOf = code => MAPS[codeOpts(code).map] ? codeOpts(code).map : "c";
   let W = 4200, H = 4200, PLANET_N = 5;
   const BOT = 84;                    // sprite size on screen
   const binR = lv => 14 + 26 * sizeOf(lv || 1);   // a bin's hit circle: the same on the victim's screen and the shooter's
@@ -510,7 +525,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     { name: "laser",     life: 0.45, dmg: 0.18, r: 0,      col: "#7df9ff", carve: 9,  shove: 0,   sfx: ["laser", 0.2, 1] },
     { name: "nuke",      life: 3.2,  dmg: 0,    r: 0,      col: "#ffe14d", carve: 0,  shove: 0,   sfx: ["rocket", 0.6, 0.6] },
     { name: "pellet",    life: 0.38, dmg: 0,    r: 0,      col: "#ffd27a", carve: 9,  shove: 150, sfx: ["scatter", 0.6, 1] },
-    { name: "rail slug", life: 0.7,  dmg: 2,    r: 0,      col: "#e9c8ff", carve: 14, shove: 650, sfx: ["rail", 0.6, 1] },
+    { name: "rail slug", life: 0.7,  dmg: 3,    r: 0,      col: "#e9c8ff", carve: 14, shove: 650, sfx: ["rail", 0.6, 1] },
     { name: "mine",      life: 25,   dmg: 1.7,  r: MINE_R, col: "#ff6b3c", carve: 50, shove: 0,   sfx: ["mine_drop", 0.6, 1] },
     { name: "plasma",    life: 3.2,  dmg: 1.4,  r: 30,     col: "#6fd8ff", carve: 60, shove: 300, sfx: ["shield_get", 0.6, 1.1] },
     { name: "lightning", life: 0.15, dmg: 0.22, r: 0,      col: "#bfefff", carve: 6,  shove: 0,   sfx: ["laser", 0.2, 1.7] },
@@ -546,12 +561,12 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
   const AMP_PERIOD = 95, AMP_TIME = 20000;                   // Overdrive: a rare pick-up, triple damage for 20 s                        // mines go off when a bin comes this close, after arming
   // nuke: everything inside NUKE_KILL dies outright, the rest of the blast (out to NUKE_R) takes heavy damage
-  // Doom-style supplies: medkits give lives back, shields add armour that soaks damage before lives
+  // Doom-style supplies: medkits give lives back, shields add armour that soaks part of each hit
   const SUPPLIES = {
     med:    { name: "Medkit",      col: "#ff5a6e", heal: 1, icon: "cross" },
     bigmed: { name: "Big medkit",  col: "#ff2d55", heal: 3, icon: "cross", big: true },
-    shield: { name: "Shield",      col: "#4fe39a", armor: 2, icon: "shield" },
-    mega:   { name: "Mega shield", col: "#4fa8ff", armor: 4, icon: "shield", big: true }
+    shield: { name: "Shield",      col: "#4fe39a", armor: 0.75, icon: "shield" },
+    mega:   { name: "Mega shield", col: "#4fa8ff", armor: 1.5, icon: "shield", big: true }
   };
   // game modes: picked with a new lobby and carried in its code ("<size>1<mode>...", e.g. M1CK7QX); a plain code is deathmatch
   // rules: teams (Red/Blue, no friendly fire); flags (capture the flag); only: the one gun everyone has (no crates,
@@ -564,14 +579,24 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     n: { name: "Nukes only", label: "Nukes", hint: "unlimited nukes", only: "nuke", cdMul: 2.2, botCd: 6 },
     r: { name: "Railgun instagib", label: "Instagib", hint: "one rail hit kills", only: "rail", botCd: 3, instagib: true, noSupplies: true }
   };
-  const modeOf = code => { const c = String(code); return c[1] === "1" && MODES[c[2]] ? c[2] : "d"; };
+  const modeOf = code => MODES[codeOpts(code).mode] ? codeOpts(code).mode : "d";
+  // match settings: round length (minutes) and a score that ends the round early (kills, or flags in CTF)
+  const TIME_OPTS = { 2: 3, 3: 5, 4: 8, 5: 10, 6: 15 }, TIME_DEFAULT = "3";
+  const SCORE_OPTS = { 2: [10, 3], 3: [20, 5], 4: [30, 10] };   // [kills, flags]
+  const timeOf = code => TIME_OPTS[codeOpts(code).time] ? codeOpts(code).time : TIME_DEFAULT;
+  const scoreOf = code => SCORE_OPTS[codeOpts(code).score] ? codeOpts(code).score : "";
+  const scoreLimit = code => { const s = scoreOf(code); return s ? SCORE_OPTS[s][MODES[modeOf(code)].flags ? 1 : 0] : 0; };
   let MODE = "d";
   const TEAM_NAME = ["Red", "Blue"], TEAM_HEX = ["#ff5a6e", "#4fa8ff"], TEAM_RGB = ["255,90,110", "79,168,255"];
   const WEAPON_KEYS = ["fire", "triple", "laser", "rocket", "nuke", "scatter", "rail", "mine", "orb", "bolt", "shard"];   // index is what goes over the network
-  // deathmatch rounds on the shared clock: 5 minutes of fighting, then 15 seconds of results
-  const ROUND_PLAY = 300, ROUND_BREAK = 15, ROUND_LEN = ROUND_PLAY + ROUND_BREAK;
+  // rounds on the shared clock: ROUND_PLAY seconds of fighting (the lobby's time limit), then 15 seconds of results
+  let ROUND_PLAY = 300, SCORE_LIMIT = 0;
+  const ROUND_BREAK = 15;
+  let ROUND_LEN = ROUND_PLAY + ROUND_BREAK;
+  function setMatch(code) { ROUND_PLAY = TIME_OPTS[timeOf(code)] * 60; ROUND_LEN = ROUND_PLAY + ROUND_BREAK; SCORE_LIMIT = scoreLimit(code); }
   const roundAt = ms => { const t = ms / 1000, idx = Math.floor(t / ROUND_LEN), ph = t - idx * ROUND_LEN; return { idx, ph, live: ph < ROUND_PLAY, left: ROUND_PLAY - ph }; };
-  const SUPPLY_PERIOD = 20, MAX_SHIELD = 6; let SUPPLY_SLOTS = 14;
+  // armour (in lives, like health): it takes only ARMOR_SOAK of each hit, the rest still hurts; at most MAX_SHIELD
+  const SUPPLY_PERIOD = 20, MAX_SHIELD = 3, ARMOR_SOAK = 0.6; let SUPPLY_SLOTS = 14;
   // nuke: one huge blast. Inside NUKE_KILL nothing survives; out to NUKE_R the damage falls from 4 to 1.5 lives
   const NUKE_R = 1100, NUKE_KILL = 620, NUKE_PERIOD = 70, BOOM_LIFE = 4;
   const nukeDmg = d => d < NUKE_KILL ? 99 : 1.5 + 2.5 * (1 - (d - NUKE_KILL) / (NUKE_R - NUKE_KILL));
@@ -904,9 +929,15 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   const remotes = new Map();   // id -> remote bot
   // "slot:gen" of pick-ups already taken by anyone; a key is forgotten two minutes after it was last taken,
   // by when its item has long been replaced by the next generation
+  // (and never more than GRAB_CAP keys: other pilots' lists feed it, so a flood can't grow it without bound)
+  const GRAB_CAP = 1000;
   class AgedSet extends Set {
     constructor() { super(); this.at = new Map(); }
-    add(k) { this.at.set(k, performance.now()); return super.add(k); }
+    add(k) {
+      this.at.delete(k); this.at.set(k, performance.now());   // re-adding moves it to the young end
+      if (this.at.size > GRAB_CAP) for (const old of this.at.keys()) { this.delete(old); if (this.at.size <= GRAB_CAP) break; }
+      return super.add(k);
+    }
     delete(k) { this.at.delete(k); return super.delete(k); }
     clear() { this.at.clear(); super.clear(); }
     prune(age) { const t = performance.now(); for (const [k, a] of this.at) if (t - a > age) this.delete(k); }
@@ -2839,9 +2870,9 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   function hurt(now, dmg = 1, force = false, kind = -1, ang = 0) {   // kind, ang: the shot that hit (picks how the bin dies)
     if (!roundLive) return false;
     if (me.dead || (!force && now < me.inv)) return false;
-    // armour soaks the hit first (black hole and the nuke's core ignore it)
+    // armour soaks part of the hit first (black hole and the nuke's core ignore it)
     if (!force && me.shield > 0) {
-      const absorbed = Math.min(me.shield, dmg);
+      const absorbed = Math.min(me.shield, dmg * ARMOR_SOAK);   // armour soaks part of the hit, the rest gets through
       me.shield = Math.round((me.shield - absorbed) * 1000) / 1000; dmg = Math.round((dmg - absorbed) * 1000) / 1000;   // no float dust left behind
       shieldHitAt = now; renderShield();
       impacts.push({ x: me.x, y: me.y, t: 0, r: 90 * sizeOf(me.lv), col: "#6fc2ff" });
@@ -2931,7 +2962,11 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     else legacy();
   }
   // the lobby browser (standalone hosting only)
-  const LOBBY_BROKER = "wss://broker.hivemq.com:8884/mqtt", LOBBY_TOPIC = "binrocket-sky/v2/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  // a broker of your own replaces the public ones: ?broker=wss://your.host/mqtt in the page address, or
+  // window.BRS_BROKER set before the game loads (see server/ in the repo)
+  const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
+  const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
+  const LOBBY_TOPIC = "binrocket-sky/v2/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
   let lobbyRenderPending = false;
   function renderLobbies() {
@@ -2942,7 +2977,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     if (!el) return;
     el.replaceChildren(...list.map(([c, l]) => {
       const row = document.createElement("button"); row.type = "button"; row.className = "lobby";
-      const t = document.createElement("b"); t.textContent = MODES[modeOf(c)].label + " · " + MAPS[mapThemeOf(c)].label + " · " + MAP_SIZES[mapOf(c)][1];
+      const t = document.createElement("b"); t.textContent = MODES[modeOf(c)].label + " · " + MAPS[mapThemeOf(c)].label + " · " + MAP_SIZES[mapOf(c)][1] + " · " + TIME_OPTS[timeOf(c)] + " min" + (scoreLimit(c) ? " · to " + scoreLimit(c) : "");
       const s = document.createElement("small"); s.textContent = l.n + (l.n === 1 ? " pilot" : " pilots") + (l.b ? " + " + l.b + " bots" : "") + " · " + c.toUpperCase();
       row.append(t, s);
       row.addEventListener("click", () => { lobbyInput.value = c.toUpperCase(); lobbyInput.dispatchEvent(new Event("input")); document.getElementById("startForm").requestSubmit(); });
@@ -2956,11 +2991,20 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   let chooseLobby;
   const lobbyChosen = new Promise(r => { chooseLobby = r; });
   const CODE_ABC = "abcdefghjkmnpqrstuvwxyz23456789";
-  const normCode = v => v.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10);
+  const normCode = v => v.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 16);
   function setStatus(on, text) { netDot.classList.toggle("on", on); netText.textContent = text; }
 
   // how far ahead (s) to place a flyer from its last report: roughly the network delay we measured (~85-100 ms)
-  const LEAD = 0.09;
+  // ping: my round trip through the broker (ms, smoothed); others' arrive in their state
+  let myPing = 0;
+  function gotPing(ms) {
+    myPing = myPing ? myPing + (ms - myPing) * 0.3 : ms;
+    const el = document.getElementById("pingInfo");
+    el.textContent = "ping " + Math.round(myPing) + " ms";
+    el.className = myPing < 90 ? "good" : myPing < 180 ? "ok" : "bad";
+  }
+  // how far ahead (s) to place a flyer from its last report: about the one-way delay from them to me
+  const leadFor = r => clamp(((myPing || 90) + (r.ping || myPing || 90)) / 4000 + 0.03, 0.05, 0.3);
   function addRemoteShot(owner, f) {
     if (!Array.isArray(f) || typeof f[0] !== "string" || f[0].length > 20 || seenShots.has(f[0])) return;
     if (!remotes.has(owner) || seenShots.size >= MAX_SEEN_SHOTS) return;
@@ -3003,7 +3047,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     r.q = p.q;
     if (hasPos) {
       r.vx = clamp(num(p.vx, 0), -1200, 1200); r.vy = clamp(num(p.vy, 0), -1200, 1200);
-      r.tx = clamp(p.x + r.vx * LEAD, 0, W); r.ty = clamp(p.y + r.vy * LEAD, 0, H);
+      const lead = leadFor(r);
+      r.tx = clamp(p.x + r.vx * lead, 0, W); r.ty = clamp(p.y + r.vy * lead, 0, H);
       if (Math.hypot(r.tx - r.x, r.ty - r.y) > 300) { r.x = r.tx; r.y = r.ty; }   // teleport (respawn, black hole)
       if (Number.isFinite(p.a)) r.ta = p.a;
       r.thrust = p.t ? 1 : 0;
@@ -3015,6 +3060,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       r.dead = dead; r.inv = p.i === 1;
     }
     if (typeof p.tg === "string" && /^[a-z0-9]{1,8}$/.test(p.tg)) r.tag = p.tg;
+    if (Array.isArray(p.bc) && Number.isInteger(p.bc[0]) && p.bc[0] > 0 && p.bc[0] <= 6 && BOT_LEVELS[p.bc[1]] && !/^pb/.test(id)) lobbyBots = { host: id, n: p.bc[0], level: p.bc[1] };
     if ("tm" in p) {
       const was = r.tm;
       r.tm = p.tm === 0 || p.tm === 1 ? p.tm : undefined;
@@ -3031,9 +3077,10 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     if (Array.isArray(p.cv)) applyRemoteCarves(id, p.cv);
     if (Number.isInteger(p.wp)) r.weapon = WEAPON_KEYS[p.wp] || "fire";
     if (Number.isFinite(p.sh)) r.shield = clamp(p.sh, 0, MAX_SHIELD);
+    if (Number.isFinite(p.pg)) r.ping = clamp(p.pg, 0, 5000);
     if ("am" in p) r.amp = p.am === 1;
     if (Number.isFinite(p.l)) r.lives = clamp(p.l, 0, maxLivesOf(r.lv));
-    if (Array.isArray(p.g)) for (const k of p.g.slice(0, 48)) if (typeof k === "string" && k.length < 16 && (grabbed.has(k) || grabbed.size < 16384)) grabbed.add(k);
+    if (Array.isArray(p.g)) for (const k of p.g.slice(0, 48)) if (typeof k === "string" && /^[a-zA-Z][a-z0-9.:]{1,20}$/.test(k) && (grabbed.has(k) || grabbed.size < 16384)) grabbed.add(k);   // only pick-up keys
     if (p.rd === stats.round && Array.isArray(p.f)) for (const f of p.f.slice(0, 10)) addRemoteShot(id, f);
     if (Array.isArray(p.dr)) for (const d of p.dr.slice(0, 3)) {
       if (drops.size >= MAX_DROPS) break;
@@ -3062,10 +3109,22 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     return true;
   }
   const botsOf = new Map();   // host id -> the ids of the bots it flies
+  let lobbyBots = null;   // the lobby's bots as the host flies them: { host: id, n, level }
   function removeRemote(id) {
     remotes.delete(id);
     for (const b of botsOf.get(id) || []) if (remotes.get(b)?.host === id) remotes.delete(b);
     botsOf.delete(id);
+    // the host left: the pilot with the lowest tag among those still here takes over its bots
+    if (lobbyBots && lobbyBots.host === id && playing && !bots.length) {
+      const tags = [myTag, ...[...remotes].filter(([rid, r]) => !/^pb/.test(rid) && r.tag).map(([, r]) => r.tag)].sort();
+      if (tags[0] === myTag) {
+        addBots(lobbyBots.n, lobbyBots.level);
+        for (const b of bots) Object.assign(b, spawnPoint(b.tm));
+        if (isTeams()) pickTeam(me.tm);
+        announce("YOU'RE THE HOST NOW", "the host left: their bots fly for you", "#4fd6c8", 1, true);
+      }
+      lobbyBots = null;
+    }
   }
 
   function pruneNetwork(now) {
@@ -3098,13 +3157,13 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
 
     // the lobby browser: every running lobby says it exists on one shared topic every few seconds, and the start
     // screen lists the ones heard lately (no server of our own: it's the same public broker the game talks through)
-    const browse = mqtt.connect(LOBBY_BROKER, { clientId: "brs_b_" + Math.random().toString(36).slice(2, 10), clean: true, keepalive: 30, reconnectPeriod: 3000 });
+    const browse = mqtt.connect(lobbyBroker(), { clientId: "brs_b_" + Math.random().toString(36).slice(2, 10), clean: true, keepalive: 30, reconnectPeriod: 3000 });
     browse.on("connect", () => browse.subscribe(LOBBY_TOPIC, { qos: 0 }));
     browse.on("error", () => {});
     browse.on("message", (topic, payload) => {
       if (payload.length > 300) return;
       let p; try { p = JSON.parse(payload.toString()); } catch { return; }
-      if (!p || typeof p.c !== "string" || !/^[a-z0-9]{4,10}$/.test(p.c) || !Number.isInteger(p.n) || p.n < 1 || p.n > 64) return;
+      if (!p || typeof p.c !== "string" || !/^[a-z0-9]{4,16}$/.test(p.c) || !Number.isInteger(p.n) || p.n < 1 || p.n > 64) return;
       if (!openLobbies.has(p.c) && openLobbies.size >= 60) return;   // the topic is public: keep the list bounded
       openLobbies.set(p.c, { n: p.n, b: Number.isInteger(p.b) ? clamp(p.b, 0, 64) : 0, at: Date.now() });
       if (!lobbyRenderPending) { lobbyRenderPending = true; setTimeout(() => { lobbyRenderPending = false; renderLobbies(); }, 500); }
@@ -3115,6 +3174,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     setMapSize(mapOf(code));
     buildPlanets(code);
     setMode(modeOf(code));
+    setMatch(code);
     Object.assign(me, spawnPoint(me.tm));
     for (const b of bots) Object.assign(b, spawnPoint(b.tm));
     history.replaceState(null, "", "#" + code);
@@ -3128,7 +3188,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
 
     // Eight state messages/s plus discovery stay below the backup broker's ~10/s budget.
     // Shots ride in state, including on the primary, and q deduplicates the two deliveries.
-    const BROKERS = [LOBBY_BROKER, "wss://broker.emqx.io:8084/mqtt"];
+    const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
     const myId = "p" + Math.random().toString(36).slice(2, 10);
     const base = "binrocket-sky/v2/" + code + "/";
     const clients = BROKERS.map(url => {
@@ -3136,14 +3196,16 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),
         clean: true, keepalive: 20, reconnectPeriod: 2000, connectTimeout: 10000, queueQoSZero: false
       });
-      c.on("connect", () => { c.subscribe([base + "s/+"], { qos: 0 }); refresh(); });
+      c.on("connect", () => { c.subscribe([base + "s/+", base + "e/" + myId], { qos: 0 }); refresh(); });
       c.on("close", refresh);
       c.on("offline", refresh);
       c.on("error", () => {});
       c.on("message", (topic, payload) => {
         const parts = topic.split("/");
         const kind = parts[parts.length - 2], id = parts[parts.length - 1];
-        if (id === myId || !/^p[a-z0-9]{1,12}$/.test(id)) return;
+        if (!/^p[a-z0-9]{1,12}$/.test(id)) return;
+        if (kind === "e") { if (id === myId && c === pingVia()) { const t = Number(payload.toString()); if (t > 0) gotPing(performance.now() - t); } return; }   // my ping echo
+        if (id === myId) return;
         // A disconnect on one broker is not departure from the room. Expire silent peers instead.
         if (kind !== "s" || payload.length > 16384) return;
         let p; try { p = JSON.parse(payload.toString()); } catch { return; }
@@ -3168,6 +3230,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       else setStatus(false, "Lobby " + shown + " · reconnecting…");
     }
     setInterval(refresh, 2000);
+    const pingVia = () => clients.find(c => c.connected);
+    setInterval(() => { const c = pingVia(); if (c) c.publish(base + "e/" + myId, String(performance.now()), { qos: 0 }); }, 2000);
     net.send = p => {
       const payload = JSON.stringify(p);
       for (const c of clients) if (c.connected) c.publish(base + "s/" + myId, payload, { qos: 0 });
@@ -3308,7 +3372,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     const L = BOT_LEVELS[level];
     for (let i = 0; i < n; i++) {
       const id = "pb" + Math.random().toString(36).slice(2, 8);
-      const b = { id, tag: "b" + Math.random().toString(36).slice(2, 7), name: BOT_NAMES[(bots.length) % BOT_NAMES.length] + " (bot)", L,
+      const b = { id, tag: "b" + Math.random().toString(36).slice(2, 7), name: BOT_NAMES[(bots.length) % BOT_NAMES.length] + " (bot)", L, level,
         hue: Math.floor(Math.random() * 360), ck: [Math.floor(Math.random() * 7), Math.floor(Math.random() * 6), Math.floor(Math.random() * 5), Math.floor(Math.random() * 5), Math.floor(Math.random() * 6)],
         ...spawnPoint(), vx: 0, vy: 0, a: Math.random() * 6.28, lives: LIVES, dead: false, respawnAt: 0, inv: 0, ds: 0,
         fireCd: 1 + Math.random(), side: Math.random() < 0.5 ? 1 : -1, wander: Math.random() * 6.28, seq: 0, q: 0,
@@ -4092,7 +4156,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
         dk: me.dead ? me.dk : 0, da: me.dead ? +me.da.toFixed(2) : 0, tm: me.tm ?? -1   // the team rides every message: shots need it
       };
       const slow = {
-        tm: me.tm ?? -1, fc: me.fc ?? -1, cp: [stats.round, me.caps || 0],
+        tm: me.tm ?? -1, fc: me.fc ?? -1, cp: [stats.round, me.caps || 0], pg: Math.round(myPing / 10) * 10, bc: bots.length ? [bots.length, bots[0].level] : 0,
         tg: myTag, n: me.name, h: me.hue, ck: me.ck, s: me.score, l: Math.round(me.lives * 100) / 100, am: me.ampUntil > now ? 1 : 0, lv: me.lv, sh: Math.round(me.shield * 100) / 100, wp: WEAPON_KEYS.indexOf(me.weapon), g: myGrabs, hb: hitBy, ko: koBy,
         st: [stats.round, stats.kills, stats.deaths, stats.shots, stats.hits, stats.best],
         // Keep live deltas within the packet budget; rolling terrain snapshots repair older holes.
@@ -4139,10 +4203,10 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   const boardEl = document.getElementById("board");
   // everyone's numbers for the current round (others' come from their latest state)
   function playerRows() {
-    const rows = [{ name: me.name || "You", hue: me.hue, me: true, score: me.score, kills: stats.kills, deaths: stats.deaths, shots: stats.shots, hits: stats.hits, best: stats.best, tm: me.tm, caps: me.caps || 0 }];
+    const rows = [{ name: me.name || "You", hue: me.hue, me: true, ping: myPing, score: me.score, kills: stats.kills, deaths: stats.deaths, shots: stats.shots, hits: stats.hits, best: stats.best, tm: me.tm, caps: me.caps || 0 }];
     for (const r of remotes.values()) {
       const st = r.st && r.st[0] === stats.round ? r.st : [0, 0, 0, 0, 0, 0];
-      rows.push({ name: r.name, hue: r.hue, score: r.score, kills: st[1], deaths: st[2], shots: st[3], hits: st[4], best: st[5], tm: r.tm, caps: r.cpRound === stats.round ? r.caps || 0 : 0 });
+      rows.push({ name: r.name, hue: r.hue, ping: r.ping, score: r.score, kills: st[1], deaths: st[2], shots: st[3], hits: st[4], best: st[5], tm: r.tm, caps: r.cpRound === stats.round ? r.caps || 0 : 0 });
     }
     return rows;
   }
@@ -4189,6 +4253,12 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     const won = isTeams() ? (teamTotals().lead || 0) * (me.tm === 0 ? 1 : -1) > 0 : top.me && stats.kills > 0;
     setTimeout(() => sfx(won ? (stats.deaths === 0 ? "v_flawless" : "v_win") : "v_lose", 1), 600);
   }
+  let decidedRound = -1;
+  // the best score in the lobby, in the unit the limit counts: kills, team kills, or flags
+  function leaderScore() {
+    if (isTeams()) { const t = teamTotals(); return MODES[MODE].flags ? Math.max(...t.c) : Math.max(...t.k); }
+    return Math.max(0, ...playerRows().map(r => r.kills));
+  }
   function roundTick(now) {
     const rd = roundAt(clockNow());
     if (rd.idx !== stats.round) {
@@ -4214,11 +4284,17 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       shownRound = rd.idx;
       document.getElementById("results").hidden = true;
     }
-    roundLive = rd.live;
+    // the score limit: once someone (or a team) reaches it, the round is decided; results show until the next one
+    if (rd.live && SCORE_LIMIT && decidedRound !== rd.idx && leaderScore() >= SCORE_LIMIT) {
+      decidedRound = rd.idx;
+      announce("ROUND DECIDED", "score limit " + SCORE_LIMIT + " reached", "#ffd36b", 2);
+    }
+    const live = rd.live && decidedRound !== rd.idx;
+    roundLive = live;
     const info = document.getElementById("roundInfo");
-    if (rd.live) {
+    if (live) {
       const m = Math.floor(rd.left / 60), sec = Math.floor(rd.left % 60);
-      info.textContent = "Round " + (rd.idx % 1000) + " · " + m + ":" + String(sec).padStart(2, "0");
+      info.textContent = "Round " + (rd.idx % 1000) + " · " + m + ":" + String(sec).padStart(2, "0") + (SCORE_LIMIT ? " · first to " + SCORE_LIMIT : "");
       info.classList.toggle("last", rd.left < 30);
     } else {
       info.textContent = "Results · next round in " + Math.ceil(ROUND_LEN - rd.ph) + "s";
@@ -4255,6 +4331,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       const li = document.createElement("li"); if (r.me) li.className = "me";
       const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = r.name; nm.style.color = isTeams() && onTeam(r) ? TEAM_HEX[r.tm] : `hsl(${r.hue} 90% 80%)`;
       const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = r.kills + " · " + r.deaths;
+      if (r.ping) { const pg = document.createElement("small"); pg.className = "pg " + (r.ping < 90 ? "good" : r.ping < 180 ? "ok" : "bad"); pg.textContent = Math.round(r.ping) + "ms"; nm.append(" ", pg); }
       li.append(nm, pts); return li;
     }));
   }
@@ -6021,7 +6098,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   let joining = false, newGameCode = "";
   const lobbyCode = () => joining ? normCode(lobbyInput.value) : newGameCode;
   const codeOk = () => lobbyCode().length >= 4;
-  const describe = c => MODES[modeOf(c)].name + " · " + MAPS[mapThemeOf(c)].name + " · " + MAP_SIZES[mapOf(c)][1];
+  const describe = c => MODES[modeOf(c)].name + " · " + MAPS[mapThemeOf(c)].name + " · " + MAP_SIZES[mapOf(c)][1]
+    + " · " + TIME_OPTS[timeOf(c)] + " min" + (scoreLimit(c) ? " · first to " + scoreLimit(c) + (MODES[modeOf(c)].flags ? " flags" : " kills") : "");
   const syncGo = () => {
     if (!standalone) { goBtn.textContent = "Take off"; return; }
     goBtn.disabled = !codeOk();
@@ -6042,14 +6120,22 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     let mapPick = MAP_SIZES[store.get("binrocket.map")] ? store.get("binrocket.map") : "m";
     let modePick = MODES[store.get("binrocket.mode")] ? store.get("binrocket.mode") : "d";
     let themePick = MAPS[store.get("binrocket.theme")] ? store.get("binrocket.theme") : "c";
+    let timePick = TIME_OPTS[store.get("binrocket.time")] ? store.get("binrocket.time") : TIME_DEFAULT;
+    let scorePick = SCORE_OPTS[store.get("binrocket.score")] ? store.get("binrocket.score") : "";
     const newCode = () => {
-      let c = mapPick + (modePick === "d" ? "" : "1" + modePick) + (themePick === "c" ? "" : "0" + themePick);
+      let c = mapPick + (modePick === "d" ? "" : "1" + modePick) + (themePick === "c" ? "" : "0" + themePick)
+        + (timePick === TIME_DEFAULT ? "" : "1" + timePick) + (scorePick ? "0" + scorePick : "");
       for (let i = 0; i < 4; i++) c += CODE_ABC[(Math.random() * CODE_ABC.length) | 0];
       newGameCode = c; syncGo();
       remember(c);
     };
-    segButtons(document.getElementById("modePick"), Object.entries(MODES).map(([k, v]) => [k, v.label, v.hint]), modePick, v => { modePick = v; store.set("binrocket.mode", v); newCode(); });
+    segButtons(document.getElementById("modePick"), Object.entries(MODES).map(([k, v]) => [k, v.label, v.hint]), modePick, v => { modePick = v; store.set("binrocket.mode", v); drawScores(); newCode(); });
     segButtons(document.getElementById("themePick"), Object.entries(MAPS).map(([k, v]) => [k, v.label, v.hint]), themePick, v => { themePick = v; store.set("binrocket.theme", v); newCode(); });
+    segButtons(document.getElementById("timePick"), Object.entries(TIME_OPTS).map(([k, v]) => [k, v + " min"]), timePick, v => { timePick = v; store.set("binrocket.time", v); newCode(); });
+    const scoreItems = () => [["", "None"], ...Object.entries(SCORE_OPTS).map(([k, v]) => [k, MODES[modePick].flags ? v[1] + " flags" : v[0] + " kills"])];
+    const scoreEl = document.getElementById("scorePick");
+    const drawScores = () => { scoreEl.replaceChildren(); segButtons(scoreEl, scoreItems(), scorePick, v => { scorePick = v; store.set("binrocket.score", v); newCode(); }); };
+    drawScores();
     segButtons(document.getElementById("mapSize"), Object.entries(MAP_SIZES).map(([k, v]) => [k, v[1]]), mapPick, v => { mapPick = v; store.set("binrocket.map", v); newCode(); });
     document.getElementById("tabNew").addEventListener("click", () => setTab(false));
     document.getElementById("tabJoin").addEventListener("click", () => { setTab(true); lobbyInput.focus(); });

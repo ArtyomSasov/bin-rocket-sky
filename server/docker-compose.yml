@@ -1,0 +1,22 @@
+# Your own game server: an MQTT broker (Mosquitto) behind Caddy, which gets a TLS certificate for your domain
+# by itself (browsers only connect to wss://). Players then open the game with ?broker=wss://<your domain>/mqtt
+#
+#   1. point a domain (e.g. game.example.com) at this machine; open ports 80 and 443
+#   2. DOMAIN=game.example.com docker compose up -d
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0.20
+    restart: unless-stopped
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+  caddy:
+    image: caddy:2.8.4
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN to your server's domain}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+volumes:
+  caddy_data:

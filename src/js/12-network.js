@@ -17,7 +17,11 @@
     else legacy();
   }
   // the lobby browser (standalone hosting only)
-  const LOBBY_BROKER = "wss://broker.hivemq.com:8884/mqtt", LOBBY_TOPIC = "binrocket-sky/v2/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  // a broker of your own replaces the public ones: ?broker=wss://your.host/mqtt in the page address, or
+  // window.BRS_BROKER set before the game loads (see server/ in the repo)
+  const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
+  const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
+  const LOBBY_TOPIC = "binrocket-sky/v2/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
   let lobbyRenderPending = false;
   function renderLobbies() {
@@ -28,7 +32,7 @@
     if (!el) return;
     el.replaceChildren(...list.map(([c, l]) => {
       const row = document.createElement("button"); row.type = "button"; row.className = "lobby";
-      const t = document.createElement("b"); t.textContent = MODES[modeOf(c)].label + " · " + MAPS[mapThemeOf(c)].label + " · " + MAP_SIZES[mapOf(c)][1];
+      const t = document.createElement("b"); t.textContent = MODES[modeOf(c)].label + " · " + MAPS[mapThemeOf(c)].label + " · " + MAP_SIZES[mapOf(c)][1] + " · " + TIME_OPTS[timeOf(c)] + " min" + (scoreLimit(c) ? " · to " + scoreLimit(c) : "");
       const s = document.createElement("small"); s.textContent = l.n + (l.n === 1 ? " pilot" : " pilots") + (l.b ? " + " + l.b + " bots" : "") + " · " + c.toUpperCase();
       row.append(t, s);
       row.addEventListener("click", () => { lobbyInput.value = c.toUpperCase(); lobbyInput.dispatchEvent(new Event("input")); document.getElementById("startForm").requestSubmit(); });
@@ -42,11 +46,20 @@
   let chooseLobby;
   const lobbyChosen = new Promise(r => { chooseLobby = r; });
   const CODE_ABC = "abcdefghjkmnpqrstuvwxyz23456789";
-  const normCode = v => v.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10);
+  const normCode = v => v.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 16);
   function setStatus(on, text) { netDot.classList.toggle("on", on); netText.textContent = text; }
 
   // how far ahead (s) to place a flyer from its last report: roughly the network delay we measured (~85-100 ms)
-  const LEAD = 0.09;
+  // ping: my round trip through the broker (ms, smoothed); others' arrive in their state
+  let myPing = 0;
+  function gotPing(ms) {
+    myPing = myPing ? myPing + (ms - myPing) * 0.3 : ms;
+    const el = document.getElementById("pingInfo");
+    el.textContent = "ping " + Math.round(myPing) + " ms";
+    el.className = myPing < 90 ? "good" : myPing < 180 ? "ok" : "bad";
+  }
+  // how far ahead (s) to place a flyer from its last report: about the one-way delay from them to me
+  const leadFor = r => clamp(((myPing || 90) + (r.ping || myPing || 90)) / 4000 + 0.03, 0.05, 0.3);
   function addRemoteShot(owner, f) {
     if (!Array.isArray(f) || typeof f[0] !== "string" || f[0].length > 20 || seenShots.has(f[0])) return;
     if (!remotes.has(owner) || seenShots.size >= MAX_SEEN_SHOTS) return;
@@ -89,7 +102,8 @@
     r.q = p.q;
     if (hasPos) {
       r.vx = clamp(num(p.vx, 0), -1200, 1200); r.vy = clamp(num(p.vy, 0), -1200, 1200);
-      r.tx = clamp(p.x + r.vx * LEAD, 0, W); r.ty = clamp(p.y + r.vy * LEAD, 0, H);
+      const lead = leadFor(r);
+      r.tx = clamp(p.x + r.vx * lead, 0, W); r.ty = clamp(p.y + r.vy * lead, 0, H);
       if (Math.hypot(r.tx - r.x, r.ty - r.y) > 300) { r.x = r.tx; r.y = r.ty; }   // teleport (respawn, black hole)
       if (Number.isFinite(p.a)) r.ta = p.a;
       r.thrust = p.t ? 1 : 0;
@@ -101,6 +115,7 @@
       r.dead = dead; r.inv = p.i === 1;
     }
     if (typeof p.tg === "string" && /^[a-z0-9]{1,8}$/.test(p.tg)) r.tag = p.tg;
+    if (Array.isArray(p.bc) && Number.isInteger(p.bc[0]) && p.bc[0] > 0 && p.bc[0] <= 6 && BOT_LEVELS[p.bc[1]] && !/^pb/.test(id)) lobbyBots = { host: id, n: p.bc[0], level: p.bc[1] };
     if ("tm" in p) {
       const was = r.tm;
       r.tm = p.tm === 0 || p.tm === 1 ? p.tm : undefined;
@@ -117,9 +132,10 @@
     if (Array.isArray(p.cv)) applyRemoteCarves(id, p.cv);
     if (Number.isInteger(p.wp)) r.weapon = WEAPON_KEYS[p.wp] || "fire";
     if (Number.isFinite(p.sh)) r.shield = clamp(p.sh, 0, MAX_SHIELD);
+    if (Number.isFinite(p.pg)) r.ping = clamp(p.pg, 0, 5000);
     if ("am" in p) r.amp = p.am === 1;
     if (Number.isFinite(p.l)) r.lives = clamp(p.l, 0, maxLivesOf(r.lv));
-    if (Array.isArray(p.g)) for (const k of p.g.slice(0, 48)) if (typeof k === "string" && k.length < 16 && (grabbed.has(k) || grabbed.size < 16384)) grabbed.add(k);
+    if (Array.isArray(p.g)) for (const k of p.g.slice(0, 48)) if (typeof k === "string" && /^[a-zA-Z][a-z0-9.:]{1,20}$/.test(k) && (grabbed.has(k) || grabbed.size < 16384)) grabbed.add(k);   // only pick-up keys
     if (p.rd === stats.round && Array.isArray(p.f)) for (const f of p.f.slice(0, 10)) addRemoteShot(id, f);
     if (Array.isArray(p.dr)) for (const d of p.dr.slice(0, 3)) {
       if (drops.size >= MAX_DROPS) break;
@@ -148,10 +164,22 @@
     return true;
   }
   const botsOf = new Map();   // host id -> the ids of the bots it flies
+  let lobbyBots = null;   // the lobby's bots as the host flies them: { host: id, n, level }
   function removeRemote(id) {
     remotes.delete(id);
     for (const b of botsOf.get(id) || []) if (remotes.get(b)?.host === id) remotes.delete(b);
     botsOf.delete(id);
+    // the host left: the pilot with the lowest tag among those still here takes over its bots
+    if (lobbyBots && lobbyBots.host === id && playing && !bots.length) {
+      const tags = [myTag, ...[...remotes].filter(([rid, r]) => !/^pb/.test(rid) && r.tag).map(([, r]) => r.tag)].sort();
+      if (tags[0] === myTag) {
+        addBots(lobbyBots.n, lobbyBots.level);
+        for (const b of bots) Object.assign(b, spawnPoint(b.tm));
+        if (isTeams()) pickTeam(me.tm);
+        announce("YOU'RE THE HOST NOW", "the host left: their bots fly for you", "#4fd6c8", 1, true);
+      }
+      lobbyBots = null;
+    }
   }
 
   function pruneNetwork(now) {
@@ -184,13 +212,13 @@
 
     // the lobby browser: every running lobby says it exists on one shared topic every few seconds, and the start
     // screen lists the ones heard lately (no server of our own: it's the same public broker the game talks through)
-    const browse = mqtt.connect(LOBBY_BROKER, { clientId: "brs_b_" + Math.random().toString(36).slice(2, 10), clean: true, keepalive: 30, reconnectPeriod: 3000 });
+    const browse = mqtt.connect(lobbyBroker(), { clientId: "brs_b_" + Math.random().toString(36).slice(2, 10), clean: true, keepalive: 30, reconnectPeriod: 3000 });
     browse.on("connect", () => browse.subscribe(LOBBY_TOPIC, { qos: 0 }));
     browse.on("error", () => {});
     browse.on("message", (topic, payload) => {
       if (payload.length > 300) return;
       let p; try { p = JSON.parse(payload.toString()); } catch { return; }
-      if (!p || typeof p.c !== "string" || !/^[a-z0-9]{4,10}$/.test(p.c) || !Number.isInteger(p.n) || p.n < 1 || p.n > 64) return;
+      if (!p || typeof p.c !== "string" || !/^[a-z0-9]{4,16}$/.test(p.c) || !Number.isInteger(p.n) || p.n < 1 || p.n > 64) return;
       if (!openLobbies.has(p.c) && openLobbies.size >= 60) return;   // the topic is public: keep the list bounded
       openLobbies.set(p.c, { n: p.n, b: Number.isInteger(p.b) ? clamp(p.b, 0, 64) : 0, at: Date.now() });
       if (!lobbyRenderPending) { lobbyRenderPending = true; setTimeout(() => { lobbyRenderPending = false; renderLobbies(); }, 500); }
@@ -201,6 +229,7 @@
     setMapSize(mapOf(code));
     buildPlanets(code);
     setMode(modeOf(code));
+    setMatch(code);
     Object.assign(me, spawnPoint(me.tm));
     for (const b of bots) Object.assign(b, spawnPoint(b.tm));
     history.replaceState(null, "", "#" + code);
@@ -214,7 +243,7 @@
 
     // Eight state messages/s plus discovery stay below the backup broker's ~10/s budget.
     // Shots ride in state, including on the primary, and q deduplicates the two deliveries.
-    const BROKERS = [LOBBY_BROKER, "wss://broker.emqx.io:8084/mqtt"];
+    const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
     const myId = "p" + Math.random().toString(36).slice(2, 10);
     const base = "binrocket-sky/v2/" + code + "/";
     const clients = BROKERS.map(url => {
@@ -222,14 +251,16 @@
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),
         clean: true, keepalive: 20, reconnectPeriod: 2000, connectTimeout: 10000, queueQoSZero: false
       });
-      c.on("connect", () => { c.subscribe([base + "s/+"], { qos: 0 }); refresh(); });
+      c.on("connect", () => { c.subscribe([base + "s/+", base + "e/" + myId], { qos: 0 }); refresh(); });
       c.on("close", refresh);
       c.on("offline", refresh);
       c.on("error", () => {});
       c.on("message", (topic, payload) => {
         const parts = topic.split("/");
         const kind = parts[parts.length - 2], id = parts[parts.length - 1];
-        if (id === myId || !/^p[a-z0-9]{1,12}$/.test(id)) return;
+        if (!/^p[a-z0-9]{1,12}$/.test(id)) return;
+        if (kind === "e") { if (id === myId && c === pingVia()) { const t = Number(payload.toString()); if (t > 0) gotPing(performance.now() - t); } return; }   // my ping echo
+        if (id === myId) return;
         // A disconnect on one broker is not departure from the room. Expire silent peers instead.
         if (kind !== "s" || payload.length > 16384) return;
         let p; try { p = JSON.parse(payload.toString()); } catch { return; }
@@ -254,6 +285,8 @@
       else setStatus(false, "Lobby " + shown + " · reconnecting…");
     }
     setInterval(refresh, 2000);
+    const pingVia = () => clients.find(c => c.connected);
+    setInterval(() => { const c = pingVia(); if (c) c.publish(base + "e/" + myId, String(performance.now()), { qos: 0 }); }, 2000);
     net.send = p => {
       const payload = JSON.stringify(p);
       for (const c of clients) if (c.connected) c.publish(base + "s/" + myId, payload, { qos: 0 });

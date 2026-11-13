@@ -16,7 +16,14 @@
     w: { name: "Waste depot", label: "Depot", hint: "skips, refuse trucks, giant bins", planets: 0.3, wrecks: 2.6, wgap: 100, wreckTypes: ["skip", "truck", "wheelie", "truck", "bales", "skip", "truck"] },
     o: { name: "Open space", label: "Open", hint: "nearly empty: duels", planets: 0.25, pR: [110, 170], moons: 0, wrecks: 0.25 }
   };
-  const mapThemeOf = code => { const m = String(code).match(/^[a-z0-9](?:1[a-z])?0([a-z])/); return m && MAPS[m[1]] ? m[1] : "c"; };
+  // A lobby code: the size letter, then settings as pairs ("1"+letter mode, "0"+letter map, "1"+digit time limit,
+  // "0"+digit score limit), then random letters. Random letters never use 0 or 1, so the pairs can't be mistaken.
+  const codeOpts = code => {
+    const o = {};
+    for (const [, a, b] of String(code).slice(1).matchAll(/([01])([a-z0-9])/g)) o[a + (/\d/.test(b) ? "d" : "l")] = b;
+    return { mode: o["1l"], map: o["0l"], time: o["1d"], score: o["0d"] };
+  };
+  const mapThemeOf = code => MAPS[codeOpts(code).map] ? codeOpts(code).map : "c";
   let W = 4200, H = 4200, PLANET_N = 5;
   const BOT = 84;                    // sprite size on screen
   const binR = lv => 14 + 26 * sizeOf(lv || 1);   // a bin's hit circle: the same on the victim's screen and the shooter's
@@ -48,7 +55,7 @@
     { name: "laser",     life: 0.45, dmg: 0.18, r: 0,      col: "#7df9ff", carve: 9,  shove: 0,   sfx: ["laser", 0.2, 1] },
     { name: "nuke",      life: 3.2,  dmg: 0,    r: 0,      col: "#ffe14d", carve: 0,  shove: 0,   sfx: ["rocket", 0.6, 0.6] },
     { name: "pellet",    life: 0.38, dmg: 0,    r: 0,      col: "#ffd27a", carve: 9,  shove: 150, sfx: ["scatter", 0.6, 1] },
-    { name: "rail slug", life: 0.7,  dmg: 2,    r: 0,      col: "#e9c8ff", carve: 14, shove: 650, sfx: ["rail", 0.6, 1] },
+    { name: "rail slug", life: 0.7,  dmg: 3,    r: 0,      col: "#e9c8ff", carve: 14, shove: 650, sfx: ["rail", 0.6, 1] },
     { name: "mine",      life: 25,   dmg: 1.7,  r: MINE_R, col: "#ff6b3c", carve: 50, shove: 0,   sfx: ["mine_drop", 0.6, 1] },
     { name: "plasma",    life: 3.2,  dmg: 1.4,  r: 30,     col: "#6fd8ff", carve: 60, shove: 300, sfx: ["shield_get", 0.6, 1.1] },
     { name: "lightning", life: 0.15, dmg: 0.22, r: 0,      col: "#bfefff", carve: 6,  shove: 0,   sfx: ["laser", 0.2, 1.7] },
@@ -84,12 +91,12 @@
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
   const AMP_PERIOD = 95, AMP_TIME = 20000;                   // Overdrive: a rare pick-up, triple damage for 20 s                        // mines go off when a bin comes this close, after arming
   // nuke: everything inside NUKE_KILL dies outright, the rest of the blast (out to NUKE_R) takes heavy damage
-  // Doom-style supplies: medkits give lives back, shields add armour that soaks damage before lives
+  // Doom-style supplies: medkits give lives back, shields add armour that soaks part of each hit
   const SUPPLIES = {
     med:    { name: "Medkit",      col: "#ff5a6e", heal: 1, icon: "cross" },
     bigmed: { name: "Big medkit",  col: "#ff2d55", heal: 3, icon: "cross", big: true },
-    shield: { name: "Shield",      col: "#4fe39a", armor: 2, icon: "shield" },
-    mega:   { name: "Mega shield", col: "#4fa8ff", armor: 4, icon: "shield", big: true }
+    shield: { name: "Shield",      col: "#4fe39a", armor: 0.75, icon: "shield" },
+    mega:   { name: "Mega shield", col: "#4fa8ff", armor: 1.5, icon: "shield", big: true }
   };
   // game modes: picked with a new lobby and carried in its code ("<size>1<mode>...", e.g. M1CK7QX); a plain code is deathmatch
   // rules: teams (Red/Blue, no friendly fire); flags (capture the flag); only: the one gun everyone has (no crates,
@@ -102,14 +109,24 @@
     n: { name: "Nukes only", label: "Nukes", hint: "unlimited nukes", only: "nuke", cdMul: 2.2, botCd: 6 },
     r: { name: "Railgun instagib", label: "Instagib", hint: "one rail hit kills", only: "rail", botCd: 3, instagib: true, noSupplies: true }
   };
-  const modeOf = code => { const c = String(code); return c[1] === "1" && MODES[c[2]] ? c[2] : "d"; };
+  const modeOf = code => MODES[codeOpts(code).mode] ? codeOpts(code).mode : "d";
+  // match settings: round length (minutes) and a score that ends the round early (kills, or flags in CTF)
+  const TIME_OPTS = { 2: 3, 3: 5, 4: 8, 5: 10, 6: 15 }, TIME_DEFAULT = "3";
+  const SCORE_OPTS = { 2: [10, 3], 3: [20, 5], 4: [30, 10] };   // [kills, flags]
+  const timeOf = code => TIME_OPTS[codeOpts(code).time] ? codeOpts(code).time : TIME_DEFAULT;
+  const scoreOf = code => SCORE_OPTS[codeOpts(code).score] ? codeOpts(code).score : "";
+  const scoreLimit = code => { const s = scoreOf(code); return s ? SCORE_OPTS[s][MODES[modeOf(code)].flags ? 1 : 0] : 0; };
   let MODE = "d";
   const TEAM_NAME = ["Red", "Blue"], TEAM_HEX = ["#ff5a6e", "#4fa8ff"], TEAM_RGB = ["255,90,110", "79,168,255"];
   const WEAPON_KEYS = ["fire", "triple", "laser", "rocket", "nuke", "scatter", "rail", "mine", "orb", "bolt", "shard"];   // index is what goes over the network
-  // deathmatch rounds on the shared clock: 5 minutes of fighting, then 15 seconds of results
-  const ROUND_PLAY = 300, ROUND_BREAK = 15, ROUND_LEN = ROUND_PLAY + ROUND_BREAK;
+  // rounds on the shared clock: ROUND_PLAY seconds of fighting (the lobby's time limit), then 15 seconds of results
+  let ROUND_PLAY = 300, SCORE_LIMIT = 0;
+  const ROUND_BREAK = 15;
+  let ROUND_LEN = ROUND_PLAY + ROUND_BREAK;
+  function setMatch(code) { ROUND_PLAY = TIME_OPTS[timeOf(code)] * 60; ROUND_LEN = ROUND_PLAY + ROUND_BREAK; SCORE_LIMIT = scoreLimit(code); }
   const roundAt = ms => { const t = ms / 1000, idx = Math.floor(t / ROUND_LEN), ph = t - idx * ROUND_LEN; return { idx, ph, live: ph < ROUND_PLAY, left: ROUND_PLAY - ph }; };
-  const SUPPLY_PERIOD = 20, MAX_SHIELD = 6; let SUPPLY_SLOTS = 14;
+  // armour (in lives, like health): it takes only ARMOR_SOAK of each hit, the rest still hurts; at most MAX_SHIELD
+  const SUPPLY_PERIOD = 20, MAX_SHIELD = 3, ARMOR_SOAK = 0.6; let SUPPLY_SLOTS = 14;
   // nuke: one huge blast. Inside NUKE_KILL nothing survives; out to NUKE_R the damage falls from 4 to 1.5 lives
   const NUKE_R = 1100, NUKE_KILL = 620, NUKE_PERIOD = 70, BOOM_LIFE = 4;
   const nukeDmg = d => d < NUKE_KILL ? 99 : 1.5 + 2.5 * (1 - (d - NUKE_KILL) / (NUKE_R - NUKE_KILL));
