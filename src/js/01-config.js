@@ -35,21 +35,6 @@
     { from: 10, outer: [255, 80, 200], mid: [255, 210, 80], core: [255, 255, 255], aura: [255, 220, 120] }
   ];
   const tierOf = lv => TIERS.filter(t => lv >= t.from).pop();
-  // weapons: pick-ups swap the fireball for a while; shot: [shot kind, speed] it fires
-  const WEAPONS = {
-    fire:   { name: "Fireball",    ammo: Infinity, cd: 0.22, shot: [0, 880] },
-    triple: { name: "Triple shot", ammo: 24, cd: 0.3, shot: [0, 880], col: "#ffb43c" },
-    laser:  { name: "Laser",       ammo: 90, cd: 0.08, shot: [2, 2300], col: "#7df9ff" },   // also limited by heat (see LASER_HEAT)
-    rocket: { name: "Homing rockets", ammo: 8, cd: 0.7, shot: [1, 260], col: "#ff5a6e" },
-    nuke:   { name: "Nuke",        ammo: 1,  cd: 1.0, shot: [3, 360],  col: "#ffe14d" },
-    scatter: { name: "Scatter gun", ammo: 16, cd: 0.7, shot: [4, 1250],  col: "#ffd27a" },
-    rail:   { name: "Railgun",     ammo: 6,  cd: 1.15, shot: [5, 4200], col: "#d9a8ff" },
-    mine:   { name: "Mines",       ammo: 6,  cd: 0.6, shot: [6, 140],  col: "#ff6b3c" },
-    orb:    { name: "Plasma orb",  ammo: 12, cd: 0.55, shot: [7, 520], col: "#6fd8ff" },
-    bolt:   { name: "Lightning",   ammo: 90, cd: 0.11, shot: [8, 5600], col: "#bfefff" },
-    shard:  { name: "Shard cannon", ammo: 14, cd: 0.75, shot: [9, 1300], col: "#ff9a3c" }
-  };
-  const PICK_TYPES = ["triple", "laser", "rocket", "scatter", "rail", "mine", "orb", "bolt", "shard"], PICK_PERIOD = 24; let PICKS = 18;
   // shot kinds: what flies. The number is what goes over the network; everything per kind lives in SHOTS
   const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10 };
   const MINE_R = 55, MINE_ARM = 0.7;   // mines go off when a bin comes this close, after arming
@@ -68,6 +53,29 @@
     { name: "shard",     life: 0.9,  dmg: 0.3,  r: 0,      col: "#ff9a3c", carve: 10, shove: 0,   sfx: ["scatter", 0.6, 1] },
     { name: "slug",      life: 0.6,  dmg: 1,    r: 4,      col: "#ffe7a0", carve: 20, shove: 450, sfx: ["scatter", 0.6, 1] }
   ];
+  // weapons: pick-ups swap the fireball for a while. Each gun is described here, and the player and the bots fire it
+  // the same way (see volley):
+  //   shot: [shot kind, speed]; spread: angles of the shots in one volley; back: fired behind the bin
+  //   kick: recoil; feel: [view jolt, screen shake, muzzle flash size]; sfx: [sound, volume, pitch]; fx: extra muzzle effect
+  //   alt: the alternate fire (right mouse button / C): the same fields plus cost (ammo) and cd (reload)
+  const WEAPONS = {
+    fire:    { name: "Fireball", ammo: Infinity, cd: 0.22, shot: [K.FIRE, 880], kick: 25, feel: [5, 0.05, 40], sfx: ["fire", 0.55] },
+    triple:  { name: "Triple shot", ammo: 24, cd: 0.3, col: "#ffb43c", shot: [K.FIRE, 880], spread: [-0.2, 0, 0.2], kick: 25, feel: [7, 0.07, 50], sfx: ["triple", 0.7],
+               alt: { name: "Focus", cost: 1, cd: 0.3, shot: [K.FIRE, 1050], spread: [-0.035, 0, 0.035], kick: 60, feel: [10, 0.13, 80], sfx: ["triple", 0.8, 0.9] } },
+    laser:   { name: "Laser", ammo: 90, cd: 0.08, col: "#7df9ff", shot: [K.LASER, 2300], kick: 8, feel: [2, 0.02, 30], sfx: ["laser", 0.45] },   // also limited by heat (LASER_HEAT)
+    rocket:  { name: "Homing rockets", ammo: 8, cd: 0.7, col: "#ff5a6e", shot: [K.ROCKET, 260], kick: 90, feel: [12, 0.14, 70], sfx: ["rocket", 0.8],
+               alt: { name: "Salvo", cost: 3, cd: 1.6, shot: [K.ROCKET, 300], spread: [-0.24, 0, 0.24], kick: 200, feel: [18, 0.23, 96], sfx: ["rocket", 1, 0.8] } },
+    nuke:    { name: "Nuke", ammo: 1, cd: 1.0, col: "#ffe14d", shot: [K.NUKE, 360], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.6] },
+    scatter: { name: "Scatter gun", ammo: 16, cd: 0.7, col: "#ffd27a", shot: [K.PELLET, 1250], kick: 260, feel: [22, 0.3, 90], sfx: ["scatter", 1, 0.85], fx: "blast",
+               alt: { name: "Slug", cost: 2, cd: 0.95, shot: [K.SLUG, 1900], kick: 340, feel: [24, 0.3, 108], sfx: ["scatter", 1, 0.65], fx: "slug" } },
+    rail:    { name: "Railgun", ammo: 6, cd: 1.15, col: "#d9a8ff", shot: [K.RAIL, 4200], kick: 320, feel: [26, 0.35, 90], sfx: ["rail", 0.9], fx: "rail" },
+    mine:    { name: "Mines", ammo: 6, cd: 0.6, col: "#ff6b3c", shot: [K.MINE, 140], back: true, kick: 0, feel: [0, 0, 0], sfx: ["mine_drop", 0.7],
+               alt: { name: "Throw", cost: 1, cd: 0.6, shot: [K.MINE, 700], kick: 40, feel: [4, 0.05, 68], sfx: ["mine_drop", 0.8, 0.8] } },
+    orb:     { name: "Plasma orb", ammo: 12, cd: 0.55, col: "#6fd8ff", shot: [K.ORB, 520], kick: 40, feel: [10, 0.1, 70], sfx: ["shield_get", 0.8, 1.4] },
+    bolt:    { name: "Lightning", ammo: 90, cd: 0.11, col: "#bfefff", shot: [K.BOLT, 5600], kick: 4, feel: [2, 0.03, 35], sfx: ["laser", 0.22, 1.7] },
+    shard:   { name: "Shard cannon", ammo: 14, cd: 0.75, col: "#ff9a3c", shot: [K.SHARD, 1300], kick: 150, feel: [16, 0.2, 80], sfx: ["scatter", 0.85, 1.25], fx: "flash" }
+  };
+  const PICK_TYPES = ["triple", "laser", "rocket", "scatter", "rail", "mine", "orb", "bolt", "shard"], PICK_PERIOD = 24; let PICKS = 18;
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
   const AMP_PERIOD = 95, AMP_TIME = 20000;                   // Overdrive: a rare pick-up, triple damage for 20 s                        // mines go off when a bin comes this close, after arming
   // nuke: everything inside NUKE_KILL dies outright, the rest of the blast (out to NUKE_R) takes heavy damage

@@ -19,7 +19,7 @@
     fireCd -= dt; shake = Math.max(0, shake - dt);
     heatTick(dt, now);
     const ready = playing && roundLive && !me.dead && fireCd <= 0;
-    if (ready && (altFiring || keys.has("KeyC")) && ALT[me.weapon]) shootAlt(now);
+    if (ready && (altFiring || keys.has("KeyC")) && WEAPONS[me.weapon].alt) shoot(now, true);
     else if (ready && (firing || FIRE_KEYS.some(k => keys.has(k))) && !(me.weapon === "laser" && overheated)) shoot(now);
     if (playing && !me.dead) {
       if (keys.has("KeyA") || keys.has("ArrowLeft")) ix -= 1;

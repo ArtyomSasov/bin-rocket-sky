@@ -41,23 +41,12 @@
   const botWeapon = b => MODES[MODE].only || b.weapon;
   // fires once; returns the gun's reload time
   function botFire(b, now) {
-    const w = botWeapon(b), [kind, sp] = WEAPONS[w].shot, ride = kind === K.BOLT ? 0 : 0.6;
-    for (const da of w === "triple" ? [-0.2, 0, 0.2] : [0]) {
-      const bx = Math.cos(b.a + da), by = Math.sin(b.a + da);
-      const id = b.tag + "." + (b.seq++).toString(36);
-      const s = { id, kind, x: b.x + bx * 42, y: b.y + by * 42, ox: b.x + bx * 42, oy: b.y + by * 42, px: b.x, py: b.y,
-                  vx: bx * sp + b.vx * ride, vy: by * sp + b.vy * ride, life: SHOTS[kind].life, mine: false, owner: b.id };
-      if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else shots.push(s);
-      seenShots.set(id, performance.now());
-      if (kind === K.RAIL) railBeam(s.x, s.y, s.vx, s.vy);
-      b.shotLog.push({ at: now, d: [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind] });
-    }
-    shotSound(kind, b.x, b.y);
-    b.st.shots++;
-    const bx = Math.cos(b.a), by = Math.sin(b.a);
-    b.vx -= bx * 25; b.vy -= by * 25;
+    const w = botWeapon(b), pat = WEAPONS[w];
+    volley(b, now, pat, null);
+    shotSound(pat.shot[0], b.x, b.y);
+    b.vx -= Math.cos(b.a) * 25; b.vy -= Math.sin(b.a) * 25;
     if (!MODES[MODE].only && w !== "fire" && --b.ammo <= 0) b.weapon = "fire";
-    return WEAPONS[w].cd;
+    return pat.cd;
   }
   function updateBots(dt, now) {
     if (!bots.length) return;

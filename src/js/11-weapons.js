@@ -128,18 +128,25 @@
     if (t - hitTickAt > 60) { hitTickAt = t; sfx("hit", 0.4, 1.8); }
   }
   function pelletShove(o, s, f = 150) { const v = Math.hypot(s.vx, s.vy) || 1; o.vx += s.vx / v * f; o.vy += s.vy / v * f; }
-  function fireOne(now, ang, kind, speed, from) {
-    const bx = Math.cos(ang), by = Math.sin(ang), sz = sizeOf(me.lv);
-    const id = myTag + "." + (shotSeq++).toString(36);
-    const ox = from ? from.x : me.x + bx * 42 * sz, oy = from ? from.y : me.y + by * 42 * sz;
-    const amp = me.ampUntil > now ? 3 : 1;
-    const s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : me.x, py: from ? oy : me.y, vx: bx * speed + me.vx * (kind === K.BOLT ? 0 : 0.6), vy: by * speed + me.vy * (kind === K.BOLT ? 0 : 0.6), life: SHOTS[kind].life, mine: true, m: amp };
-    if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else shots.push(s);
-    const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind];
-    if (amp > 1) d.push(amp);
-    myShotLog.push({ at: now, d });
-    stats.shots++;
-    net.shot(d);
+  // one volley from any pilot, me or a bot: the shots go out, get logged for the network, and the last one is returned
+  // (muzzle effects start from it). pat: a weapon or its alt (shot, spread, back); from: the gun's muzzle, if known
+  function volley(p, now, pat, from) {
+    const mine = p === me, [kind, speed] = pat.shot, amp = mine && me.ampUntil > now ? 3 : 1, ride = kind === K.BOLT ? 0 : 0.6;
+    const base = p.a + (pat.back ? Math.PI : 0), sz = sizeOf(p.lv || 1);
+    let s;
+    for (const da of pat.spread || [0]) {
+      const bx = Math.cos(base + da), by = Math.sin(base + da);
+      const id = (mine ? myTag : p.tag) + "." + (mine ? shotSeq++ : p.seq++).toString(36);
+      const ox = from ? from.x : p.x + bx * 42 * sz, oy = from ? from.y : p.y + by * 42 * sz;
+      s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * speed + p.vx * ride, vy: by * speed + p.vy * ride,
+            life: SHOTS[kind].life, mine, m: amp, owner: mine ? undefined : p.id };
+      if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else shots.push(s);
+      if (kind === K.RAIL) railBeam(s.x, s.y, s.vx, s.vy);
+      const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind];
+      if (amp > 1) d.push(amp);
+      if (mine) { myShotLog.push({ at: now, d }); stats.shots++; net.shot(d); }
+      else { seenShots.set(id, performance.now()); p.shotLog.push({ at: now, d }); p.st.shots++; }
+    }
     return s;
   }
   // what every client shows where a shot lands on a bin
@@ -153,50 +160,33 @@
     if (s.kind === K.SHARD) sparkShower(s.x, s.y, s.vx / 1300, s.vy / 1300, 0.6);
     impact(s.x, s.y, SHOTS[s.kind].col, s.kind === K.ROCKET || s.kind === K.RAIL ? 2 : 1);
   }
-  function shoot(now) {
-    const w = WEAPONS[me.weapon], [kind, sp] = w.shot;
-    fireCd = w.cd * (MODE === "n" ? 2.2 : 1);
-    let muzzle;
-    const gun = me.weapon === "fire" ? null : muzzleAt(me.weapon);
-    if (me.weapon === "triple") { for (const da of [-0.2, 0, 0.2]) muzzle = fireOne(now, me.a + da, kind, sp, gun); sfx("triple", 0.7) || blip(170, 0.12, "sawtooth"); }
-    else if (me.weapon === "laser") { muzzle = fireOne(now, me.a, kind, sp, gun); sfx("laser", 0.45) || blip(1200, 0.06, "square"); }
-    else if (me.weapon === "rocket") { muzzle = fireOne(now, me.a, kind, sp, gun); sfx("rocket", 0.8) || blip(90, 0.25, "sawtooth"); }
-    else if (me.weapon === "scatter") {
-      muzzle = fireOne(now, me.a, kind, sp, gun);
-      // a heavy blast: flash, a cone of fire and smoke, a thump, then the pump racking
-      if (!sfx("scatter", 1, 0.85)) { boomSound(0.35, 1400, 0.5); blip(55, 0.25, "square"); }
+  // extra muzzle effects some guns have, on top of the flash and recoil every gun gets
+  const MUZZLE_FX = {
+    blast(m) {   // scatter gun: flash, a cone of fire and smoke, then the pump racking
       setTimeout(() => { if (!sfx("pump", 0.6)) { blip(420, 0.05, "square"); setTimeout(() => blip(300, 0.06, "square"), 90); } }, 260);
-      impacts.push({ x: muzzle.x, y: muzzle.y, t: 0, r: 70, col: "#ffd27a" });
-      for (let k = 0; k < 22; k++) {
-        const a = me.a + (Math.random() - 0.5) * 0.7, v = 250 + Math.random() * 500;
-        puff(muzzle.x, muzzle.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.2 + Math.random() * 0.25, 2 + Math.random() * 2.5, FIRE_COLS[k % 4]);
-      }
-      smoke(muzzle.x, muzzle.y, 8, 120, 1.2);
-      shake = Math.max(shake, 0.3);
-    }
-    else if (me.weapon === "rail") {
-      muzzle = fireOne(now, me.a, kind, sp, gun);
-      railBeam(muzzle.x, muzzle.y, muzzle.vx, muzzle.vy);
-      shake = Math.max(shake, 0.35); flash = Math.max(flash, 0.12);
-      if (!sfx("rail", 0.9)) { blip(1800, 0.05, "sine"); blip(140, 0.4, "sawtooth"); }
-      rings.push({ x: muzzle.x, y: muzzle.y, t: 0, r: 70, col: "233,200,255", dur: 0.35, w: 6 });
-    }
-    else if (me.weapon === "mine") { muzzle = fireOne(now, me.a + Math.PI, kind, sp, gun); sfx("mine_drop", 0.7) || blip(260, 0.1, "triangle"); }
-    else if (me.weapon === "orb") { muzzle = fireOne(now, me.a, kind, sp, gun); sfx("shield_get", 0.8, 1.4) || blip(300, 0.2, "sine"); }
-    else if (me.weapon === "bolt") { muzzle = fireOne(now, me.a, kind, sp, gun); sfx("laser", 0.22, 1.7) || blip(1600, 0.03, "sawtooth"); }
-    else if (me.weapon === "shard") {
-      muzzle = fireOne(now, me.a, kind, sp, gun);
-      if (!sfx("scatter", 0.85, 1.25)) boomSound(0.3, 2000, 0.4);
-      impacts.push({ x: muzzle.x, y: muzzle.y, t: 0, r: 50, col: "#ff9a3c" });
-    }
-    else if (me.weapon === "nuke") { muzzle = fireOne(now, me.a, kind, sp, gun); sfx("rocket", 1, 0.6) || blip(55, 0.7, "sawtooth"); }
-    else { muzzle = fireOne(now, me.a, kind, sp); sfx("fire", 0.55) || blip(150, 0.12, "sawtooth"); }
-    const kick = { nuke: 160, rail: 320, scatter: 260, rocket: 90, laser: 8, mine: 0, orb: 40, bolt: 4, shard: 150 }[me.weapon] ?? 25;
-    const [camK, shk, flashR] = { fire: [5, 0.05, 40], triple: [7, 0.07, 50], laser: [2, 0.02, 30], rocket: [12, 0.14, 70], scatter: [22, 0.3, 90],
-      rail: [26, 0.35, 90], mine: [0, 0, 0], orb: [10, 0.1, 70], bolt: [2, 0.03, 35], shard: [16, 0.2, 80], nuke: [30, 0.5, 120] }[me.weapon] || [5, 0.05, 40];
-    shotFeel(me.weapon, muzzle, kick, camK, shk, flashR);
-    if (me.weapon === "laser") { laserHeat = Math.min(1, laserHeat + LASER_HEAT.perShot); heatAt = now; if (laserHeat >= 1) overheat(); }
-    spend(me.weapon, 1);
+      impacts.push({ x: m.x, y: m.y, t: 0, r: 70, col: "#ffd27a" });
+      for (let k = 0; k < 22; k++) { const a = me.a + (Math.random() - 0.5) * 0.7, v = 250 + Math.random() * 500; puff(m.x, m.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.2 + Math.random() * 0.25, 2 + Math.random() * 2.5, FIRE_COLS[k % 4]); }
+      smoke(m.x, m.y, 8, 120, 1.2);
+    },
+    slug(m) {    // a tighter cone for the slug
+      setTimeout(() => sfx("pump", 0.6, 0.9), 300);
+      for (let k = 0; k < 14; k++) { const a = me.a + (Math.random() - 0.5) * 0.3, v = 300 + Math.random() * 500; puff(m.x, m.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.25, 2.5, FIRE_COLS[k % 4]); }
+    },
+    rail(m) { flash = Math.max(flash, 0.12); rings.push({ x: m.x, y: m.y, t: 0, r: 70, col: "233,200,255", dur: 0.35, w: 6 }); },
+    flash(m) { impacts.push({ x: m.x, y: m.y, t: 0, r: 50, col: "#ff9a3c" }); }
+  };
+  // fire the gun in hand (alt: its alternate fire, which needs its full ammo cost)
+  function shoot(now, alt) {
+    const k = me.weapon, w = WEAPONS[k], pat = alt ? w.alt : w;
+    if (alt && !(pat && me.arsenal[k] >= pat.cost)) return;
+    fireCd = alt ? pat.cd : w.cd * (MODE === "n" ? 2.2 : 1);
+    const muzzle = volley(me, now, pat, k === "fire" ? null : muzzleAt(k));
+    const [name, vol, pitch] = pat.sfx;
+    sfx(name, vol, pitch) || blip(160, 0.1, "sawtooth");
+    if (pat.fx) MUZZLE_FX[pat.fx](muzzle);
+    shotFeel(k, muzzle, pat.kick, ...pat.feel);
+    if (k === "laser") { laserHeat = Math.min(1, laserHeat + LASER_HEAT.perShot); heatAt = now; if (laserHeat >= 1) overheat(); }
+    spend(k, alt ? pat.cost : 1);
   }
   // feel, scaled per gun: recoil shoves the bin back, the view jolts, the screen shakes and the muzzle lights up
   function shotFeel(k, muzzle, kick, camK, shk, flashR) {
@@ -229,31 +219,6 @@
     const shown = laserHeat.toFixed(2) + overheated;
     if (heatBar && shown !== heatShown) { heatShown = shown; heatBar.style.setProperty("--f", laserHeat.toFixed(2)); heatBar.classList.toggle("hot", overheated); }
   }
-  // alternate fire (right mouse button or C; on phones the small button by the fire button)
-  const ALT = {   // kick: recoil, camK: how hard the view jolts
-    rocket:  { name: "Salvo", cost: 3, cd: 1.6,  kick: 200, camK: 18 },   // three rockets at once
-    scatter: { name: "Slug",  cost: 2, cd: 0.95, kick: 340, camK: 24 },   // one heavy slug that flies far, instead of the spread
-    triple:  { name: "Focus", cost: 1, cd: 0.3,  kick: 60,  camK: 10 },   // all three balls nearly straight
-    mine:    { name: "Throw", cost: 1, cd: 0.6,  kick: 40,  camK: 4 }     // lob a mine ahead instead of dropping it behind
-  };
-  function shootAlt(now) {
-    const k = me.weapon, alt = ALT[k];
-    if (!alt || !(me.arsenal[k] >= alt.cost)) return;   // a salvo needs three rockets, a slug two shells
-    fireCd = alt.cd;
-    const gun = muzzleAt(k);
-    let muzzle;
-    if (k === "rocket") { for (const da of [-0.24, 0, 0.24]) muzzle = fireOne(now, me.a + da, 1, 300, gun); sfx("rocket", 1, 0.8); }
-    else if (k === "scatter") {
-      muzzle = fireOne(now, me.a, 10, 1900, gun);
-      if (!sfx("scatter", 1, 0.65)) boomSound(0.4, 900, 0.5);
-      setTimeout(() => sfx("pump", 0.6, 0.9), 300);
-      for (let j = 0; j < 14; j++) { const a = me.a + (Math.random() - 0.5) * 0.3, v = 300 + Math.random() * 500; puff(muzzle.x, muzzle.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.25, 2.5, FIRE_COLS[j % 4]); }
-    }
-    else if (k === "triple") { for (const da of [-0.035, 0, 0.035]) muzzle = fireOne(now, me.a + da, 0, 1050, gun); sfx("triple", 0.8, 0.9); }
-    else { muzzle = fireOne(now, me.a, 6, 700, gun); sfx("mine_drop", 0.8, 0.8); }
-    shotFeel(k, muzzle, alt.kick, alt.camK, alt.camK / 80, 60 + alt.camK * 2);
-    spend(k, alt.cost);
-  }
   // quick dodge: a burst forward (or toward where you steer) with a moment of invulnerability
   function dash(now) {
     if (!playing || me.dead || energy < 25 || now < dashReadyAt) return;
@@ -278,7 +243,7 @@
   const arsenalEl = document.getElementById("arsenal");
   const owned = () => WEAPON_KEYS.filter(k => me.arsenal[k]);
   const ammoFill = k => Math.min(1, me.arsenal[k] / WEAPONS[k].ammo);
-  const chipText = () => { const n = me.arsenal[me.weapon], alt = ALT[me.weapon];
+  const chipText = () => { const n = me.arsenal[me.weapon], alt = WEAPONS[me.weapon].alt;
     return WEAPONS[me.weapon].name + (Number.isFinite(n) ? " · " + n : "") + (alt && !COARSE ? " · right click: " + alt.name : ""); };
   // after a shot: just the numbers of that gun
   function renderAmmo(k) {
@@ -304,7 +269,7 @@
         + (k === "laser" ? `<b class="heat"></b>` : `<b style="--f:${(Number.isFinite(n) ? ammoFill(k) : 1).toFixed(3)}"></b>`) + `</button>`;
     }).join("");
     heatBar = arsenalEl.querySelector('[data-w="laser"] b'); heatShown = "";
-    const alt = ALT[me.weapon];
+    const alt = WEAPONS[me.weapon].alt;
     document.getElementById("altBtn").hidden = !playing || !COARSE || !alt;
     if (alt) document.getElementById("altName").textContent = alt.name.toUpperCase();
   }
