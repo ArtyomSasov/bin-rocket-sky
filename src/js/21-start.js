@@ -47,8 +47,8 @@
   }
   me.ck = cleanCustom((() => { try { return JSON.parse(store.get("binrocket.custom")); } catch { return null; } })());
   const optsEl = document.getElementById("customOpts");
-  const swatchBg = (key, val) => key === "body" ? (val === null ? "#4fd6c8" : `hsl(${val} 65% 55%)`)
-    : key === "lid" ? (val === null ? "#9d8fc8" : `hsl(${val} 45% 60%)`)
+  const swatchBg = (key, val) => key === "body" ? (val === null ? "#4fd6c8" : toneCss(val, 65, 55))
+    : key === "lid" ? (val === null ? "#9d8fc8" : toneCss(val, 45, 60))
     : key === "flame" ? (val === null ? "linear-gradient(#ffe08a,#ff5a1f)" : val === "rainbow" ? "linear-gradient(90deg,#ff6b6b,#ffe66b,#6bff95,#6bd5ff,#ff7bea)" : `rgb(${FLAMES[val].mid})`)
     : null;
   const lookPanels = [];

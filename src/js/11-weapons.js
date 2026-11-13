@@ -91,23 +91,42 @@
     beams.push({ x1: x, y1: y, x2: x + dx * L, y2: y + dy * L, t: 0 });
     if (beams.length > 12) beams.shift();
   }
-  const CHAIN_R = 320, CHAIN_DMG = 0.12;
+  // lightning locks on: the nearest enemy within ~30° of where you point and within reach gets the bolt
+  const BOLT_LOCK_R = 800, BOLT_LOCK_A = 0.55;
+  function boltLock(p, from) {
+    const ox = from ? from.x : p.x, oy = from ? from.y : p.y;
+    let best, score = Infinity;
+    for (const [id, r] of remotes) {
+      if (r.dead || id === p.id || mates(r, p)) continue;
+      const dx = r.x - ox, dy = r.y - oy, d = Math.hypot(dx, dy), da = Math.abs(angD(Math.atan2(dy, dx) - p.a));
+      if (d < BOLT_LOCK_R && da < BOLT_LOCK_A && d * (1 + da * 2) < score) { score = d * (1 + da * 2); best = Math.atan2(dy, dx); }
+    }
+    return best;
+  }
+  // and it jumps on: up to two more enemies close to the one it hit, each taking a little less
+  const CHAIN_R = 340, CHAIN_DMG = 0.14, CHAIN_JUMPS = 2;
   function boltChain(s, hx, hy, hitId, now) {
     if (s.chained) return;
     s.chained = true;
-    let best = null, bd = CHAIN_R;
-    const consider = (id, o) => { if (id === hitId || !canHurt(s, o, id)) return; const d = Math.hypot(o.x - hx, o.y - hy); if (d < bd) { bd = d; best = { id, o }; } };
-    consider("me", me);
-    for (const [id, r] of remotes) consider(id, r);
-    if (!best) return;
-    const t = best.o, a = Math.atan2(t.y - hy, t.x - hx);
-    arcs.push({ x1: hx, y1: hy, x2: t.x, y2: t.y, t: 0 });
-    impact(t.x, t.y, "#bfefff", 0.8);
-    sfx("laser", 0.3, 2.2, t.x, t.y);
-    const dmg = CHAIN_DMG * (s.m || 1), cid = s.id + "c";
-    if (best.id === "me") { if (hurt(now, dmg, false, K.BOLT, a)) { pushCapped(hitBy, cid, 12); if (me.dead) { meKilled(cid); killedBy(s.owner); } } }
-    else if (botById.has(best.id)) botHurt(botById.get(best.id), dmg, cid, now, false, K.BOLT, a);
-    else if (s.mine) hitConfirm({ ...s, kind: K.BOLT }, t.lv, t.x, t.y, t);
+    const done = new Set([hitId]);
+    let x = hx, y = hy;
+    for (let j = 0; j < CHAIN_JUMPS; j++) {
+      let best = null, bd = CHAIN_R;
+      const consider = (id, o) => { if (done.has(id) || !canHurt(s, o, id)) return; const d = Math.hypot(o.x - x, o.y - y); if (d < bd) { bd = d; best = { id, o }; } };
+      consider("me", me);
+      for (const [id, r] of remotes) consider(id, r);
+      if (!best) return;
+      const t = best.o, a = Math.atan2(t.y - y, t.x - x);
+      done.add(best.id);
+      arcs.push({ x1: x, y1: y, x2: t.x, y2: t.y, t: 0 });
+      impact(t.x, t.y, "#bfefff", 1);
+      sfx("laser", 0.35, 2.2, t.x, t.y);
+      const dmg = CHAIN_DMG * (1 - j * 0.25) * (s.m || 1), cid = s.id + "c" + j;
+      if (best.id === "me") { if (hurt(now, dmg, false, K.BOLT, a)) { pushCapped(hitBy, cid, 12); if (me.dead) { meKilled(cid); killedBy(s.owner); } } }
+      else if (botById.has(best.id)) botHurt(botById.get(best.id), dmg, cid, now, false, K.BOLT, a);
+      else if (s.mine) hitConfirm({ ...s, kind: K.BOLT }, t.lv, t.x, t.y, t);
+      x = t.x; y = t.y;
+    }
   }
   // homing: turns gently toward the nearest enemy ahead of it, never faster than a bin flies, so boost or a dash escapes it
   function steerRocket(s, dt) {
@@ -176,9 +195,9 @@
   function pelletShove(o, s, f = 150) { const v = Math.hypot(s.vx, s.vy) || 1; o.vx += s.vx / v * f; o.vy += s.vy / v * f; }
   // one volley from any pilot, me or a bot: the shots go out, get logged for the network, and the last one is returned
   // (muzzle effects start from it). pat: a weapon or its alt (shot, spread, back); from: the gun's muzzle, if known
-  function volley(p, now, pat, from) {
+  function volley(p, now, pat, from, aim) {
     const mine = p === me, [kind, speed] = pat.shot, amp = mine && me.ampUntil > now ? 3 : 1, ride = kind === K.BOLT ? 0 : 0.6;
-    const base = p.a + (pat.back ? Math.PI : 0), sz = sizeOf(p.lv || 1);
+    const base = (aim ?? p.a) + (pat.back ? Math.PI : 0), sz = sizeOf(p.lv || 1);
     let s;
     for (const da of pat.spread || [0]) {
       const bx = Math.cos(base + da), by = Math.sin(base + da);
@@ -229,7 +248,8 @@
     const k = me.weapon, w = WEAPONS[k], pat = alt ? w.alt : w;
     if (alt && !(pat && me.arsenal[k] >= pat.cost)) return;
     fireCd = alt ? pat.cd : w.cd * (MODES[MODE].cdMul || 1);
-    const muzzle = volley(me, now, pat, k === "fire" ? null : muzzleAt(k));
+    const gun = k === "fire" ? null : muzzleAt(k);
+    const muzzle = volley(me, now, pat, gun, k === "bolt" ? boltLock(me, gun) : undefined);
     const [name, vol, pitch] = pat.sfx;
     sfx(name, vol, pitch) || blip(160, 0.1, "sawtooth");
     if (pat.fx) MUZZLE_FX[pat.fx](muzzle);

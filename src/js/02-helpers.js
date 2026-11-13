@@ -51,10 +51,12 @@
     return [(r + m) * 255, (gg + m) * 255, (b + m) * 255];
   }
   const tintCache = new Map();
+  // a look colour (a hue, or [hue, saturation x, lightness x]) as CSS, at a base saturation and lightness in %
+  const toneCss = (v, s, l) => Array.isArray(v) ? `hsl(${v[0]} ${Math.min(100, s * v[1])}% ${Math.min(95, l * v[2])}%)` : `hsl(${v} ${s}% ${l}%)`;
   function tintedBody(ck) {
     const bh = customVal(ck, "body"), lh = customVal(ck, "lid");
     if (bh === null && lh === null) return body;
-    const key = bh + "|" + lh;
+    const key = JSON.stringify([bh, lh]), tone = v => v === null ? null : Array.isArray(v) ? v : [v, 1.05, 1], bt = tone(bh), lt = tone(lh);
     let c = tintCache.get(key);
     if (c) return c;
     c = document.createElement("canvas"); c.width = body.width; c.height = body.height;
@@ -63,11 +65,11 @@
     for (let i = 0; i < px.length; i += 4) {
       if (!px[i + 3]) continue;
       const [h, sat, l] = rgb2hsl(px[i], px[i + 1], px[i + 2]);
-      let nh = null;
-      if (bh !== null && h > 145 && h < 205 && sat > 0.2) nh = bh;
-      else if (lh !== null && h > 230 && h < 295 && sat > 0.1) nh = lh;
-      if (nh === null) continue;
-      const [r, gg, b] = hsl2rgb(nh, Math.min(1, sat * 1.05), l);
+      let tn = null;
+      if (bt && h > 145 && h < 205 && sat > 0.2) tn = bt;
+      else if (lt && h > 230 && h < 295 && sat > 0.1) tn = lt;
+      if (!tn) continue;
+      const [r, gg, b] = hsl2rgb(tn[0], Math.min(1, sat * tn[1]), Math.min(0.95, l * tn[2]));
       px[i] = r; px[i + 1] = gg; px[i + 2] = b;
     }
     x.putImageData(d, 0, 0);

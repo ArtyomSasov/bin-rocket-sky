@@ -43,7 +43,7 @@
   // fires once; returns the gun's reload time
   function botFire(b, now) {
     const w = botWeapon(b), pat = WEAPONS[w];
-    volley(b, now, pat, null);
+    volley(b, now, pat, null, w === "bolt" ? boltLock(b, null) : undefined);
     shotSound(pat.shot[0], b.x, b.y);
     b.vx -= Math.cos(b.a) * 25; b.vy -= Math.sin(b.a) * 25;
     if (!MODES[MODE].only && w !== "fire" && --b.ammo <= 0) b.weapon = "fire";

@@ -169,7 +169,10 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
 #startForm { width: min(980px, 100%); }
 .cols { width: 100%; display: grid; gap: 14px; grid-template-columns: 1fr; align-items: start; }
 .side { display: grid; gap: 14px; align-content: start; min-width: 0; }
-@media (min-width: 860px) { .cols { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); } }
+@media (min-width: 1000px) { .cols { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: 18px; } }
+/* everything on the start card and in the menu counts its padding and border inside its width, so nothing spills over */
+.start *, .start *::before, .start *::after, .settings *, .settings *::before, .settings *::after { box-sizing: border-box; }
+.pilot-side input, .pane input { width: 100%; }
 .tag { font-size: 13px !important; margin-top: -4px !important; }
 .pilot { width: 100%; display: grid; grid-template-columns: 170px 1fr; gap: 14px; align-items: start; text-align: left;
   border: 1px solid var(--line); border-radius: 14px; padding: 10px; background: rgba(255,255,255,.04); }
@@ -463,6 +466,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     y: { name: "Shipyard", label: "Shipyard", hint: "wrecked ships and stations", planets: 0.35, wrecks: 2.6, wgap: 110, wreckTypes: ["hull", "hull", "ring", "ring", "tower", "crates"] },
     r: { name: "Ruined city", label: "Ruins", hint: "floating towers and crates", planets: 0.45, wrecks: 2.2, wgap: 110, wreckTypes: ["tower", "tower", "tower", "crates", "crates", "hull"] },
     s: { name: "Solar system", label: "Solar", hint: "a sun and big planets", planets: 0.8, pR: [190, 320], moons: 1, moonN: 2, wrecks: 0.35, star: true },
+    w: { name: "Waste depot", label: "Depot", hint: "skips, refuse trucks, giant bins", planets: 0.3, wrecks: 2.6, wgap: 100, wreckTypes: ["skip", "truck", "wheelie", "truck", "bales", "skip", "truck"] },
     o: { name: "Open space", label: "Open", hint: "nearly empty: duels", planets: 0.25, pR: [110, 170], moons: 0, wrecks: 0.25 }
   };
   const mapThemeOf = code => { const m = String(code).match(/^[a-z0-9](?:1[a-z])?0([a-z])/); return m && MAPS[m[1]] ? m[1] : "c"; };
@@ -582,23 +586,32 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   const FIRE_KEYS = ["Space", "KeyF", "KeyJ", "Enter"];
   // customization: index 0 of every list is the original look
   const CUSTOM = {
-    body:  { label: "Body",  items: [["Teal", null], ["Pink", 330], ["Orange", 22], ["Lime", 95], ["Sky", 205], ["Gold", 46], ["Violet", 268]] },
-    lid:   { label: "Lid",   items: [["Lavender", null], ["Navy", 222], ["Red", 2], ["Mint", 155], ["Rose", 318], ["Amber", 38]] },
-    flame: { label: "Fire",  items: [["By level", null], ["Blue", "blue"], ["Green", "green"], ["Pink", "pink"], ["Rainbow", "rainbow"]] },
-    trail: { label: "Trail", items: [["Sparkle", null], ["Fire", "fire"], ["Ice", "ice"], ["Gold", "gold"], ["Rainbow", "rainbow"]] },
-    hat:   { label: "Hat",   items: [["None", null], ["Party", "party"], ["Top hat", "tophat"], ["Halo", "halo"], ["Bow", "bow"], ["Cap", "cap"]] }
+    // a colour is a hue, or [hue, saturation x, lightness x] for the darker and greyer ones (new items go at the end:
+    // the index is what goes over the network)
+    body:  { label: "Body",  items: [["Teal", null], ["Pink", 330], ["Orange", 22], ["Lime", 95], ["Sky", 205], ["Gold", 46], ["Violet", 268],
+                                     ["Recycling green", [135, 1.1, 0.85]], ["Hi-vis", [72, 1.6, 1.2]], ["Charcoal", [225, 0.12, 0.5]], ["Steel", [210, 0.22, 1]]] },
+    // the bin lid colours of household collections: recycling, garden, food, general waste, glass
+    lid:   { label: "Lid",   items: [["Lavender", null], ["Navy", 222], ["Red", 2], ["Mint", 155], ["Rose", 318], ["Amber", 38],
+                                     ["Recycling blue", [212, 1.3, 0.85]], ["Garden green", [120, 1.1, 0.75]], ["Food brown", [28, 0.75, 0.6]], ["General black", [230, 0.1, 0.4]], ["Glass purple", [275, 1, 0.8]]] },
+    flame: { label: "Fire",  items: [["By level", null], ["Blue", "blue"], ["Green", "green"], ["Pink", "pink"], ["Rainbow", "rainbow"], ["Toxic", "toxic"]] },
+    trail: { label: "Trail", items: [["Sparkle", null], ["Fire", "fire"], ["Ice", "ice"], ["Gold", "gold"], ["Rainbow", "rainbow"], ["Litter", "litter"], ["Eco", "eco"]] },
+    hat:   { label: "Hat",   items: [["None", null], ["Party", "party"], ["Top hat", "tophat"], ["Halo", "halo"], ["Bow", "bow"], ["Cap", "cap"],
+                                     ["Hard hat", "hardhat"], ["Traffic cone", "cone"], ["Hi-vis beanie", "hivis"], ["Recycling", "recycle"]] }
   };
   const CUSTOM_KEYS = ["body", "lid", "flame", "trail", "hat"];
   const FLAMES = {
     blue:  { outer: [60, 120, 255], mid: [80, 200, 255],  core: [225, 250, 255] },
     green: { outer: [40, 200, 90],  mid: [140, 255, 120], core: [235, 255, 215] },
-    pink:  { outer: [255, 60, 160], mid: [255, 140, 210], core: [255, 236, 250] }
+    pink:  { outer: [255, 60, 160], mid: [255, 140, 210], core: [255, 236, 250] },
+    toxic: { outer: [120, 255, 30], mid: [210, 255, 80], core: [245, 255, 210] }
   };
   const TRAILS = {
     fire: ["#fff3b0", "#ffd23f", "#ff9a2e", "#ff5a1f"],
     ice: ["#bff9ff", "#7df9ff", "#ffffff", "#9fd8ff"],
     gold: ["#ffd36b", "#fff1b8", "#ffb43c", "#ffffff"],
-    rainbow: ["#ff6b6b", "#ffb43c", "#ffe66b", "#6bff95", "#6bd5ff", "#8c7bff", "#ff7bea"]
+    rainbow: ["#ff6b6b", "#ffb43c", "#ffe66b", "#6bff95", "#6bd5ff", "#8c7bff", "#ff7bea"],
+    litter: ["#e8e0d0", "#5a8ac8", "#c85a4a", "#6ab06a", "#d8c050"],   // scraps of paper, cans and wrappers
+    eco: ["#6bff95", "#3ad06a", "#c8ffb0", "#9ff3c0"]
   };
   const cleanCustom = v => CUSTOM_KEYS.map((k, i) => {
     const n = Array.isArray(v) ? Math.floor(Number(v[i])) : 0;
@@ -629,15 +642,20 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   const cv = document.getElementById("c");
   let g = cv.getContext("2d", { alpha: false });   // swapped briefly to draw the start-screen preview
   const DISPLAY_FONT = getComputedStyle(document.documentElement).getPropertyValue('--display');
-  let vw = 0, vh = 0, dpr = 1, zoom = 1;
+  let vw = 0, vh = 0, dpr = 1, zoom = 1, baseZoom = 1, viewZoom = 1;   // zoom = baseZoom (screen size) x viewZoom (pulls back on boost)
   let resScale = 1;   // share of the screen's resolution we draw at: a fixed setting, or lowered by the frame loop when slow
   let TS = 1;   // text scale: undoes the camera zoom so labels stay readable
   function resize() {
     dpr = Math.min(MAX_DPR, window.devicePixelRatio || 1) * resScale;
-    zoom = Math.max(0.62, Math.min(1, Math.min(innerWidth, innerHeight) / 700));   // runs before the helpers exist
+    baseZoom = Math.max(0.62, Math.min(1, Math.min(innerWidth, innerHeight) / 700));   // runs before the helpers exist
+    cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr);
+    applyView();
+  }
+  // the camera's zoom, every frame: how much of the world is on screen
+  function applyView() {
+    zoom = baseZoom * viewZoom;
     TS = 1 / zoom;
     vw = innerWidth / zoom; vh = innerHeight / zoom;   // world units visible on screen
-    cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr);
     g.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0);
   }
   addEventListener("resize", resize); resize();
@@ -695,10 +713,12 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     return [(r + m) * 255, (gg + m) * 255, (b + m) * 255];
   }
   const tintCache = new Map();
+  // a look colour (a hue, or [hue, saturation x, lightness x]) as CSS, at a base saturation and lightness in %
+  const toneCss = (v, s, l) => Array.isArray(v) ? `hsl(${v[0]} ${Math.min(100, s * v[1])}% ${Math.min(95, l * v[2])}%)` : `hsl(${v} ${s}% ${l}%)`;
   function tintedBody(ck) {
     const bh = customVal(ck, "body"), lh = customVal(ck, "lid");
     if (bh === null && lh === null) return body;
-    const key = bh + "|" + lh;
+    const key = JSON.stringify([bh, lh]), tone = v => v === null ? null : Array.isArray(v) ? v : [v, 1.05, 1], bt = tone(bh), lt = tone(lh);
     let c = tintCache.get(key);
     if (c) return c;
     c = document.createElement("canvas"); c.width = body.width; c.height = body.height;
@@ -707,11 +727,11 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     for (let i = 0; i < px.length; i += 4) {
       if (!px[i + 3]) continue;
       const [h, sat, l] = rgb2hsl(px[i], px[i + 1], px[i + 2]);
-      let nh = null;
-      if (bh !== null && h > 145 && h < 205 && sat > 0.2) nh = bh;
-      else if (lh !== null && h > 230 && h < 295 && sat > 0.1) nh = lh;
-      if (nh === null) continue;
-      const [r, gg, b] = hsl2rgb(nh, Math.min(1, sat * 1.05), l);
+      let tn = null;
+      if (bt && h > 145 && h < 205 && sat > 0.2) tn = bt;
+      else if (lt && h > 230 && h < 295 && sat > 0.1) tn = lt;
+      if (!tn) continue;
+      const [r, gg, b] = hsl2rgb(tn[0], Math.min(1, sat * tn[1]), Math.min(0.95, l * tn[2]));
       px[i] = r; px[i + 1] = gg; px[i + 2] = b;
     }
     x.putImageData(d, 0, 0);
@@ -1064,7 +1084,9 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     moon: { base: "#8a7f96", bands: ["#a59bb0", "#6f6580"], glow: "200,185,230" }
   };
   const WRECK_TYPES = ["hull", "tower", "crates", "ring"];
-  const WRECK_PAL = { hull: ["#7d8aa3", "#5a6478", "#9aa6bf"], tower: ["#8f8aa0", "#6d6880", "#4a4660"], crates: ["#c0503c", "#3c78c0", "#d8a83c", "#4a9a6a"], ring: ["#8a93ad", "#5e6680", "#c8d0e8"] };
+  const WRECK_PAL = { hull: ["#7d8aa3", "#5a6478", "#9aa6bf"], tower: ["#8f8aa0", "#6d6880", "#4a4660"], crates: ["#c0503c", "#3c78c0", "#d8a83c", "#4a9a6a"], ring: ["#8a93ad", "#5e6680", "#c8d0e8"],
+    // the waste depot: skips, refuse trucks, giant wheelie bins and bales of crushed waste
+    skip: ["#e8a530", "#b97a1c", "#f2c45a"], truck: ["#e8eef4", "#3c8a5a", "#2a3044"], wheelie: ["#3a7a4a", "#2a5a38", "#4fa060"], bales: ["#8a7a5a", "#5a7a9a", "#9a5a5a", "#6a8a5a"] };
   const WRECK_N = { s: 6, m: 10, l: 16, x: 24 };
   const BODY_RES = matchMedia("(pointer: coarse)").matches ? 0.6 : 1;   // art baked at lower resolution on phones
   let planets = [], moons = [], wrecks = [], det = [], rubble = [], bodies = [], worldCode = "lobby", mapKey = "m", rubbleSeq = 0;
@@ -1185,6 +1207,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     g2.addColorStop(0, "rgba(20,12,16,0.75)"); g2.addColorStop(1, "rgba(20,12,16,0)");
     q.fillStyle = g2; q.beginPath(); q.arc(x, y, r, 0, 6.29); q.fill(); q.restore();
   }
+  const rrectQ = (q, x, y, w, h, r) => { q.beginPath(); q.moveTo(x + r, y); q.arcTo(x + w, y, x + w, y + h, r); q.arcTo(x + w, y + h, x, y + h, r); q.arcTo(x, y + h, x, y, r); q.arcTo(x, y, x + w, y, r); q.closePath(); };
   function paintWreck(b, type, w, h, rnd) {
     const q = b.q, pal = WRECK_PAL[type];
     q.save(); q.translate((b.hw * 2 - w) / 2, (b.hh * 2 - h) / 2);
@@ -1228,6 +1251,54 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
         q.strokeStyle = "rgba(0,0,0,0.3)"; q.lineWidth = 2;
         for (let s = 1; s < 8; s++) { q.beginPath(); q.moveTo(-cw / 2 + cw * s / 8, -ch / 2); q.lineTo(-cw / 2 + cw * s / 8, ch / 2); q.stroke(); }
         q.strokeRect(-cw / 2, -ch / 2, cw, ch);
+        q.restore();
+      }
+      for (let k = 0; k < 3; k++) scorch(q, w * rnd(k + 30), h * rnd(k + 40), w * 0.2);
+    } else if (type === "skip") {   // a skip: a tapered steel container, ribbed sides, lifting lugs, rubbish heaped on top
+      for (let k = 0; k < 9; k++) { q.fillStyle = ["#7a6a8a", "#4f8a5a", "#b05040", "#d8c8a0", "#5a6a9a"][k % 5]; q.beginPath(); q.arc(w * (0.12 + k * 0.095), h * (0.2 + rnd(k + 500) * 0.08), h * (0.1 + rnd(k + 510) * 0.08), 0, 6.29); q.fill(); }
+      const g1 = q.createLinearGradient(0, 0, 0, h); g1.addColorStop(0, pal[2]); g1.addColorStop(1, pal[1]);
+      q.fillStyle = g1; q.beginPath(); q.moveTo(0, h * 0.25); q.lineTo(w, h * 0.25); q.lineTo(w * 0.86, h * 0.95); q.lineTo(w * 0.14, h * 0.95); q.closePath(); q.fill();
+      q.strokeStyle = "rgba(60,36,10,0.5)"; q.lineWidth = 3;
+      for (let k = 1; k < 6; k++) { const x = w * (0.1 + k * 0.135); q.beginPath(); q.moveTo(x, h * 0.28); q.lineTo(x + (0.5 - k / 6) * w * 0.12, h * 0.92); q.stroke(); }
+      q.fillStyle = "#4a3a20"; for (const x of [0.08, 0.92]) { q.beginPath(); q.arc(w * x, h * 0.45, h * 0.07, 0, 6.29); q.fill(); }
+      q.fillStyle = "#222630"; q.fillRect(w * 0.12, h * 0.95, w * 0.76, h * 0.05);
+      for (let k = 0; k < 3; k++) scorch(q, w * rnd(k + 30), h * (0.3 + rnd(k + 40) * 0.6), h * 0.3);
+      bite(q, rnd(6) < 0.5 ? 0 : w, h * (0.5 + rnd(7) * 0.3), h * 0.35, rnd, 90);
+    } else if (type === "truck") {   // a refuse truck: cab, compactor body with a green stripe, rear hopper, wheels
+      const g1 = q.createLinearGradient(0, 0, 0, h); g1.addColorStop(0, "#ffffff"); g1.addColorStop(1, "#b8c2cc");
+      q.fillStyle = g1; rrectQ(q, w * 0.24, h * 0.08, w * 0.62, h * 0.62, 10); q.fill();   // the body
+      q.fillStyle = pal[1]; q.fillRect(w * 0.24, h * 0.44, w * 0.62, h * 0.1);   // the green stripe
+      q.fillStyle = "#c8d0d8"; q.beginPath(); q.moveTo(w * 0.86, h * 0.12); q.lineTo(w * 0.99, h * 0.3); q.lineTo(w * 0.99, h * 0.7); q.lineTo(w * 0.86, h * 0.7); q.closePath(); q.fill();   // hopper
+      q.fillStyle = "#e8eef4"; rrectQ(q, w * 0.02, h * 0.22, w * 0.22, h * 0.48, 12); q.fill();   // the cab
+      q.fillStyle = "#9ff3ff"; rrectQ(q, w * 0.05, h * 0.27, w * 0.12, h * 0.17, 6); q.fill();   // its window
+      q.fillStyle = "#ffb43c"; q.fillRect(w * 0.1, h * 0.17, w * 0.05, h * 0.05);   // beacon
+      q.fillStyle = "#1e222c"; q.fillRect(w * 0.02, h * 0.7, w * 0.96, h * 0.08);
+      for (const x of [0.13, 0.55, 0.75]) { q.fillStyle = "#1a1d26"; q.beginPath(); q.arc(w * x, h * 0.8, h * 0.15, 0, 6.29); q.fill(); q.fillStyle = "#8a93ad"; q.beginPath(); q.arc(w * x, h * 0.8, h * 0.06, 0, 6.29); q.fill(); }
+      q.strokeStyle = "rgba(30,34,44,0.35)"; q.lineWidth = 2;
+      for (let k = 1; k < 6; k++) { const x = w * (0.24 + k * 0.1); q.beginPath(); q.moveTo(x, h * 0.1); q.lineTo(x, h * 0.42); q.stroke(); }
+      for (let k = 0; k < 4; k++) scorch(q, w * rnd(k + 30), h * rnd(k + 40), h * 0.3);
+      bite(q, w * (0.3 + rnd(4) * 0.4), rnd(5) < 0.5 ? 0 : h, h * 0.35, rnd, 80);
+    } else if (type === "wheelie") {   // a giant wheelie bin, its lid in one of the collection colours
+      const lid = ["#3c78c0", "#3a7a4a", "#8a5a30", "#2a2a34", "#7a4a9a"][Math.floor(rnd(9) * 5)];
+      const g1 = q.createLinearGradient(0, 0, w, 0); g1.addColorStop(0, "#2a2e3a"); g1.addColorStop(0.5, "#3e4454"); g1.addColorStop(1, "#262a34");
+      q.fillStyle = g1; q.beginPath(); q.moveTo(w * 0.08, h * 0.16); q.lineTo(w * 0.92, h * 0.16); q.lineTo(w * 0.84, h * 0.9); q.lineTo(w * 0.16, h * 0.9); q.closePath(); q.fill();
+      q.fillStyle = lid; rrectQ(q, w * 0.02, h * 0.06, w * 0.96, h * 0.12, 8); q.fill();
+      q.fillStyle = "#1a1d26"; q.fillRect(w * 0.3, 0, w * 0.4, h * 0.07);   // the handle
+      q.strokeStyle = "rgba(255,255,255,0.08)"; q.lineWidth = 3;
+      for (let k = 1; k < 4; k++) { q.beginPath(); q.moveTo(w * (0.15 + k * 0.17), h * 0.22); q.lineTo(w * (0.18 + k * 0.16), h * 0.86); q.stroke(); }
+      q.fillStyle = "#f2f2f2"; rrectQ(q, w * 0.34, h * 0.35, w * 0.32, h * 0.16, 6); q.fill();   // a label panel
+      q.fillStyle = lid; q.font = `700 ${Math.round(h * 0.09)}px sans-serif`; q.textAlign = "center"; q.fillText("♻", w * 0.5, h * 0.47);
+      for (const x of [0.22, 0.78]) { q.fillStyle = "#14161e"; q.beginPath(); q.arc(w * x, h * 0.92, h * 0.08, 0, 6.29); q.fill(); }
+      for (let k = 0; k < 3; k++) scorch(q, w * rnd(k + 30), h * (0.2 + rnd(k + 40) * 0.6), w * 0.25);
+      bite(q, rnd(6) < 0.5 ? 0 : w, h * (0.3 + rnd(7) * 0.5), w * 0.3, rnd, 90);
+    } else if (type === "bales") {   // bales of crushed waste, mottled and strapped with wire
+      for (let k = 0; k < 6; k++) {
+        const bw = w * 0.46, bh = h * 0.3, x = w * (k % 2 ? 0.5 : 0.04) + (rnd(k + 600) - 0.5) * 10, y = h * (0.06 + Math.floor(k / 2) * 0.31);
+        q.save(); q.translate(x + bw / 2, y + bh / 2); q.rotate((rnd(k + 610) - 0.5) * 0.25);
+        q.fillStyle = pal[k % pal.length]; q.fillRect(-bw / 2, -bh / 2, bw, bh);
+        for (let j = 0; j < 22; j++) { q.fillStyle = ["#d8c8a0", "#4f8a5a", "#b05040", "#5a6a9a", "#e8e0d0", "#3a3a44"][j % 6]; q.globalAlpha = 0.55; q.fillRect(-bw / 2 + rnd(k * 40 + j) * bw * 0.9, -bh / 2 + rnd(k * 40 + j + 20) * bh * 0.85, 6 + rnd(j + k) * 10, 4 + rnd(j * 3 + k) * 6); }
+        q.globalAlpha = 1; q.strokeStyle = "#c8ccd4"; q.lineWidth = 2;
+        for (const sx2 of [-0.25, 0.25]) { q.beginPath(); q.moveTo(bw * sx2, -bh / 2); q.lineTo(bw * sx2, bh / 2); q.stroke(); }
         q.restore();
       }
       for (let k = 0; k < 3; k++) scorch(q, w * rnd(k + 30), h * rnd(k + 40), w * 0.2);
@@ -1312,7 +1383,9 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     for (let t = 0; wrecks.length < nW && t < 4000; t++) {
       const type = types[Math.floor(hash(seed, t, 21) * types.length)], wseed = seed + t * 389, rnd = k => hash(wseed, k, 505);
       const [w, h] = type === "hull" ? [320 + rnd(1) * 120, 110 + rnd(2) * 40] : type === "tower" ? [170 + rnd(1) * 60, 250 + rnd(2) * 80]
-                   : type === "crates" ? [230 + rnd(1) * 40, 170 + rnd(2) * 40] : [300 + rnd(1) * 60, 120 + rnd(2) * 30];
+                   : type === "crates" ? [230 + rnd(1) * 40, 170 + rnd(2) * 40] : type === "skip" ? [250 + rnd(1) * 50, 130 + rnd(2) * 20]
+                   : type === "truck" ? [380 + rnd(1) * 60, 150 + rnd(2) * 20] : type === "wheelie" ? [150 + rnd(1) * 30, 210 + rnd(2) * 40]
+                   : type === "bales" ? [230 + rnd(1) * 40, 180 + rnd(2) * 30] : [300 + rnd(1) * 60, 120 + rnd(2) * 30];
       const rr = Math.hypot(w, h) / 2, A = 40 + hash(seed, t, 25) * 80, m = rr + A + 200;
       const x = m + hash(seed, t, 22) * (W - 2 * m), y = m + hash(seed, t, 23) * (H - 2 * m);
       if (planets.some(p => Math.hypot(p.x - x, p.y - y) < p.rr + (p.rr > 150 ? 520 : 160) + rr + A)) continue;   // big planets keep their moons' orbits clear
@@ -1880,7 +1953,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   }
   const binColors = ck => {
     const bh = ck ? customVal(ck, "body") : null, lh = ck ? customVal(ck, "lid") : null;
-    return [bh === null ? "#4fd6c8" : `hsl(${bh} 65% 55%)`, lh === null ? "#9d8fc8" : `hsl(${lh} 45% 60%)`];
+    return [bh === null ? "#4fd6c8" : toneCss(bh, 65, 55), lh === null ? "#9d8fc8" : toneCss(lh, 45, 60)];
   };
   // boost: a dense jet of fire out of the nozzle
   function afterburner(b, fx, dt) {
@@ -2297,23 +2370,42 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     beams.push({ x1: x, y1: y, x2: x + dx * L, y2: y + dy * L, t: 0 });
     if (beams.length > 12) beams.shift();
   }
-  const CHAIN_R = 320, CHAIN_DMG = 0.12;
+  // lightning locks on: the nearest enemy within ~30° of where you point and within reach gets the bolt
+  const BOLT_LOCK_R = 800, BOLT_LOCK_A = 0.55;
+  function boltLock(p, from) {
+    const ox = from ? from.x : p.x, oy = from ? from.y : p.y;
+    let best, score = Infinity;
+    for (const [id, r] of remotes) {
+      if (r.dead || id === p.id || mates(r, p)) continue;
+      const dx = r.x - ox, dy = r.y - oy, d = Math.hypot(dx, dy), da = Math.abs(angD(Math.atan2(dy, dx) - p.a));
+      if (d < BOLT_LOCK_R && da < BOLT_LOCK_A && d * (1 + da * 2) < score) { score = d * (1 + da * 2); best = Math.atan2(dy, dx); }
+    }
+    return best;
+  }
+  // and it jumps on: up to two more enemies close to the one it hit, each taking a little less
+  const CHAIN_R = 340, CHAIN_DMG = 0.14, CHAIN_JUMPS = 2;
   function boltChain(s, hx, hy, hitId, now) {
     if (s.chained) return;
     s.chained = true;
-    let best = null, bd = CHAIN_R;
-    const consider = (id, o) => { if (id === hitId || !canHurt(s, o, id)) return; const d = Math.hypot(o.x - hx, o.y - hy); if (d < bd) { bd = d; best = { id, o }; } };
-    consider("me", me);
-    for (const [id, r] of remotes) consider(id, r);
-    if (!best) return;
-    const t = best.o, a = Math.atan2(t.y - hy, t.x - hx);
-    arcs.push({ x1: hx, y1: hy, x2: t.x, y2: t.y, t: 0 });
-    impact(t.x, t.y, "#bfefff", 0.8);
-    sfx("laser", 0.3, 2.2, t.x, t.y);
-    const dmg = CHAIN_DMG * (s.m || 1), cid = s.id + "c";
-    if (best.id === "me") { if (hurt(now, dmg, false, K.BOLT, a)) { pushCapped(hitBy, cid, 12); if (me.dead) { meKilled(cid); killedBy(s.owner); } } }
-    else if (botById.has(best.id)) botHurt(botById.get(best.id), dmg, cid, now, false, K.BOLT, a);
-    else if (s.mine) hitConfirm({ ...s, kind: K.BOLT }, t.lv, t.x, t.y, t);
+    const done = new Set([hitId]);
+    let x = hx, y = hy;
+    for (let j = 0; j < CHAIN_JUMPS; j++) {
+      let best = null, bd = CHAIN_R;
+      const consider = (id, o) => { if (done.has(id) || !canHurt(s, o, id)) return; const d = Math.hypot(o.x - x, o.y - y); if (d < bd) { bd = d; best = { id, o }; } };
+      consider("me", me);
+      for (const [id, r] of remotes) consider(id, r);
+      if (!best) return;
+      const t = best.o, a = Math.atan2(t.y - y, t.x - x);
+      done.add(best.id);
+      arcs.push({ x1: x, y1: y, x2: t.x, y2: t.y, t: 0 });
+      impact(t.x, t.y, "#bfefff", 1);
+      sfx("laser", 0.35, 2.2, t.x, t.y);
+      const dmg = CHAIN_DMG * (1 - j * 0.25) * (s.m || 1), cid = s.id + "c" + j;
+      if (best.id === "me") { if (hurt(now, dmg, false, K.BOLT, a)) { pushCapped(hitBy, cid, 12); if (me.dead) { meKilled(cid); killedBy(s.owner); } } }
+      else if (botById.has(best.id)) botHurt(botById.get(best.id), dmg, cid, now, false, K.BOLT, a);
+      else if (s.mine) hitConfirm({ ...s, kind: K.BOLT }, t.lv, t.x, t.y, t);
+      x = t.x; y = t.y;
+    }
   }
   // homing: turns gently toward the nearest enemy ahead of it, never faster than a bin flies, so boost or a dash escapes it
   function steerRocket(s, dt) {
@@ -2382,9 +2474,9 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   function pelletShove(o, s, f = 150) { const v = Math.hypot(s.vx, s.vy) || 1; o.vx += s.vx / v * f; o.vy += s.vy / v * f; }
   // one volley from any pilot, me or a bot: the shots go out, get logged for the network, and the last one is returned
   // (muzzle effects start from it). pat: a weapon or its alt (shot, spread, back); from: the gun's muzzle, if known
-  function volley(p, now, pat, from) {
+  function volley(p, now, pat, from, aim) {
     const mine = p === me, [kind, speed] = pat.shot, amp = mine && me.ampUntil > now ? 3 : 1, ride = kind === K.BOLT ? 0 : 0.6;
-    const base = p.a + (pat.back ? Math.PI : 0), sz = sizeOf(p.lv || 1);
+    const base = (aim ?? p.a) + (pat.back ? Math.PI : 0), sz = sizeOf(p.lv || 1);
     let s;
     for (const da of pat.spread || [0]) {
       const bx = Math.cos(base + da), by = Math.sin(base + da);
@@ -2435,7 +2527,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     const k = me.weapon, w = WEAPONS[k], pat = alt ? w.alt : w;
     if (alt && !(pat && me.arsenal[k] >= pat.cost)) return;
     fireCd = alt ? pat.cd : w.cd * (MODES[MODE].cdMul || 1);
-    const muzzle = volley(me, now, pat, k === "fire" ? null : muzzleAt(k));
+    const gun = k === "fire" ? null : muzzleAt(k);
+    const muzzle = volley(me, now, pat, gun, k === "bolt" ? boltLock(me, gun) : undefined);
     const [name, vol, pitch] = pat.sfx;
     sfx(name, vol, pitch) || blip(160, 0.1, "sawtooth");
     if (pat.fx) MUZZLE_FX[pat.fx](muzzle);
@@ -3066,7 +3159,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // fires once; returns the gun's reload time
   function botFire(b, now) {
     const w = botWeapon(b), pat = WEAPONS[w];
-    volley(b, now, pat, null);
+    volley(b, now, pat, null, w === "bolt" ? boltLock(b, null) : undefined);
     shotSound(pat.shot[0], b.x, b.y);
     b.vx -= Math.cos(b.a) * 25; b.vy -= Math.sin(b.a) * 25;
     if (!MODES[MODE].only && w !== "fire" && --b.ammo <= 0) b.weapon = "fire";
@@ -3428,6 +3521,10 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     const ce = 1 - Math.exp(-2.5 * dt);
     cam.lx += (me.vx * lk - cam.lx) * ce; cam.ly += (me.vy * lk - cam.ly) * ce;
     cam.x = me.x + cam.lx; cam.y = me.y + cam.ly;
+    // on boost the view pulls back a little (and eases in again after): speed you can feel
+    const vzT = playing && !me.dead && boost ? 0.84 : 1;
+    viewZoom += (vzT - viewZoom) * (1 - Math.exp(-(vzT < viewZoom ? 2.2 : 1.4) * dt));
+    applyView();
     if (!me.dead) { trailFrom(me, 0.6 + me.thrust * 1.6 + me.boostFx * 1.5, dt); if (playing) damageFx(me, dt); afterburner(me, me.boostFx, dt); }
   }
   // every shot in flight: homing, ricochets, digging into bodies, hitting me (I decide) or reaching others
@@ -3984,8 +4081,10 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // the sky's base colour and its dark edges, painted once per screen size
   let skyBase = null, skyEdge = null;
   function skyLayers() {
-    if (skyBase && skyBase.width === Math.ceil(vw) && skyBase.height === Math.ceil(vh)) return;
-    const mk = () => { const c = document.createElement("canvas"); c.width = Math.ceil(vw); c.height = Math.ceil(vh); return c; };
+    const W2 = Math.ceil(innerWidth), H2 = Math.ceil(innerHeight);   // window pixels: zooming the view doesn't rebuild them
+    if (skyBase && skyBase.width === W2 && skyBase.height === H2) return;
+    const vw = W2, vh = H2;
+    const mk = () => { const c = document.createElement("canvas"); c.width = W2; c.height = H2; return c; };
     skyBase = mk(); skyEdge = mk();
     let q = skyBase.getContext("2d");
     const gr = q.createLinearGradient(0, 0, vw * 0.3, vh);   // deep space: nearly black, a touch of blue and violet
@@ -4157,15 +4256,22 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       }
       return;
     }
-    if (s.kind === K.BOLT) {   // lightning: a jagged arc from the gun to where the bolt has reached
+    if (s.kind === K.BOLT) {   // lightning: braided crackling strands from the gun to where the bolt has reached
       const x0 = x - (s.x - s.ox), y0 = y - (s.y - s.oy), L = Math.hypot(x - x0, y - y0) || 1, nx = (x - x0) / L, ny = (y - y0) / L;
-      const pts = [[x0, y0]];
-      for (let k = 1; k < 9; k++) { const t = k / 9, o = (Math.random() - 0.5) * 22; pts.push([x0 + (x - x0) * t - ny * o, y0 + (y - y0) * t + nx * o]); }
-      pts.push([x, y]);
+      const seg = Math.max(6, Math.min(16, L / 40) | 0), strand = amp => {
+        const p = [[x0, y0]];
+        for (let k = 1; k < seg; k++) { const t = k / seg, o = (Math.random() - 0.5) * amp * Math.sin(t * Math.PI); p.push([x0 + (x - x0) * t - ny * o, y0 + (y - y0) * t + nx * o]); }
+        p.push([x, y]); return p;
+      };
+      const line = (p, w, c) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); p.forEach(([px, py], i) => i ? g.lineTo(px, py) : g.moveTo(px, py)); g.stroke(); };
       g.lineJoin = "round"; g.lineCap = "round";
-      for (const [w, c] of [[9, "rgba(120,200,255,0.35)"], [3.5, "rgba(190,240,255,0.9)"], [1.4, "#ffffff"]]) {
-        g.strokeStyle = c; g.lineWidth = w; g.beginPath(); pts.forEach(([px, py], i) => i ? g.lineTo(px, py) : g.moveTo(px, py)); g.stroke();
-      }
+      const pts = strand(30);
+      line(pts, 16, "rgba(90,160,255,0.22)");   // the wide glow
+      line(strand(44), 2, "rgba(170,140,255,0.7)");   // a violet strand twisting around
+      line(strand(36), 2, "rgba(150,230,255,0.8)");
+      line(pts, 5, "rgba(190,240,255,0.95)"); line(pts, 2, "#ffffff");   // the hot core
+      g.globalAlpha = 0.9; g.drawImage(dotSprite("#bfefff"), x - 28, y - 28, 56, 56); g.globalAlpha = 1;   // where it lands
+      g.drawImage(dotSprite("#d8f6ff"), x0 - 18, y0 - 18, 36, 36);   // and at the gun
       for (let f = 0; f < (lowQ ? 1 : 3); f++) {   // forks splitting off the main bolt
         let [fx, fy] = pts[2 + ((Math.random() * 6) | 0)], a = Math.atan2(ny, nx) + (Math.random() < 0.5 ? 1 : -1) * (0.4 + Math.random() * 0.6);
         const fork = [[fx, fy]];
@@ -4534,6 +4640,28 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       g.beginPath(); g.moveTo(0, 0); g.lineTo(-13 * u, -8 * u); g.lineTo(-13 * u, 8 * u); g.closePath(); g.fill(); g.stroke();
       g.beginPath(); g.moveTo(0, 0); g.lineTo(13 * u, -8 * u); g.lineTo(13 * u, 8 * u); g.closePath(); g.fill(); g.stroke();
       g.fillStyle = "#ff9ccc"; g.beginPath(); g.arc(0, 0, 4 * u, 0, 6.29); g.fill(); g.stroke();
+    } else if (hat === "hardhat") {   // a yellow site helmet
+      g.fillStyle = "#ffc61a"; g.beginPath(); g.arc(0, 0, 15 * u, Math.PI, 0); g.closePath(); g.fill();
+      g.fillStyle = "#e0a400"; g.beginPath(); g.ellipse(0, 0, 21 * u, 4 * u, 0, 0, 6.29); g.fill();
+      g.fillStyle = "#ffe27a"; g.fillRect(-2.5 * u, -15 * u, 5 * u, 15 * u);
+      g.fillStyle = "rgba(255,255,255,0.35)"; g.beginPath(); g.ellipse(-6 * u, -8 * u, 3 * u, 5 * u, -0.5, 0, 6.29); g.fill();
+    } else if (hat === "cone") {   // a traffic cone, white bands and all
+      g.fillStyle = "#d8501a"; g.fillRect(-14 * u, -2 * u, 28 * u, 5 * u);
+      g.fillStyle = "#ff6a1a"; g.beginPath(); g.moveTo(-11 * u, -1 * u); g.lineTo(-2 * u, -32 * u); g.lineTo(2 * u, -32 * u); g.lineTo(11 * u, -1 * u); g.closePath(); g.fill();
+      g.fillStyle = "#f4f4f4";
+      for (const [y0, y1] of [[-10, -6], [-21, -17]]) { const w0 = 11 - (-y0) * 0.28, w1 = 11 - (-y1) * 0.28; g.beginPath(); g.moveTo(-w0 * u, y0 * u); g.lineTo(-w1 * u, y1 * u); g.lineTo(w1 * u, y1 * u); g.lineTo(w0 * u, y0 * u); g.closePath(); g.fill(); }
+    } else if (hat === "hivis") {   // a hi-vis beanie with a reflective band
+      g.fillStyle = "#c8ff2a"; g.beginPath(); g.arc(0, 0, 15 * u, Math.PI, 0); g.closePath(); g.fill();
+      g.fillStyle = "#d8dde4"; g.fillRect(-15 * u, -5 * u, 30 * u, 4 * u);
+      g.fillStyle = "#c8ff2a"; g.beginPath(); g.arc(0, -15 * u, 4 * u, 0, 6.29); g.fill();
+    } else if (hat === "recycle") {   // three green recycling arrows chasing round above the lid
+      g.translate(0, -18 * u); g.scale(1, 0.45); g.rotate(now / 700);
+      g.fillStyle = "#3ad06a"; g.strokeStyle = "#1e7a40"; g.lineWidth = 1.2 * u;
+      for (let k = 0; k < 3; k++) {
+        g.rotate(Math.PI * 2 / 3);
+        g.beginPath(); g.arc(0, 0, 17 * u, -0.3, 0.9); g.arc(0, 0, 11 * u, 0.9, -0.3, true); g.closePath(); g.fill(); g.stroke();
+        const a = 0.9; g.beginPath(); g.moveTo(Math.cos(a) * 8 * u, Math.sin(a) * 8 * u); g.lineTo(Math.cos(a) * 20 * u, Math.sin(a) * 20 * u); g.lineTo(Math.cos(a + 0.45) * 14 * u, Math.sin(a + 0.45) * 14 * u); g.closePath(); g.fill(); g.stroke();
+      }
     } else if (hat === "cap") {
       g.fillStyle = "#ff5a6e"; g.beginPath(); g.arc(0, 0, 14 * u, Math.PI, 0); g.closePath(); g.fill();
       g.fillStyle = "#c8324a"; g.beginPath(); g.ellipse(12 * u, 0, 13 * u, 3.5 * u, 0, 0, 6.29); g.fill();
@@ -5637,8 +5765,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   }
   me.ck = cleanCustom((() => { try { return JSON.parse(store.get("binrocket.custom")); } catch { return null; } })());
   const optsEl = document.getElementById("customOpts");
-  const swatchBg = (key, val) => key === "body" ? (val === null ? "#4fd6c8" : `hsl(${val} 65% 55%)`)
-    : key === "lid" ? (val === null ? "#9d8fc8" : `hsl(${val} 45% 60%)`)
+  const swatchBg = (key, val) => key === "body" ? (val === null ? "#4fd6c8" : toneCss(val, 65, 55))
+    : key === "lid" ? (val === null ? "#9d8fc8" : toneCss(val, 45, 60))
     : key === "flame" ? (val === null ? "linear-gradient(#ffe08a,#ff5a1f)" : val === "rainbow" ? "linear-gradient(90deg,#ff6b6b,#ffe66b,#6bff95,#6bd5ff,#ff7bea)" : `rgb(${FLAMES[val].mid})`)
     : null;
   const lookPanels = [];

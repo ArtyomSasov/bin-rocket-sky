@@ -128,6 +128,10 @@
     const ce = 1 - Math.exp(-2.5 * dt);
     cam.lx += (me.vx * lk - cam.lx) * ce; cam.ly += (me.vy * lk - cam.ly) * ce;
     cam.x = me.x + cam.lx; cam.y = me.y + cam.ly;
+    // on boost the view pulls back a little (and eases in again after): speed you can feel
+    const vzT = playing && !me.dead && boost ? 0.84 : 1;
+    viewZoom += (vzT - viewZoom) * (1 - Math.exp(-(vzT < viewZoom ? 2.2 : 1.4) * dt));
+    applyView();
     if (!me.dead) { trailFrom(me, 0.6 + me.thrust * 1.6 + me.boostFx * 1.5, dt); if (playing) damageFx(me, dt); afterburner(me, me.boostFx, dt); }
   }
   // every shot in flight: homing, ricochets, digging into bodies, hitting me (I decide) or reaching others

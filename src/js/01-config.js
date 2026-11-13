@@ -13,6 +13,7 @@
     y: { name: "Shipyard", label: "Shipyard", hint: "wrecked ships and stations", planets: 0.35, wrecks: 2.6, wgap: 110, wreckTypes: ["hull", "hull", "ring", "ring", "tower", "crates"] },
     r: { name: "Ruined city", label: "Ruins", hint: "floating towers and crates", planets: 0.45, wrecks: 2.2, wgap: 110, wreckTypes: ["tower", "tower", "tower", "crates", "crates", "hull"] },
     s: { name: "Solar system", label: "Solar", hint: "a sun and big planets", planets: 0.8, pR: [190, 320], moons: 1, moonN: 2, wrecks: 0.35, star: true },
+    w: { name: "Waste depot", label: "Depot", hint: "skips, refuse trucks, giant bins", planets: 0.3, wrecks: 2.6, wgap: 100, wreckTypes: ["skip", "truck", "wheelie", "truck", "bales", "skip", "truck"] },
     o: { name: "Open space", label: "Open", hint: "nearly empty: duels", planets: 0.25, pR: [110, 170], moons: 0, wrecks: 0.25 }
   };
   const mapThemeOf = code => { const m = String(code).match(/^[a-z0-9](?:1[a-z])?0([a-z])/); return m && MAPS[m[1]] ? m[1] : "c"; };
@@ -132,23 +133,32 @@
   const FIRE_KEYS = ["Space", "KeyF", "KeyJ", "Enter"];
   // customization: index 0 of every list is the original look
   const CUSTOM = {
-    body:  { label: "Body",  items: [["Teal", null], ["Pink", 330], ["Orange", 22], ["Lime", 95], ["Sky", 205], ["Gold", 46], ["Violet", 268]] },
-    lid:   { label: "Lid",   items: [["Lavender", null], ["Navy", 222], ["Red", 2], ["Mint", 155], ["Rose", 318], ["Amber", 38]] },
-    flame: { label: "Fire",  items: [["By level", null], ["Blue", "blue"], ["Green", "green"], ["Pink", "pink"], ["Rainbow", "rainbow"]] },
-    trail: { label: "Trail", items: [["Sparkle", null], ["Fire", "fire"], ["Ice", "ice"], ["Gold", "gold"], ["Rainbow", "rainbow"]] },
-    hat:   { label: "Hat",   items: [["None", null], ["Party", "party"], ["Top hat", "tophat"], ["Halo", "halo"], ["Bow", "bow"], ["Cap", "cap"]] }
+    // a colour is a hue, or [hue, saturation x, lightness x] for the darker and greyer ones (new items go at the end:
+    // the index is what goes over the network)
+    body:  { label: "Body",  items: [["Teal", null], ["Pink", 330], ["Orange", 22], ["Lime", 95], ["Sky", 205], ["Gold", 46], ["Violet", 268],
+                                     ["Recycling green", [135, 1.1, 0.85]], ["Hi-vis", [72, 1.6, 1.2]], ["Charcoal", [225, 0.12, 0.5]], ["Steel", [210, 0.22, 1]]] },
+    // the bin lid colours of household collections: recycling, garden, food, general waste, glass
+    lid:   { label: "Lid",   items: [["Lavender", null], ["Navy", 222], ["Red", 2], ["Mint", 155], ["Rose", 318], ["Amber", 38],
+                                     ["Recycling blue", [212, 1.3, 0.85]], ["Garden green", [120, 1.1, 0.75]], ["Food brown", [28, 0.75, 0.6]], ["General black", [230, 0.1, 0.4]], ["Glass purple", [275, 1, 0.8]]] },
+    flame: { label: "Fire",  items: [["By level", null], ["Blue", "blue"], ["Green", "green"], ["Pink", "pink"], ["Rainbow", "rainbow"], ["Toxic", "toxic"]] },
+    trail: { label: "Trail", items: [["Sparkle", null], ["Fire", "fire"], ["Ice", "ice"], ["Gold", "gold"], ["Rainbow", "rainbow"], ["Litter", "litter"], ["Eco", "eco"]] },
+    hat:   { label: "Hat",   items: [["None", null], ["Party", "party"], ["Top hat", "tophat"], ["Halo", "halo"], ["Bow", "bow"], ["Cap", "cap"],
+                                     ["Hard hat", "hardhat"], ["Traffic cone", "cone"], ["Hi-vis beanie", "hivis"], ["Recycling", "recycle"]] }
   };
   const CUSTOM_KEYS = ["body", "lid", "flame", "trail", "hat"];
   const FLAMES = {
     blue:  { outer: [60, 120, 255], mid: [80, 200, 255],  core: [225, 250, 255] },
     green: { outer: [40, 200, 90],  mid: [140, 255, 120], core: [235, 255, 215] },
-    pink:  { outer: [255, 60, 160], mid: [255, 140, 210], core: [255, 236, 250] }
+    pink:  { outer: [255, 60, 160], mid: [255, 140, 210], core: [255, 236, 250] },
+    toxic: { outer: [120, 255, 30], mid: [210, 255, 80], core: [245, 255, 210] }
   };
   const TRAILS = {
     fire: ["#fff3b0", "#ffd23f", "#ff9a2e", "#ff5a1f"],
     ice: ["#bff9ff", "#7df9ff", "#ffffff", "#9fd8ff"],
     gold: ["#ffd36b", "#fff1b8", "#ffb43c", "#ffffff"],
-    rainbow: ["#ff6b6b", "#ffb43c", "#ffe66b", "#6bff95", "#6bd5ff", "#8c7bff", "#ff7bea"]
+    rainbow: ["#ff6b6b", "#ffb43c", "#ffe66b", "#6bff95", "#6bd5ff", "#8c7bff", "#ff7bea"],
+    litter: ["#e8e0d0", "#5a8ac8", "#c85a4a", "#6ab06a", "#d8c050"],   // scraps of paper, cans and wrappers
+    eco: ["#6bff95", "#3ad06a", "#c8ffb0", "#9ff3c0"]
   };
   const cleanCustom = v => CUSTOM_KEYS.map((k, i) => {
     const n = Array.isArray(v) ? Math.floor(Number(v[i])) : 0;
@@ -179,15 +189,20 @@
   const cv = document.getElementById("c");
   let g = cv.getContext("2d", { alpha: false });   // swapped briefly to draw the start-screen preview
   const DISPLAY_FONT = getComputedStyle(document.documentElement).getPropertyValue('--display');
-  let vw = 0, vh = 0, dpr = 1, zoom = 1;
+  let vw = 0, vh = 0, dpr = 1, zoom = 1, baseZoom = 1, viewZoom = 1;   // zoom = baseZoom (screen size) x viewZoom (pulls back on boost)
   let resScale = 1;   // share of the screen's resolution we draw at: a fixed setting, or lowered by the frame loop when slow
   let TS = 1;   // text scale: undoes the camera zoom so labels stay readable
   function resize() {
     dpr = Math.min(MAX_DPR, window.devicePixelRatio || 1) * resScale;
-    zoom = Math.max(0.62, Math.min(1, Math.min(innerWidth, innerHeight) / 700));   // runs before the helpers exist
+    baseZoom = Math.max(0.62, Math.min(1, Math.min(innerWidth, innerHeight) / 700));   // runs before the helpers exist
+    cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr);
+    applyView();
+  }
+  // the camera's zoom, every frame: how much of the world is on screen
+  function applyView() {
+    zoom = baseZoom * viewZoom;
     TS = 1 / zoom;
     vw = innerWidth / zoom; vh = innerHeight / zoom;   // world units visible on screen
-    cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr);
     g.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0);
   }
   addEventListener("resize", resize); resize();

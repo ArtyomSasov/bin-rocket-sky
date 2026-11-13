@@ -87,7 +87,7 @@
   }
   const binColors = ck => {
     const bh = ck ? customVal(ck, "body") : null, lh = ck ? customVal(ck, "lid") : null;
-    return [bh === null ? "#4fd6c8" : `hsl(${bh} 65% 55%)`, lh === null ? "#9d8fc8" : `hsl(${lh} 45% 60%)`];
+    return [bh === null ? "#4fd6c8" : toneCss(bh, 65, 55), lh === null ? "#9d8fc8" : toneCss(lh, 45, 60)];
   };
   // boost: a dense jet of fire out of the nozzle
   function afterburner(b, fx, dt) {

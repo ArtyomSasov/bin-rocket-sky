@@ -11,8 +11,10 @@
   // the sky's base colour and its dark edges, painted once per screen size
   let skyBase = null, skyEdge = null;
   function skyLayers() {
-    if (skyBase && skyBase.width === Math.ceil(vw) && skyBase.height === Math.ceil(vh)) return;
-    const mk = () => { const c = document.createElement("canvas"); c.width = Math.ceil(vw); c.height = Math.ceil(vh); return c; };
+    const W2 = Math.ceil(innerWidth), H2 = Math.ceil(innerHeight);   // window pixels: zooming the view doesn't rebuild them
+    if (skyBase && skyBase.width === W2 && skyBase.height === H2) return;
+    const vw = W2, vh = H2;
+    const mk = () => { const c = document.createElement("canvas"); c.width = W2; c.height = H2; return c; };
     skyBase = mk(); skyEdge = mk();
     let q = skyBase.getContext("2d");
     const gr = q.createLinearGradient(0, 0, vw * 0.3, vh);   // deep space: nearly black, a touch of blue and violet
@@ -184,15 +186,22 @@
       }
       return;
     }
-    if (s.kind === K.BOLT) {   // lightning: a jagged arc from the gun to where the bolt has reached
+    if (s.kind === K.BOLT) {   // lightning: braided crackling strands from the gun to where the bolt has reached
       const x0 = x - (s.x - s.ox), y0 = y - (s.y - s.oy), L = Math.hypot(x - x0, y - y0) || 1, nx = (x - x0) / L, ny = (y - y0) / L;
-      const pts = [[x0, y0]];
-      for (let k = 1; k < 9; k++) { const t = k / 9, o = (Math.random() - 0.5) * 22; pts.push([x0 + (x - x0) * t - ny * o, y0 + (y - y0) * t + nx * o]); }
-      pts.push([x, y]);
+      const seg = Math.max(6, Math.min(16, L / 40) | 0), strand = amp => {
+        const p = [[x0, y0]];
+        for (let k = 1; k < seg; k++) { const t = k / seg, o = (Math.random() - 0.5) * amp * Math.sin(t * Math.PI); p.push([x0 + (x - x0) * t - ny * o, y0 + (y - y0) * t + nx * o]); }
+        p.push([x, y]); return p;
+      };
+      const line = (p, w, c) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); p.forEach(([px, py], i) => i ? g.lineTo(px, py) : g.moveTo(px, py)); g.stroke(); };
       g.lineJoin = "round"; g.lineCap = "round";
-      for (const [w, c] of [[9, "rgba(120,200,255,0.35)"], [3.5, "rgba(190,240,255,0.9)"], [1.4, "#ffffff"]]) {
-        g.strokeStyle = c; g.lineWidth = w; g.beginPath(); pts.forEach(([px, py], i) => i ? g.lineTo(px, py) : g.moveTo(px, py)); g.stroke();
-      }
+      const pts = strand(30);
+      line(pts, 16, "rgba(90,160,255,0.22)");   // the wide glow
+      line(strand(44), 2, "rgba(170,140,255,0.7)");   // a violet strand twisting around
+      line(strand(36), 2, "rgba(150,230,255,0.8)");
+      line(pts, 5, "rgba(190,240,255,0.95)"); line(pts, 2, "#ffffff");   // the hot core
+      g.globalAlpha = 0.9; g.drawImage(dotSprite("#bfefff"), x - 28, y - 28, 56, 56); g.globalAlpha = 1;   // where it lands
+      g.drawImage(dotSprite("#d8f6ff"), x0 - 18, y0 - 18, 36, 36);   // and at the gun
       for (let f = 0; f < (lowQ ? 1 : 3); f++) {   // forks splitting off the main bolt
         let [fx, fy] = pts[2 + ((Math.random() * 6) | 0)], a = Math.atan2(ny, nx) + (Math.random() < 0.5 ? 1 : -1) * (0.4 + Math.random() * 0.6);
         const fork = [[fx, fy]];
@@ -561,6 +570,28 @@
       g.beginPath(); g.moveTo(0, 0); g.lineTo(-13 * u, -8 * u); g.lineTo(-13 * u, 8 * u); g.closePath(); g.fill(); g.stroke();
       g.beginPath(); g.moveTo(0, 0); g.lineTo(13 * u, -8 * u); g.lineTo(13 * u, 8 * u); g.closePath(); g.fill(); g.stroke();
       g.fillStyle = "#ff9ccc"; g.beginPath(); g.arc(0, 0, 4 * u, 0, 6.29); g.fill(); g.stroke();
+    } else if (hat === "hardhat") {   // a yellow site helmet
+      g.fillStyle = "#ffc61a"; g.beginPath(); g.arc(0, 0, 15 * u, Math.PI, 0); g.closePath(); g.fill();
+      g.fillStyle = "#e0a400"; g.beginPath(); g.ellipse(0, 0, 21 * u, 4 * u, 0, 0, 6.29); g.fill();
+      g.fillStyle = "#ffe27a"; g.fillRect(-2.5 * u, -15 * u, 5 * u, 15 * u);
+      g.fillStyle = "rgba(255,255,255,0.35)"; g.beginPath(); g.ellipse(-6 * u, -8 * u, 3 * u, 5 * u, -0.5, 0, 6.29); g.fill();
+    } else if (hat === "cone") {   // a traffic cone, white bands and all
+      g.fillStyle = "#d8501a"; g.fillRect(-14 * u, -2 * u, 28 * u, 5 * u);
+      g.fillStyle = "#ff6a1a"; g.beginPath(); g.moveTo(-11 * u, -1 * u); g.lineTo(-2 * u, -32 * u); g.lineTo(2 * u, -32 * u); g.lineTo(11 * u, -1 * u); g.closePath(); g.fill();
+      g.fillStyle = "#f4f4f4";
+      for (const [y0, y1] of [[-10, -6], [-21, -17]]) { const w0 = 11 - (-y0) * 0.28, w1 = 11 - (-y1) * 0.28; g.beginPath(); g.moveTo(-w0 * u, y0 * u); g.lineTo(-w1 * u, y1 * u); g.lineTo(w1 * u, y1 * u); g.lineTo(w0 * u, y0 * u); g.closePath(); g.fill(); }
+    } else if (hat === "hivis") {   // a hi-vis beanie with a reflective band
+      g.fillStyle = "#c8ff2a"; g.beginPath(); g.arc(0, 0, 15 * u, Math.PI, 0); g.closePath(); g.fill();
+      g.fillStyle = "#d8dde4"; g.fillRect(-15 * u, -5 * u, 30 * u, 4 * u);
+      g.fillStyle = "#c8ff2a"; g.beginPath(); g.arc(0, -15 * u, 4 * u, 0, 6.29); g.fill();
+    } else if (hat === "recycle") {   // three green recycling arrows chasing round above the lid
+      g.translate(0, -18 * u); g.scale(1, 0.45); g.rotate(now / 700);
+      g.fillStyle = "#3ad06a"; g.strokeStyle = "#1e7a40"; g.lineWidth = 1.2 * u;
+      for (let k = 0; k < 3; k++) {
+        g.rotate(Math.PI * 2 / 3);
+        g.beginPath(); g.arc(0, 0, 17 * u, -0.3, 0.9); g.arc(0, 0, 11 * u, 0.9, -0.3, true); g.closePath(); g.fill(); g.stroke();
+        const a = 0.9; g.beginPath(); g.moveTo(Math.cos(a) * 8 * u, Math.sin(a) * 8 * u); g.lineTo(Math.cos(a) * 20 * u, Math.sin(a) * 20 * u); g.lineTo(Math.cos(a + 0.45) * 14 * u, Math.sin(a + 0.45) * 14 * u); g.closePath(); g.fill(); g.stroke();
+      }
     } else if (hat === "cap") {
       g.fillStyle = "#ff5a6e"; g.beginPath(); g.arc(0, 0, 14 * u, Math.PI, 0); g.closePath(); g.fill();
       g.fillStyle = "#c8324a"; g.beginPath(); g.ellipse(12 * u, 0, 13 * u, 3.5 * u, 0, 0, 6.29); g.fill();
