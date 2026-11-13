@@ -18,7 +18,7 @@
     }
   }
   // a pellet hurts more the closer it was fired from (the classic shotgun falloff); it also shoves what it hits
-  const pelletDmg = s => { const d = Math.hypot(s.x - s.ox, s.y - s.oy); return d < 170 ? 0.27 : d < 320 ? 0.18 : 0.09; };
+  const pelletDmg = s => { const d = Math.hypot(s.x - s.ox, s.y - s.oy); return d < 300 ? 0.27 : d < 550 ? 0.18 : 0.09; };
   // how someone else's shot sounds here (quieter with distance)
   const shotSound = (kind, x, y) => { const [name, vol, pitch] = SHOTS[kind].sfx; sfx(name, vol, pitch, x, y); };
   const shotDmg = s => MODES[MODE].instagib && s.kind === K.RAIL ? 99 : (s.kind === K.PELLET ? pelletDmg(s) : SHOTS[s.kind].dmg) * (s.m || 1);
