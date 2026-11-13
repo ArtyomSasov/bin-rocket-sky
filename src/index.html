@@ -28,7 +28,7 @@
   <form class="card chip" id="startForm">
     <canvas id="preview" width="220" height="220" aria-label="Preview of your bin rocket"></canvas>
     <h1>Bin Rocket <em>Sky</em></h1>
-    <p><b>Deathmatch:</b> 5-minute rounds, the pilot with the most kills wins. Scoop up sparks to level up, blast space junk and other bins with fire. You start at 100% health. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more health and fancier fire. Planets pull you in and hurt if you slam into them (more on boost); shoot one apart for +25. Planets, wrecks and buildings break off piece by piece where you hit them. Watch out for black holes, meteor showers and aliens. Grab weapon crates: triple shot, laser, homing rockets (slow: outrun them or shoot them down), scatter gun, railgun (pierces), mines, plasma orb (shoot it with the railgun or laser for a combo blast), lightning, shard cannon (shards ricochet), and the rare nuke. The violet Overdrive crystal triples your damage for 20 s (it levels everything around it). Medkits heal, shields soak damage. Black holes swallow anything that reaches the centre. Your bin has inertia: push the other way or hold X to brake. Modes for a new lobby: Deathmatch, Team Deathmatch, Capture the Flag, Nukes only and Railgun instagib.</p>
+    <p><b>Deathmatch:</b> 5-minute rounds, the pilot with the most kills wins. Scoop up sparks to level up, blast space junk and other bins with fire. You start at 100% health. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more health and fancier fire. Planets pull you in and hurt if you slam into them (more on boost); shoot one apart for +25. Planets, wrecks and buildings break off piece by piece where you hit them. Watch out for black holes, meteor showers and aliens. Grab weapon crates: triple shot, laser, homing rockets (slow: outrun them or shoot them down), scatter gun, railgun (pierces), mines, plasma orb (shoot it with the railgun or laser for a combo blast), lightning, shard cannon (shards ricochet), and the rare nuke. The violet Overdrive crystal triples your damage for 20 s (it levels everything around it). Medkits heal, shields soak damage. Black holes swallow anything that reaches the centre. Your bin has inertia: push the other way or hold X to brake. Modes for a new lobby: Deathmatch, Team Deathmatch, Capture the Flag, Nukes only and Railgun instagib; maps: Classic, Asteroid belt, Shipyard, Ruined city, Solar system and Open space.</p>
     <div class="field">
       <label for="nameInput">Pilot name</label>
       <input id="nameInput" maxlength="14" autocomplete="off" placeholder="Pilot name">
@@ -43,6 +43,8 @@
       <div class="segs" id="mapSize" role="group" aria-label="Map size"></div>
       <label>Mode <small>(for a new lobby; a friend's code brings its own)</small></label>
       <div class="segs" id="modePick" role="group" aria-label="Game mode"></div>
+      <label>Map <small>(what fills the arena)</small></label>
+      <div class="segs" id="themePick" role="group" aria-label="Map"></div>
     </div>
     <button type="submit" class="go" id="goBtn">Take off</button>
     <details class="custom" id="customBox">

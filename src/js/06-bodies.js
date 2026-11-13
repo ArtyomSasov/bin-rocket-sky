@@ -222,34 +222,50 @@
     let seed = 7;
     for (const ch of String(code)) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) | 0;
     planets = []; moons = []; wrecks = []; rubble = [];
-    for (let t = 0; planets.length < PLANET_N && t < 1500; t++) {
-      const R = 150 + hash(seed, t, 1) * 150, m = R + 380;
-      const x = m + hash(seed, t, 2) * (W - 2 * m), y = m + hash(seed, t, 3) * (H - 2 * m);
-      if (planets.some(p => Math.hypot(p.x - x, p.y - y) < p.rr + R + 560)) continue;
-      const pseed = seed + t * 131, rnd = k => hash(pseed, k, 404), kind = PLANET_KINDS[(Math.floor(hash(seed, 0, 9) * 4) + planets.length) % 4];
-      const p = newBody("p" + planets.length, kind, R * 2 + 4, R * 2 + 4, clamp(R / 28, 8, 12));
-      Object.assign(p, { x, y, rr: R, planet: true, tilt: (hash(seed, t, 4) - 0.5) * 0.8 });
+    const T = MAPS[mapThemeOf(code)], [r0, r1] = T.pR || [150, 300], kinds = T.kinds || PLANET_KINDS, gap = T.gap ?? 560;
+    const addPlanet = (x, y, R, kind, pseed, tilt) => {
+      const rnd = k => hash(pseed, k, 404), p = newBody("p" + planets.length, kind, R * 2 + 4, R * 2 + 4, clamp(R / 28, 8, 12));
+      Object.assign(p, { x, y, rr: R, planet: true, tilt });
       paintPlanet(p, R, kind, rnd);
       if (kind === "gas") paintRings(p, R, rnd);
+      if (T.lumpy) {   // an asteroid: big bites out of the rim leave a lumpy rock (seeded, so the same on every screen)
+        let n = 0; const seq = () => hash(pseed, 900 + n++, 404);
+        for (let k = 0, nb = 6 + Math.floor(rnd(30) * 4); k < nb; k++) {   // bites spread round the rim
+          const a = (k + rnd(40 + k) * 0.7) / nb * 6.283, d = R * (0.9 + rnd(50 + k) * 0.3), rad = R * (0.25 + rnd(60 + k) * 0.3);
+          carveLocal(p, p.hw + Math.cos(a) * d, p.hh + Math.sin(a) * d, rad, false, seq);
+        }
+        p.mass0 = p.mass; p.dirty = false; p.bare = true;   // bare rock: no atmosphere
+      }
       planets.push(p);
-      if (hash(seed, t, 5) < 0.65) {
-        const mr = 38 + hash(seed, t, 6) * 30, mseed = seed + t * 977;
+      return p;
+    };
+    if (T.star) addPlanet(W / 2, H / 2, Math.min(420, W * 0.09), "lava", seed + 7777, 0).star = true;   // the sun: a huge glowing ball in the middle
+    const nP = Math.round(PLANET_N * (T.planets ?? 1)) + (T.star ? 1 : 0);
+    for (let t = 0; planets.length < nP && t < 3000; t++) {
+      const R = r0 + hash(seed, t, 1) * (r1 - r0), m = R + 380;
+      const x = m + hash(seed, t, 2) * (W - 2 * m), y = m + hash(seed, t, 3) * (H - 2 * m);
+      if (planets.some(p => Math.hypot(p.x - x, p.y - y) < p.rr + R + (p.star ? 900 : gap))) continue;
+      const p = addPlanet(x, y, R, kinds[(Math.floor(hash(seed, 0, 9) * kinds.length) + planets.length) % kinds.length], seed + t * 131, (hash(seed, t, 4) - 0.5) * 0.8);
+      for (let j = 0; j < (T.moonN || 1); j++) {
+        if (hash(seed, t + j * 17, 5) >= (T.moons ?? 0.65)) continue;
+        const mr = 38 + hash(seed, t + j * 17, 6) * 30, mseed = seed + t * 977 + j * 53;
         const mo = newBody("m" + moons.length, "moon", mr * 2 + 4, mr * 2 + 4, 7);
-        Object.assign(mo, { p, rr: mr, moon: true, tilt: 0, orbit: R + 190 + hash(seed, t, 7) * 110, period: 45 + hash(seed, t, 8) * 40,
-                            ph: hash(seed, t, 10) * 6.283, dir: hash(seed, t, 11) < 0.5 ? -1 : 1 });
+        Object.assign(mo, { p, rr: mr, moon: true, tilt: 0, orbit: R + 190 + j * 190 + hash(seed, t + j * 17, 7) * 110, period: 45 + j * 25 + hash(seed, t, 8) * 40,
+                            ph: hash(seed, t + j * 17, 10) * 6.283, dir: hash(seed, t, 11) < 0.5 ? -1 : 1 });
         paintPlanet(mo, mr, "moon", k => hash(mseed, k, 404));
         moons.push(mo);
       }
     }
     // drifting wrecks: kept away from planets (and their moons' orbits) and from each other
-    for (let t = 0; wrecks.length < WRECK_N[mapKey] && t < 2000; t++) {
-      const type = WRECK_TYPES[Math.floor(hash(seed, t, 21) * WRECK_TYPES.length)], wseed = seed + t * 389, rnd = k => hash(wseed, k, 505);
+    const nW = Math.round(WRECK_N[mapKey] * (T.wrecks ?? 1)), types = T.wreckTypes || WRECK_TYPES;
+    for (let t = 0; wrecks.length < nW && t < 4000; t++) {
+      const type = types[Math.floor(hash(seed, t, 21) * types.length)], wseed = seed + t * 389, rnd = k => hash(wseed, k, 505);
       const [w, h] = type === "hull" ? [320 + rnd(1) * 120, 110 + rnd(2) * 40] : type === "tower" ? [170 + rnd(1) * 60, 250 + rnd(2) * 80]
                    : type === "crates" ? [230 + rnd(1) * 40, 170 + rnd(2) * 40] : [300 + rnd(1) * 60, 120 + rnd(2) * 30];
       const rr = Math.hypot(w, h) / 2, A = 40 + hash(seed, t, 25) * 80, m = rr + A + 200;
       const x = m + hash(seed, t, 22) * (W - 2 * m), y = m + hash(seed, t, 23) * (H - 2 * m);
-      if (planets.some(p => Math.hypot(p.x - x, p.y - y) < p.rr + 520 + rr + A)) continue;
-      if (wrecks.some(o => Math.hypot(o.bx - x, o.by - y) < o.rr + rr + 260)) continue;
+      if (planets.some(p => Math.hypot(p.x - x, p.y - y) < p.rr + (p.rr > 150 ? 520 : 160) + rr + A)) continue;   // big planets keep their moons' orbits clear
+      if (wrecks.some(o => Math.hypot(o.bx - x, o.by - y) < o.rr + rr + (T.wgap ?? 260))) continue;
       const b = newBody("w" + wrecks.length, type, w, h, 8);
       Object.assign(b, { rr, bx: x, by: y, A, T: 30 + hash(seed, t, 26) * 30, ph: hash(seed, t, 27) * 6.283, dirA: hash(seed, t, 28) * 6.283,
                          a0: hash(seed, t, 29) * 6.283, spin: (hash(seed, t, 30) - 0.5) * 0.09, wreck: true });
@@ -314,11 +330,11 @@
     }
     return n;
   }
-  function carveLocal(b, lx, ly, rad, hot) {
+  function carveLocal(b, lx, ly, rad, hot, rnd = Math.random) {   // rnd: a seeded one when every client must cut the same shape
     const cs = b.cs, R2 = rad * 1.2, i0 = Math.max(0, Math.floor((lx - R2) / cs)), i1 = Math.min(b.gw - 1, Math.floor((lx + R2) / cs));
     const j0 = Math.max(0, Math.floor((ly - R2) / cs)), j1 = Math.min(b.gh - 1, Math.floor((ly + R2) / cs));
     // one ragged outline for both the cells and the art, so what you see is exactly what can be hit
-    const jag = []; for (let k = 0; k < 12; k++) jag.push(rad * (0.9 + Math.random() * 0.25));
+    const jag = []; for (let k = 0; k < 12; k++) jag.push(rad * (0.9 + rnd() * 0.25));
     const edge = a => { const f = (a / 6.2832 + 1) % 1 * 12, k = Math.floor(f), t = f - k; return jag[k] * (1 - t) + jag[(k + 1) % 12] * t; };
     let n = 0;
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {

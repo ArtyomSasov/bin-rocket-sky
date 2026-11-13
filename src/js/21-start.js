@@ -88,7 +88,7 @@
     if (!standalone) { goBtn.textContent = "Take off"; return; }
     goBtn.disabled = !codeOk();
     const c = normCode(lobbyInput.value);
-    goBtn.textContent = codeOk() ? "Join " + lobbyInput.value.toUpperCase() + " · " + MODES[modeOf(c)].name + " · " + MAP_SIZES[mapOf(c)][1] + " map" : "Enter a code (4+ characters) or create one";
+    goBtn.textContent = codeOk() ? "Join " + lobbyInput.value.toUpperCase() + " · " + MODES[modeOf(c)].name + " · " + MAPS[mapThemeOf(c)].name + " · " + MAP_SIZES[mapOf(c)][1] : "Enter a code (4+ characters) or create one";
   };
   if (standalone) {
     document.getElementById("lobbyBox").hidden = false;
@@ -97,7 +97,12 @@
     lobbyInput.addEventListener("input", () => { lobbyInput.value = lobbyInput.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); syncGo(); });
     let mapPick = MAP_SIZES[store.get("binrocket.map")] ? store.get("binrocket.map") : "m";
     let modePick = MODES[store.get("binrocket.mode")] ? store.get("binrocket.mode") : "d";
-    const newCode = () => { let c = mapPick + (modePick === "d" ? "" : "1" + modePick); for (let i = 0; i < 4; i++) c += CODE_ABC[(Math.random() * CODE_ABC.length) | 0]; lobbyInput.value = c.toUpperCase(); syncGo(); };
+    let themePick = MAPS[store.get("binrocket.theme")] ? store.get("binrocket.theme") : "c";
+    const newCode = () => { let c = mapPick + (modePick === "d" ? "" : "1" + modePick) + (themePick === "c" ? "" : "0" + themePick); for (let i = 0; i < 4; i++) c += CODE_ABC[(Math.random() * CODE_ABC.length) | 0]; lobbyInput.value = c.toUpperCase(); syncGo(); };
+    segButtons(document.getElementById("themePick"), Object.entries(MAPS).map(([k, v]) => [k, v.label]), themePick, v => {
+      themePick = v; store.set("binrocket.theme", v);
+      if (createdCode) newCode();
+    });
     segButtons(document.getElementById("modePick"), Object.entries(MODES).map(([k, v]) => [k, v.label]), modePick, v => {
       modePick = v; store.set("binrocket.mode", v);
       if (createdCode) newCode();

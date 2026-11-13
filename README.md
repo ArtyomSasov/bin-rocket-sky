@@ -19,6 +19,19 @@ Pick a mode when you create a lobby; the lobby code carries it, so friends who j
 
 Bots (2, 4 or 6, three skill levels) join any mode and play its rules.
 
+## Maps
+
+Also picked with a new lobby (and carried in its code), on top of the map size:
+
+| Map | What fills it |
+|---|---|
+| Classic | Planets with moons, drifting wrecks |
+| Asteroid belt | Dozens of ragged rocks, hardly any wrecks |
+| Shipyard | Broken ship hulls and station rings, few planets |
+| Ruined city | Floating towers and container stacks |
+| Solar system | A sun in the middle, big planets with two moons each |
+| Open space | Almost empty: quick duels |
+
 ## Controls
 
 - **Move:** WASD or arrows (or hold the mouse); on a phone, the joystick. The bin has inertia: push the

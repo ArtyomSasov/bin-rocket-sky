@@ -341,7 +341,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   <form class="card chip" id="startForm">
     <canvas id="preview" width="220" height="220" aria-label="Preview of your bin rocket"></canvas>
     <h1>Bin Rocket <em>Sky</em></h1>
-    <p><b>Deathmatch:</b> 5-minute rounds, the pilot with the most kills wins. Scoop up sparks to level up, blast space junk and other bins with fire. You start at 100% health. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more health and fancier fire. Planets pull you in and hurt if you slam into them (more on boost); shoot one apart for +25. Planets, wrecks and buildings break off piece by piece where you hit them. Watch out for black holes, meteor showers and aliens. Grab weapon crates: triple shot, laser, homing rockets (slow: outrun them or shoot them down), scatter gun, railgun (pierces), mines, plasma orb (shoot it with the railgun or laser for a combo blast), lightning, shard cannon (shards ricochet), and the rare nuke. The violet Overdrive crystal triples your damage for 20 s (it levels everything around it). Medkits heal, shields soak damage. Black holes swallow anything that reaches the centre. Your bin has inertia: push the other way or hold X to brake. Modes for a new lobby: Deathmatch, Team Deathmatch, Capture the Flag, Nukes only and Railgun instagib.</p>
+    <p><b>Deathmatch:</b> 5-minute rounds, the pilot with the most kills wins. Scoop up sparks to level up, blast space junk and other bins with fire. You start at 100% health. Gold spark +5, junk +2, hit +1, knockout +5. Sparks level you up: a bigger bin, more health and fancier fire. Planets pull you in and hurt if you slam into them (more on boost); shoot one apart for +25. Planets, wrecks and buildings break off piece by piece where you hit them. Watch out for black holes, meteor showers and aliens. Grab weapon crates: triple shot, laser, homing rockets (slow: outrun them or shoot them down), scatter gun, railgun (pierces), mines, plasma orb (shoot it with the railgun or laser for a combo blast), lightning, shard cannon (shards ricochet), and the rare nuke. The violet Overdrive crystal triples your damage for 20 s (it levels everything around it). Medkits heal, shields soak damage. Black holes swallow anything that reaches the centre. Your bin has inertia: push the other way or hold X to brake. Modes for a new lobby: Deathmatch, Team Deathmatch, Capture the Flag, Nukes only and Railgun instagib; maps: Classic, Asteroid belt, Shipyard, Ruined city, Solar system and Open space.</p>
     <div class="field">
       <label for="nameInput">Pilot name</label>
       <input id="nameInput" maxlength="14" autocomplete="off" placeholder="Pilot name">
@@ -356,6 +356,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       <div class="segs" id="mapSize" role="group" aria-label="Map size"></div>
       <label>Mode <small>(for a new lobby; a friend's code brings its own)</small></label>
       <div class="segs" id="modePick" role="group" aria-label="Game mode"></div>
+      <label>Map <small>(what fills the arena)</small></label>
+      <div class="segs" id="themePick" role="group" aria-label="Map"></div>
     </div>
     <button type="submit" class="go" id="goBtn">Take off</button>
     <details class="custom" id="customBox">
@@ -381,6 +383,19 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   // walled arena; its size comes from the lobby code's first letter (s/m/l/x), so everyone in a lobby shares it
   const MAP_SIZES = { s: [2600, "Small", 3], m: [4200, "Medium", 5], l: [6000, "Large", 9], x: [8000, "Huge", 14] };
   const mapOf = code => MAP_SIZES[String(code)[0]] ? String(code)[0] : "m";
+  // map variants: what fills the arena. A new lobby's code carries it as "0<letter>" after the size (and the mode),
+  // e.g. M0Y... or M1C0A...; generated codes never contain 0, and a code without it is Classic.
+  // planets / wrecks: counts relative to Classic; pR: planet radius range; kinds: planet looks; moons: chance per
+  // planet; moonN: moons per planet; gap: spacing between planets; star: a sun in the middle; wgap: spacing between wrecks; lumpy: planets become ragged asteroids
+  const MAPS = {
+    c: { name: "Classic", label: "Classic" },
+    a: { name: "Asteroid belt", label: "Asteroids", planets: 4, pR: [55, 130], kinds: ["rock", "moon", "ice", "rock", "lava"], moons: 0, gap: 170, wrecks: 0.4, lumpy: true },
+    y: { name: "Shipyard", label: "Shipyard", planets: 0.35, wrecks: 2.6, wgap: 110, wreckTypes: ["hull", "hull", "ring", "ring", "tower", "crates"] },
+    r: { name: "Ruined city", label: "Ruins", planets: 0.45, wrecks: 2.2, wgap: 110, wreckTypes: ["tower", "tower", "tower", "crates", "crates", "hull"] },
+    s: { name: "Solar system", label: "Solar", planets: 0.8, pR: [190, 320], moons: 1, moonN: 2, wrecks: 0.35, star: true },
+    o: { name: "Open space", label: "Open", planets: 0.25, pR: [110, 170], moons: 0, wrecks: 0.25 }
+  };
+  const mapThemeOf = code => { const m = String(code).match(/^[a-z0-9](?:1[a-z])?0([a-z])/); return m && MAPS[m[1]] ? m[1] : "c"; };
   let W = 4200, H = 4200, PLANET_N = 5;
   const BOT = 84;                    // sprite size on screen
   let SLOTS = 100; const PERIOD = 16;     // spark slots, seconds per respawn cycle
@@ -1143,34 +1158,50 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     let seed = 7;
     for (const ch of String(code)) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) | 0;
     planets = []; moons = []; wrecks = []; rubble = [];
-    for (let t = 0; planets.length < PLANET_N && t < 1500; t++) {
-      const R = 150 + hash(seed, t, 1) * 150, m = R + 380;
-      const x = m + hash(seed, t, 2) * (W - 2 * m), y = m + hash(seed, t, 3) * (H - 2 * m);
-      if (planets.some(p => Math.hypot(p.x - x, p.y - y) < p.rr + R + 560)) continue;
-      const pseed = seed + t * 131, rnd = k => hash(pseed, k, 404), kind = PLANET_KINDS[(Math.floor(hash(seed, 0, 9) * 4) + planets.length) % 4];
-      const p = newBody("p" + planets.length, kind, R * 2 + 4, R * 2 + 4, clamp(R / 28, 8, 12));
-      Object.assign(p, { x, y, rr: R, planet: true, tilt: (hash(seed, t, 4) - 0.5) * 0.8 });
+    const T = MAPS[mapThemeOf(code)], [r0, r1] = T.pR || [150, 300], kinds = T.kinds || PLANET_KINDS, gap = T.gap ?? 560;
+    const addPlanet = (x, y, R, kind, pseed, tilt) => {
+      const rnd = k => hash(pseed, k, 404), p = newBody("p" + planets.length, kind, R * 2 + 4, R * 2 + 4, clamp(R / 28, 8, 12));
+      Object.assign(p, { x, y, rr: R, planet: true, tilt });
       paintPlanet(p, R, kind, rnd);
       if (kind === "gas") paintRings(p, R, rnd);
+      if (T.lumpy) {   // an asteroid: big bites out of the rim leave a lumpy rock (seeded, so the same on every screen)
+        let n = 0; const seq = () => hash(pseed, 900 + n++, 404);
+        for (let k = 0, nb = 6 + Math.floor(rnd(30) * 4); k < nb; k++) {   // bites spread round the rim
+          const a = (k + rnd(40 + k) * 0.7) / nb * 6.283, d = R * (0.9 + rnd(50 + k) * 0.3), rad = R * (0.25 + rnd(60 + k) * 0.3);
+          carveLocal(p, p.hw + Math.cos(a) * d, p.hh + Math.sin(a) * d, rad, false, seq);
+        }
+        p.mass0 = p.mass; p.dirty = false; p.bare = true;   // bare rock: no atmosphere
+      }
       planets.push(p);
-      if (hash(seed, t, 5) < 0.65) {
-        const mr = 38 + hash(seed, t, 6) * 30, mseed = seed + t * 977;
+      return p;
+    };
+    if (T.star) addPlanet(W / 2, H / 2, Math.min(420, W * 0.09), "lava", seed + 7777, 0).star = true;   // the sun: a huge glowing ball in the middle
+    const nP = Math.round(PLANET_N * (T.planets ?? 1)) + (T.star ? 1 : 0);
+    for (let t = 0; planets.length < nP && t < 3000; t++) {
+      const R = r0 + hash(seed, t, 1) * (r1 - r0), m = R + 380;
+      const x = m + hash(seed, t, 2) * (W - 2 * m), y = m + hash(seed, t, 3) * (H - 2 * m);
+      if (planets.some(p => Math.hypot(p.x - x, p.y - y) < p.rr + R + (p.star ? 900 : gap))) continue;
+      const p = addPlanet(x, y, R, kinds[(Math.floor(hash(seed, 0, 9) * kinds.length) + planets.length) % kinds.length], seed + t * 131, (hash(seed, t, 4) - 0.5) * 0.8);
+      for (let j = 0; j < (T.moonN || 1); j++) {
+        if (hash(seed, t + j * 17, 5) >= (T.moons ?? 0.65)) continue;
+        const mr = 38 + hash(seed, t + j * 17, 6) * 30, mseed = seed + t * 977 + j * 53;
         const mo = newBody("m" + moons.length, "moon", mr * 2 + 4, mr * 2 + 4, 7);
-        Object.assign(mo, { p, rr: mr, moon: true, tilt: 0, orbit: R + 190 + hash(seed, t, 7) * 110, period: 45 + hash(seed, t, 8) * 40,
-                            ph: hash(seed, t, 10) * 6.283, dir: hash(seed, t, 11) < 0.5 ? -1 : 1 });
+        Object.assign(mo, { p, rr: mr, moon: true, tilt: 0, orbit: R + 190 + j * 190 + hash(seed, t + j * 17, 7) * 110, period: 45 + j * 25 + hash(seed, t, 8) * 40,
+                            ph: hash(seed, t + j * 17, 10) * 6.283, dir: hash(seed, t, 11) < 0.5 ? -1 : 1 });
         paintPlanet(mo, mr, "moon", k => hash(mseed, k, 404));
         moons.push(mo);
       }
     }
     // drifting wrecks: kept away from planets (and their moons' orbits) and from each other
-    for (let t = 0; wrecks.length < WRECK_N[mapKey] && t < 2000; t++) {
-      const type = WRECK_TYPES[Math.floor(hash(seed, t, 21) * WRECK_TYPES.length)], wseed = seed + t * 389, rnd = k => hash(wseed, k, 505);
+    const nW = Math.round(WRECK_N[mapKey] * (T.wrecks ?? 1)), types = T.wreckTypes || WRECK_TYPES;
+    for (let t = 0; wrecks.length < nW && t < 4000; t++) {
+      const type = types[Math.floor(hash(seed, t, 21) * types.length)], wseed = seed + t * 389, rnd = k => hash(wseed, k, 505);
       const [w, h] = type === "hull" ? [320 + rnd(1) * 120, 110 + rnd(2) * 40] : type === "tower" ? [170 + rnd(1) * 60, 250 + rnd(2) * 80]
                    : type === "crates" ? [230 + rnd(1) * 40, 170 + rnd(2) * 40] : [300 + rnd(1) * 60, 120 + rnd(2) * 30];
       const rr = Math.hypot(w, h) / 2, A = 40 + hash(seed, t, 25) * 80, m = rr + A + 200;
       const x = m + hash(seed, t, 22) * (W - 2 * m), y = m + hash(seed, t, 23) * (H - 2 * m);
-      if (planets.some(p => Math.hypot(p.x - x, p.y - y) < p.rr + 520 + rr + A)) continue;
-      if (wrecks.some(o => Math.hypot(o.bx - x, o.by - y) < o.rr + rr + 260)) continue;
+      if (planets.some(p => Math.hypot(p.x - x, p.y - y) < p.rr + (p.rr > 150 ? 520 : 160) + rr + A)) continue;   // big planets keep their moons' orbits clear
+      if (wrecks.some(o => Math.hypot(o.bx - x, o.by - y) < o.rr + rr + (T.wgap ?? 260))) continue;
       const b = newBody("w" + wrecks.length, type, w, h, 8);
       Object.assign(b, { rr, bx: x, by: y, A, T: 30 + hash(seed, t, 26) * 30, ph: hash(seed, t, 27) * 6.283, dirA: hash(seed, t, 28) * 6.283,
                          a0: hash(seed, t, 29) * 6.283, spin: (hash(seed, t, 30) - 0.5) * 0.09, wreck: true });
@@ -1235,11 +1266,11 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     }
     return n;
   }
-  function carveLocal(b, lx, ly, rad, hot) {
+  function carveLocal(b, lx, ly, rad, hot, rnd = Math.random) {   // rnd: a seeded one when every client must cut the same shape
     const cs = b.cs, R2 = rad * 1.2, i0 = Math.max(0, Math.floor((lx - R2) / cs)), i1 = Math.min(b.gw - 1, Math.floor((lx + R2) / cs));
     const j0 = Math.max(0, Math.floor((ly - R2) / cs)), j1 = Math.min(b.gh - 1, Math.floor((ly + R2) / cs));
     // one ragged outline for both the cells and the art, so what you see is exactly what can be hit
-    const jag = []; for (let k = 0; k < 12; k++) jag.push(rad * (0.9 + Math.random() * 0.25));
+    const jag = []; for (let k = 0; k < 12; k++) jag.push(rad * (0.9 + rnd() * 0.25));
     const edge = a => { const f = (a / 6.2832 + 1) % 1 * 12, k = Math.floor(f), t = f - k; return jag[k] * (1 - t) + jag[(k + 1) % 12] * t; };
     let n = 0;
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
@@ -1544,9 +1575,9 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   function drawBodies(now) {
     for (const b of bodies) {
       const x = sx(b.x), y = sy(b.y), ring = b.ringB && !b.free;
-      if (!onScreen(x, y, ring ? b.ringHalf : b.r)) continue;
+      if (!onScreen(x, y, ring ? b.ringHalf : b.star ? b.rr * 2.4 : b.r)) continue;
       const mr = b.mass / b.mass0;
-      if (b.planet) {   // the atmosphere thins out as the planet is chipped away
+      if (b.planet && !b.bare) {   // the atmosphere thins out as the planet is chipped away
         const pal = PLANET_PAL[b.kind], ag = g.createRadialGradient(x, y, b.rr * 0.92, x, y, b.rr * 1.28);
         ag.addColorStop(0, `rgba(${pal.glow},${0.5 * mr})`); ag.addColorStop(1, `rgba(${pal.glow},0)`);
         g.fillStyle = ag; g.beginPath(); g.arc(x, y, b.rr * 1.28, 0, 6.29); g.fill();
@@ -1573,7 +1604,15 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
       }
       g.restore();
       if (ring) g.drawImage(b.ringF, x - b.ringHalf, y - b.ringHalf, b.ringHalf * 2, b.ringHalf * 2);
-      if (b.kind === "lava" && b.planet) {
+      if (b.star && b.planet) {   // the sun: a white-hot core and a wide pulsing corona over the lava ball
+        const mr = b.mass / b.mass0, k = (0.85 + 0.15 * Math.sin(now / 900)) * mr;
+        g.globalCompositeOperation = "lighter";
+        const cg = g.createRadialGradient(x, y, b.rr * 0.3, x, y, b.rr * 2.4);
+        cg.addColorStop(0, `rgba(255,250,220,${0.55 * k})`); cg.addColorStop(0.35, `rgba(255,200,90,${0.35 * k})`); cg.addColorStop(1, "rgba(255,120,40,0)");
+        g.fillStyle = cg; g.beginPath(); g.arc(x, y, b.rr * 2.4, 0, 6.29); g.fill();
+        g.globalCompositeOperation = "source-over";
+      }
+      if (b.kind === "lava" && b.planet && !b.bare) {
         g.globalCompositeOperation = "lighter";
         const lg = g.createRadialGradient(x, y, b.rr * 0.7, x, y, b.rr * 1.25);
         lg.addColorStop(0, "rgba(255,90,30,0)"); lg.addColorStop(0.75, `rgba(255,90,30,${(0.12 + 0.08 * Math.sin(now / 400)) * mr})`); lg.addColorStop(1, "rgba(255,90,30,0)");
@@ -2664,7 +2703,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     for (const b of bots) Object.assign(b, spawnPoint(b.tm));
     history.replaceState(null, "", "#" + code);
     const shown = code.toUpperCase();
-    document.getElementById("boardTitle").textContent = "Lobby " + shown + " · " + MODES[MODE].label;
+    document.getElementById("boardTitle").textContent = "Lobby " + shown + " · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
     shareBtn.hidden = false;
     shareBtn.onclick = () => copyText(location.href, shareBtn, "Copy invite link", "Link copied");
     codeBtn.hidden = false;
@@ -5345,7 +5384,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     if (!standalone) { goBtn.textContent = "Take off"; return; }
     goBtn.disabled = !codeOk();
     const c = normCode(lobbyInput.value);
-    goBtn.textContent = codeOk() ? "Join " + lobbyInput.value.toUpperCase() + " · " + MODES[modeOf(c)].name + " · " + MAP_SIZES[mapOf(c)][1] + " map" : "Enter a code (4+ characters) or create one";
+    goBtn.textContent = codeOk() ? "Join " + lobbyInput.value.toUpperCase() + " · " + MODES[modeOf(c)].name + " · " + MAPS[mapThemeOf(c)].name + " · " + MAP_SIZES[mapOf(c)][1] : "Enter a code (4+ characters) or create one";
   };
   if (standalone) {
     document.getElementById("lobbyBox").hidden = false;
@@ -5354,7 +5393,12 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
     lobbyInput.addEventListener("input", () => { lobbyInput.value = lobbyInput.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); syncGo(); });
     let mapPick = MAP_SIZES[store.get("binrocket.map")] ? store.get("binrocket.map") : "m";
     let modePick = MODES[store.get("binrocket.mode")] ? store.get("binrocket.mode") : "d";
-    const newCode = () => { let c = mapPick + (modePick === "d" ? "" : "1" + modePick); for (let i = 0; i < 4; i++) c += CODE_ABC[(Math.random() * CODE_ABC.length) | 0]; lobbyInput.value = c.toUpperCase(); syncGo(); };
+    let themePick = MAPS[store.get("binrocket.theme")] ? store.get("binrocket.theme") : "c";
+    const newCode = () => { let c = mapPick + (modePick === "d" ? "" : "1" + modePick) + (themePick === "c" ? "" : "0" + themePick); for (let i = 0; i < 4; i++) c += CODE_ABC[(Math.random() * CODE_ABC.length) | 0]; lobbyInput.value = c.toUpperCase(); syncGo(); };
+    segButtons(document.getElementById("themePick"), Object.entries(MAPS).map(([k, v]) => [k, v.label]), themePick, v => {
+      themePick = v; store.set("binrocket.theme", v);
+      if (createdCode) newCode();
+    });
     segButtons(document.getElementById("modePick"), Object.entries(MODES).map(([k, v]) => [k, v.label]), modePick, v => {
       modePick = v; store.set("binrocket.mode", v);
       if (createdCode) newCode();

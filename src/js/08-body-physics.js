@@ -75,9 +75,9 @@
   function drawBodies(now) {
     for (const b of bodies) {
       const x = sx(b.x), y = sy(b.y), ring = b.ringB && !b.free;
-      if (!onScreen(x, y, ring ? b.ringHalf : b.r)) continue;
+      if (!onScreen(x, y, ring ? b.ringHalf : b.star ? b.rr * 2.4 : b.r)) continue;
       const mr = b.mass / b.mass0;
-      if (b.planet) {   // the atmosphere thins out as the planet is chipped away
+      if (b.planet && !b.bare) {   // the atmosphere thins out as the planet is chipped away
         const pal = PLANET_PAL[b.kind], ag = g.createRadialGradient(x, y, b.rr * 0.92, x, y, b.rr * 1.28);
         ag.addColorStop(0, `rgba(${pal.glow},${0.5 * mr})`); ag.addColorStop(1, `rgba(${pal.glow},0)`);
         g.fillStyle = ag; g.beginPath(); g.arc(x, y, b.rr * 1.28, 0, 6.29); g.fill();
@@ -104,7 +104,15 @@
       }
       g.restore();
       if (ring) g.drawImage(b.ringF, x - b.ringHalf, y - b.ringHalf, b.ringHalf * 2, b.ringHalf * 2);
-      if (b.kind === "lava" && b.planet) {
+      if (b.star && b.planet) {   // the sun: a white-hot core and a wide pulsing corona over the lava ball
+        const mr = b.mass / b.mass0, k = (0.85 + 0.15 * Math.sin(now / 900)) * mr;
+        g.globalCompositeOperation = "lighter";
+        const cg = g.createRadialGradient(x, y, b.rr * 0.3, x, y, b.rr * 2.4);
+        cg.addColorStop(0, `rgba(255,250,220,${0.55 * k})`); cg.addColorStop(0.35, `rgba(255,200,90,${0.35 * k})`); cg.addColorStop(1, "rgba(255,120,40,0)");
+        g.fillStyle = cg; g.beginPath(); g.arc(x, y, b.rr * 2.4, 0, 6.29); g.fill();
+        g.globalCompositeOperation = "source-over";
+      }
+      if (b.kind === "lava" && b.planet && !b.bare) {
         g.globalCompositeOperation = "lighter";
         const lg = g.createRadialGradient(x, y, b.rr * 0.7, x, y, b.rr * 1.25);
         lg.addColorStop(0, "rgba(255,90,30,0)"); lg.addColorStop(0.75, `rgba(255,90,30,${(0.12 + 0.08 * Math.sin(now / 400)) * mr})`); lg.addColorStop(1, "rgba(255,90,30,0)");

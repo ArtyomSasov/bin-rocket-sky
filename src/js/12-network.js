@@ -149,7 +149,7 @@
     for (const b of bots) Object.assign(b, spawnPoint(b.tm));
     history.replaceState(null, "", "#" + code);
     const shown = code.toUpperCase();
-    document.getElementById("boardTitle").textContent = "Lobby " + shown + " · " + MODES[MODE].label;
+    document.getElementById("boardTitle").textContent = "Lobby " + shown + " · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
     shareBtn.hidden = false;
     shareBtn.onclick = () => copyText(location.href, shareBtn, "Copy invite link", "Link copied");
     codeBtn.hidden = false;

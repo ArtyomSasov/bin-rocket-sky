@@ -3,6 +3,19 @@
   // walled arena; its size comes from the lobby code's first letter (s/m/l/x), so everyone in a lobby shares it
   const MAP_SIZES = { s: [2600, "Small", 3], m: [4200, "Medium", 5], l: [6000, "Large", 9], x: [8000, "Huge", 14] };
   const mapOf = code => MAP_SIZES[String(code)[0]] ? String(code)[0] : "m";
+  // map variants: what fills the arena. A new lobby's code carries it as "0<letter>" after the size (and the mode),
+  // e.g. M0Y... or M1C0A...; generated codes never contain 0, and a code without it is Classic.
+  // planets / wrecks: counts relative to Classic; pR: planet radius range; kinds: planet looks; moons: chance per
+  // planet; moonN: moons per planet; gap: spacing between planets; star: a sun in the middle; wgap: spacing between wrecks; lumpy: planets become ragged asteroids
+  const MAPS = {
+    c: { name: "Classic", label: "Classic" },
+    a: { name: "Asteroid belt", label: "Asteroids", planets: 4, pR: [55, 130], kinds: ["rock", "moon", "ice", "rock", "lava"], moons: 0, gap: 170, wrecks: 0.4, lumpy: true },
+    y: { name: "Shipyard", label: "Shipyard", planets: 0.35, wrecks: 2.6, wgap: 110, wreckTypes: ["hull", "hull", "ring", "ring", "tower", "crates"] },
+    r: { name: "Ruined city", label: "Ruins", planets: 0.45, wrecks: 2.2, wgap: 110, wreckTypes: ["tower", "tower", "tower", "crates", "crates", "hull"] },
+    s: { name: "Solar system", label: "Solar", planets: 0.8, pR: [190, 320], moons: 1, moonN: 2, wrecks: 0.35, star: true },
+    o: { name: "Open space", label: "Open", planets: 0.25, pR: [110, 170], moons: 0, wrecks: 0.25 }
+  };
+  const mapThemeOf = code => { const m = String(code).match(/^[a-z0-9](?:1[a-z])?0([a-z])/); return m && MAPS[m[1]] ? m[1] : "c"; };
   let W = 4200, H = 4200, PLANET_N = 5;
   const BOT = 84;                    // sprite size on screen
   let SLOTS = 100; const PERIOD = 16;     // spark slots, seconds per respawn cycle
