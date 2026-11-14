@@ -36,7 +36,7 @@
     for (let i = 0; i < world.picks.length; i++) world.picks[i] = pickup(i, wt);
     world.bombs = solo ? [] : Object.keys(BOMB_CRATES).map(k => bombPickup(wt, k)).filter(Boolean);
     const holy = world.bombs.find(c => c.type === "holy");   // a fresh holy-bomb crate is announced once
-    if (playing && holy && holy.key !== holyAnnounced && !grabbed.has(holy.key)) { holyAnnounced = holy.key; announce("HOLY BOMB", "a crate has appeared · follow the white arrow", "#fff3b0"); }
+    if (playing && holy && holy.age < 1 && holy.key !== holyAnnounced && !grabbed.has(holy.key)) { holyAnnounced = holy.key; announce("HOLY BOMB", "it is back on its spot · follow the white arrow", "#fff3b0"); }   // back after someone took it
     world.amp = solo ? null : ampPickup(wt);
     world.supplies.length = MODES[MODE].noSupplies ? 0 : SUPPLY_SLOTS;
     roundTick(now);
@@ -75,6 +75,16 @@
     const [vx0, vy0] = P(cam.x - vw / 2, cam.y - vh / 2);
     mctx.strokeStyle = "rgba(255,255,255,0.25)"; mctx.lineWidth = 1.5;
     mctx.strokeRect(vx0, vy0, vw * k, vh * k);
+    // the arena's shape: planets and wrecks as faint outlines
+    mctx.fillStyle = "rgba(189,200,255,0.16)";
+    for (const b of bodies) { if (b.dead || b.moon) continue; const [x, y] = P(b.x, b.y); mctx.beginPath(); mctx.arc(x, y, Math.max(2, (b.wreck ? b.rr * 0.7 : b.rr) * k), 0, 6.29); mctx.fill(); }
+    // the arena's spots, so they can be learned: bright while something lies there, faint while it is taken
+    const dot = (c, col, r) => { if (!c) return; const [x, y] = P(c.x, c.y); mctx.globalAlpha = grabbed.has(c.key) ? 0.25 : 0.9; mctx.fillStyle = col; mctx.fillRect(x - r, y - r, r * 2, r * 2); };
+    for (const c of world.picks) dot(c, WEAPONS[c.type].col, 2.5);
+    for (const c of world.supplies) dot(c, SUPPLIES[c.type].col, 2);
+    dot(world.amp, "#c38bff", 3);
+    for (const c of world.bombs) dot(c, WEAPONS[c.type].col, 3.5);
+    mctx.globalAlpha = 1;
     // other flyers
     for (const r of remotes.values()) {
       if (r.dead) continue;

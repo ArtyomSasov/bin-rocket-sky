@@ -103,7 +103,9 @@
     goBtn.disabled = !codeOk();
     goBtn.textContent = joining ? (codeOk() ? "Join " + lobbyInput.value.toUpperCase() : "Type your friend's code") : "Take off";
     document.getElementById("joinLine").textContent = codeOk() ? describe(lobbyCode()) : "The code brings its own mode and map.";
-    if (!joining) document.getElementById("codeLine").innerHTML = `${describe(newGameCode)} · code <b>${newGameCode.toUpperCase()}</b> (share it to play together)`;
+    if (!joining) document.getElementById("codeLine").innerHTML = offlineRun
+      ? `${describe(newGameCode)} · offline: just you and ${botChoice.n || 4} bots in this browser${botChoice.n ? "" : " (none picked, so 4)"}`
+      : `${describe(newGameCode)} · code <b>${newGameCode.toUpperCase()}</b> (share it to play together)`;
   };
   const setTab = join => {
     joining = join;
@@ -127,6 +129,20 @@
       newGameCode = c; syncGo();
       remember(c);
     };
+    // online lobby or offline against the bots (remembered; forced offline when the network is out)
+    const whereEl = document.getElementById("wherePick");
+    const pickWhere = v => { offlineRun = v === "off"; for (const o of whereEl.children) o.setAttribute("aria-pressed", String(o.dataset.v === v)); syncGo(); };
+    segButtons(whereEl, [["on", "Online lobby"], ["off", "Offline with bots"]], offlineRun ? "off" : "on", v => { if (!offlineOnly) store.set("binrocket.where", v); pickWhere(v); });
+    [...whereEl.children].forEach((b, i) => b.dataset.v = i ? "off" : "on");
+    if (!offlineOnly && store.get("binrocket.where") === "off") pickWhere("off");
+    noNetwork = msg => {
+      pickWhere("off");
+      whereEl.children[0].disabled = true; whereEl.children[0].title = "No connection to the multiplayer servers";
+      setTab(false); document.getElementById("tabJoin").disabled = true;
+      setStatus(false, msg);
+    };
+    if (offlineOnly) noNetwork("Offline · you against the bots");
+    for (const el of [document.getElementById("botCount"), document.getElementById("botLevel")]) el.addEventListener("click", () => syncGo());
     segButtons(document.getElementById("modePick"), Object.entries(MODES).map(([k, v]) => [k, v.label, v.hint]), modePick, v => { modePick = v; store.set("binrocket.mode", v); drawScores(); newCode(); });
     segButtons(document.getElementById("themePick"), Object.entries(MAPS).map(([k, v]) => [k, v.label, v.hint]), themePick, v => { themePick = v; store.set("binrocket.theme", v); newCode(); });
     segButtons(document.getElementById("timePick"), Object.entries(TIME_OPTS).map(([k, v]) => [k, v + " min"]), timePick, v => { timePick = v; store.set("binrocket.time", v); newCode(); });
@@ -165,10 +181,14 @@
   document.querySelector(".board").addEventListener("click", e => e.currentTarget.classList.toggle("open"));
   document.getElementById("startForm").addEventListener("submit", e => {
     e.preventDefault();
-    if (standalone) { if (!codeOk()) { lobbyInput.focus(); return; } chooseLobby(lobbyCode()); }
-    // bots: in a lobby only its host adds them (everyone else sees the host's); in the Claude room they stay local anyway
+    if (standalone && !codeOk()) { lobbyInput.focus(); return; }
+    if (joining) offlineRun = false;   // a friend's code is always online
+    // bots: in a lobby only its host adds them (everyone else sees the host's); in the Claude room they stay local anyway;
+    // offline there is nobody else, so there are always some
     const host = !standalone || !joining || hosted().includes(lobbyCode());
-    if (host && !bots.length && botChoice.n > 0) addBots(botChoice.n, botChoice.level);
+    if (offlineRun && !bots.length) addBots(botChoice.n || 4, botChoice.level);
+    else if (host && !bots.length && botChoice.n > 0) addBots(botChoice.n, botChoice.level);
+    if (standalone) chooseLobby(lobbyCode());
     me.name = nameInput.value.trim().slice(0, 14) || "Bin";
     store.set("binrocket.name", me.name);
     try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { audio = null; }
@@ -182,5 +202,5 @@
     renderBoard();
   });
 
-  setStatus(false, standalone ? "Pick a lobby and take off" : "Connecting…");
+  if (!offlineOnly) setStatus(false, standalone ? "Pick a lobby and take off" : "Connecting…");
   initNet().catch(() => {});

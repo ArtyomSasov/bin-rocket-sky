@@ -369,6 +369,20 @@
     }
   }
   // spilled stars, weapon crates, medkits and shields, Overdrive, the nuke, sparks
+  function drawPad(c, col, icon, now) {
+    const x = sx(c.x), y = sy(c.y), taken = grabbed.has(c.key);
+    if (!onScreen(x, y, 60)) return;
+    g.save();
+    g.globalAlpha = taken ? 0.6 : 0.3; g.strokeStyle = col; g.lineWidth = 2;
+    g.setLineDash([5, 7]); g.beginPath(); g.arc(x, y, 34, 0, 6.29); g.stroke(); g.setLineDash([]);
+    if (taken) {
+      g.lineWidth = 4; g.beginPath(); g.arc(x, y, 34, -Math.PI / 2, -Math.PI / 2 + 6.283 * (1 - c.wait / c.P)); g.stroke();
+      g.globalAlpha = 0.4; g.fillStyle = col;
+      g.save(); g.translate(x - 10, y - 12); g.scale(20 / 24, 20 / 24); g.fill(ICON_PATHS[icon], "evenodd"); g.restore();
+      g.globalAlpha = 0.85; g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.textAlign = "center"; g.fillText(Math.ceil(c.wait) + "s", x, y + 50);
+    }
+    g.restore();
+  }
   function drawPickups(now) {
     for (const [id, d] of drops) {
       const age = now - d.born, fade = age > DROP_LIFE - 3000 && Math.floor(now / 120) % 2 ? 0.35 : 1;
@@ -381,6 +395,11 @@
       }
       g.globalAlpha = 1;
     }
+    // the spots: a faint pad marks each one; a taken one shows what comes back there and when
+    for (const c of world.picks) drawPad(c, WEAPONS[c.type].col, c.type, now);
+    for (const c of world.supplies) drawPad(c, SUPPLIES[c.type].col, SUPPLIES[c.type].heal ? "cross" : "shield", now);
+    if (world.amp) drawPad(world.amp, "#c38bff", "amp", now);
+    for (const c of world.bombs) drawPad(c, WEAPONS[c.type].col, c.type, now);
     for (let i = 0; i < world.picks.length; i++) {
       const c = world.picks[i];
       if (grabbed.has(c.key)) continue;

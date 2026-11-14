@@ -24,6 +24,13 @@ Small drifting asteroids exchange momentum with the bin on collision: speed and 
 Bots (2, 4 or 6, three skill levels) join any mode and play its rules. Only the lobby's host (whoever made the
 code, remembered in that browser) brings bots; players who join with the code play with the host's.
 
+## Offline against bots
+
+Pick **Offline with bots** on the New game tab to play alone against bots, with any mode, map and length. Nothing
+is sent or announced and nobody can join. If you picked "No bots", 4 bots fly. Opening the page as `?offline`
+starts there without even loading the multiplayer library, and when that library can't be loaded (no
+connection) the game switches to offline by itself.
+
 ## Your own server
 
 By default players meet through free public MQTT brokers (HiveMQ, then EMQX). They are shared with the
@@ -48,17 +55,25 @@ game already uses, so there is no server of our own; a lobby disappears from the
 
 ## Maps
 
-Also picked with a new lobby (and carried in its code), on top of the map size:
+Also picked with a new lobby (and carried in its code), on top of the map size. Every map is hand-laid and always
+the same, in every lobby, so it can be learned. Each layout is mirrored through the centre, so both halves (and
+both CTF bases) are equal. The layouts live in `src/js/01b-arenas.js`.
 
-| Map | What fills it |
+| Map | Layout |
 |---|---|
-| Classic | Planets with moons, drifting wrecks |
-| Asteroid belt | Dozens of ragged rocks, hardly any wrecks |
-| Shipyard | Broken ship hulls and station rings, few planets |
-| Ruined city | Floating towers and container stacks |
-| Solar system | A sun in the middle, big planets with two moons each |
-| Waste depot | Skips, refuse trucks, giant wheelie bins and bales of crushed waste |
-| Open space | Almost empty: quick duels |
+| Twin Worlds | Two ringed giants and two ice worlds; two towers form a gate round an open centre with Overdrive |
+| The Ring | A ring of asteroids round the centre with four gates, rock clusters in two corners |
+| Drydocks | Rows of moored hulls above and below, ring stations either side of a small moonbase |
+| Downtown | Two blocks of towers, the main street between the bases, a fallen hull in the middle |
+| Orrery | A sun in the middle, giants with moons, two hot little worlds on the axis |
+| The Tip | A landfill hill in the middle, a convoy of refuse trucks, skips and bales round the edge |
+| Duel | Almost empty: two ice pillars between the bases |
+
+**Weapons and supplies lie on fixed spots.** Each spot always holds the same gun (or medkit, shield, Overdrive,
+nuke, holy bomb) and keeps it until someone takes it: nothing expires. A taken one comes back at the start of
+that spot's next cycle (20 s for most guns, 26–45 s for the strong ones, 20 s for supplies, 60–95 s for the
+power-ups). The empty pad shows what comes back and the countdown. The mini map shows the arena's outline and
+every spot. Large and Huge maps add a few more bodies and spots, also always in the same places.
 
 ## Controls
 
@@ -83,8 +98,8 @@ recent shots to both connected brokers at up to 8 messages/s, keeping below the 
 Two clients can play together as long as they share a reachable broker. Duplicate and older states are ignored.
 A silent player and its bots disappear after 7 seconds; losing one broker does not remove a player.
 
-The wire protocol uses `binrocket-sky/v2/` topics. Players must reload to this version to join each other;
-older v1 pages are isolated because their events do not identify the round. Taken terrain cells are sent in a
+The wire protocol uses `binrocket-sky/v3/` topics. Players must reload to this version to join each other;
+older pages are isolated (v2 built different maps, v1 events do not identify the round). Taken terrain cells are sent in a
 rolling snapshot (one shared body per state), so late joins and reconnects recover holes after a full pass
 through the map. Detached rubble is still simulated locally.
 
@@ -102,6 +117,7 @@ src/index.html    markup; the build puts the styles and script in place of <!-- 
 src/styles.css    all styling
 src/js/           the game code, one file per section, joined in file-name order into one scope
   01-config.js         world size, levels, weapons, shot tables, modes, supplies, rounds
+  01b-arenas.js        the hand-made map layouts: bodies, gun and supply spots
   02-helpers.js        maths and colour helpers, bin recolouring, world event timing
   03-sky-art.js        stars, the Milky Way, galaxies, nebulae, far planets (placed per lobby)
   04-state-input.js    player state, keyboard / mouse / touch input
@@ -113,7 +129,7 @@ src/js/           the game code, one file per section, joined in file-name order
   10-effects.js        particles, explosions, deaths by weapon (sliced, fried, melted)
   11-weapons.js        firing, damage, rockets, rail, lightning, combos, nukes and the holy bomb
   12-network.js        lobby, MQTT / Claude room transport, remote players and shots
-  13-crates.js         weapon crates, nuke / holy bomb and Overdrive pick-ups
+  13-crates.js         the fixed spots: weapon crates, supplies, nuke / holy bomb and Overdrive
   14-ctf.js            capture-the-flag rules and drawing
   15-bots.js           bots
   16-announcer.js      announcer, kill streaks

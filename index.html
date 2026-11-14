@@ -433,6 +433,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
         <button type="button" role="tab" id="tabJoin" aria-selected="false">Join a friend</button>
       </div>
       <div class="pane" id="paneNew">
+        <div class="pick"><span>Play</span><div class="segs" id="wherePick" role="group" aria-label="Online or offline"></div></div>
         <div class="pick"><span>Mode</span><div class="cards" id="modePick" role="group" aria-label="Game mode"></div></div>
         <div class="pick"><span>Map</span><div class="cards" id="themePick" role="group" aria-label="Map"></div></div>
         <div class="pick"><span>Size</span><div class="segs" id="mapSize" role="group" aria-label="Map size"></div></div>
@@ -473,17 +474,17 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   const mapOf = code => MAP_SIZES[String(code)[0]] ? String(code)[0] : "m";
   // map variants: what fills the arena. A new lobby's code carries it as "0<letter>" after the size (and the mode),
   // e.g. M0Y... or M1C0A...; generated codes never contain 0, and a code without it is Classic.
-  // planets / wrecks: counts relative to Classic; pR: planet radius range; kinds: planet looks; moons: chance per
-  // planet; moonN: moons per planet; gap: spacing between planets; star: a sun in the middle; wgap: spacing between wrecks; lumpy: planets become ragged asteroids
+  // The layout of each map is in 01b-arenas.js. star: a sun in the middle; lumpy: planets become ragged asteroids
   const MAPS = {
-    c: { name: "Classic", label: "Classic", hint: "planets, moons, wrecks" },
-    a: { name: "Asteroid belt", label: "Asteroids", hint: "a field of ragged rocks", planets: 4, pR: [55, 130], kinds: ["rock", "moon", "ice", "rock", "lava"], moons: 0, gap: 170, wrecks: 0.4, lumpy: true },
-    y: { name: "Shipyard", label: "Shipyard", hint: "wrecked ships and stations", planets: 0.35, wrecks: 2.6, wgap: 110, wreckTypes: ["hull", "hull", "ring", "ring", "tower", "crates"] },
-    r: { name: "Ruined city", label: "Ruins", hint: "floating towers and crates", planets: 0.45, wrecks: 2.2, wgap: 110, wreckTypes: ["tower", "tower", "tower", "crates", "crates", "hull"] },
-    s: { name: "Solar system", label: "Solar", hint: "a sun and big planets", planets: 0.8, pR: [190, 320], moons: 1, moonN: 2, wrecks: 0.35, star: true },
-    w: { name: "Waste depot", label: "Depot", hint: "skips, refuse trucks, giant bins", planets: 0.3, wrecks: 2.6, wgap: 100, wreckTypes: ["skip", "truck", "wheelie", "truck", "bales", "skip", "truck"] },
-    o: { name: "Open space", label: "Open", hint: "nearly empty: duels", planets: 0.25, pR: [110, 170], moons: 0, wrecks: 0.25 }
+    c: { name: "Twin Worlds", label: "Twin Worlds", hint: "two giants, an open centre" },
+    a: { name: "The Ring", label: "The Ring", hint: "a ring of asteroids, four gates", lumpy: true },
+    y: { name: "Drydocks", label: "Drydocks", hint: "rows of moored hulls" },
+    r: { name: "Downtown", label: "Downtown", hint: "tower blocks, a main street" },
+    s: { name: "Orrery", label: "Orrery", hint: "a sun and its planets", star: true },
+    w: { name: "The Tip", label: "The Tip", hint: "trucks, skips, a landfill hill" },
+    o: { name: "Duel", label: "Duel", hint: "nearly empty: duels" }
   };
+
   // A lobby code: the size letter, then settings as pairs ("1"+letter mode, "0"+letter map, "1"+digit time limit,
   // "0"+digit score limit), then random letters. Random letters never use 0 or 1, so the pairs can't be mistaken.
   const codeOpts = code => {
@@ -492,7 +493,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     return { mode: o["1l"], map: o["0l"], time: o["1d"], score: o["0d"] };
   };
   const mapThemeOf = code => MAPS[codeOpts(code).map] ? codeOpts(code).map : "c";
-  let W = 4200, H = 4200, PLANET_N = 5;
+  let W = 4200, H = 4200;
   const BOT = 84;                    // sprite size on screen
   const binR = lv => 14 + 26 * sizeOf(lv || 1);   // a bin's hit circle: the same on the victim's screen and the shooter's
   let SLOTS = 100; const PERIOD = 16;     // spark slots, seconds per respawn cycle
@@ -571,7 +572,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     gauss:   { name: "Charge cannon", ammo: 8, cd: 1.4, charge: 1.1, col: "#7fb8ff", shot: [K.GAUSS, 3600], kick: 300, feel: [24, 0.35, 100], sfx: ["rail", 0.9, 0.75], fx: "rail" },
     shard:   { name: "Shard cannon", ammo: 14, cd: 0.75, col: "#ff9a3c", shot: [K.SHARD, 1500], kick: 150, feel: [16, 0.2, 80], sfx: ["scatter", 0.85, 1.25], fx: "flash" }
   };
-  const PICK_TYPES = ["triple", "laser", "rocket", "scatter", "rail", "mine", "orb", "bolt", "shard", "saw", "gamma", "tele", "minigun", "gauss"], PICK_PERIOD = 24; let PICKS = 18;
+  let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
   const SPLASH = { [K.ROCKET]: [170, 0.6, 0.15, 320], [K.ORB]: [160, 0.6, 0.2, 380], [K.GAMMA]: [260, 1, 0.3, 600] };
@@ -613,12 +614,12 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   function setMatch(code) { ROUND_PLAY = TIME_OPTS[timeOf(code)] * 60; ROUND_LEN = ROUND_PLAY + ROUND_BREAK; SCORE_LIMIT = scoreLimit(code); }
   const roundAt = ms => { const t = ms / 1000, idx = Math.floor(t / ROUND_LEN), ph = t - idx * ROUND_LEN; return { idx, ph, live: ph < ROUND_PLAY, left: ROUND_PLAY - ph }; };
   // armour (in lives, like health): it takes only ARMOR_SOAK of each hit, the rest still hurts; at most MAX_SHIELD
-  const SUPPLY_PERIOD = 20, MAX_SHIELD = 3, ARMOR_SOAK = 0.6; let SUPPLY_SLOTS = 14;
+  const SUPPLY_PERIOD = 20, MAX_SHIELD = 3, ARMOR_SOAK = 0.6; let SUPPLY_SLOTS = 0;
   // the big bombs: one huge blast each. Inside kill nothing survives; out to R the damage falls from 4 to 1.5 lives.
   // The holy bomb is thrown, bounces, sings a choir sing seconds before its fuse runs out, then outdoes the nuke
   const BOOM_LIFE = 4;
-  // big-bomb crates, each on its own cycle: period (s), share of cycles it turns up in, and for how much of the cycle
-  const BOMB_CRATES = { nuke: { key: "N", period: 70, seed: 71, chance: 0.65, stay: 0.6 }, holy: { key: "H", period: 60, seed: 74, chance: 1, stay: 0.5 } };
+  // big-bomb crates, each on its own spot: once taken, it comes back at the start of its next cycle (s)
+  const BOMB_CRATES = { nuke: { key: "N", period: 70 }, holy: { key: "H", period: 60 } };
   // wave: [reach, seconds to get there, push at the centre] of the blast wave that flings everything outward
   const BOMBS = { [K.NUKE]: { R: 1100, kill: 620, carve: 420, wave: [2100, 1.1, 2400] },
                   [K.HOLY]: { R: 2600, kill: 1800, carve: 700, wave: [4400, 1.6, 3400], sing: 2.1, holy: true, wipe: true } };   // wipe: bodies inside kill are erased whole
@@ -724,6 +725,80 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   }
   addEventListener("resize", resize); resize();
 
+  // ---------- arenas: one hand-made layout per map ----------
+  // Every map is always the same, in every lobby, so it can be learned: where the planets are, where each gun lies.
+  // Coordinates are fractions of the arena's side. Each entry also appears mirrored through the centre (point
+  // symmetry), unless it sits on the centre, so both halves and both CTF bases (left and right middle) get the same.
+  //   planets:  [kind, x, y, radius at Medium, moons]          (kind: gas, ice, lava, rock; asteroid maps make them rocks)
+  //   wrecks:   [type, x, y, angle?]                          (an angle keeps it lined up and barely turning)
+  //   guns:     [weapon, x, y]                                 a crate that is always there until someone takes it
+  //   supplies: [med | bigmed | shield | mega, x, y]
+  //   amp, nuke, holy: [x, y] one spot each (on the vertical axis or the centre: as far from either base)
+  // The Large and Huge arenas add a few more bodies and spots in the widest gaps (fixed too, see buildPlanets).
+  // Gun respawn (s): a taken crate comes back at the start of its spot's next cycle
+  const GUN_PERIOD = { rail: 30, gauss: 30, gamma: 45, rocket: 26, orb: 26, tele: 26 }, GUN_PERIOD_BASE = 20;
+  const ARENA_SCALE = { s: 0.72, m: 1, l: 1.2, x: 1.4 };   // body sizes per map size
+  // the asteroid ring: rocks round the centre with wide gates towards the bases and the top and bottom
+  const ringRocks = (r, angles, R) => angles.map((a, i) => ["rock", 0.5 + Math.cos(a / 57.3) * r, 0.5 + Math.sin(a / 57.3) * r, R + (i % 2) * 18, 0]);
+  const ARENAS = {
+    // Twin Worlds: two ringed giants, two ice worlds, the Gate (two towers) round an open centre with Overdrive
+    c: { name: "Twin Worlds",
+      planets: [["gas", 0.33, 0.28, 260, 1], ["ice", 0.77, 0.2, 160, 1]],
+      wrecks: [["hull", 0.62, 0.1, 0], ["ring", 0.12, 0.2], ["tower", 0.5, 0.36, 0], ["crates", 0.3, 0.64]],
+      guns: [["rail", 0.05, 0.05], ["rocket", 0.33, 0.07], ["scatter", 0.62, 0.5], ["laser", 0.92, 0.1], ["triple", 0.18, 0.4], ["mine", 0.4, 0.2]],
+      supplies: [["med", 0.42, 0.13], ["med", 0.2, 0.31], ["shield", 0.07, 0.34], ["bigmed", 0.88, 0.3]],
+      amp: [0.5, 0.5], nuke: [0.5, 0.05], holy: [0.5, 0.95] },
+    // The Ring: a circle of rocks round the centre, gates in four directions, rock clusters in two corners
+    a: { name: "The Ring",
+      planets: [...ringRocks(0.27, [18, 36, 54, 72, 108, 126, 144, 162], 72),
+        ["rock", 0.12, 0.12, 110, 0], ["rock", 0.22, 0.07, 70, 0], ["rock", 0.07, 0.23, 75, 0], ["rock", 0.86, 0.12, 90, 0], ["rock", 0.5, 0.13, 85, 0], ["rock", 0.43, 0.43, 55, 0]],
+      wrecks: [],
+      guns: [["shard", 0.5, 0.38], ["saw", 0.33, 0.1], ["minigun", 0.88, 0.3], ["scatter", 0.77, 0.5], ["bolt", 0.5, 0.24], ["rail", 0.95, 0.05]],
+      supplies: [["med", 0.37, 0.37], ["shield", 0.8, 0.07], ["bigmed", 0.91, 0.41]],
+      amp: [0.5, 0.5], nuke: [0.5, 0.04], holy: [0.5, 0.96] },
+    // Drydocks: rows of moored hulls above and below, two ring stations either side of the moonbase in the middle
+    y: { name: "Drydocks",
+      planets: [["rock", 0.5, 0.5, 150, 0]],
+      wrecks: [["hull", 0.3, 0.2, 0], ["hull", 0.5, 0.2, 0], ["hull", 0.7, 0.2, 0], ["ring", 0.34, 0.5], ["tower", 0.1, 0.1, 0], ["crates", 0.9, 0.1]],
+      guns: [["rail", 0.4, 0.05], ["gauss", 0.38, 0.35], ["laser", 0.2, 0.32], ["mine", 0.7, 0.36], ["tele", 0.92, 0.27], ["rocket", 0.6, 0.08]],
+      supplies: [["med", 0.6, 0.32], ["shield", 0.2, 0.08], ["bigmed", 0.64, 0.4]],
+      amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.33] },
+    // Downtown: two blocks of towers with a plaza in each, the main street between the bases, a fallen hull in the middle
+    r: { name: "Downtown",
+      planets: [["rock", 0.9, 0.31, 100, 0]],
+      wrecks: [["tower", 0.3, 0.16, 0], ["tower", 0.5, 0.16, 0], ["tower", 0.7, 0.16, 0], ["tower", 0.3, 0.34, 0], ["tower", 0.7, 0.34, 0],
+        ["hull", 0.5, 0.5, 0], ["crates", 0.1, 0.12]],
+      guns: [["rocket", 0.4, 0.26], ["orb", 0.5, 0.32], ["scatter", 0.2, 0.25], ["saw", 0.6, 0.05], ["triple", 0.25, 0.45], ["rail", 0.95, 0.05]],
+      supplies: [["med", 0.4, 0.1], ["bigmed", 0.64, 0.42], ["shield", 0.8, 0.26]],
+      amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.39] },
+    // Orrery: the sun in the middle, two giants with two moons each, two small hot worlds on the axis
+    s: { name: "Orrery",
+      planets: [["gas", 0.24, 0.21, 230, 2], ["ice", 0.77, 0.2, 180, 1], ["lava", 0.5, 0.11, 110, 0]],
+      wrecks: [],
+      guns: [["gamma", 0.66, 0.37], ["rail", 0.05, 0.05], ["rocket", 0.94, 0.38], ["minigun", 0.19, 0.4], ["bolt", 0.35, 0.39]],
+      supplies: [["med", 0.12, 0.33], ["shield", 0.62, 0.21], ["bigmed", 0.95, 0.06]],
+      amp: [0.5, 0.71], nuke: [0.5, 0.29], holy: [0.5, 0.03] },
+    // The Tip: a landfill hill in the middle, a convoy of refuse trucks along the top and bottom, skips and bales round the edge
+    w: { name: "The Tip",
+      planets: [["rock", 0.5, 0.5, 190, 0]],
+      wrecks: [["truck", 0.27, 0.17, 0], ["truck", 0.5, 0.16, 0], ["truck", 0.73, 0.17, 0], ["wheelie", 0.35, 0.36, 0], ["bales", 0.1, 0.1], ["skip", 0.85, 0.33, 0]],
+      guns: [["scatter", 0.5, 0.3], ["mine", 0.2, 0.32], ["saw", 0.93, 0.18], ["shard", 0.4, 0.05], ["triple", 0.2, 0.43], ["minigun", 0.67, 0.4]],
+      supplies: [["med", 0.6, 0.27], ["bigmed", 0.05, 0.25], ["shield", 0.62, 0.06]],
+      amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.38] },
+    // Duel: almost empty. Two ice pillars on the line between the bases, two stations above and below the centre
+    o: { name: "Duel",
+      planets: [["ice", 0.32, 0.5, 130, 0]],
+      wrecks: [["ring", 0.5, 0.2]],
+      guns: [["rail", 0.2, 0.2], ["gauss", 0.8, 0.2], ["laser", 0.5, 0.36], ["rocket", 0.06, 0.06], ["bolt", 0.94, 0.06]],
+      supplies: [["med", 0.33, 0.3], ["shield", 0.67, 0.3]],
+      amp: [0.5, 0.5], nuke: [0.5, 0.06], holy: [0.5, 0.94] }
+  };
+  // an entry and its mirror through the centre (one entry when it sits on the centre)
+  const mirrored = list => list.flatMap(e => {
+    const [k, x, y, ...rest] = e;
+    if (Math.abs(x - 0.5) < 0.005 && Math.abs(y - 0.5) < 0.005) return [e];
+    return [e, [k, 1 - x, 1 - y, ...rest]];
+  });
   // ---------- helpers ----------
   const hash = (a, b, c) => {
     let x = (Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263) + Math.imul(c | 0, 1442695041)) | 0;
@@ -1212,7 +1287,6 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // (and its bots' shots) make and everyone applies them, so holes match. Pieces that break off become free rubble
   // that each player simulates on its own. A new round rebuilds everything.
   const PLANET_G = 320;   // px/s² at the surface of a whole 250-radius planet
-  const PLANET_KINDS = ["gas", "ice", "lava", "rock"];
   const PLANET_PAL = {
     gas:  { base: "#c98a5a", bands: ["#e8b27a", "#9c5f3c", "#f3d3a0", "#b7714a"], glow: "255,190,130" },
     ice:  { base: "#8fc9e8", bands: ["#d8f3ff", "#6aa6cf", "#bfe6f7"], glow: "160,225,255" },
@@ -1220,11 +1294,9 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     rock: { base: "#8a7f96", bands: ["#a59bb0", "#6f6580"], glow: "200,185,230" },
     moon: { base: "#8a7f96", bands: ["#a59bb0", "#6f6580"], glow: "200,185,230" }
   };
-  const WRECK_TYPES = ["hull", "tower", "crates", "ring"];
   const WRECK_PAL = { hull: ["#7d8aa3", "#5a6478", "#9aa6bf"], tower: ["#8f8aa0", "#6d6880", "#4a4660"], crates: ["#c0503c", "#3c78c0", "#d8a83c", "#4a9a6a"], ring: ["#8a93ad", "#5e6680", "#c8d0e8"],
     // the waste depot: skips, refuse trucks, giant wheelie bins and bales of crushed waste
     skip: ["#e8a530", "#b97a1c", "#f2c45a"], truck: ["#e8eef4", "#3c8a5a", "#2a3044"], wheelie: ["#3a7a4a", "#2a5a38", "#4fa060"], bales: ["#8a7a5a", "#5a7a9a", "#9a5a5a", "#6a8a5a"] };
-  const WRECK_N = { s: 6, m: 10, l: 16, x: 24 };
   const BODY_RES = matchMedia("(pointer: coarse)").matches ? 0.6 : 1;   // art baked at lower resolution on phones
   let planets = [], moons = [], wrecks = [], det = [], rubble = [], bodies = [], worldCode = "lobby", mapKey = "m", rubbleSeq = 0;
 
@@ -1472,18 +1544,38 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
 
   // everything that scales with the arena: pick-ups and junk keep about the same density (capped for the huge map)
   function setMapSize(key) {
-    const [size, , n] = MAP_SIZES[key], a = Math.min(6, (size / 2600) ** 2);
-    W = H = size; PLANET_N = n; mapKey = key;
-    SLOTS = Math.round(44 * a); ROCKS = Math.round(16 * a); PICKS = Math.round(8 * a); SUPPLY_SLOTS = Math.round(6 * a); GOLD_N = Math.round(70 * a);
+    const [size] = MAP_SIZES[key], a = Math.min(6, (size / 2600) ** 2);
+    W = H = size; mapKey = key;
+    SLOTS = Math.round(44 * a); ROCKS = Math.round(16 * a); GOLD_N = Math.round(70 * a);
     world.sparks.length = world.rocks.length = world.picks.length = world.supplies.length = 0;
+  }
+  // a wreck's size: [w, h] at Medium, from its type and its own random numbers
+  const wreckDims = (type, rnd) => type === "hull" ? [320 + rnd(1) * 120, 110 + rnd(2) * 40] : type === "tower" ? [170 + rnd(1) * 60, 250 + rnd(2) * 80]
+    : type === "crates" ? [230 + rnd(1) * 40, 170 + rnd(2) * 40] : type === "skip" ? [250 + rnd(1) * 50, 130 + rnd(2) * 20]
+    : type === "truck" ? [380 + rnd(1) * 60, 150 + rnd(2) * 20] : type === "wheelie" ? [150 + rnd(1) * 30, 210 + rnd(2) * 40]
+    : type === "bales" ? [230 + rnd(1) * 40, 180 + rnd(2) * 30] : [300 + rnd(1) * 60, 120 + rnd(2) * 30];
+  // the arena's fixed spots in world units: guns, supplies, Overdrive and the two big bombs (see 01b-arenas.js)
+  let arena = { guns: [], supplies: [], amp: null, nuke: null, holy: null };
+  // the Large and Huge arenas: more pairs in the widest gaps, found the same way every time (no randomness)
+  function widestGap(taken, pad, edge) {
+    let best = null, bd = -1;
+    for (let i = 0; i <= 40; i++) for (let j = 0; j <= 40; j++) {
+      const x = edge + i * (1 - 2 * edge) / 40, y = edge + j * (1 - 2 * edge) / 40;
+      if (Math.abs(x - 0.5) < 0.02 && Math.abs(y - 0.5) < 0.02) continue;
+      let d = Infinity;
+      for (const t of taken) d = Math.min(d, Math.hypot(t.x - x, t.y - y) - t.r);
+      if (d > bd) { bd = d; best = { x, y }; }
+    }
+    return bd > pad ? best : null;
   }
   function buildPlanets(code) {
     worldCode = code;
-    buildSky(String(code).split("").reduce((s, ch) => (Math.imul(s, 31) + ch.charCodeAt(0)) | 0, 11));
+    const theme = mapThemeOf(code), T = MAPS[theme], A = ARENAS[theme], rs = ARENA_SCALE[mapKey] || 1, big = mapKey === "l" ? 1 : mapKey === "x" ? 2 : 0;
+    // the same arena looks the same in every lobby: sky, planets and wrecks are seeded by the map and its size only
     let seed = 7;
-    for (const ch of String(code)) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) | 0;
+    for (const ch of theme + mapKey) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) | 0;
+    buildSky(seed ^ 0x2b7);
     planets = []; moons = []; wrecks = []; rubble = [];
-    const T = MAPS[mapThemeOf(code)], [r0, r1] = T.pR || [150, 300], kinds = T.kinds || PLANET_KINDS, gap = T.gap ?? 560;
     const addPlanet = (x, y, R, kind, pseed, tilt) => {
       const rnd = k => hash(pseed, k, 404), p = newBody("p" + planets.length, kind, R * 2 + 4, R * 2 + 4, clamp(R / 28, 8, 12));
       Object.assign(p, { x, y, rr: R, planet: true, tilt });
@@ -1501,41 +1593,68 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       planets.push(p);
       return p;
     };
-    if (T.star) addPlanet(W / 2, H / 2, Math.min(420, W * 0.09), "lava", seed + 7777, 0).star = true;   // the sun: a huge glowing ball in the middle
-    const nP = Math.round(PLANET_N * (T.planets ?? 1)) + (T.star ? 1 : 0);
-    for (let t = 0; planets.length < nP && t < 3000; t++) {
-      const R = r0 + hash(seed, t, 1) * (r1 - r0), m = R + 380;
-      const x = m + hash(seed, t, 2) * (W - 2 * m), y = m + hash(seed, t, 3) * (H - 2 * m);
-      if (planets.some(p => Math.hypot(p.x - x, p.y - y) < p.rr + R + (p.star ? 900 : gap))) continue;
-      const p = addPlanet(x, y, R, kinds[(Math.floor(hash(seed, 0, 9) * kinds.length) + planets.length) % kinds.length], seed + t * 131, (hash(seed, t, 4) - 0.5) * 0.8);
-      for (let j = 0; j < (T.moonN || 1); j++) {
-        if (hash(seed, t + j * 17, 5) >= (T.moons ?? 0.65)) continue;
-        const mr = 38 + hash(seed, t + j * 17, 6) * 30, mseed = seed + t * 977 + j * 53;
+    // what is placed, in fractions with a reach, so the big arenas' extras keep clear of it (and of both CTF pads)
+    const taken = [{ x: 0.1, y: 0.5, r: 0.09 }, { x: 0.9, y: 0.5, r: 0.09 }];
+    if (T.star) {   // the sun: a huge glowing ball in the middle
+      const R = Math.min(420, W * 0.09);
+      addPlanet(W / 2, H / 2, R, "lava", seed + 7777, 0).star = true;
+      taken.push({ x: 0.5, y: 0.5, r: R / W + 0.06 });
+    }
+    const planetList = mirrored(A.planets), wreckList = mirrored(A.wrecks);
+    const layoutSpots = [...A.guns, ...A.supplies].map(([, x, y]) => ({ x, y })).concat([A.amp, A.nuke, A.holy].filter(Boolean).map(([x, y]) => ({ x, y })));
+    // the big arenas: a few more bodies like the ones already there, in the widest gaps
+    for (let k = 0; k < big * 2; k++) {
+      for (const [, x, y, R] of planetList) taken.push({ x, y, r: (R * rs + 300) / W });
+      for (const [, x, y] of wreckList) taken.push({ x, y, r: 380 / W });
+      for (const sp of mirrored(layoutSpots.map(o => ["", o.x, o.y]))) taken.push({ x: sp[1], y: sp[2], r: 0.03 });
+      const at = widestGap(taken, 0.08, 0.15);
+      if (!at) break;
+      if (k % 2 && A.wrecks.length) { const w = A.wrecks[k % A.wrecks.length]; wreckList.push(...mirrored([[w[0], at.x, at.y]])); }
+      else { const p = A.planets[k % A.planets.length]; planetList.push(...mirrored([[p[0], at.x, at.y, p[3], 0]])); }
+      taken.length = T.star ? 3 : 2;
+    }
+    planetList.forEach(([kind, fx, fy, R0, nMoons], t) => {
+      const R = R0 * rs, p = addPlanet(fx * W, fy * H, R, T.lumpy ? "rock" : kind, seed + t * 131, (hash(seed, t, 4) - 0.5) * 0.8);
+      for (let j = 0; j < nMoons; j++) {
+        const mr = (38 + hash(seed, t + j * 17, 6) * 30) * Math.sqrt(rs), mseed = seed + t * 977 + j * 53;
         const mo = newBody("m" + moons.length, "moon", mr * 2 + 4, mr * 2 + 4, 7);
-        Object.assign(mo, { p, rr: mr, moon: true, tilt: 0, orbit: R + 190 + j * 190 + hash(seed, t + j * 17, 7) * 110, period: 45 + j * 25 + hash(seed, t, 8) * 40,
+        Object.assign(mo, { p, rr: mr, moon: true, tilt: 0, orbit: R + (190 + j * 170 + hash(seed, t + j * 17, 7) * 80) * rs, period: 45 + j * 25 + hash(seed, t, 8) * 40,
                             ph: hash(seed, t + j * 17, 10) * 6.283, dir: hash(seed, t, 11) < 0.5 ? -1 : 1 });
         paintPlanet(mo, mr, "moon", k => hash(mseed, k, 404));
         moons.push(mo);
       }
-    }
-    // drifting wrecks: kept away from planets (and their moons' orbits) and from each other
-    const nW = Math.round(WRECK_N[mapKey] * (T.wrecks ?? 1)), types = T.wreckTypes || WRECK_TYPES;
-    for (let t = 0; wrecks.length < nW && t < 4000; t++) {
-      const type = types[Math.floor(hash(seed, t, 21) * types.length)], wseed = seed + t * 389, rnd = k => hash(wseed, k, 505);
-      const [w, h] = type === "hull" ? [320 + rnd(1) * 120, 110 + rnd(2) * 40] : type === "tower" ? [170 + rnd(1) * 60, 250 + rnd(2) * 80]
-                   : type === "crates" ? [230 + rnd(1) * 40, 170 + rnd(2) * 40] : type === "skip" ? [250 + rnd(1) * 50, 130 + rnd(2) * 20]
-                   : type === "truck" ? [380 + rnd(1) * 60, 150 + rnd(2) * 20] : type === "wheelie" ? [150 + rnd(1) * 30, 210 + rnd(2) * 40]
-                   : type === "bales" ? [230 + rnd(1) * 40, 180 + rnd(2) * 30] : [300 + rnd(1) * 60, 120 + rnd(2) * 30];
-      const rr = Math.hypot(w, h) / 2, A = 40 + hash(seed, t, 25) * 80, m = rr + A + 200;
-      const x = m + hash(seed, t, 22) * (W - 2 * m), y = m + hash(seed, t, 23) * (H - 2 * m);
-      if (planets.some(p => Math.hypot(p.x - x, p.y - y) < p.rr + (p.rr > 150 ? 520 : 160) + rr + A)) continue;   // big planets keep their moons' orbits clear
-      if (wrecks.some(o => Math.hypot(o.bx - x, o.by - y) < o.rr + rr + (T.wgap ?? 260))) continue;
-      const b = newBody("w" + wrecks.length, type, w, h, 8);
-      Object.assign(b, { rr, bx: x, by: y, A, T: 30 + hash(seed, t, 26) * 30, ph: hash(seed, t, 27) * 6.283, dirA: hash(seed, t, 28) * 6.283,
-                         a0: hash(seed, t, 29) * 6.283, spin: (hash(seed, t, 30) - 0.5) * 0.09, wreck: true });
+    });
+    // wrecks drift a little on the spot and turn slowly (the ones laid at an angle stay lined up)
+    const ws = clamp(rs, 0.8, 1.25);
+    wreckList.forEach(([type, fx, fy, ang], t) => {
+      const wseed = seed + t * 389, rnd = k => hash(wseed, k, 505), [w0, h0] = wreckDims(type, rnd), w = w0 * ws, h = h0 * ws;
+      const b = newBody("w" + wrecks.length, type, w, h, 8), lined = typeof ang === "number";
+      Object.assign(b, { rr: Math.hypot(w, h) / 2, bx: fx * W, by: fy * H, A: (lined ? 15 : 25 + hash(seed, t, 25) * 30) * rs, T: 30 + hash(seed, t, 26) * 30, ph: hash(seed, t, 27) * 6.283,
+                         dirA: hash(seed, t, 28) * 6.283, a0: lined ? ang + (t % 2) * Math.PI : hash(seed, t, 29) * 6.283,
+                         spin: lined ? 0 : (hash(seed, t, 30) - 0.5) * 0.05, wreck: true });
       paintWreck(b, type, w, h, rnd);
       wrecks.push(b);
+    });
+    // the spots: the layout's own, then (Large / Huge) more pairs in the widest gaps, cycling through the map's guns
+    const guns = mirrored(A.guns), supplies = mirrored(A.supplies);
+    const reach = list => list.map(([, x, y]) => ({ x, y, r: 0 }));
+    const bodyReach = () => [...planets.map(p => ({ x: p.hx / W, y: p.hy / H, r: (p.rr + 120) / W })), ...wrecks.map(w => ({ x: w.bx / W, y: w.by / H, r: (w.rr + w.A + 120) / W })),
+      ...moons.map(m => ({ x: m.p.hx / W, y: m.p.hy / H, r: 0 }))];
+    for (let k = 0; k < big * 3; k++) {
+      const at = widestGap([...taken, ...bodyReach(), ...reach(guns), ...reach(supplies), ...[A.amp, A.nuke, A.holy].filter(Boolean).map(([x, y]) => ({ x, y, r: 0 }))], 0.06, 0.05);
+      if (!at) break;
+      if (k % 3 === 2) supplies.push(...mirrored([[A.supplies[k % A.supplies.length][0], at.x, at.y]]));
+      else guns.push(...mirrored([[A.guns[k % A.guns.length][0], at.x, at.y]]));
     }
+    const spot = ([type, fx, fy], i, P) => ({ type, x: fx * W, y: fy * H, P, off: hash(seed, i, 61) * P });
+    arena = {
+      guns: guns.map((e, i) => spot(e, i, GUN_PERIOD[e[0]] || GUN_PERIOD_BASE)),
+      supplies: supplies.map((e, i) => spot(e, i + 100, SUPPLY_PERIOD)),
+      amp: A.amp ? spot(["amp", ...A.amp], 200, AMP_PERIOD) : null,
+      nuke: A.nuke ? spot(["nuke", ...A.nuke], 201, BOMB_CRATES.nuke.period) : null,
+      holy: A.holy ? spot(["holy", ...A.holy], 202, BOMB_CRATES.holy.period) : null
+    };
+    PICKS = arena.guns.length; SUPPLY_SLOTS = arena.supplies.length;
     det = [...planets, ...moons, ...wrecks];
     rebuildBodies();
     posesAt(clockNow(), 0);
@@ -3190,7 +3309,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // window.BRS_BROKER set before the game loads (see server/ in the repo)
   const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
   const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
-  const LOBBY_TOPIC = "binrocket-sky/v2/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  const LOBBY_TOPIC = "binrocket-sky/v3/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
   let lobbyRenderPending = false;
   function renderLobbies() {
@@ -3215,6 +3334,10 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   let chooseLobby;
   const lobbyChosen = new Promise(r => { chooseLobby = r; });
   const CODE_ABC = "abcdefghjkmnpqrstuvwxyz23456789";
+  // offline: just you and the bots in this browser, no broker at all. ?offline in the address skips even loading
+  // the multiplayer library (no network needed); the start screen sets offlineRun; noNetwork is filled in there
+  const offlineOnly = standalone && /[?&]offline(=1|=true)?(&|#|$)/.test(location.search || "");
+  let offlineRun = offlineOnly, noNetwork = () => {};
   const normCode = v => v.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 16);
   function setStatus(on, text) { netDot.classList.toggle("on", on); netText.textContent = text; }
 
@@ -3376,15 +3499,18 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     // Standalone hosting: every player talks to public MQTT brokers over secure WebSocket.
     // No direct browser-to-browser links, so office NATs and mobile networks don't matter.
     // Both brokers carry the same state, so a peer with access to only one can still see everyone.
-    await new Promise((res, rej) => {
+    // Offline (?offline in the address, the start screen's "Offline" pick, or no network at all) skips all of it.
+    const online = !offlineOnly && await new Promise((res, rej) => {
       const s = document.createElement("script");
       s.src = "https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js";
       s.onload = res; s.onerror = rej; document.head.appendChild(s);
-    }).catch(() => { setStatus(false, "Solo flight · could not load the multiplayer library"); throw new Error("mqtt"); });
+    }).then(() => true, () => false);
+    if (!online) noNetwork(offlineOnly ? "Offline · you against the bots" : "No connection · offline with bots");
 
     // the lobby browser: every running lobby says it exists on one shared topic every few seconds, and the start
     // screen lists the ones heard lately (no server of our own: it's the same public broker the game talks through)
-    const browse = mqtt.connect(lobbyBroker(), { clientId: "brs_b_" + Math.random().toString(36).slice(2, 10), clean: true, keepalive: 30, reconnectPeriod: 3000 });
+    const browse = online ? mqtt.connect(lobbyBroker(), { clientId: "brs_b_" + Math.random().toString(36).slice(2, 10), clean: true, keepalive: 30, reconnectPeriod: 3000 }) : null;
+    if (browse) {
     browse.on("connect", () => browse.subscribe(LOBBY_TOPIC, { qos: 0 }));
     browse.on("error", () => {});
     browse.on("message", (topic, payload) => {
@@ -3395,17 +3521,24 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       openLobbies.set(p.c, { n: p.n, b: Number.isInteger(p.b) ? clamp(p.b, 0, 64) : 0, at: Date.now() });
       if (!lobbyRenderPending) { lobbyRenderPending = true; setTimeout(() => { lobbyRenderPending = false; renderLobbies(); }, 500); }
     });
+    }
 
     const code = await lobbyChosen;          // picked on the start screen
-    browse.end(true);
+    if (browse) browse.end(true);
     setMapSize(mapOf(code));
     buildPlanets(code);
     setMode(modeOf(code));
     setMatch(code);
     Object.assign(me, spawnPoint(me.tm));
     for (const b of bots) Object.assign(b, spawnPoint(b.tm));
-    history.replaceState(null, "", "#" + code);
     const shown = code.toUpperCase();
+    if (offlineRun || !online) {
+      // nobody else is here: the bots fly in this browser, nothing is sent and the lobby is not announced
+      document.getElementById("boardTitle").textContent = "Offline · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
+      setStatus(false, "Offline · you and " + bots.length + (bots.length === 1 ? " bot" : " bots"));
+      return;
+    }
+    history.replaceState(null, "", "#" + code);
     document.getElementById("boardTitle").textContent = "Lobby " + shown + " · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
     shareBtn.hidden = false;
     shareBtn.onclick = () => copyText(location.href, shareBtn, "Copy invite link", "Link copied");
@@ -3417,7 +3550,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     // Shots ride in state, including on the primary, and q deduplicates the two deliveries.
     const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
     const myId = "p" + Math.random().toString(36).slice(2, 10);
-    const base = "binrocket-sky/v2/" + code + "/";
+    const base = "binrocket-sky/v3/" + code + "/";
     const clients = BROKERS.map(url => {
       const c = mqtt.connect(url, {
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),
@@ -3481,36 +3614,19 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     addEventListener("online", () => { for (const c of clients) if (!c.connected) c.reconnect(); });
   }
 
-  // ---------- weapon crates & rockets ----------
-  function pickup(i, now) {
-    const off = hash(i, 61, 1) * PICK_PERIOD;
-    const gen = Math.floor((now / 1000 + off) / PICK_PERIOD);
-    return outside({
-      key: "w" + i + ":" + gen,
-      x: 150 + hash(i, gen, 63) * (W - 300), y: 150 + hash(i, gen, 64) * (H - 300),
-      type: PICK_TYPES[Math.floor(hash(i, gen, 62) * PICK_TYPES.length)],
-      age: (now / 1000 + off) / PICK_PERIOD - gen
-    });
+  // ---------- weapon crates, supplies, Overdrive and the big bombs: fixed spots on the arena ----------
+  // Each spot always holds the same thing (see 01b-arenas.js) and keeps it until someone takes it: nothing expires.
+  // A taken one comes back at the start of its spot's next cycle on the shared clock, so every screen agrees
+  // without any messages; the empty pad shows how long that is. age is how far into the cycle it came back
+  // (1 when it has been lying there all along); wait is the seconds until the spot's next cycle.
+  function spotItem(s, key, now) {
+    const t = now / 1000 + s.off, gen = Math.floor(t / s.P), ph = t / s.P - gen;
+    return outside({ key: key + ":" + gen, type: s.type, x: s.x, y: s.y, P: s.P, wait: (1 - ph) * s.P, age: grabbed.has(key + ":" + (gen - 1)) ? ph : 1 });
   }
-  function supply(i, now) {
-    const off = hash(i, 51, 1) * SUPPLY_PERIOD, tt = now / 1000 + off;
-    const gen = Math.floor(tt / SUPPLY_PERIOD), r = hash(i, gen, 52);
-    return outside({
-      key: "h" + i + ":" + gen, age: tt / SUPPLY_PERIOD - gen,
-      type: r < 0.45 ? "med" : r < 0.55 ? "bigmed" : r < 0.9 ? "shield" : "mega",
-      x: 150 + hash(i, gen, 53) * (W - 300), y: 150 + hash(i, gen, 54) * (H - 300)
-    });
-  }
-  function ampPickup(now) {
-    const t = now / 1000, gen = Math.floor(t / AMP_PERIOD), age = t / AMP_PERIOD - gen;
-    if (hash(gen, 81, 1) > 0.7 || age > 0.5) return null;
-    return outside({ key: "A" + gen, type: "amp", age, x: 400 + hash(gen, 82, 1) * (W - 800), y: 400 + hash(gen, 82, 2) * (H - 800) });
-  }
-  function bombPickup(now, type) {
-    const c = BOMB_CRATES[type], t = now / 1000, gen = Math.floor(t / c.period), age = t / c.period - gen;
-    if (hash(gen, c.seed, 1) > c.chance || age > c.stay) return null;
-    return outside({ key: c.key + gen, type, age, x: 300 + hash(gen, c.seed + 1, 1) * (W - 600), y: 300 + hash(gen, c.seed + 1, 2) * (H - 600) });
-  }
+  const pickup = (i, now) => spotItem(arena.guns[i], "w" + i, now);
+  const supply = (i, now) => spotItem(arena.supplies[i], "h" + i, now);
+  const ampPickup = now => arena.amp ? spotItem(arena.amp, "A", now) : null;
+  const bombPickup = (now, type) => arena[type] ? spotItem(arena[type], BOMB_CRATES[type].key, now) : null;
   // ---------- capture the flag ----------
   // A flag is carried by whoever claims it (a tie goes to the lowest tag, the same on every screen); nobody holding it
   // means it sits on its pad. The carrier's death sends it home. You score by bringing theirs to your pad while yours is home.
@@ -5892,6 +6008,20 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     }
   }
   // spilled stars, weapon crates, medkits and shields, Overdrive, the nuke, sparks
+  function drawPad(c, col, icon, now) {
+    const x = sx(c.x), y = sy(c.y), taken = grabbed.has(c.key);
+    if (!onScreen(x, y, 60)) return;
+    g.save();
+    g.globalAlpha = taken ? 0.6 : 0.3; g.strokeStyle = col; g.lineWidth = 2;
+    g.setLineDash([5, 7]); g.beginPath(); g.arc(x, y, 34, 0, 6.29); g.stroke(); g.setLineDash([]);
+    if (taken) {
+      g.lineWidth = 4; g.beginPath(); g.arc(x, y, 34, -Math.PI / 2, -Math.PI / 2 + 6.283 * (1 - c.wait / c.P)); g.stroke();
+      g.globalAlpha = 0.4; g.fillStyle = col;
+      g.save(); g.translate(x - 10, y - 12); g.scale(20 / 24, 20 / 24); g.fill(ICON_PATHS[icon], "evenodd"); g.restore();
+      g.globalAlpha = 0.85; g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.textAlign = "center"; g.fillText(Math.ceil(c.wait) + "s", x, y + 50);
+    }
+    g.restore();
+  }
   function drawPickups(now) {
     for (const [id, d] of drops) {
       const age = now - d.born, fade = age > DROP_LIFE - 3000 && Math.floor(now / 120) % 2 ? 0.35 : 1;
@@ -5904,6 +6034,11 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       }
       g.globalAlpha = 1;
     }
+    // the spots: a faint pad marks each one; a taken one shows what comes back there and when
+    for (const c of world.picks) drawPad(c, WEAPONS[c.type].col, c.type, now);
+    for (const c of world.supplies) drawPad(c, SUPPLIES[c.type].col, SUPPLIES[c.type].heal ? "cross" : "shield", now);
+    if (world.amp) drawPad(world.amp, "#c38bff", "amp", now);
+    for (const c of world.bombs) drawPad(c, WEAPONS[c.type].col, c.type, now);
     for (let i = 0; i < world.picks.length; i++) {
       const c = world.picks[i];
       if (grabbed.has(c.key)) continue;
@@ -6248,7 +6383,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     for (let i = 0; i < world.picks.length; i++) world.picks[i] = pickup(i, wt);
     world.bombs = solo ? [] : Object.keys(BOMB_CRATES).map(k => bombPickup(wt, k)).filter(Boolean);
     const holy = world.bombs.find(c => c.type === "holy");   // a fresh holy-bomb crate is announced once
-    if (playing && holy && holy.key !== holyAnnounced && !grabbed.has(holy.key)) { holyAnnounced = holy.key; announce("HOLY BOMB", "a crate has appeared · follow the white arrow", "#fff3b0"); }
+    if (playing && holy && holy.age < 1 && holy.key !== holyAnnounced && !grabbed.has(holy.key)) { holyAnnounced = holy.key; announce("HOLY BOMB", "it is back on its spot · follow the white arrow", "#fff3b0"); }   // back after someone took it
     world.amp = solo ? null : ampPickup(wt);
     world.supplies.length = MODES[MODE].noSupplies ? 0 : SUPPLY_SLOTS;
     roundTick(now);
@@ -6287,6 +6422,16 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     const [vx0, vy0] = P(cam.x - vw / 2, cam.y - vh / 2);
     mctx.strokeStyle = "rgba(255,255,255,0.25)"; mctx.lineWidth = 1.5;
     mctx.strokeRect(vx0, vy0, vw * k, vh * k);
+    // the arena's shape: planets and wrecks as faint outlines
+    mctx.fillStyle = "rgba(189,200,255,0.16)";
+    for (const b of bodies) { if (b.dead || b.moon) continue; const [x, y] = P(b.x, b.y); mctx.beginPath(); mctx.arc(x, y, Math.max(2, (b.wreck ? b.rr * 0.7 : b.rr) * k), 0, 6.29); mctx.fill(); }
+    // the arena's spots, so they can be learned: bright while something lies there, faint while it is taken
+    const dot = (c, col, r) => { if (!c) return; const [x, y] = P(c.x, c.y); mctx.globalAlpha = grabbed.has(c.key) ? 0.25 : 0.9; mctx.fillStyle = col; mctx.fillRect(x - r, y - r, r * 2, r * 2); };
+    for (const c of world.picks) dot(c, WEAPONS[c.type].col, 2.5);
+    for (const c of world.supplies) dot(c, SUPPLIES[c.type].col, 2);
+    dot(world.amp, "#c38bff", 3);
+    for (const c of world.bombs) dot(c, WEAPONS[c.type].col, 3.5);
+    mctx.globalAlpha = 1;
     // other flyers
     for (const r of remotes.values()) {
       if (r.dead) continue;
@@ -6428,7 +6573,9 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     goBtn.disabled = !codeOk();
     goBtn.textContent = joining ? (codeOk() ? "Join " + lobbyInput.value.toUpperCase() : "Type your friend's code") : "Take off";
     document.getElementById("joinLine").textContent = codeOk() ? describe(lobbyCode()) : "The code brings its own mode and map.";
-    if (!joining) document.getElementById("codeLine").innerHTML = `${describe(newGameCode)} · code <b>${newGameCode.toUpperCase()}</b> (share it to play together)`;
+    if (!joining) document.getElementById("codeLine").innerHTML = offlineRun
+      ? `${describe(newGameCode)} · offline: just you and ${botChoice.n || 4} bots in this browser${botChoice.n ? "" : " (none picked, so 4)"}`
+      : `${describe(newGameCode)} · code <b>${newGameCode.toUpperCase()}</b> (share it to play together)`;
   };
   const setTab = join => {
     joining = join;
@@ -6452,6 +6599,20 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       newGameCode = c; syncGo();
       remember(c);
     };
+    // online lobby or offline against the bots (remembered; forced offline when the network is out)
+    const whereEl = document.getElementById("wherePick");
+    const pickWhere = v => { offlineRun = v === "off"; for (const o of whereEl.children) o.setAttribute("aria-pressed", String(o.dataset.v === v)); syncGo(); };
+    segButtons(whereEl, [["on", "Online lobby"], ["off", "Offline with bots"]], offlineRun ? "off" : "on", v => { if (!offlineOnly) store.set("binrocket.where", v); pickWhere(v); });
+    [...whereEl.children].forEach((b, i) => b.dataset.v = i ? "off" : "on");
+    if (!offlineOnly && store.get("binrocket.where") === "off") pickWhere("off");
+    noNetwork = msg => {
+      pickWhere("off");
+      whereEl.children[0].disabled = true; whereEl.children[0].title = "No connection to the multiplayer servers";
+      setTab(false); document.getElementById("tabJoin").disabled = true;
+      setStatus(false, msg);
+    };
+    if (offlineOnly) noNetwork("Offline · you against the bots");
+    for (const el of [document.getElementById("botCount"), document.getElementById("botLevel")]) el.addEventListener("click", () => syncGo());
     segButtons(document.getElementById("modePick"), Object.entries(MODES).map(([k, v]) => [k, v.label, v.hint]), modePick, v => { modePick = v; store.set("binrocket.mode", v); drawScores(); newCode(); });
     segButtons(document.getElementById("themePick"), Object.entries(MAPS).map(([k, v]) => [k, v.label, v.hint]), themePick, v => { themePick = v; store.set("binrocket.theme", v); newCode(); });
     segButtons(document.getElementById("timePick"), Object.entries(TIME_OPTS).map(([k, v]) => [k, v + " min"]), timePick, v => { timePick = v; store.set("binrocket.time", v); newCode(); });
@@ -6490,10 +6651,14 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   document.querySelector(".board").addEventListener("click", e => e.currentTarget.classList.toggle("open"));
   document.getElementById("startForm").addEventListener("submit", e => {
     e.preventDefault();
-    if (standalone) { if (!codeOk()) { lobbyInput.focus(); return; } chooseLobby(lobbyCode()); }
-    // bots: in a lobby only its host adds them (everyone else sees the host's); in the Claude room they stay local anyway
+    if (standalone && !codeOk()) { lobbyInput.focus(); return; }
+    if (joining) offlineRun = false;   // a friend's code is always online
+    // bots: in a lobby only its host adds them (everyone else sees the host's); in the Claude room they stay local anyway;
+    // offline there is nobody else, so there are always some
     const host = !standalone || !joining || hosted().includes(lobbyCode());
-    if (host && !bots.length && botChoice.n > 0) addBots(botChoice.n, botChoice.level);
+    if (offlineRun && !bots.length) addBots(botChoice.n || 4, botChoice.level);
+    else if (host && !bots.length && botChoice.n > 0) addBots(botChoice.n, botChoice.level);
+    if (standalone) chooseLobby(lobbyCode());
     me.name = nameInput.value.trim().slice(0, 14) || "Bin";
     store.set("binrocket.name", me.name);
     try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { audio = null; }
@@ -6507,7 +6672,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     renderBoard();
   });
 
-  setStatus(false, standalone ? "Pick a lobby and take off" : "Connecting…");
+  if (!offlineOnly) setStatus(false, standalone ? "Pick a lobby and take off" : "Connecting…");
   initNet().catch(() => {});
 })();
 </script>

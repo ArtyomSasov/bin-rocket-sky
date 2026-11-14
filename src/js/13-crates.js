@@ -1,30 +1,13 @@
-  // ---------- weapon crates & rockets ----------
-  function pickup(i, now) {
-    const off = hash(i, 61, 1) * PICK_PERIOD;
-    const gen = Math.floor((now / 1000 + off) / PICK_PERIOD);
-    return outside({
-      key: "w" + i + ":" + gen,
-      x: 150 + hash(i, gen, 63) * (W - 300), y: 150 + hash(i, gen, 64) * (H - 300),
-      type: PICK_TYPES[Math.floor(hash(i, gen, 62) * PICK_TYPES.length)],
-      age: (now / 1000 + off) / PICK_PERIOD - gen
-    });
+  // ---------- weapon crates, supplies, Overdrive and the big bombs: fixed spots on the arena ----------
+  // Each spot always holds the same thing (see 01b-arenas.js) and keeps it until someone takes it: nothing expires.
+  // A taken one comes back at the start of its spot's next cycle on the shared clock, so every screen agrees
+  // without any messages; the empty pad shows how long that is. age is how far into the cycle it came back
+  // (1 when it has been lying there all along); wait is the seconds until the spot's next cycle.
+  function spotItem(s, key, now) {
+    const t = now / 1000 + s.off, gen = Math.floor(t / s.P), ph = t / s.P - gen;
+    return outside({ key: key + ":" + gen, type: s.type, x: s.x, y: s.y, P: s.P, wait: (1 - ph) * s.P, age: grabbed.has(key + ":" + (gen - 1)) ? ph : 1 });
   }
-  function supply(i, now) {
-    const off = hash(i, 51, 1) * SUPPLY_PERIOD, tt = now / 1000 + off;
-    const gen = Math.floor(tt / SUPPLY_PERIOD), r = hash(i, gen, 52);
-    return outside({
-      key: "h" + i + ":" + gen, age: tt / SUPPLY_PERIOD - gen,
-      type: r < 0.45 ? "med" : r < 0.55 ? "bigmed" : r < 0.9 ? "shield" : "mega",
-      x: 150 + hash(i, gen, 53) * (W - 300), y: 150 + hash(i, gen, 54) * (H - 300)
-    });
-  }
-  function ampPickup(now) {
-    const t = now / 1000, gen = Math.floor(t / AMP_PERIOD), age = t / AMP_PERIOD - gen;
-    if (hash(gen, 81, 1) > 0.7 || age > 0.5) return null;
-    return outside({ key: "A" + gen, type: "amp", age, x: 400 + hash(gen, 82, 1) * (W - 800), y: 400 + hash(gen, 82, 2) * (H - 800) });
-  }
-  function bombPickup(now, type) {
-    const c = BOMB_CRATES[type], t = now / 1000, gen = Math.floor(t / c.period), age = t / c.period - gen;
-    if (hash(gen, c.seed, 1) > c.chance || age > c.stay) return null;
-    return outside({ key: c.key + gen, type, age, x: 300 + hash(gen, c.seed + 1, 1) * (W - 600), y: 300 + hash(gen, c.seed + 1, 2) * (H - 600) });
-  }
+  const pickup = (i, now) => spotItem(arena.guns[i], "w" + i, now);
+  const supply = (i, now) => spotItem(arena.supplies[i], "h" + i, now);
+  const ampPickup = now => arena.amp ? spotItem(arena.amp, "A", now) : null;
+  const bombPickup = (now, type) => arena[type] ? spotItem(arena[type], BOMB_CRATES[type].key, now) : null;

@@ -21,7 +21,7 @@
   // window.BRS_BROKER set before the game loads (see server/ in the repo)
   const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
   const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
-  const LOBBY_TOPIC = "binrocket-sky/v2/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  const LOBBY_TOPIC = "binrocket-sky/v3/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
   let lobbyRenderPending = false;
   function renderLobbies() {
@@ -46,6 +46,10 @@
   let chooseLobby;
   const lobbyChosen = new Promise(r => { chooseLobby = r; });
   const CODE_ABC = "abcdefghjkmnpqrstuvwxyz23456789";
+  // offline: just you and the bots in this browser, no broker at all. ?offline in the address skips even loading
+  // the multiplayer library (no network needed); the start screen sets offlineRun; noNetwork is filled in there
+  const offlineOnly = standalone && /[?&]offline(=1|=true)?(&|#|$)/.test(location.search || "");
+  let offlineRun = offlineOnly, noNetwork = () => {};
   const normCode = v => v.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 16);
   function setStatus(on, text) { netDot.classList.toggle("on", on); netText.textContent = text; }
 
@@ -207,15 +211,18 @@
     // Standalone hosting: every player talks to public MQTT brokers over secure WebSocket.
     // No direct browser-to-browser links, so office NATs and mobile networks don't matter.
     // Both brokers carry the same state, so a peer with access to only one can still see everyone.
-    await new Promise((res, rej) => {
+    // Offline (?offline in the address, the start screen's "Offline" pick, or no network at all) skips all of it.
+    const online = !offlineOnly && await new Promise((res, rej) => {
       const s = document.createElement("script");
       s.src = "https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js";
       s.onload = res; s.onerror = rej; document.head.appendChild(s);
-    }).catch(() => { setStatus(false, "Solo flight · could not load the multiplayer library"); throw new Error("mqtt"); });
+    }).then(() => true, () => false);
+    if (!online) noNetwork(offlineOnly ? "Offline · you against the bots" : "No connection · offline with bots");
 
     // the lobby browser: every running lobby says it exists on one shared topic every few seconds, and the start
     // screen lists the ones heard lately (no server of our own: it's the same public broker the game talks through)
-    const browse = mqtt.connect(lobbyBroker(), { clientId: "brs_b_" + Math.random().toString(36).slice(2, 10), clean: true, keepalive: 30, reconnectPeriod: 3000 });
+    const browse = online ? mqtt.connect(lobbyBroker(), { clientId: "brs_b_" + Math.random().toString(36).slice(2, 10), clean: true, keepalive: 30, reconnectPeriod: 3000 }) : null;
+    if (browse) {
     browse.on("connect", () => browse.subscribe(LOBBY_TOPIC, { qos: 0 }));
     browse.on("error", () => {});
     browse.on("message", (topic, payload) => {
@@ -226,17 +233,24 @@
       openLobbies.set(p.c, { n: p.n, b: Number.isInteger(p.b) ? clamp(p.b, 0, 64) : 0, at: Date.now() });
       if (!lobbyRenderPending) { lobbyRenderPending = true; setTimeout(() => { lobbyRenderPending = false; renderLobbies(); }, 500); }
     });
+    }
 
     const code = await lobbyChosen;          // picked on the start screen
-    browse.end(true);
+    if (browse) browse.end(true);
     setMapSize(mapOf(code));
     buildPlanets(code);
     setMode(modeOf(code));
     setMatch(code);
     Object.assign(me, spawnPoint(me.tm));
     for (const b of bots) Object.assign(b, spawnPoint(b.tm));
-    history.replaceState(null, "", "#" + code);
     const shown = code.toUpperCase();
+    if (offlineRun || !online) {
+      // nobody else is here: the bots fly in this browser, nothing is sent and the lobby is not announced
+      document.getElementById("boardTitle").textContent = "Offline · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
+      setStatus(false, "Offline · you and " + bots.length + (bots.length === 1 ? " bot" : " bots"));
+      return;
+    }
+    history.replaceState(null, "", "#" + code);
     document.getElementById("boardTitle").textContent = "Lobby " + shown + " · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
     shareBtn.hidden = false;
     shareBtn.onclick = () => copyText(location.href, shareBtn, "Copy invite link", "Link copied");
@@ -248,7 +262,7 @@
     // Shots ride in state, including on the primary, and q deduplicates the two deliveries.
     const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
     const myId = "p" + Math.random().toString(36).slice(2, 10);
-    const base = "binrocket-sky/v2/" + code + "/";
+    const base = "binrocket-sky/v3/" + code + "/";
     const clients = BROKERS.map(url => {
       const c = mqtt.connect(url, {
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),

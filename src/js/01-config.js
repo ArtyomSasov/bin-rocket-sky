@@ -5,17 +5,17 @@
   const mapOf = code => MAP_SIZES[String(code)[0]] ? String(code)[0] : "m";
   // map variants: what fills the arena. A new lobby's code carries it as "0<letter>" after the size (and the mode),
   // e.g. M0Y... or M1C0A...; generated codes never contain 0, and a code without it is Classic.
-  // planets / wrecks: counts relative to Classic; pR: planet radius range; kinds: planet looks; moons: chance per
-  // planet; moonN: moons per planet; gap: spacing between planets; star: a sun in the middle; wgap: spacing between wrecks; lumpy: planets become ragged asteroids
+  // The layout of each map is in 01b-arenas.js. star: a sun in the middle; lumpy: planets become ragged asteroids
   const MAPS = {
-    c: { name: "Classic", label: "Classic", hint: "planets, moons, wrecks" },
-    a: { name: "Asteroid belt", label: "Asteroids", hint: "a field of ragged rocks", planets: 4, pR: [55, 130], kinds: ["rock", "moon", "ice", "rock", "lava"], moons: 0, gap: 170, wrecks: 0.4, lumpy: true },
-    y: { name: "Shipyard", label: "Shipyard", hint: "wrecked ships and stations", planets: 0.35, wrecks: 2.6, wgap: 110, wreckTypes: ["hull", "hull", "ring", "ring", "tower", "crates"] },
-    r: { name: "Ruined city", label: "Ruins", hint: "floating towers and crates", planets: 0.45, wrecks: 2.2, wgap: 110, wreckTypes: ["tower", "tower", "tower", "crates", "crates", "hull"] },
-    s: { name: "Solar system", label: "Solar", hint: "a sun and big planets", planets: 0.8, pR: [190, 320], moons: 1, moonN: 2, wrecks: 0.35, star: true },
-    w: { name: "Waste depot", label: "Depot", hint: "skips, refuse trucks, giant bins", planets: 0.3, wrecks: 2.6, wgap: 100, wreckTypes: ["skip", "truck", "wheelie", "truck", "bales", "skip", "truck"] },
-    o: { name: "Open space", label: "Open", hint: "nearly empty: duels", planets: 0.25, pR: [110, 170], moons: 0, wrecks: 0.25 }
+    c: { name: "Twin Worlds", label: "Twin Worlds", hint: "two giants, an open centre" },
+    a: { name: "The Ring", label: "The Ring", hint: "a ring of asteroids, four gates", lumpy: true },
+    y: { name: "Drydocks", label: "Drydocks", hint: "rows of moored hulls" },
+    r: { name: "Downtown", label: "Downtown", hint: "tower blocks, a main street" },
+    s: { name: "Orrery", label: "Orrery", hint: "a sun and its planets", star: true },
+    w: { name: "The Tip", label: "The Tip", hint: "trucks, skips, a landfill hill" },
+    o: { name: "Duel", label: "Duel", hint: "nearly empty: duels" }
   };
+
   // A lobby code: the size letter, then settings as pairs ("1"+letter mode, "0"+letter map, "1"+digit time limit,
   // "0"+digit score limit), then random letters. Random letters never use 0 or 1, so the pairs can't be mistaken.
   const codeOpts = code => {
@@ -24,7 +24,7 @@
     return { mode: o["1l"], map: o["0l"], time: o["1d"], score: o["0d"] };
   };
   const mapThemeOf = code => MAPS[codeOpts(code).map] ? codeOpts(code).map : "c";
-  let W = 4200, H = 4200, PLANET_N = 5;
+  let W = 4200, H = 4200;
   const BOT = 84;                    // sprite size on screen
   const binR = lv => 14 + 26 * sizeOf(lv || 1);   // a bin's hit circle: the same on the victim's screen and the shooter's
   let SLOTS = 100; const PERIOD = 16;     // spark slots, seconds per respawn cycle
@@ -103,7 +103,7 @@
     gauss:   { name: "Charge cannon", ammo: 8, cd: 1.4, charge: 1.1, col: "#7fb8ff", shot: [K.GAUSS, 3600], kick: 300, feel: [24, 0.35, 100], sfx: ["rail", 0.9, 0.75], fx: "rail" },
     shard:   { name: "Shard cannon", ammo: 14, cd: 0.75, col: "#ff9a3c", shot: [K.SHARD, 1500], kick: 150, feel: [16, 0.2, 80], sfx: ["scatter", 0.85, 1.25], fx: "flash" }
   };
-  const PICK_TYPES = ["triple", "laser", "rocket", "scatter", "rail", "mine", "orb", "bolt", "shard", "saw", "gamma", "tele", "minigun", "gauss"], PICK_PERIOD = 24; let PICKS = 18;
+  let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
   const SPLASH = { [K.ROCKET]: [170, 0.6, 0.15, 320], [K.ORB]: [160, 0.6, 0.2, 380], [K.GAMMA]: [260, 1, 0.3, 600] };
@@ -145,12 +145,12 @@
   function setMatch(code) { ROUND_PLAY = TIME_OPTS[timeOf(code)] * 60; ROUND_LEN = ROUND_PLAY + ROUND_BREAK; SCORE_LIMIT = scoreLimit(code); }
   const roundAt = ms => { const t = ms / 1000, idx = Math.floor(t / ROUND_LEN), ph = t - idx * ROUND_LEN; return { idx, ph, live: ph < ROUND_PLAY, left: ROUND_PLAY - ph }; };
   // armour (in lives, like health): it takes only ARMOR_SOAK of each hit, the rest still hurts; at most MAX_SHIELD
-  const SUPPLY_PERIOD = 20, MAX_SHIELD = 3, ARMOR_SOAK = 0.6; let SUPPLY_SLOTS = 14;
+  const SUPPLY_PERIOD = 20, MAX_SHIELD = 3, ARMOR_SOAK = 0.6; let SUPPLY_SLOTS = 0;
   // the big bombs: one huge blast each. Inside kill nothing survives; out to R the damage falls from 4 to 1.5 lives.
   // The holy bomb is thrown, bounces, sings a choir sing seconds before its fuse runs out, then outdoes the nuke
   const BOOM_LIFE = 4;
-  // big-bomb crates, each on its own cycle: period (s), share of cycles it turns up in, and for how much of the cycle
-  const BOMB_CRATES = { nuke: { key: "N", period: 70, seed: 71, chance: 0.65, stay: 0.6 }, holy: { key: "H", period: 60, seed: 74, chance: 1, stay: 0.5 } };
+  // big-bomb crates, each on its own spot: once taken, it comes back at the start of its next cycle (s)
+  const BOMB_CRATES = { nuke: { key: "N", period: 70 }, holy: { key: "H", period: 60 } };
   // wave: [reach, seconds to get there, push at the centre] of the blast wave that flings everything outward
   const BOMBS = { [K.NUKE]: { R: 1100, kill: 620, carve: 420, wave: [2100, 1.1, 2400] },
                   [K.HOLY]: { R: 2600, kill: 1800, carve: 700, wave: [4400, 1.6, 3400], sing: 2.1, holy: true, wipe: true } };   // wipe: bodies inside kill are erased whole
