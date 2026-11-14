@@ -46,6 +46,11 @@ if (args[0] === "--debug") {
   writeFileSync(args[1], body);
   console.log(`wrote ${args[1]} (${parts.length} script sections)`);
 } else {
+  // the service worker: every file the game needs, and a version that changes with the build
+  const { createHash } = await import("node:crypto");
+  const files = ["./", "index.html", "bot.png", "manifest.webmanifest", ...readdirSync(join(root, "sfx")).filter(f => /\.(wav|mp3)$/.test(f)).sort().map(f => "sfx/" + f)];
+  const version = createHash("sha256").update(body).update(files.join()).digest("hex").slice(0, 12);
+  writeFileSync(join(root, "sw.js"), read("src/sw.js").replace("__VERSION__", version).replace("__FILES__", JSON.stringify(files)));
   const page = "<!doctype html>\n" +
     '<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>\n' +
     body + "</body></html>\n";

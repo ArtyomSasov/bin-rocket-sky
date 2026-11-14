@@ -35,8 +35,14 @@
   const XP_STEPS = [0, 6, 15, 28, 45, 66, 92, 124, 162, 210];   // total XP to reach Lv 1..10
   const MAX_LV = XP_STEPS.length;
   const lvOf = xp => { let l = 1; while (l < MAX_LV && xp >= XP_STEPS[l]) l++; return l; };
-  const sizeOf = lv => 1 + (lv - 1) * 0.09;                       // Lv 10 is about 1.8x
-  const maxLivesOf = lv => LIVES + Math.floor((lv - 1) * 2 / 3);  // 3 hearts at Lv 1, 9 at Lv 10
+  const sizeOf = lv => 1 + (lv - 1) * 0.04;                       // Lv 10 is about 1.36x
+  const maxLivesOf = lv => LIVES + Math.floor((lv - 1) / 4);      // 3 lives at Lv 1-4, 4 at 5-8, 5 at 9-10
+  // levels: XP comes from kills (10, more for a higher-level victim), sparks and stars, planets and flags. Every
+  // level adds a perk (they stack); dying costs two levels. The same rules for players and bots
+  const PERKS = { 2: "faster energy", 3: "double dash", 4: "twin fireballs", 5: "magnet: pick-ups from afar", 6: "shield regenerates",
+    7: "fireballs pierce", 8: "a teleport jump on every respawn", 9: "more health", 10: "THE CROWN: +25% damage, everyone sees you" };
+  const killXp = (myLv, victimLv) => 10 + Math.max(0, victimLv - myLv) * 3 + (victimLv >= MAX_LV ? 20 : 0);
+  const levelAfterDeath = lv => Math.max(1, lv - 2);
   const TIERS = [
     { from: 1,  outer: [255, 70, 20],  mid: [255, 150, 40], core: [255, 240, 170], aura: null },
     { from: 4,  outer: [255, 60, 150], mid: [255, 140, 70], core: [255, 245, 210], aura: [255, 120, 200] },

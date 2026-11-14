@@ -8,7 +8,7 @@
       const id = "pb" + Math.random().toString(36).slice(2, 8);
       const b = { id, tag: "b" + Math.random().toString(36).slice(2, 7), name: BOT_NAMES[(bots.length) % BOT_NAMES.length] + " (bot)", L, level,
         hue: Math.floor(Math.random() * 360), ck: [Math.floor(Math.random() * 7), Math.floor(Math.random() * 6), Math.floor(Math.random() * 5), Math.floor(Math.random() * 5), Math.floor(Math.random() * 6)],
-        ...spawnPoint(), vx: 0, vy: 0, a: Math.random() * 6.28, lives: LIVES, dead: false, respawnAt: 0, inv: 0, ds: 0,
+        ...spawnPoint(), vx: 0, vy: 0, a: Math.random() * 6.28, lives: LIVES, lv: 1, xp: 0, dead: false, respawnAt: 0, inv: 0, ds: 0,
         fireCd: 1 + Math.random(), side: Math.random() < 0.5 ? 1 : -1, wander: Math.random() * 6.28, seq: 0, q: 0,
         weapon: "fire", shotLog: [], hitBy: [], koBy: [], st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 } };
       bots.push(b); botById.set(id, b);
@@ -21,8 +21,19 @@
       if (botCredited.has(key) || botCredited.size >= MAX_CREDITS) continue;
       for (const b of bots) if (k.startsWith(b.tag + ".")) {
         botCredited.add(key);
-        if (ko) { b.st.kills++; b.st.streak++; b.st.best = Math.max(b.st.best, b.st.streak); } else b.st.hits++;
+        if (ko) { b.st.kills++; b.st.streak++; b.st.best = Math.max(b.st.best, b.st.streak); botXp(b, 10); } else { b.st.hits++; botXp(b, 1); }
       }
+    }
+  }
+  // bots level up like players (kills, hits, and a trickle for staying alive) and drop two levels when they die
+  function botXp(b, v) {
+    b.xp += v;
+    const nl = lvOf(b.xp);
+    if (nl > b.lv) {
+      b.lv = nl; b.lives = Math.min(maxLivesOf(nl), b.lives + 1);
+      const c = `rgb(${tierOf(nl).aura || tierOf(nl).mid})`;
+      for (let k = 0; k < 30; k++) { const a = k / 30 * 6.283; puff(b.x, b.y, Math.cos(a) * 260, Math.sin(a) * 260, 0.7, 2.2, k % 3 ? c : "#ffffff"); }
+      if (nl >= MAX_LV) feedPush(`<span class="v">${esc(b.name)}</span> wears the crown`);
     }
   }
   function botHurt(b, dmg, shotId, now, force, kind = -1, ang = 0) {
@@ -32,7 +43,8 @@
     const byHole = shotId === "x" || shotId === "p";   // the black hole or a planet: nobody gets credit
     if (!byHole) pushCapped(b.hitBy, shotId, 12);
     if (b.lives <= 0) {
-      b.dead = true; b.respawnAt = now + 3000; b.fc = -1; b.weapon = "fire"; b.ds = 1 + Math.floor(Math.random() * 4); b.dk = deathStyleOf(kind); b.da = ang;
+      b.dead = true; b.respawnAt = now + 3000; b.fc = -1; b.weapon = "fire";
+      b.lv = levelAfterDeath(b.lv); b.xp = XP_STEPS[b.lv - 1]; b.ds = 1 + Math.floor(Math.random() * 4); b.dk = deathStyleOf(kind); b.da = ang;
       b.st.deaths++; b.st.streak = 0;
       if (byHole) feedPush(`<span class="v">${esc(b.name)}</span> ${shotId === "p" ? "crashed into a planet" : "was swallowed by the black hole"}`);
       else pushCapped(b.koBy, shotId, 12);
@@ -55,10 +67,11 @@
     creditBots(hitBy, false); creditBots(koBy, true);   // bots that hit or killed me
     const ev = eventAt(clockNow()), bh = ev.active && ev.type === "blackhole" ? blackHole(ev) : null;
     for (const b of bots) {
+      if (!b.dead && roundLive) botXp(b, dt * 0.35);   // what a player gets from sparks: about 20 XP a minute
       while (b.shotLog.length && now - b.shotLog[0].at > 700) b.shotLog.shift();
       if (b.dead) {
         if (now < b.respawnAt) continue;
-        Object.assign(b, { dead: false, lives: LIVES, inv: now + 2000, ...spawnPoint(b.tm), vx: 0, vy: 0 });
+        Object.assign(b, { dead: false, lives: maxLivesOf(b.lv), inv: now + 2000, ...spawnPoint(b.tm), vx: 0, vy: 0 });
       }
       // nearest living target: me or anyone else in the lobby (other bots included)
       let tgt = null, td = 1700;
@@ -170,7 +183,7 @@
         if (s.life <= 0 || SHOTS[s.kind].inert || !canHurt(s, b, b.id)) continue;
         if (s.kind === K.MINE && SHOTS[K.MINE].life - s.life < MINE_ARM) continue;
         if (segHit(s, b.x, b.y, binR(b.lv) + SHOTS[s.kind].r)) {
-          if (SHOTS[s.kind].pierce) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
+          if (pierces(s)) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
           shotBurst(s); hitConfirm(s, b.lv, b.x, b.y, remotes.get(b.id)); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
           if (s.kind === K.BOLT || s.kind === K.LASER) boltChain(s, b.x, b.y, b.id, now);
           botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx));
@@ -191,7 +204,7 @@
         l: Math.max(0, Math.round(b.lives * 100) / 100), hb: b.hitBy, ko: b.koBy, f: b.shotLog.map(e => e.d),
         tm: b.tm ?? -1, fc: b.fc ?? -1, cp: [stats.round, b.caps || 0], tg: b.tag
       };
-      if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, lv: 1, sh: 0, wp: WEAPON_KEYS.indexOf(botWeapon(b)), tg: b.tag,
+      if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, lv: b.lv, sh: 0, wp: WEAPON_KEYS.indexOf(botWeapon(b)), tg: b.tag,
         st: [stats.round, b.st.kills, b.st.deaths, b.st.shots, b.st.hits, b.st.best] });
       applyRemote(b.id, m);   // show it here
       out.push([b.id, m]);

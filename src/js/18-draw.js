@@ -932,7 +932,7 @@
       g.fillStyle = f > 0.6 ? "#4fe39a" : f > 0.3 ? "#ffc23d" : "#ff4d5e"; rrect(x - bw / 2, by, bw * f, 5, 2.5); g.fill();
     }
 
-    const label = b.name ? "Lv " + lv + " · " + b.name : "";
+    const label = b.name ? (lv >= MAX_LV ? "♛ " : "") + "Lv " + lv + " · " + b.name : "";
     if (label) {
       g.font = `700 ${13 * TS}px ` + DISPLAY_FONT;
       g.textAlign = "center";

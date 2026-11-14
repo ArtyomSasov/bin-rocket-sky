@@ -9,7 +9,8 @@
     ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`],
     ["Alt fire", `right mouse button or ${KEY("C")}: shock beam (shoot your orb for a combo), rocket salvo, shotgun slug, thrown mine, saw fan`],
     ["Teleporter", `${KEY("T")} throws the beacon, ${KEY("T")} again jumps onto it (land on someone: telefrag)`],
-    ["Brake", `hold ${KEY("X")} (or push the other way)`]] });
+    ["Brake", `hold ${KEY("X")} (or push the other way)`],
+    ["Levels", "kills, sparks and planets give XP; every level adds a perk (Lv 4 twin fireballs, Lv 7 piercing, Lv 10 the crown); dying costs 2 levels"]] });
   const CONTROLS = {
     mac: desk("Mac", "⇧ Shift", "Return", "the trackpad / mouse button"),
     windows: desk("Windows", "Shift", "Enter", "the left mouse button"),
@@ -21,7 +22,8 @@
       ["Boost", "hold the teal button"],
       ["Weapon", "tap a gun in the bar above the fire button"],
       ["Alt fire", "the small orange button above the fire button (shock beam, rockets, shotgun, mines, saws)"],
-      ["Teleporter", "the cyan button: throw the beacon, tap again to jump onto it"]] }
+      ["Teleporter", "the cyan button: throw the beacon, tap again to jump onto it"],
+      ["Levels", "kills, sparks and planets give XP; every level adds a perk; dying costs 2 levels"]] }
   };
   function detectDevice() {
     const ua = navigator.userAgent, plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
@@ -105,7 +107,9 @@
     goBtn.disabled = !codeOk();
     goBtn.textContent = joining ? (codeOk() ? "Join " + lobbyInput.value.toUpperCase() : "Type your friend's code") : "Take off";
     document.getElementById("joinLine").textContent = codeOk() ? describe(lobbyCode()) : "The code brings its own mode and map.";
-    if (!joining) document.getElementById("codeLine").innerHTML = offlineRun
+    if (!joining) document.getElementById("codeLine").innerHTML = localRun
+      ? `${describe(newGameCode)} · local room: you host, players nearby join with your QR code`
+      : offlineRun
       ? `${describe(newGameCode)} · offline: just you and ${botChoice.n || 4} bots in this browser${botChoice.n ? "" : " (none picked, so 4)"}`
       : `${describe(newGameCode)} · code <b>${newGameCode.toUpperCase()}</b> (share it to play together)`;
   };
@@ -133,12 +137,17 @@
     };
     // online lobby or offline against the bots (remembered; forced offline when the network is out)
     const whereEl = document.getElementById("wherePick");
-    const pickWhere = v => { offlineRun = v === "off"; for (const o of whereEl.children) o.setAttribute("aria-pressed", String(o.dataset.v === v)); syncGo(); };
-    segButtons(whereEl, [["on", "Online lobby"], ["off", "Offline with bots"]], offlineRun ? "off" : "on", v => { if (!offlineOnly) store.set("binrocket.where", v); pickWhere(v); });
-    [...whereEl.children].forEach((b, i) => b.dataset.v = i ? "off" : "on");
-    if (!offlineOnly && store.get("binrocket.where") === "off") pickWhere("off");
+    const pickWhere = v => {
+      offlineRun = v === "off"; localRun = v === "lan";
+      for (const o of whereEl.children) o.setAttribute("aria-pressed", String(o.dataset.v === v));
+      document.getElementById("lanStartBox").hidden = !localRun;
+      syncGo();
+    };
+    segButtons(whereEl, [["on", "Online lobby"], ["lan", "Local room"], ["off", "Offline with bots"]], offlineRun ? "off" : "on", v => { if (!offlineOnly) store.set("binrocket.where", v); pickWhere(v); });
+    [...whereEl.children].forEach((b, i) => b.dataset.v = ["on", "lan", "off"][i]);
+    if (!offlineOnly && ["off", "lan"].includes(store.get("binrocket.where"))) pickWhere(store.get("binrocket.where"));
     noNetwork = msg => {
-      pickWhere("off");
+      if (!localRun) pickWhere("off");
       whereEl.children[0].disabled = true; whereEl.children[0].title = "No connection to the multiplayer servers";
       setTab(false); document.getElementById("tabJoin").disabled = true;
       setStatus(false, msg);
@@ -183,14 +192,15 @@
   document.querySelector(".board").addEventListener("click", e => e.currentTarget.classList.toggle("open"));
   document.getElementById("startForm").addEventListener("submit", e => {
     e.preventDefault();
-    if (standalone && !codeOk()) { lobbyInput.focus(); return; }
-    if (joining) offlineRun = false;   // a friend's code is always online
+    if (lan.guest) { joining = false; offlineRun = false; localRun = true; }   // a guest in a local room plays the host's game
+    else if (standalone && !codeOk()) { lobbyInput.focus(); return; }
+    if (joining) { offlineRun = false; localRun = false; }   // a friend's code is always online
     // bots: in a lobby only its host adds them (everyone else sees the host's); in the Claude room they stay local anyway;
     // offline there is nobody else, so there are always some
-    const host = !standalone || !joining || hosted().includes(lobbyCode());
+    const host = !lan.guest && (!standalone || !joining || hosted().includes(lobbyCode()));
     if (offlineRun && !bots.length) addBots(botChoice.n || 4, botChoice.level);
     else if (host && !bots.length && botChoice.n > 0) addBots(botChoice.n, botChoice.level);
-    if (standalone) chooseLobby(lobbyCode());
+    if (standalone) chooseLobby(lan.guest ? lan.code : lobbyCode());
     me.name = nameInput.value.trim().slice(0, 14) || "Bin";
     store.set("binrocket.name", me.name);
     try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { audio = null; }
@@ -206,3 +216,5 @@
 
   if (!offlineOnly) setStatus(false, standalone ? "Pick a lobby and take off" : "Connecting…");
   initNet().catch(() => {});
+  // keep the game on this device (sw.js): it opens again with no internet, for offline play or a local room
+  if (standalone && "serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});

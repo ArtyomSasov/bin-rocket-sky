@@ -42,7 +42,11 @@
     boost = boost && playing && !me.dead && energy > 0 && im > 0.1;
     me.boostFx = now - me.dashAt < 350 ? 2 : boost ? 1 : 0;
     if (boost) { energy = Math.max(0, energy - 20 * dt); energyRegenAt = now + 700; }   // a full bar is ~5 s of boost
-    else if (now > energyRegenAt) energy = Math.min(100, energy + 22 * dt);
+    else if (now > energyRegenAt) energy = Math.min(100, energy + 22 * (me.lv >= 2 ? 1.4 : 1) * dt);   // perk: faster energy from Lv 2
+    if (me.lv >= 6 && playing && !me.dead && now - (me.hitAt || 0) > 4000 && me.shield < 0.6) {   // perk: the shield regrows to 20% out of combat
+      const was = Math.round(me.shield * 20); me.shield = Math.min(0.6, me.shield + 0.12 * dt);
+      if (Math.round(me.shield * 20) !== was) renderShield();
+    }
     return { im, boost };
   }
   // my flight: thrust with inertia, gravity, bumping off bodies and the fence, facing, exhaust
@@ -149,7 +153,7 @@
       if (s.kind === K.ROCKET && s.life > 0) for (const o of shots) {   // rockets are big and slow: any enemy shot can blow one up mid-air
         if (o === s || o.life <= 0 || SHOTS[o.kind].inert || o.kind === K.MINE || (o.mine ? s.mine : o.owner === s.owner)) continue;
         if (isTeams() && teamOfShot(o) !== undefined && teamOfShot(o) === teamOfShot(s)) continue;   // a teammate's shot passes it
-        if (segHit(o, s.x, s.y, 24)) { s.life = 0; if (!SHOTS[o.kind].pierce) o.life = 0; impact(s.x, s.y, "#ffb43c", 1.6); explode(s.x, s.y, 40, 300); sfx("boom_small", 0.8, 1.2, s.x, s.y); break; }
+        if (segHit(o, s.x, s.y, 24)) { s.life = 0; if (!pierces(o)) o.life = 0; impact(s.x, s.y, "#ffb43c", 1.6); explode(s.x, s.y, 40, 300); sfx("boom_small", 0.8, 1.2, s.x, s.y); break; }
       }
       if (s.life <= 0) continue;   // shot down: it blows up (splash) at the start of next frame
       if (s.kind === K.MINE) { const k = Math.exp(-2.5 * dt); s.vx *= k; s.vy *= k; }
@@ -225,8 +229,8 @@
       } else if (Math.random() < dt * 40) puff(s.x, s.y, -s.vx * 0.08 + (Math.random() - .5) * 60, -s.vy * 0.08 + (Math.random() - .5) * 60, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 2, FIRE_COLS[(Math.random() * 4) | 0]);
       // enemy fireball hits me (I decide, then report the shot id)
       const armed = s.kind !== K.MINE || SHOTS[K.MINE].life - s.life >= MINE_ARM;
-      if (armed && canHurt(s, me, "me", s.kind === K.MINE) && segHit(s, me.x, me.y, binR(me.lv) + SHOTS[s.kind].r) && (!SHOTS[s.kind].pierce || railOnce(s, "me"))) {
-        if (!SHOTS[s.kind].pierce) s.life = 0;
+      if (armed && canHurt(s, me, "me", s.kind === K.MINE) && segHit(s, me.x, me.y, binR(me.lv) + SHOTS[s.kind].r) && (!pierces(s) || railOnce(s, "me"))) {
+        if (!pierces(s)) s.life = 0;
         s.direct = "me";   // its blast (if any) spares me: I took the direct hit
         shotBurst(s);
         if (SHOTS[s.kind].shove) pelletShove(me, s, SHOTS[s.kind].shove);
@@ -243,7 +247,7 @@
         if (botById.has(rid)) continue;
         if (r.inv || !canHurt(s, r, rid)) continue;
         if (armed && segHit(s, r.x, r.y, binR(r.lv) + SHOTS[s.kind].r)) {
-          if (SHOTS[s.kind].pierce) { if (railOnce(s, rid)) { shotBurst(s); hitConfirm(s, r.lv, r.x, r.y, r); } continue; }
+          if (pierces(s)) { if (railOnce(s, rid)) { shotBurst(s); hitConfirm(s, r.lv, r.x, r.y, r); } continue; }
           s.life = 0; shotBurst(s); hitConfirm(s, r.lv, r.x, r.y, r); if (s.kind === K.BOLT || s.kind === K.LASER) boltChain(s, r.x, r.y, rid, now); break;
         }
       }
@@ -286,7 +290,7 @@
       if (grabbed.has(k.key) || k.age < 0.6) continue;
       for (const s of shots) {
         if (s.life <= 0 || SHOTS[s.kind].inert || !segHit(s, k.x, k.y, k.r + 10)) continue;
-        if (SHOTS[s.kind].pierce) { if (!railOnce(s, k.key)) continue; } else s.life = 0;
+        if (pierces(s)) { if (!railOnce(s, k.key)) continue; } else s.life = 0;
         impact(s.x, s.y, "#d9c8ff", 0.8);
         if (chipRock(k, Math.max(0.5, shotDmg(s) / DMG_UNIT), s.px, s.py)) breakRock(k, s.mine);
         break;
@@ -342,13 +346,14 @@
     }
   }
   // sparks, spilled stars, medkits and shields, Overdrive and weapon crates
+  const magnet = () => me.lv >= 5 ? 70 : 0;   // perk: pick-ups from further away from Lv 5
   function updatePickups(dt, now) {
     // sparks
     if (playing && !me.dead) {
       for (let i = 0; i < SLOTS; i++) {
         const s = world.sparks[i];
         if (grabbed.has(s.key) || s.age < 0.04) continue;
-        if (Math.hypot(wrapD(s.x - me.x, W), wrapD(s.y - me.y, H)) < 22 + 30 * sizeOf(me.lv)) {
+        if (Math.hypot(wrapD(s.x - me.x, W), wrapD(s.y - me.y, H)) < 22 + 30 * sizeOf(me.lv) + magnet()) {
           grabbed.add(s.key); pushCapped(myGrabs, s.key, 40);
           const val = s.gold ? 5 : 1;
           me.score += val;
@@ -370,7 +375,7 @@
       for (let j = 0; j < d.n; j++) {
         const st = dropStar(d, id, j, now);
         if (!st.ready || grabbed.has(st.key)) continue;
-        if (Math.hypot(st.x - me.x, st.y - me.y) < 22 + 30 * sizeOf(me.lv)) {
+        if (Math.hypot(st.x - me.x, st.y - me.y) < 22 + 30 * sizeOf(me.lv) + magnet()) {
           grabbed.add(st.key); pushCapped(myGrabs, st.key, 40);
           me.score += 1; showScore();
           for (let k = 0; k < 8; k++) { const a = Math.random() * 6.28; puff(st.x, st.y, Math.cos(a) * 120, Math.sin(a) * 120, 0.4, 1.8, "#ffe3f6"); }
@@ -383,7 +388,7 @@
     if (playing && !me.dead) {
       for (const c of world.supplies) {
         if (grabbed.has(c.key) || c.age < 0.05) continue;
-        if (Math.hypot(c.x - me.x, c.y - me.y) > 26 + 30 * sizeOf(me.lv)) continue;
+        if (Math.hypot(c.x - me.x, c.y - me.y) > 26 + 30 * sizeOf(me.lv) + magnet()) continue;
         const sp = SUPPLIES[c.type], maxL = maxLivesOf(me.lv);
         if (sp.heal && me.lives >= maxL) continue;
         if (sp.armor && me.shield >= MAX_SHIELD) continue;
@@ -397,7 +402,7 @@
       }
     }
     // Overdrive
-    if (playing && !me.dead && world.amp && !grabbed.has(world.amp.key) && Math.hypot(world.amp.x - me.x, world.amp.y - me.y) < 30 + 30 * sizeOf(me.lv)) {
+    if (playing && !me.dead && world.amp && !grabbed.has(world.amp.key) && Math.hypot(world.amp.x - me.x, world.amp.y - me.y) < 30 + 30 * sizeOf(me.lv) + magnet()) {
       const c = world.amp;
       grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
       me.ampUntil = now + AMP_TIME;
@@ -409,7 +414,7 @@
     if (playing && !me.dead) {
       for (const c of [...world.picks, ...world.bombs]) {
         if (grabbed.has(c.key) || c.age < (BOMB_CRATES[c.type] ? 0.01 : 0.05)) continue;
-        if (Math.hypot(c.x - me.x, c.y - me.y) < 26 + 30 * sizeOf(me.lv)) {
+        if (Math.hypot(c.x - me.x, c.y - me.y) < 26 + 30 * sizeOf(me.lv) + magnet()) {
           grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
           const w = WEAPONS[c.type];
           if (c.type === "tele") {   // a tool, on its own key: it doesn't take a slot in the gun bar
@@ -496,7 +501,7 @@
     }
     for (const s of shots) {
       if (s.life <= 0 || SHOTS[s.kind].inert || s.kind === K.MINE) continue;
-      for (const o of hulks) if (segHit(s, o.x, o.y, 34 * sizeOf(o.lv)) && (!SHOTS[s.kind].pierce || railOnce(s, o))) { const pk = SHOTS[s.kind].pierce ? 0.03 : 0.08; o.vx += s.vx * pk; o.vy += s.vy * pk; o.spin += (Math.random() - 0.5); if (!SHOTS[s.kind].pierce) s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.8); break; }
+      for (const o of hulks) if (segHit(s, o.x, o.y, 34 * sizeOf(o.lv)) && (!pierces(s) || railOnce(s, o))) { const pk = pierces(s) ? 0.03 : 0.08; o.vx += s.vx * pk; o.vy += s.vy * pk; o.spin += (Math.random() - 0.5); if (!pierces(s)) s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.8); break; }
       if (s.life <= 0) continue;
       for (const o of frags) if (segHit(s, o.x, o.y, o.s * 0.3)) { o.vx += s.vx * 0.12; o.vy += s.vy * 0.12; o.spin += (Math.random() - 0.5) * 2; s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.6); break; }
     }

@@ -31,6 +31,29 @@ is sent or announced and nobody can join. If you picked "No bots", 4 bots fly. O
 starts there without even loading the multiplayer library, and when that library can't be loaded (no
 connection) the game switches to offline by itself.
 
+## Local room (no internet)
+
+Devices in one place play together over the same Wi-Fi, with no internet: a phone hotspot is enough (on many
+Android phones it works without mobile data). Pick **Local room** on the New game tab:
+
+- **Host:** pick the game and take off. A QR code appears (later: "+ Add player nearby").
+- **Guest:** tap "Join a room nearby", scan the host's code, then let the host scan the code on your screen.
+
+The two codes carry a WebRTC handshake (only local-network addresses), so the browsers connect to each other
+directly; the host relays every pilot's state, and its bots join everyone. No camera? Copy and paste the codes.
+
+**Playing without internet** needs the game on each device first: open the page once while online (or add it
+to the home screen). A service worker (`sw.js`, built from `src/sw.js` with the file list) keeps the page,
+sounds and QR libraries, so it opens and plays offline afterwards.
+
+## Levels
+
+XP comes from kills (10, plus 3 for each level the victim is above you, and a bounty on the crown), sparks,
+stars, planets and flags. Every level adds a perk and they stack: 2 faster energy, 3 double dash, 4 twin
+fireballs, 5 magnet, 6 the shield regrows out of combat, 7 piercing fireballs, 8 a teleport jump on every
+respawn, 9 more health, 10 **the crown** (+25% damage, a gold ring on everyone's mini map). Health grows from
+3 to 5 lives. Dying costs two levels. Bots level up the same way.
+
 ## Your own server
 
 By default players meet through free public MQTT brokers (HiveMQ, then EMQX). They are shared with the
@@ -99,8 +122,8 @@ recent shots to both connected brokers at up to 8 messages/s, keeping below the 
 Two clients can play together as long as they share a reachable broker. Duplicate and older states are ignored.
 A silent player and its bots disappear after 7 seconds; losing one broker does not remove a player.
 
-The wire protocol uses `binrocket-sky/v4/` topics. Players must reload to this version to join each other;
-older pages are isolated (v2 and v3 built different maps or guns, v1 events do not identify the round). Taken terrain cells are sent in a
+The wire protocol uses `binrocket-sky/v5/` topics. Players must reload to this version to join each other;
+older pages are isolated (v2–v4 built different maps, guns or levels, v1 events do not identify the round). Taken terrain cells are sent in a
 rolling snapshot (one shared body per state), so late joins and reconnects recover holes after a full pass
 through the map. Detached rubble is still simulated locally.
 
@@ -130,6 +153,7 @@ src/js/           the game code, one file per section, joined in file-name order
   10-effects.js        particles, explosions, deaths by weapon (sliced, fried, melted)
   11-weapons.js        firing, damage, rockets, rail, lightning, combos, nukes and the holy bomb
   12-network.js        lobby, MQTT / Claude room transport, remote players and shots
+  12b-lan.js           the local room: WebRTC between devices nearby, QR-code handshake
   13-crates.js         the fixed spots: weapon crates, supplies, nuke / holy bomb and Overdrive
   14-ctf.js            capture-the-flag rules and drawing
   15-bots.js           bots
@@ -139,7 +163,8 @@ src/js/           the game code, one file per section, joined in file-name order
   19-events.js         world events: black hole (pulls in planets, wrecks, junk and pick-ups), meteors, aliens, gold rain
   20-loop-hud.js       main loop, energy bar, mini map (pilots only)
   21-start.js          start screen, lobby and mode pickers
-tools/build.mjs   the build
+tools/build.mjs   the build (also writes sw.js, the offline cache, from src/sw.js)
+manifest.webmanifest  lets the game be added to a home screen
 sfx/              sound effects (see sfx/CREDITS.txt)
 bot.png           bin sprite
 ```

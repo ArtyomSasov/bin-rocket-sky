@@ -1,4 +1,6 @@
 <title>Bin Rocket Sky</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0b0820">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Nunito:wght@600;800&display=swap">
@@ -32,11 +34,28 @@
     <button type="button" class="ghost menu-only" id="setLeave">Leave to the start screen</button>
   </div>
 </div>
+<div class="settings lan" id="lanDlg" hidden>
+  <div class="card chip" role="dialog" aria-labelledby="lanTitle">
+    <h2 id="lanTitle">Players nearby</h2>
+    <p class="menu-hint" id="lanHint"></p>
+    <div class="lan-view"><canvas id="lanQr" width="300" height="300" aria-label="Connection code"></canvas><video id="lanCam" playsinline muted hidden></video></div>
+    <p class="codeline" id="lanStatus" aria-live="polite"></p>
+    <div class="lan-btns">
+      <button type="button" class="go" id="lanScan">Scan their code</button>
+      <button type="button" class="go" id="lanNext" hidden>Add another player</button>
+      <button type="button" class="ghost" id="lanCopy">Copy my code</button>
+    </div>
+    <textarea id="lanPaste" class="code lan-paste" rows="2" spellcheck="false" placeholder="No camera? Paste their code here"></textarea>
+    <code id="lanCode" hidden></code>
+    <button type="button" class="ghost" id="lanClose">Close</button>
+  </div>
+</div>
 <div class="results" id="results" hidden><div class="card chip rcard" id="resultsCard"></div></div>
 <div class="status">
   <div class="chip" id="netChip"><span class="dot" id="netDot"></span><span id="netText">Connecting…</span></div>
   <button class="ghost" id="codeBtn" hidden>Copy code</button>
   <button class="ghost" id="shareBtn" hidden>Copy invite link</button>
+  <button class="ghost" id="lanAdd" hidden>+ Add player nearby</button>
 </div>
 
 <div class="start" id="start">
@@ -64,7 +83,9 @@
         <button type="button" role="tab" id="tabJoin" aria-selected="false">Join a friend</button>
       </div>
       <div class="pane" id="paneNew">
-        <div class="pick"><span>Play</span><div class="segs" id="wherePick" role="group" aria-label="Online or offline"></div></div>
+        <div class="pick"><span>Play</span><div class="segs" id="wherePick" role="group" aria-label="Online, local or offline"></div></div>
+        <div class="lan-start" id="lanStartBox" hidden><button type="button" class="ghost" id="lanJoin">Join a room nearby (scan the host's code)</button>
+          <small>Same Wi-Fi, no internet needed (a phone hotspot works). To host: pick the game below and take off.</small></div>
         <div class="pick"><span>Mode</span><div class="cards" id="modePick" role="group" aria-label="Game mode"></div></div>
         <div class="pick"><span>Map</span><div class="cards" id="themePick" role="group" aria-label="Map"></div></div>
         <div class="pick"><span>Size</span><div class="segs" id="mapSize" role="group" aria-label="Map size"></div></div>

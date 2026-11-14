@@ -1,0 +1,12 @@
+{
+  "name": "Bin Rocket Sky",
+  "short_name": "Bin Rocket",
+  "description": "Space battles of flying bins: online, in a local room over Wi-Fi, or offline against bots.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0b0820",
+  "theme_color": "#0b0820",
+  "icons": [{ "src": "bot.png", "sizes": "320x320", "type": "image/png", "purpose": "any" }]
+}

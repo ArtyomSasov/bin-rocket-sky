@@ -21,7 +21,7 @@
   // window.BRS_BROKER set before the game loads (see server/ in the repo)
   const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
   const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
-  const LOBBY_TOPIC = "binrocket-sky/v4/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  const LOBBY_TOPIC = "binrocket-sky/v5/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
   let lobbyRenderPending = false;
   function renderLobbies() {
@@ -49,7 +49,7 @@
   // offline: just you and the bots in this browser, no broker at all. ?offline in the address skips even loading
   // the multiplayer library (no network needed); the start screen sets offlineRun; noNetwork is filled in there
   const offlineOnly = standalone && /[?&]offline(=1|=true)?(&|#|$)/.test(location.search || "");
-  let offlineRun = offlineOnly, noNetwork = () => {};
+  let offlineRun = offlineOnly, localRun = false, noNetwork = () => {};
   const normCode = v => v.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 16);
   function setStatus(on, text) { netDot.classList.toggle("on", on); netText.textContent = text; }
 
@@ -67,13 +67,14 @@
   function addRemoteShot(owner, f) {
     if (!Array.isArray(f) || typeof f[0] !== "string" || f[0].length > 20 || seenShots.has(f[0])) return;
     if (!remotes.has(owner) || seenShots.size >= MAX_SEEN_SHOTS) return;
-    // m: Overdrive (x3), times the charge cannon's charge (0.25..1); anything else is ignored
-    const kind = Number.isInteger(f[5]) && f[5] >= 0 && f[5] < SHOTS.length ? f[5] : 0, m = kind === K.GAUSS && Number.isFinite(f[6]) ? clamp(f[6], 0.25, 3) : f[6] === 3 ? 3 : 1;
+    // m: Overdrive (x3) and the crown (x1.25), or the charge cannon's charge (0.25..1); anything else is ignored
+    const kind = Number.isInteger(f[5]) && f[5] >= 0 && f[5] < SHOTS.length ? f[5] : 0, m = kind === K.GAUSS && Number.isFinite(f[6]) ? clamp(f[6], 0.25, 3.75) : [3, 1.25, 3.75].includes(f[6]) ? f[6] : 1;
     const x = clamp(num(f[1], 0), 0, W), y = clamp(num(f[2], 0), 0, H);
     const sh = {
       id: f[0], kind, x, y, px: x, py: y, ox: x, oy: y, m,
       vx: clamp(num(f[3], 0), -4500, 4500), vy: clamp(num(f[4], 0), -4500, 4500),
-      life: Math.max(SHOTS[kind].life * 0.7, SHOTS[kind].life - 0.1), mine: false, owner, bn: 0   // a bit shorter: it was fired a moment ago
+      life: Math.max(SHOTS[kind].life * 0.7, SHOTS[kind].life - 0.1), mine: false, owner, bn: 0,   // a bit shorter: it was fired a moment ago
+      pc: kind === K.FIRE && f[7] === 1
     };
     // a peer can send anything: cap what one owner (and everyone together) can keep alive here
     let own = 0, ownMines = 0, ownBombs = 0;   // a big bomb is heavy to play out (blast, choir): one owner gets two at once
@@ -164,12 +165,29 @@
     for (const k of Array.isArray(p.ko) ? p.ko.slice(0, 16).filter(validHit) : []) if (typeof k === "string") reportKill(k, r.name);
     for (const k of Array.isArray(p.ko) ? p.ko.slice(0, 16).filter(validHit) : []) if (mine(k) && !credited.has("ko" + k)) {
       credited.add("ko" + k); me.score += 5; floaters.push({ x: r.x, y: r.y - 50, t: 0, txt: "KILL " + r.name, gold: true });
+      if ((r.lv || 1) >= MAX_LV) announce("KING SLAIN", "you took the crown's bounty", "#ffd36b", 3);
+      gainXp(killXp(me.lv, r.lv || 1), performance.now());
       stats.kills++; stats.streak++; stats.best = Math.max(stats.best, stats.streak);
       myKillAnnounce(performance.now());
       blip(520, 0.35);
     }
     showScore();
     return true;
+  }
+  // a pilot's state, from whichever transport (MQTT or the local room): the pilot, then the bots it flies
+  function receiveState(id, p) {
+    if (!applyRemote(id, p)) return;
+    if (Array.isArray(p.bots)) {
+      const ids = [];
+      for (const e of p.bots.slice(0, 8)) {
+        if (!Array.isArray(e) || typeof e[0] !== "string" || !/^pb[a-z0-9]{1,10}$/.test(e[0]) || botById.has(e[0])) continue;
+        const old = remotes.get(e[0]);
+        if (old && old.host !== id) continue;   // another host's bot (or a real player) cannot be claimed
+        if (applyRemote(e[0], e[1])) { remotes.get(e[0]).host = id; ids.push(e[0]); }
+        else if (old) ids.push(e[0]);
+      }
+      botsOf.set(id, ids);
+    }
   }
   const botsOf = new Map();   // host id -> the ids of the bots it flies
   let lobbyBots = null;   // the lobby's bots as the host flies them: { host: id, n, level }
@@ -213,10 +231,12 @@
     // No direct browser-to-browser links, so office NATs and mobile networks don't matter.
     // Both brokers carry the same state, so a peer with access to only one can still see everyone.
     // Offline (?offline in the address, the start screen's "Offline" pick, or no network at all) skips all of it.
-    const online = !offlineOnly && await new Promise((res, rej) => {
+    // no network at all (or the library hangs for 6 s): offline and the local room are what's left
+    const online = !offlineOnly && navigator.onLine !== false && await new Promise((res, rej) => {
       const s = document.createElement("script");
       s.src = "https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js";
       s.onload = res; s.onerror = rej; document.head.appendChild(s);
+      setTimeout(rej, 6000);
     }).then(() => true, () => false);
     if (!online) noNetwork(offlineOnly ? "Offline · you against the bots" : "No connection · offline with bots");
 
@@ -245,6 +265,7 @@
     Object.assign(me, spawnPoint(me.tm));
     for (const b of bots) Object.assign(b, spawnPoint(b.tm));
     const shown = code.toUpperCase();
+    if (localRun) { lanStart(code); return; }   // the local room (12b-lan.js): WebRTC to the devices nearby
     if (offlineRun || !online) {
       // nobody else is here: the bots fly in this browser, nothing is sent and the lobby is not announced
       document.getElementById("boardTitle").textContent = "Offline · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
@@ -263,7 +284,7 @@
     // Shots ride in state, including on the primary, and q deduplicates the two deliveries.
     const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
     const myId = "p" + Math.random().toString(36).slice(2, 10);
-    const base = "binrocket-sky/v4/" + code + "/";
+    const base = "binrocket-sky/v5/" + code + "/";
     const clients = BROKERS.map(url => {
       const c = mqtt.connect(url, {
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),
@@ -282,18 +303,7 @@
         // A disconnect on one broker is not departure from the room. Expire silent peers instead.
         if (kind !== "s" || payload.length > 16384) return;
         let p; try { p = JSON.parse(payload.toString()); } catch { return; }
-        if (!applyRemote(id, p)) return;
-        if (Array.isArray(p.bots)) {
-          const ids = [];
-          for (const e of p.bots.slice(0, 8)) {
-            if (!Array.isArray(e) || typeof e[0] !== "string" || !/^pb[a-z0-9]{1,10}$/.test(e[0]) || botById.has(e[0])) continue;
-            const old = remotes.get(e[0]);
-            if (old && old.host !== id) continue;   // another host's bot (or a real player) cannot be claimed
-            if (applyRemote(e[0], e[1])) { remotes.get(e[0]).host = id; ids.push(e[0]); }
-            else if (old) ids.push(e[0]);
-          }
-          botsOf.set(id, ids);
-        }
+        receiveState(id, p);
       });
       return c;
     });

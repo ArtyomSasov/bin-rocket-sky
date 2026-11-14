@@ -77,6 +77,7 @@
       if (bd < R + 26 * sizeOf(b.lv || 1)) { b.vx += (b.x - x) / (bd || 1) * 700; b.vy += (b.y - y) / (bd || 1) * 700; botHurt(b, base * Math.max(0.25, 1 - bd / R) * selfMul(s, b.id), s.id, now, false, K.ORB); }
     }
   }
+  const pierces = s => SHOTS[s.kind].pierce || !!s.pc;   // rail-like shots, and fireballs from Lv 7
   // the rail slug goes straight through bins and junk (each one once), only planets and walls stop it
   function railOnce(s, key) { if (!s.hits) s.hits = new Set(); if (s.hits.has(key)) return false; s.hits.add(key); return true; }
   // its beam is drawn at once along the whole path, so the shot reads as instant
@@ -228,7 +229,11 @@
   // one volley from any pilot, me or a bot: the shots go out, get logged for the network, and the last one is returned
   // (muzzle effects start from it). pat: a weapon or its alt (shot, spread, back); from: the gun's muzzle, if known
   // mul: extra damage (the charge cannon's charge), sent along with Overdrive's
+  const FIRE_TWIN = { ...WEAPONS.fire, spread: [-0.05, 0.05] };
   function volley(p, now, pat, from, aim, mul = 1) {
+    const plv = p.lv || 1;
+    if (pat === WEAPONS.fire && plv >= 4) pat = FIRE_TWIN;   // perks: twin fireballs from Lv 4
+    if (plv >= MAX_LV) mul *= 1.25;                          // the crown: +25% damage
     const mine = p === me, [kind, speed] = pat.shot, amp = (mine && me.ampUntil > now ? 3 : 1) * mul, ride = kind === K.BOLT || kind === K.LASER || kind === K.SHOCK ? 0 : 0.6;
     const base = (aim ?? p.a) + (pat.back ? Math.PI : 0), sz = sizeOf(p.lv || 1);
     let s;
@@ -237,12 +242,13 @@
       const id = (mine ? myTag : p.tag) + "." + (mine ? shotSeq++ : p.seq++).toString(36);
       const ox = from ? from.x : p.x + bx * 42 * sz, oy = from ? from.y : p.y + by * 42 * sz;
       s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * speed + p.vx * ride, vy: by * speed + p.vy * ride,
-            life: SHOTS[kind].life, mine, m: amp, owner: mine ? undefined : p.id, bn: 0 };
+            life: SHOTS[kind].life, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: kind === K.FIRE && plv >= 7 };   // pc: pierces (fireballs from Lv 7)
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else shots.push(s);
       if (kind === K.RAIL) railBeam(s.x, s.y, s.vx, s.vy);
       if (kind === K.LASER || kind === K.SHOCK) laserBeam(s, mine ? undefined : p.id);
       const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind];
-      if (amp !== 1) d.push(+amp.toFixed(2));
+      if (amp !== 1 || s.pc) d.push(+amp.toFixed(2));
+      if (s.pc) d.push(1);
       if (mine) { myShotLog.push({ at: now, d }); stats.shots++; net.shot(d); }
       else { seenShots.set(id, performance.now()); p.shotLog.push({ at: now, d }); p.st.shots++; }
     }
@@ -433,8 +439,10 @@
   }
   // quick dodge: a burst forward (or toward where you steer) with a moment of invulnerability
   function dash(now) {
-    if (!playing || me.dead || energy < 25 || now < dashReadyAt) return;
-    energy -= 25; dashReadyAt = now + 450; energyRegenAt = now + 700;
+    me.dashTimes = (me.dashTimes || []).filter(t => now - t < (me.lv >= 3 ? 1100 : 450));
+    if (!playing || me.dead || energy < 25 || now < dashReadyAt || me.dashTimes.length >= (me.lv >= 3 ? 2 : 1)) return;
+    me.dashTimes.push(now);
+    energy -= 25; dashReadyAt = now + 150; energyRegenAt = now + 700;
     me.dashAt = now;
     dashBurst(me);
     const sm = Math.hypot(steer.x, steer.y);
@@ -665,8 +673,8 @@
       deathFx(me, me.ds, me.dk, me.da);
       me.dead = true; me.respawnAt = now + 3000; me.vx = me.vy = 0;
       spillStars(now);
-      if (me.lv > 1) floaters.push({ x: me.x, y: me.y - 80, t: 0, txt: "Level reset", gold: false });
-      me.xp = 0; me.lv = 1;   // a destroyed bin starts over from level 1
+      if (me.lv > 1) floaters.push({ x: me.x, y: me.y - 80, t: 0, txt: "-" + (me.lv - levelAfterDeath(me.lv)) + " levels", gold: false });
+      me.lv = levelAfterDeath(me.lv); me.xp = XP_STEPS[me.lv - 1];   // a destroyed bin drops two levels
       baseArsenal(); me.ampUntil = 0; me.fc = -1; renderWeapon();   // its guns are lost with it (and a carried flag goes home)
       renderLevel();
       blip(60, 0.6, "sawtooth");
@@ -686,6 +694,7 @@
         puff(me.x, me.y, Math.cos(a) * v, Math.sin(a) * v, 0.9, 2.6, k % 3 ? col : "#ffffff");
       }
       floaters.push({ x: me.x, y: me.y - 70, t: 0, txt: "LEVEL " + nl + "!", gold: true });
+      announce("LEVEL " + nl, PERKS[nl] || "", col, nl >= MAX_LV ? 4 : 2);
       setTimeout(() => sfx("v_levelup", 0.9), 350);
       if (!sfx("level_up", 0.7)) [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => blip(f, 0.18), i * 90));
       shake = Math.max(shake, 0.15);
@@ -712,6 +721,7 @@
   function respawn(now) {
     killer = "";
     me.dead = false; me.lives = maxLivesOf(me.lv); me.inv = now + 2000; me.shield = 0; renderShield();
+    if (me.lv >= 8 && !(me.teleN > 0)) { me.teleN = 1; renderTele(); }   // perk: a teleport jump on every respawn
     Object.assign(me, spawnPoint(me.tm)); me.vx = 0; me.vy = -60;
     renderHearts(false);
   }
