@@ -241,7 +241,10 @@
       const ja = pat.jitter ? (Math.random() - 0.5) * 2 * pat.jitter : 0, bx = Math.cos(base + da + ja), by = Math.sin(base + da + ja);
       const id = (mine ? myTag : p.tag) + "." + (mine ? shotSeq++ : p.seq++).toString(36);
       const ox = from ? from.x : p.x + bx * 42 * sz, oy = from ? from.y : p.y + by * 42 * sz;
-      s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * speed + p.vx * ride, vy: by * speed + p.vy * ride,
+      // a shot keeps only the part of the bin's speed along its own line: it flies exactly where the gun points
+      // (sideways drift no longer bends it off the crosshair), and firing ahead while flying fast still adds reach
+      const fwd = speed > 0 ? Math.max(0, p.vx * bx + p.vy * by) * ride : 0;
+      s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * (speed + fwd) + (speed > 0 ? 0 : p.vx * ride), vy: by * (speed + fwd) + (speed > 0 ? 0 : p.vy * ride),
             life: SHOTS[kind].life, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: kind === K.FIRE && plv >= 7 };   // pc: pierces (fireballs from Lv 7)
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else shots.push(s);
       if (kind === K.RAIL) railBeam(s.x, s.y, s.vx, s.vy);

@@ -15,7 +15,8 @@
     let boost = (shiftHeld || boostBtnDown) && boostDownAt >= 0 && now - boostDownAt > BOOST_HOLD * 1000 && !keys.has("KeyX");
     if (me.dead && now >= me.respawnAt) respawn(now);
     fireCd -= dt; shake = Math.max(0, shake - dt);
-    const held = firing || FIRE_KEYS.some(k => keys.has(k));
+    const aimM = mouseAim();
+    const held = firing || FIRE_KEYS.some(k => keys.has(k)) || (aimM && ptr.down);   // with mouse aim the left button fires
     const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided;
     const altW = WEAPONS[me.weapon].alt, altHeld = altFiring || keys.has("KeyC");
     me.scoping = !!(altW && altW.scope && altHeld && playing && !me.dead);   // the railgun's alt: hold to look far ahead
@@ -29,10 +30,10 @@
       if (keys.has("KeyS") || keys.has("ArrowDown")) iy += 1;
       const jm = Math.hypot(joy.x, joy.y);
       if (jm > 0.12) { const m = Math.min(1, (jm - 0.12) / 0.8); ix += joy.x / jm * m; iy += joy.y / jm * m; }
-      if (ptr.down) {
-        const from = guided || me, dx = ptr.x - sx(from.x), dy = ptr.y - sy(from.y), d = Math.hypot(dx, dy);   // steer from where the bin (or the guided nuke) is on screen
+      if ((ptr.down && !aimM) || (aimM && guided)) {   // the pointer steers (with mouse aim: only a guided nuke)
+        const [cx, cy] = cursorAt(), from = guided || me, dx = cx - sx(from.x), dy = cy - sy(from.y), d = Math.hypot(dx, dy);   // steer from where the bin (or the guided nuke) is on screen
         if (d > 8) { const m = Math.min(1, d / 140); ix += dx / d * m; iy += dy / d * m; }
-        if (d > Math.min(vw, vh) * 0.4) boost = true;
+        if (d > Math.min(vw, vh) * 0.4 && !aimM) boost = true;
       }
     }
     const raw = Math.hypot(ix, iy);
@@ -161,7 +162,10 @@
     // but no longer spin it (shooting while standing still used to flip it round and round)
     const steerMag = Math.hypot(steer.x, steer.y);
     const a0 = me.a;
-    if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-(drift ? 20 : 13) * dt));
+    if (playing && !me.dead && mouseAim()) {   // mouse aim: the nose follows the cursor, quick but not instant
+      const [cx, cy] = cursorAt();
+      if (Math.hypot(cx - sx(me.x), cy - sy(me.y)) > 12) me.a = lerpAng(me.a, Math.atan2(cy - sy(me.y), cx - sx(me.x)), 1 - Math.exp(-30 * dt));
+    } else if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-(drift ? 20 : 13) * dt));
     else if (!playing && sp > 25) me.a = lerpAng(me.a, Math.atan2(me.vy, me.vx), 1 - Math.exp(-6 * dt));
     me.thrust += ((playing ? Math.min(1, im) * (boost ? 1.4 : 1) : 0.6) - me.thrust) * Math.min(1, dt * 6);
     // the bin banks into a turn (drawn as a lean), and settles back when flying straight
@@ -178,7 +182,8 @@
     const lead = Math.min(vw, vh) * 0.2, sp2 = Math.hypot(me.vx, me.vy), lk = me.dead ? 0 : Math.min(1, sp2 / 900) * lead / (sp2 || 1);
     const ce = 1 - Math.exp(-2.5 * dt);
     const scope = me.scoping ? Math.min(vw, vh) * 0.42 : 0;   // the railgun's scope: the view runs far ahead of the nose
-    cam.lx += (me.vx * lk + Math.cos(me.a) * scope - cam.lx) * ce; cam.ly += (me.vy * lk + Math.sin(me.a) * scope - cam.ly) * ce;
+    const [mcx, mcy] = mouseAim() && playing && !me.dead ? cursorAt() : [vw / 2, vh / 2], lean = 0.22;   // mouse aim: the view leans toward the cursor
+    cam.lx += (me.vx * lk + Math.cos(me.a) * scope + (mcx - vw / 2) * lean - cam.lx) * ce; cam.ly += (me.vy * lk + Math.sin(me.a) * scope + (mcy - vh / 2) * lean - cam.ly) * ce;
     if (guided || now < camBackUntil) {   // riding along with the guided nuke, then easing back to the bin
       const to = guided || me, ce2 = 1 - Math.exp(-(guided ? 10 : 6) * dt);
       cam.x += (to.x + (guided ? 0 : cam.lx) - cam.x) * ce2; cam.y += (to.y + (guided ? 0 : cam.ly) - cam.y) * ce2;

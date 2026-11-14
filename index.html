@@ -419,6 +419,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     <div class="pick"><span>Resolution</span><div class="segs" id="setRes" role="group" aria-label="Resolution"></div>
       <small>Auto lowers it when the game runs slow. Pick a lower one on a big or slow screen.</small></div>
     <div class="pick"><span>Effects</span><div class="segs" id="setFx" role="group" aria-label="Effects"></div></div>
+    <div class="pick" id="mousePick"><span>Mouse</span><div class="segs" id="setMouse" role="group" aria-label="Mouse"></div>
+      <small>Aims: the gun follows the cursor, WASD flies, left button fires. Steers: hold the button to fly toward the pointer.</small></div>
     <div class="pick"><span>Engine sound</span><div class="segs" id="setEngine" role="group" aria-label="Engine sound"></div></div>
     <div class="pick"><span>Crosshair</span><div class="segs" id="setAim" role="group" aria-label="Crosshair"></div>
       <div class="segs" id="setAimCol" role="group" aria-label="Crosshair colour"></div></div>
@@ -898,7 +900,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // graphics settings, kept in this browser: res "auto" (drops when slow) or a fixed share of the screen's resolution,
   // fx "high" or "low" (lighter effects), aim: the crosshair ("off", "small", "big"), aimCol: its colour
   const settings = (() => {
-    const d = { res: "auto", fx: "high", aim: "small", aimCol: "gun", engine: "on" };
+    const d = { res: "auto", fx: "high", aim: "small", aimCol: "gun", engine: "on", mouse: "aim" };
     try {
       const v = JSON.parse(store.get("binrocket.gfx"));
       if (!v || typeof v !== "object") return d;
@@ -1154,7 +1156,12 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   const parts = [];
   const floaters = [];
   const keys = new Set();
-  const ptr = { down: false, x: 0, y: 0 };
+  const ptr = { down: false, x: 0, y: 0, cx: 0, cy: 0, moved: false };   // cx, cy: the cursor on screen (CSS px)
+  // mouse aim (Settings: Mouse, on by default with a mouse): the nose and the gun follow the cursor wherever the bin
+  // flies, WASD flies, the left button fires and the right one is the alt fire. Until the mouse moves, or with
+  // "Mouse: steers", the nose follows the flight and holding the button flies toward the pointer as before
+  const mouseAim = () => !COARSE && settings.mouse !== "steer" && ptr.moved;
+  const cursorAt = () => [ptr.cx / zoom, ptr.cy / zoom];   // in view units, read with the zoom of this frame
   let playing = false;
   let lowQ = false;   // set by the frame loop when the device can't keep up
   let roundLive = true;
@@ -1209,7 +1216,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       return;
     }
     if (e.button === 2) return;   // the right button is alternate fire (see below), it doesn't steer
-    ptr.down = true; ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; cv.setPointerCapture(e.pointerId);
+    ptr.down = true; ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; ptr.cx = e.clientX; ptr.cy = e.clientY; cv.setPointerCapture(e.pointerId);
+    if (e.pointerType === "mouse") ptr.moved = true;
   });
   cv.addEventListener("pointermove", e => {
     if (e.pointerId === joy.id) {
@@ -1224,7 +1232,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
       return;
     }
-    ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom;
+    ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; ptr.cx = e.clientX; ptr.cy = e.clientY;
+    if (e.pointerType === "mouse") ptr.moved = true;
   });
   const up = e => { if (e.pointerId === joy.id) joyEnd(); else if (e.button !== 2) ptr.down = false; };
   // right mouse button = alternate fire. Pressing or releasing a second button while another is held only sends
@@ -2995,7 +3004,10 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       const ja = pat.jitter ? (Math.random() - 0.5) * 2 * pat.jitter : 0, bx = Math.cos(base + da + ja), by = Math.sin(base + da + ja);
       const id = (mine ? myTag : p.tag) + "." + (mine ? shotSeq++ : p.seq++).toString(36);
       const ox = from ? from.x : p.x + bx * 42 * sz, oy = from ? from.y : p.y + by * 42 * sz;
-      s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * speed + p.vx * ride, vy: by * speed + p.vy * ride,
+      // a shot keeps only the part of the bin's speed along its own line: it flies exactly where the gun points
+      // (sideways drift no longer bends it off the crosshair), and firing ahead while flying fast still adds reach
+      const fwd = speed > 0 ? Math.max(0, p.vx * bx + p.vy * by) * ride : 0;
+      s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * (speed + fwd) + (speed > 0 ? 0 : p.vx * ride), vy: by * (speed + fwd) + (speed > 0 ? 0 : p.vy * ride),
             life: SHOTS[kind].life, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: kind === K.FIRE && plv >= 7 };   // pc: pierces (fireballs from Lv 7)
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else shots.push(s);
       if (kind === K.RAIL) railBeam(s.x, s.y, s.vx, s.vy);
@@ -3683,8 +3695,9 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     if (Array.isArray(p.wd)) for (const d of p.wd.slice(0, 3)) {   // trophies: a dead pilot's gun and its ammo
       if (gunDrops.size >= 64) break;
       if (!Array.isArray(d) || typeof d[0] !== "string" || !/^[a-z0-9]{2,16}$/.test(d[0]) || gunDrops.has(d[0])) continue;
+      if (!Number.isInteger(d[3]) || d[3] < 0 || d[3] >= WEAPON_KEYS.length) continue;   // an index, never a key like "length"
       const type = WEAPON_KEYS[d[3]];
-      if (!type || type === "fire" || type === "tele") continue;
+      if (type === "fire" || type === "tele") continue;
       gunDrops.set(d[0], { x: clamp(num(d[1], 0), 0, W), y: clamp(num(d[2], 0), 0, H), type, ammo: clamp(Math.floor(num(d[4], 1)), 1, 999), born: performance.now() });
     }
     if (Array.isArray(p.terrain)) applyTerrain(p.terrain);
@@ -4519,7 +4532,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     let boost = (shiftHeld || boostBtnDown) && boostDownAt >= 0 && now - boostDownAt > BOOST_HOLD * 1000 && !keys.has("KeyX");
     if (me.dead && now >= me.respawnAt) respawn(now);
     fireCd -= dt; shake = Math.max(0, shake - dt);
-    const held = firing || FIRE_KEYS.some(k => keys.has(k));
+    const aimM = mouseAim();
+    const held = firing || FIRE_KEYS.some(k => keys.has(k)) || (aimM && ptr.down);   // with mouse aim the left button fires
     const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided;
     const altW = WEAPONS[me.weapon].alt, altHeld = altFiring || keys.has("KeyC");
     me.scoping = !!(altW && altW.scope && altHeld && playing && !me.dead);   // the railgun's alt: hold to look far ahead
@@ -4533,10 +4547,10 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       if (keys.has("KeyS") || keys.has("ArrowDown")) iy += 1;
       const jm = Math.hypot(joy.x, joy.y);
       if (jm > 0.12) { const m = Math.min(1, (jm - 0.12) / 0.8); ix += joy.x / jm * m; iy += joy.y / jm * m; }
-      if (ptr.down) {
-        const from = guided || me, dx = ptr.x - sx(from.x), dy = ptr.y - sy(from.y), d = Math.hypot(dx, dy);   // steer from where the bin (or the guided nuke) is on screen
+      if ((ptr.down && !aimM) || (aimM && guided)) {   // the pointer steers (with mouse aim: only a guided nuke)
+        const [cx, cy] = cursorAt(), from = guided || me, dx = cx - sx(from.x), dy = cy - sy(from.y), d = Math.hypot(dx, dy);   // steer from where the bin (or the guided nuke) is on screen
         if (d > 8) { const m = Math.min(1, d / 140); ix += dx / d * m; iy += dy / d * m; }
-        if (d > Math.min(vw, vh) * 0.4) boost = true;
+        if (d > Math.min(vw, vh) * 0.4 && !aimM) boost = true;
       }
     }
     const raw = Math.hypot(ix, iy);
@@ -4665,7 +4679,10 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     // but no longer spin it (shooting while standing still used to flip it round and round)
     const steerMag = Math.hypot(steer.x, steer.y);
     const a0 = me.a;
-    if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-(drift ? 20 : 13) * dt));
+    if (playing && !me.dead && mouseAim()) {   // mouse aim: the nose follows the cursor, quick but not instant
+      const [cx, cy] = cursorAt();
+      if (Math.hypot(cx - sx(me.x), cy - sy(me.y)) > 12) me.a = lerpAng(me.a, Math.atan2(cy - sy(me.y), cx - sx(me.x)), 1 - Math.exp(-30 * dt));
+    } else if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-(drift ? 20 : 13) * dt));
     else if (!playing && sp > 25) me.a = lerpAng(me.a, Math.atan2(me.vy, me.vx), 1 - Math.exp(-6 * dt));
     me.thrust += ((playing ? Math.min(1, im) * (boost ? 1.4 : 1) : 0.6) - me.thrust) * Math.min(1, dt * 6);
     // the bin banks into a turn (drawn as a lean), and settles back when flying straight
@@ -4682,7 +4699,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     const lead = Math.min(vw, vh) * 0.2, sp2 = Math.hypot(me.vx, me.vy), lk = me.dead ? 0 : Math.min(1, sp2 / 900) * lead / (sp2 || 1);
     const ce = 1 - Math.exp(-2.5 * dt);
     const scope = me.scoping ? Math.min(vw, vh) * 0.42 : 0;   // the railgun's scope: the view runs far ahead of the nose
-    cam.lx += (me.vx * lk + Math.cos(me.a) * scope - cam.lx) * ce; cam.ly += (me.vy * lk + Math.sin(me.a) * scope - cam.ly) * ce;
+    const [mcx, mcy] = mouseAim() && playing && !me.dead ? cursorAt() : [vw / 2, vh / 2], lean = 0.22;   // mouse aim: the view leans toward the cursor
+    cam.lx += (me.vx * lk + Math.cos(me.a) * scope + (mcx - vw / 2) * lean - cam.lx) * ce; cam.ly += (me.vy * lk + Math.sin(me.a) * scope + (mcy - vh / 2) * lean - cam.ly) * ce;
     if (guided || now < camBackUntil) {   // riding along with the guided nuke, then easing back to the bin
       const to = guided || me, ce2 = 1 - Math.exp(-(guided ? 10 : 6) * dt);
       cam.x += (to.x + (guided ? 0 : cam.lx) - cam.x) * ce2; cam.y += (to.y + (guided ? 0 : cam.ly) - cam.y) * ce2;
@@ -6152,10 +6170,13 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       if (along > 0 && along < 1300 && off < 30 + 26 * sizeOf(r.lv || 1)) { lock = true; break; }
     }
     const big = settings.aim === "big", own = { white: "#ffffff", green: "#5dff8a", red: "#ff5a5a" }[settings.aimCol];
-    const x = x0 + ca * D, y = y0 + sa * D, c = lock ? (settings.aimCol === "red" ? "#ffffff" : "#ff5a5a") : own || col, R = (lock ? 10 : 13) * (big ? 1.7 : 1);
+    let x = x0 + ca * D, y = y0 + sa * D;
+    if (mouseAim() && !w.back) [x, y] = cursorAt();   // mouse aim: the crosshair is the cursor
+    const c = lock ? (settings.aimCol === "red" ? "#ffffff" : "#ff5a5a") : own || col, R = (lock ? 10 : 13) * (big ? 1.7 : 1);
     g.save();
     g.globalAlpha = 0.28; g.strokeStyle = c; g.lineWidth = 1.5; g.setLineDash([6, 8]);
-    g.beginPath(); g.moveTo(x0 + ca * 40 * sizeOf(me.lv), y0 + sa * 40 * sizeOf(me.lv)); g.lineTo(x - ca * R, y - sa * R); g.stroke();
+    const Lx = Math.hypot(x - x0, y - y0) || 1, ex = x - (x - x0) / Lx * R, ey = y - (y - y0) / Lx * R;
+    if (Lx > 40 * sizeOf(me.lv) + R) { g.beginPath(); g.moveTo(x0 + ca * 40 * sizeOf(me.lv), y0 + sa * 40 * sizeOf(me.lv)); g.lineTo(ex, ey); g.stroke(); }
     g.setLineDash([]); g.globalAlpha = 0.9; g.lineWidth = big ? 3 : 2;
     g.translate(x, y); g.rotate(now / 900);
     g.beginPath(); g.arc(0, 0, R, 0, 6.29); g.stroke();
@@ -7105,6 +7126,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     update(now < hitStopUntil ? 0 : dt, now); draw(now);
     if (!playing) drawPreview(now);
     else { drawMinimap(now); renderEnergy(); }
+    const cur = playing && mouseAim() ? (settings.aim === "off" || me.dead ? "crosshair" : "none") : "";
+    if (cv.style.cursor !== cur) cv.style.cursor = cur;
   }
   requestAnimationFrame(frame);
 
@@ -7185,8 +7208,9 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   const KEY = k => `<kbd>${k}</kbd>`;
   // desktop rows differ only in a few key names
   const desk = (label, shift, enter, mouse) => ({ label, rows: [
-    ["Fly", `${KEY("W")}${KEY("A")}${KEY("S")}${KEY("D")} or arrows · or hold ${mouse} and point`],
-    ["Fire", `${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY(enter)})`],
+    ["Fly", `${KEY("W")}${KEY("A")}${KEY("S")}${KEY("D")} or arrows`],
+    ["Aim", "the mouse: the gun follows the cursor (Settings: Mouse \u2192 Steers to fly toward it instead)"],
+    ["Fire", `the left mouse button or ${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY(enter)})`],
     ["Dash", `tap ${KEY(shift)} — a quick dodge forward`],
     ["Boost", `hold ${KEY(shift)} — uses the blue energy bar`],
     ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`],
@@ -7358,6 +7382,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   const pickRes = v => { settings.res = v; saveSettings(); resScale = v === "auto" ? 1 : v; resize(); };
   segButtons(document.getElementById("setRes"), [["auto", "Auto"], [1, "100%"], [0.75, "75%"], [0.5, "50%"]], settings.res, pickRes);
   segButtons(document.getElementById("setFx"), [["high", "Full"], ["low", "Light"]], settings.fx, v => { settings.fx = v; saveSettings(); if (v === "high") lowQ = false; });
+  segButtons(document.getElementById("setMouse"), [["aim", "Aims"], ["steer", "Steers"]], settings.mouse, v => { settings.mouse = v; saveSettings(); });
+  document.getElementById("mousePick").hidden = COARSE;
   segButtons(document.getElementById("setEngine"), [["on", "On"], ["off", "Off"]], settings.engine, v => { settings.engine = v; saveSettings(); });
   segButtons(document.getElementById("setAim"), [["off", "Off"], ["small", "Small"], ["big", "Big"]], settings.aim, v => { settings.aim = v; saveSettings(); });
   segButtons(document.getElementById("setAimCol"), [["gun", "Gun colour"], ["white", "White"], ["green", "Green"], ["red", "Red"]], settings.aimCol, v => { settings.aimCol = v; saveSettings(); });

@@ -28,7 +28,7 @@ function setup() {
     mapOf: () => 'm', modeOf: () => 'd', mapThemeOf: () => 'c', setMapSize() {}, buildPlanets() {}, setMode() {}, spawnPoint: () => ({}),
     MODES: { d: { label: 'DM' } }, MODE: 'd', MAPS: { c: { label: 'Classic' } }, playing: true,
     sizeOf: () => 1, clockTarget: 0, clockOff: 0, lerpAng: () => 0, vw: 1, vh: 1, wrapD: x => x,
-    gainXp() {}, killXp: () => 10, announce() {},
+    gainXp() {}, killXp: () => 10, announce() {}, gunDrops: new Map(), WEAPON_KEYS: ['fire', 'rail', 'tele'],
   };
   vm.createContext(c);
   vm.runInContext(read('12-network.js') + '\nglobalThis.api = {applyRemote, initNet, chooseLobby, botsOf, net};', c);
@@ -51,6 +51,13 @@ test('both brokers receive identical states, and backup-only peers can return me
   assert.equal(clients[2].sent.length, 2);
   assert.equal(c.api.net.shotsInState, true); assert.ok(c.api.net.hz <= 9);
   deliver(clients[2], 'pother', state(1)); assert.equal(c.remotes.size, 1);
+});
+test('trophies accept only a real gun index; keys like "length" or "map" are refused', () => {
+  const { c } = setup();
+  c.api.applyRemote('pother', state(1, { wd: [['ga', 5, 5, 'length', 3], ['gb', 5, 5, 'map', 3], ['gc', 5, 5, -1, 3], ['gd', 5, 5, 3, 3], ['ge', 5, 5, 2, 3], ['gf', 5, 5, 0, 3]] }));
+  assert.equal(c.gunDrops.size, 0);
+  c.api.applyRemote('pother', state(2, { wd: [['gg', 5, 5, 1, 4]] }));
+  assert.deepEqual([...c.gunDrops.values()].map(d => d.type + ':' + d.ammo), ['rail:4']);
 });
 test('duplicate and older states cannot roll back team, flags, or captures', () => {
   const { c } = setup();

@@ -53,6 +53,8 @@
     update(now < hitStopUntil ? 0 : dt, now); draw(now);
     if (!playing) drawPreview(now);
     else { drawMinimap(now); renderEnergy(); }
+    const cur = playing && mouseAim() ? (settings.aim === "off" || me.dead ? "crosshair" : "none") : "";
+    if (cv.style.cursor !== cur) cv.style.cursor = cur;
   }
   requestAnimationFrame(frame);
 

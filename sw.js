@@ -1,7 +1,7 @@
 // Bin Rocket Sky service worker: keeps the game on the device, so it opens and plays with no internet
 // (offline against bots, or a local room over Wi-Fi). Built by tools/build.mjs into ./sw.js with the file
 // list and a version filled in; a new build replaces the cache.
-const VERSION = "4d35eeb3dddd";
+const VERSION = "2edb1a764df8";
 const FILES = ["./","index.html","bin-rocket-sky.html","bot.png","manifest.webmanifest","sfx/boom_big.wav","sfx/boom_bin.wav","sfx/boom_low.wav","sfx/boom_small.wav","sfx/chunk.wav","sfx/crash.wav","sfx/dash.wav","sfx/fire.wav","sfx/heal.wav","sfx/hit.wav","sfx/laser.wav","sfx/level_up.wav","sfx/mine_drop.wav","sfx/pump.wav","sfx/rail.mp3","sfx/ram.wav","sfx/rocket.wav","sfx/scatter.wav","sfx/shield_get.wav","sfx/shield_hit.wav","sfx/triple.wav","sfx/v_fight.wav","sfx/v_flawless.wav","sfx/v_levelup.wav","sfx/v_lose.wav","sfx/v_multikill.wav","sfx/v_powerup.wav","sfx/v_prepare.wav","sfx/v_win.wav","sfx/weapon_get.wav"];
 // libraries the local room loads (QR codes); the multiplayer library is never cached, so the game can tell it is offline
 const LIBS = ["https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js", "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"];

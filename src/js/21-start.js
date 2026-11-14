@@ -2,8 +2,9 @@
   const KEY = k => `<kbd>${k}</kbd>`;
   // desktop rows differ only in a few key names
   const desk = (label, shift, enter, mouse) => ({ label, rows: [
-    ["Fly", `${KEY("W")}${KEY("A")}${KEY("S")}${KEY("D")} or arrows · or hold ${mouse} and point`],
-    ["Fire", `${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY(enter)})`],
+    ["Fly", `${KEY("W")}${KEY("A")}${KEY("S")}${KEY("D")} or arrows`],
+    ["Aim", "the mouse: the gun follows the cursor (Settings: Mouse \u2192 Steers to fly toward it instead)"],
+    ["Fire", `the left mouse button or ${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY(enter)})`],
     ["Dash", `tap ${KEY(shift)} — a quick dodge forward`],
     ["Boost", `hold ${KEY(shift)} — uses the blue energy bar`],
     ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`],
@@ -175,6 +176,8 @@
   const pickRes = v => { settings.res = v; saveSettings(); resScale = v === "auto" ? 1 : v; resize(); };
   segButtons(document.getElementById("setRes"), [["auto", "Auto"], [1, "100%"], [0.75, "75%"], [0.5, "50%"]], settings.res, pickRes);
   segButtons(document.getElementById("setFx"), [["high", "Full"], ["low", "Light"]], settings.fx, v => { settings.fx = v; saveSettings(); if (v === "high") lowQ = false; });
+  segButtons(document.getElementById("setMouse"), [["aim", "Aims"], ["steer", "Steers"]], settings.mouse, v => { settings.mouse = v; saveSettings(); });
+  document.getElementById("mousePick").hidden = COARSE;
   segButtons(document.getElementById("setEngine"), [["on", "On"], ["off", "Off"]], settings.engine, v => { settings.engine = v; saveSettings(); });
   segButtons(document.getElementById("setAim"), [["off", "Off"], ["small", "Small"], ["big", "Big"]], settings.aim, v => { settings.aim = v; saveSettings(); });
   segButtons(document.getElementById("setAimCol"), [["gun", "Gun colour"], ["white", "White"], ["green", "Green"], ["red", "Red"]], settings.aimCol, v => { settings.aimCol = v; saveSettings(); });

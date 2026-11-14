@@ -110,9 +110,11 @@ players (they face where they steer, so they make attack runs, break off and loo
 
 ## Controls
 
-- **Move:** WASD or arrows (or hold the mouse); on a phone, the joystick. The bin has inertia: push the
-  other way or hold **X** to brake.
-- **Fire:** Space, F, J or Enter (or the fire button).
+- **Move:** WASD or arrows; on a phone, the joystick. The bin has inertia: push the other way or hold **X** to brake.
+- **Aim (mouse):** the gun follows the cursor wherever you fly; the crosshair is the cursor and the view leans
+  toward it. Shots keep only the bin's speed along their own line, so they go where you point. Settings →
+  Mouse → Steers brings back the old way (hold the button to fly toward the pointer).
+- **Fire:** the left mouse button, Space, F, J or Enter (or the fire button).
 - **Boost / dash:** hold Shift to boost, tap it to dash.
 - **Brake / drift:** hold X to brake; X with a direction drifts (you slide on while the nose swings round).
 - **Weapons:** 1–8, Q/E or the mouse wheel. **Alt fire:** right mouse button or C — every gun has one: laser

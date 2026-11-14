@@ -43,7 +43,12 @@
   const parts = [];
   const floaters = [];
   const keys = new Set();
-  const ptr = { down: false, x: 0, y: 0 };
+  const ptr = { down: false, x: 0, y: 0, cx: 0, cy: 0, moved: false };   // cx, cy: the cursor on screen (CSS px)
+  // mouse aim (Settings: Mouse, on by default with a mouse): the nose and the gun follow the cursor wherever the bin
+  // flies, WASD flies, the left button fires and the right one is the alt fire. Until the mouse moves, or with
+  // "Mouse: steers", the nose follows the flight and holding the button flies toward the pointer as before
+  const mouseAim = () => !COARSE && settings.mouse !== "steer" && ptr.moved;
+  const cursorAt = () => [ptr.cx / zoom, ptr.cy / zoom];   // in view units, read with the zoom of this frame
   let playing = false;
   let lowQ = false;   // set by the frame loop when the device can't keep up
   let roundLive = true;
@@ -98,7 +103,8 @@
       return;
     }
     if (e.button === 2) return;   // the right button is alternate fire (see below), it doesn't steer
-    ptr.down = true; ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; cv.setPointerCapture(e.pointerId);
+    ptr.down = true; ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; ptr.cx = e.clientX; ptr.cy = e.clientY; cv.setPointerCapture(e.pointerId);
+    if (e.pointerType === "mouse") ptr.moved = true;
   });
   cv.addEventListener("pointermove", e => {
     if (e.pointerId === joy.id) {
@@ -113,7 +119,8 @@
       joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
       return;
     }
-    ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom;
+    ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; ptr.cx = e.clientX; ptr.cy = e.clientY;
+    if (e.pointerType === "mouse") ptr.moved = true;
   });
   const up = e => { if (e.pointerId === joy.id) joyEnd(); else if (e.button !== 2) ptr.down = false; };
   // right mouse button = alternate fire. Pressing or releasing a second button while another is held only sends

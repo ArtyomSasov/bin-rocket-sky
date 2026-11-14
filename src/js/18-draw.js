@@ -859,10 +859,13 @@
       if (along > 0 && along < 1300 && off < 30 + 26 * sizeOf(r.lv || 1)) { lock = true; break; }
     }
     const big = settings.aim === "big", own = { white: "#ffffff", green: "#5dff8a", red: "#ff5a5a" }[settings.aimCol];
-    const x = x0 + ca * D, y = y0 + sa * D, c = lock ? (settings.aimCol === "red" ? "#ffffff" : "#ff5a5a") : own || col, R = (lock ? 10 : 13) * (big ? 1.7 : 1);
+    let x = x0 + ca * D, y = y0 + sa * D;
+    if (mouseAim() && !w.back) [x, y] = cursorAt();   // mouse aim: the crosshair is the cursor
+    const c = lock ? (settings.aimCol === "red" ? "#ffffff" : "#ff5a5a") : own || col, R = (lock ? 10 : 13) * (big ? 1.7 : 1);
     g.save();
     g.globalAlpha = 0.28; g.strokeStyle = c; g.lineWidth = 1.5; g.setLineDash([6, 8]);
-    g.beginPath(); g.moveTo(x0 + ca * 40 * sizeOf(me.lv), y0 + sa * 40 * sizeOf(me.lv)); g.lineTo(x - ca * R, y - sa * R); g.stroke();
+    const Lx = Math.hypot(x - x0, y - y0) || 1, ex = x - (x - x0) / Lx * R, ey = y - (y - y0) / Lx * R;
+    if (Lx > 40 * sizeOf(me.lv) + R) { g.beginPath(); g.moveTo(x0 + ca * 40 * sizeOf(me.lv), y0 + sa * 40 * sizeOf(me.lv)); g.lineTo(ex, ey); g.stroke(); }
     g.setLineDash([]); g.globalAlpha = 0.9; g.lineWidth = big ? 3 : 2;
     g.translate(x, y); g.rotate(now / 900);
     g.beginPath(); g.arc(0, 0, R, 0, 6.29); g.stroke();
