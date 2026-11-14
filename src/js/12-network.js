@@ -21,7 +21,7 @@
   // window.BRS_BROKER set before the game loads (see server/ in the repo)
   const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
   const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
-  const LOBBY_TOPIC = "binrocket-sky/v6/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  const LOBBY_TOPIC = "binrocket-sky/v7/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
   let lobbyRenderPending = false;
   function renderLobbies() {
@@ -150,6 +150,13 @@
       if (drops.size >= MAX_DROPS) break;
       if (!Array.isArray(d) || typeof d[0] !== "string" || d[0].length > 10 || drops.has(d[0])) continue;
       drops.set(d[0], { x: clamp(num(d[1], 0), 0, W), y: clamp(num(d[2], 0), 0, H), n: clamp(Math.floor(num(d[3], 0)), 0, 40), born: performance.now() });
+    }
+    if (Array.isArray(p.wd)) for (const d of p.wd.slice(0, 3)) {   // trophies: a dead pilot's gun and its ammo
+      if (gunDrops.size >= 64) break;
+      if (!Array.isArray(d) || typeof d[0] !== "string" || !/^[a-z0-9]{2,16}$/.test(d[0]) || gunDrops.has(d[0])) continue;
+      const type = WEAPON_KEYS[d[3]];
+      if (!type || type === "fire" || type === "tele") continue;
+      gunDrops.set(d[0], { x: clamp(num(d[1], 0), 0, W), y: clamp(num(d[2], 0), 0, H), type, ammo: clamp(Math.floor(num(d[4], 1)), 1, 999), born: performance.now() });
     }
     if (Array.isArray(p.terrain)) applyTerrain(p.terrain);
     // Event IDs belong to one round; old reports must not survive a round reset.
@@ -284,7 +291,7 @@
     // Shots ride in state, including on the primary, and q deduplicates the two deliveries.
     const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
     const myId = "p" + Math.random().toString(36).slice(2, 10);
-    const base = "binrocket-sky/v6/" + code + "/";
+    const base = "binrocket-sky/v7/" + code + "/";
     const clients = BROKERS.map(url => {
       const c = mqtt.connect(url, {
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),

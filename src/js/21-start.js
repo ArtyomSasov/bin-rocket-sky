@@ -7,9 +7,9 @@
     ["Dash", `tap ${KEY(shift)} — a quick dodge forward`],
     ["Boost", `hold ${KEY(shift)} — uses the blue energy bar`],
     ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`],
-    ["Alt fire", `right mouse button or ${KEY("C")}: shock beam (shoot your orb for a combo), rocket salvo, shotgun slug, thrown mine, saw fan`],
+    ["Alt fire", `right mouse button or ${KEY("C")}: every gun has one — laser pulse, minigun burst, rail scope, flak, shock beam, gamma detonate, rocket salvo, slug, thrown mine, saw fan`],
     ["Teleporter", `${KEY("T")} throws the beacon, ${KEY("T")} again jumps onto it (land on someone: telefrag)`],
-    ["Brake", `hold ${KEY("X")} (or push the other way)`],
+    ["Brake / drift", `hold ${KEY("X")} to brake; ${KEY("X")} + a direction drifts: you slide on while the nose swings round (shoot back)`],
     ["Levels", "kills, sparks and planets give XP; every level adds a perk (Lv 4 twin fireballs, Lv 7 piercing, Lv 10 the crown); dying costs 2 levels"]] });
   const CONTROLS = {
     mac: desk("Mac", "⇧ Shift", "Return", "the trackpad / mouse button"),
@@ -175,6 +175,7 @@
   const pickRes = v => { settings.res = v; saveSettings(); resScale = v === "auto" ? 1 : v; resize(); };
   segButtons(document.getElementById("setRes"), [["auto", "Auto"], [1, "100%"], [0.75, "75%"], [0.5, "50%"]], settings.res, pickRes);
   segButtons(document.getElementById("setFx"), [["high", "Full"], ["low", "Light"]], settings.fx, v => { settings.fx = v; saveSettings(); if (v === "high") lowQ = false; });
+  segButtons(document.getElementById("setEngine"), [["on", "On"], ["off", "Off"]], settings.engine, v => { settings.engine = v; saveSettings(); });
   segButtons(document.getElementById("setAim"), [["off", "Off"], ["small", "Small"], ["big", "Big"]], settings.aim, v => { settings.aim = v; saveSettings(); });
   segButtons(document.getElementById("setAimCol"), [["gun", "Gun colour"], ["white", "White"], ["green", "Green"], ["red", "Red"]], settings.aimCol, v => { settings.aimCol = v; saveSettings(); });
   if (settings.res !== "auto") { resScale = settings.res; resize(); }

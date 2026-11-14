@@ -254,6 +254,28 @@
     }
     return s;
   }
+  // a flak shell bursts: eight shards all round, the same on every screen (their ids follow from the shell's)
+  function flakBurst(s) {
+    if (s.burst) return;
+    s.burst = true; s.boom = true;
+    for (let k = 0; k < 8; k++) {
+      const a = k / 8 * 6.283 + 0.2, v = 1300;
+      shots.push({ ...s, id: s.id + "f" + k, kind: K.SHARD, ox: s.x, oy: s.y, px: s.x, py: s.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: SHOTS[K.SHARD].life * 0.6, bn: 0, burst: false, boom: false, hits: undefined });
+    }
+    if (onScreen(sx(s.x), sy(s.y), 300)) {
+      explode(s.x, s.y, lowQ ? 20 : 45, 380); impacts.push({ x: s.x, y: s.y, t: 0, r: 110, col: "#ffb060" });
+      rings.push({ x: s.x, y: s.y, t: 0, r: 160, col: "255,170,90", dur: 0.35, w: 8 });
+    }
+    sfx("boom_small", 0.8, 1.3, s.x, s.y);
+  }
+  // the gamma orb's detonator: the shooter's nearest gamma orb goes off right here
+  function detonateOrb(d) {
+    if (d.done) return;
+    d.done = true;
+    let best = null, bd = 500;
+    for (const o of shots) if (o.kind === K.GAMMA && o.life > 0 && (d.mine ? o.mine : o.owner === d.owner)) { const dd = Math.hypot(o.x - d.x, o.y - d.y); if (dd < bd) { bd = dd; best = o; } }
+    if (best) { best.x = d.x; best.y = d.y; best.life = 0; }
+  }
   // a shard ricochets: sparks fly, it rings, and it glows hotter (it hits harder now, see shotDmg)
   function shardRicochet(s) {
     if (!onScreen(sx(s.x), sy(s.y), 200)) return;
@@ -293,6 +315,10 @@
       sfx("boom_small", 0.7, 0.75);
       setTimeout(() => sfx("pump", 0.6, 1.25), 330);
     },
+    pulse(m) {   // the laser's pulse: a wide cyan wave rolls out of the gun
+      rings.push({ x: m.x, y: m.y, t: 0, r: 140, col: "125,249,255", warp: true, dur: 0.3, w: 10 });
+      for (let k = 0; k < 24; k++) { const a = me.a + (Math.random() - 0.5) * 1.3, v = 300 + Math.random() * 600; puff(m.x, m.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.25, 2, k % 2 ? "#bff9ff" : "#ffffff"); }
+    },
     shock(m) { rings.push({ x: m.x, y: m.y, t: 0, r: 60, col: "200,160,255", dur: 0.25, w: 5 }); impacts.push({ x: m.x, y: m.y, t: 0, r: 45, col: "#c9a4ff" }); },
     gamma(m) {   // a green shock ring and a spray of motes
       rings.push({ x: m.x, y: m.y, t: 0, r: 120, col: "125,255,138", dur: 0.35, w: 8 });
@@ -303,12 +329,24 @@
       for (let k = 0; k < 16; k++) { const a = me.a + (Math.random() - 0.5) * 1.2, v = 150 + Math.random() * 300; puff(m.x, m.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.3, 2, k % 2 ? "#9fe8ff" : "#ffffff"); }
     }
   };
+  const DETONATOR = { shot: [K.DET, 0] };
   // fire the gun in hand (alt: its alternate fire, which needs its full ammo cost)
   // mul: the charge cannon's charge (0.25..1)
   function shoot(now, alt, mul = 1) {
     const k = me.weapon, w = WEAPONS[k], pat = alt ? w.alt : w;
     if (alt && !(pat && me.arsenal[k] >= pat.cost)) return;
     if (k === "tele" && myBeacon()) { teleport(now); return; }   // the second shot jumps you to the beacon
+    if (alt && pat.detonate) {   // the gamma orb's alt: a detonator at my orb, which sets it off on every screen
+      const o = shots.filter(s => s.mine && s.kind === K.GAMMA && s.life > 0).pop();
+      if (!o) return;
+      volley(me, now, DETONATOR, { x: o.x, y: o.y }); fireCd = pat.cd; sfx(...pat.sfx);
+      return;
+    }
+    if (alt && pat.heat) {   // the minigun's burst heats the barrels; overheated, it must cool before it fires again
+      if (me.overheat) return;
+      me.heat = (me.heat || 0) + pat.heat;
+      if (me.heat >= 1) { me.overheat = true; floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: "OVERHEAT", gold: false }); sfx("shield_hit", 0.7, 0.6); }
+    }
     const cdMul = MODES[MODE].cdMul || 1;
     fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
     const gun = k === "fire" ? null : muzzleAt(k);
@@ -464,7 +502,7 @@
   const owned = () => WEAPON_KEYS.filter(k => me.arsenal[k]);
   const ammoFill = k => Math.min(1, me.arsenal[k] / WEAPONS[k].ammo);
   const chipText = () => { const n = me.arsenal[me.weapon], alt = WEAPONS[me.weapon].alt;
-    return WEAPONS[me.weapon].name + (Number.isFinite(n) ? " · " + n : "") + (alt && !COARSE ? " · right click: " + alt.name : ""); };
+    return WEAPONS[me.weapon].name + (Number.isFinite(n) ? " · " + n : "") + (me.overheat && alt && alt.heat ? " · OVERHEATED" : "") + (alt && !COARSE ? " · right click: " + alt.name : ""); };
   // after a shot: just the numbers of that gun
   function renderAmmo(k) {
     const n = me.arsenal[k], slot = arsenalEl.querySelector(`[data-w="${k}"]`);
@@ -673,6 +711,8 @@
       deathFx(me, me.ds, me.dk, me.da);
       me.dead = true; me.respawnAt = now + 3000; me.vx = me.vy = 0;
       spillStars(now);
+      const trophy = me.weapon !== "fire" && me.weapon !== "tele" ? me.weapon : owned().find(k => k !== "fire" && k !== "tele");
+      if (trophy && !MODES[MODE].only) dropGun(me.x, me.y, trophy, me.arsenal[trophy]);
       if (me.lv > 1) floaters.push({ x: me.x, y: me.y - 80, t: 0, txt: "-" + (me.lv - levelAfterDeath(me.lv)) + " levels", gold: false });
       me.lv = levelAfterDeath(me.lv); me.xp = XP_STEPS[me.lv - 1];   // a destroyed bin drops two levels
       baseArsenal(); me.ampUntil = 0; me.fc = -1; renderWeapon();   // its guns are lost with it (and a carried flag goes home)
@@ -701,6 +741,13 @@
       renderHearts(false);
     }
     renderLevel();
+  }
+  // a trophy: the gun drops where its pilot died (mine, or one of my bots')
+  function dropGun(x, y, type, ammo) {
+    if (!(ammo > 0) || !Number.isFinite(ammo)) return;
+    const id = myTag + "g" + (gunDropSeq++).toString(36), d = [id, Math.round(x), Math.round(y), WEAPON_KEYS.indexOf(type), Math.min(999, Math.ceil(ammo)), Date.now()];
+    myGunDrops.push(d); if (myGunDrops.length > 6) myGunDrops.shift();
+    gunDrops.set(id, { x: d[1], y: d[2], type, ammo: d[4], born: performance.now() });
   }
   function spillStars(now) {
     const n = Math.min(40, Math.floor(me.carry / 2));

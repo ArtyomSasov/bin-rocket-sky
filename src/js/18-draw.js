@@ -212,7 +212,25 @@
       }
       return;
     }
-    if (s.kind === K.LASER || s.kind === K.SHOCK) return;   // drawn as beams (drawLasers)
+    if (s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.DET) return;   // beams are drawn as beams; a detonator isn't seen
+    if (s.kind === K.PULSE) {   // the laser's pulse: a wide crescent of light
+      const a = Math.atan2(s.vy, s.vx), k = s.life / SHOTS[K.PULSE].life;
+      g.save(); g.translate(x, y); g.rotate(a); g.lineCap = "round";
+      for (const [w, c] of [[22, `rgba(60,200,255,${0.3 * k + 0.1})`], [8, `rgba(160,250,255,${0.8 * k + 0.2})`], [3, "#ffffff"]]) {
+        g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.arc(-40, 0, 70, -0.75, 0.75); g.stroke();
+      }
+      g.restore();
+      return;
+    }
+    if (s.kind === K.FLAK) {   // the flak shell: a hot spiked ball, spinning
+      g.save(); g.translate(x, y); g.rotate(performance.now() / 80);
+      g.globalAlpha = 0.6; g.drawImage(dotSprite("#ff9a3c"), -30, -30, 60, 60); g.globalAlpha = 1;
+      g.fillStyle = "#ffd27a"; g.beginPath();
+      for (let k = 0; k < 16; k++) { const r = k % 2 ? 6 : 13, a = k / 16 * 6.283; k ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(r, 0); }
+      g.closePath(); g.fill(); g.fillStyle = "#fff4e0"; g.beginPath(); g.arc(0, 0, 4, 0, 6.29); g.fill();
+      g.restore();
+      return;
+    }
     if (s.kind === K.SHARD) {   // shard: a heavy white-hot splinter, longer and hotter after every ricochet
       const hot = Math.min(4, s.bn || 0), L = 40 + hot * 14, k = 1.5 + hot * 0.15;
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
@@ -825,6 +843,11 @@
       g.strokeStyle = full && Math.floor(now / 90) % 2 ? "#ffffff" : "#7fb8ff"; g.lineWidth = 6;
       g.beginPath(); g.arc(x, y, R, -Math.PI / 2, -Math.PI / 2 + charge * 6.283); g.stroke();
       g.restore();
+    }
+    if (me.scoping && playing && !me.dead) {   // the railgun's scope: a thin violet line out to where the slug would go
+      const x0 = sx(me.x), y0 = sy(me.y), ca = Math.cos(me.a), sa = Math.sin(me.a), L = 4200 * SHOTS[K.RAIL].life;
+      g.save(); g.setLineDash([14, 10]); g.lineDashOffset = -now / 20; g.strokeStyle = "rgba(217,168,255,0.55)"; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(x0 + ca * 60, y0 + sa * 60); g.lineTo(x0 + ca * L, y0 + sa * L); g.stroke(); g.restore();
     }
     if (settings.aim === "off" || !playing || me.dead || guided) return;
     const w = WEAPONS[me.weapon], col = w.col || "#ffb43c", a = me.a + (w.back ? Math.PI : 0), ca = Math.cos(a), sa = Math.sin(a);

@@ -35,7 +35,7 @@ function setup() {
   return { c, clients, timers, advance: n => { now += n; }, async start() { const p = c.api.initNet(); c.api.chooseLobby('test'); await p; } };
 }
 const state = (q, extra = {}) => ({ x: 10, y: 10, q, rd: 1, ...extra });
-const deliver = (client, id, p) => client.emit('message', 'binrocket-sky/v6/test/s/' + id, Buffer.from(JSON.stringify(p)));
+const deliver = (client, id, p) => client.emit('message', 'binrocket-sky/v7/test/s/' + id, Buffer.from(JSON.stringify(p)));
 
 test('malformed JSON values do not break the message callback; next state still arrives', async () => {
   const { c, clients, start } = setup(); await start();
@@ -79,7 +79,7 @@ test('background housekeeping expires remote drops and host ownership without a 
   const { c, clients, start, advance } = setup(); await start();
   deliver(clients[1], 'phost', state(1, { bots: [['pbchild', state(1)]], dr: [['drop', 1, 1, 1]] }));
   // Load the production timer body, without starting rendering.
-  Object.assign(c, { parts: [], MAX_PARTS: 100, impacts: [], rings: [], arcs: [], beams: [], seenShots: new Map(), grabbed: { prune() {} }, myDrops: [] });
+  Object.assign(c, { parts: [], MAX_PARTS: 100, impacts: [], rings: [], arcs: [], beams: [], seenShots: new Map(), grabbed: { prune() {} }, myDrops: [], myGunDrops: [], gunDrops: new Map(), GUN_DROP_LIFE: 15000 });
   const timers = []; c.setInterval = f => timers.push(f);
   vm.runInContext(section('20-loop-hud.js', '  setInterval(() => {', '  let resCheckAt'), c);
   advance(21000); timers[0]();

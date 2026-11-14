@@ -44,6 +44,7 @@
     const byHole = shotId === "x" || shotId === "p";   // the black hole or a planet: nobody gets credit
     if (!byHole) pushCapped(b.hitBy, shotId, 12);
     if (b.lives <= 0) {
+      if (b.weapon !== "fire" && !MODES[MODE].only) dropGun(b.x, b.y, b.weapon, b.ammo);   // its trophy
       b.dead = true; b.respawnAt = now + 3000; b.fc = -1; b.weapon = "fire";
       b.lv = levelAfterDeath(b.lv); b.xp = XP_STEPS[b.lv - 1]; b.ds = 1 + Math.floor(Math.random() * 4); b.dk = deathStyleOf(kind); b.da = ang;
       b.st.deaths++; b.st.streak = 0;
@@ -122,6 +123,12 @@
             best = null; break;
           }
           if (d < bd) { bd = d; best = c; }
+        }
+        for (const [gid, d] of gunDrops) {   // trophies count as crates
+          if (grabbed.has("W" + gid) || d.type === "mine" || performance.now() - d.born < 600) continue;
+          const dd = Math.hypot(d.x - b.x, d.y - b.y);
+          if (dd < 64) { grabbed.add("W" + gid); pushCapped(myGrabs, "W" + gid, 40); b.weapon = d.type; b.ammo = d.ammo; sfx("weapon_get", 0.5, 1, d.x, d.y); best = null; break; }
+          if (dd < bd) { bd = dd; best = d; }
         }
         if (best) { const gx = best.x - b.x, gy = best.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * 1.4; dy += gy / gd * 1.4; }
       }

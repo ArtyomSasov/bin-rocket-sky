@@ -11,6 +11,8 @@
     pruneNetwork(t);
     pruneRockMotion(clockNow());
     while (myDrops.length && Date.now() - myDrops[0][4] > DROP_LIFE) myDrops.shift();
+    while (myGunDrops.length && Date.now() - myGunDrops[0][5] > GUN_DROP_LIFE) myGunDrops.shift();
+    for (const [id, d] of gunDrops) if (t - d.born > GUN_DROP_LIFE) gunDrops.delete(id);
   }, 1000);
   let resCheckAt = 0;
   function frame(now) {
@@ -87,6 +89,7 @@
     for (const c of world.picks) dot(c, WEAPONS[c.type].col, 2.5);
     for (const c of world.supplies) dot(c, SUPPLIES[c.type].col, 2);
     dot(world.amp, "#c38bff", 3);
+    for (const [id, d] of gunDrops) if (!grabbed.has("W" + id)) { const [x, y] = P(d.x, d.y); mctx.globalAlpha = 0.9; mctx.fillStyle = "#ffd36b"; mctx.fillRect(x - 3, y - 3, 6, 6); }
     for (const c of world.bombs) dot(c, WEAPONS[c.type].col, 3.5);
     mctx.globalAlpha = 1;
     // other flyers

@@ -38,6 +38,25 @@
     boom_small: [0.8, [55, 0.5, 0.9]], boom_bin: [0.8, [45, 0.8, 1]], boom_big: [0.8, [38, 1.2, 1]], boom_low: [0.85, [32, 1.4, 1]],
     chunk: [0.8, [60, 0.4, 0.8]], hit: [0.7, [90, 0.12, 0.6]], crash: [0.75, [70, 0.22, 0.7]], ram: [0.75, [65, 0.25, 0.8]]
   };
+  // the engine: a low hum that rises with speed, opens up with thrust and roars on boost (Settings: Engine)
+  let engine = null, engineAt = 0;
+  function engineHum(speed, thrust, boost, now) {
+    if (!audio || !sfxBus) return;
+    if (!engine) {
+      const o1 = audio.createOscillator(), o2 = audio.createOscillator(), f = audio.createBiquadFilter(), v = audio.createGain();
+      o1.type = "sawtooth"; o2.type = "square"; o2.detune.value = 9; f.type = "lowpass"; f.Q.value = 3; v.gain.value = 0;
+      o1.connect(f); o2.connect(f); f.connect(v).connect(sfxBus); o1.start(); o2.start();
+      engine = { o1, o2, f, v };
+      document.addEventListener("visibilitychange", () => { if (document.hidden && engine) engine.v.gain.setTargetAtTime(0, audio.currentTime, 0.05); });
+    }
+    if (now - engineAt < 50) return;   // a few updates a second are plenty
+    engineAt = now;
+    const t = audio.currentTime, on = settings.engine !== "off" && speed > 0;
+    engine.o1.frequency.setTargetAtTime(42 + speed * 0.06 + boost * 14, t, 0.12);
+    engine.o2.frequency.setTargetAtTime((42 + speed * 0.06 + boost * 14) * 0.5, t, 0.12);
+    engine.f.frequency.setTargetAtTime(180 + speed * 0.9 + thrust * 260 + boost * 700, t, 0.1);
+    engine.v.gain.setTargetAtTime(on ? 0.035 + thrust * 0.035 + boost * 0.03 + Math.min(0.03, speed / 30000) : 0, t, 0.12);
+  }
   function loadSfx() {
     if (!audio) return;
     sfxBus = audio.createGain(); sfxBus.gain.value = 0.7;

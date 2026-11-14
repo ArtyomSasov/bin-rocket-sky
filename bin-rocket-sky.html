@@ -419,6 +419,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     <div class="pick"><span>Resolution</span><div class="segs" id="setRes" role="group" aria-label="Resolution"></div>
       <small>Auto lowers it when the game runs slow. Pick a lower one on a big or slow screen.</small></div>
     <div class="pick"><span>Effects</span><div class="segs" id="setFx" role="group" aria-label="Effects"></div></div>
+    <div class="pick"><span>Engine sound</span><div class="segs" id="setEngine" role="group" aria-label="Engine sound"></div></div>
     <div class="pick"><span>Crosshair</span><div class="segs" id="setAim" role="group" aria-label="Crosshair"></div>
       <div class="segs" id="setAimCol" role="group" aria-label="Crosshair colour"></div></div>
     <button type="button" class="go" id="setDone">Back to the game</button>
@@ -578,7 +579,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   ];
   const tierOf = lv => TIERS.filter(t => lv >= t.from).pop();
   // shot kinds: what flies. The number is what goes over the network; everything per kind lives in SHOTS
-  const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10, HOLY: 11, SAW: 12, GAMMA: 13, BEACON: 14, TFRAG: 15, BULLET: 16, GAUSS: 17, SHOCK: 18 };
+  const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10, HOLY: 11, SAW: 12, GAMMA: 13, BEACON: 14, TFRAG: 15, BULLET: 16, GAUSS: 17, SHOCK: 18, PULSE: 19, FLAK: 20, DET: 21 };
   const MINE_R = 55, MINE_ARM = 0.7;   // mines go off when a bin comes this close, after arming
   // life: seconds; dmg: in lives (Lv 1 has 3 = 100%; pellets use pelletDmg, the nuke deals its damage in detonate);
   // r: extra hit radius; col: colour; carve: crater radius; shove: push on the bin it hits; sfx: [sound, volume, pitch] of someone else's shot;
@@ -603,7 +604,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     { name: "telefrag",  life: 0.12, dmg: 99,   r: 40,     col: "#8ff0ff", carve: 0,  shove: 900, sfx: ["rail", 0.6, 1.6] },
     { name: "bullet",    life: 0.5,  dmg: 0.09, r: 0,      col: "#ffe08a", carve: 6,  shove: 30,  sfx: ["fire", 0.3, 1.8] },
     { name: "gauss slug", life: 0.6, dmg: 3,    r: 4,      col: "#7fb8ff", carve: 26, shove: 700, sfx: ["rail", 0.7, 0.8], pierce: true },
-    { name: "shock beam", life: 0.25, dmg: 0.75, r: 0,      col: "#c9a4ff", carve: 10, shove: 220, sfx: ["laser", 0.6, 0.55] }
+    { name: "shock beam", life: 0.25, dmg: 0.75, r: 0,      col: "#c9a4ff", carve: 10, shove: 220, sfx: ["laser", 0.6, 0.55] },
+    { name: "laser pulse", life: 0.12, dmg: 0.45, r: 60,    col: "#7df9ff", carve: 12, shove: 950, sfx: ["laser", 0.9, 0.5], pierce: true },
+    { name: "flak shell", life: 0.42, dmg: 0.6,  r: 6,      col: "#ff9a3c", carve: 22, shove: 200, sfx: ["scatter", 0.9, 0.6] },
+    { name: "detonator",  life: 0.05, dmg: 0,    r: 0,      col: "#7dff8a", carve: 0,  shove: 0,   sfx: ["hit", 0.5, 0.6], inert: true }
   ];
   // weapons: pick-ups swap the fireball for a while. Each gun is described here, and the player and the bots fire it
   // the same way (see volley):
@@ -617,14 +621,18 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     triple:  { name: "Triple shot", ammo: 24, cd: 0.3, col: "#ffb43c", shot: [K.FIRE, 1000], spread: [-0.2, 0, 0.2], kick: 25, feel: [7, 0.07, 50], sfx: ["triple", 0.7],
                alt: { name: "Focus", cost: 1, cd: 0.3, shot: [K.FIRE, 1050], spread: [-0.035, 0, 0.035], kick: 60, feel: [10, 0.13, 80], sfx: ["triple", 0.8, 0.9] } },
     // the laser: a beam of ~700 px that locks onto the nearest enemy you point at and arcs on to one more close by
-    laser:   { name: "Laser", ammo: 120, cd: 0.08, col: "#7df9ff", shot: [K.LASER, 5600], kick: 6, feel: [2, 0.02, 30], sfx: ["laser", 0.4] },
+    // alt: a wide pulse that shoves everything in front of you away (12 charges)
+    laser:   { name: "Laser", ammo: 120, cd: 0.08, col: "#7df9ff", shot: [K.LASER, 5600], kick: 6, feel: [2, 0.02, 30], sfx: ["laser", 0.4],
+               alt: { name: "Pulse", cost: 12, cd: 1.0, shot: [K.PULSE, 3000], kick: 160, feel: [14, 0.22, 90], sfx: ["laser", 1, 0.5], fx: "pulse" } },
     rocket:  { name: "Homing rockets", ammo: 8, cd: 0.7, col: "#ff5a6e", shot: [K.ROCKET, 260], kick: 90, feel: [12, 0.14, 70], sfx: ["rocket", 0.8],
                alt: { name: "Salvo", cost: 3, cd: 1.6, shot: [K.ROCKET, 300], spread: [-0.24, 0, 0.24], kick: 200, feel: [18, 0.23, 96], sfx: ["rocket", 1, 0.8] } },
     nuke:    { name: "Nuke", ammo: 1, cd: 1.0, col: "#ffe14d", shot: [K.NUKE, 360], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.6],
                alt: { name: "Guided", cost: 1, cd: 1.0, shot: [K.NUKE, 420], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.5], guided: true } },
     scatter: { name: "Scatter gun", ammo: 16, cd: 0.7, col: "#ffd27a", shot: [K.PELLET, 1250], kick: 260, feel: [22, 0.3, 90], sfx: ["scatter", 1, 0.85], fx: "blast",
                alt: { name: "Slug", cost: 2, cd: 0.95, shot: [K.SLUG, 1900], kick: 340, feel: [24, 0.3, 108], sfx: ["scatter", 1, 0.65], fx: "slug" } },
-    rail:    { name: "Railgun", ammo: 6, cd: 1.15, col: "#d9a8ff", shot: [K.RAIL, 4200], kick: 320, feel: [26, 0.35, 90], sfx: ["rail", 0.9], fx: "rail" },
+    // alt: a scope while held (the view runs far ahead and pulls back; fire as usual)
+    rail:    { name: "Railgun", ammo: 6, cd: 1.15, col: "#d9a8ff", shot: [K.RAIL, 4200], kick: 320, feel: [26, 0.35, 90], sfx: ["rail", 0.9], fx: "rail",
+               alt: { name: "Scope", scope: true } },
     mine:    { name: "Mines", ammo: 6, cd: 0.6, col: "#ff6b3c", shot: [K.MINE, 140], back: true, kick: 0, feel: [0, 0, 0], sfx: ["mine_drop", 0.7],
                alt: { name: "Throw", cost: 1, cd: 0.6, shot: [K.MINE, 700], kick: 40, feel: [4, 0.05, 68], sfx: ["mine_drop", 0.8, 0.8] } },
     // the shock orb: a slow ball that stops and hangs in the air; its alt fire is a beam, and the beam through a ball sets off a combo
@@ -634,12 +642,18 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     holy:    { name: "Holy bomb", ammo: 1, cd: 1.2, col: "#fff3b0", shot: [K.HOLY, 700], kick: 120, feel: [20, 0.3, 110], sfx: ["mine_drop", 1, 0.6] },
     saw:     { name: "Buzzsaw", ammo: 20, cd: 0.42, col: "#d6dde8", shot: [K.SAW, 1500], kick: 60, feel: [8, 0.08, 50], sfx: ["scatter", 0.55, 1.7],
                alt: { name: "Fan", cost: 3, cd: 0.9, shot: [K.SAW, 1400], spread: [-0.22, 0, 0.22], kick: 120, feel: [12, 0.14, 70], sfx: ["scatter", 0.8, 1.4] } },
-    gamma:   { name: "Gamma orb", ammo: 3, cd: 1.6, col: "#7dff8a", shot: [K.GAMMA, 420], kick: 220, feel: [24, 0.35, 130], sfx: ["shield_get", 1, 0.5], fx: "gamma" },
+    // alt: set your gamma orb off where it is now
+    gamma:   { name: "Gamma orb", ammo: 3, cd: 1.6, col: "#7dff8a", shot: [K.GAMMA, 420], kick: 220, feel: [24, 0.35, 130], sfx: ["shield_get", 1, 0.5], fx: "gamma",
+               alt: { name: "Detonate", detonate: true, cost: 0, cd: 0.3, sfx: ["hit", 0.6, 0.6] } },
     tele:    { name: "Teleporter", ammo: 3, cd: 0.35, col: "#8ff0ff", shot: [K.BEACON, 1250], kick: 0, feel: [3, 0.02, 30], sfx: ["mine_drop", 0.7, 1.5] },
-    minigun: { name: "Minigun", ammo: 160, cd: 0.09, spin: [0.16, 0.045, 1.2], jitter: 0.05, col: "#ffe08a", shot: [K.BULLET, 2600], kick: 10, feel: [2, 0.03, 30], sfx: ["fire", 0.35, 1.8] },
+    // alt: full rate at once, no spin-up, but wild, and it overheats (then it must cool down)
+    minigun: { name: "Minigun", ammo: 160, cd: 0.09, spin: [0.16, 0.045, 1.2], jitter: 0.05, col: "#ffe08a", shot: [K.BULLET, 2600], kick: 10, feel: [2, 0.03, 30], sfx: ["fire", 0.35, 1.8],
+               alt: { name: "Burst", cost: 1, cd: 0.042, heat: 0.035, jitter: 0.12, shot: [K.BULLET, 2600], kick: 14, feel: [3, 0.04, 34], sfx: ["fire", 0.4, 2] } },
     gauss:   { name: "Charge cannon", ammo: 8, cd: 1.4, charge: 1.1, col: "#7fb8ff", shot: [K.GAUSS, 3600], kick: 300, feel: [24, 0.35, 100], sfx: ["rail", 0.9, 0.75], fx: "rail" },
     // the shard cannon: four heavy shards that ricochet four times, each bounce making them hit harder
-    shard:   { name: "Shard cannon", ammo: 14, cd: 0.8, col: "#ff9a3c", shot: [K.SHARD, 1500], kick: 340, feel: [28, 0.42, 130], sfx: ["scatter", 1, 0.7], fx: "shard" }
+    // alt: a flak shell that bursts into eight shards all round after a short flight (or on impact)
+    shard:   { name: "Shard cannon", ammo: 14, cd: 0.8, col: "#ff9a3c", shot: [K.SHARD, 1500], kick: 340, feel: [28, 0.42, 130], sfx: ["scatter", 1, 0.7], fx: "shard",
+               alt: { name: "Flak", cost: 2, cd: 0.95, shot: [K.FLAK, 1100], kick: 220, feel: [20, 0.28, 110], sfx: ["scatter", 1, 0.55], fx: "shard" } }
   };
   let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
@@ -898,7 +912,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // graphics settings, kept in this browser: res "auto" (drops when slow) or a fixed share of the screen's resolution,
   // fx "high" or "low" (lighter effects), aim: the crosshair ("off", "small", "big"), aimCol: its colour
   const settings = (() => {
-    const d = { res: "auto", fx: "high", aim: "small", aimCol: "gun" };
+    const d = { res: "auto", fx: "high", aim: "small", aimCol: "gun", engine: "on" };
     try {
       const v = JSON.parse(store.get("binrocket.gfx"));
       if (!v || typeof v !== "object") return d;
@@ -1127,6 +1141,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const drops = new Map();
   const myDrops = [];          // [id, x, y, n, bornMs] of my own recent spills
   let deaths = 0;
+  // trophies: the gun a pilot dies with drops where it died, with its ammo, for 15 s; anyone may take it
+  const gunDrops = new Map();   // id -> { x, y, type, ammo, born }
+  const myGunDrops = [];        // [id, x, y, gun index, ammo, bornMs]: mine and my bots', sent with my state
+  const GUN_DROP_LIFE = 15000;
+  let gunDropSeq = 0;
   const DROP_LIFE = 20000;
   const remotes = new Map();   // id -> remote bot
   // "slot:gen" of pick-ups already taken by anyone; a key is forgotten two minutes after it was last taken,
@@ -1273,6 +1292,25 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     boom_small: [0.8, [55, 0.5, 0.9]], boom_bin: [0.8, [45, 0.8, 1]], boom_big: [0.8, [38, 1.2, 1]], boom_low: [0.85, [32, 1.4, 1]],
     chunk: [0.8, [60, 0.4, 0.8]], hit: [0.7, [90, 0.12, 0.6]], crash: [0.75, [70, 0.22, 0.7]], ram: [0.75, [65, 0.25, 0.8]]
   };
+  // the engine: a low hum that rises with speed, opens up with thrust and roars on boost (Settings: Engine)
+  let engine = null, engineAt = 0;
+  function engineHum(speed, thrust, boost, now) {
+    if (!audio || !sfxBus) return;
+    if (!engine) {
+      const o1 = audio.createOscillator(), o2 = audio.createOscillator(), f = audio.createBiquadFilter(), v = audio.createGain();
+      o1.type = "sawtooth"; o2.type = "square"; o2.detune.value = 9; f.type = "lowpass"; f.Q.value = 3; v.gain.value = 0;
+      o1.connect(f); o2.connect(f); f.connect(v).connect(sfxBus); o1.start(); o2.start();
+      engine = { o1, o2, f, v };
+      document.addEventListener("visibilitychange", () => { if (document.hidden && engine) engine.v.gain.setTargetAtTime(0, audio.currentTime, 0.05); });
+    }
+    if (now - engineAt < 50) return;   // a few updates a second are plenty
+    engineAt = now;
+    const t = audio.currentTime, on = settings.engine !== "off" && speed > 0;
+    engine.o1.frequency.setTargetAtTime(42 + speed * 0.06 + boost * 14, t, 0.12);
+    engine.o2.frequency.setTargetAtTime((42 + speed * 0.06 + boost * 14) * 0.5, t, 0.12);
+    engine.f.frequency.setTargetAtTime(180 + speed * 0.9 + thrust * 260 + boost * 700, t, 0.1);
+    engine.v.gain.setTargetAtTime(on ? 0.035 + thrust * 0.035 + boost * 0.03 + Math.min(0.03, speed / 30000) : 0, t, 0.12);
+  }
   function loadSfx() {
     if (!audio) return;
     sfxBus = audio.createGain(); sfxBus.gain.value = 0.7;
@@ -2984,6 +3022,28 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     return s;
   }
+  // a flak shell bursts: eight shards all round, the same on every screen (their ids follow from the shell's)
+  function flakBurst(s) {
+    if (s.burst) return;
+    s.burst = true; s.boom = true;
+    for (let k = 0; k < 8; k++) {
+      const a = k / 8 * 6.283 + 0.2, v = 1300;
+      shots.push({ ...s, id: s.id + "f" + k, kind: K.SHARD, ox: s.x, oy: s.y, px: s.x, py: s.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: SHOTS[K.SHARD].life * 0.6, bn: 0, burst: false, boom: false, hits: undefined });
+    }
+    if (onScreen(sx(s.x), sy(s.y), 300)) {
+      explode(s.x, s.y, lowQ ? 20 : 45, 380); impacts.push({ x: s.x, y: s.y, t: 0, r: 110, col: "#ffb060" });
+      rings.push({ x: s.x, y: s.y, t: 0, r: 160, col: "255,170,90", dur: 0.35, w: 8 });
+    }
+    sfx("boom_small", 0.8, 1.3, s.x, s.y);
+  }
+  // the gamma orb's detonator: the shooter's nearest gamma orb goes off right here
+  function detonateOrb(d) {
+    if (d.done) return;
+    d.done = true;
+    let best = null, bd = 500;
+    for (const o of shots) if (o.kind === K.GAMMA && o.life > 0 && (d.mine ? o.mine : o.owner === d.owner)) { const dd = Math.hypot(o.x - d.x, o.y - d.y); if (dd < bd) { bd = dd; best = o; } }
+    if (best) { best.x = d.x; best.y = d.y; best.life = 0; }
+  }
   // a shard ricochets: sparks fly, it rings, and it glows hotter (it hits harder now, see shotDmg)
   function shardRicochet(s) {
     if (!onScreen(sx(s.x), sy(s.y), 200)) return;
@@ -3023,6 +3083,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       sfx("boom_small", 0.7, 0.75);
       setTimeout(() => sfx("pump", 0.6, 1.25), 330);
     },
+    pulse(m) {   // the laser's pulse: a wide cyan wave rolls out of the gun
+      rings.push({ x: m.x, y: m.y, t: 0, r: 140, col: "125,249,255", warp: true, dur: 0.3, w: 10 });
+      for (let k = 0; k < 24; k++) { const a = me.a + (Math.random() - 0.5) * 1.3, v = 300 + Math.random() * 600; puff(m.x, m.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.25, 2, k % 2 ? "#bff9ff" : "#ffffff"); }
+    },
     shock(m) { rings.push({ x: m.x, y: m.y, t: 0, r: 60, col: "200,160,255", dur: 0.25, w: 5 }); impacts.push({ x: m.x, y: m.y, t: 0, r: 45, col: "#c9a4ff" }); },
     gamma(m) {   // a green shock ring and a spray of motes
       rings.push({ x: m.x, y: m.y, t: 0, r: 120, col: "125,255,138", dur: 0.35, w: 8 });
@@ -3033,12 +3097,24 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       for (let k = 0; k < 16; k++) { const a = me.a + (Math.random() - 0.5) * 1.2, v = 150 + Math.random() * 300; puff(m.x, m.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.3, 2, k % 2 ? "#9fe8ff" : "#ffffff"); }
     }
   };
+  const DETONATOR = { shot: [K.DET, 0] };
   // fire the gun in hand (alt: its alternate fire, which needs its full ammo cost)
   // mul: the charge cannon's charge (0.25..1)
   function shoot(now, alt, mul = 1) {
     const k = me.weapon, w = WEAPONS[k], pat = alt ? w.alt : w;
     if (alt && !(pat && me.arsenal[k] >= pat.cost)) return;
     if (k === "tele" && myBeacon()) { teleport(now); return; }   // the second shot jumps you to the beacon
+    if (alt && pat.detonate) {   // the gamma orb's alt: a detonator at my orb, which sets it off on every screen
+      const o = shots.filter(s => s.mine && s.kind === K.GAMMA && s.life > 0).pop();
+      if (!o) return;
+      volley(me, now, DETONATOR, { x: o.x, y: o.y }); fireCd = pat.cd; sfx(...pat.sfx);
+      return;
+    }
+    if (alt && pat.heat) {   // the minigun's burst heats the barrels; overheated, it must cool before it fires again
+      if (me.overheat) return;
+      me.heat = (me.heat || 0) + pat.heat;
+      if (me.heat >= 1) { me.overheat = true; floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: "OVERHEAT", gold: false }); sfx("shield_hit", 0.7, 0.6); }
+    }
     const cdMul = MODES[MODE].cdMul || 1;
     fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
     const gun = k === "fire" ? null : muzzleAt(k);
@@ -3194,7 +3270,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const owned = () => WEAPON_KEYS.filter(k => me.arsenal[k]);
   const ammoFill = k => Math.min(1, me.arsenal[k] / WEAPONS[k].ammo);
   const chipText = () => { const n = me.arsenal[me.weapon], alt = WEAPONS[me.weapon].alt;
-    return WEAPONS[me.weapon].name + (Number.isFinite(n) ? " · " + n : "") + (alt && !COARSE ? " · right click: " + alt.name : ""); };
+    return WEAPONS[me.weapon].name + (Number.isFinite(n) ? " · " + n : "") + (me.overheat && alt && alt.heat ? " · OVERHEATED" : "") + (alt && !COARSE ? " · right click: " + alt.name : ""); };
   // after a shot: just the numbers of that gun
   function renderAmmo(k) {
     const n = me.arsenal[k], slot = arsenalEl.querySelector(`[data-w="${k}"]`);
@@ -3403,6 +3479,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       deathFx(me, me.ds, me.dk, me.da);
       me.dead = true; me.respawnAt = now + 3000; me.vx = me.vy = 0;
       spillStars(now);
+      const trophy = me.weapon !== "fire" && me.weapon !== "tele" ? me.weapon : owned().find(k => k !== "fire" && k !== "tele");
+      if (trophy && !MODES[MODE].only) dropGun(me.x, me.y, trophy, me.arsenal[trophy]);
       if (me.lv > 1) floaters.push({ x: me.x, y: me.y - 80, t: 0, txt: "-" + (me.lv - levelAfterDeath(me.lv)) + " levels", gold: false });
       me.lv = levelAfterDeath(me.lv); me.xp = XP_STEPS[me.lv - 1];   // a destroyed bin drops two levels
       baseArsenal(); me.ampUntil = 0; me.fc = -1; renderWeapon();   // its guns are lost with it (and a carried flag goes home)
@@ -3431,6 +3509,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       renderHearts(false);
     }
     renderLevel();
+  }
+  // a trophy: the gun drops where its pilot died (mine, or one of my bots')
+  function dropGun(x, y, type, ammo) {
+    if (!(ammo > 0) || !Number.isFinite(ammo)) return;
+    const id = myTag + "g" + (gunDropSeq++).toString(36), d = [id, Math.round(x), Math.round(y), WEAPON_KEYS.indexOf(type), Math.min(999, Math.ceil(ammo)), Date.now()];
+    myGunDrops.push(d); if (myGunDrops.length > 6) myGunDrops.shift();
+    gunDrops.set(id, { x: d[1], y: d[2], type, ammo: d[4], born: performance.now() });
   }
   function spillStars(now) {
     const n = Math.min(40, Math.floor(me.carry / 2));
@@ -3479,7 +3564,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // window.BRS_BROKER set before the game loads (see server/ in the repo)
   const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
   const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
-  const LOBBY_TOPIC = "binrocket-sky/v6/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  const LOBBY_TOPIC = "binrocket-sky/v7/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
   let lobbyRenderPending = false;
   function renderLobbies() {
@@ -3608,6 +3693,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (drops.size >= MAX_DROPS) break;
       if (!Array.isArray(d) || typeof d[0] !== "string" || d[0].length > 10 || drops.has(d[0])) continue;
       drops.set(d[0], { x: clamp(num(d[1], 0), 0, W), y: clamp(num(d[2], 0), 0, H), n: clamp(Math.floor(num(d[3], 0)), 0, 40), born: performance.now() });
+    }
+    if (Array.isArray(p.wd)) for (const d of p.wd.slice(0, 3)) {   // trophies: a dead pilot's gun and its ammo
+      if (gunDrops.size >= 64) break;
+      if (!Array.isArray(d) || typeof d[0] !== "string" || !/^[a-z0-9]{2,16}$/.test(d[0]) || gunDrops.has(d[0])) continue;
+      const type = WEAPON_KEYS[d[3]];
+      if (!type || type === "fire" || type === "tele") continue;
+      gunDrops.set(d[0], { x: clamp(num(d[1], 0), 0, W), y: clamp(num(d[2], 0), 0, H), type, ammo: clamp(Math.floor(num(d[4], 1)), 1, 999), born: performance.now() });
     }
     if (Array.isArray(p.terrain)) applyTerrain(p.terrain);
     // Event IDs belong to one round; old reports must not survive a round reset.
@@ -3742,7 +3834,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     // Shots ride in state, including on the primary, and q deduplicates the two deliveries.
     const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
     const myId = "p" + Math.random().toString(36).slice(2, 10);
-    const base = "binrocket-sky/v6/" + code + "/";
+    const base = "binrocket-sky/v7/" + code + "/";
     const clients = BROKERS.map(url => {
       const c = mqtt.connect(url, {
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),
@@ -4141,6 +4233,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const byHole = shotId === "x" || shotId === "p";   // the black hole or a planet: nobody gets credit
     if (!byHole) pushCapped(b.hitBy, shotId, 12);
     if (b.lives <= 0) {
+      if (b.weapon !== "fire" && !MODES[MODE].only) dropGun(b.x, b.y, b.weapon, b.ammo);   // its trophy
       b.dead = true; b.respawnAt = now + 3000; b.fc = -1; b.weapon = "fire";
       b.lv = levelAfterDeath(b.lv); b.xp = XP_STEPS[b.lv - 1]; b.ds = 1 + Math.floor(Math.random() * 4); b.dk = deathStyleOf(kind); b.da = ang;
       b.st.deaths++; b.st.streak = 0;
@@ -4219,6 +4312,12 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
             best = null; break;
           }
           if (d < bd) { bd = d; best = c; }
+        }
+        for (const [gid, d] of gunDrops) {   // trophies count as crates
+          if (grabbed.has("W" + gid) || d.type === "mine" || performance.now() - d.born < 600) continue;
+          const dd = Math.hypot(d.x - b.x, d.y - b.y);
+          if (dd < 64) { grabbed.add("W" + gid); pushCapped(myGrabs, "W" + gid, 40); b.weapon = d.type; b.ammo = d.ammo; sfx("weapon_get", 0.5, 1, d.x, d.y); best = null; break; }
+          if (dd < bd) { bd = dd; best = d; }
         }
         if (best) { const gx = best.x - b.x, gy = best.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * 1.4; dy += gy / gd * 1.4; }
       }
@@ -4431,12 +4530,15 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     // input → acceleration
     let ix = 0, iy = 0;
     const shiftHeld = keys.has("ShiftLeft") || keys.has("ShiftRight");
-    let boost = (shiftHeld || boostBtnDown) && boostDownAt >= 0 && now - boostDownAt > BOOST_HOLD * 1000;
+    let boost = (shiftHeld || boostBtnDown) && boostDownAt >= 0 && now - boostDownAt > BOOST_HOLD * 1000 && !keys.has("KeyX");
     if (me.dead && now >= me.respawnAt) respawn(now);
     fireCd -= dt; shake = Math.max(0, shake - dt);
     const held = firing || FIRE_KEYS.some(k => keys.has(k));
     const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided;
-    if (ready && (altFiring || keys.has("KeyC")) && WEAPONS[me.weapon].alt) shoot(now, true);
+    const altW = WEAPONS[me.weapon].alt, altHeld = altFiring || keys.has("KeyC");
+    me.scoping = !!(altW && altW.scope && altHeld && playing && !me.dead);   // the railgun's alt: hold to look far ahead
+    me.heat = Math.max(0, (me.heat || 0) - 0.45 * dt); if (me.overheat && me.heat < 0.3) { me.overheat = false; renderAmmo(me.weapon); }
+    if (ready && altHeld && altW && !altW.scope) shoot(now, true);
     else if (triggerTick(dt, now, ready, held)) shoot(now);
     if (playing && !me.dead) {
       if (keys.has("KeyA") || keys.has("ArrowLeft")) ix -= 1;
@@ -4522,9 +4624,18 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // my flight: thrust with inertia, gravity, bumping off bodies and the fence, facing, exhaust
   function flyMe(dt, now, im, boost) {
     const braking = playing && !me.dead && keys.has("KeyX");
+    // X with a direction is a drift: the engine cuts, the bin slides on with its speed and the nose swings round
+    // fast to where you push, so you can turn and shoot back the way you came. X alone is the air brake
+    const drift = braking && Math.hypot(steer.x, steer.y) > 0.3 && Math.hypot(me.vx, me.vy) > 150;
+    me.drift = drift;
     if (playing && !me.dead) {
-      thrustPilot(me, steer.x, steer.y, boost, braking, dt);
-      if (braking && Math.hypot(me.vx, me.vy) > 60 && Math.random() < 40 * dt) {   // retro jets puffing out of the nose
+      if (drift) thrustPilot(me, 0, 0, false, false, dt);
+      else thrustPilot(me, steer.x, steer.y, boost, braking, dt);
+      if (drift && Math.abs(angD(Math.atan2(me.vy, me.vx) - me.a)) > 0.6 && Math.random() < 50 * dt) {   // the hull scrubs sideways: smoke off both flanks
+        const s = 26 * sizeOf(me.lv), nx = -Math.sin(me.a), ny = Math.cos(me.a), side = Math.random() < 0.5 ? 1 : -1;
+        puff(me.x + nx * s * side, me.y + ny * s * side, nx * side * 60 + (Math.random() - 0.5) * 40, ny * side * 60 + (Math.random() - 0.5) * 40, 0.6, 3 + Math.random() * 3, "rgb(190,200,225)", 2);
+      }
+      if (braking && !drift && Math.hypot(me.vx, me.vy) > 60 && Math.random() < 40 * dt) {   // retro jets puffing out of the nose
         const fx = me.x + Math.cos(me.a) * 30 * sizeOf(me.lv), fy = me.y + Math.sin(me.a) * 30 * sizeOf(me.lv);
         puff(fx, fy, Math.cos(me.a) * 220 + me.vx, Math.sin(me.a) * 220 + me.vy, 0.35, 3 + Math.random() * 3, "#cfe8ff", 2);
       }
@@ -4568,7 +4679,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     // but no longer spin it (shooting while standing still used to flip it round and round)
     const steerMag = Math.hypot(steer.x, steer.y);
     const a0 = me.a;
-    if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-13 * dt));
+    if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-(drift ? 20 : 13) * dt));
     else if (!playing && sp > 25) me.a = lerpAng(me.a, Math.atan2(me.vy, me.vx), 1 - Math.exp(-6 * dt));
     me.thrust += ((playing ? Math.min(1, im) * (boost ? 1.4 : 1) : 0.6) - me.thrust) * Math.min(1, dt * 6);
     // the bin banks into a turn (drawn as a lean), and settles back when flying straight
@@ -4584,15 +4695,17 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     // the camera leads the bin by up to ~a fifth of the screen in the direction it flies
     const lead = Math.min(vw, vh) * 0.2, sp2 = Math.hypot(me.vx, me.vy), lk = me.dead ? 0 : Math.min(1, sp2 / 900) * lead / (sp2 || 1);
     const ce = 1 - Math.exp(-2.5 * dt);
-    cam.lx += (me.vx * lk - cam.lx) * ce; cam.ly += (me.vy * lk - cam.ly) * ce;
+    const scope = me.scoping ? Math.min(vw, vh) * 0.42 : 0;   // the railgun's scope: the view runs far ahead of the nose
+    cam.lx += (me.vx * lk + Math.cos(me.a) * scope - cam.lx) * ce; cam.ly += (me.vy * lk + Math.sin(me.a) * scope - cam.ly) * ce;
     if (guided || now < camBackUntil) {   // riding along with the guided nuke, then easing back to the bin
       const to = guided || me, ce2 = 1 - Math.exp(-(guided ? 10 : 6) * dt);
       cam.x += (to.x + (guided ? 0 : cam.lx) - cam.x) * ce2; cam.y += (to.y + (guided ? 0 : cam.ly) - cam.y) * ce2;
     } else { cam.x = me.x + cam.lx; cam.y = me.y + cam.ly; }
     // on boost the view pulls back a little (and eases in again after): speed you can feel
-    const vzT = playing && !me.dead && boost ? 0.84 : 1;
+    const vzT = playing && !me.dead ? (me.scoping ? 0.66 : boost ? 0.84 : 1) : 1;
     viewZoom += (vzT - viewZoom) * (1 - Math.exp(-(vzT < viewZoom ? 2.2 : 1.4) * dt));
     applyView();
+    engineHum(playing && !me.dead ? Math.hypot(me.vx, me.vy) : 0, drift ? 0 : me.thrust, me.boostFx, now);
     if (!me.dead) { trailFrom(me, 0.6 + me.thrust * 1.6 + me.boostFx * 1.5, dt); if (playing) damageFx(me, dt); afterburner(me, me.boostFx, dt); }
   }
   // every shot in flight: homing, ricochets, digging into bodies, hitting me (I decide) or reaching others
@@ -4601,6 +4714,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     for (let i = shots.length - 1; i >= 0; i--) {
       const s = shots[i];
       s.life -= dt;
+      if (s.kind === K.DET) { detonateOrb(s); if (s.life <= 0) shots.splice(i, 1); continue; }   // inert: it only sets off its orb
+      if (s.life <= 0 && s.kind === K.FLAK) flakBurst(s);
       if (s.life <= 0) { if (SPLASH[s.kind]) splash(s, now); if (BOMBS[s.kind]) detonate(s, now); else if (s.kind === K.MINE && !s.boom) explode(s.x, s.y, 20, 180); shots.splice(i, 1); continue; }
       if (s.kind === K.ROCKET) steerRocket(s, dt);
       if (s.kind === K.ROCKET && s.life > 0) for (const o of shots) {   // rockets are big and slow: any enemy shot can blow one up mid-air
@@ -4655,6 +4770,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         } else {
           if (dig) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);
           s.x = hb.x; s.y = hb.y;
+          if (s.kind === K.FLAK) { const [nx, ny] = normalAt(hb.b, hb.x, hb.y); s.x += nx * 12; s.y += ny * 12; flakBurst(s); }   // bursts just off the surface
           if (SPLASH[s.kind]) splash(s, now);
           impact(hb.x, hb.y, SHOTS[s.kind].col, s.kind === K.MINE ? 1.6 : 0.8);
           if (s.kind === K.MINE) explode(hb.x, hb.y, 40, 260);
@@ -4837,6 +4953,19 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         }
       }
     }
+    // trophies: a dead pilot's gun, with its ammo
+    for (const [id, d] of gunDrops) {
+      if (now - d.born > GUN_DROP_LIFE) { gunDrops.delete(id); continue; }
+      const key = "W" + id;
+      if (!playing || me.dead || grabbed.has(key) || now - d.born < 600 || Math.hypot(d.x - me.x, d.y - me.y) > 30 + 30 * sizeOf(me.lv) + magnet()) continue;
+      grabbed.add(key); pushCapped(myGrabs, key, 40);
+      const w = WEAPONS[d.type];
+      me.arsenal[d.type] = Math.min(Number.isFinite(w.ammo) ? w.ammo * 2 : 1, (me.arsenal[d.type] || 0) + d.ammo);
+      renderWeapon();
+      floaters.push({ x: d.x, y: d.y - 20, t: 0, txt: "TROPHY · " + w.name.toUpperCase(), gold: true });
+      for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 220; puff(d.x, d.y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, k % 2 ? "#ffd36b" : w.col); }
+      sfx("weapon_get", 0.9, 0.85);
+    }
     // medkits and shields (left on the ground when they would do nothing, like in Doom)
     if (playing && !me.dead) {
       for (const c of world.supplies) {
@@ -4999,7 +5128,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         st: [stats.round, stats.kills, stats.deaths, stats.shots, stats.hits, stats.best],
         // Keep live deltas within the packet budget; rolling terrain snapshots repair older holes.
         cv: myCarves.filter(e => performance.now() - e.at < 4000).slice(-128).map(e => e.d),
-        dr: myDrops.filter(d => Date.now() - d[4] < DROP_LIFE).slice(-3).map(d => d.slice(0, 4))
+        dr: myDrops.filter(d => Date.now() - d[4] < DROP_LIFE).slice(-3).map(d => d.slice(0, 4)),
+        wd: myGunDrops.filter(d => Date.now() - d[5] < GUN_DROP_LIFE).slice(-3).map(d => d.slice(0, 5))
       };
       const sig = JSON.stringify(slow);
       if ((sig !== lastSlow && slowAcc >= 0.1) || slowAcc >= 1) { Object.assign(msg, slow); lastSlow = sig; slowAcc = 0; }
@@ -5389,7 +5519,25 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       }
       return;
     }
-    if (s.kind === K.LASER || s.kind === K.SHOCK) return;   // drawn as beams (drawLasers)
+    if (s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.DET) return;   // beams are drawn as beams; a detonator isn't seen
+    if (s.kind === K.PULSE) {   // the laser's pulse: a wide crescent of light
+      const a = Math.atan2(s.vy, s.vx), k = s.life / SHOTS[K.PULSE].life;
+      g.save(); g.translate(x, y); g.rotate(a); g.lineCap = "round";
+      for (const [w, c] of [[22, `rgba(60,200,255,${0.3 * k + 0.1})`], [8, `rgba(160,250,255,${0.8 * k + 0.2})`], [3, "#ffffff"]]) {
+        g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.arc(-40, 0, 70, -0.75, 0.75); g.stroke();
+      }
+      g.restore();
+      return;
+    }
+    if (s.kind === K.FLAK) {   // the flak shell: a hot spiked ball, spinning
+      g.save(); g.translate(x, y); g.rotate(performance.now() / 80);
+      g.globalAlpha = 0.6; g.drawImage(dotSprite("#ff9a3c"), -30, -30, 60, 60); g.globalAlpha = 1;
+      g.fillStyle = "#ffd27a"; g.beginPath();
+      for (let k = 0; k < 16; k++) { const r = k % 2 ? 6 : 13, a = k / 16 * 6.283; k ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(r, 0); }
+      g.closePath(); g.fill(); g.fillStyle = "#fff4e0"; g.beginPath(); g.arc(0, 0, 4, 0, 6.29); g.fill();
+      g.restore();
+      return;
+    }
     if (s.kind === K.SHARD) {   // shard: a heavy white-hot splinter, longer and hotter after every ricochet
       const hot = Math.min(4, s.bn || 0), L = 40 + hot * 14, k = 1.5 + hot * 0.15;
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
@@ -6003,6 +6151,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       g.beginPath(); g.arc(x, y, R, -Math.PI / 2, -Math.PI / 2 + charge * 6.283); g.stroke();
       g.restore();
     }
+    if (me.scoping && playing && !me.dead) {   // the railgun's scope: a thin violet line out to where the slug would go
+      const x0 = sx(me.x), y0 = sy(me.y), ca = Math.cos(me.a), sa = Math.sin(me.a), L = 4200 * SHOTS[K.RAIL].life;
+      g.save(); g.setLineDash([14, 10]); g.lineDashOffset = -now / 20; g.strokeStyle = "rgba(217,168,255,0.55)"; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(x0 + ca * 60, y0 + sa * 60); g.lineTo(x0 + ca * L, y0 + sa * L); g.stroke(); g.restore();
+    }
     if (settings.aim === "off" || !playing || me.dead || guided) return;
     const w = WEAPONS[me.weapon], col = w.col || "#ffb43c", a = me.a + (w.back ? Math.PI : 0), ca = Math.cos(a), sa = Math.sin(a);
     const D = (w.back ? 120 : 250) * sizeOf(me.lv), x0 = sx(me.x), y0 = sy(me.y);
@@ -6556,6 +6709,14 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     for (const c of world.supplies) drawPad(c, SUPPLIES[c.type].col, SUPPLIES[c.type].heal ? "cross" : "shield", now);
     if (world.amp) drawPad(world.amp, "#c38bff", "amp", now);
     for (const c of world.bombs) drawPad(c, WEAPONS[c.type].col, c.type, now);
+    for (const [id, d] of gunDrops) {   // trophies: the crate with a gold ring that blinks as time runs out
+      if (grabbed.has("W" + id)) continue;
+      const x = sx(d.x), y = sy(d.y) + Math.sin(now / 300 + d.x) * 5, left = GUN_DROP_LIFE - (now - d.born);
+      if (!onScreen(x, y, 60) || (left < 3000 && Math.floor(now / 150) % 2)) continue;
+      g.strokeStyle = `rgba(255,211,107,${0.6 + 0.3 * Math.sin(now / 120)})`; g.lineWidth = 3;
+      g.beginPath(); g.arc(x, y, 30, 0, 6.29); g.stroke();
+      drawCrate({ type: d.type, x: d.x, age: 1 }, x, y, now);
+    }
     for (let i = 0; i < world.picks.length; i++) {
       const c = world.picks[i];
       if (grabbed.has(c.key)) continue;
@@ -6833,7 +6994,29 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     g.globalAlpha = 1;
   }
   // whole-screen flashes: a blast's white-out, the red edge when hurt
+  // speed lines: past ~650 px/s thin streaks race past the edges of the screen, against your motion
+  const speedLines = [];
+  let speedLineAt = 0;
+  function drawSpeedLines(now) {
+    const dt = Math.min(0.05, (now - speedLineAt) / 1000); speedLineAt = now;
+    const sp = playing && !me.dead ? Math.hypot(me.vx, me.vy) : 0, k = clamp((sp - 650) / 500, 0, 1);
+    if (k > 0) for (let n = 0; n < (lowQ ? 2 : 5) * k; n++) {
+      const a = Math.random() * 6.283, r = Math.max(vw, vh) * (0.35 + Math.random() * 0.3);
+      speedLines.push({ x: vw / 2 + Math.cos(a) * r, y: vh / 2 + Math.sin(a) * r, t: 0 });
+    }
+    if (speedLines.length > 80) speedLines.splice(0, speedLines.length - 80);
+    if (!speedLines.length) return;
+    const ux = sp ? -me.vx / sp : 0, uy = sp ? -me.vy / sp : 0, len = 60 + sp * 0.12;
+    g.lineCap = "round"; g.lineWidth = 1.6;
+    for (let i = speedLines.length - 1; i >= 0; i--) {
+      const l = speedLines[i]; l.t += dt; l.x += ux * sp * 2.2 * dt; l.y += uy * sp * 2.2 * dt;
+      if (l.t > 0.35) { speedLines.splice(i, 1); continue; }
+      g.strokeStyle = `rgba(220,240,255,${0.35 * Math.max(k, 0.3) * (1 - l.t / 0.35)})`;
+      g.beginPath(); g.moveTo(l.x, l.y); g.lineTo(l.x - ux * len, l.y - uy * len); g.stroke();
+    }
+  }
   function drawScreenFx(now) {
+    drawSpeedLines(now);
     if (flash > 0) { g.fillStyle = `rgba(255,252,235,${flash})`; g.fillRect(0, 0, vw, vh); }
     if (hurtFlash > 0) {   // taking damage: the edges of the screen flush red
       const vg = g.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.3, vw / 2, vh / 2, Math.max(vw, vh) * 0.75);
@@ -6894,6 +7077,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     pruneNetwork(t);
     pruneRockMotion(clockNow());
     while (myDrops.length && Date.now() - myDrops[0][4] > DROP_LIFE) myDrops.shift();
+    while (myGunDrops.length && Date.now() - myGunDrops[0][5] > GUN_DROP_LIFE) myGunDrops.shift();
+    for (const [id, d] of gunDrops) if (t - d.born > GUN_DROP_LIFE) gunDrops.delete(id);
   }, 1000);
   let resCheckAt = 0;
   function frame(now) {
@@ -6970,6 +7155,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     for (const c of world.picks) dot(c, WEAPONS[c.type].col, 2.5);
     for (const c of world.supplies) dot(c, SUPPLIES[c.type].col, 2);
     dot(world.amp, "#c38bff", 3);
+    for (const [id, d] of gunDrops) if (!grabbed.has("W" + id)) { const [x, y] = P(d.x, d.y); mctx.globalAlpha = 0.9; mctx.fillStyle = "#ffd36b"; mctx.fillRect(x - 3, y - 3, 6, 6); }
     for (const c of world.bombs) dot(c, WEAPONS[c.type].col, 3.5);
     mctx.globalAlpha = 1;
     // other flyers
@@ -7018,9 +7204,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     ["Dash", `tap ${KEY(shift)} — a quick dodge forward`],
     ["Boost", `hold ${KEY(shift)} — uses the blue energy bar`],
     ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`],
-    ["Alt fire", `right mouse button or ${KEY("C")}: shock beam (shoot your orb for a combo), rocket salvo, shotgun slug, thrown mine, saw fan`],
+    ["Alt fire", `right mouse button or ${KEY("C")}: every gun has one — laser pulse, minigun burst, rail scope, flak, shock beam, gamma detonate, rocket salvo, slug, thrown mine, saw fan`],
     ["Teleporter", `${KEY("T")} throws the beacon, ${KEY("T")} again jumps onto it (land on someone: telefrag)`],
-    ["Brake", `hold ${KEY("X")} (or push the other way)`],
+    ["Brake / drift", `hold ${KEY("X")} to brake; ${KEY("X")} + a direction drifts: you slide on while the nose swings round (shoot back)`],
     ["Levels", "kills, sparks and planets give XP; every level adds a perk (Lv 4 twin fireballs, Lv 7 piercing, Lv 10 the crown); dying costs 2 levels"]] });
   const CONTROLS = {
     mac: desk("Mac", "⇧ Shift", "Return", "the trackpad / mouse button"),
@@ -7186,6 +7372,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const pickRes = v => { settings.res = v; saveSettings(); resScale = v === "auto" ? 1 : v; resize(); };
   segButtons(document.getElementById("setRes"), [["auto", "Auto"], [1, "100%"], [0.75, "75%"], [0.5, "50%"]], settings.res, pickRes);
   segButtons(document.getElementById("setFx"), [["high", "Full"], ["low", "Light"]], settings.fx, v => { settings.fx = v; saveSettings(); if (v === "high") lowQ = false; });
+  segButtons(document.getElementById("setEngine"), [["on", "On"], ["off", "Off"]], settings.engine, v => { settings.engine = v; saveSettings(); });
   segButtons(document.getElementById("setAim"), [["off", "Off"], ["small", "Small"], ["big", "Big"]], settings.aim, v => { settings.aim = v; saveSettings(); });
   segButtons(document.getElementById("setAimCol"), [["gun", "Gun colour"], ["white", "White"], ["green", "Green"], ["red", "Red"]], settings.aimCol, v => { settings.aimCol = v; saveSettings(); });
   if (settings.res !== "auto") { resScale = settings.res; resize(); }

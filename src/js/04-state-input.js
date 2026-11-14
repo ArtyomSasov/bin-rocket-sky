@@ -16,6 +16,11 @@
   const drops = new Map();
   const myDrops = [];          // [id, x, y, n, bornMs] of my own recent spills
   let deaths = 0;
+  // trophies: the gun a pilot dies with drops where it died, with its ammo, for 15 s; anyone may take it
+  const gunDrops = new Map();   // id -> { x, y, type, ammo, born }
+  const myGunDrops = [];        // [id, x, y, gun index, ammo, bornMs]: mine and my bots', sent with my state
+  const GUN_DROP_LIFE = 15000;
+  let gunDropSeq = 0;
   const DROP_LIFE = 20000;
   const remotes = new Map();   // id -> remote bot
   // "slot:gen" of pick-ups already taken by anyone; a key is forgotten two minutes after it was last taken,

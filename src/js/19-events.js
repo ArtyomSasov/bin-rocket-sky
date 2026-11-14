@@ -432,6 +432,14 @@
     for (const c of world.supplies) drawPad(c, SUPPLIES[c.type].col, SUPPLIES[c.type].heal ? "cross" : "shield", now);
     if (world.amp) drawPad(world.amp, "#c38bff", "amp", now);
     for (const c of world.bombs) drawPad(c, WEAPONS[c.type].col, c.type, now);
+    for (const [id, d] of gunDrops) {   // trophies: the crate with a gold ring that blinks as time runs out
+      if (grabbed.has("W" + id)) continue;
+      const x = sx(d.x), y = sy(d.y) + Math.sin(now / 300 + d.x) * 5, left = GUN_DROP_LIFE - (now - d.born);
+      if (!onScreen(x, y, 60) || (left < 3000 && Math.floor(now / 150) % 2)) continue;
+      g.strokeStyle = `rgba(255,211,107,${0.6 + 0.3 * Math.sin(now / 120)})`; g.lineWidth = 3;
+      g.beginPath(); g.arc(x, y, 30, 0, 6.29); g.stroke();
+      drawCrate({ type: d.type, x: d.x, age: 1 }, x, y, now);
+    }
     for (let i = 0; i < world.picks.length; i++) {
       const c = world.picks[i];
       if (grabbed.has(c.key)) continue;
@@ -709,7 +717,29 @@
     g.globalAlpha = 1;
   }
   // whole-screen flashes: a blast's white-out, the red edge when hurt
+  // speed lines: past ~650 px/s thin streaks race past the edges of the screen, against your motion
+  const speedLines = [];
+  let speedLineAt = 0;
+  function drawSpeedLines(now) {
+    const dt = Math.min(0.05, (now - speedLineAt) / 1000); speedLineAt = now;
+    const sp = playing && !me.dead ? Math.hypot(me.vx, me.vy) : 0, k = clamp((sp - 650) / 500, 0, 1);
+    if (k > 0) for (let n = 0; n < (lowQ ? 2 : 5) * k; n++) {
+      const a = Math.random() * 6.283, r = Math.max(vw, vh) * (0.35 + Math.random() * 0.3);
+      speedLines.push({ x: vw / 2 + Math.cos(a) * r, y: vh / 2 + Math.sin(a) * r, t: 0 });
+    }
+    if (speedLines.length > 80) speedLines.splice(0, speedLines.length - 80);
+    if (!speedLines.length) return;
+    const ux = sp ? -me.vx / sp : 0, uy = sp ? -me.vy / sp : 0, len = 60 + sp * 0.12;
+    g.lineCap = "round"; g.lineWidth = 1.6;
+    for (let i = speedLines.length - 1; i >= 0; i--) {
+      const l = speedLines[i]; l.t += dt; l.x += ux * sp * 2.2 * dt; l.y += uy * sp * 2.2 * dt;
+      if (l.t > 0.35) { speedLines.splice(i, 1); continue; }
+      g.strokeStyle = `rgba(220,240,255,${0.35 * Math.max(k, 0.3) * (1 - l.t / 0.35)})`;
+      g.beginPath(); g.moveTo(l.x, l.y); g.lineTo(l.x - ux * len, l.y - uy * len); g.stroke();
+    }
+  }
   function drawScreenFx(now) {
+    drawSpeedLines(now);
     if (flash > 0) { g.fillStyle = `rgba(255,252,235,${flash})`; g.fillRect(0, 0, vw, vh); }
     if (hurtFlash > 0) {   // taking damage: the edges of the screen flush red
       const vg = g.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.3, vw / 2, vh / 2, Math.max(vw, vh) * 0.75);

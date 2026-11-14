@@ -12,12 +12,15 @@
     // input → acceleration
     let ix = 0, iy = 0;
     const shiftHeld = keys.has("ShiftLeft") || keys.has("ShiftRight");
-    let boost = (shiftHeld || boostBtnDown) && boostDownAt >= 0 && now - boostDownAt > BOOST_HOLD * 1000;
+    let boost = (shiftHeld || boostBtnDown) && boostDownAt >= 0 && now - boostDownAt > BOOST_HOLD * 1000 && !keys.has("KeyX");
     if (me.dead && now >= me.respawnAt) respawn(now);
     fireCd -= dt; shake = Math.max(0, shake - dt);
     const held = firing || FIRE_KEYS.some(k => keys.has(k));
     const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided;
-    if (ready && (altFiring || keys.has("KeyC")) && WEAPONS[me.weapon].alt) shoot(now, true);
+    const altW = WEAPONS[me.weapon].alt, altHeld = altFiring || keys.has("KeyC");
+    me.scoping = !!(altW && altW.scope && altHeld && playing && !me.dead);   // the railgun's alt: hold to look far ahead
+    me.heat = Math.max(0, (me.heat || 0) - 0.45 * dt); if (me.overheat && me.heat < 0.3) { me.overheat = false; renderAmmo(me.weapon); }
+    if (ready && altHeld && altW && !altW.scope) shoot(now, true);
     else if (triggerTick(dt, now, ready, held)) shoot(now);
     if (playing && !me.dead) {
       if (keys.has("KeyA") || keys.has("ArrowLeft")) ix -= 1;
@@ -103,9 +106,18 @@
   // my flight: thrust with inertia, gravity, bumping off bodies and the fence, facing, exhaust
   function flyMe(dt, now, im, boost) {
     const braking = playing && !me.dead && keys.has("KeyX");
+    // X with a direction is a drift: the engine cuts, the bin slides on with its speed and the nose swings round
+    // fast to where you push, so you can turn and shoot back the way you came. X alone is the air brake
+    const drift = braking && Math.hypot(steer.x, steer.y) > 0.3 && Math.hypot(me.vx, me.vy) > 150;
+    me.drift = drift;
     if (playing && !me.dead) {
-      thrustPilot(me, steer.x, steer.y, boost, braking, dt);
-      if (braking && Math.hypot(me.vx, me.vy) > 60 && Math.random() < 40 * dt) {   // retro jets puffing out of the nose
+      if (drift) thrustPilot(me, 0, 0, false, false, dt);
+      else thrustPilot(me, steer.x, steer.y, boost, braking, dt);
+      if (drift && Math.abs(angD(Math.atan2(me.vy, me.vx) - me.a)) > 0.6 && Math.random() < 50 * dt) {   // the hull scrubs sideways: smoke off both flanks
+        const s = 26 * sizeOf(me.lv), nx = -Math.sin(me.a), ny = Math.cos(me.a), side = Math.random() < 0.5 ? 1 : -1;
+        puff(me.x + nx * s * side, me.y + ny * s * side, nx * side * 60 + (Math.random() - 0.5) * 40, ny * side * 60 + (Math.random() - 0.5) * 40, 0.6, 3 + Math.random() * 3, "rgb(190,200,225)", 2);
+      }
+      if (braking && !drift && Math.hypot(me.vx, me.vy) > 60 && Math.random() < 40 * dt) {   // retro jets puffing out of the nose
         const fx = me.x + Math.cos(me.a) * 30 * sizeOf(me.lv), fy = me.y + Math.sin(me.a) * 30 * sizeOf(me.lv);
         puff(fx, fy, Math.cos(me.a) * 220 + me.vx, Math.sin(me.a) * 220 + me.vy, 0.35, 3 + Math.random() * 3, "#cfe8ff", 2);
       }
@@ -149,7 +161,7 @@
     // but no longer spin it (shooting while standing still used to flip it round and round)
     const steerMag = Math.hypot(steer.x, steer.y);
     const a0 = me.a;
-    if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-13 * dt));
+    if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-(drift ? 20 : 13) * dt));
     else if (!playing && sp > 25) me.a = lerpAng(me.a, Math.atan2(me.vy, me.vx), 1 - Math.exp(-6 * dt));
     me.thrust += ((playing ? Math.min(1, im) * (boost ? 1.4 : 1) : 0.6) - me.thrust) * Math.min(1, dt * 6);
     // the bin banks into a turn (drawn as a lean), and settles back when flying straight
@@ -165,15 +177,17 @@
     // the camera leads the bin by up to ~a fifth of the screen in the direction it flies
     const lead = Math.min(vw, vh) * 0.2, sp2 = Math.hypot(me.vx, me.vy), lk = me.dead ? 0 : Math.min(1, sp2 / 900) * lead / (sp2 || 1);
     const ce = 1 - Math.exp(-2.5 * dt);
-    cam.lx += (me.vx * lk - cam.lx) * ce; cam.ly += (me.vy * lk - cam.ly) * ce;
+    const scope = me.scoping ? Math.min(vw, vh) * 0.42 : 0;   // the railgun's scope: the view runs far ahead of the nose
+    cam.lx += (me.vx * lk + Math.cos(me.a) * scope - cam.lx) * ce; cam.ly += (me.vy * lk + Math.sin(me.a) * scope - cam.ly) * ce;
     if (guided || now < camBackUntil) {   // riding along with the guided nuke, then easing back to the bin
       const to = guided || me, ce2 = 1 - Math.exp(-(guided ? 10 : 6) * dt);
       cam.x += (to.x + (guided ? 0 : cam.lx) - cam.x) * ce2; cam.y += (to.y + (guided ? 0 : cam.ly) - cam.y) * ce2;
     } else { cam.x = me.x + cam.lx; cam.y = me.y + cam.ly; }
     // on boost the view pulls back a little (and eases in again after): speed you can feel
-    const vzT = playing && !me.dead && boost ? 0.84 : 1;
+    const vzT = playing && !me.dead ? (me.scoping ? 0.66 : boost ? 0.84 : 1) : 1;
     viewZoom += (vzT - viewZoom) * (1 - Math.exp(-(vzT < viewZoom ? 2.2 : 1.4) * dt));
     applyView();
+    engineHum(playing && !me.dead ? Math.hypot(me.vx, me.vy) : 0, drift ? 0 : me.thrust, me.boostFx, now);
     if (!me.dead) { trailFrom(me, 0.6 + me.thrust * 1.6 + me.boostFx * 1.5, dt); if (playing) damageFx(me, dt); afterburner(me, me.boostFx, dt); }
   }
   // every shot in flight: homing, ricochets, digging into bodies, hitting me (I decide) or reaching others
@@ -182,6 +196,8 @@
     for (let i = shots.length - 1; i >= 0; i--) {
       const s = shots[i];
       s.life -= dt;
+      if (s.kind === K.DET) { detonateOrb(s); if (s.life <= 0) shots.splice(i, 1); continue; }   // inert: it only sets off its orb
+      if (s.life <= 0 && s.kind === K.FLAK) flakBurst(s);
       if (s.life <= 0) { if (SPLASH[s.kind]) splash(s, now); if (BOMBS[s.kind]) detonate(s, now); else if (s.kind === K.MINE && !s.boom) explode(s.x, s.y, 20, 180); shots.splice(i, 1); continue; }
       if (s.kind === K.ROCKET) steerRocket(s, dt);
       if (s.kind === K.ROCKET && s.life > 0) for (const o of shots) {   // rockets are big and slow: any enemy shot can blow one up mid-air
@@ -236,6 +252,7 @@
         } else {
           if (dig) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);
           s.x = hb.x; s.y = hb.y;
+          if (s.kind === K.FLAK) { const [nx, ny] = normalAt(hb.b, hb.x, hb.y); s.x += nx * 12; s.y += ny * 12; flakBurst(s); }   // bursts just off the surface
           if (SPLASH[s.kind]) splash(s, now);
           impact(hb.x, hb.y, SHOTS[s.kind].col, s.kind === K.MINE ? 1.6 : 0.8);
           if (s.kind === K.MINE) explode(hb.x, hb.y, 40, 260);
@@ -418,6 +435,19 @@
         }
       }
     }
+    // trophies: a dead pilot's gun, with its ammo
+    for (const [id, d] of gunDrops) {
+      if (now - d.born > GUN_DROP_LIFE) { gunDrops.delete(id); continue; }
+      const key = "W" + id;
+      if (!playing || me.dead || grabbed.has(key) || now - d.born < 600 || Math.hypot(d.x - me.x, d.y - me.y) > 30 + 30 * sizeOf(me.lv) + magnet()) continue;
+      grabbed.add(key); pushCapped(myGrabs, key, 40);
+      const w = WEAPONS[d.type];
+      me.arsenal[d.type] = Math.min(Number.isFinite(w.ammo) ? w.ammo * 2 : 1, (me.arsenal[d.type] || 0) + d.ammo);
+      renderWeapon();
+      floaters.push({ x: d.x, y: d.y - 20, t: 0, txt: "TROPHY · " + w.name.toUpperCase(), gold: true });
+      for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 220; puff(d.x, d.y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, k % 2 ? "#ffd36b" : w.col); }
+      sfx("weapon_get", 0.9, 0.85);
+    }
     // medkits and shields (left on the ground when they would do nothing, like in Doom)
     if (playing && !me.dead) {
       for (const c of world.supplies) {
@@ -580,7 +610,8 @@
         st: [stats.round, stats.kills, stats.deaths, stats.shots, stats.hits, stats.best],
         // Keep live deltas within the packet budget; rolling terrain snapshots repair older holes.
         cv: myCarves.filter(e => performance.now() - e.at < 4000).slice(-128).map(e => e.d),
-        dr: myDrops.filter(d => Date.now() - d[4] < DROP_LIFE).slice(-3).map(d => d.slice(0, 4))
+        dr: myDrops.filter(d => Date.now() - d[4] < DROP_LIFE).slice(-3).map(d => d.slice(0, 4)),
+        wd: myGunDrops.filter(d => Date.now() - d[5] < GUN_DROP_LIFE).slice(-3).map(d => d.slice(0, 5))
       };
       const sig = JSON.stringify(slow);
       if ((sig !== lastSlow && slowAcc >= 0.1) || slowAcc >= 1) { Object.assign(msg, slow); lastSlow = sig; slowAcc = 0; }

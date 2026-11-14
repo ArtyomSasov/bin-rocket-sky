@@ -114,7 +114,11 @@ players (they face where they steer, so they make attack runs, break off and loo
   other way or hold **X** to brake.
 - **Fire:** Space, F, J or Enter (or the fire button).
 - **Boost / dash:** hold Shift to boost, tap it to dash.
-- **Weapons:** 1–8, Q/E or the mouse wheel. **Alt fire:** right mouse button or C.
+- **Brake / drift:** hold X to brake; X with a direction drifts (you slide on while the nose swings round).
+- **Weapons:** 1–8, Q/E or the mouse wheel. **Alt fire:** right mouse button or C — every gun has one: laser
+  pulse (shoves), minigun burst (no spin-up, overheats), railgun scope (look far ahead), flak (bursts into eight
+  shards), shock beam (combo on your orb), gamma detonate, rocket salvo, shotgun slug, thrown mine, saw fan.
+- **Trophies:** the gun a pilot dies with drops where it died, with its ammo, for 15 s; anyone can take it.
 - **Teleporter:** T throws the beacon, T again jumps onto it (a pick-up gives three jumps).
 
 ## Run locally
@@ -132,8 +136,8 @@ recent shots to both connected brokers at up to 8 messages/s, keeping below the 
 Two clients can play together as long as they share a reachable broker. Duplicate and older states are ignored.
 A silent player and its bots disappear after 7 seconds; losing one broker does not remove a player.
 
-The wire protocol uses `binrocket-sky/v6/` topics. Players must reload to this version to join each other;
-older pages are isolated (v2–v5 built different maps, guns or levels, v1 events do not identify the round). Taken terrain cells are sent in a
+The wire protocol uses `binrocket-sky/v7/` topics. Players must reload to this version to join each other;
+older pages are isolated (v2–v6 built different maps, guns or levels, v1 events do not identify the round). Taken terrain cells are sent in a
 rolling snapshot (one shared body per state), so late joins and reconnects recover holes after a full pass
 through the map. Detached rubble is still simulated locally.
 
