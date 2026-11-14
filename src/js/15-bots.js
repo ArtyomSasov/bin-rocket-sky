@@ -43,7 +43,8 @@
   // fires once; returns the gun's reload time
   function botFire(b, now) {
     const w = botWeapon(b), pat = WEAPONS[w];
-    volley(b, now, pat, null, w === "bolt" ? boltLock(b, null) : undefined);
+    const s = volley(b, now, pat, null, w === "bolt" || w === "laser" ? boltLock(b, null) : undefined);
+    if (w === "orb") b.orb = s;   // a bot can set its orb off with the beam (see updateBots)
     shotSound(pat.shot[0], b.x, b.y);
     b.vx -= Math.cos(b.a) * 25; b.vy -= Math.sin(b.a) * 25;
     if (!MODES[MODE].only && w !== "fire" && --b.ammo <= 0) b.weapon = "fire";
@@ -131,6 +132,17 @@
                       : Math.atan2(b.vy, b.vx);
       b.a = lerpAng(b.a, aim, 1 - Math.exp(-5 * dt));
       b.fireCd -= dt;
+      // shock combo: once its orb hangs near the target, a bot shoots the orb with the beam (harder bots do it more)
+      if (b.orb && (b.orb.life <= 0 || !shots.includes(b.orb))) b.orb = null;
+      if (b.orb && tgt && botWeapon(b) === "orb" && SHOTS[K.ORB].life - b.orb.life > 0.5 && Math.hypot(tgt.x - b.orb.x, tgt.y - b.orb.y) < 260) {
+        const o = b.orb; b.orb = null;
+        if (Math.random() < ({ easy: 0.25, normal: 0.6, hard: 0.95 })[b.level]) {
+          volley(b, now, WEAPONS.orb.alt, null, Math.atan2(o.y - b.y, o.x - b.x) + (Math.random() - 0.5) * b.L.aim * 0.3);
+          sfx(...WEAPONS.orb.alt.sfx.slice(0, 1), 0.6, 0.55, b.x, b.y);
+          if (!MODES[MODE].only && --b.ammo <= 0) b.weapon = "fire";
+          b.fireCd = Math.max(b.fireCd, 0.6);
+        }
+      }
       if (tgt && roundLive && td < 950 && Math.abs(angD(aim - b.a)) < 0.3 && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
         const md = MODES[MODE];
         b.fireCd = (md.botCd ? b.L.cd * md.botCd : cd < 0.15 ? cd * 2 : Math.max(b.L.cd, cd * 1.3)) * (0.7 + Math.random() * 0.6); }
@@ -160,7 +172,7 @@
         if (segHit(s, b.x, b.y, binR(b.lv) + SHOTS[s.kind].r)) {
           if (SHOTS[s.kind].pierce) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
           shotBurst(s); hitConfirm(s, b.lv, b.x, b.y, remotes.get(b.id)); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
-          if (s.kind === K.BOLT) boltChain(s, b.x, b.y, b.id, now);
+          if (s.kind === K.BOLT || s.kind === K.LASER) boltChain(s, b.x, b.y, b.id, now);
           botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx));
         }
       }

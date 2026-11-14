@@ -7,7 +7,8 @@
     ["Dash", `tap ${KEY(shift)} — a quick dodge forward`],
     ["Boost", `hold ${KEY(shift)} — uses the blue energy bar`],
     ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`],
-    ["Alt fire", `right mouse button or ${KEY("C")}: rocket salvo, shotgun slug, focused triple, thrown mine`],
+    ["Alt fire", `right mouse button or ${KEY("C")}: shock beam (shoot your orb for a combo), rocket salvo, shotgun slug, thrown mine, saw fan`],
+    ["Teleporter", `${KEY("T")} throws the beacon, ${KEY("T")} again jumps onto it (land on someone: telefrag)`],
     ["Brake", `hold ${KEY("X")} (or push the other way)`]] });
   const CONTROLS = {
     mac: desk("Mac", "⇧ Shift", "Return", "the trackpad / mouse button"),
@@ -19,7 +20,8 @@
       ["Dash", "tap the teal button — a quick dodge forward"],
       ["Boost", "hold the teal button"],
       ["Weapon", "tap a gun in the bar above the fire button"],
-      ["Alt fire", "the small orange button above the fire button (rockets, shotgun, triple shot, mines)"]] }
+      ["Alt fire", "the small orange button above the fire button (shock beam, rockets, shotgun, mines, saws)"],
+      ["Teleporter", "the cyan button: throw the beacon, tap again to jump onto it"]] }
   };
   function detectDevice() {
     const ua = navigator.userAgent, plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";

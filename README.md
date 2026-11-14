@@ -81,7 +81,8 @@ every spot. Large and Huge maps add a few more bodies and spots, also always in 
   other way or hold **X** to brake.
 - **Fire:** Space, F, J or Enter (or the fire button).
 - **Boost / dash:** hold Shift to boost, tap it to dash.
-- **Weapons:** 1–8, Q/E or the mouse wheel.
+- **Weapons:** 1–8, Q/E or the mouse wheel. **Alt fire:** right mouse button or C.
+- **Teleporter:** T throws the beacon, T again jumps onto it (a pick-up gives three jumps).
 
 ## Run locally
 
@@ -98,8 +99,8 @@ recent shots to both connected brokers at up to 8 messages/s, keeping below the 
 Two clients can play together as long as they share a reachable broker. Duplicate and older states are ignored.
 A silent player and its bots disappear after 7 seconds; losing one broker does not remove a player.
 
-The wire protocol uses `binrocket-sky/v3/` topics. Players must reload to this version to join each other;
-older pages are isolated (v2 built different maps, v1 events do not identify the round). Taken terrain cells are sent in a
+The wire protocol uses `binrocket-sky/v4/` topics. Players must reload to this version to join each other;
+older pages are isolated (v2 and v3 built different maps or guns, v1 events do not identify the round). Taken terrain cells are sent in a
 rolling snapshot (one shared body per state), so late joins and reconnects recover holes after a full pass
 through the map. Detached rubble is still simulated locally.
 

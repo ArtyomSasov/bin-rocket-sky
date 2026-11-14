@@ -43,7 +43,10 @@
     for (let i = 0; i < world.supplies.length; i++) world.supplies[i] = supply(i, wt);
     // a black hole drags the junk and the pick-ups in too; what it swallows is gone (on every screen alike)
     for (const o of [...world.sparks, ...world.rocks, ...world.picks, ...world.supplies, ...world.bombs, world.amp]) {
-      if (o && !(o.slot !== undefined && rockMotion.has(o.slot)) && holePull(o, wt, 0) > 0.9) grabbed.add(o.key);
+      if (o && !(o.slot !== undefined && rockMotion.has(o.slot)) && holePull(o, wt, 0) > 0.9 && !grabbed.has(o.key)) {
+        grabbed.add(o.key);   // swallowed: gone (a spot's item comes back on its next cycle)
+        const ev = eventAt(wt); if (ev.type === "blackhole") swallowFx(o.x, o.y, blackHole(ev), o.type ? (WEAPONS[o.type] || SUPPLIES[o.type] || {}).col || "#c38bff" : "#ffffff");
+      }
     }
     update(now < hitStopUntil ? 0 : dt, now); draw(now);
     if (!playing) drawPreview(now);

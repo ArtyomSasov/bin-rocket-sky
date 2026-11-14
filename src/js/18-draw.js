@@ -212,13 +212,16 @@
       }
       return;
     }
-    if (s.kind === K.SHARD) {   // shard: a white-hot splinter
+    if (s.kind === K.LASER || s.kind === K.SHOCK) return;   // drawn as beams (drawLasers)
+    if (s.kind === K.SHARD) {   // shard: a heavy white-hot splinter, longer and hotter after every ricochet
+      const hot = Math.min(4, s.bn || 0), L = 40 + hot * 14, k = 1.5 + hot * 0.15;
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
-      const lg = g.createLinearGradient(-26, 0, 0, 0);
-      lg.addColorStop(0, "rgba(255,120,30,0)"); lg.addColorStop(1, "rgba(255,200,120,0.95)");
-      g.strokeStyle = lg; g.lineWidth = 5; g.lineCap = "round";
-      g.beginPath(); g.moveTo(-26, 0); g.lineTo(0, 0); g.stroke();
-      g.fillStyle = "#fff4e0"; g.beginPath(); g.moveTo(5, 0); g.lineTo(-3, -3); g.lineTo(-3, 3); g.fill();
+      g.globalAlpha = 0.5 + hot * 0.1; g.drawImage(dotSprite(hot ? "#ffd27a" : "#ff9a3c"), -22 * k, -22 * k, 44 * k, 44 * k); g.globalAlpha = 1;
+      const lg = g.createLinearGradient(-L, 0, 0, 0);
+      lg.addColorStop(0, "rgba(255,120,30,0)"); lg.addColorStop(1, hot ? "rgba(255,240,190,0.98)" : "rgba(255,200,120,0.95)");
+      g.strokeStyle = lg; g.lineWidth = 8 + hot; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
+      g.fillStyle = "#fff4e0"; g.beginPath(); g.moveTo(8 * k, 0); g.lineTo(-4 * k, -4.5 * k); g.lineTo(-2 * k, 0); g.lineTo(-4 * k, 4.5 * k); g.fill();
       g.restore();
       return;
     }

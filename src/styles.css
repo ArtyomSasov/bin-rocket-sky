@@ -273,6 +273,14 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   width: 56px; height: 56px; font: 700 11px var(--display); color: #fff7e0; letter-spacing: .04em;
   background: radial-gradient(circle at 50% 40%, #ffd2a0, #ff7a3c 60%, #c2401e);
 }
+.telechip { align-self: center; margin-left: 6px; font: 700 12px var(--display); color: #8ff0ff; border: 1px solid #8ff0ff; border-radius: 8px; padding: 3px 7px; white-space: nowrap; box-shadow: 0 0 10px rgba(143,240,255,.4); }
+.telebtn {
+  right: calc(104px + env(safe-area-inset-right, 0px)); bottom: calc(150px + env(safe-area-inset-bottom, 0px));
+  width: 52px; height: 52px; gap: 0; align-content: center; font: 700 11px var(--display); color: #10302d;
+  background: radial-gradient(circle at 50% 40%, #e0fdff, #8ff0ff 60%, #3bb8c8);
+  box-shadow: 0 4px 0 #1d7a80, 0 0 18px rgba(143, 240, 255, .5);
+}
+.telebtn svg { width: 22px; height: 22px; fill: #10302d; }
 .boostbtn svg { width: 28px; height: 28px; fill: #10302d; }
 .xpbar.nrg i { background: linear-gradient(90deg, #7df9ff, #ffffff); transition: none; }
 .minimap {
@@ -339,6 +347,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   .fire { bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
   .boostbtn { right: calc(104px + env(safe-area-inset-right, 0px)); }
   .altbtn { bottom: calc(190px + env(safe-area-inset-bottom, 0px)); }
+  .telebtn { bottom: calc(190px + env(safe-area-inset-bottom, 0px)); right: calc(100px + env(safe-area-inset-right, 0px)); }
   .minimap { width: 96px; height: 96px; bottom: calc(108px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (max-width: 360px) { .score > span:first-of-type { display: none; } }

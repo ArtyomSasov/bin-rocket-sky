@@ -63,17 +63,33 @@
         if (d < 60 * bh.k) { s.life = 0; continue; }
         if (d < 1500) { const acc = bh.k * 9e7 / (d * d + 1.5e4); s.vx += dx / d * acc * dt; s.vy += dy / d * acc * dt; }
       }
-      // loose rubble and flying wreckage fall in the same way
-      for (const list of [rubble, hulks, frags, debris]) for (const o of list) {
-        const dx = bh.x - o.x, dy = bh.y - o.y, d = Math.hypot(dx, dy) || 1;
+      // loose rubble and flying wreckage fall in the same way, and whatever reaches the horizon is gone for good
+      const eat = HOLE_EAT * bh.k;
+      for (const list of [rubble, hulks, frags, debris]) for (let i = list.length - 1; i >= 0; i--) {
+        const o = list[i], dx = bh.x - o.x, dy = bh.y - o.y, d = Math.hypot(dx, dy) || 1;
         if (d < 1500) { const acc = bh.k * 4e7 / (d * d + 1.5e4); o.vx += dx / d * acc * dt; o.vy += dy / d * acc * dt; }
+        if (d < eat + 20) {
+          swallowFx(o.x, o.y, bh, list === rubble ? bodyCol(o) : "#c38bff");
+          if (list === rubble) { o.dead = true; rebuildBodies(); } else list.splice(i, 1);
+        }
       }
-      // the horizon eats whatever reaches it: planets and wrecks lose the part that crosses it, bite by bite
+      // the horizon eats planets and wrecks: big bites out of whatever crosses it, and what is dragged right in goes whole
       holeBite += dt;
-      if (holeBite > 0.15) {
+      if (holeBite > 0.1) {
         holeBite = 0;
-        const eat = HOLE_EAT * bh.k;
-        for (const b of [...bodies]) if (Math.hypot(b.x - bh.x, b.y - bh.y) - b.r < eat) carveAt(b, bh.x, bh.y, eat + 20, false);
+        for (const b of [...bodies]) {
+          if (b.dead) continue;
+          const d = Math.hypot(b.x - bh.x, b.y - bh.y);
+          if (d - b.r >= eat * 1.6) continue;
+          if (d < eat + b.r * 0.55) {   // swallowed whole
+            carveAt(b, b.x, b.y, b.r + 12, false);
+            for (let k = 0; k < 6; k++) swallowFx(b.x + (Math.random() - 0.5) * b.r, b.y + (Math.random() - 0.5) * b.r, bh, bodyCol(b));
+            if (b.planet && !b.star) feedPush("The black hole swallowed a planet!");
+          } else {
+            carveAt(b, bh.x, bh.y, eat * 1.6 + 40, false);
+            swallowFx(bh.x + (b.x - bh.x) / d * (eat * 1.6), bh.y + (b.y - bh.y) / d * (eat * 1.6), bh, bodyCol(b));
+          }
+        }
       }
     }
     if (!ev.active || !playing || me.dead || !roundLive) return;   // events leave you alone during the results break
@@ -576,6 +592,25 @@
         }
         g.stroke();
       }
+    }
+    for (const b of lasers) {   // laser and shock beams: a glow, a coloured body, a white core, and a shimmer along it
+      const x1 = sx(b.x1), y1 = sy(b.y1), x2 = sx(b.x2), y2 = sy(b.y2), L = Math.hypot(x2 - x1, y2 - y1) || 1;
+      if (!onScreen((x1 + x2) / 2, (y1 + y2) / 2, L / 2 + 40)) continue;
+      const k = 1 - b.t / (b.shock ? 0.35 : LASER_T), nx = (x2 - x1) / L, ny = (y2 - y1) / L, now = performance.now();
+      const [glow, body] = b.shock ? ["150,100,255", "201,164,255"] : ["40,190,255", "125,249,255"];
+      g.lineCap = "round"; g.lineJoin = "round";
+      const line = (w, c) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
+      line((b.shock ? 18 : 22) * k + 4, `rgba(${glow},${0.22 * k})`);
+      line((b.shock ? 7 : 9) * k + 1, `rgba(${body},${0.75 * k})`);
+      line(2.6 * k + 0.6, `rgba(255,255,255,${0.95 * k})`);
+      if (!lowQ) {   // a thin strand winding round the beam, moving along it
+        g.strokeStyle = `rgba(${b.shock ? "235,220,255" : "210,255,255"},${0.6 * k})`; g.lineWidth = 1.4;
+        g.beginPath();
+        for (let d = 0; d <= L; d += 10) { const o = Math.sin(d / 16 - now / 35 + b.seed) * (b.shock ? 7 : 5) * (0.4 + 0.6 * Math.sin(d / L * Math.PI)); const px = x1 + nx * d - ny * o, py = y1 + ny * d + nx * o; d ? g.lineTo(px, py) : g.moveTo(px, py); }
+        g.stroke();
+      }
+      if (b.hit && b.hit !== "wall") { g.globalAlpha = k; g.drawImage(dotSprite(b.shock ? "#e4d2ff" : "#d8fbff"), x2 - 26, y2 - 26, 52, 52); g.globalAlpha = 1; }   // the flare where it lands
+      g.globalAlpha = 0.8 * k; g.drawImage(dotSprite(b.shock ? "#c9a4ff" : "#bff9ff"), x1 - 16, y1 - 16, 32, 32); g.globalAlpha = 1;   // and at the gun
     }
     for (const q of arcs) {   // chain lightning
       const k = 1 - q.t / 0.3, x1 = sx(q.x1), y1 = sy(q.y1), x2 = sx(q.x2), y2 = sy(q.y2), L = Math.hypot(x2 - x1, y2 - y1) || 1, nx = (x2 - x1) / L, ny = (y2 - y1) / L;

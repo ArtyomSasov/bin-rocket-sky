@@ -28,6 +28,16 @@
   }
   const impacts = [];   // short bright flashes where something hits
   const debris = [];    // wreckage of destroyed bins, drifting through space for a while
+  // something falls into the black hole: a streak of its colour spiralling into the horizon and a purple flicker
+  function swallowFx(x, y, bh, col) {
+    if (!onScreen(sx(x), sy(y), 200)) return;
+    const dx = bh.x - x, dy = bh.y - y, d = Math.hypot(dx, dy) || 1;
+    for (let k = 0; k < (lowQ ? 4 : 10); k++) {
+      const v = 200 + Math.random() * 400, sw = (Math.random() - 0.3) * 0.9;
+      puff(x, y, (dx / d - dy / d * sw) * v, (dy / d + dx / d * sw) * v, 0.4 + Math.random() * 0.4, 1.6 + Math.random() * 2.4, k % 3 ? col : "#c38bff", 1, 0.05);
+    }
+    impacts.push({ x, y, t: 0, r: 40, col: "#c38bff" });
+  }
   function addDebris(x, y, vx, vy, size, col, life = Infinity) {   // default: stays until the round ends
     const shape = Array.from({ length: 6 }, () => 0.55 + Math.random() * 0.5);
     debris.push({ x, y, vx, vy, size, col, shape, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 3, life, max: life, born: performance.now() });
