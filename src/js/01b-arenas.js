@@ -7,10 +7,13 @@
   //   guns:     [weapon, x, y]                                 a crate that is always there until someone takes it
   //   supplies: [med | bigmed | shield | mega, x, y]
   //   amp, nuke, holy: [x, y] one spot each (on the vertical axis or the centre: as far from either base)
+  //   pads:     [x, y, direction in degrees] boost pads: fly over one and it flings you that way
+  // Every map has every gun: the ones its layout doesn't place go into its widest gaps (the same every time).
   // The Large and Huge arenas add a few more bodies and spots in the widest gaps (fixed too, see buildPlanets).
   // Gun respawn (s): a taken crate comes back at the start of its spot's next cycle
   const GUN_PERIOD = { rail: 30, gamma: 60, rocket: 26, orb: 26, tele: 26 }, GUN_PERIOD_BASE = 20;
   const ARENA_SCALE = { s: 0.72, m: 1, l: 1.2, x: 1.4 };   // body sizes per map size
+  const ALL_GUNS = ["scatter", "laser", "minigun", "rail", "rocket", "orb", "shard", "saw", "mine", "tele", "gamma"];
   // the asteroid ring: rocks round the centre with wide gates towards the bases and the top and bottom
   const ringRocks = (r, angles, R) => angles.map((a, i) => ["rock", 0.5 + Math.cos(a / 57.3) * r, 0.5 + Math.sin(a / 57.3) * r, R + (i % 2) * 18, 0]);
   const ARENAS = {
@@ -20,7 +23,7 @@
       wrecks: [["hull", 0.62, 0.1, 0], ["ring", 0.12, 0.2], ["tower", 0.5, 0.36, 0], ["crates", 0.3, 0.64]],
       guns: [["rail", 0.05, 0.05], ["rocket", 0.33, 0.07], ["scatter", 0.62, 0.5], ["laser", 0.92, 0.1], ["shard", 0.18, 0.4], ["mine", 0.4, 0.2]],
       supplies: [["med", 0.42, 0.13], ["med", 0.2, 0.31], ["shield", 0.07, 0.34], ["bigmed", 0.88, 0.3]],
-      amp: [0.5, 0.5], nuke: [0.5, 0.05], holy: [0.5, 0.95] },
+      amp: [0.5, 0.5], nuke: [0.5, 0.05], holy: [0.5, 0.95], pads: [[0.24, 0.5, 0], [0.15, 0.09, 0]] },
     // The Ring: a circle of rocks round the centre, gates in four directions, rock clusters in two corners
     a: { name: "The Ring",
       planets: [...ringRocks(0.27, [18, 36, 54, 72, 108, 126, 144, 162], 72),
@@ -28,14 +31,14 @@
       wrecks: [],
       guns: [["shard", 0.5, 0.38], ["saw", 0.33, 0.1], ["minigun", 0.88, 0.3], ["scatter", 0.77, 0.5], ["laser", 0.5, 0.24], ["rail", 0.95, 0.05]],
       supplies: [["med", 0.37, 0.37], ["shield", 0.8, 0.07], ["bigmed", 0.91, 0.41]],
-      amp: [0.5, 0.5], nuke: [0.5, 0.04], holy: [0.5, 0.96] },
+      amp: [0.5, 0.5], nuke: [0.5, 0.04], holy: [0.5, 0.96], pads: [[0.5, 0.18, 90]] },
     // Drydocks: rows of moored hulls above and below, two ring stations either side of the moonbase in the middle
     y: { name: "Drydocks",
       planets: [["rock", 0.5, 0.5, 150, 0]],
       wrecks: [["hull", 0.3, 0.2, 0], ["hull", 0.5, 0.2, 0], ["hull", 0.7, 0.2, 0], ["ring", 0.34, 0.5], ["tower", 0.1, 0.1, 0], ["crates", 0.9, 0.1]],
       guns: [["rail", 0.4, 0.05], ["orb", 0.38, 0.35], ["laser", 0.2, 0.32], ["mine", 0.7, 0.36], ["tele", 0.92, 0.27], ["rocket", 0.6, 0.08]],
       supplies: [["med", 0.6, 0.32], ["shield", 0.2, 0.08], ["bigmed", 0.64, 0.4]],
-      amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.33] },
+      amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.33], pads: [[0.12, 0.38, 0]] },
     // Downtown: two blocks of towers with a plaza in each, the main street between the bases, a fallen hull in the middle
     r: { name: "Downtown",
       planets: [["rock", 0.9, 0.31, 100, 0]],
@@ -43,28 +46,28 @@
         ["hull", 0.5, 0.5, 0], ["crates", 0.1, 0.12]],
       guns: [["rocket", 0.4, 0.26], ["orb", 0.5, 0.32], ["scatter", 0.2, 0.25], ["saw", 0.6, 0.05], ["laser", 0.25, 0.45], ["rail", 0.95, 0.05]],
       supplies: [["med", 0.4, 0.1], ["bigmed", 0.64, 0.42], ["shield", 0.8, 0.26]],
-      amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.39] },
+      amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.39], pads: [[0.22, 0.56, 0]] },
     // Orrery: the sun in the middle, two giants with two moons each, two small hot worlds on the axis
     s: { name: "Orrery",
       planets: [["gas", 0.24, 0.21, 230, 2], ["ice", 0.77, 0.2, 180, 1], ["lava", 0.5, 0.11, 110, 0]],
       wrecks: [],
       guns: [["gamma", 0.66, 0.37], ["rail", 0.05, 0.05], ["rocket", 0.94, 0.38], ["minigun", 0.19, 0.4], ["orb", 0.35, 0.39]],
       supplies: [["med", 0.12, 0.33], ["shield", 0.62, 0.21], ["bigmed", 0.95, 0.06]],
-      amp: [0.5, 0.71], nuke: [0.5, 0.29], holy: [0.5, 0.03] },
+      amp: [0.5, 0.71], nuke: [0.5, 0.29], holy: [0.5, 0.03], pads: [[0.3, 0.52, -90]] },
     // The Tip: a landfill hill in the middle, a convoy of refuse trucks along the top and bottom, skips and bales round the edge
     w: { name: "The Tip",
       planets: [["rock", 0.5, 0.5, 190, 0]],
       wrecks: [["truck", 0.27, 0.17, 0], ["truck", 0.5, 0.16, 0], ["truck", 0.73, 0.17, 0], ["wheelie", 0.35, 0.36, 0], ["bales", 0.1, 0.1], ["skip", 0.85, 0.33, 0]],
       guns: [["scatter", 0.5, 0.3], ["mine", 0.2, 0.32], ["saw", 0.93, 0.18], ["shard", 0.4, 0.05], ["laser", 0.2, 0.43], ["minigun", 0.67, 0.4]],
       supplies: [["med", 0.6, 0.27], ["bigmed", 0.05, 0.25], ["shield", 0.62, 0.06]],
-      amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.38] },
+      amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.38], pads: [[0.22, 0.56, 0]] },
     // Duel: almost empty. Two ice pillars on the line between the bases, two stations above and below the centre
     o: { name: "Duel",
       planets: [["ice", 0.32, 0.5, 130, 0]],
       wrecks: [["ring", 0.5, 0.2]],
       guns: [["rail", 0.2, 0.2], ["orb", 0.8, 0.2], ["laser", 0.5, 0.36], ["rocket", 0.06, 0.06], ["shard", 0.94, 0.06]],
       supplies: [["med", 0.33, 0.3], ["shield", 0.67, 0.3]],
-      amp: [0.5, 0.5], nuke: [0.5, 0.06], holy: [0.5, 0.94] }
+      amp: [0.5, 0.5], nuke: [0.5, 0.06], holy: [0.5, 0.94], pads: [[0.2, 0.36, 0]] }
   };
   // an entry and its mirror through the centre (one entry when it sits on the centre)
   const mirrored = list => list.flatMap(e => {

@@ -271,7 +271,7 @@
     : type === "truck" ? [380 + rnd(1) * 60, 150 + rnd(2) * 20] : type === "wheelie" ? [150 + rnd(1) * 30, 210 + rnd(2) * 40]
     : type === "bales" ? [230 + rnd(1) * 40, 180 + rnd(2) * 30] : [300 + rnd(1) * 60, 120 + rnd(2) * 30];
   // the arena's fixed spots in world units: guns, supplies, Overdrive and the two big bombs (see 01b-arenas.js)
-  let arena = { guns: [], supplies: [], amp: null, nuke: null, holy: null };
+  let arena = { guns: [], supplies: [], amp: null, nuke: null, holy: null, pads: [] };
   // the Large and Huge arenas: more pairs in the widest gaps, found the same way every time (no randomness)
   function widestGap(taken, pad, edge) {
     let best = null, bd = -1;
@@ -317,7 +317,7 @@
       taken.push({ x: 0.5, y: 0.5, r: R / W + 0.06 });
     }
     const planetList = mirrored(A.planets), wreckList = mirrored(A.wrecks);
-    const layoutSpots = [...A.guns, ...A.supplies].map(([, x, y]) => ({ x, y })).concat([A.amp, A.nuke, A.holy].filter(Boolean).map(([x, y]) => ({ x, y })));
+    const layoutSpots = [...A.guns, ...A.supplies].map(([, x, y]) => ({ x, y })).concat([A.amp, A.nuke, A.holy, ...(A.pads || [])].filter(Boolean).map(([x, y]) => ({ x, y })));
     // the big arenas: a few more bodies like the ones already there, in the widest gaps
     for (let k = 0; k < big * 2; k++) {
       for (const [, x, y, R] of planetList) taken.push({ x, y, r: (R * rs + 300) / W });
@@ -352,12 +352,20 @@
       wrecks.push(b);
     });
     // the spots: the layout's own, then (Large / Huge) more pairs in the widest gaps, cycling through the map's guns
-    const guns = mirrored(A.guns), supplies = mirrored(A.supplies);
+    const guns = mirrored(A.guns), supplies = mirrored(A.supplies), padList = mirrored((A.pads || []).map(([x, y, d]) => ["", x, y, d]))
+      .map((p, i) => i % 2 ? [p[0], p[1], p[2], p[3] + 180] : p);   // a mirrored pad points the other way
     const reach = list => list.map(([, x, y]) => ({ x, y, r: 0 }));
     const bodyReach = () => [...planets.map(p => ({ x: p.hx / W, y: p.hy / H, r: (p.rr + 120) / W })), ...wrecks.map(w => ({ x: w.bx / W, y: w.by / H, r: (w.rr + w.A + 120) / W })),
       ...moons.map(m => ({ x: m.p.hx / W, y: m.p.hy / H, r: 0 }))];
+    const spotsNow = () => [...taken, ...bodyReach(), ...reach(guns), ...reach(supplies), ...padList.map(([, x, y]) => ({ x, y, r: 0.02 })),
+      ...[A.amp, A.nuke, A.holy].filter(Boolean).map(([x, y]) => ({ x, y, r: 0 }))];
+    // every gun on every map: what the layout leaves out goes into the widest gaps
+    for (const type of ALL_GUNS.filter(t => !A.guns.some(g => g[0] === t))) {
+      const at = widestGap(spotsNow(), 0.04, 0.05);
+      if (at) guns.push(...mirrored([[type, at.x, at.y]]));
+    }
     for (let k = 0; k < big * 3; k++) {
-      const at = widestGap([...taken, ...bodyReach(), ...reach(guns), ...reach(supplies), ...[A.amp, A.nuke, A.holy].filter(Boolean).map(([x, y]) => ({ x, y, r: 0 }))], 0.06, 0.05);
+      const at = widestGap(spotsNow(), 0.06, 0.05);
       if (!at) break;
       if (k % 3 === 2) supplies.push(...mirrored([[A.supplies[k % A.supplies.length][0], at.x, at.y]]));
       else guns.push(...mirrored([[A.guns[k % A.guns.length][0], at.x, at.y]]));
@@ -368,7 +376,8 @@
       supplies: supplies.map((e, i) => spot(e, i + 100, SUPPLY_PERIOD)),
       amp: A.amp ? spot(["amp", ...A.amp], 200, AMP_PERIOD) : null,
       nuke: A.nuke ? spot(["nuke", ...A.nuke], 201, BOMB_CRATES.nuke.period) : null,
-      holy: A.holy ? spot(["holy", ...A.holy], 202, BOMB_CRATES.holy.period) : null
+      holy: A.holy ? spot(["holy", ...A.holy], 202, BOMB_CRATES.holy.period) : null,
+      pads: padList.map(([, fx, fy, deg]) => ({ x: fx * W, y: fy * H, a: deg / 57.2958 }))
     };
     PICKS = arena.guns.length; SUPPLY_SLOTS = arena.supplies.length;
     det = [...planets, ...moons, ...wrecks];

@@ -229,7 +229,7 @@
   const customVal = (ck, key) => ck.team !== undefined && TEAM_SKIN[ck.team][key] !== undefined ? TEAM_SKIN[ck.team][key]
     : CUSTOM[key].items[ck[CUSTOM_KEYS.indexOf(key)]][1];
 
-  const img = new Image(); img.src = "bot.png";
+  const img = new Image(); img.src = window.BRS_SPRITE || "bot.png";   // the one-file game carries the sprite inside
   // the art with its painted flame removed: our animated fire is drawn behind it from the nozzle
   let body = null;
   img.onload = () => {

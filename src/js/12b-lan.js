@@ -7,6 +7,7 @@
   const QR_LIB = "https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js";
   const JSQR_LIB = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
   const loadScript = src => new Promise((res, rej) => {
+    if ((src === QR_LIB && window.qrcode) || (src === JSQR_LIB && window.jsQR)) { res(); return; }   // built into the one-file game
     if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
     const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s);
   });

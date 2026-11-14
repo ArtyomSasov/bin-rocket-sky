@@ -216,5 +216,6 @@
 
   if (!offlineOnly) setStatus(false, standalone ? "Pick a lobby and take off" : "Connecting…");
   initNet().catch(() => {});
+  if (window.BRS_FILE) document.getElementById("dlGame").hidden = true;   // already the one-file game
   // keep the game on this device (sw.js): it opens again with no internet, for offline play or a local room
   if (standalone && "serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});

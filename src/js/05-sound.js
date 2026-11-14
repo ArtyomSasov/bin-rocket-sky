@@ -51,7 +51,8 @@
     const room = audio.createGain(); room.gain.value = 0.18;
     heavyBus.connect(drive).connect(lows).connect(comp);
     lows.connect(room).connect(getHall());
-    for (const n of SFX_NAMES) fetch("sfx/" + n + (SFX_MP3.has(n) ? ".mp3" : ".wav")).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
+    // the one-file game carries its sounds inside (window.BRS_SFX, data: URLs); the page fetches them from sfx/
+    for (const n of SFX_NAMES) fetch((window.BRS_SFX && window.BRS_SFX[n]) || "sfx/" + n + (SFX_MP3.has(n) ? ".mp3" : ".wav")).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
       .then(b => audio.decodeAudioData(b)).then(b => { sfxBuf[n] = b; }).catch(() => {});   // missing file: the synth sound stays
   }
   // x, y: where it happens (quieter with distance, silent past ~2200); rate: pitch, with a little random spread

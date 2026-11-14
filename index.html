@@ -393,6 +393,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
 .lan-paste { width: 100%; box-sizing: border-box; font: 600 12px var(--body); resize: none; margin: 6px 0; }
 .lan-start { display: grid; gap: 4px; margin: 4px 0 8px; }
 .lan-start small { color: var(--muted); font-size: 12px; }
+.dl { display: block; margin-top: 8px; font: 600 12px var(--body); color: var(--muted); text-align: center; }
+.dl:hover { color: var(--ink); }
 </style>
 
 <canvas id="c"></canvas>
@@ -496,6 +498,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     </div>
 
     <button type="submit" class="go" id="goBtn">Take off</button>
+    <a class="dl" id="dlGame" href="bin-rocket-sky.html" download="bin-rocket-sky.html">Download the game as one file: it plays with no internet, and you can send it to friends nearby (Nearby Share, AirDrop, Bluetooth)</a>
     </div>
     </div>
 
@@ -739,7 +742,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   const customVal = (ck, key) => ck.team !== undefined && TEAM_SKIN[ck.team][key] !== undefined ? TEAM_SKIN[ck.team][key]
     : CUSTOM[key].items[ck[CUSTOM_KEYS.indexOf(key)]][1];
 
-  const img = new Image(); img.src = "bot.png";
+  const img = new Image(); img.src = window.BRS_SPRITE || "bot.png";   // the one-file game carries the sprite inside
   // the art with its painted flame removed: our animated fire is drawn behind it from the nozzle
   let body = null;
   img.onload = () => {
@@ -786,10 +789,13 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   //   guns:     [weapon, x, y]                                 a crate that is always there until someone takes it
   //   supplies: [med | bigmed | shield | mega, x, y]
   //   amp, nuke, holy: [x, y] one spot each (on the vertical axis or the centre: as far from either base)
+  //   pads:     [x, y, direction in degrees] boost pads: fly over one and it flings you that way
+  // Every map has every gun: the ones its layout doesn't place go into its widest gaps (the same every time).
   // The Large and Huge arenas add a few more bodies and spots in the widest gaps (fixed too, see buildPlanets).
   // Gun respawn (s): a taken crate comes back at the start of its spot's next cycle
   const GUN_PERIOD = { rail: 30, gamma: 60, rocket: 26, orb: 26, tele: 26 }, GUN_PERIOD_BASE = 20;
   const ARENA_SCALE = { s: 0.72, m: 1, l: 1.2, x: 1.4 };   // body sizes per map size
+  const ALL_GUNS = ["scatter", "laser", "minigun", "rail", "rocket", "orb", "shard", "saw", "mine", "tele", "gamma"];
   // the asteroid ring: rocks round the centre with wide gates towards the bases and the top and bottom
   const ringRocks = (r, angles, R) => angles.map((a, i) => ["rock", 0.5 + Math.cos(a / 57.3) * r, 0.5 + Math.sin(a / 57.3) * r, R + (i % 2) * 18, 0]);
   const ARENAS = {
@@ -799,7 +805,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       wrecks: [["hull", 0.62, 0.1, 0], ["ring", 0.12, 0.2], ["tower", 0.5, 0.36, 0], ["crates", 0.3, 0.64]],
       guns: [["rail", 0.05, 0.05], ["rocket", 0.33, 0.07], ["scatter", 0.62, 0.5], ["laser", 0.92, 0.1], ["shard", 0.18, 0.4], ["mine", 0.4, 0.2]],
       supplies: [["med", 0.42, 0.13], ["med", 0.2, 0.31], ["shield", 0.07, 0.34], ["bigmed", 0.88, 0.3]],
-      amp: [0.5, 0.5], nuke: [0.5, 0.05], holy: [0.5, 0.95] },
+      amp: [0.5, 0.5], nuke: [0.5, 0.05], holy: [0.5, 0.95], pads: [[0.24, 0.5, 0], [0.15, 0.09, 0]] },
     // The Ring: a circle of rocks round the centre, gates in four directions, rock clusters in two corners
     a: { name: "The Ring",
       planets: [...ringRocks(0.27, [18, 36, 54, 72, 108, 126, 144, 162], 72),
@@ -807,14 +813,14 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       wrecks: [],
       guns: [["shard", 0.5, 0.38], ["saw", 0.33, 0.1], ["minigun", 0.88, 0.3], ["scatter", 0.77, 0.5], ["laser", 0.5, 0.24], ["rail", 0.95, 0.05]],
       supplies: [["med", 0.37, 0.37], ["shield", 0.8, 0.07], ["bigmed", 0.91, 0.41]],
-      amp: [0.5, 0.5], nuke: [0.5, 0.04], holy: [0.5, 0.96] },
+      amp: [0.5, 0.5], nuke: [0.5, 0.04], holy: [0.5, 0.96], pads: [[0.5, 0.18, 90]] },
     // Drydocks: rows of moored hulls above and below, two ring stations either side of the moonbase in the middle
     y: { name: "Drydocks",
       planets: [["rock", 0.5, 0.5, 150, 0]],
       wrecks: [["hull", 0.3, 0.2, 0], ["hull", 0.5, 0.2, 0], ["hull", 0.7, 0.2, 0], ["ring", 0.34, 0.5], ["tower", 0.1, 0.1, 0], ["crates", 0.9, 0.1]],
       guns: [["rail", 0.4, 0.05], ["orb", 0.38, 0.35], ["laser", 0.2, 0.32], ["mine", 0.7, 0.36], ["tele", 0.92, 0.27], ["rocket", 0.6, 0.08]],
       supplies: [["med", 0.6, 0.32], ["shield", 0.2, 0.08], ["bigmed", 0.64, 0.4]],
-      amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.33] },
+      amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.33], pads: [[0.12, 0.38, 0]] },
     // Downtown: two blocks of towers with a plaza in each, the main street between the bases, a fallen hull in the middle
     r: { name: "Downtown",
       planets: [["rock", 0.9, 0.31, 100, 0]],
@@ -822,28 +828,28 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
         ["hull", 0.5, 0.5, 0], ["crates", 0.1, 0.12]],
       guns: [["rocket", 0.4, 0.26], ["orb", 0.5, 0.32], ["scatter", 0.2, 0.25], ["saw", 0.6, 0.05], ["laser", 0.25, 0.45], ["rail", 0.95, 0.05]],
       supplies: [["med", 0.4, 0.1], ["bigmed", 0.64, 0.42], ["shield", 0.8, 0.26]],
-      amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.39] },
+      amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.39], pads: [[0.22, 0.56, 0]] },
     // Orrery: the sun in the middle, two giants with two moons each, two small hot worlds on the axis
     s: { name: "Orrery",
       planets: [["gas", 0.24, 0.21, 230, 2], ["ice", 0.77, 0.2, 180, 1], ["lava", 0.5, 0.11, 110, 0]],
       wrecks: [],
       guns: [["gamma", 0.66, 0.37], ["rail", 0.05, 0.05], ["rocket", 0.94, 0.38], ["minigun", 0.19, 0.4], ["orb", 0.35, 0.39]],
       supplies: [["med", 0.12, 0.33], ["shield", 0.62, 0.21], ["bigmed", 0.95, 0.06]],
-      amp: [0.5, 0.71], nuke: [0.5, 0.29], holy: [0.5, 0.03] },
+      amp: [0.5, 0.71], nuke: [0.5, 0.29], holy: [0.5, 0.03], pads: [[0.3, 0.52, -90]] },
     // The Tip: a landfill hill in the middle, a convoy of refuse trucks along the top and bottom, skips and bales round the edge
     w: { name: "The Tip",
       planets: [["rock", 0.5, 0.5, 190, 0]],
       wrecks: [["truck", 0.27, 0.17, 0], ["truck", 0.5, 0.16, 0], ["truck", 0.73, 0.17, 0], ["wheelie", 0.35, 0.36, 0], ["bales", 0.1, 0.1], ["skip", 0.85, 0.33, 0]],
       guns: [["scatter", 0.5, 0.3], ["mine", 0.2, 0.32], ["saw", 0.93, 0.18], ["shard", 0.4, 0.05], ["laser", 0.2, 0.43], ["minigun", 0.67, 0.4]],
       supplies: [["med", 0.6, 0.27], ["bigmed", 0.05, 0.25], ["shield", 0.62, 0.06]],
-      amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.38] },
+      amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.38], pads: [[0.22, 0.56, 0]] },
     // Duel: almost empty. Two ice pillars on the line between the bases, two stations above and below the centre
     o: { name: "Duel",
       planets: [["ice", 0.32, 0.5, 130, 0]],
       wrecks: [["ring", 0.5, 0.2]],
       guns: [["rail", 0.2, 0.2], ["orb", 0.8, 0.2], ["laser", 0.5, 0.36], ["rocket", 0.06, 0.06], ["shard", 0.94, 0.06]],
       supplies: [["med", 0.33, 0.3], ["shield", 0.67, 0.3]],
-      amp: [0.5, 0.5], nuke: [0.5, 0.06], holy: [0.5, 0.94] }
+      amp: [0.5, 0.5], nuke: [0.5, 0.06], holy: [0.5, 0.94], pads: [[0.2, 0.36, 0]] }
   };
   // an entry and its mirror through the centre (one entry when it sits on the centre)
   const mirrored = list => list.flatMap(e => {
@@ -1266,7 +1272,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     const room = audio.createGain(); room.gain.value = 0.18;
     heavyBus.connect(drive).connect(lows).connect(comp);
     lows.connect(room).connect(getHall());
-    for (const n of SFX_NAMES) fetch("sfx/" + n + (SFX_MP3.has(n) ? ".mp3" : ".wav")).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
+    // the one-file game carries its sounds inside (window.BRS_SFX, data: URLs); the page fetches them from sfx/
+    for (const n of SFX_NAMES) fetch((window.BRS_SFX && window.BRS_SFX[n]) || "sfx/" + n + (SFX_MP3.has(n) ? ".mp3" : ".wav")).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
       .then(b => audio.decodeAudioData(b)).then(b => { sfxBuf[n] = b; }).catch(() => {});   // missing file: the synth sound stays
   }
   // x, y: where it happens (quieter with distance, silent past ~2200); rate: pitch, with a little random spread
@@ -1607,7 +1614,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     : type === "truck" ? [380 + rnd(1) * 60, 150 + rnd(2) * 20] : type === "wheelie" ? [150 + rnd(1) * 30, 210 + rnd(2) * 40]
     : type === "bales" ? [230 + rnd(1) * 40, 180 + rnd(2) * 30] : [300 + rnd(1) * 60, 120 + rnd(2) * 30];
   // the arena's fixed spots in world units: guns, supplies, Overdrive and the two big bombs (see 01b-arenas.js)
-  let arena = { guns: [], supplies: [], amp: null, nuke: null, holy: null };
+  let arena = { guns: [], supplies: [], amp: null, nuke: null, holy: null, pads: [] };
   // the Large and Huge arenas: more pairs in the widest gaps, found the same way every time (no randomness)
   function widestGap(taken, pad, edge) {
     let best = null, bd = -1;
@@ -1653,7 +1660,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       taken.push({ x: 0.5, y: 0.5, r: R / W + 0.06 });
     }
     const planetList = mirrored(A.planets), wreckList = mirrored(A.wrecks);
-    const layoutSpots = [...A.guns, ...A.supplies].map(([, x, y]) => ({ x, y })).concat([A.amp, A.nuke, A.holy].filter(Boolean).map(([x, y]) => ({ x, y })));
+    const layoutSpots = [...A.guns, ...A.supplies].map(([, x, y]) => ({ x, y })).concat([A.amp, A.nuke, A.holy, ...(A.pads || [])].filter(Boolean).map(([x, y]) => ({ x, y })));
     // the big arenas: a few more bodies like the ones already there, in the widest gaps
     for (let k = 0; k < big * 2; k++) {
       for (const [, x, y, R] of planetList) taken.push({ x, y, r: (R * rs + 300) / W });
@@ -1688,12 +1695,20 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       wrecks.push(b);
     });
     // the spots: the layout's own, then (Large / Huge) more pairs in the widest gaps, cycling through the map's guns
-    const guns = mirrored(A.guns), supplies = mirrored(A.supplies);
+    const guns = mirrored(A.guns), supplies = mirrored(A.supplies), padList = mirrored((A.pads || []).map(([x, y, d]) => ["", x, y, d]))
+      .map((p, i) => i % 2 ? [p[0], p[1], p[2], p[3] + 180] : p);   // a mirrored pad points the other way
     const reach = list => list.map(([, x, y]) => ({ x, y, r: 0 }));
     const bodyReach = () => [...planets.map(p => ({ x: p.hx / W, y: p.hy / H, r: (p.rr + 120) / W })), ...wrecks.map(w => ({ x: w.bx / W, y: w.by / H, r: (w.rr + w.A + 120) / W })),
       ...moons.map(m => ({ x: m.p.hx / W, y: m.p.hy / H, r: 0 }))];
+    const spotsNow = () => [...taken, ...bodyReach(), ...reach(guns), ...reach(supplies), ...padList.map(([, x, y]) => ({ x, y, r: 0.02 })),
+      ...[A.amp, A.nuke, A.holy].filter(Boolean).map(([x, y]) => ({ x, y, r: 0 }))];
+    // every gun on every map: what the layout leaves out goes into the widest gaps
+    for (const type of ALL_GUNS.filter(t => !A.guns.some(g => g[0] === t))) {
+      const at = widestGap(spotsNow(), 0.04, 0.05);
+      if (at) guns.push(...mirrored([[type, at.x, at.y]]));
+    }
     for (let k = 0; k < big * 3; k++) {
-      const at = widestGap([...taken, ...bodyReach(), ...reach(guns), ...reach(supplies), ...[A.amp, A.nuke, A.holy].filter(Boolean).map(([x, y]) => ({ x, y, r: 0 }))], 0.06, 0.05);
+      const at = widestGap(spotsNow(), 0.06, 0.05);
       if (!at) break;
       if (k % 3 === 2) supplies.push(...mirrored([[A.supplies[k % A.supplies.length][0], at.x, at.y]]));
       else guns.push(...mirrored([[A.guns[k % A.guns.length][0], at.x, at.y]]));
@@ -1704,7 +1719,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       supplies: supplies.map((e, i) => spot(e, i + 100, SUPPLY_PERIOD)),
       amp: A.amp ? spot(["amp", ...A.amp], 200, AMP_PERIOD) : null,
       nuke: A.nuke ? spot(["nuke", ...A.nuke], 201, BOMB_CRATES.nuke.period) : null,
-      holy: A.holy ? spot(["holy", ...A.holy], 202, BOMB_CRATES.holy.period) : null
+      holy: A.holy ? spot(["holy", ...A.holy], 202, BOMB_CRATES.holy.period) : null,
+      pads: padList.map(([, fx, fy, deg]) => ({ x: fx * W, y: fy * H, a: deg / 57.2958 }))
     };
     PICKS = arena.guns.length; SUPPLY_SLOTS = arena.supplies.length;
     det = [...planets, ...moons, ...wrecks];
@@ -3449,7 +3465,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // window.BRS_BROKER set before the game loads (see server/ in the repo)
   const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
   const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
-  const LOBBY_TOPIC = "binrocket-sky/v5/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  const LOBBY_TOPIC = "binrocket-sky/v6/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
   let lobbyRenderPending = false;
   function renderLobbies() {
@@ -3712,7 +3728,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     // Shots ride in state, including on the primary, and q deduplicates the two deliveries.
     const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
     const myId = "p" + Math.random().toString(36).slice(2, 10);
-    const base = "binrocket-sky/v5/" + code + "/";
+    const base = "binrocket-sky/v6/" + code + "/";
     const clients = BROKERS.map(url => {
       const c = mqtt.connect(url, {
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),
@@ -3774,6 +3790,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   const QR_LIB = "https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js";
   const JSQR_LIB = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
   const loadScript = src => new Promise((res, rej) => {
+    if ((src === QR_LIB && window.qrcode) || (src === JSQR_LIB && window.jsQR)) { res(); return; }   // built into the one-file game
     if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
     const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s);
   });
@@ -4105,6 +4122,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   function botHurt(b, dmg, shotId, now, force, kind = -1, ang = 0) {
     if (b.dead || (!force && now < b.inv) || !roundLive) return;
     b.lives = Math.round((b.lives - dmg) * 1000) / 1000;
+    if (Math.random() < ({ easy: 0.15, normal: 0.35, hard: 0.6 })[b.level]) b.dashReq = true;
     const shown = remotes.get(b.id); if (shown) shown.hitAt = performance.now();
     const byHole = shotId === "x" || shotId === "p";   // the black hole or a planet: nobody gets credit
     if (!byHole) pushCapped(b.hitBy, shotId, 12);
@@ -4147,13 +4165,23 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
         const d = Math.hypot(r.x - b.x, r.y - b.y);
         if (d < td) { td = d; tgt = r; }
       }
-      let dx = 0, dy = 0;
+      // a bot flies like a player: it pushes a stick, the bin turns to face where it pushes, and it can only shoot
+      // where it faces. So it makes attack runs at its target (aiming ahead of it), breaks off when it gets too
+      // close, loops round and comes back; it boosts to close a long gap and dashes aside when it gets hit
+      let dx = 0, dy = 0, aimA = null, wantBoost = false;
       if (tgt) {
-        const ax = (tgt.x - b.x) / td, ay = (tgt.y - b.y) / td, want = td > 430 ? 1 : td < 260 ? -0.8 : 0;
-        dx = ax * want - ay * 0.65 * b.side; dy = ay * want + ax * 0.65 * b.side;
-        if (Math.random() < dt * 0.4) b.side = -b.side;
+        const fly = td / 1000 * 0.8, px = tgt.x + (tgt.vx || 0) * fly - (b.vx || 0) * fly * 0.6, py = tgt.y + (tgt.vy || 0) * fly - (b.vy || 0) * fly * 0.6;
+        aimA = Math.atan2(py - b.y, px - b.x);
+        if (now < (b.breakUntil || 0)) { dx = Math.cos(b.breakA); dy = Math.sin(b.breakA); }   // breaking off, then looping back
+        else if (td < 240) {
+          b.breakUntil = now + 450 + Math.random() * 500; b.side = Math.random() < 0.5 ? 1 : -1;
+          b.breakA = aimA + b.side * (1.3 + Math.random() * 0.5); dx = Math.cos(b.breakA); dy = Math.sin(b.breakA);
+        } else {   // the attack run: the stick wavers a little (more for an easy bot), so its aim does too
+          const a = aimA + Math.sin(now / 450 + b.seq * 1.7) * b.L.aim * 1.6; dx = Math.cos(a); dy = Math.sin(a);
+          wantBoost = td > 900;
+        }
       } else {
-        b.wander += (Math.random() - 0.5) * dt * 2; dx = Math.cos(b.wander); dy = Math.sin(b.wander);
+        b.wander += (Math.random() - 0.5) * dt * 1.5; dx = Math.cos(b.wander) * 0.7; dy = Math.sin(b.wander) * 0.7;
       }
       if (bases && onTeam(b)) {
         const ef = 1 - b.tm, home = bases[b.tm], thief = flagCarrier[b.tm];
@@ -4193,9 +4221,20 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
         if (hd < 1500) { const acc = bh.k * 9e7 / (hd * hd + 1.5e4); b.vx -= hx / hd * acc * dt; b.vy -= hy / hd * acc * dt; }
         if (hd < 60 * bh.k) botHurt(b, 99, "x", now, true);
       }
-      const dm = Math.hypot(dx, dy) || 1, top = 540 * b.L.speed;
-      const resp = 1 - Math.exp(-2.4 * dt);
-      b.vx += (dx / dm * top - b.vx) * resp; b.vy += (dy / dm * top - b.vy) * resp;
+      // the stick, eased in like a thumb on a joystick, then the same thrust and turning as the player
+      const dm = Math.hypot(dx, dy), ux = dm > 1 ? dx / dm : dx, uy = dm > 1 ? dy / dm : dy, ease = 1 - Math.exp(-(6 + 4 * b.L.speed) * dt);
+      const st = b.stick || (b.stick = { x: 0, y: 0 });
+      st.x += (ux - st.x) * ease; st.y += (uy - st.y) * ease;
+      b.energy = Math.min(100, (b.energy ?? 100) + (b.boosting ? -20 : 22) * dt);
+      b.boosting = wantBoost && b.energy > (b.boosting ? 0 : 40) && b.L.speed >= 0.9;
+      if (b.dashReq && b.energy >= 25 && now - (b.dashAt || 0) > 900) {   // hit: a quick dodge to one side
+        const a = Math.atan2(st.y, st.x) + (Math.random() < 0.5 ? 1.4 : -1.4);
+        b.vx += Math.cos(a) * 900; b.vy += Math.sin(a) * 900; b.energy -= 25; b.dashAt = now; b.inv = Math.max(b.inv, now + 280);
+      }
+      b.dashReq = false;
+      thrustPilot(b, st.x, st.y, b.boosting, false, dt, b.L.speed);
+      slingshot(b, dt); padsFor(b, now);
+      if (Math.hypot(st.x, st.y) > 0.15) b.a = lerpAng(b.a, Math.atan2(st.y, st.x), 1 - Math.exp(-13 * dt));
       gravityOn(b, dt);
       b.x += b.vx * dt; b.y += b.vy * dt;
       const pc = bounceOff(b, 40, 0.6);
@@ -4206,23 +4245,21 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       }
       if (b.x < 40 || b.x > W - 40) { b.vx = -b.vx * 0.6; b.x = clamp(b.x, 40, W - 40); }
       if (b.y < 40 || b.y > H - 40) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 40, H - 40); }
-      // aim (with some error) and shoot
-      const aim = tgt ? Math.atan2(tgt.y + (tgt.vy || 0) * 0.25 - b.y, tgt.x + (tgt.vx || 0) * 0.25 - b.x) + Math.sin(now / 400 + b.seq) * b.L.aim
-                      : Math.atan2(b.vy, b.vx);
-      b.a = lerpAng(b.a, aim, 1 - Math.exp(-5 * dt));
+      // shoot when the nose points at the target (where it will be)
       b.fireCd -= dt;
       // shock combo: once its orb hangs near the target, a bot shoots the orb with the beam (harder bots do it more)
       if (b.orb && (b.orb.life <= 0 || !shots.includes(b.orb))) b.orb = null;
-      if (b.orb && tgt && botWeapon(b) === "orb" && SHOTS[K.ORB].life - b.orb.life > 0.5 && Math.hypot(tgt.x - b.orb.x, tgt.y - b.orb.y) < 260) {
+      if (b.orb && tgt && botWeapon(b) === "orb" && SHOTS[K.ORB].life - b.orb.life > 0.5 && Math.hypot(tgt.x - b.orb.x, tgt.y - b.orb.y) < 260
+          && Math.abs(angD(Math.atan2(b.orb.y - b.y, b.orb.x - b.x) - b.a)) < 0.45) {   // like a player, only when it faces the orb
         const o = b.orb; b.orb = null;
         if (Math.random() < ({ easy: 0.25, normal: 0.6, hard: 0.95 })[b.level]) {
-          volley(b, now, WEAPONS.orb.alt, null, Math.atan2(o.y - b.y, o.x - b.x) + (Math.random() - 0.5) * b.L.aim * 0.3);
+          volley(b, now, WEAPONS.orb.alt, null, b.a + clamp(angD(Math.atan2(o.y - b.y, o.x - b.x) - b.a), -0.12, 0.12) + (Math.random() - 0.5) * b.L.aim * 0.3);   // a hair of aim assist, no more
           sfx(...WEAPONS.orb.alt.sfx.slice(0, 1), 0.6, 0.55, b.x, b.y);
           if (!MODES[MODE].only && --b.ammo <= 0) b.weapon = "fire";
           b.fireCd = Math.max(b.fireCd, 0.6);
         }
       }
-      if (tgt && roundLive && td < 950 && Math.abs(angD(aim - b.a)) < 0.3 && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
+      if (tgt && roundLive && td < 950 && Math.abs(angD(aimA - b.a)) < 0.22 + b.L.aim && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
         const md = MODES[MODE];
         b.fireCd = (md.botCd ? b.L.cd * md.botCd : cd < 0.15 ? cd * 2 : Math.max(b.L.cd, cd * 1.3)) * (0.7 + Math.random() * 0.6); }
       // another pilot ramming my bot on boost (the bot is the victim, so its owner decides)
@@ -4266,7 +4303,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     for (const b of bots) {
       const m = {
         q: ++b.q, rd: stats.round, x: Math.round(b.x), y: Math.round(b.y), vx: Math.round(b.vx), vy: Math.round(b.vy), a: +b.a.toFixed(2),
-        t: 1, b: 0, d: b.dead ? 1 : 0, i: now < b.inv ? 1 : 0, ds: b.dead ? b.ds : 0, dk: b.dead ? b.dk || 0 : 0, da: b.dead ? +(b.da || 0).toFixed(2) : 0,
+        t: b.stick && Math.hypot(b.stick.x, b.stick.y) > 0.3 ? 1 : 0, b: now - (b.dashAt || 0) < 350 ? 2 : b.boosting ? 1 : 0, d: b.dead ? 1 : 0, i: now < b.inv ? 1 : 0, ds: b.dead ? b.ds : 0, dk: b.dead ? b.dk || 0 : 0, da: b.dead ? +(b.da || 0).toFixed(2) : 0,
         l: Math.max(0, Math.round(b.lives * 100) / 100), hb: b.hitBy, ko: b.koBy, f: b.shotLog.map(e => e.d),
         tm: b.tm ?? -1, fc: b.fc ?? -1, cp: [stats.round, b.caps || 0], tg: b.tag
       };
@@ -4404,7 +4441,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     if (raw > 1) { ix /= raw; iy /= raw; }
     if (guideTick(dt, now, ix, iy, held)) { ix = iy = 0; boost = false; }   // the stick flies the nuke; the bin coasts
     // input eases in/out over ~0.1 s, then velocity eases toward the wanted velocity: turns become arcs
-    const ease = 1 - Math.exp(-10 * dt);
+    const ease = 1 - Math.exp(-13 * dt);
     steer.x += (ix - steer.x) * ease; steer.y += (iy - steer.y) * ease;
     const im = Math.hypot(steer.x, steer.y);
     boost = boost && playing && !me.dead && energy > 0 && im > 0.1;
@@ -4417,37 +4454,71 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     }
     return { im, boost };
   }
+  // the flight model every pilot flies by, me and the bots alike (sx, sy: the stick, eased; k: a bot's speed factor).
+  // Inertia: thrust pushes the bin and it keeps its speed, coasting down only slowly. Pushing against your motion
+  // fires the retro thrusters (they bite harder), braking is an air brake; past top speed the excess (a hit, a blast) bleeds off
+  function thrustPilot(o, sx_, sy_, boost, braking, dt, k = 1) {
+    const im = Math.hypot(sx_, sy_), top = (boost ? 880 : 560) * k, acc = (boost ? 1500 : 980) * k, sp0 = Math.hypot(o.vx, o.vy);
+    if (im > 0.05) {
+      const ux = sx_ / im, uy = sy_ / im, along = sp0 > 1 ? (o.vx * ux + o.vy * uy) / sp0 : 1;
+      const va = o.vx * ux + o.vy * uy;   // speed already going this way: thrust fades out as it nears top speed
+      const kk = Math.max(0, Math.min(acc * Math.min(1, im) * (along < 0 ? 1 - 0.8 * along : 1) * dt, (top * Math.min(1, im) - va) * Math.min(1, 6 * dt)));
+      o.vx += ux * kk; o.vy += uy * kk;
+      const lat = -o.vx * uy + o.vy * ux, ld = lat * (1 - Math.exp(-2.2 * dt));   // sideways slip fades: turns sweep in tight arcs
+      o.vx += uy * ld; o.vy -= ux * ld;
+    } else { const d = Math.exp(-0.45 * dt); o.vx *= d; o.vy *= d; }
+    if (braking) { const s = Math.hypot(o.vx, o.vy), ns = Math.max(0, s - 1000 * dt); if (s > 1) { o.vx *= ns / s; o.vy *= ns / s; } }
+    const s1 = Math.hypot(o.vx, o.vy);
+    if (s1 > top) { const ns = top + (s1 - top) * Math.exp(-2.5 * dt); o.vx *= ns / s1; o.vy *= ns / s1; }
+  }
+  // boost pads: fly over one and it flings you its way (at least PAD_V fast); the same for bots
+  const PAD_R = 70, PAD_V = 1500;
+  function padsFor(o, now) {
+    for (const p of arena.pads) {
+      if ((o.x - p.x) ** 2 + (o.y - p.y) ** 2 > PAD_R * PAD_R || now - (o.padAt || 0) < 700) continue;
+      o.padAt = now;
+      const ux = Math.cos(p.a), uy = Math.sin(p.a), along = o.vx * ux + o.vy * uy, lat = -o.vx * uy + o.vy * ux;
+      const v = Math.max(PAD_V, along + 500);
+      o.vx = ux * v - uy * lat * 0.3; o.vy = uy * v + ux * lat * 0.3;   // most of the sideways drift is cancelled
+      if (onScreen(sx(p.x), sy(p.y), 200)) {
+        rings.push({ x: p.x, y: p.y, t: 0, r: 150, col: "120,255,220", warp: true, dur: 0.45, w: 10 });
+        for (let k = 0; k < 24; k++) { const a = p.a + Math.PI + (Math.random() - 0.5) * 0.8, s2 = 200 + Math.random() * 400; puff(p.x, p.y, Math.cos(a) * s2, Math.sin(a) * s2, 0.4, 2.4, k % 2 ? "#7dffd8" : "#ffffff"); }
+        sfx("dash", 0.9, 0.8, p.x, p.y);
+      }
+      if (o === me) { camKick.x -= ux * 30; camKick.y -= uy * 30; shake = Math.max(shake, 0.12); }
+    }
+  }
+  // the gravity slingshot: skimming past a planet fast and along its rim gives extra speed (up to boost speed),
+  // with a streak of light off the hull: diving round planets is the quickest way about
+  function slingshot(o, dt) {
+    const v = Math.hypot(o.vx, o.vy);
+    if (v < 420) return;
+    for (const p of planets) {
+      if (p.dead || p.star) continue;
+      const dx = o.x - p.x, dy = o.y - p.y, d = Math.hypot(dx, dy), gap = d - p.rr;
+      if (gap < 30 || gap > p.rr * 0.9 + 120) continue;
+      const tang = Math.abs((dx * o.vy - dy * o.vx) / (d * v));   // 1 when flying along the rim
+      if (tang < 0.65) continue;
+      const k = tang * (1 - gap / (p.rr * 0.9 + 120)), nv = Math.min(1000, v + 750 * k * dt);
+      if (nv > v) { o.vx *= nv / v; o.vy *= nv / v; }
+      if (Math.random() < dt * 30 * k) puff(o.x, o.y, -o.vx * 0.2 + (Math.random() - 0.5) * 40, -o.vy * 0.2 + (Math.random() - 0.5) * 40, 0.5, 2 + Math.random() * 2, "#bff3ff", 1, 0.05);
+      return;
+    }
+  }
   // my flight: thrust with inertia, gravity, bumping off bodies and the fence, facing, exhaust
   function flyMe(dt, now, im, boost) {
-    // inertia: thrust pushes the bin and it keeps its speed, coasting down only slowly. Pushing against your motion
-    // fires the retro thrusters (they bite harder), X is an air brake; past top speed the excess (a hit, a blast) bleeds off
-    const top = boost ? 880 : 560, acc = boost ? 1500 : 980;
     const braking = playing && !me.dead && keys.has("KeyX");
     if (playing && !me.dead) {
-      const sp0 = Math.hypot(me.vx, me.vy);
-      if (im > 0.05) {
-        const ux = steer.x / im, uy = steer.y / im, along = sp0 > 1 ? (me.vx * ux + me.vy * uy) / sp0 : 1;
-        const va = me.vx * ux + me.vy * uy;   // speed already going this way: thrust fades out as it nears top speed
-        const k = Math.max(0, Math.min(acc * Math.min(1, im) * (along < 0 ? 1 - 0.8 * along : 1) * dt, (top * Math.min(1, im) - va) * Math.min(1, 6 * dt)));
-        me.vx += ux * k; me.vy += uy * k;
-        const lat = -me.vx * uy + me.vy * ux, ld = lat * (1 - Math.exp(-2.2 * dt));   // sideways slip fades: turns sweep in tight arcs
-        me.vx += uy * ld; me.vy -= ux * ld;
-      } else { const d = Math.exp(-0.45 * dt); me.vx *= d; me.vy *= d; }
-      if (braking) {
-        const s = Math.hypot(me.vx, me.vy), ns = Math.max(0, s - 1000 * dt);
-        if (s > 1) { me.vx *= ns / s; me.vy *= ns / s; }
-        if (s > 60 && Math.random() < 40 * dt) {   // retro jets puffing out of the nose
-          const fx = me.x + Math.cos(me.a) * 30 * sizeOf(me.lv), fy = me.y + Math.sin(me.a) * 30 * sizeOf(me.lv);
-          puff(fx, fy, Math.cos(me.a) * 220 + me.vx, Math.sin(me.a) * 220 + me.vy, 0.35, 3 + Math.random() * 3, "#cfe8ff", 2);
-        }
+      thrustPilot(me, steer.x, steer.y, boost, braking, dt);
+      if (braking && Math.hypot(me.vx, me.vy) > 60 && Math.random() < 40 * dt) {   // retro jets puffing out of the nose
+        const fx = me.x + Math.cos(me.a) * 30 * sizeOf(me.lv), fy = me.y + Math.sin(me.a) * 30 * sizeOf(me.lv);
+        puff(fx, fy, Math.cos(me.a) * 220 + me.vx, Math.sin(me.a) * 220 + me.vy, 0.35, 3 + Math.random() * 3, "#cfe8ff", 2);
       }
-      const s1 = Math.hypot(me.vx, me.vy);
-      if (s1 > top) { const ns = top + (s1 - top) * Math.exp(-2.5 * dt); me.vx *= ns / s1; me.vy *= ns / s1; }
     }
     const sp = Math.hypot(me.vx, me.vy);
     if (!playing) { me.vx = Math.cos(now / 2400) * 120; me.vy = Math.sin(now / 3100) * 90 - 40; }
     if (me.dead) { me.vx = me.vy = 0; }
-    if (!me.dead) gravityOn(me, dt);
+    if (!me.dead) { gravityOn(me, dt); if (playing) { slingshot(me, dt); padsFor(me, now); } }
     me.x += me.vx * dt; me.y += me.vy * dt;
     // walls: crash, lose a life, bounce back in
     const wr = WALL_R * sizeOf(me.lv);
@@ -6450,6 +6521,22 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       }
       g.globalAlpha = 1;
     }
+    for (const p of arena.pads) {   // boost pads: a glowing ring with chevrons running its way
+      const x = sx(p.x), y = sy(p.y);
+      if (!onScreen(x, y, 120)) continue;
+      g.save(); g.translate(x, y); g.rotate(p.a);
+      const pg = g.createRadialGradient(0, 0, 10, 0, 0, PAD_R + 20);
+      pg.addColorStop(0, "rgba(125,255,216,0.35)"); pg.addColorStop(1, "rgba(125,255,216,0)");
+      g.fillStyle = pg; g.beginPath(); g.arc(0, 0, PAD_R + 20, 0, 6.29); g.fill();
+      g.strokeStyle = "rgba(125,255,216,0.8)"; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, PAD_R, 0, 6.29); g.stroke();
+      g.lineWidth = 5; g.lineCap = "round"; g.lineJoin = "round";
+      for (let k = 0; k < 3; k++) {
+        const ph = ((now / 600 + k / 3) % 1), cx = -40 + ph * 80;
+        g.strokeStyle = `rgba(220,255,245,${Math.sin(ph * Math.PI) * 0.95})`;
+        g.beginPath(); g.moveTo(cx - 12, -18); g.lineTo(cx + 6, 0); g.lineTo(cx - 12, 18); g.stroke();
+      }
+      g.restore();
+    }
     // the spots: a faint pad marks each one; a taken one shows what comes back there and when
     for (const c of world.picks) drawPad(c, WEAPONS[c.type].col, c.type, now);
     for (const c of world.supplies) drawPad(c, SUPPLIES[c.type].col, SUPPLIES[c.type].heal ? "cross" : "shield", now);
@@ -6863,6 +6950,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     // the arena's shape: planets and wrecks as faint outlines
     mctx.fillStyle = "rgba(189,200,255,0.16)";
     for (const b of bodies) { if (b.dead || b.moon) continue; const [x, y] = P(b.x, b.y); mctx.beginPath(); mctx.arc(x, y, Math.max(2, (b.wreck ? b.rr * 0.7 : b.rr) * k), 0, 6.29); mctx.fill(); }
+    for (const p of arena.pads) { const [x, y] = P(p.x, p.y); mctx.save(); mctx.translate(x, y); mctx.rotate(p.a); mctx.fillStyle = "rgba(125,255,216,0.85)"; mctx.beginPath(); mctx.moveTo(6, 0); mctx.lineTo(-4, -4); mctx.lineTo(-4, 4); mctx.closePath(); mctx.fill(); mctx.restore(); }
     // the arena's spots, so they can be learned: bright while something lies there, faint while it is taken
     const dot = (c, col, r) => { if (!c) return; const [x, y] = P(c.x, c.y); mctx.globalAlpha = grabbed.has(c.key) ? 0.25 : 0.9; mctx.fillStyle = col; mctx.fillRect(x - r, y - r, r * 2, r * 2); };
     for (const c of world.picks) dot(c, WEAPONS[c.type].col, 2.5);
@@ -7125,6 +7213,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
 
   if (!offlineOnly) setStatus(false, standalone ? "Pick a lobby and take off" : "Connecting…");
   initNet().catch(() => {});
+  if (window.BRS_FILE) document.getElementById("dlGame").hidden = true;   // already the one-file game
   // keep the game on this device (sw.js): it opens again with no internet, for offline play or a local room
   if (standalone && "serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 })();

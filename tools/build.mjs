@@ -48,12 +48,20 @@ if (args[0] === "--debug") {
 } else {
   // the service worker: every file the game needs, and a version that changes with the build
   const { createHash } = await import("node:crypto");
-  const files = ["./", "index.html", "bot.png", "manifest.webmanifest", ...readdirSync(join(root, "sfx")).filter(f => /\.(wav|mp3)$/.test(f)).sort().map(f => "sfx/" + f)];
+  const files = ["./", "index.html", "bin-rocket-sky.html", "bot.png", "manifest.webmanifest", ...readdirSync(join(root, "sfx")).filter(f => /\.(wav|mp3)$/.test(f)).sort().map(f => "sfx/" + f)];
   const version = createHash("sha256").update(body).update(files.join()).digest("hex").slice(0, 12);
   writeFileSync(join(root, "sw.js"), read("src/sw.js").replace("__VERSION__", version).replace("__FILES__", JSON.stringify(files)));
   const page = "<!doctype html>\n" +
     '<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>\n' +
     body + "</body></html>\n";
   writeFileSync(join(root, "index.html"), page);
-  console.log(`wrote index.html (${parts.length} script sections)`);
+  // the one-file game: the same page with its sounds, sprite and QR libraries inside, to download and pass on
+  // (Nearby Share, AirDrop, Bluetooth): it opens from the file with no internet, offline or in a local room
+  const dataUrl = (f, type) => `data:${type};base64,` + readFileSync(join(root, f)).toString("base64");
+  const sfx = Object.fromEntries(readdirSync(join(root, "sfx")).filter(f => /\.(wav|mp3)$/.test(f)).map(f => [f.replace(/\.\w+$/, ""), dataUrl("sfx/" + f, f.endsWith(".mp3") ? "audio/mpeg" : "audio/wav")]));
+  const inline = "<script>window.BRS_FILE = true; window.BRS_SPRITE = " + JSON.stringify(dataUrl("bot.png", "image/png")) + "; window.BRS_SFX = " + JSON.stringify(sfx) + ";</script>\n"
+    + ["vendor/qrcode.min.js", "vendor/jsQR.min.js"].map(f => "<script>\n" + read(f).replace(/<\/script/gi, "<\\/script") + "\n</script>\n").join("");
+  if (page.split("<script>\n(() => {").length !== 2) throw new Error("one-file anchor not found");
+  writeFileSync(join(root, "bin-rocket-sky.html"), page.replace("<script>\n(() => {", () => inline + "<script>\n(() => {"));
+  console.log(`wrote index.html (${parts.length} script sections) and bin-rocket-sky.html`);
 }

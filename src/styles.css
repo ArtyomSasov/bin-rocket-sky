@@ -384,3 +384,5 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
 .lan-paste { width: 100%; box-sizing: border-box; font: 600 12px var(--body); resize: none; margin: 6px 0; }
 .lan-start { display: grid; gap: 4px; margin: 4px 0 8px; }
 .lan-start small { color: var(--muted); font-size: 12px; }
+.dl { display: block; margin-top: 8px; font: 600 12px var(--body); color: var(--muted); text-align: center; }
+.dl:hover { color: var(--ink); }
