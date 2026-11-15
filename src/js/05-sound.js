@@ -96,7 +96,7 @@
     p_fire_shard: ["nailgun/wnalfire.wav"], p_hit_shard: ["nailgun/wnalimpd.wav", "nailgun/wnalimpl.wav", "nailgun/wnalimpm.wav"], p_whiz_shard: ["nailgun/wnalflit.wav"],
     p_throw: ["grenade/grenlf1a.wav"], p_bounce: ["grenade/hgrenb1a.wav", "grenade/hgrenb2a.wav"],
     p_ram: ["melee/fstatck.wav"], p_dash: ["melee/fstrun.wav"],
-    p_change: ["change.wav"], p_noammo: ["noammo.wav"], p_spot: ["weapon_hover.wav"]
+    p_change: ["change.wav"], p_noammo: ["noammo.wav"], p_spot: ["weapon_hover.wav"], p_holy: ["holy/holy-bomb.mp3"]
   };
   // the announcer: a word in the file's name -> the line it voices (longest words first)
   const PACK_VOICES = [["ludicrouskill", "a_ludicrouskill"], ["monsterkill", "a_monsterkill"], ["doublekill", "a_doublekill"], ["triplekill", "a_triplekill"],

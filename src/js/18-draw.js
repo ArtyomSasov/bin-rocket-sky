@@ -367,11 +367,14 @@
         g.beginPath(); g.moveTo(Math.cos(a) * 16, Math.sin(a) * 16); g.lineTo(Math.cos(a) * len, Math.sin(a) * len); g.stroke();
       }
       g.globalCompositeOperation = "source-over";
-      const og = g.createRadialGradient(-4, -4, 2, 0, 0, 14);
-      og.addColorStop(0, "#fffbe6"); og.addColorStop(0.5, "#ffd76a"); og.addColorStop(1, "#b07a1e");
-      g.fillStyle = og; g.beginPath(); g.arc(0, 0, 14, 0, 6.29); g.fill();
-      g.strokeStyle = "#fff3b0"; g.lineWidth = 3;
-      g.beginPath(); g.ellipse(0, -22 + Math.sin(now / 200) * 2, 13, 4, 0, 0, 6.29); g.stroke();
+      if (holyImg.complete && holyImg.naturalWidth) {   // the holy bomb itself: its skin, tumbling, swelling a little as the fuse runs out
+        const sz = 62 * (1 + 0.12 * hot * pulse), ar = holyImg.naturalHeight / holyImg.naturalWidth;
+        g.rotate(s.rot || 0); g.drawImage(holyImg, -sz / 2, -sz * ar / 2, sz, sz * ar);
+      } else {
+        const og = g.createRadialGradient(-4, -4, 2, 0, 0, 14);
+        og.addColorStop(0, "#fffbe6"); og.addColorStop(0.5, "#ffd76a"); og.addColorStop(1, "#b07a1e");
+        g.fillStyle = og; g.beginPath(); g.arc(0, 0, 14, 0, 6.29); g.fill();
+      }
       g.restore();
       g.globalCompositeOperation = "lighter";
       return;
@@ -538,6 +541,13 @@
     const gl = g.createRadialGradient(x, y, 6, x, y, 90);
     gl.addColorStop(0, `rgba(${rgb},${0.55 * pulse})`); gl.addColorStop(1, `rgba(${rgb},0)`);
     g.fillStyle = gl; g.beginPath(); g.arc(x, y, 90, 0, 6.29); g.fill();
+    if (c.type === "holy" && holyImg.complete && holyImg.naturalWidth) {   // the holy bomb's crate shows the bomb itself
+      const sz = 70 * k, ar = holyImg.naturalHeight / holyImg.naturalWidth;
+      g.save(); g.translate(x, y); g.rotate(Math.sin(now / 900) * 0.25); g.drawImage(holyImg, -sz / 2, -sz * ar / 2, sz, sz * ar); g.restore();
+      g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.textAlign = "center"; g.fillStyle = col;
+      g.fillText(WEAPONS[c.type].name.toUpperCase(), x, y + 48);
+      return;
+    }
     g.save(); g.translate(x, y); g.rotate(Math.sin(now / 900) * 0.15); g.scale(k * 1.35, k * 1.35);
     rrect(-20, -20, 40, 40, 9); g.save(); g.clip();
     for (let i = -6; i < 6; i++) { g.fillStyle = i % 2 ? "#1d1630" : col; g.beginPath(); g.moveTo(i * 8, -20); g.lineTo(i * 8 + 8, -20); g.lineTo(i * 8 + 48, 20); g.lineTo(i * 8 + 40, 20); g.fill(); }

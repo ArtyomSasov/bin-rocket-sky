@@ -611,7 +611,11 @@
   }
   function holyFlight(s, dt) {
     bounceFlight(s, dt, 1.4);
-    if (!s.sang && s.life < BOMBS[K.HOLY].sing) { s.sang = true; choir(s.x, s.y); }
+    s.rot = (s.rot || 0) + dt * (0.6 + Math.hypot(s.vx, s.vy) / 90);   // it tumbles as it flies, slowly as it settles
+    if (!s.sang && s.life < BOMBS[K.HOLY].sing) {   // its sound, heard map-wide (quieter far away), ending with the blast
+      s.sang = true;
+      if (!packPlay("p_holy", 1 - Math.min(0.7, Math.hypot(s.x - me.x, s.y - me.y) / 6000))) choir(s.x, s.y);
+    }
     if (Math.random() < dt * (s.sang ? 60 : 25)) {
       const a = Math.random() * 6.28, v = 40 + Math.random() * 120;
       puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.8, 2 + Math.random() * 2, Math.random() < 0.5 ? "#fff3b0" : "#ffffff");

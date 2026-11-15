@@ -181,7 +181,7 @@
   const BOMB_CRATES = { nuke: { key: "N", period: 70 }, holy: { key: "H", period: 60 } };
   // wave: [reach, seconds to get there, push at the centre] of the blast wave that flings everything outward
   const BOMBS = { [K.NUKE]: { R: 1100, kill: 620, carve: 420, wave: [2100, 1.1, 2400] },
-                  [K.HOLY]: { R: 2000, kill: 1300, carve: 700, wave: [3600, 1.5, 3000], sing: 2.1, holy: true, wipe: true } };   // wipe: bodies inside kill are erased whole
+                  [K.HOLY]: { R: 2000, kill: 1300, carve: 700, wave: [3600, 1.5, 3000], sing: 2.55, holy: true, wipe: true } };   // sing: the holy bomb's sound (2.53 s) starts so it ends with the blast   // wipe: bodies inside kill are erased whole
   const bombDmg = (bm, d) => d < bm.kill ? 99 : 1.5 + 2.5 * (1 - (d - bm.kill) / (bm.R - bm.kill));
   // weapon icons (24x24 SVG path data, even-odd fill): used on crates (canvas) and in the HUD (SVG)
   const ICONS = {
@@ -247,6 +247,7 @@
     : CUSTOM[key].items[ck[CUSTOM_KEYS.indexOf(key)]][1];
 
   const img = new Image(); img.src = window.BRS_SPRITE || "bot.png";   // the one-file game carries the sprite inside
+  const holyImg = new Image(); holyImg.src = window.BRS_HOLY || "holy.png";   // the holy bomb's skin
   // the art with its painted flame removed: our animated fire is drawn behind it from the nozzle
   let body = null;
   img.onload = () => {

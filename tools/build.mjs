@@ -52,7 +52,7 @@ if (args[0] === "--debug") {
   const walk = d => readdirSync(join(root, d), { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(d + "/" + e.name) : /\.(wav|mp3|ogg)$/i.test(e.name) ? [d + "/" + e.name] : []);
   const packFiles = walk("sfx/pack").map(f => f.slice("sfx/pack/".length)).sort();
   writeFileSync(join(root, "sfx/pack/index.json"), JSON.stringify(packFiles));
-  const files = ["./", "index.html", "bin-rocket-sky.html", "bot.png", "manifest.webmanifest", "sfx/pack/index.json", ...packFiles.map(f => "sfx/pack/" + f), ...readdirSync(join(root, "sfx")).filter(f => /\.(wav|mp3)$/.test(f)).sort().map(f => "sfx/" + f)];
+  const files = ["./", "index.html", "bin-rocket-sky.html", "bot.png", "holy.png", "manifest.webmanifest", "sfx/pack/index.json", ...packFiles.map(f => "sfx/pack/" + f), ...readdirSync(join(root, "sfx")).filter(f => /\.(wav|mp3)$/.test(f)).sort().map(f => "sfx/" + f)];
   const version = createHash("sha256").update(body).update(files.join()).digest("hex").slice(0, 12);
   writeFileSync(join(root, "sw.js"), read("src/sw.js").replace("__VERSION__", version).replace("__FILES__", JSON.stringify(files)));
   const page = "<!doctype html>\n" +
@@ -64,7 +64,7 @@ if (args[0] === "--debug") {
   const dataUrl = (f, type) => `data:${type};base64,` + readFileSync(join(root, f)).toString("base64");
   const sfx = Object.fromEntries(readdirSync(join(root, "sfx")).filter(f => /\.(wav|mp3)$/.test(f)).map(f => [f.replace(/\.\w+$/, ""), dataUrl("sfx/" + f, f.endsWith(".mp3") ? "audio/mpeg" : "audio/wav")]));
   const pack = Object.fromEntries(packFiles.map(f => [f, dataUrl("sfx/pack/" + f, f.endsWith(".mp3") ? "audio/mpeg" : f.endsWith(".ogg") ? "audio/ogg" : "audio/wav")]));
-  const inline = "<script>window.BRS_FILE = true; window.BRS_SPRITE = " + JSON.stringify(dataUrl("bot.png", "image/png")) + "; window.BRS_SFX = " + JSON.stringify(sfx) + "; window.BRS_PACK = " + JSON.stringify(pack) + ";</script>\n"
+  const inline = "<script>window.BRS_FILE = true; window.BRS_SPRITE = " + JSON.stringify(dataUrl("bot.png", "image/png")) + "; window.BRS_HOLY = " + JSON.stringify(dataUrl("holy.png", "image/png")) + "; window.BRS_SFX = " + JSON.stringify(sfx) + "; window.BRS_PACK = " + JSON.stringify(pack) + ";</script>\n"
     + ["vendor/qrcode.min.js", "vendor/jsQR.min.js"].map(f => "<script>\n" + read(f).replace(/<\/script/gi, "<\\/script") + "\n</script>\n").join("");
   if (page.split("<script>\n(() => {").length !== 2) throw new Error("one-file anchor not found");
   writeFileSync(join(root, "bin-rocket-sky.html"), page.replace("<script>\n(() => {", () => inline + "<script>\n(() => {"));
