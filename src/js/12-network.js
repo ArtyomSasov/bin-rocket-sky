@@ -21,7 +21,7 @@
   // window.BRS_BROKER set before the game loads (see server/ in the repo)
   const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
   const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
-  const LOBBY_TOPIC = "binrocket-sky/v12/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  const LOBBY_TOPIC = "binrocket-sky/v14/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
   let lobbyRenderPending = false;
   function renderLobbies() {
@@ -64,16 +64,31 @@
   }
   // how far ahead (s) to place a flyer from its last report: about the one-way delay from them to me
   const leadFor = r => clamp(((myPing || 90) + (r.ping || myPing || 90)) / 4000 + 0.03, 0.05, 0.3);
-  function addRemoteShot(owner, f) {
+  function addRemoteShot(owner, f, sentAt = Date.now()) {
     if (!Array.isArray(f) || typeof f[0] !== "string" || f[0].length > 20 || seenShots.has(f[0])) return;
     if (!remotes.has(owner) || seenShots.size >= MAX_SEEN_SHOTS) return;
+    const peer = remotes.get(owner);
+    if (!Number.isInteger(f[5]) || f[5] < 0 || f[5] >= SHOTS.length || !f.slice(1, 5).every(Number.isFinite) || f.length < 6) return;
+    if (peer.tag && !f[0].startsWith(peer.tag + ".")) return;
+    if (!Number.isFinite(f[9]) || !Number.isFinite(sentAt)) return;
+    const queued = sentAt - f[9];
+    if (queued < -100 || queued > 1200) return; // don't resurrect expired shots from a journal
+    const link = ((myPing || 90) + (peer.ping || myPing || 90)) / 2;
+    const jitter = Number.isFinite(peer.off) ? Math.max(0, Date.now() - sentAt + peer.off) : 0;
+    const age = Math.max(0, queued) + Math.max(link, jitter);
+    if (age > 1200) return;
+    const lag = clamp(age, 0, REWIND_MS);
     // m: Quad damage (x4) and the crown (x1.25), or the charge cannon's charge (0.25..1); anything else is ignored
-    const kind = Number.isInteger(f[5]) && f[5] >= 0 && f[5] < SHOTS.length ? f[5] : 0, m = kind === K.GAUSS && Number.isFinite(f[6]) ? clamp(f[6], 0.25, 5) : [QUAD, 1.25, QUAD * 1.25].includes(f[6]) ? f[6] : 1;
+    const kind = f[5], m = kind === K.GAUSS && Number.isFinite(f[6]) ? clamp(f[6], 0.25, 5) : [QUAD, 1.25, QUAD * 1.25].includes(f[6]) ? f[6] : 1;
     const x = clamp(num(f[1], 0), 0, W), y = clamp(num(f[2], 0), 0, H);
+    // Keep an age bound relative to the newest state as well as to this packet.
+    if (Number.isFinite(peer.lastTs) && peer.lastTs - f[9] > 1200) return;
     const sh = {
       id: f[0], kind, x, y, px: x, py: y, ox: x, oy: y, m,
-      vx: clamp(num(f[3], 0), -4500, 4500), vy: clamp(num(f[4], 0), -4500, 4500),
-      life: Math.max(SHOTS[kind].life * 0.7, SHOTS[kind].life - 0.1), mine: false, owner, bn: 0,   // a bit shorter: it was fired a moment ago
+      vx: clamp(f[3], -6800, 6800), vy: clamp(f[4], -6800, 6800),
+      catchup: straightShot(kind) ? lag / 1000 : 0,
+      life: SHOTS[kind].life, hitTime: performance.now() - lag, mine: false, owner, bn: 0,
+      cut: kind === K.GAUSS && Number.isFinite(f[8]) && f[8] > 0 ? Math.round(clamp(f[8], 24, 72)) : 0,
       pc: kind === K.FIRE && f[7] === 1
     };
     // a peer can send anything: cap what one owner (and everyone together) can keep alive here
@@ -83,8 +98,7 @@
     if (kind === K.TFRAG) for (const o of shots) if (o.owner === owner && o.kind === K.BEACON) o.life = 0;   // they jumped: their beacon is gone
     seenShots.set(f[0], performance.now());
     if (kind === K.PELLET) scatterPellets(sh); else if (kind === K.SHARD) shardSpray(sh); else if (kind === K.NAIL) nailSpray(sh); else shots.push(sh);
-    if (kind === K.RAIL || kind === K.GAUSS) railBeam(x, y, sh.vx, sh.vy, kind === K.GAUSS);
-    if (kind === K.LASER || kind === K.SHOCK) laserBeam(sh, owner);
+    if (kind === K.RAIL || kind === K.GAUSS) railBeam(sh);
     shotSound(kind, x, y);
     if (seenShots.size > 400) { const t = performance.now(); for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k); }
   }
@@ -100,9 +114,15 @@
             q: -1, name: "Bin", hue: 200, ck: [0, 0, 0, 0, 0], score: 0, lv: 1, lives: LIVES, thrust: 0, dead: false, inv: false };
       remotes.set(id, r);
     }
-    if (p.q <= r.q) return false;
+    // Reordered snapshots can contain an unseen shot even though their movement is obsolete.
+    if (p.q <= r.q) {
+      applyCombatReports(id, p, r);
+      if (p.rd === stats.round && Array.isArray(p.f)) for (const f of p.f.slice(0, 24)) addRemoteShot(id, f, p.ts);
+      return false;
+    }
     r.seen = performance.now();
     if (Number.isFinite(p.ts)) {
+      r.lastTs = Math.max(r.lastTs || p.ts, p.ts);
       const o = clamp(p.ts - Date.now(), -120000, 120000);
       r.off = Number.isFinite(r.off) ? r.off + (o - r.off) * 0.1 : o;
     }
@@ -145,7 +165,7 @@
     if ("am" in p) r.amp = p.am === 1;
     if (Number.isFinite(p.l)) r.lives = clamp(p.l, 0, maxLivesOf(r.lv));
     if (Array.isArray(p.g)) for (const k of p.g.slice(0, 48)) if (typeof k === "string" && /^[a-zA-Z][a-z0-9.:]{1,20}$/.test(k) && (grabbed.has(k) || grabbed.size < 16384)) grabbed.add(k);   // only pick-up keys
-    if (p.rd === stats.round && Array.isArray(p.f)) for (const f of p.f.slice(0, 10)) addRemoteShot(id, f);
+    if (p.rd === stats.round && Array.isArray(p.f)) for (const f of p.f.slice(0, 24)) addRemoteShot(id, f, p.ts);
     if (Array.isArray(p.gw) && p.gw.length === 6 && typeof p.gw[0] === "string" && p.gw.slice(1).every(Number.isFinite)) guideRemote(id, p.gw);
     if (Array.isArray(p.dr)) for (const d of p.dr.slice(0, 3)) {
       if (drops.size >= MAX_DROPS) break;
@@ -164,29 +184,43 @@
     // Event IDs belong to one round; old reports must not survive a round reset.
     if (p.rd !== stats.round) { showScore(); return true; }
     if (Array.isArray(p.rk)) applyRockMotion(p.rk);
+    applyCombatReports(id, p, r);
+    showScore();
+    return true;
+  }
+  // Combat events are monotonic within a round, even when movement arrives out of order.
+  function applyCombatReports(id, p, r) {
+    if (p.rd !== stats.round) return;
     // credit for my fireballs that they report
     const validHit = k => typeof k === "string" && k.length <= 48;
     const mine = k => validHit(k) && k.startsWith(myTag + ".") && credited.size < MAX_CREDITS;
-    for (const k of Array.isArray(p.hb) ? p.hb.slice(0, 16).filter(validHit) : []) if (mine(k) && !credited.has(k)) {
-      credited.add(k); me.score += 1; stats.hits++; floaters.push({ x: r.x, y: r.y - 30, t: 0, txt: "Hit +1", gold: false });
+    for (const k of Array.isArray(p.hb) ? p.hb.slice(0, 16).filter(validHit) : []) if (mine(k) && !credited.has(id + ":" + k)) {
+      credited.add(id + ":" + k); me.score += 1; stats.hits++; floaters.push({ x: r.x, y: r.y - 30, t: 0, txt: "Hit +1", gold: false });
+      confirmShotHit(id, k, r);
     }
-    if (bots.length) { creditBots(Array.isArray(p.hb) ? p.hb.slice(0, 16).filter(validHit) : [], false); creditBots(Array.isArray(p.ko) ? p.ko.slice(0, 16).filter(validHit) : [], true); }
-    for (const k of Array.isArray(p.ko) ? p.ko.slice(0, 16).filter(validHit) : []) if (typeof k === "string") reportKill(k, r.name);
-    for (const k of Array.isArray(p.ko) ? p.ko.slice(0, 16).filter(validHit) : []) if (mine(k) && !credited.has("ko" + k)) {
-      credited.add("ko" + k); me.score += 5; floaters.push({ x: r.x, y: r.y - 50, t: 0, txt: "KILL " + r.name, gold: true });
+    if (bots.length) { creditBots(Array.isArray(p.hb) ? p.hb.slice(0, 16).filter(validHit) : [], false, id); creditBots(Array.isArray(p.ko) ? p.ko.slice(0, 16).filter(validHit) : [], true, id); }
+    for (const k of Array.isArray(p.ko) ? p.ko.slice(0, 16).filter(validHit) : []) if (typeof k === "string") reportKill(k, r.name, id);
+    for (const k of Array.isArray(p.ko) ? p.ko.slice(0, 16).filter(validHit) : []) if (mine(k) && !credited.has("ko" + id + ":" + k)) {
+      credited.add("ko" + id + ":" + k); me.score += 5; floaters.push({ x: r.x, y: r.y - 50, t: 0, txt: "KILL " + r.name, gold: true });
       if ((r.lv || 1) >= MAX_LV) announce("KING SLAIN", "you took the crown's bounty", "#ffd36b", 3);
       gainXp(killXp(me.lv, r.lv || 1), performance.now());
       killStyle(k, r);
       stats.kills++; stats.streak++; stats.best = Math.max(stats.best, stats.streak);
       myKillAnnounce(performance.now());
-      blip(520, 0.35);
     }
     showScore();
-    return true;
   }
   // a pilot's state, from whichever transport (MQTT or the local room): the pilot, then the bots it flies
   function receiveState(id, p) {
-    if (!applyRemote(id, p)) return;
+    const fresh = applyRemote(id, p);
+    if (!fresh) {
+      if (p && p.rd === stats.round && Array.isArray(p.bots)) for (const e of p.bots.slice(0, 8)) {
+        if (!Array.isArray(e)) continue;
+        const r = remotes.get(e[0]);
+        if (r?.host === id && !botById.has(e[0])) applyRemote(e[0], e[1]);
+      }
+      return;
+    }
     if (Array.isArray(p.bots)) {
       const ids = [];
       for (const e of p.bots.slice(0, 8)) {
@@ -299,13 +333,13 @@
     // Shots ride in state, including on the primary, and q deduplicates the two deliveries.
     const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
     const myId = "p" + Math.random().toString(36).slice(2, 10);
-    const base = "binrocket-sky/v12/" + code + "/";
+    const base = "binrocket-sky/v14/" + code + "/";
     const clients = BROKERS.map(url => {
       const c = mqtt.connect(url, {
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),
         clean: true, keepalive: 20, reconnectPeriod: 2000, connectTimeout: 10000, queueQoSZero: false
       });
-      c.on("connect", () => { c.subscribe([base + "s/+", base + "e/" + myId], { qos: 0 }); refresh(); });
+      c.on("connect", () => { c.subscribe([base + "s/+", base + "f/+", base + "e/" + myId], { qos: 0 }); refresh(); });
       c.on("close", refresh);
       c.on("offline", refresh);
       c.on("error", () => {});
@@ -316,9 +350,11 @@
         if (kind === "e") { if (id === myId && c === pingVia()) { const t = Number(payload.toString()); if (t > 0) gotPing(performance.now() - t); } return; }   // my ping echo
         if (id === myId) return;
         // A disconnect on one broker is not departure from the room. Expire silent peers instead.
-        if (kind !== "s" || payload.length > 16384) return;
+        if ((kind !== "s" && kind !== "f") || payload.length > (kind === "f" ? 2048 : 16384)) return;
         let p; try { p = JSON.parse(payload.toString()); } catch { return; }
-        receiveState(id, p);
+        if (kind === "f") {
+          if (p && p.rd === stats.round && Array.isArray(p.f) && remotes.has(id)) for (const f of p.f.slice(0, 4)) addRemoteShot(id, f, p.ts);
+        } else receiveState(id, p);
       });
       return c;
     });
@@ -330,6 +366,16 @@
     setInterval(refresh, 2000);
     const pingVia = () => clients.find(c => c.connected);
     setInterval(() => { const c = pingVia(); if (c) c.publish(base + "e/" + myId, String(performance.now()), { qos: 0 }); }, 2000);
+    // Heavy/isolated shots go out immediately. Bound extra traffic from automatic guns;
+    // their intervening rounds still ride the next state, with the same IDs for deduplication.
+    let instantShotAt = -Infinity;
+    net.shot = d => {
+      const now = performance.now();
+      if (now - instantShotAt < 125) return;
+      instantShotAt = now;
+      const payload = JSON.stringify({ rd: stats.round, ts: Date.now(), f: [d] });
+      for (const c of clients) if (c.connected) c.publish(base + "f/" + myId, payload, { qos: 0 });
+    };
     net.send = p => {
       const payload = JSON.stringify(p);
       for (const c of clients) if (c.connected) c.publish(base + "s/" + myId, payload, { qos: 0 });

@@ -86,38 +86,105 @@
       if (bd < R + 26 * sizeOf(b.lv || 1)) { b.vx += (b.x - x) / (bd || 1) * 700; b.vy += (b.y - y) / (bd || 1) * 700; botHurt(b, base * Math.max(0.25, 1 - bd / R) * selfMul(s, b.id), s.id, now, false, K.ORB); }
     }
   }
+  const REWIND_MS = 250;
+  // Only straight, non-explosive rounds can safely catch up as one swept segment.
+  const straightShot = kind => kind === K.BULLET || kind === K.NAIL || kind === K.SPIKE || kind === K.PELLET || kind === K.SLUG;
+  function recordHitPose(o, now) {
+    let h = o.hitHistory || (o.hitHistory = []), prev = h[h.length - 1];
+    if (prev && (prev.dead !== !!o.dead || prev.inv !== o.inv || Math.hypot(o.x - prev.x, o.y - prev.y) > 180)) h.length = 0;
+    if (h.length && now - h[h.length - 1].at < 8) return;
+    h.push({ at: now, x: o.x, y: o.y, lv: o.lv, inv: o.inv, dead: !!o.dead });
+    while (h.length > 48 || (h.length > 1 && now - h[0].at > 600)) h.shift();
+  }
+  function hitPose(s, o) {
+    if (!s.hitTime || !HITSCAN[s.kind] || s.mine || botById.has(s.owner)) return o;
+    const h = o.hitHistory;
+    if (!h || !h.length || s.hitTime < h[0].at) return o;
+    for (let i = h.length - 1; i >= 0; i--) if (h[i].at <= s.hitTime) {
+      const a = h[i], b = h[i + 1] || a, t = b.at === a.at ? 0 : clamp((s.hitTime - a.at) / (b.at - a.at), 0, 1);
+      return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, lv: a.lv, dead: a.dead, inv: a.inv };
+    }
+    return o;
+  }
+  function targetHit(s, o) {
+    if (straightShot(s.kind) && Number.isFinite(s.stepFrom) && s.stepTo > s.stepFrom) return projectileContact(s, o) <= 1;
+    const p = hitPose(s, o);
+    if (p.dead || (HITSCAN[s.kind] && s.hitTime && p.inv > s.hitTime)) return false;
+    return segHit(s, p.x, p.y, binR(p.lv) + shotRadius(s));
+  }
+  const shotRadius = s => s.cut || SHOTS[s.kind].r;
+  // Earliest contact between a shot and a moving circle. Work in relative coordinates
+  // so a target crossing the path between frames is not treated as a stationary point.
+  function circleContact(x, y, dx, dy, r) {
+    const c = x * x + y * y - r * r;
+    if (c <= 0) return 0;
+    const a = dx * dx + dy * dy, b = x * dx + y * dy, disc = b * b - a * c;
+    if (a < 1e-12 || disc < 0) return Infinity;
+    const t = (-b - Math.sqrt(disc)) / a;
+    return t >= 0 && t <= 1 ? t : Infinity;
+  }
+  function projectileContact(s, o) {
+    const start = s.stepFrom, end = s.stepTo, duration = end - start, h = o.hitHistory;
+    const dx = s.x - s.px, dy = s.y - s.py, radius = shotRadius(s);
+    if (!h?.length || duration <= 0) return circleContact(s.px - o.x, s.py - o.y, dx, dy, binR(o.lv) + radius);
+    let best = Infinity;
+    // Do not extrapolate across a teleport/respawn or back before available history.
+    for (let i = 0; i < h.length; i++) {
+      const a = h[i], b = h[i + 1] || { ...o, at: end };
+      const lo = Math.max(start, a.at), hi = Math.min(end, b.at);
+      if (hi <= lo || a.dead || b.dead || a.inv !== b.inv) continue;
+      const from = Math.max(lo, Number.isFinite(a.inv) ? a.inv : lo);
+      if (from >= hi) continue;
+      const span = b.at - a.at, t0 = (from - a.at) / span, t1 = (hi - a.at) / span;
+      const ax = a.x + (b.x - a.x) * t0, ay = a.y + (b.y - a.y) * t0;
+      const bx = a.x + (b.x - a.x) * t1, by = a.y + (b.y - a.y) * t1;
+      const f0 = (from - start) / duration, f1 = (hi - start) / duration;
+      const hit = circleContact(s.px + dx * f0 - ax, s.py + dy * f0 - ay,
+        dx * (f1 - f0) - (bx - ax), dy * (f1 - f0) - (by - ay), binR(a.lv) + radius);
+      if (Number.isFinite(hit)) best = Math.min(best, f0 + hit * (f1 - f0));
+    }
+    return best;
+  }
+  // First circle along a ray, independent of Map insertion order. Used by both visible
+  // beams and collision segments, with the same radius and (for incoming hitscan) rewind.
+  function firstBinAlong(s, range) {
+    const v = Math.hypot(s.vx, s.vy) || 1, ux = s.vx / v, uy = s.vy / v;
+    let first = range, found = false;
+    const test = (o, id) => {
+      if (!canHurt(s, o, id)) return;
+      if (straightShot(s.kind) && Number.isFinite(s.stepFrom) && s.stepTo > s.stepFrom) {
+        const hit = projectileContact(s, o);
+        if (hit * range < first) { first = hit * range; found = true; }
+        return;
+      }
+      const p = hitPose(s, o), dx = p.x - s.px, dy = p.y - s.py, along = dx * ux + dy * uy;
+      const rr = binR(p.lv) + shotRadius(s), side2 = dx * dx + dy * dy - along * along;
+      if (side2 > rr * rr || along + rr < 0) return;
+      const entry = Math.max(0, along - Math.sqrt(Math.max(0, rr * rr - side2)));
+      if (entry < first) { first = entry; found = true; }
+    };
+    if (playing) test(me, "me");
+    for (const b of bots) test(b, b.id);
+    for (const [id, r] of remotes) if (!botById.has(id)) test(r, id);
+    return found ? Math.min(range, first + 0.5) : range;
+  }
   const pierces = s => SHOTS[s.kind].pierce || !!s.pc;   // rail-like shots, and fireballs from Lv 7
-  // the rail slug goes straight through bins and junk (each one once), only planets and walls stop it
+  // Piercing shots hit each target once per pass; a recalled saw gets one new return pass.
   function railOnce(s, key) { if (!s.hits) s.hits = new Set(); if (s.hits.has(key)) return false; s.hits.add(key); return true; }
   // its beam is drawn at once along the whole path, so the shot reads as instant
   const beams = [];
   const arcs = [];   // lightning jumping from the bin it hit to the next one
   const BEAM_T = 1.1;   // a rail trail lingers: the hot core goes fast, the spiral slowly unwinds
-  function railBeam(x, y, vx, vy, big = false) {
-    const v = Math.hypot(vx, vy) || 1, dx = vx / v, dy = vy / v, max = 4200 * SHOTS[K.RAIL].life;
-    let L = 0;
-    while (L < max) {
-      L += 30;
-      const px = x + dx * L, py = y + dy * L;
-      if (px < 0 || px > W || py < 0 || py > H) break;   // the slug bores through bodies, only the fence stops it
-    }
-    beams.push({ x1: x, y1: y, x2: x + dx * L, y2: y + dy * L, t: 0, big });
-    if (beams.length > 12) beams.shift();
+  function beamReach(s) {
+    const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v;
+    return Math.max(0, Math.min(s.cut ? 1100 : v * SHOTS[s.kind].life,
+      dx > 0 ? (W - s.x) / dx : dx < 0 ? -s.x / dx : Infinity,
+      dy > 0 ? (H - s.y) / dy : dy < 0 ? -s.y / dy : Infinity));
   }
-  // where a beam (laser, shock beam) stops: the first body, bin or wall along its line, up to its reach
-  function beamEnd(x, y, dx, dy, max, owner, mine) {
-    let L = 0, hit = null;
-    const bins = [];
-    if (!mine && playing && !me.dead) bins.push(me);
-    for (const [id, r] of remotes) if (id !== owner && !r.dead) bins.push(r);
-    while (L < max) {
-      L = Math.min(max, L + 18);
-      const px = x + dx * L, py = y + dy * L;
-      if (px < 0 || px > W || py < 0 || py > H) { hit = "wall"; break; }
-      if (solidAny(px, py)) { hit = "body"; break; }
-      if (bins.some(o => (o.x - px) ** 2 + (o.y - py) ** 2 < binR(o.lv || 1) ** 2)) { hit = "bin"; break; }
-    }
-    return { x: x + dx * L, y: y + dy * L, hit };
+  function railBeam(s) {
+    const {x, y, vx, vy} = s, v = Math.hypot(vx, vy) || 1, dx = vx / v, dy = vy / v, L = beamReach(s), big = s.kind === K.GAUSS;
+    beams.push({ x1: x, y1: y, x2: x + dx * L, y2: y + dy * L, t: 0, big, cut: s.cut || 0 });
+    if (beams.length > 12) beams.shift();
   }
   // the laser's look: each pulse lays a short-lived beam from the gun to where it stops; at 12 a second they
   // overlap into one shimmering beam, flaring and melting where it lands
@@ -125,8 +192,8 @@
   const LASER_T = 0.11;
   function laserBeam(s, owner) {
     const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v;
-    const e = beamEnd(s.x, s.y, dx, dy, v * SHOTS[s.kind].life, owner, s.mine);
-    lasers.push({ x1: s.x, y1: s.y, x2: e.x, y2: e.y, t: 0, hit: e.hit, seed: Math.random() * 100, shock: s.kind === K.SHOCK, who: (s.mine ? "me" : owner || "?") + (s.kind === K.SHOCK ? "s" + s.id : "") });
+    const e = { x: s.x, y: s.y, hit: s.beamHit };
+    lasers.push({ x1: s.px, y1: s.py, x2: e.x, y2: e.y, t: 0, hit: e.hit, seed: Math.random() * 100, shock: s.kind === K.SHOCK, who: (s.mine ? "me" : owner || "?") + (s.kind === K.SHOCK ? "s" + s.id : "") });
     if (lasers.length > 40) lasers.shift();
     if (e.hit && e.hit !== "wall" && onScreen(sx(e.x), sy(e.y), 60)) {
       for (let k = 0; k < (lowQ ? 1 : 3); k++) { const a = Math.atan2(-dy, -dx) + (Math.random() - 0.5) * 2.2, sp = 80 + Math.random() * 260; puff(e.x, e.y, Math.cos(a) * sp, Math.sin(a) * sp, 0.25 + Math.random() * 0.25, 1.4 + Math.random() * 1.4, s.kind === K.SHOCK ? "#e4d2ff" : k % 2 ? "#bff9ff" : "#ffffff", 1, 0.05); }
@@ -237,10 +304,21 @@
   // Quake's medals: Impressive for two rail hits in a row; Humiliation for a ram kill; Headshot for a scoped rail kill from afar
   let railRun = 0, railLast = null;
   const myRails = new Map(), myMelee = new Set();
+  const pendingHitFx = new Map();
+  function predictHit(s, id, r) {
+    pendingHitFx.set(id + ":" + s.id, { s, at: performance.now(), lv: r.lv });
+    if (pendingHitFx.size > 256) pendingHitFx.delete(pendingHitFx.keys().next().value);
+  }
+  function confirmShotHit(id, shotId, r) {
+    const key = id + ":" + shotId, pending = pendingHitFx.get(key);
+    if (!pending) return;
+    pendingHitFx.delete(key);
+    if (performance.now() - pending.at < 2000) hitConfirm(pending.s, pending.lv, r.x, r.y, r);
+  }
   function killStyle(k, victim) {
     if (k.includes(".ram") || myMelee.has(k)) { setTimeout(() => announce("HUMILIATION", "rammed " + victim.name, "#ff8a5a", 3), 1400); return; }
     const r = myRails.get(k);
-    if (r && r.charged && Math.hypot(victim.x - r.x, victim.y - r.y) > 1200) setTimeout(() => announce("HEADSHOT", "a charged rail kill from afar", "#d9a8ff", 3), 1400);
+    if (r && r.charged && Math.hypot(victim.x - r.x, victim.y - r.y) > (r.cut ? 800 : 1200)) setTimeout(() => announce("HEADSHOT", "a charged rail kill from afar", "#d9a8ff", 3), 1400);
   }
   function hitConfirm(s, lv, x, y, target) {
     const t0 = performance.now();
@@ -273,10 +351,10 @@
       // (sideways drift no longer bends it off the crosshair), and firing ahead while flying fast still adds reach
       const fwd = speed > 0 ? Math.max(0, p.vx * bx + p.vy * by) * ride : 0;
       s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * (speed + fwd) + (speed > 0 ? 0 : p.vx * ride), vy: by * (speed + fwd) + (speed > 0 ? 0 : p.vy * ride),
-            life: SHOTS[kind].life, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: kind === K.FIRE && plv >= 7 };   // pc: pierces (fireballs from Lv 7)
+            life: SHOTS[kind].life, cut: pat.cut || 0, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: kind === K.FIRE && plv >= 7 };   // pc: pierces (fireballs from Lv 7)
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else if (kind === K.NAIL) nailSpray(s); else shots.push(s);
-      if (kind === K.RAIL || kind === K.GAUSS) railBeam(s.x, s.y, s.vx, s.vy, kind === K.GAUSS);
-      if (kind === K.GAUSS && mine) { myRails.set(id, { x: s.x, y: s.y, charged: true }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value); }
+      if (kind === K.RAIL || kind === K.GAUSS) railBeam(s);
+      if (kind === K.GAUSS && mine) { myRails.set(id, { x: s.x, y: s.y, charged: true, cut: !!s.cut }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value); }
       if (kind === K.MELEE && mine) myMelee.add(id);   // for Humiliation
       if (kind === K.BULLET && onScreen(sx(p.x), sy(p.y), 200) && Math.random() < 0.7) {   // a spent casing spins off the side
         const sd = Math.random() < 0.5 ? 1 : -1, cx = -by * sd, cy = bx * sd, v = 140 + Math.random() * 120;
@@ -286,14 +364,33 @@
         if (railLast && !railLast.hitAny) railRun = 0;
         railLast = s; myRails.set(id, { x: s.x, y: s.y, charged: false }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value);
       }
-      if (kind === K.LASER || kind === K.SHOCK) laserBeam(s, mine ? undefined : p.id);
-      const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind];
-      if (amp !== 1 || s.pc) d.push(+amp.toFixed(2));
-      if (s.pc) d.push(1);
+      const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind, +amp.toFixed(2), s.pc ? 1 : 0, s.cut || 0, Date.now()];
       if (mine) { myShotLog.push({ at: now, d }); stats.shots++; net.shot(d); }
       else { seenShots.set(id, performance.now()); p.shotLog.push({ at: now, d }); p.st.shots++; }
     }
     return s;
+  }
+  // Blades make one outbound pass and one return pass. Recall never resets a return hit list.
+  function returnSaw(s) {
+    if (s.returning) return;
+    s.returning = true; s.hits = new Set();
+  }
+  function recallSaws(signal) {
+    if (signal.recalled) return;
+    signal.recalled = true;
+    for (const s of shots) if (s.kind === K.SAW && s.life > 0 && (signal.mine ? s.mine : !s.mine && s.owner === signal.owner)) returnSaw(s);
+  }
+  function steerSaw(s, dt) {
+    s.age = (s.age || 0) + dt;
+    if (s.age >= 0.55) returnSaw(s);
+    if (!s.returning) return;
+    const owner = s.mine ? me : botById.get(s.owner) || remotes.get(s.owner);
+    if (!owner || owner.dead) return; // keeps flying until its bounded lifetime expires
+    const dx = owner.x - s.x, dy = owner.y - s.y, d = Math.hypot(dx, dy), speed = 1750;
+    if (d < binR(owner.lv || 1) + 18) { s.life = 0; return; }
+    // A short ricochet grace lets the blade escape a wall before homing resumes.
+    s.ricTime = Math.max(0, (s.ricTime || 0) - dt);
+    if (!s.ricTime) { const v = Math.min(speed, d / Math.max(dt, 0.001)); s.vx = dx / d * v; s.vy = dy / d * v; }
   }
   // the nailgun: one record becomes the same fan of seven nails everywhere
   function nailSpray(s) {
@@ -409,8 +506,14 @@
   // fire the gun in hand (alt: its alternate fire, which needs its full ammo cost)
   // mul: the charge cannon's charge (0.25..1)
   function shoot(now, alt, mul = 1) {
-    const k = me.weapon, w = WEAPONS[k], pat = alt ? w.alt : w;
+    const k = me.weapon, w = WEAPONS[k];
+    let pat = alt ? w.alt : w;
     if (alt && !(pat && me.arsenal[k] >= pat.cost)) return;
+    if (alt && pat.cutter) pat = { ...pat, cut: Math.round(24 + 48 * railCharge) };
+    if (alt && pat.recall) {
+      if (!shots.some(s => s.mine && s.kind === K.SAW && !s.returning && s.life > 0)) return;
+      const signal = volley(me, now, pat, { x: me.x, y: me.y }); recallSaws(signal); fireCd = pat.cd; sfx(...pat.sfx); return;
+    }
     if (k === "tele" && myBeacon()) { teleport(now); return; }   // the second shot jumps you to the beacon
     if (w.melee && !alt) {   // the gauntlet: a blow only lands on a bin within reach ahead (the blade spins anyway)
       const reach = binR(me.lv) + 60, nx = me.x + Math.cos(me.a) * (binR(me.lv) + 14), ny = me.y + Math.sin(me.a) * (binR(me.lv) + 14);
@@ -486,7 +589,7 @@
     if (held && playing && !me.dead) {
       const was = charge;
       charge = Math.min(1, charge + dt / w.charge);
-      if (Math.floor(was * 6) !== Math.floor(charge * 6)) blip(300 + charge * 500, 0.06, "sine");   // a rising whine
+      if (Math.floor(was * 6) !== Math.floor(charge * 6)) sfx("p_charge", 0.3, 0.8 + charge * 0.5) || blip(300 + charge * 500, 0.06, "sine");   // a rising whine
       if (charge === 1 && was < 1) impacts.push({ x: me.x, y: me.y, t: 0, r: 60, col: w.col });
       return false;
     }
@@ -602,9 +705,9 @@
     me.dashTimes.push(now);
     energy -= 25; dashReadyAt = now + 150; energyRegenAt = now + 700;
     me.dashAt = now;
-    dashBurst(me);
     const sm = Math.hypot(steer.x, steer.y);
     const a = sm > 0.2 ? Math.atan2(steer.y, steer.x) : me.a;
+    me.tdir = a; dashBurst(me);
     me.vx += Math.cos(a) * 900; me.vy += Math.sin(a) * 900;
     me.inv = Math.max(me.inv, now + 280);
     for (let k = 0; k < 22; k++) {
@@ -775,14 +878,14 @@
     smoke(x, y, Math.round(60 * q), 560, 6);
     rings.push({ x, y, t: -0.5, r: far, col: holy ? "255,240,190" : "255,140,80", dur: 2.2, w: 22 });   // the slow heat wave rolling far out
     if (d < far) { shake = Math.max(shake, (holy ? 1.8 : 1.4) * (1 - d / far)); flash = Math.max(flash, d < R * 1.6 ? 1 : 1 - (d - R * 1.6) / (far - R * 1.6)); }
-    blip(30, 2.2, "sawtooth"); blip(55, 1.6, "square"); blip(90, 1.0, "sawtooth");
+    packPlay("p_death", 1) || boomSound(2.2, 120, 0.8);
     if (canHurt(s, me, "me", true) && d < R) {   // your own bomb too: get clear of it
       hurtMe(s, now, bombDmg(bm, d), s.kind, 0, d < bm.kill);
     }
     for (const b of bots) {
       const bd = Math.hypot(b.x - x, b.y - y);
       if (bd > R || !canHurt(s, b, b.id, true)) continue;
-      botHurt(b, bd < bm.kill ? 99 : bombDmg(bm, bd) * selfMul(s, b.id), s.id, now, bd < bm.kill);
+      botHurt(b, bd < bm.kill ? 99 : bombDmg(bm, bd) * selfMul(s, b.id), s.id, now, bd < bm.kill, s.kind);
     }
     if (!s.mine) return;
     // the shooter wipes out everything in the blast and shares the result
@@ -836,7 +939,7 @@
       me.lv = levelAfterDeath(me.lv); me.xp = XP_STEPS[me.lv - 1];   // a destroyed bin drops two levels
       baseArsenal(); me.ampUntil = 0; me.fc = -1; renderWeapon();   // its guns are lost with it (and a carried flag goes home)
       renderLevel();
-      blip(60, 0.6, "sawtooth");
+      packPlay("p_death", 0.7) || blip(60, 0.6, "sawtooth");
     } else explode(me.x, me.y, 18, 180);
     return true;
   }

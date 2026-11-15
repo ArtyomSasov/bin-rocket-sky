@@ -1,0 +1,9 @@
+Supplemental effects: rubberduck, "50 CC0 Sci-Fi SFX" (2018).
+Source: https://opengameart.org/content/50-cc0-sci-fi-sfx
+Download: https://opengameart.org/sites/default/files/sci-fi-sfx.zip
+License: CC0 1.0, https://creativecommons.org/publicdomain/zero/1.0/
+Original Ogg files, unchanged. Added 2026-11-15.
+beep_01: pickups; terminal_02: charge; terminal_05: kill confirmation;
+teleport_01: announcement cue; explosion_02: death/nuke accent;
+loop_machine_01: engine loop (playback pitch and volume follow thrust).
+User-supplied Quake/announcer files are separate and retain their provenance.

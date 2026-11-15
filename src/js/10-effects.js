@@ -99,35 +99,74 @@
     const bh = ck ? customVal(ck, "body") : null, lh = ck ? customVal(ck, "lid") : null;
     return [bh === null ? "#4fd6c8" : toneCss(bh, 65, 55), lh === null ? "#9d8fc8" : toneCss(lh, 45, 60)];
   };
+  // One geometry for hull, flame and emitted particles: fixed thruster mounts follow banking.
+  function binPose(b, now) {
+    const thrust = clamp(b.thrust || 0, 0, 1.4);
+    return { a: b.a + Math.PI / 2 - SPRITE_TILT + Math.sin(now / 300 + b.x * 0.01) * 0.018 + (b.bank || 0) * 0.35,
+      scaleX: 1 - Math.abs(b.bank || 0) * 0.3,
+      s: BOT * sizeOf(b.lv || 1) * (1 + Math.sin(now / 85 + (b.hue || 0)) * 0.005 * thrust) };
+  }
+  function exhaustJets(b, now) {
+    const p = binPose(b, now), thrust = clamp(Math.max(b.boostFx === 2 || b.boost === 2 ? 1 : 0, b.thrust || 0), 0, 1.4), delta = angD(thrustAngle(b) - b.a);
+    const ca = Math.cos(p.a), sa = Math.sin(p.a), jets = [];
+    const add = (lx, ly, a, power, main) => {
+      const dx = Math.cos(a) * p.scaleX, dy = Math.sin(a);
+      jets.push({ x: b.x + ca * lx * p.scaleX - sa * ly, y: b.y + sa * lx * p.scaleX + ca * ly,
+        a: p.a + Math.atan2(dy, dx), power, main, size: p.s });
+    };
+    const gimbal = clamp(delta * 0.18, -0.22, 0.22);
+    add(NOZZLE[0] * p.s, NOZZLE[1] * p.s, SPRITE_TILT + Math.PI / 2 + gimbal,
+      Math.max(0.035, thrust * Math.max(0, Math.cos(delta))), true);
+    // Front and two flank jets stay bolted to the hull, instead of sliding around its rim.
+    for (const [dir, power] of [[Math.PI, -Math.cos(delta)], [Math.PI / 2, Math.sin(delta)], [-Math.PI / 2, -Math.sin(delta)]]) {
+      if (power * thrust <= 0.025) continue;
+      const a = dir + Math.PI / 2 + SPRITE_TILT;
+      add(Math.cos(a) * p.s * 0.34, Math.sin(a) * p.s * 0.34, a, power * thrust, false);
+    }
+    return jets;
+  }
+  function emissionCount(b, slot, rate, dt) {
+    const budget = (b[slot] || 0) + rate * Math.min(0.1, Math.max(0, dt));
+    const n = Math.floor(budget); b[slot] = budget - n; return n;
+  }
+  // Cached billowing smoke, shaded lobes rather than perfectly round glow dots.
+  const smokeCache = new Map();
+  function smokeSprite(col) {
+    if (smokeCache.has(col)) return smokeCache.get(col);
+    const c = document.createElement("canvas"); c.width = c.height = 96;
+    const q = c.getContext("2d");
+    for (let i = 0; i < 7; i++) {
+      const a = i * 2.4, x = 48 + Math.cos(a) * 16, y = 48 + Math.sin(a) * 13, r = 22 + i % 3 * 3;
+      const gr = q.createRadialGradient(x - 5, y - 6, 0, x, y, r);
+      gr.addColorStop(0, col); gr.addColorStop(0.4, col); gr.addColorStop(1, "rgba(25,22,32,0)");
+      q.fillStyle = gr; q.globalAlpha = 0.42; q.fillRect(0, 0, 96, 96);
+    }
+    smokeCache.set(col, c); return c;
+  }
   // boost: a dense jet of fire out of the nozzle
   // which way a pilot is pushing (ta), or where it faces when that isn't known: exhaust always comes out the
   // other side, so flying backwards or sideways fires the jets on the front or the flank
   function thrustAngle(b) { return Number.isFinite(b.tdir) ? b.tdir : b.a; }   // tdir: the push (b.ta is a remote's facing target)
   function afterburner(b, fx, dt) {
-    if (!fx) return;
-    const A = thrustAngle(b), bx = Math.cos(A), by = Math.sin(A), sz = sizeOf(b.lv || 1), tail = 46 * sz, q = lowQ ? 0.4 : 1;
-    const n = (fx === 2 ? 140 : 110) * q * dt;
-    for (let k = 0; k < n || (k === 0 && Math.random() < n); k++) {   // a long roaring plume
-      const sp = 320 + Math.random() * 420, j = (Math.random() - 0.5) * 0.45;
-      const vx = -Math.cos(A + j) * sp, vy = -Math.sin(A + j) * sp;
-      puff(b.x - bx * tail, b.y - by * tail, vx + (b.vx || 0) * 0.4, vy + (b.vy || 0) * 0.4, 0.3 + Math.random() * 0.35, 3.5 + Math.random() * 5 * sz, FIRE_COLS[(Math.random() * 3) | 0]);
-    }
-    for (let k = 0; k < 40 * q * dt || (k === 0 && Math.random() < 40 * q * dt); k++) {   // a blue-white shock core and sparks streaking back
-      const v = 500 + Math.random() * 400, j = (Math.random() - 0.5) * 0.25;
-      puff(b.x - bx * tail, b.y - by * tail, -Math.cos(A + j) * v + (b.vx || 0) * 0.5, -Math.sin(A + j) * v + (b.vy || 0) * 0.5, 0.18 + Math.random() * 0.15, 1.6 + Math.random() * 1.4, k % 2 ? "#bfefff" : "#ffffff", 1);
-    }
-    if (Math.random() < 14 * q * dt) {   // shock diamonds pulsing in the exhaust
-      const d = tail + 30 + Math.random() * 60;
-      impacts.push({ x: b.x - bx * d, y: b.y - by * d, t: 0.05, r: 26 * sz, col: "#9fe8ff" });
+    if (!fx || dt <= 0) return;
+    const jets = exhaustJets(b, performance.now()), q = lowQ ? 0.35 : 1;
+    for (let k = 0, n = emissionCount(b, "boostParticles", (fx === 2 ? 145 : 100) * q, dt); k < n; k++) {
+      const j = jets[k % jets.length]; if (j.power < 0.05) continue;
+      const a = j.a + (Math.random() - 0.5) * 0.22, speed = (300 + Math.random() * 430) * j.power;
+      const age = Math.random() * dt; // spread along the moving nozzle's path, even at low FPS
+      puff(j.x - (b.vx || 0) * age, j.y - (b.vy || 0) * age,
+        Math.cos(a) * speed + (b.vx || 0) * 0.7, Math.sin(a) * speed + (b.vy || 0) * 0.7,
+        0.16 + Math.random() * 0.22, (2 + Math.random() * 3) * sizeOf(b.lv || 1), "#ffd23f", k % 5 === 0 ? 1 : 3);
     }
   }
   // dash: a flash and a hot ring at the nozzle, sparks thrown back
   function dashBurst(b) {
-    const A = thrustAngle(b), bx = Math.cos(A), by = Math.sin(A), sz = sizeOf(b.lv || 1), tx = b.x - bx * 44 * sz, ty = b.y - by * 44 * sz;
+    const jet = exhaustJets({ ...b, thrust: Math.max(1, b.thrust || 0) }, performance.now()).sort((a, b) => b.power - a.power)[0];
+    const A = jet.a - Math.PI, sz = sizeOf(b.lv || 1), tx = jet.x, ty = jet.y;
     impacts.push({ x: tx, y: ty, t: 0, r: 90 * sz, col: "#ffd23f" });
     rings.push({ x: tx, y: ty, t: 0, r: 110 * sz, col: "255,220,160", dur: 0.35, w: 8 });
     for (let k = 0; k < (lowQ ? 12 : 30); k++) {
-      const a = b.a + Math.PI + (Math.random() - 0.5) * 0.9, v = 400 + Math.random() * 500;
+      const a = A + Math.PI + (Math.random() - 0.5) * 0.9, v = 400 + Math.random() * 500;
       puff(tx, ty, Math.cos(a) * v, Math.sin(a) * v, 0.25 + Math.random() * 0.25, 1.2 + Math.random(), k % 2 ? "#fff6c8" : "#ffb43c", 1);
     }
   }
@@ -258,7 +297,6 @@
     }
   }
   // ---------- how a bin dies depends on what got it ----------
-  // 0 blown apart (fire, rockets, mines, shards, crashes...), 1 sliced by a rail slug, 2 fried by laser or lightning, 3 melted by plasma
   // how a bin dies follows what killed it: 0 blown up (a blast: in pieces; anything else may leave a hulk), 1 cut
   // clean by a rail, 2 fried by electricity, 3 melted by plasma, 4 nailed (it flies on along the nail and is pinned to
   // the rock it meets), 5 burnt (it burns, chars and crumbles to ash), 6 sawn into four by a blade
@@ -372,6 +410,8 @@
   function electrocute(b) {
     const sz = sizeOf(b.lv || 1);
     makeHulk(b, true);
+    const h = hulks[hulks.length - 1];
+    h.burn = performance.now() + 900; h.life = h.max = 5.1;
     impacts.push({ x: b.x, y: b.y, t: 0, r: 140 * sz, col: "#bfefff" });
     impacts.push({ x: b.x, y: b.y, t: -0.12, r: 100 * sz, col: "#6fc2ff" });
     rings.push({ x: b.x, y: b.y, t: 0, r: 180 * sz, col: "150,220,255", dur: 0.35, w: 5 });
@@ -439,13 +479,14 @@
   }
   const TRAIL = ["#ffe3f6", "#ffffff", "#ffd2a0", "#f3c6ff"];
   function trailFrom(b, rate, dt) {
-    const n = rate * dt * (lowQ ? 25 : 60);
-    const A = thrustAngle(b), bx = Math.cos(A), by = Math.sin(A), sz = sizeOf(b.lv || 1), tail = 40 * sz;
+    const n = emissionCount(b, "trailParticles", rate * (lowQ ? 18 : 42) * Math.max(0.08, b.thrust || 0), dt);
+    const jets = exhaustJets(b, performance.now());
     const tr = b.ck ? customVal(b.ck, "trail") : null, trailCols = tr ? TRAILS[tr] : TRAIL;
-    for (let k = 0; k < n || (k === 0 && Math.random() < n); k++) {
-      const tx = b.x - bx * tail + (Math.random() - .5) * 14 * sz, ty = b.y - by * tail + (Math.random() - .5) * 14 * sz;
-      puff(tx, ty, -bx * 40 + (Math.random() - .5) * 30, -by * 40 + (Math.random() - .5) * 30,
-        0.6 + Math.random() * 0.9, 1 + Math.random() * 2.2, trailCols[(Math.random() * trailCols.length) | 0]);
+    for (let k = 0; k < n; k++) {
+      const j = jets[k % jets.length], age = Math.random() * dt;
+      puff(j.x - (b.vx || 0) * age, j.y - (b.vy || 0) * age,
+        Math.cos(j.a) * 100 + (b.vx || 0) * 0.65, Math.sin(j.a) * 100 + (b.vy || 0) * 0.65,
+        0.25 + Math.random() * 0.45, 1 + Math.random() * 1.5, trailCols[k % trailCols.length]);
     }
   }
 
@@ -455,7 +496,7 @@
     n = Math.round(n * 1.3); speed *= 1.35;
     for (let k = 0; k < n; k++) {
       const a = Math.random() * 6.28, v = speed * (0.3 + Math.random());
-      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.6 + Math.random() * 1.0, 2.5 + Math.random() * 5, FIRE_COLS[(Math.random() * 4) | 0]);
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.6 + Math.random() * 1.0, 2.5 + Math.random() * 5, FIRE_COLS[(Math.random() * 4) | 0], 3);
     }
     for (let k = 0; k < n / (lowQ ? 8 : 4); k++) {   // the core: big slow white-yellow blobs
       const a = Math.random() * 6.28, v = speed * Math.random() * 0.35;

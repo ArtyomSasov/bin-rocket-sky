@@ -187,10 +187,12 @@
       return;
     }
     if (s.kind === K.BOLT) {   // lightning: braided crackling strands from the gun to where the bolt has reached
+      let noise = (Math.floor(now / 45) + (s.ox * 17 + s.oy * 31) | 0) >>> 0;
+      const random = () => { noise = (Math.imul(noise, 1664525) + 1013904223) >>> 0; return noise / 4294967296; };
       const x0 = x - (s.x - s.ox), y0 = y - (s.y - s.oy), L = Math.hypot(x - x0, y - y0) || 1, nx = (x - x0) / L, ny = (y - y0) / L;
       const seg = Math.max(6, Math.min(16, L / 40) | 0), strand = amp => {
         const p = [[x0, y0]];
-        for (let k = 1; k < seg; k++) { const t = k / seg, o = (Math.random() - 0.5) * amp * Math.sin(t * Math.PI); p.push([x0 + (x - x0) * t - ny * o, y0 + (y - y0) * t + nx * o]); }
+        for (let k = 1; k < seg; k++) { const t = k / seg, o = (random() - 0.5) * amp * Math.sin(t * Math.PI); p.push([x0 + (x - x0) * t - ny * o, y0 + (y - y0) * t + nx * o]); }
         p.push([x, y]); return p;
       };
       const line = (p, w, c) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); p.forEach(([px, py], i) => i ? g.lineTo(px, py) : g.moveTo(px, py)); g.stroke(); };
@@ -203,9 +205,9 @@
       g.globalAlpha = 0.9; g.drawImage(dotSprite("#bfefff"), x - 28, y - 28, 56, 56); g.globalAlpha = 1;   // where it lands
       g.drawImage(dotSprite("#d8f6ff"), x0 - 18, y0 - 18, 36, 36);   // and at the gun
       for (let f = 0; f < (lowQ ? 1 : 3); f++) {   // forks splitting off the main bolt
-        let [fx, fy] = pts[1 + ((Math.random() * (pts.length - 2)) | 0)], a = Math.atan2(ny, nx) + (Math.random() < 0.5 ? 1 : -1) * (0.4 + Math.random() * 0.6);
+        let [fx, fy] = pts[1 + ((random() * (pts.length - 2)) | 0)], a = Math.atan2(ny, nx) + (random() < 0.5 ? 1 : -1) * (0.4 + random() * 0.6);
         const fork = [[fx, fy]];
-        for (let k = 0; k < 3; k++) { a += (Math.random() - 0.5) * 0.9; const st = 14 + Math.random() * 18; fx += Math.cos(a) * st; fy += Math.sin(a) * st; fork.push([fx, fy]); }
+        for (let k = 0; k < 3; k++) { a += (random() - 0.5) * 0.9; const st = 14 + random() * 18; fx += Math.cos(a) * st; fy += Math.sin(a) * st; fork.push([fx, fy]); }
         for (const [w, c] of [[4, "rgba(120,200,255,0.3)"], [1.2, "rgba(220,248,255,0.9)"]]) {
           g.strokeStyle = c; g.lineWidth = w; g.beginPath(); fork.forEach(([px, py], i) => i ? g.lineTo(px, py) : g.moveTo(px, py)); g.stroke();
         }
@@ -223,7 +225,7 @@
       g.restore();
       return;
     }
-    if (s.kind === K.GREN) {   // a grenade: a green egg with a dark band and a blinking light, tumbling
+    if (s.kind === K.GREN) {   // a grenade: a dark metal body with a ridged belt and a blinking fuse, tumbling
       const t = SHOTS[K.GREN].life - s.life, blink = Math.floor(t * (t > 1.8 ? 14 : 4)) % 2;
       g.save(); g.translate(x, y); g.rotate(t * 5 + s.x * 0.001); g.scale(1.25, 1.25);
       if (blink) { g.globalCompositeOperation = "lighter"; g.drawImage(dotSprite("#ff5a3c"), -16, -16, 32, 32); g.globalCompositeOperation = "source-over"; }
@@ -333,11 +335,11 @@
     }
     if (s.kind === K.SAW) {   // a spinning toothed blade
       g.save(); g.translate(x, y); g.rotate(now / 25 + s.x * 0.01);
-      g.fillStyle = "rgba(214,221,232,0.25)"; g.beginPath(); g.arc(0, 0, 22, 0, 6.29); g.fill();
+      g.fillStyle = s.returning ? "rgba(70,255,210,0.4)" : "rgba(214,221,232,0.25)"; g.beginPath(); g.arc(0, 0, 22, 0, 6.29); g.fill();
       g.fillStyle = "#d6dde8"; g.beginPath();
       for (let k = 0; k < 24; k++) { const a = k / 24 * 6.283, r = k % 2 ? 11 : 16; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
       g.closePath(); g.fill();
-      g.fillStyle = "#5a6684"; g.beginPath(); g.arc(0, 0, 4, 0, 6.29); g.fill();
+      g.fillStyle = s.returning ? "#6fffe0" : "#5a6684"; g.beginPath(); g.arc(0, 0, 4, 0, 6.29); g.fill();
       g.restore();
       return;
     }
@@ -835,7 +837,7 @@
         g.fillStyle = "#3b2d5c"; rrect(-6, -26, 12, 30, 4); g.fill();
         g.save(); g.translate(0, -38); g.rotate(now / 60); g.fillStyle = "#d6dde8"; g.beginPath();
         for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, r = k % 2 ? 10 : 15; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
-        g.closePath(); g.fill(); g.fillStyle = "#5a6684"; g.beginPath(); g.arc(0, 0, 4, 0, 6.29); g.fill(); g.restore();
+        g.closePath(); g.fill(); g.fillStyle = s.returning ? "#6fffe0" : "#5a6684"; g.beginPath(); g.arc(0, 0, 4, 0, 6.29); g.fill(); g.restore();
       } else if (weapon === "gamma") {   // a green ball in a cage
         g.fillStyle = "#3b2d5c"; rrect(-12, -20, 24, 26, 6); g.fill();
         const gg = g.createRadialGradient(0, -40, 2, 0, -40, 18); gg.addColorStop(0, "#ffffff"); gg.addColorStop(0.5, "#7dff8a"); gg.addColorStop(1, "rgba(60,220,90,0.2)");
@@ -923,8 +925,8 @@
       g.strokeStyle = "rgba(127,184,255,0.25)"; g.lineWidth = 6; g.beginPath(); g.arc(x0, y0, R, 0, 6.29); g.stroke();
       g.strokeStyle = full && Math.floor(now / 90) % 2 ? "#ffffff" : "#7fb8ff"; g.lineWidth = 6;
       g.beginPath(); g.arc(x0, y0, R, -Math.PI / 2, -Math.PI / 2 + railCharge * 6.283); g.stroke();
-      g.strokeStyle = `rgba(127,184,255,${0.15 + 0.4 * railCharge})`; g.lineWidth = 1 + 3 * railCharge; g.setLineDash([16, 10]); g.lineDashOffset = -now / 15;
-      g.beginPath(); g.moveTo(x0 + ca * R, y0 + sa * R); g.lineTo(x0 + ca * 3000, y0 + sa * 3000); g.stroke();
+      g.strokeStyle = `rgba(127,184,255,${0.15 + 0.4 * railCharge})`; g.lineWidth = 2 * (24 + 48 * railCharge); g.globalAlpha = 0.22; g.setLineDash([16, 10]); g.lineDashOffset = -now / 15;
+      g.beginPath(); g.moveTo(x0 + ca * R, y0 + sa * R); g.lineTo(x0 + ca * 1100, y0 + sa * 1100); g.stroke();
       g.restore();
     }
     if ((settings.aim === "off" && !aimLocked()) || !playing || me.dead || guided) return;
@@ -990,45 +992,34 @@
       g.fillStyle = ag; g.beginPath(); g.arc(x, y, ar, 0, 6.29); g.fill();
       g.globalCompositeOperation = "source-over";
     }
-    g.save();
-    g.translate(x, y);
-    g.rotate(b.a + Math.PI / 2 - SPRITE_TILT + Math.sin(now / 300 + x * 0.01) * 0.05 + (b.bank || 0) * 0.35);
-    if (b.bank) g.scale(1 - Math.abs(b.bank) * 0.3, 1);   // rolling into the turn
-    const s = S * (1 + Math.sin(now / 55 + y) * 0.015 * (0.5 + b.thrust));
-    // fire first, from the engine opening, so the bin's rim sits on top of it
-    g.save();
-    g.translate(NOZZLE[0] * s, NOZZLE[1] * s);
-    g.rotate(SPRITE_TILT);
+    const pose = binPose(b, now), s = pose.s;
     const fl = b.ck ? customVal(b.ck, "flame") : null;
-    const sputter = Number.isFinite(b.lives) && damageOf(b) > 0.6 ? 0.55 + 0.45 * Math.abs(Math.sin(now / 37 + x)) : 1;
     const firePal = fl === "rainbow" ? rainbowFlame(now) : fl ? FLAMES[fl] : tier;
     const bf = isMe ? me.boostFx : b.boost || 0;
     const burst = isMe ? Math.max(0, 1 - (now - me.dashAt) / 350) : bf === 2 ? 1 : 0;
-    // the main engine burns for thrust ahead; pushing sideways or backwards it drops to a pilot light (jets, below)
-    const tA = isMe ? (Number.isFinite(me.tdir) ? me.tdir : b.a) : thrustAngle(b), mainF = clamp(Math.cos(angD(tA - b.a)) * 1.3, 0, 1);
-    const lenMul = (1 + (bf ? 0.85 : 0) + burst * 1.1) * (0.3 + 0.7 * mainF), widMul = (1 + (bf ? 0.35 : 0) + burst * 0.3) * (0.6 + 0.4 * mainF);
+    const sputter = Number.isFinite(b.lives) && damageOf(b) > 0.6 ? 0.65 + 0.35 * Math.abs(Math.sin(now / 47 + b.x)) : 1;
     const pal = bf ? { outer: firePal.outer, mid: firePal.mid, core: [255, 255, 255] } : firePal;
-    if (bf && mainF > 0.5) {   // afterburner glow around the nozzle
-      const ag = g.createRadialGradient(0, s * 0.25, 0, 0, s * 0.25, s * (0.55 + burst * 0.4));
-      ag.addColorStop(0, "rgba(255,230,170,0.75)"); ag.addColorStop(0.5, "rgba(255,150,60,0.3)"); ag.addColorStop(1, "rgba(255,100,40,0)");
-      g.globalCompositeOperation = "lighter"; g.fillStyle = ag;
-      g.beginPath(); g.arc(0, s * 0.25, s * (0.55 + burst * 0.4), 0, 6.29); g.fill();
-      g.globalCompositeOperation = "source-over";
-    }
-    drawFlame(s * (0.36 + 0.46 * Math.min(1.4, b.thrust)) * sputter * lenMul, s * 0.3 * widMul, now, (b.hue || 0) * 0.1, pal);
-    g.restore();
-    const sideF = Math.min(1.4, b.thrust) * (1 - mainF);
-    if (sideF > 0.05) {   // manoeuvring jets: fire out of the hull on the side opposite the push (front or flank)
-      const R = b.a + Math.PI / 2 - SPRITE_TILT + Math.sin(now / 300 + x * 0.01) * 0.05 + (b.bank || 0) * 0.35, le = tA + Math.PI - R, r0 = s * 0.34;
-      g.save(); g.translate(Math.cos(le) * r0, Math.sin(le) * r0); g.rotate(le - Math.PI / 2);
-      if (bf) {   // boosting that way: a hot glow at the jet too
-        g.globalCompositeOperation = "lighter"; const jg = g.createRadialGradient(0, 0, 0, 0, 0, s * 0.4);
-        jg.addColorStop(0, "rgba(255,230,170,0.7)"); jg.addColorStop(1, "rgba(255,120,40,0)"); g.fillStyle = jg;
-        g.beginPath(); g.arc(0, 0, s * 0.4, 0, 6.29); g.fill(); g.globalCompositeOperation = "source-over";
+    for (const j of exhaustJets(b, now)) {
+      g.save(); g.translate(x + j.x - b.x, y + j.y - b.y); g.rotate(j.a - Math.PI / 2);
+      const power = j.power * sputter, len = s * (j.main ? 0.65 : 0.4) * power * (1 + (bf ? 0.9 : 0) + burst * 0.6);
+      const wid = s * (j.main ? 0.24 : 0.12) * Math.sqrt(power) * (bf ? 1.2 : 1);
+      drawFlame(len, wid, now, (b.hue || 0) * 0.1 + (j.main ? 0 : 3), pal);
+      if (bf && power > 0.4 && !lowQ) { // shock diamonds stay in the jet, behind its white-hot throat
+        g.globalCompositeOperation = "lighter";
+        for (let i = 1; i <= 3; i++) {
+          const yj = len * i * 0.19, r = wid * (0.16 - i * 0.025);
+          g.globalAlpha = (0.55 - i * 0.1) * (0.8 + Math.sin(now / 55 + i) * 0.2);
+          g.fillStyle = "#c5efff"; g.beginPath(); g.moveTo(0, yj - r * 2); g.lineTo(r, yj); g.lineTo(0, yj + r * 2); g.lineTo(-r, yj); g.closePath(); g.fill();
+        }
       }
-      drawFlame(s * (0.16 + 0.3 * sideF) * (bf ? 1.8 : 1) * sputter, s * 0.17 * (bf ? 1.35 : 1), now, (b.hue || 0) * 0.1 + 3, pal);
+      if (!j.main) { // metal lip at the fixed manoeuvring nozzle
+        g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
+        g.fillStyle = "#253241"; g.beginPath(); g.moveTo(-wid * 0.6, -4); g.lineTo(wid * 0.6, -4); g.lineTo(wid * 0.45, 3); g.lineTo(-wid * 0.45, 3); g.closePath(); g.fill();
+        g.strokeStyle = "#9cb3c2"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-wid * 0.45, 3); g.lineTo(wid * 0.45, 3); g.stroke();
+      }
       g.restore();
     }
+    g.save(); g.translate(x, y); g.rotate(pose.a); g.scale(pose.scaleX, 1);
     drawWings(lv, s);
     gauntSpinFast = isMe && !!me.gauntOn; mountHeat = isMe ? Math.max(spin, Math.min(1, me.heat || 0)) : 0;
     drawMounts(isMe ? me.weapon : b.weapon, s, now);

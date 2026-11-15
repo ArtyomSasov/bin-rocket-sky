@@ -42,6 +42,17 @@
   let engine = null, engineAt = 0;
   function engineHum(speed, thrust, boost, now) {
     if (!audio || !sfxBus) return;
+    const on = !document.hidden && settings.engine !== "off" && speed > 0;
+    if (packHas("p_engine")) {
+      if (engine) engine.v.gain.setTargetAtTime(0, audio.currentTime, 0.05);
+      packLoop("engine", on ? "p_engine" : null, 0);
+      const loop = packLoops.engine;
+      if (loop) {
+        loop.src.playbackRate.setTargetAtTime(0.65 + Math.min(0.6, speed / 2400) + boost * 0.12, audio.currentTime, 0.18);
+        loop.g.gain.setTargetAtTime(0.06 + thrust * 0.08 + boost * 0.05, audio.currentTime, 0.12);
+      }
+      return;
+    }
     if (!engine) {
       const o1 = audio.createOscillator(), o2 = audio.createOscillator(), f = audio.createBiquadFilter(), v = audio.createGain();
       o1.type = "sawtooth"; o2.type = "square"; o2.detune.value = 9; f.type = "lowpass"; f.Q.value = 3; v.gain.value = 0;
@@ -51,7 +62,7 @@
     }
     if (now - engineAt < 50) return;   // a few updates a second are plenty
     engineAt = now;
-    const t = audio.currentTime, on = settings.engine !== "off" && speed > 0;
+    const t = audio.currentTime;
     engine.o1.frequency.setTargetAtTime(42 + speed * 0.06 + boost * 14, t, 0.12);
     engine.o2.frequency.setTargetAtTime((42 + speed * 0.06 + boost * 14) * 0.5, t, 0.12);
     engine.f.frequency.setTargetAtTime(180 + speed * 0.9 + thrust * 260 + boost * 700, t, 0.1);
@@ -80,6 +91,9 @@
   // a sound it plays instead of the built-in or synthesized one. sfx/pack/index.json (written by the build) lists them;
   // the one-file game carries them inside (window.BRS_PACK)
   const PACK_PATHS = {
+    p_pickup: ["supplemental/beep_01.ogg"], p_kill: ["supplemental/terminal_05.ogg"],
+    p_charge: ["supplemental/terminal_02.ogg"], p_sting: ["supplemental/teleport_01.ogg"],
+    p_death: ["supplemental/explosion_02.ogg"], p_engine: ["supplemental/loop_machine_01.ogg"],
     p_fire_minigun: ["machinegun/fire1.wav", "machinegun/fire2.wav", "machinegun/fire3.wav", "machinegun/fire4.wav"],
     p_burst_minigun: ["chaingun/f1b.wav", "chaingun/f2b.wav", "chaingun/f3b.wav", "chaingun/f4b.wav", "chaingun/fire.wav"],
     p_spin_minigun: ["chaingun/wind.wav"], p_hit_bullet: ["chaingun/impd.wav", "chaingun/impl.wav", "chaingun/impm.wav"],
@@ -99,13 +113,13 @@
     p_change: ["change.wav"], p_noammo: ["noammo.wav"], p_spot: ["weapon_hover.wav"], p_holy: ["holy/holy-bomb.mp3"]
   };
   // the announcer: a word in the file's name -> the line it voices (longest words first)
-  const PACK_VOICES = [["ludicrouskill", "a_ludicrouskill"], ["monsterkill", "a_monsterkill"], ["doublekill", "a_doublekill"], ["triplekill", "a_triplekill"],
+  const PACK_VOICES = [["firstblood", "a_firstblood"], ["flawlessvictory", "v_flawless"], ["ludicrouskill", "a_ludicrouskill"], ["monsterkill", "a_monsterkill"], ["doublekill", "a_doublekill"], ["triplekill", "a_triplekill"],
     ["ultrakill", "a_ultrakill"], ["multikill", "a_multikill"], ["holyshit", "a_holyshit"], ["killingspree", "a_killingspree"], ["wickedsick", "a_wickedsick"],
     ["dominating", "a_dominating"], ["rampage", "a_rampage"], ["godlike", "a_godlike"], ["impressive", "a_impressive"], ["humiliation", "a_humiliation"],
     ["headshot", "a_headshot"], ["combowhore", "a_shockcombo"], ["flagtaken", "a_flagtaken"], ["flagcap", "a_flagcap"], ["quad", "a_quaddamage"],
     ["prepare", "v_prepare"], ["fight", "v_fight"]];
   function packEventFor(path) {
-    const p = path.toLowerCase().replace(/\\/g, "/"), word = p.split("/").pop().replace(/\.[a-z0-9]+$/, "").replace(/[^a-z]/g, "");
+    const p = path.toLowerCase().replace(/\\/g, "/"), word = p.split("/").pop().replace(/\.[a-z0-9]+$/, "").replace(/1st/g, "first").replace(/[^a-z]/g, "");
     for (const [ev, list] of Object.entries(PACK_PATHS)) if (list.some(e => p === e || p.endsWith("/" + e))) return ev;
     for (const [kw, ev] of PACK_VOICES) if (word.includes(kw)) return ev;
     return null;
@@ -132,7 +146,7 @@
     src.buffer = packBuf[ev][0]; src.loop = true; g.gain.value = vol; src.connect(g).connect(sfxBus); src.start();
     packLoops[slot] = { ev, src, g };
   }
-  document.addEventListener("visibilitychange", () => { if (document.hidden) { packLoop("hum", null); packLoop("beam", null); } });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) { for (const slot of Object.keys(packLoops)) packLoop(slot, null); } });
   // x, y: where it happens (quieter with distance, silent past ~2200); rate: pitch, with a little random spread
   function sfx(name, vol = 1, rate = 1, x, y) {
     const pk = packBuf[name], b = pk && pk.length ? pk[(Math.random() * pk.length) | 0] : sfxBuf[name], tune = pk && pk.length ? null : SFX_TUNE[name];   // a pack's own sound plays as it is

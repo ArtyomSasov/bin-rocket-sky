@@ -57,13 +57,19 @@
   // the first solid point along the path a shot travelled this frame
   function shotBody(s) {
     const dx = s.x - s.px, dy = s.y - s.py, L = Math.hypot(dx, dy);
+    let nearest = null, fraction = Infinity;
     for (const b of bodies) {
       const t = L ? clamp(((b.x - s.px) * dx + (b.y - s.py) * dy) / (L * L), 0, 1) : 0, cx = s.px + dx * t - b.x, cy = s.py + dy * t - b.y;
       if (cx * cx + cy * cy > b.r * b.r) continue;
       const steps = Math.min(80, Math.ceil(L / (b.cs * 0.6)) + 1);
-      for (let k = 1; k <= steps; k++) { const f = k / steps, px = s.px + dx * f, py = s.py + dy * f; if (solidAt(b, px, py)) return { b, x: px, y: py }; }
+      for (let k = 1; k <= steps; k++) {
+        const f = k / steps;
+        if (f >= fraction) break;
+        const px = s.px + dx * f, py = s.py + dy * f;
+        if (solidAt(b, px, py)) { nearest = { b, x: px, y: py }; fraction = f; break; }
+      }
     }
-    return null;
+    return nearest;
   }
   // a scratch canvas for masking crater glow, grown as needed
   let heatC = null;

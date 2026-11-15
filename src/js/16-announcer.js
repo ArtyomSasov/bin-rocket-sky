@@ -24,9 +24,10 @@
   // kills within 4 s of each other
   const MULTI = ["", "", "DOUBLE KILL", "TRIPLE KILL", "MULTI KILL", "ULTRA KILL", "MONSTER KILL", "LUDICROUS KILL", "HOLY SHIT"];
   // someone (anyone) killed someone: one line in the feed, first blood, other pilots' sprees
-  function reportKill(shotId, victim) {
-    if (killSeen.has(shotId) || killSeen.size >= MAX_CREDITS || !roundLive) return;
-    killSeen.add(shotId);
+  function reportKill(shotId, victim, victimId = victim) {
+    const key = victimId + ":" + shotId;
+    if (killSeen.has(key) || killSeen.size >= MAX_CREDITS || !roundLive) return;
+    killSeen.add(key);
     const k = tagOwner(shotId.split(".")[0]), killer = k ? k.name : "Someone", ram = shotId.includes(".ram");
     const icon = ram ? RAM_ICON : ICONS[k ? k.weapon : "fire"];
     feedPush(`<span class="k">${esc(killer)}</span><svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="${icon}"/></svg><span class="v">${esc(victim)}</span>`, k && k.me || victim === (me.name || "You"));
@@ -36,29 +37,20 @@
     const sp = spreeOf(n);
     if (sp && !(k && k.me)) { feed.push({ html: `${esc(killer)} ${sp[1]}!`, at: performance.now(), spree: true }); renderFeed(); }
   }
-  function meKilled(id) { pushCapped(koBy, id, 12); reportKill(id, me.name || "You"); }
+  function meKilled(id) { pushCapped(koBy, id, 12); reportKill(id, me.name || "You", "me"); }
   // my own multi-kills and sprees get the big centre announcement
   let multi = 0, lastKillAt = -1e9;
   function myKillAnnounce(now) {
     multi = now - lastKillAt < 4000 ? multi + 1 : 1;
     lastKillAt = now;
-    [784, 988, 1175].forEach((f, i) => setTimeout(() => blip(f, 0.16, "triangle"), i * 70));
+    if (!packPlay("p_kill", 0.55)) [784, 988, 1175].forEach((f, i) => setTimeout(() => blip(f, 0.16, "triangle"), i * 70));
     const m = multi >= 2 ? MULTI[Math.min(multi, MULTI.length - 1)] : "", sp = spreeOf(stats.streak);
     if (m) announce(m, multi + " kills", "#ffd36b", multi);
     if (sp) setTimeout(() => announce(sp[0], stats.streak + " kills without dying", "#c38bff", Math.min(6, stats.streak - 1)), m ? 1500 : 0);
   }
-  let voice = null;
-  function speak(text) {
-    if (!audio || !window.speechSynthesis) return;
-    if (!voice) voice = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang)).sort((a, b) => (/male|daniel|alex|fred|uk/i.test(b.name) ? 1 : 0) - (/male|daniel|alex|fred|uk/i.test(a.name) ? 1 : 0))[0] || null;
-    const u = new SpeechSynthesisUtterance(text.toLowerCase());
-    if (voice) u.voice = voice;
-    u.lang = "en-US"; u.rate = 0.78; u.pitch = 0.3; u.volume = 1;   // slow and deep, like an arena announcer
-    speechSynthesis.cancel(); speechSynthesis.speak(u);
-  }
-  // announcer sting (all synthesized): a sub-bass hit, a brass-like chord swelling in a big hall, higher for bigger streaks
+  // Fallback announcer sting when the recorded cue is unavailable: a sub-bass hit, a brass-like chord swelling in a big hall, higher for bigger streaks
   function sting(level) {
-    if (!audio) return;
+    if (packPlay("p_sting", 0.65) || !audio) return;
     const t = audio.currentTime;
     const hall = getHall();
     boomSound(1.4, 260, 0.5);
@@ -83,11 +75,11 @@
     annEl.style.setProperty("--ac", col);
     annEl.classList.remove("show"); void annEl.offsetWidth; annEl.classList.add("show");
     // a sound pack's announcer line comes first: by the words of the line ("DOUBLE KILL" -> a_doublekill), the flag
-    // lines and Overdrive by meaning; then the built-in voices; then speech
+    // lines and Overdrive by meaning; otherwise a recorded cue with the on-screen title.
     const key = /has the .* flag$|^YOU HAVE THE FLAG$/i.test(text) ? "a_flagtaken" : / team scores!$/i.test(text) ? "a_flagcap"
       : text === "BEYOND GODLIKE" ? "a_holyshit" : "a_" + text.toLowerCase().replace(/[^a-z]/g, "");
-    if (!packHas(key)) sting(level);   // the synthesized sting only where the pack has no voice for the line
+    if (!silent && !packHas(key)) sting(level);   // a cue only where the pack has no voice for the line
     const voice = { "ULTRA KILL": "v_multikill", "MULTI KILL": "v_multikill", "RAMPAGE": "v_multikill", "QUAD DAMAGE": "v_powerup" }[text];
-    if (!silent || packHas(key)) setTimeout(() => { if (!packPlay(key, 1) && !(voice && sfx(voice, 1)) && !silent) speak(text); }, 180);
+    if (!silent || packHas(key)) setTimeout(() => { if (!packPlay(key, 1) && voice) sfx(voice, 1); }, 180);
   }
 

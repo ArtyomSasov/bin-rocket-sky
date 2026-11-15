@@ -1,4 +1,6 @@
-Sound effects: all CC0 (public domain), from OpenGameArt.org. Trimmed, mixed to mono and resampled for the game.
+Generic WAV sound effects in this directory: CC0 (public domain), from OpenGameArt.org. Trimmed, mixed to mono and resampled for the game.
+User-supplied weapon/voice files in pack/ have separate provenance. New CC0 supplements: pack/supplemental/CREDITS.txt.
+Audio audit and remaining procedural effects: AUDIO-AUDIT.md.
 
 - "Sci-Fi Sounds" and "63 Digital sound effects" by Kenney (www.kenney.nl)
   https://opengameart.org/content/sci-fi-sounds

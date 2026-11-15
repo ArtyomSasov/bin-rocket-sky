@@ -28,14 +28,14 @@ function setup() {
     mapOf: () => 'm', modeOf: () => 'd', mapThemeOf: () => 'c', setMapSize() {}, buildPlanets() {}, setMode() {}, spawnPoint: () => ({}),
     MODES: { d: { label: 'DM' } }, MODE: 'd', MAPS: { c: { label: 'Classic' } }, playing: true,
     sizeOf: () => 1, clockTarget: 0, clockOff: 0, clockBase: 0, lerpAng: () => 0, vw: 1, vh: 1, wrapD: x => x,
-    gainXp() {}, killXp: () => 10, announce() {}, killStyle() {}, gunDrops: new Map(), DEATH_KINDS: 6, WEAPON_KEYS: ['fire', 'rail', 'tele'],
+    confirmShotHit() {}, gainXp() {}, killXp: () => 10, announce() {}, killStyle() {}, gunDrops: new Map(), DEATH_KINDS: 6, WEAPON_KEYS: ['fire', 'rail', 'tele'],
   };
   vm.createContext(c);
   vm.runInContext(read('12-network.js') + '\nglobalThis.api = {applyRemote, initNet, chooseLobby, botsOf, net};', c);
   return { c, clients, timers, advance: n => { now += n; }, async start() { const p = c.api.initNet(); c.api.chooseLobby('test'); await p; } };
 }
 const state = (q, extra = {}) => ({ x: 10, y: 10, q, rd: 1, ...extra });
-const deliver = (client, id, p) => client.emit('message', 'binrocket-sky/v12/test/s/' + id, Buffer.from(JSON.stringify(p)));
+const deliver = (client, id, p) => client.emit('message', 'binrocket-sky/v14/test/s/' + id, Buffer.from(JSON.stringify(p)));
 
 test('malformed JSON values do not break the message callback; next state still arrives', async () => {
   const { c, clients, start } = setup(); await start();
@@ -149,4 +149,68 @@ test('a host cannot take ownership of another host’s bot', async () => {
   deliver(clients[1], 'pone', state(1, { bots: [['pbchild', state(1)]] }));
   deliver(clients[1], 'ptwo', state(1, { bots: [['pbchild', state(2)]] }));
   assert.equal(c.remotes.get('pbchild').host, 'pone');
+});
+
+function enableShots(c) {
+  const config=read('01-config.js');
+  vm.runInContext(config.slice(config.indexOf('  const K ='),config.indexOf('  // weapons:'))+'\nglobalThis.K=K;globalThis.SHOTS=SHOTS;',c);
+  vm.runInContext(section('11-weapons.js','  const straightShot','  function recordHitPose'),c);
+  Object.assign(c,{shots:[],seenShots:new Map(),REWIND_MS:250,QUAD:4,BOMBS:{},railBeam(){},laserBeam(){},shotSound(){},scatterPellets(s){c.shots.push(s)},shardSpray(s){c.shots.push(s)},nailSpray(s){c.shots.push(s)}});
+}
+test('instant shots are published before a state and their repeated journals never duplicate them',async()=>{
+  const {c,clients,start}=setup();enableShots(c);await start();
+  c.api.applyRemote('pother',state(1,{tg:'other'}));
+  const f=['other.1',10,10,6400,0,c.K.SHOCK,1,0,0,Date.now()];
+  c.api.net.shot(f);assert.ok(clients[1].sent[0].topic.includes('/f/'));assert.deepEqual(clients[1].sent[0],clients[2].sent[0]);
+  const packet={rd:1,ts:Date.now(),f:[f]};
+  for(const client of clients.slice(1))client.emit('message','binrocket-sky/v14/test/f/pother',Buffer.from(JSON.stringify(packet)));
+  deliver(clients[1],'pother',state(2,packet));
+  assert.equal(c.shots.length,1);assert.equal(c.shots[0].vx,6400,'shock velocity must not be clamped to 4500');
+});
+test('a reordered state recovers unseen shots without rolling movement back; stale/invalid shots are ignored',()=>{
+  const {c}=setup();enableShots(c);c.api.applyRemote('pother',state(5,{tg:'other',x:500}));
+  const ts=Date.now(),f=['other.1',10,10,4200,0,c.K.RAIL,1,0,0,ts];
+  c.api.applyRemote('pother',state(4,{ts,x:20,f:[f]}));
+  assert.equal(c.shots.length,1);assert.equal(c.remotes.get('pother').q,5);assert.equal(c.remotes.get('pother').x,500);
+  c.api.applyRemote('pother',state(3,{ts:ts+2000,f:[['other.old',10,10,4200,0,c.K.RAIL,1,0,0,ts]]}));
+  c.api.applyRemote('pother',state(2,{ts,f:[['other.bad',10,10,NaN,0,5],['spoof.1',10,10,4200,0,5],['other.bad2',10,10,1000,0,999]]}));
+  assert.equal(c.shots.length,1);
+});
+test('piercing and explosion multi-kills count once for each victim, not once per shot',()=>{
+  const {c}=setup();
+  const result={hb:['local.rail'],ko:['local.rail']};
+  c.api.applyRemote('pone',state(1,result));c.api.applyRemote('ptwo',state(1,result));
+  assert.equal(c.stats.kills,2);assert.equal(c.stats.hits,2);
+  c.api.applyRemote('pone',state(2,result));c.api.applyRemote('ptwo',state(2,result));
+  assert.equal(c.stats.kills,2);assert.equal(c.stats.hits,2);
+});
+test('remote prediction does not double-advance velocity and freezes during a network gap',()=>{
+  const {c}=setup();vm.runInContext(section('17-update.js','  function updateRemotes','  // sparks, spilled stars'),c);
+  const r={x:100,y:100,tx:100,ty:100,vx:600,vy:0,a:0,ta:0,seen:0,dead:true};c.remotes.set('pother',r);
+  c.updateRemotes(0.016,16);assert.ok(Math.abs(r.x-109.6)<1e-8);assert.equal(r.x,r.tx);
+  const x=r.x;c.updateRemotes(0.016,500);assert.equal(r.x,x);assert.equal(r.tx,x);
+});
+test('late combat confirmations survive reordered movement and cannot score twice',()=>{
+  const {c}=setup();c.api.applyRemote('pother',state(10,{x:500}));
+  c.api.applyRemote('pother',state(9,{x:20,hb:['local.1'],ko:['local.1']}));
+  assert.equal(c.stats.hits,1);assert.equal(c.stats.kills,1);assert.equal(c.remotes.get('pother').x,500);
+  c.api.applyRemote('pother',state(8,{hb:['local.1'],ko:['local.1']}));assert.equal(c.stats.kills,1);
+  c.api.applyRemote('pother',state(7,{rd:0,hb:['local.2'],ko:['local.2']}));assert.equal(c.stats.kills,1);
+});
+test('reordered host packets recover bot confirmations without rolling host ownership back',async()=>{
+  const {c,clients,start}=setup();await start();
+  deliver(clients[1],'phost',state(10,{bots:[['pbbot',state(10)]]}));
+  deliver(clients[1],'phost',state(9,{bots:[['pbbot',state(9,{hb:['local.1'],ko:['local.1']})]]}));
+  assert.equal(c.stats.kills,1);assert.equal(c.remotes.get('pbbot').q,10);
+  deliver(clients[1],'pintruder',state(10,{bots:[]}));
+  deliver(clients[1],'pintruder',state(9,{bots:[['pbbot',state(11,{ko:['local.2']})]]}));
+  assert.equal(c.stats.kills,1);assert.equal(c.remotes.get('pbbot').host,'phost');
+});
+test('old shots cannot replay after duplicate cache expiry via an old snapshot',()=>{
+  const {c}=setup();enableShots(c);const ts=Date.now();
+  c.api.applyRemote('pother',state(10,{tg:'other',ts}));
+  c.api.applyRemote('pother',state(1,{ts:ts-6000,f:[['other.1',10,10,1000,0,c.K.NAIL,1,0,0,ts-6000]]}));
+  assert.equal(c.shots.length,0);
+  c.api.applyRemote('pother',state(11,{ts,f:[['other.2',10,10,1000,0,c.K.NAIL,1,0,0,ts]]}));
+  assert.equal(c.shots.length,1);assert.ok(c.shots[0].catchup>0&&c.shots[0].catchup<=0.25);
 });

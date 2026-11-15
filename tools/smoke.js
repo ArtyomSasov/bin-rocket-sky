@@ -15,12 +15,16 @@
   const left = () => { const t = document.getElementById("roundInfo").textContent, mm = t.match(/(\d+):(\d\d)$/); return t.startsWith("Round") && mm ? +mm[1] * 60 + +mm[2] : 0; };
   while (left() < 75) await wait(1000);
   const T = __t, m = T.me; m.inv = 1e15;
+  // Isolate input/ammo checks from bot nukes (which deliberately bypass invulnerability).
+  // Bots resume firing for the sustained combat and frame-time checks below.
+  for (const b of T.bots) b.fireCd = 120;
   const out = { mode: T.mode, title: document.getElementById("boardTitle").textContent, bodies: T.bodies.length };
   const fired = {};
   const solo = { n: "nuke", r: "rail" }[T.mode];
   for (const w of solo ? [solo] : ["fire", "triple", "laser", "rocket", "scatter", "rail", "mine", "orb", "bolt", "shard", "nuke"]) {
-    if (m.dead) await wait(3300);
-    m.arsenal[w] = 30; m.weapon = w; await wait(1300);
+    await wait(1300);
+    while (m.dead) await wait(40);
+    m.inv = 1e15; m.arsenal[w] = 30; m.weapon = w;
     const before = new Set(T.myShotLog.map(e => e.d[0]));
     key("KeyF", 1); await wait(250); key("KeyF", 0);
     // A shot may already have hit a wall or expired; inspect emitted shots, not only survivors.
@@ -34,12 +38,15 @@
     m.inv = 1e15;
     const alt = {};
     for (const w of ["rocket", "scatter", "triple", "mine"]) {
-      m.arsenal[w] = 30; m.weapon = w; await wait(1800);
+      await wait(1800);
+      while (m.dead) await wait(40);
+      m.inv = 1e15; m.arsenal[w] = 30; m.weapon = w;
       const a0 = m.arsenal[w]; key("KeyC", 1); await wait(80); key("KeyC", 0); await wait(30); alt[w] = a0 - m.arsenal[w];
     }
     out.altCost = alt;
   }
-  for (let i = 0; i < 4; i++) T.deathFx({ x: m.x + 200, y: m.y + i * 30, vx: 0, vy: 0, a: 0, lv: 3, ck: [0, 0, 0, 0, 0] }, 3, i, 0.4);
+  for (const b of T.bots) b.fireCd = 0;
+  for (let i = 0; i < 7; i++) T.deathFx({ x: m.x + 200, y: m.y + i * 30, vx: 0, vy: 0, a: 0, lv: 3, ck: [0, 0, 0, 0, 0] }, 3, i, 0.4);
   const fr = []; let last = performance.now();
   await new Promise(res => { const loop = t => { fr.push(t - last); last = t; if (fr.length < 600) requestAnimationFrame(loop); else res(); }; requestAnimationFrame(loop); });
   fr.sort((a, b) => a - b); out.frame = fr[300].toFixed(1) + "/" + fr[570].toFixed(1);

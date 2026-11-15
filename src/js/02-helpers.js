@@ -25,7 +25,7 @@
   // graphics settings, kept in this browser: res "auto" (drops when slow) or a fixed share of the screen's resolution,
   // fx "high" or "low" (lighter effects), aim: the crosshair ("off", "small", "big"), aimCol: its colour
   const settings = (() => {
-    const d = { res: "auto", fx: "high", aim: "small", aimCol: "gun", engine: "off", mouse: "aim" };   // engine: a synthesized hum, off unless asked for
+    const d = { res: "auto", fx: "high", aim: "small", aimCol: "gun", engine: "off", mouse: "aim" };   // engine: a recorded loop with synthesized fallback, off unless asked for
     try {
       const v = JSON.parse(store.get("binrocket.gfx"));
       if (!v || typeof v !== "object") return d;

@@ -524,15 +524,60 @@
     return n;
   }
   const MAX_CARVES = 320;
+  // A rail cut is one continuous capsule, not a row of craters. Cell removal is geometric
+  // (independent of canvas resolution), so desktop and mobile agree on the entire tunnel.
+  function carveLineLocal(b, x1, y1, x2, y2, rad) {
+    const cs = b.cs, dx = x2 - x1, dy = y2 - y1, len2 = dx * dx + dy * dy;
+    const i0 = Math.max(0, Math.floor((Math.min(x1, x2) - rad) / cs)), i1 = Math.min(b.gw - 1, Math.floor((Math.max(x1, x2) + rad) / cs));
+    const j0 = Math.max(0, Math.floor((Math.min(y1, y2) - rad) / cs)), j1 = Math.min(b.gh - 1, Math.floor((Math.max(y1, y2) + rad) / cs));
+    let n = 0;
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const k = j * b.gw + i;
+      if (!b.cells[k]) continue;
+      const x = (i + 0.5) * cs, y = (j + 0.5) * cs, t = len2 ? clamp(((x - x1) * dx + (y - y1) * dy) / len2, 0, 1) : 0;
+      if ((x - x1 - t * dx) ** 2 + (y - y1 - t * dy) ** 2 <= rad * rad) { b.cells[k] = 0; n++; }
+    }
+    if (!n) return 0;
+    const q = b.q;
+    q.save(); q.lineCap = "round"; q.beginPath(); q.moveTo(x1, y1); q.lineTo(x2, y2);
+    q.globalCompositeOperation = "source-atop"; q.strokeStyle = "rgba(160,100,255,0.65)"; q.lineWidth = rad * 2 + 7; q.stroke();
+    q.globalCompositeOperation = "destination-out"; q.lineWidth = rad * 2; q.stroke(); q.restore();
+    sweepOrphans(b, i0 - 1, i1 + 1, j0 - 1, j1 + 1);
+    b.mass -= n; b.dirty = true;
+    return n;
+  }
+  function carveBeam(s, rad) {
+    const dx = s.x - s.px, dy = s.y - s.py, L = Math.hypot(dx, dy);
+    if (!L) return;
+    const ux = dx / L, uy = dy / L, own = s.mine || botById.has(s.owner);
+    for (const b of bodies) {
+      if (b.dead || (!own && !b.free)) continue;
+      const along = (b.x - s.px) * ux + (b.y - s.py) * uy, t = clamp(along, 0, L), R = b.r + rad;
+      if ((s.px + ux * t - b.x) ** 2 + (s.py + uy * t - b.y) ** 2 > R * R) continue;
+      // Clip to the body's bounds to keep local coordinates small on the wire.
+      const lo = Math.max(0, along - R), hi = Math.min(L, along + R);
+      const [x1, y1] = toLocal(b, s.px + ux * lo, s.py + uy * lo).map(Math.round);
+      const [x2, y2] = toLocal(b, s.px + ux * hi, s.py + uy * hi).map(Math.round);
+      const n = carveLineLocal(b, x1, y1, x2, y2, rad);
+      if (!n) continue;
+      rubbleFx(b, s.px + ux * t, s.py + uy * t, rad, n);
+      if (own) b.lastOwn = true;
+      if (own && !b.free) {
+        myCarves.push({ at: performance.now(), d: [stats.round, det.indexOf(b), x1, y1, rad, ++carveSeq, x2, y2] });
+        if (myCarves.length > MAX_CARVES) myCarves.shift();
+      }
+    }
+  }
   function applyRemoteCarves(id, list) {
     for (const e of list.slice(0, MAX_CARVES)) {
-      if (!Array.isArray(e) || e.length !== 6 || !e.every(Number.isInteger)) continue;
+      if (!Array.isArray(e) || (e.length !== 6 && e.length !== 8) || !e.every(Number.isInteger)) continue;
       const [rd, bi, lx, ly, r, sq] = e, key = id + ":" + sq;
       if (rd !== stats.round || seenCarves.has(key)) continue;
       seenCarves.add(key);
       const b = det[bi];
       if (!b || b.dead || b.free || r < 2 || r > 700 || Math.abs(lx) > 3000 || Math.abs(ly) > 3000) continue;
-      const n = carveLocal(b, lx, ly, r, true, carveRnd(lx, ly, r, sq));
+      if (e.length === 8 && (Math.abs(e[6]) > 3000 || Math.abs(e[7]) > 3000 || r > 72)) continue;
+      const n = e.length === 8 ? carveLineLocal(b, lx, ly, e[6], e[7], r) : carveLocal(b, lx, ly, r, true, carveRnd(lx, ly, r, sq));
       if (n) { const [x, y] = toWorld(b, lx, ly); rubbleFx(b, x, y, r, n); }
     }
     if (seenCarves.size > 4000) seenCarves.clear();

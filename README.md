@@ -3,8 +3,14 @@
 A browser multiplayer space shooter: you fly a turquoise bin-rocket, blast other bins, chip planets and
 wrecks apart and collect weapons.
 
-**Play:** the repository is private, so GitHub Pages is off: run it locally (`npm run build && npm run serve`, then
-http://localhost:8000) or open the one-file game `bin-rocket-sky.html`.
+**Play online:** [Open Bin Rocket Sky](https://artyomsasov.github.io/bin-rocket-sky/).
+
+**Download:** [Latest release — standalone HTML game](https://github.com/ArtyomSasov/bin-rocket-sky/releases/latest/download/bin-rocket-sky.html).
+Save the file and open it in a browser to play offline with bots. To play together online, open the site
+and share the same lobby code with friends.
+
+For local development, run `npm run build` and `npm run serve`, then open http://localhost:8000.
+GitHub Pages publishes the built files from the root of `main`; run the build before pushing gameplay changes.
 
 ## Modes
 
@@ -45,7 +51,7 @@ The two codes carry a WebRTC handshake (only local-network addresses), so the br
 directly; the host relays every pilot's state, and its bots join everyone. No camera? Copy and paste the codes.
 
 **Someone has no internet and never opened the game?** On the start screen, "Download the game as one file"
-saves `bin-rocket-sky.html` (about 2 MB, built by `npm run build` with the sounds, sprite and QR libraries
+saves `bin-rocket-sky.html` (about 7 MB, built by `npm run build` with the sounds, sprite and QR libraries
 inside, see `vendor/`). Send it over Nearby Share, AirDrop or Bluetooth; it opens in a browser with no internet
 and joins a local room. (Android opens local HTML files well; on an iPhone, open the site once online instead.)
 
@@ -123,11 +129,13 @@ players (they face where they steer, so they make attack runs, break off and loo
 - **Brake / drift:** hold X to brake; X with a direction drifts (you slide on while the nose swings round).
 - **Scoreboard:** the arrow by the gear folds it to the timer and your own row; hold Tab to see everyone.
 - **Weapons:** 1–9, 0 or Q/E (not the mouse wheel: a touch-surface mouse scrolls by accident). **Alt fire:** right mouse button or C — every gun has one: laser
-  pulse (shoves), minigun burst (no spin-up, overheats), railgun charge (hold up to 1.1 s, let go: a wide blue slug, up to 150%), flak (bursts into eight
-  shards), shock beam (combo on your orb), gamma detonate, rocket salvo, shotgun slug, thrown mine, saw fan.
+  pulse (shoves), minigun burst (no spin-up, overheats), rail breach cutter (hold up to 1.1 s to widen the cut; release: 1100 range, fixed damage, 2 ammo), flak (bursts into eight
+  shards), shock beam (combo on your orb), gamma detonate, rocket salvo, shotgun slug, mine detonation, saw recall.
 - **Quake's three:** the Nailgun (a fan of seven nails that fly far; alt a piercing Spike), the Grenade launcher
   (grenades bounce off rock and go off after 2.5 s or on a bin; alt three at once) and the Gauntlet everyone carries
   (hold fire: the blade spins and tears into a bin within reach; alt a Lunge). Quad damage multiplies by 4.
+- **Railgun:** primary fire cuts a continuous tunnel through every body on its line. The breach cutter trades range and ammo for a wider hit area and a flyable passage.
+- **Buzzsaw:** blades pierce once outbound and once on return, turn back after 0.55 s or a ricochet, and expire after 3.2 s. Alt recalls your flying blades early; move sideways to sweep their return path through enemies.
 - **Trophies:** the gun a pilot dies with drops where it died, with its ammo, for 15 s; anyone can take it.
 - **Teleporter:** T throws the beacon, T again jumps onto it (a pick-up gives three jumps).
 
@@ -142,12 +150,27 @@ npm run serve    # http://localhost:8000
 ```
 
 Multiplayer goes through public MQTT brokers (HiveMQ, EMQX). Each active client sends the same state and
-recent shots to both connected brokers at up to 8 messages/s, keeping below the backup broker's rate limit.
-Two clients can play together as long as they share a reachable broker. Duplicate and older states are ignored.
+recent shots to both connected brokers at up to 8 state messages/s. The immediate-shot channel is capped
+at 8 small messages/s; automatic-fire rounds between these events still ride the state journal.
+Two clients can play together as long as they share a reachable broker. Duplicate and older movement states are ignored.
 A silent player and its bots disappear after 7 seconds; losing one broker does not remove a player.
 
-The wire protocol uses `binrocket-sky/v12/` topics. Players must reload to this version to join each other;
-older pages are isolated (v2–v11 built different maps, guns or levels, v1 events do not identify the round). Taken terrain cells are sent in a
+Shots use an immediate channel plus a repeated state journal. IDs deduplicate both broker deliveries;
+reordered movement packets can still recover an unseen shot. Incoming hitscan checks a short local
+position history (up to 250 ms of compensation), cleared on teleports, death and respawn.
+Fast linear rounds (bullets, nails, spikes, pellets and slugs) sweep the target's piecewise movement history;
+received rounds catch up at most 250 ms, with terrain blocking the swept path. Explosives and ricochets
+retain their local flight simulation. Combat receipts are sent in every state, recovered even from reordered
+movement packets, and credited once per victim. Shot timestamps reject expired journal entries. Hit feedback
+waits for the victim's confirmation. Kills are credited per shot **and victim**, including piercing and
+explosion multi-kills. Remote prediction stops after 250 ms without fresh movement.
+
+This is still peer-to-peer, with health owned by the victim (bots by their host), not an authoritative
+server. Compensation helps hitscan and fast linear rounds under ordinary latency; it cannot remove long outages or make
+all projectile and moving-terrain simulations identical between clients.
+
+The wire protocol uses `binrocket-sky/v14/` topics. Players must reload to this version to join each other;
+older pages are isolated (v2–v13 built different maps, guns or levels, v1 events do not identify the round). Taken terrain cells are sent in a
 rolling snapshot (one shared body per state), so late joins and reconnects recover holes after a full pass
 through the map. Detached rubble is still simulated locally.
 
@@ -174,7 +197,7 @@ src/js/           the game code, one file per section, joined in file-name order
   07-modes.js          game modes, teams, CTF pads
   08-body-physics.js   gravity, bouncing, shots hitting bodies
   09-sparks-junk-health.js  shared pick-ups on the common clock, health bar
-  10-effects.js        particles, explosions, deaths by weapon (sliced, fried, melted)
+  10-effects.js        particles, explosions, deaths by weapon (cut, shocked, melted, nailed, burnt, sawn)
   11-weapons.js        firing, damage, rockets, rail, lightning, combos, nukes and the holy bomb
   12-network.js        lobby, MQTT / Claude room transport, remote players and shots
   12b-lan.js           the local room: WebRTC between devices nearby, QR-code handshake
@@ -223,7 +246,8 @@ To check that the regressions fail against an earlier revision, use `TEST_REF=<c
 It serves local assets and substitutes an in-process two-broker relay, with all external HTTPS requests
 intercepted: no test traffic reaches public brokers. It checks two-window visibility with one broker offline,
 late-join and reconnect terrain repair, round reset, the six-bot weapon/CTF smoke sequence, mobile rendering,
-browser exceptions and packet sizes. This does not test the availability or latency of the public brokers.
+browser exceptions and packet sizes. Combat checks also cover 140 ms relay delay, dropped immediate shots,
+duplicate damage/confirmation suppression, fast-round catch-up, decoded audio and nozzle geometry. This does not test the availability or latency of the public brokers.
 
 Run `node tools/build.mjs --debug test.html`, serve it next to `sfx/`, and load `tools/smoke.js` in that page (see the comment at its top): it
 fires every gun and alt fire, plays every death effect, runs bots and a CTF capture, and reports frame
@@ -233,3 +257,21 @@ times and errors.
 
 Sound effects are CC0 from OpenGameArt (Kenney, rubberduck, zer0sol), see `sfx/CREDITS.txt`. The railgun
 sound was made by the game's author.
+
+## Audio and visual effects update
+
+The existing generic sound files are attributed to CC0 authors, not documented as AI-generated.
+Six additional CC0 samples from rubberduck replace the normal pickup/kill/charge/announcement cues,
+death accent and engine oscillator. The author's Quake weapon pack and announcer lines remain primary.
+The two supplied First Blood and Flawless Victory MP3 files are mapped to their events. Browser speech
+synthesis is no longer used for missing announcer lines; those keep their title and a short cue.
+The engine remains optional in Settings. See `sfx/AUDIO-AUDIT.md` for remaining procedural audio and sources.
+
+Hull banking, nozzle flames and particle origins share one transform. Front and side thrusters occupy fixed
+mounts, the main engine can deflect slightly, and exhaust inherits ship velocity. Emission budgets and particle
+drag are based on elapsed time. Hot particles cool through yellow/orange/red; cached smoke lobes expand and
+rotate. Lightning topology refreshes every 45 ms instead of changing with display FPS. Low FX quality retains
+reduced particle budgets and skips extra shock diamonds/arcs. No additional bitmap assets are needed.
+
+To save a contact sheet from the real canvas renderers while testing:
+`BRS_COMBAT_ONLY=1 BRS_VFX_PREVIEW=/tmp/brs-vfx.png BROWSER_PATH=/path/to/chrome npm run test:browser`.

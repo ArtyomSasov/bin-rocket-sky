@@ -14,10 +14,10 @@
       bots.push(b); botById.set(id, b);
     }
   }
-  function creditBots(list, ko) {
+  function creditBots(list, ko, victim = "me") {
     for (const k of list) {
       if (typeof k !== "string") continue;
-      const key = (ko ? "ko" : "") + k;
+      const key = (ko ? "ko" : "") + victim + ":" + k;
       if (botCredited.has(key) || botCredited.size >= MAX_CREDITS) continue;
       for (const b of bots) if (k.startsWith(b.tag + ".")) {
         botCredited.add(key);
@@ -205,11 +205,13 @@
         shake = Math.max(shake, 0.4); packPlay("p_melee_hit", 1) || sfx("ram", 1) || blip(120, 0.2, "square");
         botHurt(b, me.boostFx === 2 ? 1.2 : 0.6, myTag + ".ram" + Math.floor(now), now, false);
       }
+      recordHitPose(b, now);
       // anyone's shots can hit the bot (the bot's own excepted)
+      if (now < b.inv) continue;
       for (const s of shots) {
         if (s.life <= 0 || SHOTS[s.kind].inert || !canHurt(s, b, b.id)) continue;
         if (s.kind === K.MINE && SHOTS[K.MINE].life - s.life < MINE_ARM) continue;
-        if (segHit(s, b.x, b.y, binR(b.lv) + SHOTS[s.kind].r)) {
+        if (targetHit(s, b)) {
           if (pierces(s)) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
           shotBurst(s); hitConfirm(s, b.lv, b.x, b.y, remotes.get(b.id)); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
           if (s.kind === K.BOLT || s.kind === K.LASER) boltChain(s, b.x, b.y, b.id, now);
@@ -227,9 +229,9 @@
     const full = botTick++ % 10 === 0;   // names/looks/scores every 10th tick; motion, hits and shots every tick
     for (const b of bots) {
       const m = {
-        q: ++b.q, rd: stats.round, x: Math.round(b.x), y: Math.round(b.y), vx: Math.round(b.vx), vy: Math.round(b.vy), a: +b.a.toFixed(2),
+        q: ++b.q, rd: stats.round, ts: Date.now(), x: Math.round(b.x), y: Math.round(b.y), vx: Math.round(b.vx), vy: Math.round(b.vy), a: +b.a.toFixed(2),
         t: b.stick && Math.hypot(b.stick.x, b.stick.y) > 0.3 ? 1 : 0, td: b.stick ? +Math.atan2(b.stick.y, b.stick.x).toFixed(2) : undefined, b: now - (b.dashAt || 0) < 350 ? 2 : b.boosting ? 1 : 0, d: b.dead ? 1 : 0, i: now < b.inv ? 1 : 0, ds: b.dead ? b.ds : 0, dk: b.dead ? b.dk || 0 : 0, da: b.dead ? +(b.da || 0).toFixed(2) : 0,
-        l: Math.max(0, Math.round(b.lives * 100) / 100), hb: b.hitBy, ko: b.koBy, f: b.shotLog.map(e => e.d),
+        l: Math.max(0, Math.round(b.lives * 100) / 100), hb: b.hitBy, ko: b.koBy, f: b.shotLog.slice(-9).map(e => e.d),
         tm: b.tm ?? -1, fc: b.fc ?? -1, cp: [stats.round, b.caps || 0], tg: b.tag
       };
       if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, lv: b.lv, sh: 0, wp: WEAPON_KEYS.indexOf(botWeapon(b)), tg: b.tag,

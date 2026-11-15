@@ -2,7 +2,7 @@
 // BROWSER_PATH=/path/to/chrome npm run test:browser (Node 22+)
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { readFile, mkdtemp, rm } from 'node:fs/promises';
+import { readFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { spawn, execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve, extname } from 'node:path';
@@ -11,7 +11,10 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const chromePath = process.env.BROWSER_PATH;
 assert.ok(chromePath, 'Set BROWSER_PATH to a Chrome/Chromium executable');
 execFileSync(process.execPath, ['tools/build.mjs'], { cwd: root });
-const hook = `window.__t = {me, stats, updateJunk, rock, rockMotion, clockNow, get world(){return world}, deathFx, hurt, ctfTick, roundTick, shoot, carveAt, nextTerrain, applyTerrain,
+const gameplayChecks = await readFile(join(root, "tools/gameplay-checks.js"), "utf8");
+const hook = gameplayChecks + `window.__t = {runGameplayChecks, renderVfxPreview, settings, packHas, packBuf, engineHum, packLoops, K, SHOTS, hitPose, targetHit, recordHitPose, updateShots, volley, net, netSend, gotPing,
+ isolate(){bodies=[];det=[];shots.length=0;},
+ me, stats, updateJunk, rock, rockMotion, clockNow, get world(){return world}, deathFx, hurt, ctfTick, roundTick, shoot, carveAt, nextTerrain, applyTerrain,
  get bodies(){return bodies}, get det(){return det}, get bots(){return bots}, get shots(){return shots}, get mode(){return MODE},
  get bases(){return bases}, get flagCarrier(){return flagCarrier}, get remotes(){return remotes}, get seenShots(){return seenShots},
  get playing(){return playing}, get roundLive(){return roundLive}, get hitBy(){return hitBy}, get koBy(){return koBy},
@@ -22,8 +25,8 @@ const server = createServer(async (req, res) => {
     const file = resolve(root, '.' + (name === '/' ? '/index.html' : name));
     if (!file.startsWith(root + '/')) { res.writeHead(403).end(); return; }
     let data = await readFile(file);
-    if (file.endsWith('/index.html')) data = Buffer.from(data.toString().replace('})();\n</script>', hook + '})();\n</script>'));
-    res.setHeader('Content-Type', ({ '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.wav': 'audio/wav', '.mp3': 'audio/mpeg' })[extname(file)] || 'application/octet-stream');
+    if (file.endsWith('/index.html')) data = Buffer.from(data.toString().replace('update(now < hitStopUntil ? 0 : dt, now); draw(now);', 'if (!window.__pauseGame) update(now < hitStopUntil ? 0 : dt, now); draw(now);').replace('})();\n</script>', hook + '})();\n</script>'));
+    res.setHeader('Content-Type', ({ '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg' })[extname(file)] || 'application/octet-stream');
     res.end(data);
   } catch { res.writeHead(404).end(); }
 });
@@ -35,6 +38,7 @@ const chrome = spawn(chromePath, ['--headless=new', '--remote-debugging-port=0',
  '--autoplay-policy=no-user-gesture-required', '--user-data-dir=' + profile, 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
 let socket;
 const errors = [], pages = [], traffic = [];
+let relayDelay = 0, dropFire = false, dropStates = false;
 try {
   const wsUrl = await new Promise((resolve, reject) => {
     let output = ''; const timeout = setTimeout(() => reject(new Error('Chrome did not start: ' + output.slice(-1000))), 15000);
@@ -73,7 +77,11 @@ try {
       }
       if (m.method === 'Runtime.bindingCalled' && m.params.name === '__transportEmit') {
         const packet = JSON.parse(m.params.payload); traffic.push({ topic: packet.topic, bytes: Buffer.byteLength(packet.payload) });
-        for (const page of pages) await send('Runtime.evaluate', { expression: `window.__receive && window.__receive(${JSON.stringify(packet)})` }, page);
+        if ((dropFire && packet.topic.includes('/f/')) || (dropStates && packet.topic.includes('/s/'))) return;
+        for (const page of pages) {
+          const deliver = () => send('Runtime.evaluate', { expression: `window.__receive && window.__receive(${JSON.stringify(packet)})` }, page).catch(e=>errors.push(e.message));
+          if (relayDelay) setTimeout(deliver, relayDelay); else await deliver();
+        }
       }
     } catch(e) { errors.push(e.message); }
   });
@@ -114,6 +122,8 @@ try {
     await until(page, '__t.playing && __mqtt.length === 3');
     await evaluate(page, '__t.me.inv=1e15');
   }
+  let smoke;
+  if (!process.env.BRS_COMBAT_ONLY) {
   const a = await page(); await join(a, 'Primary');
   const hole = await evaluate(a, `(()=>{const i=__t.det.findIndex(b=>b.planet&&!b.free&&!b.dead); const b=__t.det[i];
     const before=Array.from(b.cells); __t.carveAt(b,b.x,b.y,60,true);
@@ -146,7 +156,7 @@ try {
   const reset = await evaluate(a, `(()=>{const t=__t;t.hitBy.push('old');t.koBy.push('old');t.myShotLog.push({at:performance.now(),d:['old']});t.stats.round--;t.roundTick(performance.now());return [t.hitBy.length,t.koBy.length,t.myShotLog.length,t.shots.length]})()`);
   assert.deepEqual(reset, [0,0,0,0]); console.log('PASS real round reset');
   // Use the project's existing smoke sequence on a fresh host with all six bots.
-  const smoke = await page();
+  smoke = await page();
   await evaluate(smoke, "window.__code='M1C0SSMOK'");
   await evaluate(smoke, `new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/tools/smoke.js';s.onload=resolve;s.onerror=reject;document.body.append(s)})`);
   await until(smoke, '!!window.__smoke', 90000);
@@ -156,17 +166,85 @@ try {
   assert.equal(Object.keys(result.fired).length, 11); assert.ok(result.ctfCaps > 0);
   assert.deepEqual(result.altCost, {rocket:3,scatter:2,triple:1,mine:0});   // mines: the alt is Detonate (free, and nothing to set off yet)
   console.log('PASS six-bot weapon/death/CTF smoke', JSON.stringify(result));
+  }
+  const combat = await page(); await evaluate(combat, "window.__code='M1D0SCOMB'"); await join(combat, 'Combat');
+  await evaluate(combat, 'window.__pauseGame=true');
+  const combatResult = await evaluate(combat, '__t.runGameplayChecks()');
+  console.log('PASS real gameplay checks', combatResult);
+  await until(combat, '["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine","a_firstblood","v_flawless"].every(__t.packHas)',10000);
+  const decoded = await evaluate(combat, 'Object.fromEntries(["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine"].map(k=>[k,+__t.packBuf[k][0].duration.toFixed(2)]))');
+  await evaluate(combat, '__t.settings.engine="on";__t.engineHum(500,1,1,performance.now())');
+  assert.equal(await evaluate(combat, '__t.packLoops.engine?.ev'), 'p_engine');
+  await evaluate(combat, '__t.engineHum(0,0,0,performance.now())');
+  assert.equal(await evaluate(combat, '!!__t.packLoops.engine'), false);
+  console.log('PASS decoded supplemental audio, supplied voices and engine start/stop',decoded);
+  if(process.env.BRS_VFX_PREVIEW) {
+    const png=await evaluate(combat,'__t.renderVfxPreview()');
+    await writeFile(process.env.BRS_VFX_PREVIEW,Buffer.from(png.split(',')[1],'base64'));
+  }
+
+
+  // Two actual clients, 140 ms each way to relay delivery. Movement history is controlled so
+  // the victim has moved off the visible firing line by the time the rail arrives.
+  const lagA = await page(), lagB = await page();
+  for(const p of [lagA,lagB]) await evaluate(p, "window.__code='M1D0SLAGG'");
+  await join(lagA,'Lag shooter');await join(lagB,'Lag victim');
+  await until(lagA, "[...__t.remotes.values()].some(r=>r.name==='Lag victim')");
+  await until(lagB, "[...__t.remotes.values()].some(r=>r.name==='Lag shooter')");
+  for(const p of [lagA,lagB]) await evaluate(p, 'window.__pauseGame=true;__t.isolate();for(let i=0;i<30;i++) __t.gotPing(140);__t.me.lv=1;__t.me.dead=false;__t.me.inv=0;__t.me.shield=0;__t.me.lives=10;__t.me.vx=__t.me.vy=0;__t.me.a=0;__t.me.ampUntil=0');
+  await evaluate(lagA, '__t.me.x=100;__t.me.y=600;__t.netSend(1,performance.now())');
+  await evaluate(lagB, '__t.me.x=600;__t.me.y=600;__t.netSend(1,performance.now())');
+  await wait(250);
+  relayDelay=140;dropStates=true;
+  await evaluate(lagB, '__t.me.hitHistory=[];__t.recordHitPose(__t.me,performance.now()-100);__t.recordHitPose(__t.me,performance.now())');
+  const lagShot = await evaluate(lagA, "__t.volley(__t.me,performance.now(),{shot:[__t.K.RAIL,4200]},{x:100,y:600}).id");
+  await wait(70);
+  await evaluate(lagB, '__t.me.y=750;__t.recordHitPose(__t.me,performance.now())');
+  await until(lagB, `__t.seenShots.has(${JSON.stringify(lagShot)})`,3000);
+  const lagDebug = await evaluate(lagB, '({now:performance.now(),shot:__t.shots[0],history:__t.me.hitHistory,pose:__t.hitPose(__t.shots[0],__t.me),round:__t.roundLive,remotes:[...__t.remotes.values()].map(r=>({tag:r.tag,ping:r.ping,off:r.off,tm:r.tm}))})');
+  const lagHealth = await evaluate(lagB, '__t.updateShots(0.016,performance.now());__t.me.lives');
+  if(lagHealth!==7) console.log('LAG DEBUG',JSON.stringify(lagDebug));
+  assert.equal(lagHealth,7,'delayed rail hits historical position exactly once');
+  dropStates=false;await evaluate(lagA,'__t.netSend(1,performance.now())');await wait(350);
+  assert.equal(await evaluate(lagB,'__t.updateShots(0.016,performance.now());__t.me.lives'),7,'journal and second broker cannot repeat damage');
+  // Lose the immediate channel; the repeated state journal must still deliver the shot.
+  dropFire=true;
+  const recovered = await evaluate(lagA, "__t.volley(__t.me,performance.now(),{shot:[__t.K.NAIL,1500]},{x:100,y:600}).id");
+  await evaluate(lagA,'__t.netSend(1,performance.now())');
+  await until(lagB,`__t.seenShots.has(${JSON.stringify(recovered)})`,3000);
+  dropFire=false;relayDelay=0;
+  // A real delayed bullet is recovered from state, swept through its missing flight time,
+  // and produces one confirmed hit at the shooter despite duplicated broker deliveries.
+  for(const p of [lagA,lagB]) await evaluate(p, '__t.isolate();__t.me.hitHistory=[];__t.me.inv=0;__t.me.dead=false;__t.me.lives=10');
+  await evaluate(lagB, '__t.me.x=400;__t.me.y=600;__t.netSend(1,performance.now())');
+  await wait(120);
+  const hitsBefore=await evaluate(lagA,'__t.stats.hits');
+  await evaluate(lagB,'__t.recordHitPose(__t.me,performance.now()-260);__t.recordHitPose(__t.me,performance.now())');
+  relayDelay=140;dropFire=true;
+  const bullet=await evaluate(lagA,'__t.volley(__t.me,performance.now(),{shot:[__t.K.BULLET,2600]},{x:100,y:600}).id');
+  await evaluate(lagA,'__t.netSend(1,performance.now())');
+  await until(lagB,`__t.seenShots.has(${JSON.stringify(bullet)})`,3000);
+  assert.equal(await evaluate(lagB,'__t.recordHitPose(__t.me,performance.now());__t.updateShots(0.016,performance.now());__t.me.lives'),9.9,'delayed bullet catches up and hits');
+  await evaluate(lagB,'__t.netSend(1,performance.now())');
+  await until(lagA,`__t.stats.hits===${hitsBefore+1}`,3000);
+  await evaluate(lagB,'__t.netSend(1,performance.now())');await wait(300);
+  assert.equal(await evaluate(lagA,'__t.stats.hits'),hitsBefore+1,'duplicate confirmation is credited once');
+  dropFire=false;relayDelay=0;
+  console.log('PASS delayed hitscan and bullet damage, confirmed hit, duplicate suppression and dropped-shot recovery');
   // Max-sized crater history plus six busy bots must still fit the receiver's byte limit.
+  if (smoke) {
   await evaluate(smoke, `(()=>{const t=__t, now=performance.now();
     for(let i=0;i<320;i++) t.myCarves.push({at:now,d:[t.stats.round,0,3000,3000,700,100000+i]});
+    t.myShotLog.push(...Array.from({length:24},(_,i)=>({at:now,d:['stress.s'+i,10000,10000,4500,4500,0,5,1,0,Date.now()]})));
     for(const b of t.bots) {b.hitBy=Array.from({length:12},(_,i)=>'stress.'+i);b.koBy=b.hitBy.slice();
-      b.shotLog=Array.from({length:9},(_,i)=>({at:now,d:[b.tag+'.s'+i,10000,10000,-4500,4500,0]}));}
+      b.shotLog=Array.from({length:9},(_,i)=>({at:now,d:[b.tag+'.s'+i,10000,10000,-4500,4500,0,5,1,0,Date.now()]}));}
   })()`);
   await wait(400);
   const phone = await page(true, true); await join(phone, 'Mobile');
   await until(phone, '__t.remotes.size > 0');
   const mobile = await evaluate(phone, '({w:innerWidth, mode:__t.mode, playing:__t.playing})');
   assert.equal(mobile.playing, true); console.log('PASS mobile viewport', JSON.stringify(mobile));
+  }
   assert.deepEqual(errors, []);
   const max = Math.max(...traffic.map(p=>p.bytes));
   assert.ok(max <= 16384, 'All state packets fit receiver limit: ' + max);

@@ -1,5 +1,5 @@
   // ---------- update ----------
-  let sendAcc = 0, boardAcc = 0, sendSeq = 0, slowAcc = 1, lastSlow = "";
+  let sendAcc = 0, boardAcc = 0, sendSeq = 0, slowAcc = 1, lastSlow = "", lastNetTick = performance.now();
   const ampChip = document.getElementById("ampChip");
   let ampShown = -1;
   function ampHud(now) {
@@ -19,13 +19,13 @@
     const held = firing || FIRE_KEYS.some(k => keys.has(k)) || (aimM && ptr.down);   // with mouse aim the left button fires
     const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided;
     const altW = WEAPONS[me.weapon].alt, altHeld = altFiring || keys.has("KeyC");
-    if (altW && altW.charge) {   // the railgun's alt: hold to charge, let go to fire the charged slug
-      if (altHeld && playing && !me.dead && me.arsenal[me.weapon] >= altW.cost) railCharge = Math.min(1, railCharge + dt / altW.charge);
-      else if (railCharge > 0) { if (ready) shoot(now, true, 1 + 0.5 * railCharge); railCharge = 0; }
+    if (altW && altW.charge) {   // rail alt: hold to widen the cutter, release to open a short breach
+      if (altHeld && ready && me.arsenal[me.weapon] >= altW.cost) railCharge = Math.min(1, railCharge + dt / altW.charge);
+      else if (railCharge > 0) { if (ready) shoot(now, true); railCharge = 0; }
     } else railCharge = 0;
     me.heat = Math.max(0, (me.heat || 0) - 0.45 * dt); if (me.overheat && me.heat < 0.3) { me.overheat = false; renderAmmo(me.weapon); }
     if (ready && altHeld && altW && !altW.charge) shoot(now, true);
-    else if (triggerTick(dt, now, ready, held) || (ready && me.weapon === "gauntlet" && now < (me.lungeUntil || 0))) shoot(now);   // a lunge lands blows too
+    else if (triggerTick(dt, now, ready && fireCd <= 0 && !(altHeld && altW?.charge) && railCharge === 0, held) || (ready && me.weapon === "gauntlet" && now < (me.lungeUntil || 0))) shoot(now);   // a lunge lands blows too
     if (playing && !me.dead) {
       if (keys.has("KeyA") || keys.has("ArrowLeft")) ix -= 1;
       if (keys.has("KeyD") || keys.has("ArrowRight")) ix += 1;
@@ -179,7 +179,8 @@
     if (boost && !me.boostOn && playing && !me.dead) {
       me.vx += Math.cos(me.a) * 220; me.vy += Math.sin(me.a) * 220;
       camKick.x -= Math.cos(me.a) * 10; camKick.y -= Math.sin(me.a) * 10;
-      impacts.push({ x: me.x - Math.cos(me.a) * 40, y: me.y - Math.sin(me.a) * 40, t: 0, r: 70, col: "#9ff3ff" });
+      const jet = exhaustJets(me, now).sort((a, b) => b.power - a.power)[0];
+      impacts.push({ x: jet.x, y: jet.y, t: 0, r: 70, col: "#9ff3ff" });
     }
     me.boostOn = boost;
     // the camera leads the bin by up to ~a fifth of the screen in the direction it flies
@@ -206,25 +207,30 @@
   // (px,py -> x,y) for one frame, so the usual hit checks (me, the others, my bots, orbs for a combo) see all of it.
   const HITSCAN = { [K.RAIL]: 1, [K.LASER]: 1, [K.SHOCK]: 1, [K.BOLT]: 1, [K.GAUSS]: 1 };
   function traceBeam(s) {
-    s.traced = true;
-    const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v, max = v * SHOTS[s.kind].life, pierce = pierces(s);
+    s.traced = true; s.expireAfterStep = true;
+    const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v, pierce = pierces(s);
+    s.px = s.x; s.py = s.y;
+    const reach = beamReach(s), max = pierce ? reach : firstBinAlong(s, reach);
     const own = s.mine || botById.has(s.owner);
-    let L = 0, n = 0, stop = null;
+    let L = pierce ? max : 0, stop = null;
     while (L < max) {
-      const nl = Math.min(max, L + 14), x = s.x + dx * nl, y = s.y + dy * nl;
+      const nl = Math.min(max, L + 4), x = s.x + dx * nl, y = s.y + dy * nl;
       if (x < 0 || x > W || y < 0 || y > H) break;
       L = nl;
       const b = solidAny(x, y);
       if (!b) continue;
       if (!pierce) { stop = { b, x, y }; break; }
-      if ((own || b.free) && n++ % 2 === 0) carveAt(b, x, y, SHOTS[s.kind].carve, own);   // the rail's tunnel
+      // Piercing terrain is cut as a single capsule after the endpoint is known.
     }
     const ex = s.x + dx * L, ey = s.y + dy * L;
     s.px = s.x; s.py = s.y; s.x = ex; s.y = ey;
+    if (pierce) carveBeam(s, s.cut || SHOTS[s.kind].carve);
     if (stop) {   // a beam ends on rock: it scorches a crater there
       if (own || stop.b.free) carveAt(stop.b, stop.x, stop.y, SHOTS[s.kind].carve, own);
       impact(stop.x, stop.y, SHOTS[s.kind].col, 0.8);
     }
+    s.beamHit = stop ? "body" : max < reach ? "bin" : null;
+    if (s.kind === K.LASER || s.kind === K.SHOCK) laserBeam(s, s.owner);
     s.life = Math.min(s.life, 1e-4);   // one frame of hits, then gone
   }
   const spotHeard = new Set();
@@ -232,64 +238,72 @@
     // fireballs
     for (let i = shots.length - 1; i >= 0; i--) {
       const s = shots[i];
-      s.life -= dt;
+      // Preserve the final partial step; collision checks (including bots) run before expiry.
+      if (s.expireAfterStep) s.life = 0;
+      const extra = s.catchup || 0; s.catchup = 0;
+      const stepDt = Math.min(Math.max(0, s.life), dt + extra);
+      s.stepFrom = now - (dt + extra) * 1000; s.stepTo = s.stepFrom + stepDt * 1000;
+      if (s.life > 0) {
+        const left = s.life - stepDt;
+        s.expireAfterStep = left <= 1e-8;
+        s.life = Math.max(1e-4, left);
+      }
+      if (s.kind === K.RECALL) { recallSaws(s); shots.splice(i, 1); continue; }
+      if (s.kind === K.SAW) steerSaw(s, stepDt);
       if (s.kind === K.DET) { detonateOrb(s); if (s.life <= 0) shots.splice(i, 1); continue; }   // inert: it only sets off its orb
       if (HITSCAN[s.kind] && !s.traced && s.life > 0) traceBeam(s);   // rail, laser, beams: the whole line, this very frame
       if (s.kind === K.MDET) { detonateMines(s); if (s.life <= 0) shots.splice(i, 1); continue; }   // ...and this one its pilot's mines
       if (s.kind === K.MINE && s.trigAt && now >= s.trigAt) s.life = 0;   // a triggered mine goes off
       if (s.life <= 0 && s.kind === K.FLAK) flakBurst(s);
       if (s.life <= 0) { if (SPLASH[s.kind]) splash(s, now); if (BOMBS[s.kind]) detonate(s, now); shots.splice(i, 1); continue; }
-      if (s.kind === K.HROCKET) steerRocket(s, dt);
+      if (s.kind === K.HROCKET) steerRocket(s, stepDt);
       if (s.kind === K.HROCKET && s.life > 0) for (const o of shots) {   // homing rockets are slow: any enemy shot can blow one up mid-air
         if (o === s || o.life <= 0 || SHOTS[o.kind].inert || o.kind === K.MINE || (o.mine ? s.mine : o.owner === s.owner)) continue;
         if (isTeams() && teamOfShot(o) !== undefined && teamOfShot(o) === teamOfShot(s)) continue;   // a teammate's shot passes it
         if (segHit(o, s.x, s.y, 24)) { s.life = 0; if (!pierces(o)) o.life = 0; impact(s.x, s.y, "#ffb43c", 1.6); explode(s.x, s.y, 40, 300); sfx("boom_small", 0.8, 1.2, s.x, s.y); break; }
       }
       if (s.life <= 0) continue;   // shot down: it blows up (splash) at the start of next frame
-      if (s.kind === K.SAW && s.stuck) {   // a stuck saw: rides its rock, grinds sparks, and bites anyone touching it again every half second
-        mineStick(s);
-        if (now - (s.bitAt || 0) > 500) { s.bitAt = now; s.hits = null; }
-        if (Math.random() < dt * 30) sparkShower(s.x, s.y, Math.random() - 0.5, Math.random() - 0.5, 0.3);
-      }
       if (s.kind === K.MINE) {
-        if (s.stuck) mineStick(s); else { const k = Math.exp(-1.6 * dt); s.vx *= k; s.vy *= k; }   // a prox mine slows in flight, then rides the rock it stuck to
+        if (s.stuck) mineStick(s); else { const k = Math.exp(-1.6 * stepDt); s.vx *= k; s.vy *= k; }   // a prox mine slows in flight, then rides the rock it stuck to
         if (!s.trigAt && SHOTS[K.MINE].life - s.life >= MINE_ARM) {   // armed: an enemy coming within reach sets it ticking
           let near = canHurt(s, me, "me") && playing && Math.hypot(me.x - s.x, me.y - s.y) < 150;
           if (!near) for (const [rid, r] of remotes) if (canHurt(s, r, rid) && Math.hypot(r.x - s.x, r.y - s.y) < 150 + binR(r.lv || 1) * 0.5) { near = true; break; }
           if (near) { s.trigAt = now + 250; packPlay("p_tick_mine", 0.8, s.x, s.y) || sfx("hit", 0.4, 2.4, s.x, s.y); }
         }
       }
-      if (s.kind === K.GREN) { const k = Math.exp(-0.7 * dt); s.vx *= k; s.vy *= k; }   // a grenade slows as it flies
-      if (s.kind === K.NUKE) { const v = Math.hypot(s.vx, s.vy), nv = Math.min(720, v + 260 * dt); s.vx *= nv / v; s.vy *= nv / v; }
-      if (!s.traced) { s.px = s.x; s.py = s.y; s.x += s.vx * dt; s.y += s.vy * dt; }   // a traced beam already spans its whole line
+      if (s.kind === K.GREN) { const k = Math.exp(-0.7 * stepDt); s.vx *= k; s.vy *= k; }   // a grenade slows as it flies
+      if (s.kind === K.NUKE) { const v = Math.hypot(s.vx, s.vy), nv = Math.min(720, v + 260 * stepDt); s.vx *= nv / v; s.vy *= nv / v; }
+      if (!s.traced) { s.px = s.x; s.py = s.y; s.x += s.vx * stepDt; s.y += s.vy * stepDt; }   // a traced beam already spans its whole line
+      if (!s.traced && !pierces(s) && !SHOTS[s.kind].inert && s.kind !== K.MINE) {
+        const v = Math.hypot(s.vx, s.vy) || 1, L = firstBinAlong(s, v * stepDt);
+        const full = v * stepDt;
+        if (full > 0) s.stepTo = s.stepFrom + (s.stepTo - s.stepFrom) * L / full;
+        s.x = s.px + s.vx / v * L; s.y = s.py + s.vy / v * L;
+      }
       if (s.kind === K.NUKE && (s.x < 0 || s.x > W || s.y < 0 || s.y > H || solidAny(s.x, s.y) || nukeTouches(s))) { detonate(s, now); shots.splice(i, 1); continue; }
-      if (s.kind === K.HOLY) { holyFlight(s, dt); continue; }
+      if (s.kind === K.HOLY) { holyFlight(s, stepDt); continue; }
       if (s.kind === K.BEACON) {   // the teleporter's beacon: slides to a stop and blinks
-        bounceFlight(s, dt, 1.9);
-        if (Math.random() < dt * 12) puff(s.x, s.y, (Math.random() - .5) * 60, (Math.random() - .5) * 60, 0.4, 2, "#8ff0ff");
+        bounceFlight(s, stepDt, 1.9);
+        if (Math.random() < stepDt * 12) puff(s.x, s.y, (Math.random() - .5) * 60, (Math.random() - .5) * 60, 0.4, 2, "#8ff0ff");
         continue;
       }
-      if (s.kind === K.GAMMA) gammaZap(s, dt, now);
+      if (s.kind === K.GAMMA) gammaZap(s, stepDt, now);
       if (s.kind === K.NUKE) {
-        if (Math.random() < dt * 70) puff(s.x, s.y, -s.vx * 0.15 + (Math.random() - .5) * 50, -s.vy * 0.15 + (Math.random() - .5) * 50, 0.9, 3 + Math.random() * 3, Math.random() < 0.5 ? "#8a7fb0" : "#ffe14d");
+        if (Math.random() < stepDt * 70) puff(s.x, s.y, -s.vx * 0.15 + (Math.random() - .5) * 50, -s.vy * 0.15 + (Math.random() - .5) * 50, 0.9, 3 + Math.random() * 3, Math.random() < 0.5 ? "#8a7fb0" : "#ffe14d");
         continue;
       }
       if (s.kind === K.MINE && !s.stuck && (s.x < 0 || s.x > W || s.y < 0 || s.y > H)) { s.x = clamp(s.x, 0, W); s.y = clamp(s.y, 0, H); s.stuck = { b: null }; packPlay("p_mine_hit", 0.7, s.x, s.y); }   // sticks to the fence
       const bounce = SHOTS[s.kind].bounce;
       if (bounce && s.bn < bounce) {   // shards and saws ricochet off the fence and off planets, losing a bit of speed
         let hit = false;
-        const sv = Math.hypot(s.vx, s.vy) || 1;
-        if (s.kind === K.SAW && !s.stuck && (((s.x < 0 || s.x > W) && Math.abs(s.vx) / sv > 0.85) || ((s.y < 0 || s.y > H) && Math.abs(s.vy) / sv > 0.85))) {
-          s.x = clamp(s.x, 0, W); s.y = clamp(s.y, 0, H); s.stuck = { b: null }; s.vx = s.vy = 0; s.life = 5; s.bitAt = now; continue;   // head-on into the fence: it bites in
-        }
         if (s.x < 0 || s.x > W) { s.vx = -s.vx; s.x = clamp(s.x, 0, W); hit = true; }
         if (s.y < 0 || s.y > H) { s.vy = -s.vy; s.y = clamp(s.y, 0, H); hit = true; }
-        if (hit) { s.bn++; s.vx *= s.kind === K.GREN ? 0.6 : 0.85; s.vy *= s.kind === K.GREN ? 0.6 : 0.85; s.px = s.x; s.py = s.y; impact(s.x, s.y, SHOTS[s.kind].col, 0.5); if (s.kind === K.SHARD) shardRicochet(s); if (s.kind === K.GREN) grenBounce(s); }
+        if (hit) { if (s.kind === K.SAW) { returnSaw(s); s.ricTime = 0.12; } s.bn++; s.vx *= s.kind === K.GREN ? 0.6 : 0.85; s.vy *= s.kind === K.GREN ? 0.6 : 0.85; s.px = s.x; s.py = s.y; impact(s.x, s.y, SHOTS[s.kind].col, 0.5); if (s.kind === K.SHARD) shardRicochet(s); if (s.kind === K.GREN) grenBounce(s); }
       }
       if ((s.kind === K.RAIL || s.kind === K.SHOCK) && s.life > 0) for (const o of shots) {
         if (o.kind === K.ORB && o.life > 0 && !o.combo && segHit(s, o.x, o.y, 45)) { comboBlast(o, s, now); if (s.kind === K.SHOCK) { s.life = 0; break; } }
       }
-      if (s.kind === K.ORB && SHOTS[K.ORB].life - s.life > 0.9) { const k = Math.exp(-5 * dt); s.vx *= k; s.vy *= k; }   // the shock orb stops and hangs there
+      if (s.kind === K.ORB && SHOTS[K.ORB].life - s.life > 0.9) { const k = Math.exp(-5 * stepDt); s.vx *= k; s.vy *= k; }   // the shock orb stops and hangs there
       // planets, moons, wrecks and rubble: the shot digs a crater where it lands (my shots and my bots' report theirs;
       // others' craters on shared bodies arrive over the network, but anyone's shot chips local rubble)
       const hb = s.stuck || s.traced ? null : shotBody(s);
@@ -301,25 +315,16 @@
         } else if (bounce && s.bn < bounce) {   // shards and saws chip and ricochet; grenades just bounce
           if (dig && s.kind !== K.GREN) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);
           const [nx, ny] = normalAt(hb.b, hb.x, hb.y), vn = s.vx * nx + s.vy * ny, keep = s.kind === K.GREN ? 0.6 : 0.85;
-          if (s.kind === K.SAW && -vn / (Math.hypot(s.vx, s.vy) || 1) > 0.85) {   // head-on into rock: the saw bites in and keeps spinning there
-            const [lx, ly] = toLocal(hb.b, hb.x, hb.y);
-            s.stuck = { b: hb.b, lx, ly }; s.x = hb.x; s.y = hb.y; s.vx = s.vy = 0; s.life = 5; s.bitAt = now;
-            continue;
-          }
+          if (s.kind === K.SAW) { returnSaw(s); s.ricTime = 0.12; }
           if (vn < 0) { s.vx = (s.vx - 2 * vn * nx) * keep; s.vy = (s.vy - 2 * vn * ny) * keep; }
           if (s.kind === K.GREN) grenBounce(s);
           s.x = hb.x + nx * 4; s.y = hb.y + ny * 4; s.px = s.x; s.py = s.y; s.bn++;
           impact(s.x, s.y, SHOTS[s.kind].col, 0.5);
           if (s.kind === K.SHARD) shardRicochet(s);
         } else {
-          if (dig && SHOTS[s.kind].carve && s.kind !== K.MINE && s.kind !== K.SAW) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);   // a mine or a saw sticks without digging
+          if (dig && SHOTS[s.kind].carve && s.kind !== K.MINE && s.kind !== K.SAW) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);   // only the mine attaches; an exhausted saw disappears
           if ((s.kind === K.BULLET || s.kind === K.PELLET) && now - ricAt > 90) { ricAt = now; packPlay("p_ric", 0.4, hb.x, hb.y); }   // whine off the rock
           if (s.kind === K.NAIL || s.kind === K.SPIKE) stickNail(hb.b, hb.x, hb.y, Math.atan2(s.vy, s.vx), s.kind === K.SPIKE);
-          if (s.kind === K.SAW) {   // a saw with no bounces left bites into the rock and keeps spinning there for 5 s
-            const [lx, ly] = toLocal(hb.b, hb.x, hb.y);
-            s.stuck = { b: hb.b, lx, ly }; s.x = hb.x; s.y = hb.y; s.vx = s.vy = 0; s.life = 5; s.bitAt = now;
-            continue;
-          }
           if (s.kind === K.MINE) {   // a prox mine sticks where it lands, just off the surface
             const [nx, ny] = normalAt(hb.b, hb.x, hb.y), px = hb.x + nx * 10, py = hb.y + ny * 10, [lx, ly] = toLocal(hb.b, px, py);
             s.stuck = { b: hb.b, lx, ly }; s.x = px; s.y = py; s.vx = s.vy = 0;
@@ -334,28 +339,27 @@
           shots.splice(i, 1); continue;
         }
       }
-      if (s.kind === K.SAW && !s.stuck && (s.x < 0 || s.x > W || s.y < 0 || s.y > H)) {   // a saw out of bounces bites into the fence
-        s.x = clamp(s.x, 0, W); s.y = clamp(s.y, 0, H); s.stuck = { b: null }; s.vx = s.vy = 0; s.life = 5; s.bitAt = now; continue;
-      }
       if ((s.x < 0 || s.x > W || s.y < 0 || s.y > H) && SPLASH[s.kind]) splash(s, now);
       if (s.x < 0 || s.x > W || s.y < 0 || s.y > H) { explode(clamp(s.x, 0, W), clamp(s.y, 0, H), s.kind === K.ROCKET ? 40 : 10, 160); shots.splice(i, 1); continue; }
       if (s.kind === K.ROCKET || s.kind === K.HROCKET) {   // a smoke trail with fire licking out of the motor
         const sp = Math.hypot(s.vx, s.vy) || 1, bx = s.x - s.vx / sp * 26, by = s.y - s.vy / sp * 26;
-        if (Math.random() < dt * (lowQ ? 30 : 70)) puff(bx, by, -s.vx * 0.08 + (Math.random() - .5) * 50, -s.vy * 0.08 + (Math.random() - .5) * 50, 1.2 + Math.random() * 1.0, 6 + Math.random() * 6, "rgb(120,110,140)", 2);
-        if (Math.random() < dt * 60) puff(bx, by, -s.vx * 0.4 + (Math.random() - .5) * 60, -s.vy * 0.4 + (Math.random() - .5) * 60, 0.2 + Math.random() * 0.2, 3 + Math.random() * 3, FIRE_COLS[(Math.random() * 3) | 0]);
+        if (Math.random() < stepDt * (lowQ ? 30 : 70)) puff(bx, by, -s.vx * 0.08 + (Math.random() - .5) * 50, -s.vy * 0.08 + (Math.random() - .5) * 50, 1.2 + Math.random() * 1.0, 6 + Math.random() * 6, "rgb(120,110,140)", 2);
+        if (Math.random() < stepDt * 60) puff(bx, by, -s.vx * 0.4 + (Math.random() - .5) * 60, -s.vy * 0.4 + (Math.random() - .5) * 60, 0.2 + Math.random() * 0.2, 3 + Math.random() * 3, FIRE_COLS[(Math.random() * 3) | 0]);
       } else if (s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.MELEE || s.kind === K.NAIL) {
         // a beam is drawn as a beam; a gauntlet blow isn't seen; nails are too many for trails
+      } else if (s.kind === K.SAW) {
+        if (Math.random() < stepDt * 45) puff(s.x, s.y, -s.vx * 0.05, -s.vy * 0.05, 0.22, 2, s.returning ? "#6fffe0" : "#d6dde8");
       } else if (s.kind === K.RAIL) {   // the slug leaves a glowing wake along its whole path
         for (let k = 0; k < 4; k++) { const f = Math.random(); puff(s.px + (s.x - s.px) * f, s.py + (s.y - s.py) * f, (Math.random() - .5) * 30, (Math.random() - .5) * 30, 0.5 + Math.random() * 0.4, 1.6 + Math.random() * 1.6, k % 2 ? "#e9c8ff" : "#ffffff"); }
       } else if (s.kind === K.ORB) {   // a plasma wake: glowing motes peeling off, and crackle
-        if (Math.random() < dt * (lowQ ? 40 : 90)) puff(s.x + (Math.random() - .5) * 30, s.y + (Math.random() - .5) * 30, -s.vx * 0.15 + (Math.random() - .5) * 60, -s.vy * 0.15 + (Math.random() - .5) * 60, 0.5 + Math.random() * 0.4, 2.5 + Math.random() * 3, Math.random() < 0.6 ? "#6fd8ff" : "#ffffff");
+        if (Math.random() < stepDt * (lowQ ? 40 : 90)) puff(s.x + (Math.random() - .5) * 30, s.y + (Math.random() - .5) * 30, -s.vx * 0.15 + (Math.random() - .5) * 60, -s.vy * 0.15 + (Math.random() - .5) * 60, 0.5 + Math.random() * 0.4, 2.5 + Math.random() * 3, Math.random() < 0.6 ? "#6fd8ff" : "#ffffff");
       } else if (s.kind === K.SHARD) {   // a hot trail that grows with every ricochet
-        if (Math.random() < dt * (40 + s.bn * 25)) puff(s.x, s.y, -s.vx * 0.05, -s.vy * 0.05, 0.25 + s.bn * 0.05, 2 + s.bn * 0.6, s.bn ? "#ffe0a0" : "#ffc070");
+        if (Math.random() < stepDt * (40 + s.bn * 25)) puff(s.x, s.y, -s.vx * 0.05, -s.vy * 0.05, 0.25 + s.bn * 0.05, 2 + s.bn * 0.6, s.bn ? "#ffe0a0" : "#ffc070");
       } else if (s.kind === K.SLUG) {   // the slug drags a short hot trail
-        if (Math.random() < dt * 50) puff(s.x, s.y, -s.vx * 0.05, -s.vy * 0.05, 0.25, 2, Math.random() < 0.5 ? "#ffe7a0" : "#ffb43c");
+        if (Math.random() < stepDt * 50) puff(s.x, s.y, -s.vx * 0.05, -s.vy * 0.05, 0.25, 2, Math.random() < 0.5 ? "#ffe7a0" : "#ffb43c");
       } else if (s.kind === K.PELLET || s.kind === K.MINE || s.kind === K.BOLT) {
         // pellets are too short-lived for a trail; mines just sit there blinking
-      } else if (Math.random() < dt * 40) puff(s.x, s.y, -s.vx * 0.08 + (Math.random() - .5) * 60, -s.vy * 0.08 + (Math.random() - .5) * 60, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 2, FIRE_COLS[(Math.random() * 4) | 0]);
+      } else if (Math.random() < stepDt * 40) puff(s.x, s.y, -s.vx * 0.08 + (Math.random() - .5) * 60, -s.vy * 0.08 + (Math.random() - .5) * 60, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 2, FIRE_COLS[(Math.random() * 4) | 0]);
       // a round that only just misses me whizzes by
       if (!s.mine && !s.whiz && playing && !me.dead && (s.kind === K.BULLET || s.kind === K.PELLET || s.kind === K.SHARD || s.kind === K.RAIL || s.kind === K.NAIL || s.kind === K.SPIKE) && now - whizAt > 120
           && segHit(s, me.x, me.y, binR(me.lv) + 140) && !segHit(s, me.x, me.y, binR(me.lv))) { s.whiz = true; whizAt = now; packPlay(s.kind === K.NAIL || s.kind === K.SPIKE ? "p_whiz_nail" : "p_whiz", 0.7, s.x, s.y); }
@@ -367,7 +371,7 @@
       if (s.kind === K.MINE && s.mine && !s.armedFx && SHOTS[K.MINE].life - s.life >= MINE_ARM) { s.armedFx = true; packPlay("p_arm_mine", 0.5, s.x, s.y); }   // my mine is armed
       // enemy fireball hits me (I decide, then report the shot id)
       const armed = s.kind !== K.MINE || SHOTS[K.MINE].life - s.life >= MINE_ARM;
-      if (armed && canHurt(s, me, "me", s.kind === K.MINE) && segHit(s, me.x, me.y, binR(me.lv) + SHOTS[s.kind].r) && (!pierces(s) || railOnce(s, "me"))) {
+      if (armed && canHurt(s, me, "me", s.kind === K.MINE) && targetHit(s, me) && (!pierces(s) || railOnce(s, "me"))) {
         if (!pierces(s)) s.life = 0;
         s.direct = "me";   // its blast (if any) spares me: I took the direct hit
         shotBurst(s);
@@ -385,13 +389,13 @@
       if (s.mine && s.life > 0) for (const [rid, r] of remotes) {
         if (botById.has(rid)) continue;
         if (r.inv || !canHurt(s, r, rid)) continue;
-        if (armed && segHit(s, r.x, r.y, binR(r.lv) + SHOTS[s.kind].r)) {
-          if (pierces(s)) { if (railOnce(s, rid)) { shotBurst(s); hitConfirm(s, r.lv, r.x, r.y, r); } continue; }
-          s.life = 0; shotBurst(s); hitConfirm(s, r.lv, r.x, r.y, r); if (s.kind === K.BOLT || s.kind === K.LASER) boltChain(s, r.x, r.y, rid, now); break;
+        if (armed && targetHit(s, r)) {
+          if (pierces(s)) { if (railOnce(s, rid)) { shotBurst(s); predictHit(s, rid, r); } continue; }
+          s.life = 0; shotBurst(s); predictHit(s, rid, r); if (s.kind === K.BOLT || s.kind === K.LASER) boltChain(s, r.x, r.y, rid, now); break;
         }
       }
     }
-    while (myShotLog.length && now - myShotLog[0].at > 700) myShotLog.shift();
+    while (myShotLog.length && now - myShotLog[0].at > 1200) myShotLog.shift();
   }
   // space junk: shot apart for points, or crashed into
   // space junk: little rocks that take a few hits, chipping and shrinking, then crack into drifting chunks.
@@ -457,10 +461,11 @@
     // remotes: extrapolate + ease toward reported spot
     for (const [rid, r] of remotes) {
       if (!botById.has(rid) && now - r.seen > 7000) { removeRemote(rid); continue; }
-      r.tx = clamp(r.tx + r.vx * dt, 0, W); r.ty = clamp(r.ty + r.vy * dt, 0, H);
+      const predict = now - r.seen < 250 ? dt : 0; // packet loss must not make a ghost fly through the whole map
+      r.tx = clamp(r.tx + r.vx * predict, 0, W); r.ty = clamp(r.ty + r.vy * predict, 0, H);
       const corr = 1 - Math.exp(-12 * dt);
-      r.x = clamp(r.x + r.vx * dt + (r.tx - r.x) * corr, 0, W);
-      r.y = clamp(r.y + r.vy * dt + (r.ty - r.y) * corr, 0, H);
+      r.x = clamp(r.x + r.vx * predict + (r.tx - (r.x + r.vx * predict)) * corr, 0, W);
+      r.y = clamp(r.y + r.vy * predict + (r.ty - (r.y + r.vy * predict)) * corr, 0, H);
       r.a = lerpAng(r.a, r.ta, 1 - Math.exp(-14 * dt));
       if (r.dead) continue;
       if (Math.abs(r.x - me.x) < vw / 2 + 300 && Math.abs(r.y - me.y) < vh / 2 + 300) { trailFrom(r, 0.6 + r.thrust * 1.4 + (r.boost || 0) * 1.5, dt); damageFx(r, dt); afterburner(r, r.boost || 0, dt); }
@@ -504,7 +509,7 @@
             const a = Math.random() * 6.28, v = 60 + Math.random() * 200;
             puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.5 + Math.random() * 0.6, 1.5 + Math.random() * 2, s.gold ? "#ffd36b" : "#ffffff");
           }
-          blip(s.gold ? 660 : 880, s.gold ? 0.3 : 0.12);
+          sfx("p_pickup", s.gold ? 0.65 : 0.4, s.gold ? 0.85 : 1.1) || blip(s.gold ? 660 : 880, s.gold ? 0.3 : 0.12);
         }
       }
     }
@@ -519,7 +524,7 @@
           grabbed.add(st.key); pushCapped(myGrabs, st.key, 40);
           me.score += 1; showScore();
           for (let k = 0; k < 8; k++) { const a = Math.random() * 6.28; puff(st.x, st.y, Math.cos(a) * 120, Math.sin(a) * 120, 0.4, 1.8, "#ffe3f6"); }
-          blip(990, 0.06);
+          sfx("p_pickup", 0.3, 1.2) || blip(990, 0.06);
           gainXp(1, now);
         }
       }
@@ -606,7 +611,7 @@
       }
       if (p.life <= 0) { parts[i] = parts[parts.length - 1]; parts.pop(); continue; }
       p.x += p.vx * dt; p.y += p.vy * dt;
-      const damp = p.k === 2 ? 0.93 : 0.97;
+      const damp = Math.pow(p.k === 2 ? 0.93 : 0.97, dt * 60);
       p.vx *= damp; p.vy *= damp;
     }
     const partCap = lowQ ? MAX_PARTS / 3 : MAX_PARTS;
@@ -619,19 +624,31 @@
       const drag = Math.exp(-0.015 * dt);   // space: practically no drag
       if (h.pin) {   // nailed to rock: it rides along with it
         if (h.pin.b && (h.pin.b.dead || !bodies.includes(h.pin.b))) h.pin = null;
-        else if (h.pin.b) { [h.x, h.y] = toWorld(h.pin.b, h.pin.lx, h.pin.ly); h.a = h.pin.a + h.pin.b.a; }
-        h.vx = h.vy = 0;
+        else if (h.pin.b) {
+          [h.x, h.y] = toWorld(h.pin.b, h.pin.lx, h.pin.ly); h.a = h.pin.a + h.pin.b.a;
+          h.nailA = h.pin.nailA + h.pin.b.a;
+          const [tx, ty] = toWorld(h.pin.b, h.pin.tx, h.pin.ty);
+          if (!solidAt(h.pin.b, tx, ty)) { h.vx = h.pin.b.vx || 0; h.vy = h.pin.b.vy || 0; h.pin = null; }
+        }
+        if (h.pin) h.vx = h.vy = 0;
       } else {
+        const oldX = h.x, oldY = h.y;
         h.x += h.vx * dt; h.y += h.vy * dt; h.vx *= drag; h.vy *= drag; h.a += h.spin * dt;
         if (h.nailA !== undefined) {   // flying on along the nail: the first rock (or the fence) it meets, it is pinned to
-          const sz0 = sizeOf(h.lv), fx = h.x + Math.cos(h.nailA) * 30 * sz0, fy = h.y + Math.sin(h.nailA) * 30 * sz0, rb = solidAny(fx, fy);
-          if (rb) { const [lx, ly] = toLocal(rb, h.x, h.y); h.pin = { b: rb, lx, ly, a: h.a - rb.a }; sparkShower(fx, fy, -Math.cos(h.nailA), -Math.sin(h.nailA), 1); packPlay("p_hit_nail", 0.8, fx, fy); }
+          const tip = 30 * sizeOf(h.lv), dx = Math.cos(h.nailA) * tip, dy = Math.sin(h.nailA) * tip;
+          const hit = shotBody({ px: oldX + dx, py: oldY + dy, x: h.x + dx, y: h.y + dy });
+          if (hit) {
+            const rb = hit.b; h.x = hit.x - dx; h.y = hit.y - dy;
+            const [lx, ly] = toLocal(rb, h.x, h.y), [tx, ty] = toLocal(rb, hit.x, hit.y);
+            h.pin = { b: rb, lx, ly, tx, ty, a: h.a - rb.a, nailA: h.nailA - rb.a }; h.vx = h.vy = 0;
+            sparkShower(hit.x, hit.y, -Math.cos(h.nailA), -Math.sin(h.nailA), 1); packPlay("p_hit_nail", 0.8, hit.x, hit.y);
+          }
           else if (h.x < 40 || h.x > W - 40 || h.y < 40 || h.y > H - 40) { h.x = clamp(h.x, 40, W - 40); h.y = clamp(h.y, 40, H - 40); h.pin = { b: null }; }
         } else bounceOff(h, 30 * sizeOf(h.lv), 0.8);
       }
       if (h.burn) {   // burning: flames lick up off it, then it crumbles to ash
         const bt = (now - h.burn) / 1000, sz1 = sizeOf(h.lv);
-        if (bt < 3.2 && Math.random() < (lowQ ? 20 : 50) * dt) puff(h.x + (Math.random() - 0.5) * 50 * sz1, h.y + (Math.random() - 0.5) * 50 * sz1, (Math.random() - 0.5) * 40, -60 - Math.random() * 80, 0.5 + Math.random() * 0.4, 3 + Math.random() * 4, FIRE_COLS[(Math.random() * 4) | 0]);
+        if (bt >= 0 && bt < 3.2 && Math.random() < (lowQ ? 20 : 50) * dt) puff(h.x + (Math.random() - 0.5) * 50 * sz1, h.y + (Math.random() - 0.5) * 50 * sz1, (Math.random() - 0.5) * 40, -60 - Math.random() * 80, 0.5 + Math.random() * 0.4, 3 + Math.random() * 4, FIRE_COLS[(Math.random() * 4) | 0]);
         if (bt > 3.4 && !h.ashed) { h.ashed = true; for (let k = 0; k < (lowQ ? 20 : 50); k++) { const a = Math.random() * 6.28, v = 30 + Math.random() * 120; puff(h.x, h.y, Math.cos(a) * v, Math.sin(a) * v, 1.2 + Math.random(), 2 + Math.random() * 3, k % 2 ? "rgb(60,56,62)" : "rgb(120,112,110)", 2); } }
       }
       if (h.x < 40 || h.x > W - 40) { h.vx = -h.vx; h.x = clamp(h.x, 40, W - 40); }
@@ -705,11 +722,12 @@
   }
   // my state (and my bots') out to everyone, at the transport's rate; the scoreboard twice a second
   function netSend(dt, now) {
-    sendAcc += dt; slowAcc += dt;
+    const elapsed = Math.max(dt, Math.min(0.25, (now - lastNetTick) / 1000)); lastNetTick = now;
+    sendAcc += elapsed; slowAcc += elapsed;
     if (playing && sendAcc >= 1 / net.hz) {
       sendAcc = 0;
       const msg = {
-        q: ++sendSeq, rd: stats.round, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),
+        q: ++sendSeq, rd: stats.round, hb: hitBy, ko: koBy, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),
         vx: Math.round(me.vx), vy: Math.round(me.vy), a: +me.a.toFixed(2),
         t: me.thrust > 0.3 ? 1 : 0, b: me.boostFx, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0, ds: me.dead ? me.ds : 0,
         dk: me.dead ? me.dk : 0, da: me.dead ? +me.da.toFixed(2) : 0, tm: me.tm ?? -1,   // the team rides every message: shots need it
@@ -728,7 +746,7 @@
       if ((sig !== lastSlow && slowAcc >= 0.1) || slowAcc >= 1) { Object.assign(msg, slow); lastSlow = sig; slowAcc = 0; }
       // always send the list when shots ride in the state, even empty: the Claude room merges presence
       // field by field, so an omitted "f" would keep old shots there forever and they could come back as ghosts
-      if (net.shotsInState) msg.f = myShotLog.slice(-9).map(e => e.d);
+      if (net.shotsInState) msg.f = myShotLog.slice(-24).map(e => e.d);
       if (guided || now < guideOutUntil) msg.gw = guideOut;   // my guided nuke's course (and where it blew)
       if (bots.length) {
         const bs = botStates(now);
@@ -751,6 +769,7 @@
     const { im, boost } = steerAndShoot(dt, now);
     bodyTick(now, dt);
     flyMe(dt, now, im, boost);
+    recordHitPose(me, now);
     updateShots(dt, now);
     updateJunk(dt, now);
     updateEvents(dt, now);
@@ -813,7 +832,7 @@
     if (rows.length < 2) return;
     const top = rows.reduce((a, b) => b.kills > a.kills || (b.kills === a.kills && b.deaths < a.deaths) ? b : a);
     const won = isTeams() ? (teamTotals().lead || 0) * (me.tm === 0 ? 1 : -1) > 0 : top.me && stats.kills > 0;
-    setTimeout(() => sfx(won ? (stats.deaths === 0 ? "v_flawless" : "v_win") : "v_lose", 1), 600);
+    setTimeout(() => { const line = won ? (stats.deaths === 0 ? "v_flawless" : "v_win") : "v_lose"; packPlay(line, 1) || sfx(line, 1); }, 600);
   }
   let decidedRound = -1;
   // the best score in the lobby, in the unit the limit counts: kills, team kills, or flags
@@ -838,7 +857,8 @@
       hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0;
       if (shownRound !== -1) { myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode); }   // every crater filled in again
       firstBlood = false; streaks.clear(); multi = 0;
-      credited.clear(); botCredited.clear(); killSeen.clear(); ufoHits.clear();
+      me.hitHistory = []; for (const b of bots) b.hitHistory = [];
+      credited.clear(); botCredited.clear(); killSeen.clear(); ufoHits.clear(); pendingHitFx.clear();
       rockMotion.clear();
       hitBy.length = 0; koBy.length = 0; myShotLog.length = 0; shots.length = 0; seenShots.clear();
       for (const b of bots) { b.hitBy.length = 0; b.koBy.length = 0; b.shotLog.length = 0; }

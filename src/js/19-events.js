@@ -140,7 +140,7 @@
           if (!s.mine || s.life <= 0 || SHOTS[s.kind].inert || !segHit(s, p.x, p.y, 48)) continue;
           s.life = 0;
           const h = (ufoHits.get(key) || 0) + shotDmg(s) / DMG_UNIT; ufoHits.set(key, h);
-          impact(s.x, s.y, "#7dffb0", 1); blip(260, 0.08, "square");
+          impact(s.x, s.y, "#7dffb0", 1); packPlay("p_hit_bullet", 0.5, s.x, s.y) || blip(260, 0.08, "square");
           if (h >= UFO_HP) {
             grabbed.add(key); pushCapped(myGrabs, key, 40);
             me.score += 15; showScore();
@@ -166,7 +166,7 @@
           me.score += 5; showScore();
           floaters.push({ x: gd.x, y: gd.y, t: 0, txt: "+5", gold: true });
           for (let k = 0; k < 24; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 200; puff(gd.x, gd.y, Math.cos(a) * v, Math.sin(a) * v, 0.7, 2.2, "#ffd36b"); }
-          blip(700, 0.25);
+          packPlay("p_sting", 0.65) || blip(700, 0.25);
           gainXp(5, now);
         }
       }
@@ -484,12 +484,12 @@
     for (const h of hulks) {
       const x = sx(h.x), y = sy(h.y), s = BOT * sizeOf(h.lv);
       if (!onScreen(x, y, s)) continue;
-      const char = h.burn ? Math.min(1, (now - h.burn) / 2600) : 0;   // burning: it chars black, then crumbles (fades)
+      const char = h.burn ? clamp((now - h.burn) / 2600, 0, 1) : 0;   // burning: it chars black, then crumbles (fades)
       g.globalAlpha = Math.min(1, h.life / 2) * (h.burn ? Math.min(1, Math.max(0, (4200 - (now - h.burn)) / 800)) : 1);
       g.save(); g.translate(x, y); g.rotate(h.a + Math.PI / 2 - SPRITE_TILT);
       drawWings(h.lv, s);
       if (body) g.drawImage(darkBody(h.ck || [0, 0, 0, 0, 0], h.zap ? 0.8 : 0.58 - 0.45 * char), -s / 2, -s / 2, s, s);
-      if (h.burn && char < 1) {   // the embers glowing through
+      if (h.burn && now >= h.burn && char < 1) {   // the embers glowing through
         g.globalCompositeOperation = "lighter"; g.globalAlpha *= 0.5 * (1 - char * 0.6) * (0.7 + 0.3 * Math.sin(now / 60));
         g.drawImage(dotSprite("#ff6a1f"), -s * 0.5, -s * 0.5, s, s); g.globalCompositeOperation = "source-over";
       }
@@ -555,7 +555,7 @@
     g.globalCompositeOperation = "lighter";
     g.lineCap = "round";
     for (const p of parts) {
-      if (p.k >= 2) continue;
+      if (p.k === 2) continue;
       const x = sx(p.x), y = sy(p.y);
       if (!onScreen(x, y, 30)) continue;
       g.globalAlpha = Math.max(0, p.life / p.max) * 0.9;
@@ -563,8 +563,10 @@
         g.strokeStyle = p.col; g.lineWidth = p.size;
         g.beginPath(); g.moveTo(x, y); g.lineTo(x - p.vx * p.len, y - p.vy * p.len); g.stroke();
       } else {
-        const d = p.size * 2.6;
-        g.drawImage(dotSprite(p.col), x - d / 2, y - d / 2, d, d);
+        const f = p.life / p.max, hot = p.k === 3;
+        const d = p.size * (hot ? 3.5 + (1 - f) * 5 : 2.6);
+        const col = hot ? (f > 0.8 ? "#fff1c2" : f > 0.5 ? "#ffc34e" : f > 0.25 ? "#ff7724" : "#a83b23") : p.col;
+        g.drawImage(dotSprite(col), x - d / 2, y - d / 2, d, d);
       }
     }
     g.globalAlpha = 1;
@@ -597,9 +599,10 @@
       if (p.k !== 2) continue;
       const x = sx(p.x), y = sy(p.y), f = Math.max(0, p.life / p.max);
       if (!onScreen(x, y, 40)) continue;
-      g.globalAlpha = f * 0.6;
-      const d = p.size * (2.4 + (1 - f) * 3.5);
-      g.drawImage(dotSprite(p.col), x - d / 2, y - d / 2, d, d);
+      g.globalAlpha = Math.min(1, (1 - f) * 12) * f * 0.65;
+      const d = p.size * (3 + (1 - f) * 5);
+      g.save(); g.translate(x, y); g.rotate(p.rot + (1 - f) * p.vr * 0.08);
+      g.drawImage(smokeSprite(p.col), -d / 2, -d / 2, d, d); g.restore();
     }
     g.globalAlpha = 1;
     g.globalCompositeOperation = "lighter";
@@ -616,7 +619,7 @@
       const k = 1 - b.t / BEAM_T, kc = Math.max(0, 1 - b.t / 0.4), x1 = sx(b.x1), y1 = sy(b.y1), x2 = sx(b.x2), y2 = sy(b.y2);
       g.lineCap = "round"; g.lineJoin = "round";
       if (kc > 0) {
-        const bw = b.big ? 1.9 : 1;   // the charged slug: wider and blue
+        const bw = b.cut ? b.cut / 15 : b.big ? 1.9 : 1;   // the charged slug: wider and blue
         g.strokeStyle = b.big ? `rgba(90,150,255,${0.4 * kc})` : `rgba(190,120,255,${0.35 * kc})`; g.lineWidth = (26 * kc + 4) * bw;
         g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
         g.strokeStyle = b.big ? `rgba(170,210,255,${0.85 * kc})` : `rgba(233,200,255,${0.8 * kc})`; g.lineWidth = (8 * kc + 1) * bw;
@@ -660,10 +663,12 @@
       line((b.shock ? 10 : 15) * k * flick + 2, `rgba(${glow},${0.35 * k})`);
       line((b.shock ? 4 : 6) * k + 1, `rgba(${body},${0.9 * k})`);
       line((b.shock ? 1.6 : 2.4) * k + 0.6, `rgba(255,255,255,${k})`);
-      if (!lowQ) {   // electric arcs twisting round the beam, new every frame
+      if (!lowQ) {   // stable between 45 ms electrical discharges, independent of display refresh
+        let noise = (Math.floor(now / 45) + b.seed * 997 | 0) >>> 0;
+        const random = () => { noise = (Math.imul(noise, 1664525) + 1013904223) >>> 0; return noise / 4294967296; };
         for (let a = 0; a < (b.shock ? 2 : 3); a++) {
           const amp = (b.shock ? 7 : 11) + a * 4, pts = [];
-          for (let d = 0; d <= L; d += 18) { const env = Math.sin(Math.PI * Math.min(1, d / L)) * 0.7 + 0.3, o = (Math.random() - 0.5) * 2 * amp * env; pts.push([x1 + nx * d - ny * o, y1 + ny * d + nx * o]); }
+          for (let d = 0; d <= L; d += 18) { const env = Math.sin(Math.PI * Math.min(1, d / L)) * 0.7 + 0.3, o = (random() - 0.5) * 2 * amp * env; pts.push([x1 + nx * d - ny * o, y1 + ny * d + nx * o]); }
           pts.push([x2, y2]);
           for (const [w, al] of [[4, 0.25], [1.4, 0.9]]) {
             g.strokeStyle = `rgba(${a === 1 ? "190,160,255" : arc},${al * k})`; g.lineWidth = w;
