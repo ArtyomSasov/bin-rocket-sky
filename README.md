@@ -16,6 +16,7 @@ Pick a mode when you create a lobby; the lobby code carries it, so friends who j
 | Capture the Flag | Take the enemy flag from their pad to yours while your own flag is home |
 | Nukes only | Everyone has unlimited nukes and nothing else |
 | Railgun instagib | Unlimited railguns, one hit kills |
+| Test range | Every gun at once with endless ammo and 99 teleport jumps, to try them all (9 and 0 pick the 9th and 10th gun) |
 
 Use **Random look** below the centered pilot preview to randomize all five appearance choices. The look is saved in this browser.
 
@@ -119,7 +120,8 @@ players (they face where they steer, so they make attack runs, break off and loo
 - **Fire:** the left mouse button, Space, F, J or Enter (or the fire button).
 - **Boost / dash:** hold Shift to boost, tap it to dash.
 - **Brake / drift:** hold X to brake; X with a direction drifts (you slide on while the nose swings round).
-- **Weapons:** 1–8 or Q/E (not the mouse wheel: a touch-surface mouse scrolls by accident). **Alt fire:** right mouse button or C — every gun has one: laser
+- **Scoreboard:** the arrow by the gear folds it to the timer and your own row; hold Tab to see everyone.
+- **Weapons:** 1–9, 0 or Q/E (not the mouse wheel: a touch-surface mouse scrolls by accident). **Alt fire:** right mouse button or C — every gun has one: laser
   pulse (shoves), minigun burst (no spin-up, overheats), railgun scope (look far ahead), flak (bursts into eight
   shards), shock beam (combo on your orb), gamma detonate, rocket salvo, shotgun slug, thrown mine, saw fan.
 - **Trophies:** the gun a pilot dies with drops where it died, with its ammo, for 15 s; anyone can take it.

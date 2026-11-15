@@ -150,8 +150,12 @@
     t: { name: "Team Deathmatch", label: "Team DM", hint: "Red against Blue", teams: true },
     c: { name: "Capture the Flag", label: "CTF", hint: "steal their flag", teams: true, flags: true },
     n: { name: "Nukes only", label: "Nukes", hint: "unlimited nukes", only: "nuke", cdMul: 2.2, botCd: 6 },
-    r: { name: "Railgun instagib", label: "Instagib", hint: "one rail hit kills", only: "rail", botCd: 3, instagib: true, noSupplies: true }
+    r: { name: "Railgun instagib", label: "Instagib", hint: "one rail hit kills", only: "rail", botCd: 3, instagib: true, noSupplies: true },
+    // the test range: every gun at once with endless ammo (and the teleporter), to try them all out
+    x: { name: "Test range", label: "Test range", hint: "every gun, endless ammo", sandbox: true }
   };
+  // the guns the test range hands out (the retired ones stay out), in gun-bar order
+  const SANDBOX_GUNS = ["fire", "laser", "minigun", "scatter", "shard", "rocket", "orb", "rail", "saw", "mine", "gamma", "nuke", "holy"];
   const modeOf = code => MODES[codeOpts(code).mode] ? codeOpts(code).mode : "d";
   // match settings: round length (minutes) and a score that ends the round early (kills, or flags in CTF)
   const TIME_OPTS = { 2: 3, 3: 5, 4: 8, 5: 10, 6: 15 }, TIME_DEFAULT = "3";

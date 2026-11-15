@@ -194,6 +194,14 @@
   document.getElementById("setLeave").addEventListener("click", () => { location.href = location.pathname + location.search; });   // back to the start screen
   // on a small screen the scoreboard shows only you (and the teams); a tap opens the whole table
   document.querySelector(".board").addEventListener("click", e => e.currentTarget.classList.toggle("open"));
+  // fold the scoreboard on a big screen (remembered); hold Tab to peek at everyone while it's folded
+  const boardBox = document.querySelector(".board"), foldBtn = document.getElementById("boardFold");
+  const setFold = f => { boardBox.classList.toggle("folded", f); foldBtn.setAttribute("aria-expanded", String(!f)); foldBtn.setAttribute("aria-label", f ? "Expand the scoreboard" : "Collapse the scoreboard"); store.set("binrocket.boardFold", f ? "1" : ""); };
+  setFold(store.get("binrocket.boardFold") === "1");
+  foldBtn.addEventListener("click", e => { e.stopPropagation(); setFold(!boardBox.classList.contains("folded")); });
+  addEventListener("keydown", e => { if (e.code === "Tab" && playing && e.target.tagName !== "INPUT") { e.preventDefault(); boardBox.classList.add("peek"); } });
+  addEventListener("keyup", e => { if (e.code === "Tab") boardBox.classList.remove("peek"); });
+  addEventListener("blur", () => boardBox.classList.remove("peek"));
   document.getElementById("startForm").addEventListener("submit", e => {
     e.preventDefault();
     if (lan.guest) { joining = false; offlineRun = false; localRun = true; }   // a guest in a local room plays the host's game

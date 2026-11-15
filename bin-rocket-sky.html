@@ -127,7 +127,13 @@ body {
 .board .ping, .board .pg { font-size: 11px; font-weight: 700; }
 .board .pg { opacity: .8; }
 .good { color: #5dff8a; } .ok { color: #ffd36b; } .bad { color: #ff6b6b; }
-.board h2 { margin: 0 0 6px; font: 600 11px/1 var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.board h2 { margin: 0 0 6px; padding-right: 56px; font: 600 11px/1.3 var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the scoreboard folds down to the timer and your own row (the arrow next to the gear; hold Tab to see everyone) */
+.board .fold { right: 32px; transition: transform .2s; }
+.board.folded .fold { transform: rotate(180deg); }
+.board.folded { min-width: 0; padding-right: 64px; }
+.board.folded:not(.peek) h2, .board.folded:not(.peek) .bhead, .board.folded:not(.peek) li:not(.me):not(.team) { display: none; }
+.board.folded:not(.peek) .round { margin: 0; }
 .board ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
 .board li { display: flex; justify-content: space-between; gap: 12px; white-space: nowrap; }
 .board li .nm { overflow: hidden; text-overflow: ellipsis; }
@@ -370,7 +376,8 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   body.playing .score > span:first-of-type, body.playing .score .wpn, body.playing .score .xpbar:not(.nrg) { display: none; }
   body.playing .board { padding: 5px 9px; font-size: 11px; min-width: 0; max-width: 42vw; opacity: .9; cursor: pointer; }
   body.playing .board h2, body.playing .board .bhead { display: none; }
-  body.playing .board { padding-right: 34px; }
+  body.playing .board, body.playing .board.folded { padding-right: 34px; }
+  body.playing .board .fold { display: none; }
   body.playing .board .round { margin: 0; font-size: 11px; }
   body.playing .board:not(.open) li:not(.me):not(.team) { display: none; }
   body.playing .board li.team { border-bottom: 0; padding-bottom: 0; }
@@ -409,7 +416,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
 <button class="fire altbtn" id="altBtn" aria-label="Alternate fire" hidden><span id="altName">ALT</span></button>
 <button class="fire" id="fireBtn" aria-label="Fire" hidden><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg></button>
 <div class="event" id="eventBanner" hidden></div>
-<div class="board chip"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><h2 id="boardTitle">Flyers</h2><div class="round" id="roundInfo">Round 1 · 5:00</div><div class="ping" id="pingInfo"></div><div class="bhead"><span>Pilot</span><span>Kills · Deaths</span></div><ol id="board"></ol></div>
+<div class="board chip"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><button type="button" class="gear fold" id="boardFold" aria-label="Collapse the scoreboard" aria-expanded="true" title="Collapse (hold Tab to see everyone)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5l7 7 7-7-1.6-1.6L12 13.3 6.6 7.9z"/></svg></button><h2 id="boardTitle">Flyers</h2><div class="round" id="roundInfo">Round 1 · 5:00</div><div class="ping" id="pingInfo"></div><div class="bhead"><span>Pilot</span><span>Kills · Deaths</span></div><ol id="board"></ol></div>
 <div class="feed" id="feed" aria-live="off"></div>
 <div class="lockhint chip" id="lockHint" hidden>Click to take the mouse · Esc lets it go</div>
 <div class="announce" id="announce"></div>
@@ -682,8 +689,12 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     t: { name: "Team Deathmatch", label: "Team DM", hint: "Red against Blue", teams: true },
     c: { name: "Capture the Flag", label: "CTF", hint: "steal their flag", teams: true, flags: true },
     n: { name: "Nukes only", label: "Nukes", hint: "unlimited nukes", only: "nuke", cdMul: 2.2, botCd: 6 },
-    r: { name: "Railgun instagib", label: "Instagib", hint: "one rail hit kills", only: "rail", botCd: 3, instagib: true, noSupplies: true }
+    r: { name: "Railgun instagib", label: "Instagib", hint: "one rail hit kills", only: "rail", botCd: 3, instagib: true, noSupplies: true },
+    // the test range: every gun at once with endless ammo (and the teleporter), to try them all out
+    x: { name: "Test range", label: "Test range", hint: "every gun, endless ammo", sandbox: true }
   };
+  // the guns the test range hands out (the retired ones stay out), in gun-bar order
+  const SANDBOX_GUNS = ["fire", "laser", "minigun", "scatter", "shard", "rocket", "orb", "rail", "saw", "mine", "gamma", "nuke", "holy"];
   const modeOf = code => MODES[codeOpts(code).mode] ? codeOpts(code).mode : "d";
   // match settings: round length (minutes) and a score that ends the round early (kills, or flags in CTF)
   const TIME_OPTS = { 2: 3, 3: 5, 4: 8, 5: 10, 6: 15 }, TIME_DEFAULT = "3";
@@ -2115,7 +2126,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   function baseArsenal() {
     const o = MODES[MODE].only;
     me.arsenal = o ? { [o]: Infinity } : { fire: Infinity }; me.weapon = o || "fire";
-    me.teleN = 0; if (typeof renderTele === "function") renderTele();
+    me.teleN = 0;
+    if (MODES[MODE].sandbox) { for (const k of SANDBOX_GUNS) me.arsenal[k] = Infinity; me.teleN = 99; }   // the test range: everything, for ever
+    if (typeof renderTele === "function") renderTele();
   }
   function findBase(t) {
     const x = t ? W - Math.max(380, W * 0.1) : Math.max(380, W * 0.1);
@@ -3304,7 +3317,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (r) killer = r.name;
   }
   const arsenalEl = document.getElementById("arsenal");
-  const owned = () => WEAPON_KEYS.filter(k => me.arsenal[k]);
+  const owned = () => (MODES[MODE].sandbox ? SANDBOX_GUNS : WEAPON_KEYS).filter(k => me.arsenal[k]);
   const ammoFill = k => Math.min(1, me.arsenal[k] / WEAPONS[k].ammo);
   const chipText = () => { const n = me.arsenal[me.weapon], alt = WEAPONS[me.weapon].alt;
     return WEAPONS[me.weapon].name + (Number.isFinite(n) ? " · " + n : "") + (me.overheat && alt && alt.heat ? " · OVERHEATED" : "") + (alt && !COARSE ? " · right click: " + alt.name : ""); };
@@ -3353,7 +3366,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   });
   addEventListener("keydown", e => {
     if (!playing || e.target.tagName === "INPUT" || e.repeat) return;
-    if (/^Digit[1-8]$/.test(e.code)) { const k = owned()[+e.code.slice(5) - 1]; if (k) selectWeapon(k); }
+    if (/^Digit[0-9]$/.test(e.code)) { const k = owned()[(+e.code.slice(5) || 10) - 1]; if (k) selectWeapon(k); }   // 1-9, then 0 for the 10th
     else if (e.code === "KeyQ") cycleWeapon(-1);
     else if (e.code === "KeyE") cycleWeapon(1);
   });
@@ -5040,7 +5053,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
           grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
           const w = WEAPONS[c.type];
           if (c.type === "tele") {   // a tool, on its own key: it doesn't take a slot in the gun bar
-            me.teleN = Math.min(6, (me.teleN || 0) + w.ammo); renderTele();
+            me.teleN = Math.max(me.teleN || 0, Math.min(6, (me.teleN || 0) + w.ammo)); renderTele();
             floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: "TELEPORTER ×" + me.teleN + (COARSE ? "" : " · press T"), gold: true });
             for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 220; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, w.col); }
             sfx("weapon_get", 0.8);
@@ -7451,6 +7464,14 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   document.getElementById("setLeave").addEventListener("click", () => { location.href = location.pathname + location.search; });   // back to the start screen
   // on a small screen the scoreboard shows only you (and the teams); a tap opens the whole table
   document.querySelector(".board").addEventListener("click", e => e.currentTarget.classList.toggle("open"));
+  // fold the scoreboard on a big screen (remembered); hold Tab to peek at everyone while it's folded
+  const boardBox = document.querySelector(".board"), foldBtn = document.getElementById("boardFold");
+  const setFold = f => { boardBox.classList.toggle("folded", f); foldBtn.setAttribute("aria-expanded", String(!f)); foldBtn.setAttribute("aria-label", f ? "Expand the scoreboard" : "Collapse the scoreboard"); store.set("binrocket.boardFold", f ? "1" : ""); };
+  setFold(store.get("binrocket.boardFold") === "1");
+  foldBtn.addEventListener("click", e => { e.stopPropagation(); setFold(!boardBox.classList.contains("folded")); });
+  addEventListener("keydown", e => { if (e.code === "Tab" && playing && e.target.tagName !== "INPUT") { e.preventDefault(); boardBox.classList.add("peek"); } });
+  addEventListener("keyup", e => { if (e.code === "Tab") boardBox.classList.remove("peek"); });
+  addEventListener("blur", () => boardBox.classList.remove("peek"));
   document.getElementById("startForm").addEventListener("submit", e => {
     e.preventDefault();
     if (lan.guest) { joining = false; offlineRun = false; localRun = true; }   // a guest in a local room plays the host's game

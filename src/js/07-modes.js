@@ -8,7 +8,9 @@
   function baseArsenal() {
     const o = MODES[MODE].only;
     me.arsenal = o ? { [o]: Infinity } : { fire: Infinity }; me.weapon = o || "fire";
-    me.teleN = 0; if (typeof renderTele === "function") renderTele();
+    me.teleN = 0;
+    if (MODES[MODE].sandbox) { for (const k of SANDBOX_GUNS) me.arsenal[k] = Infinity; me.teleN = 99; }   // the test range: everything, for ever
+    if (typeof renderTele === "function") renderTele();
   }
   function findBase(t) {
     const x = t ? W - Math.max(380, W * 0.1) : Math.max(380, W * 0.1);

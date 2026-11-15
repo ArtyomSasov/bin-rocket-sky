@@ -502,7 +502,7 @@
     if (r) killer = r.name;
   }
   const arsenalEl = document.getElementById("arsenal");
-  const owned = () => WEAPON_KEYS.filter(k => me.arsenal[k]);
+  const owned = () => (MODES[MODE].sandbox ? SANDBOX_GUNS : WEAPON_KEYS).filter(k => me.arsenal[k]);
   const ammoFill = k => Math.min(1, me.arsenal[k] / WEAPONS[k].ammo);
   const chipText = () => { const n = me.arsenal[me.weapon], alt = WEAPONS[me.weapon].alt;
     return WEAPONS[me.weapon].name + (Number.isFinite(n) ? " · " + n : "") + (me.overheat && alt && alt.heat ? " · OVERHEATED" : "") + (alt && !COARSE ? " · right click: " + alt.name : ""); };
@@ -551,7 +551,7 @@
   });
   addEventListener("keydown", e => {
     if (!playing || e.target.tagName === "INPUT" || e.repeat) return;
-    if (/^Digit[1-8]$/.test(e.code)) { const k = owned()[+e.code.slice(5) - 1]; if (k) selectWeapon(k); }
+    if (/^Digit[0-9]$/.test(e.code)) { const k = owned()[(+e.code.slice(5) || 10) - 1]; if (k) selectWeapon(k); }   // 1-9, then 0 for the 10th
     else if (e.code === "KeyQ") cycleWeapon(-1);
     else if (e.code === "KeyE") cycleWeapon(1);
   });
