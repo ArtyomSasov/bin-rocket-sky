@@ -1,6 +1,6 @@
   // ---------- fire & damage ----------
   // shots leave from the tip of the gun drawn on the wing (left and right in turn), not from the middle of the bin
-  const mountsOf = w => w === "laser" ? [[160, 96]] : ["nuke", "holy", "bolt", "gamma", "tele", "gauss", "gauntlet"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
+  const mountsOf = w => w === "laser" || w === "gauntlet" ? [[160, 96]] : ["nuke", "holy", "bolt", "gamma", "tele", "gauss", "gauntlet"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
   const BARREL = { laser: 60, rocket: 50, triple: 42, nuke: 96, holy: 30, saw: 40, gamma: 44, tele: 28, minigun: 58, gauss: 80, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48, nail: 54, gren: 44, gauntlet: 34 };   // tip, in mount units
   let gunSide = 0;
   function muzzleAt(weapon) {
@@ -22,7 +22,7 @@
   // how someone else's shot sounds here (quieter with distance)
   // which gun a shot kind comes from, for a sound pack's gun sounds
   const KIND_GUN = { [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
-    [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.NAIL]: "nail", [K.SPIKE]: "nail", [K.GREN]: "gren", [K.HROCKET]: "rocket" };
+    [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.NAIL]: "nail", [K.SPIKE]: "nail", [K.GREN]: "gren", [K.HROCKET]: "rocket", [K.GAUSS]: "rail" };
   let laserHeardAt = 0;
   const shotSound = (kind, x, y) => {
     if (kind === K.LASER && packHas("p_fire_laser")) { const t = performance.now(); if (t - laserHeardAt > 900) { laserHeardAt = t; packPlay("p_fire_laser", 0.5, x, y); } return; }   // a beam, not twelve shots a second
@@ -93,7 +93,7 @@
   const beams = [];
   const arcs = [];   // lightning jumping from the bin it hit to the next one
   const BEAM_T = 1.1;   // a rail trail lingers: the hot core goes fast, the spiral slowly unwinds
-  function railBeam(x, y, vx, vy) {
+  function railBeam(x, y, vx, vy, big = false) {
     const v = Math.hypot(vx, vy) || 1, dx = vx / v, dy = vy / v, max = 4200 * SHOTS[K.RAIL].life;
     let L = 0;
     while (L < max) {
@@ -101,7 +101,7 @@
       const px = x + dx * L, py = y + dy * L;
       if (px < 0 || px > W || py < 0 || py > H) break;   // the slug bores through bodies, only the fence stops it
     }
-    beams.push({ x1: x, y1: y, x2: x + dx * L, y2: y + dy * L, t: 0 });
+    beams.push({ x1: x, y1: y, x2: x + dx * L, y2: y + dy * L, t: 0, big });
     if (beams.length > 12) beams.shift();
   }
   // where a beam (laser, shock beam) stops: the first body, bin or wall along its line, up to its reach
@@ -192,6 +192,9 @@
     if (s.splashed) return;
     s.splashed = true;
     const [R0, hi, lo, push] = SPLASH[s.kind], m = s.m || 1;
+    // blasts dig: grenades, mines and homing rockets that go off near rock bite craters out of it
+    const dig = { [K.GREN]: 62, [K.MINE]: 58, [K.HROCKET]: 46 }[s.kind], own = s.mine || botById.has(s.owner);
+    if (dig) for (const b of [...bodies]) if (Math.hypot(b.x - s.x, b.y - s.y) - b.r < dig && (own || b.free)) carveAt(b, s.x, s.y, dig, own);
     const hit = (o, id, rad) => {
       const d = Math.hypot(o.x - s.x, o.y - s.y), R = R0 + rad;
       if (d > R || id === s.direct || !canHurt(s, o, id, true)) return 0;
@@ -237,7 +240,7 @@
   function killStyle(k, victim) {
     if (k.includes(".ram") || myMelee.has(k)) { setTimeout(() => announce("HUMILIATION", "rammed " + victim.name, "#ff8a5a", 3), 1400); return; }
     const r = myRails.get(k);
-    if (r && r.scoped && Math.hypot(victim.x - r.x, victim.y - r.y) > 1200) setTimeout(() => announce("HEADSHOT", "a scoped rail kill from afar", "#d9a8ff", 3), 1400);
+    if (r && r.charged && Math.hypot(victim.x - r.x, victim.y - r.y) > 1200) setTimeout(() => announce("HEADSHOT", "a charged rail kill from afar", "#d9a8ff", 3), 1400);
   }
   function hitConfirm(s, lv, x, y, target) {
     const t0 = performance.now();
@@ -272,7 +275,8 @@
       s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * (speed + fwd) + (speed > 0 ? 0 : p.vx * ride), vy: by * (speed + fwd) + (speed > 0 ? 0 : p.vy * ride),
             life: SHOTS[kind].life, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: kind === K.FIRE && plv >= 7 };   // pc: pierces (fireballs from Lv 7)
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else if (kind === K.NAIL) nailSpray(s); else shots.push(s);
-      if (kind === K.RAIL) railBeam(s.x, s.y, s.vx, s.vy);
+      if (kind === K.RAIL || kind === K.GAUSS) railBeam(s.x, s.y, s.vx, s.vy, kind === K.GAUSS);
+      if (kind === K.GAUSS && mine) { myRails.set(id, { x: s.x, y: s.y, charged: true }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value); }
       if (kind === K.MELEE && mine) myMelee.add(id);   // for Humiliation
       if (kind === K.BULLET && onScreen(sx(p.x), sy(p.y), 200) && Math.random() < 0.7) {   // a spent casing spins off the side
         const sd = Math.random() < 0.5 ? 1 : -1, cx = -by * sd, cy = bx * sd, v = 140 + Math.random() * 120;
@@ -280,7 +284,7 @@
       }
       if (kind === K.RAIL && mine) {   // for Impressive (a miss breaks the run) and Headshot
         if (railLast && !railLast.hitAny) railRun = 0;
-        railLast = s; myRails.set(id, { x: s.x, y: s.y, scoped: !!me.scoping }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value);
+        railLast = s; myRails.set(id, { x: s.x, y: s.y, charged: false }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value);
       }
       if (kind === K.LASER || kind === K.SHOCK) laserBeam(s, mine ? undefined : p.id);
       const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind];
@@ -401,7 +405,7 @@
   const DETONATOR = { shot: [K.DET, 0] }, MINE_DETONATOR = { shot: [K.MDET, 0] };
   let lungeReady = 0;
   // the pack's sound for each alt fire (the rest keep their own)
-  const ALT_SOUND = { minigun: "p_burst_minigun", mine: "p_fire_mine", scatter: "p_fire_scatter", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_fire_laser", gren: "p_fire_gren", nail: "p_fire_nail" };
+  const ALT_SOUND = { minigun: "p_burst_minigun", mine: "p_fire_mine", scatter: "p_fire_scatter", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_fire_laser", gren: "p_fire_gren", nail: "p_fire_nail", rail: "p_fire_rail" };
   // fire the gun in hand (alt: its alternate fire, which needs its full ammo cost)
   // mul: the charge cannon's charge (0.25..1)
   function shoot(now, alt, mul = 1) {
@@ -417,7 +421,8 @@
       volley(me, now, w, { x: nx, y: ny });
       packPlay("p_melee_hit", 1) || sfx(...w.sfx);
       shotFeel("gauntlet", { x: nx, y: ny }, 0, ...w.feel);
-      sparkShower(nx, ny, Math.cos(me.a), Math.sin(me.a), 1.2);
+      sparkShower(nx, ny, Math.cos(me.a), Math.sin(me.a), 2.2); sparkShower(nx, ny, -Math.sin(me.a), Math.cos(me.a), 1.2); sparkShower(nx, ny, Math.sin(me.a), -Math.cos(me.a), 1.2);
+      impacts.push({ x: nx, y: ny, t: 0, r: 60, col: "#ffcf5a" });
       return;
     }
     if (alt && pat.lunge) {   // lunge: a burst forward with the blade out
@@ -457,7 +462,7 @@
     if (k !== "tele") spend(k, alt ? pat.cost : 1);   // the teleporter spends a charge on the jump, not on the throw
   }
   // ---- the minigun spins up while the trigger is held; the charge cannon charges while held and fires on release
-  let spin = 0, charge = 0;
+  let spin = 0, charge = 0, railCharge = 0;   // railCharge: the railgun's alt, held
   function triggerTick(dt, now, ready, held) {
     const w = WEAPONS[me.weapon];
     if (w.spin && held && spin === 0 && playing && !me.dead) packPlay("p_spin_minigun", 0.7);   // the barrels wind up
@@ -469,6 +474,13 @@
     if (beam && !(packLoops.beam)) packPlay("p_fire_laser", 0.8);
     packLoop("beam", beam ? "p_loop_laser" : null, 0.55);
     me.gauntOn = alive && me.weapon === "gauntlet" && (held || now < (me.lungeUntil || 0));
+    if (me.gauntOn) {   // the blade grinds whatever rock it touches: sparks fly and it bites in
+      const nx = me.x + Math.cos(me.a) * (binR(me.lv) + 14), ny = me.y + Math.sin(me.a) * (binR(me.lv) + 14), b = solidAny(nx, ny);
+      if (b) {
+        if (Math.random() < 0.8) sparkShower(nx, ny, -Math.cos(me.a) + (Math.random() - 0.5), -Math.sin(me.a) + (Math.random() - 0.5), 0.9);
+        if (now - (me.grindAt || 0) > 140) { me.grindAt = now; carveAt(b, nx, ny, 12, true); packPlay("p_melee_hit", 0.5, nx, ny); }
+      }
+    }
     packLoop("melee", me.gauntOn ? "p_melee_run" : null, 0.55);
     if (!w.charge) { charge = 0; return held && ready; }
     if (held && playing && !me.dead) {

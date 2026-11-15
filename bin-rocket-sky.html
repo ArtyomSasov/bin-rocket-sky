@@ -619,10 +619,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     { name: "laser pulse", life: 0.12, dmg: 0.45, r: 60,    col: "#7df9ff", carve: 12, shove: 950, sfx: ["laser", 0.9, 0.5], pierce: true },
     { name: "flak shell", life: 0.42, dmg: 0.6,  r: 6,      col: "#ff9a3c", carve: 22, shove: 200, sfx: ["scatter", 0.9, 0.6] },
     { name: "detonator",  life: 0.05, dmg: 0,    r: 0,      col: "#7dff8a", carve: 0,  shove: 0,   sfx: ["hit", 0.5, 0.6], inert: true },
-    { name: "nail",       life: 1.1,  dmg: 0.13, r: 0,      col: "#cfd6e2", carve: 6,  shove: 60,  sfx: ["fire", 0.4, 2.2] },
+    { name: "nail",       life: 1.1,  dmg: 0.13, r: 0,      col: "#cfd6e2", carve: 0,  shove: 60,  sfx: ["fire", 0.4, 2.2] },
     { name: "grenade",    life: 2.5,  dmg: 0.9,  r: 10,     col: "#8fd06a", carve: 46, shove: 300, sfx: ["mine_drop", 0.8, 0.7], bounce: 99 },
     { name: "gauntlet",   life: 0.06, dmg: 0.7, r: 46,     col: "#ffcf5a", carve: 0,  shove: 650, sfx: ["hit", 0.7, 0.7] },
-    { name: "spike",      life: 0.9,  dmg: 0.6,  r: 2,      col: "#e8eef8", carve: 14, shove: 400, sfx: ["rail", 0.5, 1.6], pierce: true },
+    { name: "spike",      life: 0.9,  dmg: 0.6,  r: 2,      col: "#e8eef8", carve: 0, shove: 400, sfx: ["rail", 0.5, 1.6], pierce: true },
     { name: "mine detonator", life: 0.05, dmg: 0, r: 0,      col: "#ff6b3c", carve: 0,  shove: 0,   sfx: ["hit", 0.5, 0.6], inert: true },
     { name: "homing rocket", life: 3.6, dmg: 1.0,  r: 12,     col: "#ffb43c", carve: 52, shove: 0,   sfx: ["rocket", 0.6, 1] }
   ];
@@ -648,9 +648,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
                alt: { name: "Guided", cost: 1, cd: 1.0, shot: [K.NUKE, 420], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.5], guided: true } },
     scatter: { name: "Scatter gun", ammo: 16, cd: 0.7, col: "#ffd27a", shot: [K.PELLET, 1250], kick: 260, feel: [22, 0.3, 90], sfx: ["scatter", 1, 0.85], fx: "blast",
                alt: { name: "Slug", cost: 2, cd: 0.95, shot: [K.SLUG, 1900], kick: 340, feel: [24, 0.3, 108], sfx: ["scatter", 1, 0.65], fx: "slug" } },
-    // alt: a scope while held (the view runs far ahead and pulls back; fire as usual)
+    // alt: hold to charge (up to 1.1 s), let go to fire a wide blue slug: up to 150% damage and a fat tunnel (2 ammo)
     rail:    { name: "Railgun", ammo: 6, cd: 1.15, col: "#d9a8ff", shot: [K.RAIL, 4200], kick: 320, feel: [26, 0.35, 90], sfx: ["rail", 0.9], fx: "rail",
-               alt: { name: "Scope", scope: true } },
+               alt: { name: "Charge", charge: 1.1, cost: 2, cd: 1.3, shot: [K.GAUSS, 4200], kick: 460, feel: [34, 0.5, 130], sfx: ["rail", 1, 0.75], fx: "rail" } },
     // the prox launcher (Quake Team Arena): a mine flies like a grenade, sticks to the first rock or wall it meets,
     // arms, and goes off a beat after an enemy comes near; alt sets off all your mines at once
     mine:    { name: "Prox mines", ammo: 8, cd: 0.7, col: "#ff6b3c", shot: [K.MINE, 760], kick: 60, feel: [6, 0.08, 60], sfx: ["mine_drop", 0.8],
@@ -941,7 +941,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const num = (v, d) => Number.isFinite(v) ? v : d;
   // world time everyone agrees on: each player averages its clock offset to every other player,
   // so all of them land on the same mean even when a phone's clock is seconds off
-  let clockOff = 0, clockTarget = 0;
+  let clockOff = 0, clockTarget = 0, clockBase = 0;   // clockBase: offline, the shift that starts a fresh round at take-off
   const clockNow = () => Date.now() + clockOff;
   const strHash = str => { let h = 2166136261; for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619); return h; };
   const store = {
@@ -2899,7 +2899,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
 
   // ---------- fire & damage ----------
   // shots leave from the tip of the gun drawn on the wing (left and right in turn), not from the middle of the bin
-  const mountsOf = w => w === "laser" ? [[160, 96]] : ["nuke", "holy", "bolt", "gamma", "tele", "gauss", "gauntlet"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
+  const mountsOf = w => w === "laser" || w === "gauntlet" ? [[160, 96]] : ["nuke", "holy", "bolt", "gamma", "tele", "gauss", "gauntlet"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
   const BARREL = { laser: 60, rocket: 50, triple: 42, nuke: 96, holy: 30, saw: 40, gamma: 44, tele: 28, minigun: 58, gauss: 80, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48, nail: 54, gren: 44, gauntlet: 34 };   // tip, in mount units
   let gunSide = 0;
   function muzzleAt(weapon) {
@@ -2921,7 +2921,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // how someone else's shot sounds here (quieter with distance)
   // which gun a shot kind comes from, for a sound pack's gun sounds
   const KIND_GUN = { [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
-    [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.NAIL]: "nail", [K.SPIKE]: "nail", [K.GREN]: "gren", [K.HROCKET]: "rocket" };
+    [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.NAIL]: "nail", [K.SPIKE]: "nail", [K.GREN]: "gren", [K.HROCKET]: "rocket", [K.GAUSS]: "rail" };
   let laserHeardAt = 0;
   const shotSound = (kind, x, y) => {
     if (kind === K.LASER && packHas("p_fire_laser")) { const t = performance.now(); if (t - laserHeardAt > 900) { laserHeardAt = t; packPlay("p_fire_laser", 0.5, x, y); } return; }   // a beam, not twelve shots a second
@@ -2992,7 +2992,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const beams = [];
   const arcs = [];   // lightning jumping from the bin it hit to the next one
   const BEAM_T = 1.1;   // a rail trail lingers: the hot core goes fast, the spiral slowly unwinds
-  function railBeam(x, y, vx, vy) {
+  function railBeam(x, y, vx, vy, big = false) {
     const v = Math.hypot(vx, vy) || 1, dx = vx / v, dy = vy / v, max = 4200 * SHOTS[K.RAIL].life;
     let L = 0;
     while (L < max) {
@@ -3000,7 +3000,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       const px = x + dx * L, py = y + dy * L;
       if (px < 0 || px > W || py < 0 || py > H) break;   // the slug bores through bodies, only the fence stops it
     }
-    beams.push({ x1: x, y1: y, x2: x + dx * L, y2: y + dy * L, t: 0 });
+    beams.push({ x1: x, y1: y, x2: x + dx * L, y2: y + dy * L, t: 0, big });
     if (beams.length > 12) beams.shift();
   }
   // where a beam (laser, shock beam) stops: the first body, bin or wall along its line, up to its reach
@@ -3091,6 +3091,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (s.splashed) return;
     s.splashed = true;
     const [R0, hi, lo, push] = SPLASH[s.kind], m = s.m || 1;
+    // blasts dig: grenades, mines and homing rockets that go off near rock bite craters out of it
+    const dig = { [K.GREN]: 62, [K.MINE]: 58, [K.HROCKET]: 46 }[s.kind], own = s.mine || botById.has(s.owner);
+    if (dig) for (const b of [...bodies]) if (Math.hypot(b.x - s.x, b.y - s.y) - b.r < dig && (own || b.free)) carveAt(b, s.x, s.y, dig, own);
     const hit = (o, id, rad) => {
       const d = Math.hypot(o.x - s.x, o.y - s.y), R = R0 + rad;
       if (d > R || id === s.direct || !canHurt(s, o, id, true)) return 0;
@@ -3136,7 +3139,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   function killStyle(k, victim) {
     if (k.includes(".ram") || myMelee.has(k)) { setTimeout(() => announce("HUMILIATION", "rammed " + victim.name, "#ff8a5a", 3), 1400); return; }
     const r = myRails.get(k);
-    if (r && r.scoped && Math.hypot(victim.x - r.x, victim.y - r.y) > 1200) setTimeout(() => announce("HEADSHOT", "a scoped rail kill from afar", "#d9a8ff", 3), 1400);
+    if (r && r.charged && Math.hypot(victim.x - r.x, victim.y - r.y) > 1200) setTimeout(() => announce("HEADSHOT", "a charged rail kill from afar", "#d9a8ff", 3), 1400);
   }
   function hitConfirm(s, lv, x, y, target) {
     const t0 = performance.now();
@@ -3171,7 +3174,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * (speed + fwd) + (speed > 0 ? 0 : p.vx * ride), vy: by * (speed + fwd) + (speed > 0 ? 0 : p.vy * ride),
             life: SHOTS[kind].life, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: kind === K.FIRE && plv >= 7 };   // pc: pierces (fireballs from Lv 7)
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else if (kind === K.NAIL) nailSpray(s); else shots.push(s);
-      if (kind === K.RAIL) railBeam(s.x, s.y, s.vx, s.vy);
+      if (kind === K.RAIL || kind === K.GAUSS) railBeam(s.x, s.y, s.vx, s.vy, kind === K.GAUSS);
+      if (kind === K.GAUSS && mine) { myRails.set(id, { x: s.x, y: s.y, charged: true }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value); }
       if (kind === K.MELEE && mine) myMelee.add(id);   // for Humiliation
       if (kind === K.BULLET && onScreen(sx(p.x), sy(p.y), 200) && Math.random() < 0.7) {   // a spent casing spins off the side
         const sd = Math.random() < 0.5 ? 1 : -1, cx = -by * sd, cy = bx * sd, v = 140 + Math.random() * 120;
@@ -3179,7 +3183,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       }
       if (kind === K.RAIL && mine) {   // for Impressive (a miss breaks the run) and Headshot
         if (railLast && !railLast.hitAny) railRun = 0;
-        railLast = s; myRails.set(id, { x: s.x, y: s.y, scoped: !!me.scoping }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value);
+        railLast = s; myRails.set(id, { x: s.x, y: s.y, charged: false }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value);
       }
       if (kind === K.LASER || kind === K.SHOCK) laserBeam(s, mine ? undefined : p.id);
       const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind];
@@ -3300,7 +3304,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const DETONATOR = { shot: [K.DET, 0] }, MINE_DETONATOR = { shot: [K.MDET, 0] };
   let lungeReady = 0;
   // the pack's sound for each alt fire (the rest keep their own)
-  const ALT_SOUND = { minigun: "p_burst_minigun", mine: "p_fire_mine", scatter: "p_fire_scatter", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_fire_laser", gren: "p_fire_gren", nail: "p_fire_nail" };
+  const ALT_SOUND = { minigun: "p_burst_minigun", mine: "p_fire_mine", scatter: "p_fire_scatter", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_fire_laser", gren: "p_fire_gren", nail: "p_fire_nail", rail: "p_fire_rail" };
   // fire the gun in hand (alt: its alternate fire, which needs its full ammo cost)
   // mul: the charge cannon's charge (0.25..1)
   function shoot(now, alt, mul = 1) {
@@ -3316,7 +3320,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       volley(me, now, w, { x: nx, y: ny });
       packPlay("p_melee_hit", 1) || sfx(...w.sfx);
       shotFeel("gauntlet", { x: nx, y: ny }, 0, ...w.feel);
-      sparkShower(nx, ny, Math.cos(me.a), Math.sin(me.a), 1.2);
+      sparkShower(nx, ny, Math.cos(me.a), Math.sin(me.a), 2.2); sparkShower(nx, ny, -Math.sin(me.a), Math.cos(me.a), 1.2); sparkShower(nx, ny, Math.sin(me.a), -Math.cos(me.a), 1.2);
+      impacts.push({ x: nx, y: ny, t: 0, r: 60, col: "#ffcf5a" });
       return;
     }
     if (alt && pat.lunge) {   // lunge: a burst forward with the blade out
@@ -3356,7 +3361,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (k !== "tele") spend(k, alt ? pat.cost : 1);   // the teleporter spends a charge on the jump, not on the throw
   }
   // ---- the minigun spins up while the trigger is held; the charge cannon charges while held and fires on release
-  let spin = 0, charge = 0;
+  let spin = 0, charge = 0, railCharge = 0;   // railCharge: the railgun's alt, held
   function triggerTick(dt, now, ready, held) {
     const w = WEAPONS[me.weapon];
     if (w.spin && held && spin === 0 && playing && !me.dead) packPlay("p_spin_minigun", 0.7);   // the barrels wind up
@@ -3368,6 +3373,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (beam && !(packLoops.beam)) packPlay("p_fire_laser", 0.8);
     packLoop("beam", beam ? "p_loop_laser" : null, 0.55);
     me.gauntOn = alive && me.weapon === "gauntlet" && (held || now < (me.lungeUntil || 0));
+    if (me.gauntOn) {   // the blade grinds whatever rock it touches: sparks fly and it bites in
+      const nx = me.x + Math.cos(me.a) * (binR(me.lv) + 14), ny = me.y + Math.sin(me.a) * (binR(me.lv) + 14), b = solidAny(nx, ny);
+      if (b) {
+        if (Math.random() < 0.8) sparkShower(nx, ny, -Math.cos(me.a) + (Math.random() - 0.5), -Math.sin(me.a) + (Math.random() - 0.5), 0.9);
+        if (now - (me.grindAt || 0) > 140) { me.grindAt = now; carveAt(b, nx, ny, 12, true); packPlay("p_melee_hit", 0.5, nx, ny); }
+      }
+    }
     packLoop("melee", me.gauntOn ? "p_melee_run" : null, 0.55);
     if (!w.charge) { charge = 0; return held && ready; }
     if (held && playing && !me.dead) {
@@ -3802,7 +3814,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // window.BRS_BROKER set before the game loads (see server/ in the repo)
   const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
   const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
-  const LOBBY_TOPIC = "binrocket-sky/v10/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  const LOBBY_TOPIC = "binrocket-sky/v11/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
   let lobbyRenderPending = false;
   function renderLobbies() {
@@ -3864,7 +3876,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (kind === K.TFRAG) for (const o of shots) if (o.owner === owner && o.kind === K.BEACON) o.life = 0;   // they jumped: their beacon is gone
     seenShots.set(f[0], performance.now());
     if (kind === K.PELLET) scatterPellets(sh); else if (kind === K.SHARD) shardSpray(sh); else if (kind === K.NAIL) nailSpray(sh); else shots.push(sh);
-    if (kind === K.RAIL) railBeam(x, y, sh.vx, sh.vy);
+    if (kind === K.RAIL || kind === K.GAUSS) railBeam(x, y, sh.vx, sh.vy, kind === K.GAUSS);
     if (kind === K.LASER || kind === K.SHOCK) laserBeam(sh, owner);
     shotSound(kind, x, y);
     if (seenShots.size > 400) { const t = performance.now(); for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k); }
@@ -4058,7 +4070,12 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const shown = code.toUpperCase();
     if (localRun) { lanStart(code); return; }   // the local room (12b-lan.js): WebRTC to the devices nearby
     if (offlineRun || !online) {
-      // nobody else is here: the bots fly in this browser, nothing is sent and the lobby is not announced
+      // nobody else is here: the bots fly in this browser, nothing is sent and the lobby is not announced. Rounds run
+      // on the shared clock (so everyone in a lobby is in the same one); alone, the clock is shifted so that a fresh
+      // round starts right now instead of joining one already under way
+      const ph = (Date.now() / 1000) % ROUND_LEN;
+      clockBase = clockOff = clockTarget = (ROUND_LEN - ph + 0.5) * 1000;
+      firstRoundIdx = null;   // so the fresh round is Round 1
       document.getElementById("boardTitle").textContent = "Offline · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
       setStatus(false, "Offline · you and " + bots.length + (bots.length === 1 ? " bot" : " bots"));
       return;
@@ -4075,7 +4092,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     // Shots ride in state, including on the primary, and q deduplicates the two deliveries.
     const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
     const myId = "p" + Math.random().toString(36).slice(2, 10);
-    const base = "binrocket-sky/v10/" + code + "/";
+    const base = "binrocket-sky/v11/" + code + "/";
     const clients = BROKERS.map(url => {
       const c = mqtt.connect(url, {
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),
@@ -4784,9 +4801,12 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const held = firing || FIRE_KEYS.some(k => keys.has(k)) || (aimM && ptr.down);   // with mouse aim the left button fires
     const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided;
     const altW = WEAPONS[me.weapon].alt, altHeld = altFiring || keys.has("KeyC");
-    me.scoping = !!(altW && altW.scope && altHeld && playing && !me.dead);   // the railgun's alt: hold to look far ahead
+    if (altW && altW.charge) {   // the railgun's alt: hold to charge, let go to fire the charged slug
+      if (altHeld && playing && !me.dead && me.arsenal[me.weapon] >= altW.cost) railCharge = Math.min(1, railCharge + dt / altW.charge);
+      else if (railCharge > 0) { if (ready) shoot(now, true, 1 + 0.5 * railCharge); railCharge = 0; }
+    } else railCharge = 0;
     me.heat = Math.max(0, (me.heat || 0) - 0.45 * dt); if (me.overheat && me.heat < 0.3) { me.overheat = false; renderAmmo(me.weapon); }
-    if (ready && altHeld && altW && !altW.scope) shoot(now, true);
+    if (ready && altHeld && altW && !altW.charge) shoot(now, true);
     else if (triggerTick(dt, now, ready, held) || (ready && me.weapon === "gauntlet" && now < (me.lungeUntil || 0))) shoot(now);   // a lunge lands blows too
     if (playing && !me.dead) {
       if (keys.has("KeyA") || keys.has("ArrowLeft")) ix -= 1;
@@ -4947,15 +4967,14 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     // the camera leads the bin by up to ~a fifth of the screen in the direction it flies
     const lead = Math.min(vw, vh) * 0.2, sp2 = Math.hypot(me.vx, me.vy), lk = me.dead ? 0 : Math.min(1, sp2 / 900) * lead / (sp2 || 1);
     const ce = 1 - Math.exp(-2.5 * dt);
-    const scope = me.scoping ? Math.min(vw, vh) * 0.42 : 0;   // the railgun's scope: the view runs far ahead of the nose
     const [mcx, mcy] = mouseAim() && playing && !me.dead ? cursorAt() : [vw / 2, vh / 2], lean = 0.22;   // mouse aim: the view leans toward the cursor
-    cam.lx += (me.vx * lk + Math.cos(me.a) * scope + (mcx - vw / 2) * lean - cam.lx) * ce; cam.ly += (me.vy * lk + Math.sin(me.a) * scope + (mcy - vh / 2) * lean - cam.ly) * ce;
+    cam.lx += (me.vx * lk + (mcx - vw / 2) * lean - cam.lx) * ce; cam.ly += (me.vy * lk + (mcy - vh / 2) * lean - cam.ly) * ce;
     if (guided || now < camBackUntil) {   // riding along with the guided nuke, then easing back to the bin
       const to = guided || me, ce2 = 1 - Math.exp(-(guided ? 10 : 6) * dt);
       cam.x += (to.x + (guided ? 0 : cam.lx) - cam.x) * ce2; cam.y += (to.y + (guided ? 0 : cam.ly) - cam.y) * ce2;
     } else { cam.x = me.x + cam.lx; cam.y = me.y + cam.ly; }
     // on boost the view pulls back a little (and eases in again after): speed you can feel
-    const vzT = playing && !me.dead ? (me.scoping ? 0.66 : boost ? 0.84 : 1) : 1;
+    const vzT = playing && !me.dead && boost ? 0.84 : 1;
     viewZoom += (vzT - viewZoom) * (1 - Math.exp(-(vzT < viewZoom ? 2.2 : 1.4) * dt));
     applyView();
     engineHum(playing && !me.dead ? Math.hypot(me.vx, me.vy) : 0, drift ? 0 : me.thrust, me.boostFx, now);
@@ -5075,7 +5094,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
           impact(s.x, s.y, SHOTS[s.kind].col, 0.5);
           if (s.kind === K.SHARD) shardRicochet(s);
         } else {
-          if (dig) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);
+          if (dig && SHOTS[s.kind].carve && s.kind !== K.MINE && s.kind !== K.SAW) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);   // a mine or a saw sticks without digging
           if ((s.kind === K.BULLET || s.kind === K.PELLET) && now - ricAt > 90) { ricAt = now; packPlay("p_ric", 0.4, hb.x, hb.y); }   // whine off the rock
           if (s.kind === K.NAIL || s.kind === K.SPIKE) stickNail(hb.b, hb.x, hb.y, Math.atan2(s.vy, s.vx), s.kind === K.SPIKE);
           if (s.kind === K.SAW) {   // a saw with no bounces left bites into the rock and keeps spinning there for 5 s
@@ -5208,12 +5227,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     if (rockWear.size > 200) for (const key of rockWear.keys()) if (!world.rocks.some(k => k.key === key)) rockWear.delete(key);
   }
+  let firstRoundIdx = null;   // rounds are numbered from the one you joined
   // the shared clock and the other pilots: extrapolated and eased toward their reported spots
   function updateRemotes(dt, now) {
     // shared clock: drift smoothly toward the average offset
     let offSum = 0, offN = 1;
     for (const r of remotes.values()) if (Number.isFinite(r.off)) { offSum += r.off; offN++; }
-    clockTarget = offSum / offN;
+    clockTarget = clockBase + offSum / offN;
     clockOff += (clockTarget - clockOff) * Math.min(1, dt * 0.5);
 
     // remotes: extrapolate + ease toward reported spot
@@ -5603,14 +5623,15 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const info = document.getElementById("roundInfo");
     if (live) {
       const m = Math.floor(rd.left / 60), sec = Math.floor(rd.left % 60);
-      info.textContent = "Round " + (rd.idx % 1000) + " · " + m + ":" + String(sec).padStart(2, "0") + (SCORE_LIMIT ? " · first to " + SCORE_LIMIT : "");
+      if (firstRoundIdx === null) firstRoundIdx = rd.idx;
+      info.textContent = "Round " + (rd.idx - firstRoundIdx + 1) + " · " + m + ":" + String(sec).padStart(2, "0") + (SCORE_LIMIT ? " · first to " + SCORE_LIMIT : "");
       info.classList.toggle("last", rd.left < 30);
     } else {
       info.textContent = "Results · next round in " + Math.ceil(ROUND_LEN - rd.ph) + "s";
       if (playing && resultsFor !== rd.idx) roundEndVoice();
       if (playing && ROUND_LEN - rd.ph < 2.6 && preparedFor !== rd.idx) { preparedFor = rd.idx; sfx("v_prepare", 1); }
       // refresh once a second so late state updates from other pilots still land in the table
-      if (playing && (resultsFor !== rd.idx || now - resultsAt > 1000)) { resultsFor = rd.idx; resultsAt = now; showResults(rd.idx % 1000); }
+      if (playing && (resultsFor !== rd.idx || now - resultsAt > 1000)) { resultsFor = rd.idx; resultsAt = now; showResults(rd.idx - (firstRoundIdx ?? rd.idx) + 1); }
       const nx = document.getElementById("nextRound");
       if (nx) nx.textContent = "Next round in " + Math.ceil(ROUND_LEN - rd.ph) + " s";
     }
@@ -5871,13 +5892,18 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       return;
     }
     if (s.kind === K.GREN) {   // a grenade: a green egg with a dark band and a blinking light, tumbling
-      const t = SHOTS[K.GREN].life - s.life, blink = Math.floor(t * (t > 1.8 ? 14 : 5)) % 2;
-      g.save(); g.translate(x, y); g.rotate(t * 6 + s.x * 0.001);
-      g.fillStyle = "#4a7a3a"; g.beginPath(); g.ellipse(0, 0, 11, 8.5, 0, 0, 6.29); g.fill();
-      g.fillStyle = "#8fd06a"; g.beginPath(); g.ellipse(-2, -2, 7, 5, 0, 0, 6.29); g.fill();
-      g.fillStyle = "#26301e"; g.fillRect(-1.5, -8.5, 3, 17);
-      if (blink) { g.globalCompositeOperation = "lighter"; g.drawImage(dotSprite("#ff5a3c"), -12, -12, 24, 24); g.globalCompositeOperation = "source-over"; }
-      g.fillStyle = blink ? "#ffd2c0" : "#802010"; g.beginPath(); g.arc(0, 0, 2.4, 0, 6.29); g.fill();
+      const t = SHOTS[K.GREN].life - s.life, blink = Math.floor(t * (t > 1.8 ? 14 : 4)) % 2;
+      g.save(); g.translate(x, y); g.rotate(t * 5 + s.x * 0.001); g.scale(1.25, 1.25);
+      if (blink) { g.globalCompositeOperation = "lighter"; g.drawImage(dotSprite("#ff5a3c"), -16, -16, 32, 32); g.globalCompositeOperation = "source-over"; }
+      const bg = g.createRadialGradient(-3, -3, 1, 0, 0, 11); bg.addColorStop(0, "#9bb36a"); bg.addColorStop(0.6, "#5a6e34"); bg.addColorStop(1, "#2e3a1a");
+      g.fillStyle = bg; g.beginPath(); g.ellipse(1, 0, 10, 7.5, 0, 0, 6.29); g.fill();   // the ribbed body
+      g.strokeStyle = "rgba(20,26,10,0.7)"; g.lineWidth = 1;
+      for (const gx of [-4, 0, 4]) { g.beginPath(); g.moveTo(gx + 1, -7); g.lineTo(gx + 1, 7); g.stroke(); }
+      for (const gy of [-3, 1.5]) { g.beginPath(); g.moveTo(-8, gy); g.lineTo(10, gy); g.stroke(); }
+      g.fillStyle = "#3a3f46"; g.fillRect(-13, -3, 5, 6);   // the fuse cap
+      g.fillStyle = "#8a909a"; g.beginPath(); g.moveTo(-12, -3); g.lineTo(6, -9.5); g.lineTo(7, -8); g.lineTo(-10, -1.5); g.fill();   // the spoon
+      g.strokeStyle = "#c9ced6"; g.lineWidth = 1.2; g.beginPath(); g.arc(-15, -4, 2.6, 0, 6.29); g.stroke();   // the pin's ring
+      g.fillStyle = blink ? "#ffd2c0" : "#802010"; g.beginPath(); g.arc(-11, 0, 1.6, 0, 6.29); g.fill();   // the fuse light, faster near the end
       g.restore();
       return;
     }
@@ -6512,14 +6538,21 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         g.fillStyle = "#26301e"; for (let i = 0; i < 6; i++) { const a = i * 1.047; g.beginPath(); g.arc(Math.cos(a) * 7, -16 + Math.sin(a) * 7, 2.4, 0, 6.29); g.fill(); }
         g.fillStyle = "#6b6f80"; rrect(-7, -44, 14, 18, 3); g.fill();
         g.fillStyle = "#8fd06a"; g.fillRect(-7, -44, 14, 3);
-      } else if (weapon === "gauntlet") {   // the gauntlet: a spinning toothed blade on a short arm (it whirls while the trigger is held)
-        g.fillStyle = "#3b2d5c"; rrect(-6, -24, 12, 30, 3); g.fill();
-        g.save(); g.translate(0, -36); g.rotate(now / (gauntSpinFast ? 18 : 140));
-        g.fillStyle = "#d6dde8"; g.beginPath();
-        for (let i = 0; i < 24; i++) { const r = i % 2 ? 13 : 19, a = i / 24 * 6.283; i ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(r, 0); }
-        g.closePath(); g.fill();
-        g.fillStyle = "#3b2d5c"; g.beginPath(); g.arc(0, 0, 5, 0, 6.29); g.fill();
-        if (gauntSpinFast) { g.globalCompositeOperation = "lighter"; g.strokeStyle = "rgba(255,220,140,0.6)"; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 20, 0, 6.29); g.stroke(); g.globalCompositeOperation = "source-over"; }
+      } else if (weapon === "gauntlet") {   // the gauntlet: a big toothed blade on the nose, whirling while the trigger is held
+        g.fillStyle = "#3b2d5c"; rrect(-8, -26, 16, 30, 4); g.fill();
+        g.save(); g.translate(0, -62); g.scale(1.7, 1.7); g.rotate(now / (gauntSpinFast ? 12 : 160));   // big, so you see what does the damage
+        if (gauntSpinFast) {   // a blur of steel
+          g.globalCompositeOperation = "lighter";
+          const bl = g.createRadialGradient(0, 0, 10, 0, 0, 36); bl.addColorStop(0, "rgba(220,228,240,0.05)"); bl.addColorStop(0.75, "rgba(220,228,240,0.45)"); bl.addColorStop(1, "rgba(255,200,120,0)");
+          g.fillStyle = bl; g.beginPath(); g.arc(0, 0, 36, 0, 6.29); g.fill(); g.globalCompositeOperation = "source-over";
+        }
+        g.fillStyle = "#e3e8f0"; g.strokeStyle = "#6b7488"; g.lineWidth = 1.5; g.beginPath();
+        for (let i = 0; i < 32; i++) { const r = i % 2 ? 22 : 31, a = i / 32 * 6.283 + (i % 2 ? 0.05 : 0); i ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(r, 0); }
+        g.closePath(); g.fill(); g.stroke();
+        g.fillStyle = "#8a93ad"; for (let i = 0; i < 4; i++) { const a = i * 1.571; g.beginPath(); g.arc(Math.cos(a) * 13, Math.sin(a) * 13, 3.2, 0, 6.29); g.fill(); }   // holes, so the spin reads
+        g.fillStyle = "#3b2d5c"; g.beginPath(); g.arc(0, 0, 7, 0, 6.29); g.fill();
+        g.fillStyle = "#ffcf5a"; g.beginPath(); g.arc(0, 0, 3, 0, 6.29); g.fill();
+        if (gauntSpinFast) { g.globalCompositeOperation = "lighter"; g.strokeStyle = "rgba(255,210,130,0.75)"; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 31, 0, 6.29); g.stroke(); g.globalCompositeOperation = "source-over"; }
         g.restore();
       } else if (weapon === "holy") {   // the golden orb held up on a short post, halo above
         g.fillStyle = "#3b2d5c"; rrect(-5, -26, 10, 30, 3); g.fill();
@@ -6552,10 +6585,15 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       g.beginPath(); g.arc(x, y, R, -Math.PI / 2, -Math.PI / 2 + charge * 6.283); g.stroke();
       g.restore();
     }
-    if (me.scoping && playing && !me.dead) {   // the railgun's scope: a thin violet line out to where the slug would go
-      const x0 = sx(me.x), y0 = sy(me.y), ca = Math.cos(me.a), sa = Math.sin(me.a), L = 4200 * SHOTS[K.RAIL].life;
-      g.save(); g.setLineDash([14, 10]); g.lineDashOffset = -now / 20; g.strokeStyle = "rgba(217,168,255,0.55)"; g.lineWidth = 2;
-      g.beginPath(); g.moveTo(x0 + ca * 60, y0 + sa * 60); g.lineTo(x0 + ca * L, y0 + sa * L); g.stroke(); g.restore();
+    if (railCharge > 0 && playing && !me.dead) {   // the railgun charging: a blue ring filling round the bin, and a sight line that firms up
+      const x0 = sx(me.x), y0 = sy(me.y), R = 70 * sizeOf(me.lv), full = railCharge >= 1, ca = Math.cos(me.a), sa = Math.sin(me.a);
+      g.save(); g.lineCap = "round";
+      g.strokeStyle = "rgba(127,184,255,0.25)"; g.lineWidth = 6; g.beginPath(); g.arc(x0, y0, R, 0, 6.29); g.stroke();
+      g.strokeStyle = full && Math.floor(now / 90) % 2 ? "#ffffff" : "#7fb8ff"; g.lineWidth = 6;
+      g.beginPath(); g.arc(x0, y0, R, -Math.PI / 2, -Math.PI / 2 + railCharge * 6.283); g.stroke();
+      g.strokeStyle = `rgba(127,184,255,${0.15 + 0.4 * railCharge})`; g.lineWidth = 1 + 3 * railCharge; g.setLineDash([16, 10]); g.lineDashOffset = -now / 15;
+      g.beginPath(); g.moveTo(x0 + ca * R, y0 + sa * R); g.lineTo(x0 + ca * 3000, y0 + sa * 3000); g.stroke();
+      g.restore();
     }
     if ((settings.aim === "off" && !aimLocked()) || !playing || me.dead || guided) return;
     const w = WEAPONS[me.weapon], col = w.col || "#ffb43c", a = me.a + (w.back ? Math.PI : 0), ca = Math.cos(a), sa = Math.sin(a);
@@ -7300,9 +7338,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       const k = 1 - b.t / BEAM_T, kc = Math.max(0, 1 - b.t / 0.4), x1 = sx(b.x1), y1 = sy(b.y1), x2 = sx(b.x2), y2 = sy(b.y2);
       g.lineCap = "round"; g.lineJoin = "round";
       if (kc > 0) {
-        g.strokeStyle = `rgba(190,120,255,${0.35 * kc})`; g.lineWidth = 26 * kc + 4;
+        const bw = b.big ? 1.9 : 1;   // the charged slug: wider and blue
+        g.strokeStyle = b.big ? `rgba(90,150,255,${0.4 * kc})` : `rgba(190,120,255,${0.35 * kc})`; g.lineWidth = (26 * kc + 4) * bw;
         g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
-        g.strokeStyle = `rgba(233,200,255,${0.8 * kc})`; g.lineWidth = 8 * kc + 1;
+        g.strokeStyle = b.big ? `rgba(170,210,255,${0.85 * kc})` : `rgba(233,200,255,${0.8 * kc})`; g.lineWidth = (8 * kc + 1) * bw;
         g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
         g.strokeStyle = `rgba(255,255,255,${kc})`; g.lineWidth = 2.5 * kc + 0.5;
         g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
@@ -7660,7 +7699,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     ["Dash", `tap ${KEY(shift)} — a quick dodge forward`],
     ["Boost", `hold ${KEY(shift)} — uses the blue energy bar`],
     ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")}, or click a gun in the bar`],
-    ["Alt fire", `right mouse button or ${KEY("C")}: every gun has one — laser pulse, minigun burst, rail scope, flak, shock beam, gamma detonate, rocket salvo, slug, thrown mine, saw fan`],
+    ["Alt fire", `right mouse button or ${KEY("C")}: every gun has one — laser pulse, minigun burst, rail charge (hold, let go), flak, shock beam, gamma detonate, rocket salvo, slug, thrown mine, saw fan`],
     ["Teleporter", `${KEY("T")} throws the beacon, ${KEY("T")} again jumps onto it (land on someone: telefrag)`],
     ["Brake / drift", `hold ${KEY("X")} to brake; ${KEY("X")} + a direction drifts: you slide on while the nose swings round (shoot back)`],
     ["Levels", "kills, sparks and planets give XP; every level adds a perk (Lv 4 twin fireballs, Lv 7 piercing, Lv 10 the crown); dying costs 2 levels"]] });

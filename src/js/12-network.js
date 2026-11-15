@@ -21,7 +21,7 @@
   // window.BRS_BROKER set before the game loads (see server/ in the repo)
   const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
   const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
-  const LOBBY_TOPIC = "binrocket-sky/v10/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  const LOBBY_TOPIC = "binrocket-sky/v11/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
   let lobbyRenderPending = false;
   function renderLobbies() {
@@ -83,7 +83,7 @@
     if (kind === K.TFRAG) for (const o of shots) if (o.owner === owner && o.kind === K.BEACON) o.life = 0;   // they jumped: their beacon is gone
     seenShots.set(f[0], performance.now());
     if (kind === K.PELLET) scatterPellets(sh); else if (kind === K.SHARD) shardSpray(sh); else if (kind === K.NAIL) nailSpray(sh); else shots.push(sh);
-    if (kind === K.RAIL) railBeam(x, y, sh.vx, sh.vy);
+    if (kind === K.RAIL || kind === K.GAUSS) railBeam(x, y, sh.vx, sh.vy, kind === K.GAUSS);
     if (kind === K.LASER || kind === K.SHOCK) laserBeam(sh, owner);
     shotSound(kind, x, y);
     if (seenShots.size > 400) { const t = performance.now(); for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k); }
@@ -277,7 +277,12 @@
     const shown = code.toUpperCase();
     if (localRun) { lanStart(code); return; }   // the local room (12b-lan.js): WebRTC to the devices nearby
     if (offlineRun || !online) {
-      // nobody else is here: the bots fly in this browser, nothing is sent and the lobby is not announced
+      // nobody else is here: the bots fly in this browser, nothing is sent and the lobby is not announced. Rounds run
+      // on the shared clock (so everyone in a lobby is in the same one); alone, the clock is shifted so that a fresh
+      // round starts right now instead of joining one already under way
+      const ph = (Date.now() / 1000) % ROUND_LEN;
+      clockBase = clockOff = clockTarget = (ROUND_LEN - ph + 0.5) * 1000;
+      firstRoundIdx = null;   // so the fresh round is Round 1
       document.getElementById("boardTitle").textContent = "Offline · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
       setStatus(false, "Offline · you and " + bots.length + (bots.length === 1 ? " bot" : " bots"));
       return;
@@ -294,7 +299,7 @@
     // Shots ride in state, including on the primary, and q deduplicates the two deliveries.
     const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
     const myId = "p" + Math.random().toString(36).slice(2, 10);
-    const base = "binrocket-sky/v10/" + code + "/";
+    const base = "binrocket-sky/v11/" + code + "/";
     const clients = BROKERS.map(url => {
       const c = mqtt.connect(url, {
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),

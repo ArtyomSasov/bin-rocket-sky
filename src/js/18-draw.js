@@ -224,13 +224,18 @@
       return;
     }
     if (s.kind === K.GREN) {   // a grenade: a green egg with a dark band and a blinking light, tumbling
-      const t = SHOTS[K.GREN].life - s.life, blink = Math.floor(t * (t > 1.8 ? 14 : 5)) % 2;
-      g.save(); g.translate(x, y); g.rotate(t * 6 + s.x * 0.001);
-      g.fillStyle = "#4a7a3a"; g.beginPath(); g.ellipse(0, 0, 11, 8.5, 0, 0, 6.29); g.fill();
-      g.fillStyle = "#8fd06a"; g.beginPath(); g.ellipse(-2, -2, 7, 5, 0, 0, 6.29); g.fill();
-      g.fillStyle = "#26301e"; g.fillRect(-1.5, -8.5, 3, 17);
-      if (blink) { g.globalCompositeOperation = "lighter"; g.drawImage(dotSprite("#ff5a3c"), -12, -12, 24, 24); g.globalCompositeOperation = "source-over"; }
-      g.fillStyle = blink ? "#ffd2c0" : "#802010"; g.beginPath(); g.arc(0, 0, 2.4, 0, 6.29); g.fill();
+      const t = SHOTS[K.GREN].life - s.life, blink = Math.floor(t * (t > 1.8 ? 14 : 4)) % 2;
+      g.save(); g.translate(x, y); g.rotate(t * 5 + s.x * 0.001); g.scale(1.25, 1.25);
+      if (blink) { g.globalCompositeOperation = "lighter"; g.drawImage(dotSprite("#ff5a3c"), -16, -16, 32, 32); g.globalCompositeOperation = "source-over"; }
+      const bg = g.createRadialGradient(-3, -3, 1, 0, 0, 11); bg.addColorStop(0, "#9bb36a"); bg.addColorStop(0.6, "#5a6e34"); bg.addColorStop(1, "#2e3a1a");
+      g.fillStyle = bg; g.beginPath(); g.ellipse(1, 0, 10, 7.5, 0, 0, 6.29); g.fill();   // the ribbed body
+      g.strokeStyle = "rgba(20,26,10,0.7)"; g.lineWidth = 1;
+      for (const gx of [-4, 0, 4]) { g.beginPath(); g.moveTo(gx + 1, -7); g.lineTo(gx + 1, 7); g.stroke(); }
+      for (const gy of [-3, 1.5]) { g.beginPath(); g.moveTo(-8, gy); g.lineTo(10, gy); g.stroke(); }
+      g.fillStyle = "#3a3f46"; g.fillRect(-13, -3, 5, 6);   // the fuse cap
+      g.fillStyle = "#8a909a"; g.beginPath(); g.moveTo(-12, -3); g.lineTo(6, -9.5); g.lineTo(7, -8); g.lineTo(-10, -1.5); g.fill();   // the spoon
+      g.strokeStyle = "#c9ced6"; g.lineWidth = 1.2; g.beginPath(); g.arc(-15, -4, 2.6, 0, 6.29); g.stroke();   // the pin's ring
+      g.fillStyle = blink ? "#ffd2c0" : "#802010"; g.beginPath(); g.arc(-11, 0, 1.6, 0, 6.29); g.fill();   // the fuse light, faster near the end
       g.restore();
       return;
     }
@@ -865,14 +870,21 @@
         g.fillStyle = "#26301e"; for (let i = 0; i < 6; i++) { const a = i * 1.047; g.beginPath(); g.arc(Math.cos(a) * 7, -16 + Math.sin(a) * 7, 2.4, 0, 6.29); g.fill(); }
         g.fillStyle = "#6b6f80"; rrect(-7, -44, 14, 18, 3); g.fill();
         g.fillStyle = "#8fd06a"; g.fillRect(-7, -44, 14, 3);
-      } else if (weapon === "gauntlet") {   // the gauntlet: a spinning toothed blade on a short arm (it whirls while the trigger is held)
-        g.fillStyle = "#3b2d5c"; rrect(-6, -24, 12, 30, 3); g.fill();
-        g.save(); g.translate(0, -36); g.rotate(now / (gauntSpinFast ? 18 : 140));
-        g.fillStyle = "#d6dde8"; g.beginPath();
-        for (let i = 0; i < 24; i++) { const r = i % 2 ? 13 : 19, a = i / 24 * 6.283; i ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(r, 0); }
-        g.closePath(); g.fill();
-        g.fillStyle = "#3b2d5c"; g.beginPath(); g.arc(0, 0, 5, 0, 6.29); g.fill();
-        if (gauntSpinFast) { g.globalCompositeOperation = "lighter"; g.strokeStyle = "rgba(255,220,140,0.6)"; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 20, 0, 6.29); g.stroke(); g.globalCompositeOperation = "source-over"; }
+      } else if (weapon === "gauntlet") {   // the gauntlet: a big toothed blade on the nose, whirling while the trigger is held
+        g.fillStyle = "#3b2d5c"; rrect(-8, -26, 16, 30, 4); g.fill();
+        g.save(); g.translate(0, -62); g.scale(1.7, 1.7); g.rotate(now / (gauntSpinFast ? 12 : 160));   // big, so you see what does the damage
+        if (gauntSpinFast) {   // a blur of steel
+          g.globalCompositeOperation = "lighter";
+          const bl = g.createRadialGradient(0, 0, 10, 0, 0, 36); bl.addColorStop(0, "rgba(220,228,240,0.05)"); bl.addColorStop(0.75, "rgba(220,228,240,0.45)"); bl.addColorStop(1, "rgba(255,200,120,0)");
+          g.fillStyle = bl; g.beginPath(); g.arc(0, 0, 36, 0, 6.29); g.fill(); g.globalCompositeOperation = "source-over";
+        }
+        g.fillStyle = "#e3e8f0"; g.strokeStyle = "#6b7488"; g.lineWidth = 1.5; g.beginPath();
+        for (let i = 0; i < 32; i++) { const r = i % 2 ? 22 : 31, a = i / 32 * 6.283 + (i % 2 ? 0.05 : 0); i ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(r, 0); }
+        g.closePath(); g.fill(); g.stroke();
+        g.fillStyle = "#8a93ad"; for (let i = 0; i < 4; i++) { const a = i * 1.571; g.beginPath(); g.arc(Math.cos(a) * 13, Math.sin(a) * 13, 3.2, 0, 6.29); g.fill(); }   // holes, so the spin reads
+        g.fillStyle = "#3b2d5c"; g.beginPath(); g.arc(0, 0, 7, 0, 6.29); g.fill();
+        g.fillStyle = "#ffcf5a"; g.beginPath(); g.arc(0, 0, 3, 0, 6.29); g.fill();
+        if (gauntSpinFast) { g.globalCompositeOperation = "lighter"; g.strokeStyle = "rgba(255,210,130,0.75)"; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 31, 0, 6.29); g.stroke(); g.globalCompositeOperation = "source-over"; }
         g.restore();
       } else if (weapon === "holy") {   // the golden orb held up on a short post, halo above
         g.fillStyle = "#3b2d5c"; rrect(-5, -26, 10, 30, 3); g.fill();
@@ -905,10 +917,15 @@
       g.beginPath(); g.arc(x, y, R, -Math.PI / 2, -Math.PI / 2 + charge * 6.283); g.stroke();
       g.restore();
     }
-    if (me.scoping && playing && !me.dead) {   // the railgun's scope: a thin violet line out to where the slug would go
-      const x0 = sx(me.x), y0 = sy(me.y), ca = Math.cos(me.a), sa = Math.sin(me.a), L = 4200 * SHOTS[K.RAIL].life;
-      g.save(); g.setLineDash([14, 10]); g.lineDashOffset = -now / 20; g.strokeStyle = "rgba(217,168,255,0.55)"; g.lineWidth = 2;
-      g.beginPath(); g.moveTo(x0 + ca * 60, y0 + sa * 60); g.lineTo(x0 + ca * L, y0 + sa * L); g.stroke(); g.restore();
+    if (railCharge > 0 && playing && !me.dead) {   // the railgun charging: a blue ring filling round the bin, and a sight line that firms up
+      const x0 = sx(me.x), y0 = sy(me.y), R = 70 * sizeOf(me.lv), full = railCharge >= 1, ca = Math.cos(me.a), sa = Math.sin(me.a);
+      g.save(); g.lineCap = "round";
+      g.strokeStyle = "rgba(127,184,255,0.25)"; g.lineWidth = 6; g.beginPath(); g.arc(x0, y0, R, 0, 6.29); g.stroke();
+      g.strokeStyle = full && Math.floor(now / 90) % 2 ? "#ffffff" : "#7fb8ff"; g.lineWidth = 6;
+      g.beginPath(); g.arc(x0, y0, R, -Math.PI / 2, -Math.PI / 2 + railCharge * 6.283); g.stroke();
+      g.strokeStyle = `rgba(127,184,255,${0.15 + 0.4 * railCharge})`; g.lineWidth = 1 + 3 * railCharge; g.setLineDash([16, 10]); g.lineDashOffset = -now / 15;
+      g.beginPath(); g.moveTo(x0 + ca * R, y0 + sa * R); g.lineTo(x0 + ca * 3000, y0 + sa * 3000); g.stroke();
+      g.restore();
     }
     if ((settings.aim === "off" && !aimLocked()) || !playing || me.dead || guided) return;
     const w = WEAPONS[me.weapon], col = w.col || "#ffb43c", a = me.a + (w.back ? Math.PI : 0), ca = Math.cos(a), sa = Math.sin(a);

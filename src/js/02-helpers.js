@@ -15,7 +15,7 @@
   const num = (v, d) => Number.isFinite(v) ? v : d;
   // world time everyone agrees on: each player averages its clock offset to every other player,
   // so all of them land on the same mean even when a phone's clock is seconds off
-  let clockOff = 0, clockTarget = 0;
+  let clockOff = 0, clockTarget = 0, clockBase = 0;   // clockBase: offline, the shift that starts a fresh round at take-off
   const clockNow = () => Date.now() + clockOff;
   const strHash = str => { let h = 2166136261; for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619); return h; };
   const store = {

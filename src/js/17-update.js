@@ -19,9 +19,12 @@
     const held = firing || FIRE_KEYS.some(k => keys.has(k)) || (aimM && ptr.down);   // with mouse aim the left button fires
     const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided;
     const altW = WEAPONS[me.weapon].alt, altHeld = altFiring || keys.has("KeyC");
-    me.scoping = !!(altW && altW.scope && altHeld && playing && !me.dead);   // the railgun's alt: hold to look far ahead
+    if (altW && altW.charge) {   // the railgun's alt: hold to charge, let go to fire the charged slug
+      if (altHeld && playing && !me.dead && me.arsenal[me.weapon] >= altW.cost) railCharge = Math.min(1, railCharge + dt / altW.charge);
+      else if (railCharge > 0) { if (ready) shoot(now, true, 1 + 0.5 * railCharge); railCharge = 0; }
+    } else railCharge = 0;
     me.heat = Math.max(0, (me.heat || 0) - 0.45 * dt); if (me.overheat && me.heat < 0.3) { me.overheat = false; renderAmmo(me.weapon); }
-    if (ready && altHeld && altW && !altW.scope) shoot(now, true);
+    if (ready && altHeld && altW && !altW.charge) shoot(now, true);
     else if (triggerTick(dt, now, ready, held) || (ready && me.weapon === "gauntlet" && now < (me.lungeUntil || 0))) shoot(now);   // a lunge lands blows too
     if (playing && !me.dead) {
       if (keys.has("KeyA") || keys.has("ArrowLeft")) ix -= 1;
@@ -182,15 +185,14 @@
     // the camera leads the bin by up to ~a fifth of the screen in the direction it flies
     const lead = Math.min(vw, vh) * 0.2, sp2 = Math.hypot(me.vx, me.vy), lk = me.dead ? 0 : Math.min(1, sp2 / 900) * lead / (sp2 || 1);
     const ce = 1 - Math.exp(-2.5 * dt);
-    const scope = me.scoping ? Math.min(vw, vh) * 0.42 : 0;   // the railgun's scope: the view runs far ahead of the nose
     const [mcx, mcy] = mouseAim() && playing && !me.dead ? cursorAt() : [vw / 2, vh / 2], lean = 0.22;   // mouse aim: the view leans toward the cursor
-    cam.lx += (me.vx * lk + Math.cos(me.a) * scope + (mcx - vw / 2) * lean - cam.lx) * ce; cam.ly += (me.vy * lk + Math.sin(me.a) * scope + (mcy - vh / 2) * lean - cam.ly) * ce;
+    cam.lx += (me.vx * lk + (mcx - vw / 2) * lean - cam.lx) * ce; cam.ly += (me.vy * lk + (mcy - vh / 2) * lean - cam.ly) * ce;
     if (guided || now < camBackUntil) {   // riding along with the guided nuke, then easing back to the bin
       const to = guided || me, ce2 = 1 - Math.exp(-(guided ? 10 : 6) * dt);
       cam.x += (to.x + (guided ? 0 : cam.lx) - cam.x) * ce2; cam.y += (to.y + (guided ? 0 : cam.ly) - cam.y) * ce2;
     } else { cam.x = me.x + cam.lx; cam.y = me.y + cam.ly; }
     // on boost the view pulls back a little (and eases in again after): speed you can feel
-    const vzT = playing && !me.dead ? (me.scoping ? 0.66 : boost ? 0.84 : 1) : 1;
+    const vzT = playing && !me.dead && boost ? 0.84 : 1;
     viewZoom += (vzT - viewZoom) * (1 - Math.exp(-(vzT < viewZoom ? 2.2 : 1.4) * dt));
     applyView();
     engineHum(playing && !me.dead ? Math.hypot(me.vx, me.vy) : 0, drift ? 0 : me.thrust, me.boostFx, now);
@@ -310,7 +312,7 @@
           impact(s.x, s.y, SHOTS[s.kind].col, 0.5);
           if (s.kind === K.SHARD) shardRicochet(s);
         } else {
-          if (dig) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);
+          if (dig && SHOTS[s.kind].carve && s.kind !== K.MINE && s.kind !== K.SAW) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);   // a mine or a saw sticks without digging
           if ((s.kind === K.BULLET || s.kind === K.PELLET) && now - ricAt > 90) { ricAt = now; packPlay("p_ric", 0.4, hb.x, hb.y); }   // whine off the rock
           if (s.kind === K.NAIL || s.kind === K.SPIKE) stickNail(hb.b, hb.x, hb.y, Math.atan2(s.vy, s.vx), s.kind === K.SPIKE);
           if (s.kind === K.SAW) {   // a saw with no bounces left bites into the rock and keeps spinning there for 5 s
@@ -443,12 +445,13 @@
     }
     if (rockWear.size > 200) for (const key of rockWear.keys()) if (!world.rocks.some(k => k.key === key)) rockWear.delete(key);
   }
+  let firstRoundIdx = null;   // rounds are numbered from the one you joined
   // the shared clock and the other pilots: extrapolated and eased toward their reported spots
   function updateRemotes(dt, now) {
     // shared clock: drift smoothly toward the average offset
     let offSum = 0, offN = 1;
     for (const r of remotes.values()) if (Number.isFinite(r.off)) { offSum += r.off; offN++; }
-    clockTarget = offSum / offN;
+    clockTarget = clockBase + offSum / offN;
     clockOff += (clockTarget - clockOff) * Math.min(1, dt * 0.5);
 
     // remotes: extrapolate + ease toward reported spot
@@ -838,14 +841,15 @@
     const info = document.getElementById("roundInfo");
     if (live) {
       const m = Math.floor(rd.left / 60), sec = Math.floor(rd.left % 60);
-      info.textContent = "Round " + (rd.idx % 1000) + " · " + m + ":" + String(sec).padStart(2, "0") + (SCORE_LIMIT ? " · first to " + SCORE_LIMIT : "");
+      if (firstRoundIdx === null) firstRoundIdx = rd.idx;
+      info.textContent = "Round " + (rd.idx - firstRoundIdx + 1) + " · " + m + ":" + String(sec).padStart(2, "0") + (SCORE_LIMIT ? " · first to " + SCORE_LIMIT : "");
       info.classList.toggle("last", rd.left < 30);
     } else {
       info.textContent = "Results · next round in " + Math.ceil(ROUND_LEN - rd.ph) + "s";
       if (playing && resultsFor !== rd.idx) roundEndVoice();
       if (playing && ROUND_LEN - rd.ph < 2.6 && preparedFor !== rd.idx) { preparedFor = rd.idx; sfx("v_prepare", 1); }
       // refresh once a second so late state updates from other pilots still land in the table
-      if (playing && (resultsFor !== rd.idx || now - resultsAt > 1000)) { resultsFor = rd.idx; resultsAt = now; showResults(rd.idx % 1000); }
+      if (playing && (resultsFor !== rd.idx || now - resultsAt > 1000)) { resultsFor = rd.idx; resultsAt = now; showResults(rd.idx - (firstRoundIdx ?? rd.idx) + 1); }
       const nx = document.getElementById("nextRound");
       if (nx) nx.textContent = "Next round in " + Math.ceil(ROUND_LEN - rd.ph) + " s";
     }
