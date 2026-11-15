@@ -386,3 +386,4 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
 .lan-start small { color: var(--muted); font-size: 12px; }
 .dl { display: block; margin-top: 8px; font: 600 12px var(--body); color: var(--muted); text-align: center; }
 .dl:hover { color: var(--ink); }
+.lockhint { position: fixed; left: 50%; bottom: calc(110px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); padding: 6px 14px; font: 700 13px var(--display); color: var(--ink); pointer-events: none; z-index: 5; }

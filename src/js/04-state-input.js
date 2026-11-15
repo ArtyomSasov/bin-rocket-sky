@@ -48,6 +48,20 @@
   // flies, WASD flies, the left button fires and the right one is the alt fire. Until the mouse moves, or with
   // "Mouse: steers", the nose follows the flight and holding the button flies toward the pointer as before
   const mouseAim = () => !COARSE && settings.mouse !== "steer" && ptr.moved;
+  // like a shooter: in a game the mouse is captured (Pointer Lock). The system cursor is gone everywhere and the
+  // mouse moves only the crosshair, which stays on the screen. Esc lets the mouse go; a click takes it back
+  const aimLocked = () => document.pointerLockElement === cv;
+  const wantsLock = () => playing && !COARSE && settings.mouse !== "steer" && !!cv.requestPointerLock;
+  function lockAim() {
+    if (!wantsLock() || aimLocked()) return;
+    if (!ptr.cx && !ptr.cy) { ptr.cx = innerWidth / 2 + 160; ptr.cy = innerHeight / 2; }
+    try { const p = cv.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch {}
+  }
+  const lockHint = document.getElementById("lockHint");
+  document.addEventListener("pointerlockchange", () => {
+    if (aimLocked()) ptr.moved = true;
+    lockHint.hidden = aimLocked() || !wantsLock();
+  });
   const cursorAt = () => [ptr.cx / zoom, ptr.cy / zoom];   // in view units, read with the zoom of this frame
   let playing = false;
   let lowQ = false;   // set by the frame loop when the device can't keep up
@@ -102,8 +116,11 @@
       cv.setPointerCapture(e.pointerId);
       return;
     }
+    if (e.pointerType === "mouse" && wantsLock() && !aimLocked()) { lockAim(); if (e.button === 2) return; }   // a click takes the mouse back
     if (e.button === 2) return;   // the right button is alternate fire (see below), it doesn't steer
-    ptr.down = true; ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; ptr.cx = e.clientX; ptr.cy = e.clientY; cv.setPointerCapture(e.pointerId);
+    ptr.down = true;
+    if (!aimLocked()) { ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; ptr.cx = e.clientX; ptr.cy = e.clientY; }
+    try { cv.setPointerCapture(e.pointerId); } catch {}
     if (e.pointerType === "mouse") ptr.moved = true;
   });
   cv.addEventListener("pointermove", e => {
@@ -119,7 +136,10 @@
       joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
       return;
     }
-    ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; ptr.cx = e.clientX; ptr.cy = e.clientY;
+    if (aimLocked()) {   // captured: the mouse moves the crosshair by its own motion, kept on the screen
+      ptr.cx = clamp(ptr.cx + e.movementX, 8, innerWidth - 8); ptr.cy = clamp(ptr.cy + e.movementY, 8, innerHeight - 8);
+    } else { ptr.cx = e.clientX; ptr.cy = e.clientY; }
+    ptr.x = ptr.cx / zoom; ptr.y = ptr.cy / zoom;
     if (e.pointerType === "mouse") ptr.moved = true;
   });
   const up = e => { if (e.pointerId === joy.id) joyEnd(); else if (e.button !== 2) ptr.down = false; };

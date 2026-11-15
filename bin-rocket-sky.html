@@ -395,6 +395,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
 .lan-start small { color: var(--muted); font-size: 12px; }
 .dl { display: block; margin-top: 8px; font: 600 12px var(--body); color: var(--muted); text-align: center; }
 .dl:hover { color: var(--ink); }
+.lockhint { position: fixed; left: 50%; bottom: calc(110px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); padding: 6px 14px; font: 700 13px var(--display); color: var(--ink); pointer-events: none; z-index: 5; }
 </style>
 
 <canvas id="c"></canvas>
@@ -410,6 +411,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
 <div class="event" id="eventBanner" hidden></div>
 <div class="board chip"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><h2 id="boardTitle">Flyers</h2><div class="round" id="roundInfo">Round 1 · 5:00</div><div class="ping" id="pingInfo"></div><div class="bhead"><span>Pilot</span><span>Kills · Deaths</span></div><ol id="board"></ol></div>
 <div class="feed" id="feed" aria-live="off"></div>
+<div class="lockhint chip" id="lockHint" hidden>Click to take the mouse · Esc lets it go</div>
 <div class="announce" id="announce"></div>
 <div class="settings" id="settings" hidden>
   <div class="card chip" role="dialog" aria-labelledby="setTitle">
@@ -1175,6 +1177,20 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // flies, WASD flies, the left button fires and the right one is the alt fire. Until the mouse moves, or with
   // "Mouse: steers", the nose follows the flight and holding the button flies toward the pointer as before
   const mouseAim = () => !COARSE && settings.mouse !== "steer" && ptr.moved;
+  // like a shooter: in a game the mouse is captured (Pointer Lock). The system cursor is gone everywhere and the
+  // mouse moves only the crosshair, which stays on the screen. Esc lets the mouse go; a click takes it back
+  const aimLocked = () => document.pointerLockElement === cv;
+  const wantsLock = () => playing && !COARSE && settings.mouse !== "steer" && !!cv.requestPointerLock;
+  function lockAim() {
+    if (!wantsLock() || aimLocked()) return;
+    if (!ptr.cx && !ptr.cy) { ptr.cx = innerWidth / 2 + 160; ptr.cy = innerHeight / 2; }
+    try { const p = cv.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch {}
+  }
+  const lockHint = document.getElementById("lockHint");
+  document.addEventListener("pointerlockchange", () => {
+    if (aimLocked()) ptr.moved = true;
+    lockHint.hidden = aimLocked() || !wantsLock();
+  });
   const cursorAt = () => [ptr.cx / zoom, ptr.cy / zoom];   // in view units, read with the zoom of this frame
   let playing = false;
   let lowQ = false;   // set by the frame loop when the device can't keep up
@@ -1229,8 +1245,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       cv.setPointerCapture(e.pointerId);
       return;
     }
+    if (e.pointerType === "mouse" && wantsLock() && !aimLocked()) { lockAim(); if (e.button === 2) return; }   // a click takes the mouse back
     if (e.button === 2) return;   // the right button is alternate fire (see below), it doesn't steer
-    ptr.down = true; ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; ptr.cx = e.clientX; ptr.cy = e.clientY; cv.setPointerCapture(e.pointerId);
+    ptr.down = true;
+    if (!aimLocked()) { ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; ptr.cx = e.clientX; ptr.cy = e.clientY; }
+    try { cv.setPointerCapture(e.pointerId); } catch {}
     if (e.pointerType === "mouse") ptr.moved = true;
   });
   cv.addEventListener("pointermove", e => {
@@ -1246,7 +1265,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
       return;
     }
-    ptr.x = e.clientX / zoom; ptr.y = e.clientY / zoom; ptr.cx = e.clientX; ptr.cy = e.clientY;
+    if (aimLocked()) {   // captured: the mouse moves the crosshair by its own motion, kept on the screen
+      ptr.cx = clamp(ptr.cx + e.movementX, 8, innerWidth - 8); ptr.cy = clamp(ptr.cy + e.movementY, 8, innerHeight - 8);
+    } else { ptr.cx = e.clientX; ptr.cy = e.clientY; }
+    ptr.x = ptr.cx / zoom; ptr.y = ptr.cy / zoom;
     if (e.pointerType === "mouse") ptr.moved = true;
   });
   const up = e => { if (e.pointerId === joy.id) joyEnd(); else if (e.button !== 2) ptr.down = false; };
@@ -2454,18 +2476,21 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     return [bh === null ? "#4fd6c8" : toneCss(bh, 65, 55), lh === null ? "#9d8fc8" : toneCss(lh, 45, 60)];
   };
   // boost: a dense jet of fire out of the nozzle
+  // which way a pilot is pushing (ta), or where it faces when that isn't known: exhaust always comes out the
+  // other side, so flying backwards or sideways fires the jets on the front or the flank
+  function thrustAngle(b) { return Number.isFinite(b.ta) ? b.ta : b.a; }
   function afterburner(b, fx, dt) {
     if (!fx) return;
-    const bx = Math.cos(b.a), by = Math.sin(b.a), sz = sizeOf(b.lv || 1), tail = 46 * sz, q = lowQ ? 0.4 : 1;
+    const A = thrustAngle(b), bx = Math.cos(A), by = Math.sin(A), sz = sizeOf(b.lv || 1), tail = 46 * sz, q = lowQ ? 0.4 : 1;
     const n = (fx === 2 ? 140 : 110) * q * dt;
     for (let k = 0; k < n || (k === 0 && Math.random() < n); k++) {   // a long roaring plume
       const sp = 320 + Math.random() * 420, j = (Math.random() - 0.5) * 0.45;
-      const vx = -Math.cos(b.a + j) * sp, vy = -Math.sin(b.a + j) * sp;
+      const vx = -Math.cos(A + j) * sp, vy = -Math.sin(A + j) * sp;
       puff(b.x - bx * tail, b.y - by * tail, vx + (b.vx || 0) * 0.4, vy + (b.vy || 0) * 0.4, 0.3 + Math.random() * 0.35, 3.5 + Math.random() * 5 * sz, FIRE_COLS[(Math.random() * 3) | 0]);
     }
     for (let k = 0; k < 40 * q * dt || (k === 0 && Math.random() < 40 * q * dt); k++) {   // a blue-white shock core and sparks streaking back
       const v = 500 + Math.random() * 400, j = (Math.random() - 0.5) * 0.25;
-      puff(b.x - bx * tail, b.y - by * tail, -Math.cos(b.a + j) * v + (b.vx || 0) * 0.5, -Math.sin(b.a + j) * v + (b.vy || 0) * 0.5, 0.18 + Math.random() * 0.15, 1.6 + Math.random() * 1.4, k % 2 ? "#bfefff" : "#ffffff", 1);
+      puff(b.x - bx * tail, b.y - by * tail, -Math.cos(A + j) * v + (b.vx || 0) * 0.5, -Math.sin(A + j) * v + (b.vy || 0) * 0.5, 0.18 + Math.random() * 0.15, 1.6 + Math.random() * 1.4, k % 2 ? "#bfefff" : "#ffffff", 1);
     }
     if (Math.random() < 14 * q * dt) {   // shock diamonds pulsing in the exhaust
       const d = tail + 30 + Math.random() * 60;
@@ -2474,7 +2499,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   }
   // dash: a flash and a hot ring at the nozzle, sparks thrown back
   function dashBurst(b) {
-    const bx = Math.cos(b.a), by = Math.sin(b.a), sz = sizeOf(b.lv || 1), tx = b.x - bx * 44 * sz, ty = b.y - by * 44 * sz;
+    const A = thrustAngle(b), bx = Math.cos(A), by = Math.sin(A), sz = sizeOf(b.lv || 1), tx = b.x - bx * 44 * sz, ty = b.y - by * 44 * sz;
     impacts.push({ x: tx, y: ty, t: 0, r: 90 * sz, col: "#ffd23f" });
     rings.push({ x: tx, y: ty, t: 0, r: 110 * sz, col: "255,220,160", dur: 0.35, w: 8 });
     for (let k = 0; k < (lowQ ? 12 : 30); k++) {
@@ -2729,7 +2754,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const TRAIL = ["#ffe3f6", "#ffffff", "#ffd2a0", "#f3c6ff"];
   function trailFrom(b, rate, dt) {
     const n = rate * dt * (lowQ ? 25 : 60);
-    const bx = Math.cos(b.a), by = Math.sin(b.a), sz = sizeOf(b.lv || 1), tail = 40 * sz;
+    const A = thrustAngle(b), bx = Math.cos(A), by = Math.sin(A), sz = sizeOf(b.lv || 1), tail = 40 * sz;
     const tr = b.ck ? customVal(b.ck, "trail") : null, trailCols = tr ? TRAILS[tr] : TRAIL;
     for (let k = 0; k < n || (k === 0 && Math.random() < n); k++) {
       const tx = b.x - bx * tail + (Math.random() - .5) * 14 * sz, ty = b.y - by * tail + (Math.random() - .5) * 14 * sz;
@@ -3297,7 +3322,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICONS[me.weapon]}"/></svg>`;
     el.append(chipText());
     el.style.color = w.col || "";
-    // the weapon bar: every gun you carry, tap/click or 1-8 / Q / E / mouse wheel to switch
+    // the weapon bar: every gun you carry, tap/click or 1-8 / Q / E to switch
     const list = owned();
     arsenalEl.hidden = !playing || list.length < 2;
     arsenalEl.innerHTML = list.map((k, i) => {
@@ -3332,14 +3357,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     else if (e.code === "KeyQ") cycleWeapon(-1);
     else if (e.code === "KeyE") cycleWeapon(1);
   });
-  let wheelAt = 0;
-  cv.addEventListener("wheel", e => {
-    if (!playing) return;
-    e.preventDefault();
-    const t = performance.now();
-    if (t - wheelAt < 120 || !e.deltaY) return;
-    wheelAt = t; cycleWeapon(e.deltaY > 0 ? 1 : -1);
-  }, { passive: false });
+  // the mouse wheel does not switch guns: on a touch-surface mouse (Magic Mouse) a resting finger scrolls all
+  // the time. It is only kept from scrolling the page
+  cv.addEventListener("wheel", e => { if (playing) e.preventDefault(); }, { passive: false });
   function nukeTouches(s) {
     if (!s.mine && playing && !me.dead && segHit(s, me.x, me.y, 20 + 26 * sizeOf(me.lv))) return true;
     for (const [id, r] of remotes) if (!r.dead && id !== s.owner && segHit(s, r.x, r.y, 20 + 26 * sizeOf(r.lv))) return true;
@@ -3670,6 +3690,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (Math.hypot(r.tx - r.x, r.ty - r.y) > 300) { r.x = r.tx; r.y = r.ty; }   // teleport (respawn, black hole)
       if (Number.isFinite(p.a)) r.ta = p.a;
       r.thrust = p.t ? 1 : 0;
+      r.ta = Number.isFinite(p.td) ? clamp(p.td, -7, 7) : undefined;   // which way they push
       const bf = p.b === 1 || p.b === 2 ? p.b : 0;
       if (bf === 2 && r.boost !== 2) dashBurst(r);   // they just dashed
       r.boost = bf;
@@ -4429,7 +4450,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     for (const b of bots) {
       const m = {
         q: ++b.q, rd: stats.round, x: Math.round(b.x), y: Math.round(b.y), vx: Math.round(b.vx), vy: Math.round(b.vy), a: +b.a.toFixed(2),
-        t: b.stick && Math.hypot(b.stick.x, b.stick.y) > 0.3 ? 1 : 0, b: now - (b.dashAt || 0) < 350 ? 2 : b.boosting ? 1 : 0, d: b.dead ? 1 : 0, i: now < b.inv ? 1 : 0, ds: b.dead ? b.ds : 0, dk: b.dead ? b.dk || 0 : 0, da: b.dead ? +(b.da || 0).toFixed(2) : 0,
+        t: b.stick && Math.hypot(b.stick.x, b.stick.y) > 0.3 ? 1 : 0, td: b.stick ? +Math.atan2(b.stick.y, b.stick.x).toFixed(2) : undefined, b: now - (b.dashAt || 0) < 350 ? 2 : b.boosting ? 1 : 0, d: b.dead ? 1 : 0, i: now < b.inv ? 1 : 0, ds: b.dead ? b.ds : 0, dk: b.dead ? b.dk || 0 : 0, da: b.dead ? +(b.da || 0).toFixed(2) : 0,
         l: Math.max(0, Math.round(b.lives * 100) / 100), hb: b.hitBy, ko: b.koBy, f: b.shotLog.map(e => e.d),
         tm: b.tm ?? -1, fc: b.fc ?? -1, cp: [stats.round, b.caps || 0], tg: b.tag
       };
@@ -4698,7 +4719,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (Math.hypot(cx - sx(me.x), cy - sy(me.y)) > 12) me.a = lerpAng(me.a, Math.atan2(cy - sy(me.y), cx - sx(me.x)), 1 - Math.exp(-30 * dt));
     } else if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-(drift ? 20 : 13) * dt));
     else if (!playing && sp > 25) me.a = lerpAng(me.a, Math.atan2(me.vy, me.vx), 1 - Math.exp(-6 * dt));
-    me.thrust += ((playing ? Math.min(1, im) * (boost ? 1.4 : 1) : 0.6) - me.thrust) * Math.min(1, dt * 6);
+    me.thrust += ((playing ? (drift ? 0 : Math.min(1, im)) * (boost ? 1.4 : 1) : 0.6) - me.thrust) * Math.min(1, dt * 6);
+    if (playing && !drift && steerMag > 0.1) me.ta = Math.atan2(steer.y, steer.x); else if (!playing) me.ta = undefined;   // the way I push: the jets fire the other way
     // the bin banks into a turn (drawn as a lean), and settles back when flying straight
     const turn = dt > 0 ? angD(me.a - a0) / dt : 0;
     me.bank += (clamp(turn * 0.09, -0.4, 0.4) - me.bank) * Math.min(1, dt * 8);
@@ -5138,7 +5160,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         q: ++sendSeq, rd: stats.round, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),
         vx: Math.round(me.vx), vy: Math.round(me.vy), a: +me.a.toFixed(2),
         t: me.thrust > 0.3 ? 1 : 0, b: me.boostFx, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0, ds: me.dead ? me.ds : 0,
-        dk: me.dead ? me.dk : 0, da: me.dead ? +me.da.toFixed(2) : 0, tm: me.tm ?? -1   // the team rides every message: shots need it
+        dk: me.dead ? me.dk : 0, da: me.dead ? +me.da.toFixed(2) : 0, tm: me.tm ?? -1,   // the team rides every message: shots need it
+        td: Number.isFinite(me.ta) ? +me.ta.toFixed(2) : undefined   // which way I push (the jets show it)
       };
       const slow = {
         tm: me.tm ?? -1, fc: me.fc ?? -1, cp: [stats.round, me.caps || 0], pg: Math.round(myPing / 10) * 10, bc: bots.length ? [bots.length, bots[0].level] : 0,
@@ -6174,7 +6197,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       g.save(); g.setLineDash([14, 10]); g.lineDashOffset = -now / 20; g.strokeStyle = "rgba(217,168,255,0.55)"; g.lineWidth = 2;
       g.beginPath(); g.moveTo(x0 + ca * 60, y0 + sa * 60); g.lineTo(x0 + ca * L, y0 + sa * L); g.stroke(); g.restore();
     }
-    if (settings.aim === "off" || !playing || me.dead || guided) return;
+    if ((settings.aim === "off" && !aimLocked()) || !playing || me.dead || guided) return;
     const w = WEAPONS[me.weapon], col = w.col || "#ffb43c", a = me.a + (w.back ? Math.PI : 0), ca = Math.cos(a), sa = Math.sin(a);
     const D = (w.back ? 120 : 250) * sizeOf(me.lv), x0 = sx(me.x), y0 = sy(me.y);
     let lock = false;
@@ -6251,9 +6274,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const firePal = fl === "rainbow" ? rainbowFlame(now) : fl ? FLAMES[fl] : tier;
     const bf = isMe ? me.boostFx : b.boost || 0;
     const burst = isMe ? Math.max(0, 1 - (now - me.dashAt) / 350) : bf === 2 ? 1 : 0;
-    const lenMul = 1 + (bf ? 0.85 : 0) + burst * 1.1, widMul = 1 + (bf ? 0.35 : 0) + burst * 0.3;
+    // the main engine burns for thrust ahead; pushing sideways or backwards it drops to a pilot light (jets, below)
+    const tA = isMe ? (Number.isFinite(me.ta) ? me.ta : b.a) : thrustAngle(b), mainF = clamp(Math.cos(angD(tA - b.a)) * 1.3, 0, 1);
+    const lenMul = (1 + (bf ? 0.85 : 0) + burst * 1.1) * (0.3 + 0.7 * mainF), widMul = (1 + (bf ? 0.35 : 0) + burst * 0.3) * (0.6 + 0.4 * mainF);
     const pal = bf ? { outer: firePal.outer, mid: firePal.mid, core: [255, 255, 255] } : firePal;
-    if (bf) {   // afterburner glow around the nozzle
+    if (bf && mainF > 0.5) {   // afterburner glow around the nozzle
       const ag = g.createRadialGradient(0, s * 0.25, 0, 0, s * 0.25, s * (0.55 + burst * 0.4));
       ag.addColorStop(0, "rgba(255,230,170,0.75)"); ag.addColorStop(0.5, "rgba(255,150,60,0.3)"); ag.addColorStop(1, "rgba(255,100,40,0)");
       g.globalCompositeOperation = "lighter"; g.fillStyle = ag;
@@ -6262,6 +6287,18 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     drawFlame(s * (0.36 + 0.46 * Math.min(1.4, b.thrust)) * sputter * lenMul, s * 0.3 * widMul, now, (b.hue || 0) * 0.1, pal);
     g.restore();
+    const sideF = Math.min(1.4, b.thrust) * (1 - mainF);
+    if (sideF > 0.05) {   // manoeuvring jets: fire out of the hull on the side opposite the push (front or flank)
+      const R = b.a + Math.PI / 2 - SPRITE_TILT + Math.sin(now / 300 + x * 0.01) * 0.05 + (b.bank || 0) * 0.35, le = tA + Math.PI - R, r0 = s * 0.34;
+      g.save(); g.translate(Math.cos(le) * r0, Math.sin(le) * r0); g.rotate(le - Math.PI / 2);
+      if (bf) {   // boosting that way: a hot glow at the jet too
+        g.globalCompositeOperation = "lighter"; const jg = g.createRadialGradient(0, 0, 0, 0, 0, s * 0.4);
+        jg.addColorStop(0, "rgba(255,230,170,0.7)"); jg.addColorStop(1, "rgba(255,120,40,0)"); g.fillStyle = jg;
+        g.beginPath(); g.arc(0, 0, s * 0.4, 0, 6.29); g.fill(); g.globalCompositeOperation = "source-over";
+      }
+      drawFlame(s * (0.16 + 0.3 * sideF) * (bf ? 1.8 : 1) * sputter, s * 0.17 * (bf ? 1.35 : 1), now, (b.hue || 0) * 0.1 + 3, pal);
+      g.restore();
+    }
     drawWings(lv, s);
     drawMounts(isMe ? me.weapon : b.weapon, s, now);
     if (body) {
@@ -7227,7 +7264,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     ["Fire", `the left mouse button or ${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY(enter)})`],
     ["Dash", `tap ${KEY(shift)} — a quick dodge forward`],
     ["Boost", `hold ${KEY(shift)} — uses the blue energy bar`],
-    ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`],
+    ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")}, or click a gun in the bar`],
     ["Alt fire", `right mouse button or ${KEY("C")}: every gun has one — laser pulse, minigun burst, rail scope, flak, shock beam, gamma detonate, rocket salvo, slug, thrown mine, saw fan`],
     ["Teleporter", `${KEY("T")} throws the beacon, ${KEY("T")} again jumps onto it (land on someone: telefrag)`],
     ["Brake / drift", `hold ${KEY("X")} to brake; ${KEY("X")} + a direction drifts: you slide on while the nose swings round (shoot back)`],
@@ -7396,20 +7433,20 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const pickRes = v => { settings.res = v; saveSettings(); resScale = v === "auto" ? 1 : v; resize(); };
   segButtons(document.getElementById("setRes"), [["auto", "Auto"], [1, "100%"], [0.75, "75%"], [0.5, "50%"]], settings.res, pickRes);
   segButtons(document.getElementById("setFx"), [["high", "Full"], ["low", "Light"]], settings.fx, v => { settings.fx = v; saveSettings(); if (v === "high") lowQ = false; });
-  segButtons(document.getElementById("setMouse"), [["aim", "Aims"], ["steer", "Steers"]], settings.mouse, v => { settings.mouse = v; saveSettings(); });
+  segButtons(document.getElementById("setMouse"), [["aim", "Aims"], ["steer", "Steers"]], settings.mouse, v => { settings.mouse = v; saveSettings(); if (v === "steer" && aimLocked()) document.exitPointerLock(); });
   document.getElementById("mousePick").hidden = COARSE;
   segButtons(document.getElementById("setEngine"), [["on", "On"], ["off", "Off"]], settings.engine, v => { settings.engine = v; saveSettings(); });
   segButtons(document.getElementById("setAim"), [["off", "Off"], ["small", "Small"], ["big", "Big"]], settings.aim, v => { settings.aim = v; saveSettings(); });
   segButtons(document.getElementById("setAimCol"), [["gun", "Gun colour"], ["white", "White"], ["green", "Green"], ["red", "Red"]], settings.aimCol, v => { settings.aimCol = v; saveSettings(); });
   if (settings.res !== "auto") { resScale = settings.res; resize(); }
-  const openSettings = e => { e && e.stopPropagation(); setEl.classList.toggle("ingame", playing); document.getElementById("setTitle").textContent = playing ? "Menu" : "Graphics"; document.getElementById("setDone").textContent = playing ? "Back to the game" : "Done"; setEl.hidden = false; };
+  const openSettings = e => { e && e.stopPropagation(); if (document.exitPointerLock && aimLocked()) document.exitPointerLock(); setEl.classList.toggle("ingame", playing); document.getElementById("setTitle").textContent = playing ? "Menu" : "Graphics"; document.getElementById("setDone").textContent = playing ? "Back to the game" : "Done"; setEl.hidden = false; };
   document.getElementById("gearBtn").addEventListener("click", openSettings);
   document.getElementById("startGear").addEventListener("click", openSettings);
-  document.getElementById("setDone").addEventListener("click", () => { setEl.hidden = true; cv.focus(); });
-  setEl.addEventListener("click", e => { if (e.target === setEl) setEl.hidden = true; });
+  document.getElementById("setDone").addEventListener("click", () => { setEl.hidden = true; cv.focus(); lockAim(); });
+  setEl.addEventListener("click", e => { if (e.target === setEl) { setEl.hidden = true; lockAim(); } });
   addEventListener("keydown", e => {
     if (e.key !== "Escape") return;
-    if (!setEl.hidden) { setEl.hidden = true; cv.focus(); } else if (playing) openSettings();
+    if (!setEl.hidden) { setEl.hidden = true; cv.focus(); lockAim(); } else if (playing) openSettings();
   });
   document.getElementById("setLeave").addEventListener("click", () => { location.href = location.pathname + location.search; });   // back to the start screen
   // on a small screen the scoreboard shows only you (and the teams); a tap opens the whole table
@@ -7435,6 +7472,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     me.inv = performance.now() + 2000;
     playing = true;
     cv.focus();
+    lockAim();   // the take-off click captures the mouse: the crosshair is the cursor from now on
     renderBoard();
   });
 

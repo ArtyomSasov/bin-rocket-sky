@@ -849,7 +849,7 @@
       g.save(); g.setLineDash([14, 10]); g.lineDashOffset = -now / 20; g.strokeStyle = "rgba(217,168,255,0.55)"; g.lineWidth = 2;
       g.beginPath(); g.moveTo(x0 + ca * 60, y0 + sa * 60); g.lineTo(x0 + ca * L, y0 + sa * L); g.stroke(); g.restore();
     }
-    if (settings.aim === "off" || !playing || me.dead || guided) return;
+    if ((settings.aim === "off" && !aimLocked()) || !playing || me.dead || guided) return;
     const w = WEAPONS[me.weapon], col = w.col || "#ffb43c", a = me.a + (w.back ? Math.PI : 0), ca = Math.cos(a), sa = Math.sin(a);
     const D = (w.back ? 120 : 250) * sizeOf(me.lv), x0 = sx(me.x), y0 = sy(me.y);
     let lock = false;
@@ -926,9 +926,11 @@
     const firePal = fl === "rainbow" ? rainbowFlame(now) : fl ? FLAMES[fl] : tier;
     const bf = isMe ? me.boostFx : b.boost || 0;
     const burst = isMe ? Math.max(0, 1 - (now - me.dashAt) / 350) : bf === 2 ? 1 : 0;
-    const lenMul = 1 + (bf ? 0.85 : 0) + burst * 1.1, widMul = 1 + (bf ? 0.35 : 0) + burst * 0.3;
+    // the main engine burns for thrust ahead; pushing sideways or backwards it drops to a pilot light (jets, below)
+    const tA = isMe ? (Number.isFinite(me.ta) ? me.ta : b.a) : thrustAngle(b), mainF = clamp(Math.cos(angD(tA - b.a)) * 1.3, 0, 1);
+    const lenMul = (1 + (bf ? 0.85 : 0) + burst * 1.1) * (0.3 + 0.7 * mainF), widMul = (1 + (bf ? 0.35 : 0) + burst * 0.3) * (0.6 + 0.4 * mainF);
     const pal = bf ? { outer: firePal.outer, mid: firePal.mid, core: [255, 255, 255] } : firePal;
-    if (bf) {   // afterburner glow around the nozzle
+    if (bf && mainF > 0.5) {   // afterburner glow around the nozzle
       const ag = g.createRadialGradient(0, s * 0.25, 0, 0, s * 0.25, s * (0.55 + burst * 0.4));
       ag.addColorStop(0, "rgba(255,230,170,0.75)"); ag.addColorStop(0.5, "rgba(255,150,60,0.3)"); ag.addColorStop(1, "rgba(255,100,40,0)");
       g.globalCompositeOperation = "lighter"; g.fillStyle = ag;
@@ -937,6 +939,18 @@
     }
     drawFlame(s * (0.36 + 0.46 * Math.min(1.4, b.thrust)) * sputter * lenMul, s * 0.3 * widMul, now, (b.hue || 0) * 0.1, pal);
     g.restore();
+    const sideF = Math.min(1.4, b.thrust) * (1 - mainF);
+    if (sideF > 0.05) {   // manoeuvring jets: fire out of the hull on the side opposite the push (front or flank)
+      const R = b.a + Math.PI / 2 - SPRITE_TILT + Math.sin(now / 300 + x * 0.01) * 0.05 + (b.bank || 0) * 0.35, le = tA + Math.PI - R, r0 = s * 0.34;
+      g.save(); g.translate(Math.cos(le) * r0, Math.sin(le) * r0); g.rotate(le - Math.PI / 2);
+      if (bf) {   // boosting that way: a hot glow at the jet too
+        g.globalCompositeOperation = "lighter"; const jg = g.createRadialGradient(0, 0, 0, 0, 0, s * 0.4);
+        jg.addColorStop(0, "rgba(255,230,170,0.7)"); jg.addColorStop(1, "rgba(255,120,40,0)"); g.fillStyle = jg;
+        g.beginPath(); g.arc(0, 0, s * 0.4, 0, 6.29); g.fill(); g.globalCompositeOperation = "source-over";
+      }
+      drawFlame(s * (0.16 + 0.3 * sideF) * (bf ? 1.8 : 1) * sputter, s * 0.17 * (bf ? 1.35 : 1), now, (b.hue || 0) * 0.1 + 3, pal);
+      g.restore();
+    }
     drawWings(lv, s);
     drawMounts(isMe ? me.weapon : b.weapon, s, now);
     if (body) {

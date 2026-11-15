@@ -7,7 +7,7 @@
     ["Fire", `the left mouse button or ${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY(enter)})`],
     ["Dash", `tap ${KEY(shift)} — a quick dodge forward`],
     ["Boost", `hold ${KEY(shift)} — uses the blue energy bar`],
-    ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")} or the mouse wheel; or click a gun in the bar`],
+    ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")}, or click a gun in the bar`],
     ["Alt fire", `right mouse button or ${KEY("C")}: every gun has one — laser pulse, minigun burst, rail scope, flak, shock beam, gamma detonate, rocket salvo, slug, thrown mine, saw fan`],
     ["Teleporter", `${KEY("T")} throws the beacon, ${KEY("T")} again jumps onto it (land on someone: telefrag)`],
     ["Brake / drift", `hold ${KEY("X")} to brake; ${KEY("X")} + a direction drifts: you slide on while the nose swings round (shoot back)`],
@@ -176,20 +176,20 @@
   const pickRes = v => { settings.res = v; saveSettings(); resScale = v === "auto" ? 1 : v; resize(); };
   segButtons(document.getElementById("setRes"), [["auto", "Auto"], [1, "100%"], [0.75, "75%"], [0.5, "50%"]], settings.res, pickRes);
   segButtons(document.getElementById("setFx"), [["high", "Full"], ["low", "Light"]], settings.fx, v => { settings.fx = v; saveSettings(); if (v === "high") lowQ = false; });
-  segButtons(document.getElementById("setMouse"), [["aim", "Aims"], ["steer", "Steers"]], settings.mouse, v => { settings.mouse = v; saveSettings(); });
+  segButtons(document.getElementById("setMouse"), [["aim", "Aims"], ["steer", "Steers"]], settings.mouse, v => { settings.mouse = v; saveSettings(); if (v === "steer" && aimLocked()) document.exitPointerLock(); });
   document.getElementById("mousePick").hidden = COARSE;
   segButtons(document.getElementById("setEngine"), [["on", "On"], ["off", "Off"]], settings.engine, v => { settings.engine = v; saveSettings(); });
   segButtons(document.getElementById("setAim"), [["off", "Off"], ["small", "Small"], ["big", "Big"]], settings.aim, v => { settings.aim = v; saveSettings(); });
   segButtons(document.getElementById("setAimCol"), [["gun", "Gun colour"], ["white", "White"], ["green", "Green"], ["red", "Red"]], settings.aimCol, v => { settings.aimCol = v; saveSettings(); });
   if (settings.res !== "auto") { resScale = settings.res; resize(); }
-  const openSettings = e => { e && e.stopPropagation(); setEl.classList.toggle("ingame", playing); document.getElementById("setTitle").textContent = playing ? "Menu" : "Graphics"; document.getElementById("setDone").textContent = playing ? "Back to the game" : "Done"; setEl.hidden = false; };
+  const openSettings = e => { e && e.stopPropagation(); if (document.exitPointerLock && aimLocked()) document.exitPointerLock(); setEl.classList.toggle("ingame", playing); document.getElementById("setTitle").textContent = playing ? "Menu" : "Graphics"; document.getElementById("setDone").textContent = playing ? "Back to the game" : "Done"; setEl.hidden = false; };
   document.getElementById("gearBtn").addEventListener("click", openSettings);
   document.getElementById("startGear").addEventListener("click", openSettings);
-  document.getElementById("setDone").addEventListener("click", () => { setEl.hidden = true; cv.focus(); });
-  setEl.addEventListener("click", e => { if (e.target === setEl) setEl.hidden = true; });
+  document.getElementById("setDone").addEventListener("click", () => { setEl.hidden = true; cv.focus(); lockAim(); });
+  setEl.addEventListener("click", e => { if (e.target === setEl) { setEl.hidden = true; lockAim(); } });
   addEventListener("keydown", e => {
     if (e.key !== "Escape") return;
-    if (!setEl.hidden) { setEl.hidden = true; cv.focus(); } else if (playing) openSettings();
+    if (!setEl.hidden) { setEl.hidden = true; cv.focus(); lockAim(); } else if (playing) openSettings();
   });
   document.getElementById("setLeave").addEventListener("click", () => { location.href = location.pathname + location.search; });   // back to the start screen
   // on a small screen the scoreboard shows only you (and the teams); a tap opens the whole table
@@ -215,6 +215,7 @@
     me.inv = performance.now() + 2000;
     playing = true;
     cv.focus();
+    lockAim();   // the take-off click captures the mouse: the crosshair is the cursor from now on
     renderBoard();
   });
 

@@ -114,10 +114,12 @@ players (they face where they steer, so they make attack runs, break off and loo
 - **Aim (mouse):** the gun follows the cursor wherever you fly; the crosshair is the cursor and the view leans
   toward it. Shots keep only the bin's speed along their own line, so they go where you point. Settings →
   Mouse → Steers brings back the old way (hold the button to fly toward the pointer).
+- **Mouse capture:** after take-off the mouse is captured like in a shooter: no system cursor, the mouse moves
+  only the crosshair. Esc lets it go; a click on the game takes it back.
 - **Fire:** the left mouse button, Space, F, J or Enter (or the fire button).
 - **Boost / dash:** hold Shift to boost, tap it to dash.
 - **Brake / drift:** hold X to brake; X with a direction drifts (you slide on while the nose swings round).
-- **Weapons:** 1–8, Q/E or the mouse wheel. **Alt fire:** right mouse button or C — every gun has one: laser
+- **Weapons:** 1–8 or Q/E (not the mouse wheel: a touch-surface mouse scrolls by accident). **Alt fire:** right mouse button or C — every gun has one: laser
   pulse (shoves), minigun burst (no spin-up, overheats), railgun scope (look far ahead), flak (bursts into eight
   shards), shock beam (combo on your orb), gamma detonate, rocket salvo, shotgun slug, thrown mine, saw fan.
 - **Trophies:** the gun a pilot dies with drops where it died, with its ammo, for 15 s; anyone can take it.

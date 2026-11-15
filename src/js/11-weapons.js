@@ -520,7 +520,7 @@
     el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICONS[me.weapon]}"/></svg>`;
     el.append(chipText());
     el.style.color = w.col || "";
-    // the weapon bar: every gun you carry, tap/click or 1-8 / Q / E / mouse wheel to switch
+    // the weapon bar: every gun you carry, tap/click or 1-8 / Q / E to switch
     const list = owned();
     arsenalEl.hidden = !playing || list.length < 2;
     arsenalEl.innerHTML = list.map((k, i) => {
@@ -555,14 +555,9 @@
     else if (e.code === "KeyQ") cycleWeapon(-1);
     else if (e.code === "KeyE") cycleWeapon(1);
   });
-  let wheelAt = 0;
-  cv.addEventListener("wheel", e => {
-    if (!playing) return;
-    e.preventDefault();
-    const t = performance.now();
-    if (t - wheelAt < 120 || !e.deltaY) return;
-    wheelAt = t; cycleWeapon(e.deltaY > 0 ? 1 : -1);
-  }, { passive: false });
+  // the mouse wheel does not switch guns: on a touch-surface mouse (Magic Mouse) a resting finger scrolls all
+  // the time. It is only kept from scrolling the page
+  cv.addEventListener("wheel", e => { if (playing) e.preventDefault(); }, { passive: false });
   function nukeTouches(s) {
     if (!s.mine && playing && !me.dead && segHit(s, me.x, me.y, 20 + 26 * sizeOf(me.lv))) return true;
     for (const [id, r] of remotes) if (!r.dead && id !== s.owner && segHit(s, r.x, r.y, 20 + 26 * sizeOf(r.lv))) return true;

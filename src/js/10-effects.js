@@ -100,18 +100,21 @@
     return [bh === null ? "#4fd6c8" : toneCss(bh, 65, 55), lh === null ? "#9d8fc8" : toneCss(lh, 45, 60)];
   };
   // boost: a dense jet of fire out of the nozzle
+  // which way a pilot is pushing (ta), or where it faces when that isn't known: exhaust always comes out the
+  // other side, so flying backwards or sideways fires the jets on the front or the flank
+  function thrustAngle(b) { return Number.isFinite(b.ta) ? b.ta : b.a; }
   function afterburner(b, fx, dt) {
     if (!fx) return;
-    const bx = Math.cos(b.a), by = Math.sin(b.a), sz = sizeOf(b.lv || 1), tail = 46 * sz, q = lowQ ? 0.4 : 1;
+    const A = thrustAngle(b), bx = Math.cos(A), by = Math.sin(A), sz = sizeOf(b.lv || 1), tail = 46 * sz, q = lowQ ? 0.4 : 1;
     const n = (fx === 2 ? 140 : 110) * q * dt;
     for (let k = 0; k < n || (k === 0 && Math.random() < n); k++) {   // a long roaring plume
       const sp = 320 + Math.random() * 420, j = (Math.random() - 0.5) * 0.45;
-      const vx = -Math.cos(b.a + j) * sp, vy = -Math.sin(b.a + j) * sp;
+      const vx = -Math.cos(A + j) * sp, vy = -Math.sin(A + j) * sp;
       puff(b.x - bx * tail, b.y - by * tail, vx + (b.vx || 0) * 0.4, vy + (b.vy || 0) * 0.4, 0.3 + Math.random() * 0.35, 3.5 + Math.random() * 5 * sz, FIRE_COLS[(Math.random() * 3) | 0]);
     }
     for (let k = 0; k < 40 * q * dt || (k === 0 && Math.random() < 40 * q * dt); k++) {   // a blue-white shock core and sparks streaking back
       const v = 500 + Math.random() * 400, j = (Math.random() - 0.5) * 0.25;
-      puff(b.x - bx * tail, b.y - by * tail, -Math.cos(b.a + j) * v + (b.vx || 0) * 0.5, -Math.sin(b.a + j) * v + (b.vy || 0) * 0.5, 0.18 + Math.random() * 0.15, 1.6 + Math.random() * 1.4, k % 2 ? "#bfefff" : "#ffffff", 1);
+      puff(b.x - bx * tail, b.y - by * tail, -Math.cos(A + j) * v + (b.vx || 0) * 0.5, -Math.sin(A + j) * v + (b.vy || 0) * 0.5, 0.18 + Math.random() * 0.15, 1.6 + Math.random() * 1.4, k % 2 ? "#bfefff" : "#ffffff", 1);
     }
     if (Math.random() < 14 * q * dt) {   // shock diamonds pulsing in the exhaust
       const d = tail + 30 + Math.random() * 60;
@@ -120,7 +123,7 @@
   }
   // dash: a flash and a hot ring at the nozzle, sparks thrown back
   function dashBurst(b) {
-    const bx = Math.cos(b.a), by = Math.sin(b.a), sz = sizeOf(b.lv || 1), tx = b.x - bx * 44 * sz, ty = b.y - by * 44 * sz;
+    const A = thrustAngle(b), bx = Math.cos(A), by = Math.sin(A), sz = sizeOf(b.lv || 1), tx = b.x - bx * 44 * sz, ty = b.y - by * 44 * sz;
     impacts.push({ x: tx, y: ty, t: 0, r: 90 * sz, col: "#ffd23f" });
     rings.push({ x: tx, y: ty, t: 0, r: 110 * sz, col: "255,220,160", dur: 0.35, w: 8 });
     for (let k = 0; k < (lowQ ? 12 : 30); k++) {
@@ -375,7 +378,7 @@
   const TRAIL = ["#ffe3f6", "#ffffff", "#ffd2a0", "#f3c6ff"];
   function trailFrom(b, rate, dt) {
     const n = rate * dt * (lowQ ? 25 : 60);
-    const bx = Math.cos(b.a), by = Math.sin(b.a), sz = sizeOf(b.lv || 1), tail = 40 * sz;
+    const A = thrustAngle(b), bx = Math.cos(A), by = Math.sin(A), sz = sizeOf(b.lv || 1), tail = 40 * sz;
     const tr = b.ck ? customVal(b.ck, "trail") : null, trailCols = tr ? TRAILS[tr] : TRAIL;
     for (let k = 0; k < n || (k === 0 && Math.random() < n); k++) {
       const tx = b.x - bx * tail + (Math.random() - .5) * 14 * sz, ty = b.y - by * tail + (Math.random() - .5) * 14 * sz;
