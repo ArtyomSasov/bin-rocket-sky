@@ -28,7 +28,7 @@ function setup() {
     mapOf: () => 'm', modeOf: () => 'd', mapThemeOf: () => 'c', setMapSize() {}, buildPlanets() {}, setMode() {}, spawnPoint: () => ({}),
     MODES: { d: { label: 'DM' } }, MODE: 'd', MAPS: { c: { label: 'Classic' } }, playing: true,
     sizeOf: () => 1, clockTarget: 0, clockOff: 0, lerpAng: () => 0, vw: 1, vh: 1, wrapD: x => x,
-    gainXp() {}, killXp: () => 10, announce() {}, gunDrops: new Map(), WEAPON_KEYS: ['fire', 'rail', 'tele'],
+    gainXp() {}, killXp: () => 10, announce() {}, killStyle() {}, gunDrops: new Map(), WEAPON_KEYS: ['fire', 'rail', 'tele'],
   };
   vm.createContext(c);
   vm.runInContext(read('12-network.js') + '\nglobalThis.api = {applyRemote, initNet, chooseLobby, botsOf, net};', c);

@@ -197,6 +197,8 @@
     if (!me.dead) { trailFrom(me, 0.6 + me.thrust * 1.6 + me.boostFx * 1.5, dt); if (playing) damageFx(me, dt); afterburner(me, me.boostFx, dt); }
   }
   // every shot in flight: homing, ricochets, digging into bodies, hitting me (I decide) or reaching others
+  let ricAt = 0, whizAt = 0;
+  const spotHeard = new Set();
   function updateShots(dt, now) {
     // fireballs
     for (let i = shots.length - 1; i >= 0; i--) {
@@ -257,6 +259,8 @@
           if (s.kind === K.SHARD) shardRicochet(s);
         } else {
           if (dig) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);
+          if ((s.kind === K.BULLET || s.kind === K.PELLET) && now - ricAt > 90) { ricAt = now; packPlay("p_ric", 0.4, hb.x, hb.y); }   // whine off the rock
+          if (s.kind === K.MINE) packPlay("p_mine_hit", 0.7, hb.x, hb.y);
           s.x = hb.x; s.y = hb.y;
           if (s.kind === K.FLAK) { const [nx, ny] = normalAt(hb.b, hb.x, hb.y); s.x += nx * 12; s.y += ny * 12; flakBurst(s); }   // bursts just off the surface
           if (SPLASH[s.kind]) splash(s, now);
@@ -284,6 +288,20 @@
       } else if (s.kind === K.PELLET || s.kind === K.MINE || s.kind === K.BOLT) {
         // pellets are too short-lived for a trail; mines just sit there blinking
       } else if (Math.random() < dt * 40) puff(s.x, s.y, -s.vx * 0.08 + (Math.random() - .5) * 60, -s.vy * 0.08 + (Math.random() - .5) * 60, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 2, FIRE_COLS[(Math.random() * 4) | 0]);
+      // a round that only just misses me whizzes by
+      if (!s.mine && !s.whiz && playing && !me.dead && (s.kind === K.BULLET || s.kind === K.PELLET || s.kind === K.SHARD || s.kind === K.RAIL) && now - whizAt > 120
+          && segHit(s, me.x, me.y, binR(me.lv) + 140) && !segHit(s, me.x, me.y, binR(me.lv))) { s.whiz = true; whizAt = now; packPlay(s.kind === K.SHARD ? "p_whiz_shard" : "p_whiz", 0.7, s.x, s.y); }
+      // a rocket or an orb flying past roars by (yours too, once, as it leaves)
+      if (!s.flyby && (s.kind === K.ROCKET || s.kind === K.ORB) && playing && !me.dead && Math.hypot(s.x - me.x, s.y - me.y) < (s.mine ? 200 : 380)) {
+        s.flyby = true; packPlay(s.kind === K.ROCKET ? "p_fly_rocket" : "p_fly_orb", s.mine ? 0.35 : 0.7, s.x, s.y);
+      }
+      // my armed mine ticks while an enemy is near it
+      if (s.kind === K.MINE && s.mine && s.armedFx && now - (s.tickAt || 0) > 550) {
+        let near = false;
+        for (const [rid, r] of remotes) if (!r.dead && !mates(r, me) && Math.hypot(r.x - s.x, r.y - s.y) < 320) { near = true; break; }
+        if (near) { s.tickAt = now; packPlay("p_tick_mine", 0.6, s.x, s.y); }
+      }
+      if (s.kind === K.MINE && s.mine && !s.armedFx && SHOTS[K.MINE].life - s.life >= MINE_ARM) { s.armedFx = true; packPlay("p_arm_mine", 0.5, s.x, s.y); }   // my mine is armed
       // enemy fireball hits me (I decide, then report the shot id)
       const armed = s.kind !== K.MINE || SHOTS[K.MINE].life - s.life >= MINE_ARM;
       if (armed && canHurt(s, me, "me", s.kind === K.MINE) && segHit(s, me.x, me.y, binR(me.lv) + SHOTS[s.kind].r) && (!pierces(s) || railOnce(s, "me"))) {
@@ -390,7 +408,7 @@
         me.vx += dx / d * kick; me.vy += dy / d * kick;
         impact(me.x - dx / 2, me.y - dy / 2, "#bdfff6", 1.2);
         if (rammed || mineRam) { sparkShower(me.x - dx / 2, me.y - dy / 2, -dy, dx, 1.3); sparkShower(me.x - dx / 2, me.y - dy / 2, dy, -dx, 1.3); shake = Math.max(shake, 0.4); }
-        sfx("ram", rammed ? 1 : 0.6) || blip(rammed ? 120 : 220, 0.2, "square");
+        packPlay("p_ram", rammed ? 1 : 0.6) || sfx("ram", rammed ? 1 : 0.6) || blip(rammed ? 120 : 220, 0.2, "square");
         // they rammed me on boost: I take the damage and report it so they get the credit
         if (rammed && r.tag && !mates(r, me)) {
           const id = r.tag + ".ram" + Math.floor(now);
@@ -479,6 +497,12 @@
       announce("OVERDRIVE", "triple damage for 20 seconds", "#c38bff", 4);
       for (let k = 0; k < 50; k++) { const a = Math.random() * 6.28, v = 100 + Math.random() * 300; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.8, 2.5, k % 2 ? "#c38bff" : "#ffffff"); }
       rings.push({ x: c.x, y: c.y, t: 0, r: 260, col: "195,139,255", warp: true, dur: 0.6, w: 14 });
+    }
+    // a gun lying on its spot hums as you come near (once per approach)
+    if (playing && !me.dead) for (const c of world.picks) {
+      const d = Math.hypot(c.x - me.x, c.y - me.y), k = "h" + Math.round(c.x) + ":" + Math.round(c.y);
+      if (d < 260 && !grabbed.has(c.key) && !spotHeard.has(k)) { spotHeard.add(k); packPlay("p_spot", 0.5, c.x, c.y); }
+      else if (d > 520) spotHeard.delete(k);
     }
     // weapon crates
     if (playing && !me.dead) {

@@ -202,7 +202,7 @@
         const dx = b.x - me.x, dy = b.y - me.y, d = Math.hypot(dx, dy) || 1;
         b.vx += dx / d * 900; b.vy += dy / d * 900; me.vx -= dx / d * 260; me.vy -= dy / d * 260;
         sparkShower((b.x + me.x) / 2, (b.y + me.y) / 2, -dy, dx, 1.3); sparkShower((b.x + me.x) / 2, (b.y + me.y) / 2, dy, -dx, 1.3);
-        shake = Math.max(shake, 0.4); sfx("ram", 1) || blip(120, 0.2, "square");
+        shake = Math.max(shake, 0.4); packPlay("p_ram", 1) || sfx("ram", 1) || blip(120, 0.2, "square");
         botHurt(b, me.boostFx === 2 ? 1.2 : 0.6, myTag + ".ram" + Math.floor(now), now, false);
       }
       // anyone's shots can hit the bot (the bot's own excepted)

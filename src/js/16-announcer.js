@@ -18,10 +18,11 @@
   const killSeen = new Set(), streaks = new Map();
   let firstBlood = false;
   // Dota-style ladder: kills in a row without dying, one step per kill, then "beyond godlike" every other kill
-  const SPREE_LADDER = { 3: ["KILLING SPREE", "is on a killing spree"], 4: ["DOMINATING", "is dominating"], 5: ["MEGA KILL", "has a mega kill"],
-    6: ["UNSTOPPABLE", "is unstoppable"], 7: ["WICKED SICK", "is wicked sick"], 8: ["MONSTER KILL", "has a monster kill"], 9: ["GODLIKE", "is godlike"] };
-  const spreeOf = n => SPREE_LADDER[n] || (n >= 10 && n % 2 === 0 ? ["BEYOND GODLIKE", "is beyond godlike. Somebody kill them!"] : null);
-  const MULTI = ["", "", "DOUBLE KILL", "TRIPLE KILL", "ULTRA KILL", "RAMPAGE"];
+  const SPREE_LADDER = { 3: ["KILLING SPREE", "is on a killing spree"], 5: ["RAMPAGE", "is on a rampage"], 7: ["DOMINATING", "is dominating"],
+    9: ["UNSTOPPABLE", "is unstoppable"], 11: ["GODLIKE", "is godlike"], 13: ["WICKED SICK", "is wicked sick"] };
+  const spreeOf = n => SPREE_LADDER[n] || (n >= 15 && n % 2 === 1 ? ["BEYOND GODLIKE", "is beyond godlike. Somebody kill them!"] : null);
+  // kills within 4 s of each other
+  const MULTI = ["", "", "DOUBLE KILL", "TRIPLE KILL", "MULTI KILL", "ULTRA KILL", "MONSTER KILL", "LUDICROUS KILL", "HOLY SHIT"];
   // someone (anyone) killed someone: one line in the feed, first blood, other pilots' sprees
   function reportKill(shotId, victim) {
     if (killSeen.has(shotId) || killSeen.size >= MAX_CREDITS || !roundLive) return;
@@ -81,8 +82,12 @@
     annEl.innerHTML = `<b>${esc(text)}</b>${sub ? `<span>${esc(sub)}</span>` : ""}`;
     annEl.style.setProperty("--ac", col);
     annEl.classList.remove("show"); void annEl.offsetWidth; annEl.classList.add("show");
-    sting(level);
-    const voice = { "ULTRA KILL": "v_multikill", "RAMPAGE": "v_multikill", "OVERDRIVE": "v_powerup" }[text];
-    if (!silent) setTimeout(() => { if (!(voice && sfx(voice, 1))) speak(text); }, 180);
+    // a sound pack's announcer line comes first: by the words of the line ("DOUBLE KILL" -> a_doublekill), the flag
+    // lines and Overdrive by meaning; then the built-in voices; then speech
+    const key = /has the .* flag$|^YOU HAVE THE FLAG$/i.test(text) ? "a_flagtaken" : / team scores!$/i.test(text) ? "a_flagcap"
+      : text === "BEYOND GODLIKE" ? "a_holyshit" : "a_" + text.toLowerCase().replace(/[^a-z]/g, "");
+    if (!packHas(key)) sting(level);   // the synthesized sting only where the pack has no voice for the line
+    const voice = { "ULTRA KILL": "v_multikill", "MULTI KILL": "v_multikill", "RAMPAGE": "v_multikill", "OVERDRIVE": "v_powerup" }[text];
+    if (!silent || packHas(key)) setTimeout(() => { if (!packPlay(key, 1) && !(voice && sfx(voice, 1)) && !silent) speak(text); }, 180);
   }
 

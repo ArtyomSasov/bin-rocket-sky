@@ -176,6 +176,7 @@
       credited.add("ko" + k); me.score += 5; floaters.push({ x: r.x, y: r.y - 50, t: 0, txt: "KILL " + r.name, gold: true });
       if ((r.lv || 1) >= MAX_LV) announce("KING SLAIN", "you took the crown's bounty", "#ffd36b", 3);
       gainXp(killXp(me.lv, r.lv || 1), performance.now());
+      killStyle(k, r);
       stats.kills++; stats.streak++; stats.best = Math.max(stats.best, stats.streak);
       myKillAnnounce(performance.now());
       blip(520, 0.35);

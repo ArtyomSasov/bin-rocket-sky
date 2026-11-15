@@ -73,10 +73,69 @@
     // the one-file game carries its sounds inside (window.BRS_SFX, data: URLs); the page fetches them from sfx/
     for (const n of SFX_NAMES) fetch((window.BRS_SFX && window.BRS_SFX[n]) || "sfx/" + n + (SFX_MP3.has(n) ? ".mp3" : ".wav")).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
       .then(b => audio.decodeAudioData(b)).then(b => { sfxBuf[n] = b; }).catch(() => {});   // missing file: the synth sound stays
+    loadPack();
   }
+  // ---- the game's sound pack (sfx/pack: the author's weapon sounds and announcer voice). Each file is matched to a game
+  // event by its path (a Quake III-style weapons tree) or, for the announcer, by a word in its name; where the pack has
+  // a sound it plays instead of the built-in or synthesized one. sfx/pack/index.json (written by the build) lists them;
+  // the one-file game carries them inside (window.BRS_PACK)
+  const PACK_PATHS = {
+    p_fire_minigun: ["machinegun/fire1.wav", "machinegun/fire2.wav", "machinegun/fire3.wav", "machinegun/fire4.wav"],
+    p_burst_minigun: ["chaingun/f1b.wav", "chaingun/f2b.wav", "chaingun/f3b.wav", "chaingun/f4b.wav", "chaingun/fire.wav"],
+    p_spin_minigun: ["chaingun/wind.wav"], p_hit_bullet: ["chaingun/impd.wav", "chaingun/impl.wav", "chaingun/impm.wav"],
+    p_ric: ["machinegun/ric1.wav", "machinegun/ric2.wav", "machinegun/ric3.wav"], p_whiz: ["machinegun/buletby1.wav"],
+    p_fire_scatter: ["shotgun/sshotf1b.wav"],
+    p_fire_rocket: ["rocket/rocklf1a.wav"], p_boom_rocket: ["rocket/rocklx1a.wav"], p_fly_rocket: ["rocket/rockfly.wav"],
+    p_fire_orb: ["plasma/hyprbf1a.wav"], p_boom_orb: ["plasma/plasmx1a.wav"], p_fly_orb: ["plasma/lasfly.wav"],
+    p_fire_rail: ["railgun/railgf1a.wav"], p_hum_rail: ["railgun/rg_hum.wav"],
+    p_fire_laser: ["lightning/lg_fire_start.wav"], p_loop_laser: ["lightning/lg_fire_loop.wav"], p_hum_laser: ["lightning/lg_hum.wav"],
+    p_hit_laser: ["lightning/lg_hit.wav", "lightning/lg_hit2.wav", "lightning/lg_hit3.wav"],
+    p_fire_gamma: ["bfg/bfg_fire.wav"], p_hum_gamma: ["bfg/bfg_hum.wav"],
+    p_fire_mine: ["proxmine/fire.wav"], p_arm_mine: ["proxmine/actv.wav"], p_boom_mine: ["proxmine/expl.wav"], p_tick_mine: ["proxmine/tick.wav"],
+    p_mine_hit: ["proxmine/impd.wav", "proxmine/impl.wav", "proxmine/impm.wav"],
+    p_fire_shard: ["nailgun/wnalfire.wav"], p_hit_shard: ["nailgun/wnalimpd.wav", "nailgun/wnalimpl.wav", "nailgun/wnalimpm.wav"], p_whiz_shard: ["nailgun/wnalflit.wav"],
+    p_throw: ["grenade/grenlf1a.wav"], p_bounce: ["grenade/hgrenb1a.wav", "grenade/hgrenb2a.wav"],
+    p_ram: ["melee/fstatck.wav"], p_dash: ["melee/fstrun.wav"],
+    p_change: ["change.wav"], p_noammo: ["noammo.wav"], p_spot: ["weapon_hover.wav"]
+  };
+  // the announcer: a word in the file's name -> the line it voices (longest words first)
+  const PACK_VOICES = [["ludicrouskill", "a_ludicrouskill"], ["monsterkill", "a_monsterkill"], ["doublekill", "a_doublekill"], ["triplekill", "a_triplekill"],
+    ["ultrakill", "a_ultrakill"], ["multikill", "a_multikill"], ["holyshit", "a_holyshit"], ["killingspree", "a_killingspree"], ["wickedsick", "a_wickedsick"],
+    ["dominating", "a_dominating"], ["rampage", "a_rampage"], ["godlike", "a_godlike"], ["impressive", "a_impressive"], ["humiliation", "a_humiliation"],
+    ["headshot", "a_headshot"], ["combowhore", "a_shockcombo"], ["flagtaken", "a_flagtaken"], ["flagcap", "a_flagcap"], ["quad", "a_overdrive"],
+    ["prepare", "v_prepare"], ["fight", "v_fight"]];
+  function packEventFor(path) {
+    const p = path.toLowerCase().replace(/\\/g, "/"), word = p.split("/").pop().replace(/\.[a-z0-9]+$/, "").replace(/[^a-z]/g, "");
+    for (const [ev, list] of Object.entries(PACK_PATHS)) if (list.some(e => p === e || p.endsWith("/" + e))) return ev;
+    for (const [kw, ev] of PACK_VOICES) if (word.includes(kw)) return ev;
+    return null;
+  }
+  const packBuf = {};   // event -> its decoded variants (one is picked at random)
+  function loadPack() {
+    const add = (path, src) => {
+      const ev = packEventFor(path);
+      if (ev) fetch(src).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)).then(b => audio.decodeAudioData(b)).then(b => { (packBuf[ev] = packBuf[ev] || []).push(b); }).catch(() => {});
+    };
+    if (window.BRS_PACK) { for (const [p, d] of Object.entries(window.BRS_PACK)) add(p, d); return; }
+    fetch("sfx/pack/index.json").then(r => r.json()).then(list => { for (const p of list) add(p, "sfx/pack/" + p.split("/").map(encodeURIComponent).join("/")); }).catch(() => {});
+  }
+  const packHas = ev => !!(packBuf[ev] && packBuf[ev].length);
+  function packPlay(ev, vol = 1, x, y) { return ev && packHas(ev) ? sfx(ev, vol, 1, x, y) : false; }
+  // looping pack sounds in two slots: "hum" (the gun in your hands) and "beam" (the laser while it fires)
+  const packLoops = {};
+  function packLoop(slot, ev, vol = 0.3) {
+    const cur = packLoops[slot];
+    if (cur && cur.ev === ev) return;
+    if (cur) { try { cur.g.gain.setTargetAtTime(0, audio.currentTime, 0.04); cur.src.stop(audio.currentTime + 0.25); } catch {} packLoops[slot] = null; }
+    if (!ev || !audio || !sfxBus || !packHas(ev)) return;
+    const src = audio.createBufferSource(), g = audio.createGain();
+    src.buffer = packBuf[ev][0]; src.loop = true; g.gain.value = vol; src.connect(g).connect(sfxBus); src.start();
+    packLoops[slot] = { ev, src, g };
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) { packLoop("hum", null); packLoop("beam", null); } });
   // x, y: where it happens (quieter with distance, silent past ~2200); rate: pitch, with a little random spread
   function sfx(name, vol = 1, rate = 1, x, y) {
-    const b = sfxBuf[name], tune = SFX_TUNE[name];
+    const pk = packBuf[name], b = pk && pk.length ? pk[(Math.random() * pk.length) | 0] : sfxBuf[name], tune = pk && pk.length ? null : SFX_TUNE[name];   // a pack's own sound plays as it is
     if (!audio || !b) return false;
     if (x !== undefined) {
       const d = Math.hypot(x - me.x, y - me.y);

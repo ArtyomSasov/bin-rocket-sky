@@ -3,7 +3,8 @@
 A browser multiplayer space shooter: you fly a turquoise bin-rocket, blast other bins, chip planets and
 wrecks apart and collect weapons.
 
-**Play:** https://artyomsasov.github.io/bin-rocket-sky/
+**Play:** the repository is private, so GitHub Pages is off: run it locally (`npm run build && npm run serve`, then
+http://localhost:8000) or open the one-file game `bin-rocket-sky.html`.
 
 ## Modes
 
@@ -186,6 +187,9 @@ src/js/           the game code, one file per section, joined in file-name order
 tools/build.mjs   the build (also writes sw.js, the offline cache, from src/sw.js)
 manifest.webmanifest  lets the game be added to a home screen
 sfx/              sound effects (see sfx/CREDITS.txt)
+sfx/pack/         the author's sound pack: weapons/ (a Quake III-style weapons tree) and voice/ (announcer lines).
+                  05-sound.js matches each file to a game event by its path or a word in its name; where the pack
+                  has a sound it plays instead of the built-in one. The build lists them in sfx/pack/index.json
 bot.png           bin sprite
 ```
 

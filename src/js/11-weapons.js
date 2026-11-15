@@ -20,7 +20,15 @@
   // a pellet hurts more the closer it was fired from (the classic shotgun falloff); it also shoves what it hits
   const pelletDmg = s => { const d = Math.hypot(s.x - s.ox, s.y - s.oy); return d < 300 ? 0.27 : d < 550 ? 0.18 : 0.09; };
   // how someone else's shot sounds here (quieter with distance)
-  const shotSound = (kind, x, y) => { const [name, vol, pitch] = SHOTS[kind].sfx; sfx(name, vol, pitch, x, y); };
+  // which gun a shot kind comes from, for a sound pack's gun sounds
+  const KIND_GUN = { [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
+    [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.SHARD]: "shard", [K.FLAK]: "shard" };
+  let laserHeardAt = 0;
+  const shotSound = (kind, x, y) => {
+    if (kind === K.LASER && packHas("p_fire_laser")) { const t = performance.now(); if (t - laserHeardAt > 900) { laserHeardAt = t; packPlay("p_fire_laser", 0.5, x, y); } return; }   // a beam, not twelve shots a second
+    if (KIND_GUN[kind] && packPlay("p_fire_" + KIND_GUN[kind], 0.75, x, y)) return;
+    const [name, vol, pitch] = SHOTS[kind].sfx; sfx(name, vol, pitch, x, y);
+  };
   // a shard hits 30% harder after every ricochet
   const shotDmg = s => MODES[MODE].instagib && s.kind === K.RAIL ? 99 : (s.kind === K.PELLET ? pelletDmg(s) : SHOTS[s.kind].dmg * (s.kind === K.SHARD ? 1 + 0.3 * (s.bn || 0) : 1)) * (s.m || 1);
   // team modes: whose side a shot is on (no friendly fire)
@@ -204,19 +212,29 @@
       rings.push({ x, y, t: -0.06, r: 170, col: "255,255,255", dur: 0.35, w: 6 });
       for (let k = 0; k < (lowQ ? 18 : 48); k++) { const a = Math.random() * 6.283, v = 150 + Math.random() * 520; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.35 + Math.random() * 0.5, 1.2 + Math.random() * 1.6, k % 3 ? "#9fe8ff" : "#ffffff", 1, 0.05); }
       for (let k = 0; k < 4; k++) { const a = Math.random() * 6.283; arcs.push({ x1: x, y1: y, x2: x + Math.cos(a) * 140, y2: y + Math.sin(a) * 140, t: 0 }); }
-      if (near) { sfx("boom_small", 0.9, 1.35, x, y); sfx("shield_hit", 0.8, 0.6, x, y); shake = Math.max(shake, 0.25 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
+      if (near && !packPlay("p_boom_orb", 1, x, y)) { sfx("boom_small", 0.9, 1.35, x, y); sfx("shield_hit", 0.8, 0.6, x, y); }
+      if (near) { shake = Math.max(shake, 0.25 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
     } else {   // rocket: a fat fireball with a warping shock ring and smoke
       explode(x, y, lowQ ? 40 : 80, 420);
       impacts.push({ x, y, t: 0, r: 140, col: "#fff2c0" });
       rings.push({ x, y, t: 0, r: 240, col: "255,200,140", warp: true, dur: 0.5, w: 14 });
       smoke(x, y, lowQ ? 5 : 12, 90, 2);
-      if (near) { sfx("boom_small", 1, 0.95, x, y); shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
+      if (near) { packPlay("p_boom_rocket", 1, x, y) || sfx("boom_small", 1, 0.95, x, y); shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
     }
   }
   let hitTickAt = 0;
   let hitStopUntil = 0;
+  // Quake's medals: Impressive for two rail hits in a row; Humiliation for a ram kill; Headshot for a scoped rail kill from afar
+  let railRun = 0, railLast = null;
+  const myRails = new Map();
+  function killStyle(k, victim) {
+    if (k.includes(".ram")) { setTimeout(() => announce("HUMILIATION", "rammed " + victim.name, "#ff8a5a", 3), 1400); return; }
+    const r = myRails.get(k);
+    if (r && r.scoped && Math.hypot(victim.x - r.x, victim.y - r.y) > 1200) setTimeout(() => announce("HEADSHOT", "a scoped rail kill from afar", "#d9a8ff", 3), 1400);
+  }
   function hitConfirm(s, lv, x, y, target) {
     const t0 = performance.now();
+    if (s.mine && s.kind === K.RAIL && !s.hitAny) { s.hitAny = true; if (++railRun >= 2) announce("IMPRESSIVE", railRun + " rail hits in a row", "#d9a8ff", 2); }
     if (target) target.hitAt = t0;
     if (s.mine && shotDmg(s) >= 0.9) hitStopUntil = Math.max(hitStopUntil, t0 + (s.kind === K.RAIL ? 70 : 45));   // a heavy hit lands: the world stops for a beat
     if (!s.mine) return;
@@ -248,6 +266,10 @@
             life: SHOTS[kind].life, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: kind === K.FIRE && plv >= 7 };   // pc: pierces (fireballs from Lv 7)
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else shots.push(s);
       if (kind === K.RAIL) railBeam(s.x, s.y, s.vx, s.vy);
+      if (kind === K.RAIL && mine) {   // for Impressive (a miss breaks the run) and Headshot
+        if (railLast && !railLast.hitAny) railRun = 0;
+        railLast = s; myRails.set(id, { x: s.x, y: s.y, scoped: !!me.scoping }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value);
+      }
       if (kind === K.LASER || kind === K.SHOCK) laserBeam(s, mine ? undefined : p.id);
       const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind];
       if (amp !== 1 || s.pc) d.push(+amp.toFixed(2));
@@ -284,12 +306,13 @@
     if (!onScreen(sx(s.x), sy(s.y), 200)) return;
     sparkShower(s.x, s.y, s.vx / 1300, s.vy / 1300, 0.5 + s.bn * 0.15);
     impacts.push({ x: s.x, y: s.y, t: 0, r: 30 + s.bn * 10, col: "#ffd27a" });
-    sfx("hit", 0.35, 2 + s.bn * 0.2, s.x, s.y);
+    packPlay("p_ric", 0.5, s.x, s.y) || sfx("hit", 0.35, 2 + s.bn * 0.2, s.x, s.y);
   }
   // what every client shows where a shot lands on a bin
   function shotBurst(s) {
-    if (s.kind === K.MINE) { s.boom = true; explode(s.x, s.y, 50, 320); rings.push({ x: s.x, y: s.y, t: 0, r: 150, col: "255,140,80", dur: 0.45, w: 10 }); shake = Math.max(shake, 0.25); sfx("boom_small", 1, 0.9, s.x, s.y) || boomSound(0.6, 900, 0.35); return; }
-    if (SPLASH[s.kind]) blastFx(s); else sfx("hit", 0.55, 1.1, s.x, s.y);
+    if (s.kind === K.MINE) { s.boom = true; explode(s.x, s.y, 50, 320); rings.push({ x: s.x, y: s.y, t: 0, r: 150, col: "255,140,80", dur: 0.45, w: 10 }); shake = Math.max(shake, 0.25); packPlay("p_boom_mine", 1, s.x, s.y) || sfx("boom_small", 1, 0.9, s.x, s.y) || boomSound(0.6, 900, 0.35); return; }
+    if (SPLASH[s.kind]) blastFx(s);
+    else packPlay(s.kind === K.BULLET ? "p_hit_bullet" : s.kind === K.LASER || s.kind === K.BOLT ? "p_hit_laser" : s.kind === K.SHARD ? "p_hit_shard" : "", 0.6, s.x, s.y) || sfx("hit", 0.55, 1.1, s.x, s.y);
     if (s.kind === K.RAIL) sparkShower(s.x, s.y, s.vx / 4200, s.vy / 4200, 1.2);
     if (s.kind === K.PELLET) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
     if (s.kind === K.SLUG) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
@@ -333,6 +356,8 @@
     }
   };
   const DETONATOR = { shot: [K.DET, 0] };
+  // the pack's sound for each alt fire (the rest keep their own)
+  const ALT_SOUND = { minigun: "p_burst_minigun", mine: "p_throw", scatter: "p_fire_scatter", rocket: "p_fire_rocket", shard: "p_fire_shard", orb: "p_hit_laser", laser: "p_fire_laser" };
   // fire the gun in hand (alt: its alternate fire, which needs its full ammo cost)
   // mul: the charge cannon's charge (0.25..1)
   function shoot(now, alt, mul = 1) {
@@ -355,7 +380,9 @@
     const gun = k === "fire" ? null : muzzleAt(k);
     const muzzle = volley(me, now, pat, gun, (k === "bolt" || k === "laser") && !alt ? boltLock(me, gun) : undefined, mul);
     const [name, vol, pitch] = pat.sfx;
-    sfx(name, vol, w.charge ? pitch * (1.3 - 0.4 * mul) : pitch) || blip(160, 0.1, "sawtooth");   // a fuller charge sounds deeper
+    const packed = k === "laser" && !alt ? packHas("p_loop_laser") || packHas("p_fire_laser")   // the laser's beam sound runs while the trigger is held
+      : packPlay(alt ? ALT_SOUND[k] || "" : k === "holy" ? "p_throw" : "p_fire_" + k, 0.9);
+    if (!packed) sfx(name, vol, w.charge ? pitch * (1.3 - 0.4 * mul) : pitch) || blip(160, 0.1, "sawtooth");   // a fuller charge sounds deeper
     if (pat.fx) MUZZLE_FX[pat.fx](muzzle);
     shotFeel(k, muzzle, pat.kick * (w.charge ? mul : 1), ...pat.feel);
     if (pat.guided) startGuide(muzzle);
@@ -365,7 +392,14 @@
   let spin = 0, charge = 0;
   function triggerTick(dt, now, ready, held) {
     const w = WEAPONS[me.weapon];
+    if (w.spin && held && spin === 0 && playing && !me.dead) packPlay("p_spin_minigun", 0.7);   // the barrels wind up
     spin = w.spin && held && playing && !me.dead ? Math.min(1, spin + dt / w.spin[2]) : Math.max(0, spin - dt * 1.5);
+    // a sound pack's loops: the hum of the gun in your hands, and the laser's beam while the trigger is held
+    const alive = playing && !me.dead;
+    packLoop("hum", alive ? { rail: "p_hum_rail", laser: "p_hum_laser", gamma: "p_hum_gamma" }[me.weapon] || null : null, 0.22);
+    const beam = alive && held && roundLive && me.weapon === "laser" && me.arsenal.laser > 0;
+    if (beam && !(packLoops.beam)) packPlay("p_fire_laser", 0.8);
+    packLoop("beam", beam ? "p_loop_laser" : null, 0.55);
     if (!w.charge) { charge = 0; return held && ready; }
     if (held && playing && !me.dead) {
       const was = charge;
@@ -404,7 +438,7 @@
     if (myBeacon()) { teleport(now); teleCdUntil = now + 350; return; }
     if (!(me.teleN > 0)) return;
     const w = WEAPONS.tele, muzzle = volley(me, now, w, muzzleAt("tele"));
-    sfx(...w.sfx);
+    packPlay("p_throw", 0.7) || sfx(...w.sfx);
     shotFeel("tele", muzzle, w.kick, ...w.feel);
     teleCdUntil = now + 350;
   }
@@ -474,6 +508,7 @@
     if (k === "fire") return;
     if ((me.arsenal[k] -= n) > 0) { renderAmmo(k); return; }
     delete me.arsenal[k];
+    packPlay("p_noammo", 0.8);   // the empty click
     // out of ammo: fall back to another gun you carry (never auto-pick the nuke), else the fireball
     me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && w !== "holy" && w !== "tele" && me.arsenal[w]) || "fire";
     renderWeapon();
@@ -494,7 +529,7 @@
       const b = a + Math.PI + (Math.random() - 0.5) * 1.2, v = 120 + Math.random() * 220;
       puff(me.x, me.y, Math.cos(b) * v, Math.sin(b) * v, 0.45, 2.4, k % 2 ? "#bff9ff" : "#ffffff");
     }
-    sfx("dash", 0.8) || blip(520, 0.12, "triangle");
+    packPlay("p_dash", 0.7) || sfx("dash", 0.8) || blip(520, 0.12, "triangle");
   }
   let killer = "";
   function killedBy(owner) {
@@ -536,7 +571,7 @@
   function selectWeapon(k) {
     if (!me.arsenal[k] || k === me.weapon) return;
     me.weapon = k; fireCd = Math.max(fireCd, 0.15);
-    blip(520, 0.05, "square");
+    packPlay("p_change", 0.6) || blip(520, 0.05, "square");
     renderWeapon();
   }
   function cycleWeapon(dir) {
@@ -572,7 +607,7 @@
     const k = Math.exp(-damp * dt); s.vx *= k; s.vy *= k;
     if (s.x < 0 || s.x > W) { s.vx = -s.vx * 0.6; s.x = clamp(s.x, 0, W); }
     if (s.y < 0 || s.y > H) { s.vy = -s.vy * 0.6; s.y = clamp(s.y, 0, H); }
-    if (solidAny(s.x, s.y)) { s.x = s.px; s.y = s.py; s.vx *= -0.5; s.vy *= -0.5; }
+    if (solidAny(s.x, s.y)) { s.x = s.px; s.y = s.py; s.vx *= -0.5; s.vy *= -0.5; if (Math.hypot(s.vx, s.vy) > 60) packPlay("p_bounce", 0.7, s.x, s.y); }
   }
   function holyFlight(s, dt) {
     bounceFlight(s, dt, 1.4);
