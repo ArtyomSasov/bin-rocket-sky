@@ -90,7 +90,7 @@
     const dot = (c, col, r) => { if (!c) return; const [x, y] = P(c.x, c.y); mctx.globalAlpha = grabbed.has(c.key) ? 0.25 : 0.9; mctx.fillStyle = col; mctx.fillRect(x - r, y - r, r * 2, r * 2); };
     for (const c of world.picks) dot(c, WEAPONS[c.type].col, 2.5);
     for (const c of world.supplies) dot(c, SUPPLIES[c.type].col, 2);
-    dot(world.amp, "#c38bff", 3);
+    dot(world.amp, "#5b9bff", 3);
     for (const [id, d] of gunDrops) if (!grabbed.has("W" + id)) { const [x, y] = P(d.x, d.y); mctx.globalAlpha = 0.9; mctx.fillStyle = "#ffd36b"; mctx.fillRect(x - 3, y - 3, 6, 6); }
     for (const c of world.bombs) dot(c, WEAPONS[c.type].col, 3.5);
     mctx.globalAlpha = 1;

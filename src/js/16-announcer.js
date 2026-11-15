@@ -87,7 +87,7 @@
     const key = /has the .* flag$|^YOU HAVE THE FLAG$/i.test(text) ? "a_flagtaken" : / team scores!$/i.test(text) ? "a_flagcap"
       : text === "BEYOND GODLIKE" ? "a_holyshit" : "a_" + text.toLowerCase().replace(/[^a-z]/g, "");
     if (!packHas(key)) sting(level);   // the synthesized sting only where the pack has no voice for the line
-    const voice = { "ULTRA KILL": "v_multikill", "MULTI KILL": "v_multikill", "RAMPAGE": "v_multikill", "OVERDRIVE": "v_powerup" }[text];
+    const voice = { "ULTRA KILL": "v_multikill", "MULTI KILL": "v_multikill", "RAMPAGE": "v_multikill", "QUAD DAMAGE": "v_powerup" }[text];
     if (!silent || packHas(key)) setTimeout(() => { if (!packPlay(key, 1) && !(voice && sfx(voice, 1)) && !silent) speak(text); }, 180);
   }
 

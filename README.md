@@ -125,6 +125,9 @@ players (they face where they steer, so they make attack runs, break off and loo
 - **Weapons:** 1–9, 0 or Q/E (not the mouse wheel: a touch-surface mouse scrolls by accident). **Alt fire:** right mouse button or C — every gun has one: laser
   pulse (shoves), minigun burst (no spin-up, overheats), railgun scope (look far ahead), flak (bursts into eight
   shards), shock beam (combo on your orb), gamma detonate, rocket salvo, shotgun slug, thrown mine, saw fan.
+- **Quake's three:** the Nailgun (a fan of seven nails that fly far; alt a piercing Spike), the Grenade launcher
+  (grenades bounce off rock and go off after 2.5 s or on a bin; alt three at once) and the Gauntlet everyone carries
+  (hold fire: the blade spins and tears into a bin within reach; alt a Lunge). Quad damage multiplies by 4.
 - **Trophies:** the gun a pilot dies with drops where it died, with its ammo, for 15 s; anyone can take it.
 - **Teleporter:** T throws the beacon, T again jumps onto it (a pick-up gives three jumps).
 
@@ -143,8 +146,8 @@ recent shots to both connected brokers at up to 8 messages/s, keeping below the 
 Two clients can play together as long as they share a reachable broker. Duplicate and older states are ignored.
 A silent player and its bots disappear after 7 seconds; losing one broker does not remove a player.
 
-The wire protocol uses `binrocket-sky/v7/` topics. Players must reload to this version to join each other;
-older pages are isolated (v2–v6 built different maps, guns or levels, v1 events do not identify the round). Taken terrain cells are sent in a
+The wire protocol uses `binrocket-sky/v8/` topics. Players must reload to this version to join each other;
+older pages are isolated (v2–v7 built different maps, guns or levels, v1 events do not identify the round). Taken terrain cells are sent in a
 rolling snapshot (one shared body per state), so late joins and reconnects recover holes after a full pass
 through the map. Detached rubble is still simulated locally.
 

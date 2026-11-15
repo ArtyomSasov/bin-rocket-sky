@@ -163,7 +163,7 @@
   }
 
   function drawShot(s, x, y, now) {
-    if (s.m === 3) {   // Overdrive shots carry a violet halo
+    if (s.m >= QUAD) {   // Quad damage shots carry a violet-blue halo
       const hg = g.createRadialGradient(x, y, 0, x, y, 26);
       hg.addColorStop(0, "rgba(195,139,255,0.55)"); hg.addColorStop(1, "rgba(195,139,255,0)");
       g.fillStyle = hg; g.beginPath(); g.arc(x, y, 26, 0, 6.29); g.fill();
@@ -213,6 +213,27 @@
       return;
     }
     if (s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.DET) return;   // beams are drawn as beams; a detonator isn't seen
+    if (s.kind === K.MELEE) return;   // a gauntlet blow: the blade on the bin is what you see
+    if (s.kind === K.NAIL || s.kind === K.SPIKE) {   // a nail: a silver shaft with a dark head (a spike is longer and glows)
+      const sp = s.kind === K.SPIKE, L = sp ? 34 : 16;
+      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx)); g.lineCap = "round";
+      if (sp) { g.strokeStyle = "rgba(200,220,255,0.35)"; g.lineWidth = 9; g.beginPath(); g.moveTo(-L - 20, 0); g.lineTo(0, 0); g.stroke(); }
+      g.strokeStyle = sp ? "#f2f6ff" : "#cfd6e2"; g.lineWidth = sp ? 4 : 2.2; g.beginPath(); g.moveTo(-L, 0); g.lineTo(2, 0); g.stroke();
+      g.fillStyle = "#5a6276"; g.fillRect(-L - 2, sp ? -4 : -3, 3, sp ? 8 : 6);
+      g.restore();
+      return;
+    }
+    if (s.kind === K.GREN) {   // a grenade: a green egg with a dark band and a blinking light, tumbling
+      const t = SHOTS[K.GREN].life - s.life, blink = Math.floor(t * (t > 1.8 ? 14 : 5)) % 2;
+      g.save(); g.translate(x, y); g.rotate(t * 6 + s.x * 0.001);
+      g.fillStyle = "#4a7a3a"; g.beginPath(); g.ellipse(0, 0, 11, 8.5, 0, 0, 6.29); g.fill();
+      g.fillStyle = "#8fd06a"; g.beginPath(); g.ellipse(-2, -2, 7, 5, 0, 0, 6.29); g.fill();
+      g.fillStyle = "#26301e"; g.fillRect(-1.5, -8.5, 3, 17);
+      if (blink) { g.globalCompositeOperation = "lighter"; g.drawImage(dotSprite("#ff5a3c"), -12, -12, 24, 24); g.globalCompositeOperation = "source-over"; }
+      g.fillStyle = blink ? "#ffd2c0" : "#802010"; g.beginPath(); g.arc(0, 0, 2.4, 0, 6.29); g.fill();
+      g.restore();
+      return;
+    }
     if (s.kind === K.PULSE) {   // the laser's pulse: a wide crescent of light
       const a = Math.atan2(s.vy, s.vx), k = s.life / SHOTS[K.PULSE].life;
       g.save(); g.translate(x, y); g.rotate(a); g.lineCap = "round";
@@ -523,18 +544,22 @@
     g.restore();
   }
   // the rare nuke crate: bigger, hazard-striped, pulsing
-  function drawAmpCrate(c, x, y, now) {   // a spinning violet crystal
+  function drawAmpCrate(c, x, y, now) {   // Quad damage: a blue rune with a 4, turning in a cold glow, motes circling it
     const k = Math.min(1, c.age * 40), pulse = 0.7 + 0.3 * Math.sin(now / 160);
     g.globalCompositeOperation = "lighter";
-    const gl = g.createRadialGradient(x, y, 6, x, y, 70);
-    gl.addColorStop(0, `rgba(195,139,255,${0.6 * pulse})`); gl.addColorStop(1, "rgba(195,139,255,0)");
-    g.fillStyle = gl; g.beginPath(); g.arc(x, y, 70, 0, 6.29); g.fill();
-    for (let i = 0; i < 6; i++) { const a = now / 500 + i * 1.047; g.fillStyle = "#e9d4ff"; g.beginPath(); g.arc(x + Math.cos(a) * 38, y + Math.sin(a) * 38, 2.5, 0, 6.29); g.fill(); }
+    const gl = g.createRadialGradient(x, y, 6, x, y, 80);
+    gl.addColorStop(0, `rgba(91,155,255,${0.7 * pulse})`); gl.addColorStop(1, "rgba(91,155,255,0)");
+    g.fillStyle = gl; g.beginPath(); g.arc(x, y, 80, 0, 6.29); g.fill();
+    for (let i = 0; i < 8; i++) { const a = now / 450 + i * 0.785; g.fillStyle = i % 2 ? "#d6e6ff" : "#7fb0ff"; g.beginPath(); g.arc(x + Math.cos(a) * 42, y + Math.sin(a) * 42 * 0.55, 2.6, 0, 6.29); g.fill(); }
     g.globalCompositeOperation = "source-over";
-    g.save(); g.translate(x, y); g.scale(k * Math.cos(now / 400), k); 
-    g.fillStyle = "#c38bff"; g.beginPath(); g.moveTo(0, -24); g.lineTo(15, 0); g.lineTo(0, 24); g.lineTo(-15, 0); g.closePath(); g.fill();
-    g.fillStyle = "#f3e6ff"; g.beginPath(); g.moveTo(0, -24); g.lineTo(6, 0); g.lineTo(0, 24); g.lineTo(-4, 0); g.closePath(); g.fill();
+    g.save(); g.translate(x, y); g.scale(k * 2.2 * (0.35 + 0.65 * Math.abs(Math.cos(now / 500))), k * 2.2);
+    g.translate(-12, -12);
+    const rg = g.createLinearGradient(0, 0, 0, 24); rg.addColorStop(0, "#e6f0ff"); rg.addColorStop(0.45, "#5b9bff"); rg.addColorStop(1, "#1f3f9e");
+    g.fillStyle = rg; g.fill(ICON_PATHS.amp, "evenodd");
+    g.strokeStyle = "rgba(220,235,255,0.9)"; g.lineWidth = 0.8; g.stroke(ICON_PATHS.amp);
     g.restore();
+    g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.textAlign = "center"; g.fillStyle = "#8fb8ff";
+    g.fillText("QUAD DAMAGE", x, y + 46);
   }
   function drawNukeCrate(c, x, y, now) {   // also the holy bomb's crate: white and gold
     const k = Math.min(1, c.age * 40), pulse = 0.6 + 0.4 * Math.sin(now / 180), col = WEAPONS[c.type].col, rgb = c.type === "holy" ? "255,243,176" : "255,225,77";
@@ -731,6 +756,7 @@
 
   // the weapon you carry is mounted on the wings, so everyone can see what is coming at them.
   // Drawn in art pixels; -y points the way the bin flies.
+  let gauntSpinFast = false;   // my gauntlet whirls while it's on
   function drawMounts(weapon, s, now) {
     if (!weapon || weapon === "fire") return;
     const u = s / 320, mounts = mountsOf(weapon);
@@ -823,6 +849,26 @@
         g.fillStyle = "#3b2d5c"; rrect(-10, -6, 20, 16, 4); g.fill();
         g.fillStyle = "#cfc6e8"; rrect(-4, -78, 8, 76, 3); g.fill();
         for (let k = 0; k < 4; k++) { g.fillStyle = `rgba(127,184,255,${0.5 + 0.5 * Math.sin(now / 120 + k)})`; rrect(-8, -66 + k * 15, 16, 7, 3); g.fill(); }
+      } else if (weapon === "nail") {   // the nailgun: a squat block with a nail magazine on top and a short muzzle
+        g.fillStyle = "#3b2d5c"; rrect(-13, -20, 26, 28, 5); g.fill();
+        g.fillStyle = "#8a93ad"; rrect(-9, -30, 18, 10, 3); g.fill();
+        for (let i = -2; i <= 2; i++) { g.fillStyle = "#e8eef8"; g.fillRect(i * 3.4 - 0.8, -28, 1.6, 7); }
+        g.fillStyle = "#cfd6e2"; rrect(-4, -46, 8, 18, 2); g.fill();
+      } else if (weapon === "gren") {   // the grenade launcher: a fat drum and a stubby wide tube
+        g.fillStyle = "#3b2d5c"; rrect(-12, -10, 24, 18, 5); g.fill();
+        g.fillStyle = "#4a7a3a"; g.beginPath(); g.arc(0, -16, 12, 0, 6.29); g.fill();
+        g.fillStyle = "#26301e"; for (let i = 0; i < 6; i++) { const a = i * 1.047; g.beginPath(); g.arc(Math.cos(a) * 7, -16 + Math.sin(a) * 7, 2.4, 0, 6.29); g.fill(); }
+        g.fillStyle = "#6b6f80"; rrect(-7, -44, 14, 18, 3); g.fill();
+        g.fillStyle = "#8fd06a"; g.fillRect(-7, -44, 14, 3);
+      } else if (weapon === "gauntlet") {   // the gauntlet: a spinning toothed blade on a short arm (it whirls while the trigger is held)
+        g.fillStyle = "#3b2d5c"; rrect(-6, -24, 12, 30, 3); g.fill();
+        g.save(); g.translate(0, -36); g.rotate(now / (gauntSpinFast ? 18 : 140));
+        g.fillStyle = "#d6dde8"; g.beginPath();
+        for (let i = 0; i < 24; i++) { const r = i % 2 ? 13 : 19, a = i / 24 * 6.283; i ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(r, 0); }
+        g.closePath(); g.fill();
+        g.fillStyle = "#3b2d5c"; g.beginPath(); g.arc(0, 0, 5, 0, 6.29); g.fill();
+        if (gauntSpinFast) { g.globalCompositeOperation = "lighter"; g.strokeStyle = "rgba(255,220,140,0.6)"; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 20, 0, 6.29); g.stroke(); g.globalCompositeOperation = "source-over"; }
+        g.restore();
       } else if (weapon === "holy") {   // the golden orb held up on a short post, halo above
         g.fillStyle = "#3b2d5c"; rrect(-5, -26, 10, 30, 3); g.fill();
         const og = g.createRadialGradient(-5, -44, 2, 0, -40, 17);
@@ -915,10 +961,10 @@
     };
     orbit(false);
 
-    if (b.ampUntil > now || b.amp) {   // Overdrive: a violet aura around the bin
+    if (b.ampUntil > now || b.amp) {   // Quad damage: a blue aura around the bin
       g.globalCompositeOperation = "lighter";
       const ar = S * (0.85 + 0.08 * Math.sin(now / 90)), ag = g.createRadialGradient(x, y, S * 0.2, x, y, ar);
-      ag.addColorStop(0, "rgba(195,139,255,0)"); ag.addColorStop(0.7, "rgba(195,139,255,0.35)"); ag.addColorStop(1, "rgba(195,139,255,0)");
+      ag.addColorStop(0, "rgba(91,155,255,0)"); ag.addColorStop(0.7, "rgba(91,155,255,0.42)"); ag.addColorStop(1, "rgba(91,155,255,0)");
       g.fillStyle = ag; g.beginPath(); g.arc(x, y, ar, 0, 6.29); g.fill();
       g.globalCompositeOperation = "source-over";
     }
@@ -962,6 +1008,7 @@
       g.restore();
     }
     drawWings(lv, s);
+    gauntSpinFast = isMe && !!me.gauntOn;
     drawMounts(isMe ? me.weapon : b.weapon, s, now);
     if (body) {
       g.drawImage(b.ck ? tintedBody(teamCk(b)) : body, -s / 2, -s / 2, s, s);

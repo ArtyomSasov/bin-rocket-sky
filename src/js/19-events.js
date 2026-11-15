@@ -430,7 +430,7 @@
     // the spots: a faint pad marks each one; a taken one shows what comes back there and when
     for (const c of world.picks) drawPad(c, WEAPONS[c.type].col, c.type, now);
     for (const c of world.supplies) drawPad(c, SUPPLIES[c.type].col, SUPPLIES[c.type].heal ? "cross" : "shield", now);
-    if (world.amp) drawPad(world.amp, "#c38bff", "amp", now);
+    if (world.amp) drawPad(world.amp, "#5b9bff", "amp", now);
     for (const c of world.bombs) drawPad(c, WEAPONS[c.type].col, c.type, now);
     for (const [id, d] of gunDrops) {   // trophies: the crate with a gold ring that blinks as time runs out
       if (grabbed.has("W" + id)) continue;
@@ -453,7 +453,7 @@
     }
     if (world.amp && !grabbed.has(world.amp.key)) {
       const x = sx(world.amp.x), y = sy(world.amp.y);
-      if (onScreen(x, y, 80)) drawAmpCrate(world.amp, x, y, now); else if (playing) drawEdgeArrow(x, y, "#c38bff");
+      if (onScreen(x, y, 80)) drawAmpCrate(world.amp, x, y, now); else if (playing) drawEdgeArrow(x, y, "#5b9bff");
     }
     for (const c of world.bombs) {
       if (grabbed.has(c.key)) continue;

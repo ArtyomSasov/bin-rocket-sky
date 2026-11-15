@@ -245,7 +245,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
 .xpbar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--teal), var(--flame)); transition: width .3s; }
 .wpn { align-self: center; margin-left: 6px; font: 700 12px var(--display); color: var(--ink); background: rgba(255,255,255,.08); border: 1px solid var(--line); border-radius: 8px; padding: 3px 7px; white-space: nowrap; }
 .wpn { display: inline-flex; align-items: center; gap: 5px; }
-.ampchip { align-self: center; margin-left: 6px; font: 700 12px var(--display); color: #c38bff; border: 1px solid #c38bff; border-radius: 8px; padding: 3px 7px; white-space: nowrap; box-shadow: 0 0 10px rgba(195,139,255,.5); animation: pulse 1s ease-in-out infinite; }
+.ampchip { align-self: center; margin-left: 6px; font: 700 12px var(--display); color: #8fb8ff; border: 1px solid #5b9bff; border-radius: 8px; padding: 3px 7px; white-space: nowrap; box-shadow: 0 0 12px rgba(91,155,255,.6); animation: pulse 1s ease-in-out infinite; }
 .shieldchip { display: inline-flex; align-items: center; gap: 3px; align-self: center; margin-left: 4px; color: #6fc2ff; font: 700 13px var(--display); }
 .shieldchip svg { width: 16px; height: 16px; fill: currentColor; filter: drop-shadow(0 0 4px rgba(79,168,255,.7)); }
 .wpn svg { width: 14px; height: 14px; fill: currentColor; flex: none; }

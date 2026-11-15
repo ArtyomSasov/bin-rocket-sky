@@ -1,7 +1,7 @@
   // ---------- fire & damage ----------
   // shots leave from the tip of the gun drawn on the wing (left and right in turn), not from the middle of the bin
-  const mountsOf = w => ["nuke", "holy", "bolt", "gamma", "tele", "gauss"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // art pixels, shared with drawMounts
-  const BARREL = { laser: 60, rocket: 50, triple: 42, nuke: 96, holy: 30, saw: 40, gamma: 44, tele: 28, minigun: 58, gauss: 80, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48 };   // tip, in mount units
+  const mountsOf = w => ["nuke", "holy", "bolt", "gamma", "tele", "gauss", "gauntlet"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // art pixels, shared with drawMounts
+  const BARREL = { laser: 60, rocket: 50, triple: 42, nuke: 96, holy: 30, saw: 40, gamma: 44, tele: 28, minigun: 58, gauss: 80, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48, nail: 54, gren: 44, gauntlet: 34 };   // tip, in mount units
   let gunSide = 0;
   function muzzleAt(weapon) {
     const ms = mountsOf(weapon), [mx, my] = ms[gunSide++ % ms.length];
@@ -22,10 +22,11 @@
   // how someone else's shot sounds here (quieter with distance)
   // which gun a shot kind comes from, for a sound pack's gun sounds
   const KIND_GUN = { [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
-    [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.SHARD]: "shard", [K.FLAK]: "shard" };
+    [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.NAIL]: "nail", [K.SPIKE]: "nail", [K.GREN]: "gren" };
   let laserHeardAt = 0;
   const shotSound = (kind, x, y) => {
     if (kind === K.LASER && packHas("p_fire_laser")) { const t = performance.now(); if (t - laserHeardAt > 900) { laserHeardAt = t; packPlay("p_fire_laser", 0.5, x, y); } return; }   // a beam, not twelve shots a second
+    if (kind === K.MELEE && packPlay("p_melee_hit", 0.9, x, y)) return;
     if (KIND_GUN[kind] && packPlay("p_fire_" + KIND_GUN[kind], 0.75, x, y)) return;
     const [name, vol, pitch] = SHOTS[kind].sfx; sfx(name, vol, pitch, x, y);
   };
@@ -161,7 +162,7 @@
       done.add(best.id);
       arcs.push({ x1: x, y1: y, x2: t.x, y2: t.y, t: 0 });
       impact(t.x, t.y, "#bfefff", 1);
-      sfx("laser", 0.35, 2.2, t.x, t.y);
+      packPlay("p_hit_laser", 0.5, t.x, t.y) || sfx("laser", 0.35, 2.2, t.x, t.y);
       const dmg = (laser ? 0.1 : CHAIN_DMG * (1 - j * 0.25)) * (s.m || 1), cid = s.id + "c" + j;
       if (best.id === "me") { if (hurt(now, dmg, false, K.BOLT, a)) { pushCapped(hitBy, cid, 12); if (me.dead) { meKilled(cid); killedBy(s.owner); } } }
       else if (botById.has(best.id)) botHurt(botById.get(best.id), dmg, cid, now, false, K.BOLT, a);
@@ -226,9 +227,9 @@
   let hitStopUntil = 0;
   // Quake's medals: Impressive for two rail hits in a row; Humiliation for a ram kill; Headshot for a scoped rail kill from afar
   let railRun = 0, railLast = null;
-  const myRails = new Map();
+  const myRails = new Map(), myMelee = new Set();
   function killStyle(k, victim) {
-    if (k.includes(".ram")) { setTimeout(() => announce("HUMILIATION", "rammed " + victim.name, "#ff8a5a", 3), 1400); return; }
+    if (k.includes(".ram") || myMelee.has(k)) { setTimeout(() => announce("HUMILIATION", "rammed " + victim.name, "#ff8a5a", 3), 1400); return; }
     const r = myRails.get(k);
     if (r && r.scoped && Math.hypot(victim.x - r.x, victim.y - r.y) > 1200) setTimeout(() => announce("HEADSHOT", "a scoped rail kill from afar", "#d9a8ff", 3), 1400);
   }
@@ -252,7 +253,7 @@
     const plv = p.lv || 1;
     if (pat === WEAPONS.fire && plv >= 4) pat = FIRE_TWIN;   // perks: twin fireballs from Lv 4
     if (plv >= MAX_LV) mul *= 1.25;                          // the crown: +25% damage
-    const mine = p === me, [kind, speed] = pat.shot, amp = (mine && me.ampUntil > now ? 3 : 1) * mul, ride = kind === K.BOLT || kind === K.LASER || kind === K.SHOCK ? 0 : 0.6;
+    const mine = p === me, [kind, speed] = pat.shot, amp = (mine && me.ampUntil > now ? QUAD : 1) * mul, ride = kind === K.BOLT || kind === K.LASER || kind === K.SHOCK ? 0 : 0.6;
     const base = (aim ?? p.a) + (pat.back ? Math.PI : 0), sz = sizeOf(p.lv || 1);
     let s;
     for (const da of pat.spread || [0]) {
@@ -264,8 +265,9 @@
       const fwd = speed > 0 ? Math.max(0, p.vx * bx + p.vy * by) * ride : 0;
       s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * (speed + fwd) + (speed > 0 ? 0 : p.vx * ride), vy: by * (speed + fwd) + (speed > 0 ? 0 : p.vy * ride),
             life: SHOTS[kind].life, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: kind === K.FIRE && plv >= 7 };   // pc: pierces (fireballs from Lv 7)
-      if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else shots.push(s);
+      if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else if (kind === K.NAIL) nailSpray(s); else shots.push(s);
       if (kind === K.RAIL) railBeam(s.x, s.y, s.vx, s.vy);
+      if (kind === K.MELEE && mine) myMelee.add(id);   // for Humiliation
       if (kind === K.RAIL && mine) {   // for Impressive (a miss breaks the run) and Headshot
         if (railLast && !railLast.hitAny) railRun = 0;
         railLast = s; myRails.set(id, { x: s.x, y: s.y, scoped: !!me.scoping }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value);
@@ -278,6 +280,17 @@
       else { seenShots.set(id, performance.now()); p.shotLog.push({ at: now, d }); p.st.shots++; }
     }
     return s;
+  }
+  // the nailgun: one record becomes the same fan of seven nails everywhere
+  function nailSpray(s) {
+    for (let k = 0; k < 7; k++) {
+      const da = (k - 3) * 0.035 + (((k * 37) % 7) - 3) * 0.006, f = 0.95 + ((k * 3) % 5) * 0.025, c = Math.cos(da), sn = Math.sin(da);
+      shots.push({ ...s, id: s.id + "n" + k, vx: (s.vx * c - s.vy * sn) * f, vy: (s.vx * sn + s.vy * c) * f });
+    }
+  }
+  // a grenade hits rock or the fence: it clinks and rolls off
+  function grenBounce(s) {
+    if (Math.hypot(s.vx, s.vy) > 80 && performance.now() - (s.clinkAt || 0) > 90) { s.clinkAt = performance.now(); packPlay("p_bounce_gren", 0.7, s.x, s.y) || sfx("mine_drop", 0.5, 1.3, s.x, s.y); }
   }
   // a flak shell bursts: eight shards all round, the same on every screen (their ids follow from the shell's)
   function flakBurst(s) {
@@ -312,7 +325,7 @@
   function shotBurst(s) {
     if (s.kind === K.MINE) { s.boom = true; explode(s.x, s.y, 50, 320); rings.push({ x: s.x, y: s.y, t: 0, r: 150, col: "255,140,80", dur: 0.45, w: 10 }); shake = Math.max(shake, 0.25); packPlay("p_boom_mine", 1, s.x, s.y) || sfx("boom_small", 1, 0.9, s.x, s.y) || boomSound(0.6, 900, 0.35); return; }
     if (SPLASH[s.kind]) blastFx(s);
-    else packPlay(s.kind === K.BULLET ? "p_hit_bullet" : s.kind === K.LASER || s.kind === K.BOLT ? "p_hit_laser" : s.kind === K.SHARD ? "p_hit_shard" : "", 0.6, s.x, s.y) || sfx("hit", 0.55, 1.1, s.x, s.y);
+    else packPlay(s.kind === K.BULLET ? "p_hit_bullet" : s.kind === K.LASER || s.kind === K.BOLT ? "p_hit_laser" : s.kind === K.NAIL || s.kind === K.SPIKE ? "p_hit_nail" : s.kind === K.RAIL ? "p_boom_orb" : "", 0.6, s.x, s.y) || sfx("hit", 0.55, 1.1, s.x, s.y);
     if (s.kind === K.RAIL) sparkShower(s.x, s.y, s.vx / 4200, s.vy / 4200, 1.2);
     if (s.kind === K.PELLET) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
     if (s.kind === K.SLUG) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
@@ -356,14 +369,34 @@
     }
   };
   const DETONATOR = { shot: [K.DET, 0] };
+  let lungeReady = 0;
   // the pack's sound for each alt fire (the rest keep their own)
-  const ALT_SOUND = { minigun: "p_burst_minigun", mine: "p_throw", scatter: "p_fire_scatter", rocket: "p_fire_rocket", shard: "p_fire_shard", orb: "p_hit_laser", laser: "p_fire_laser" };
+  const ALT_SOUND = { minigun: "p_burst_minigun", mine: "p_fire_mine", scatter: "p_fire_scatter", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_fire_laser", gren: "p_fire_gren", nail: "p_fire_nail" };
   // fire the gun in hand (alt: its alternate fire, which needs its full ammo cost)
   // mul: the charge cannon's charge (0.25..1)
   function shoot(now, alt, mul = 1) {
     const k = me.weapon, w = WEAPONS[k], pat = alt ? w.alt : w;
     if (alt && !(pat && me.arsenal[k] >= pat.cost)) return;
     if (k === "tele" && myBeacon()) { teleport(now); return; }   // the second shot jumps you to the beacon
+    if (w.melee && !alt) {   // the gauntlet: a blow only lands on a bin within reach ahead (the blade spins anyway)
+      const reach = binR(me.lv) + 60, nx = me.x + Math.cos(me.a) * (binR(me.lv) + 14), ny = me.y + Math.sin(me.a) * (binR(me.lv) + 14);
+      let target = null;
+      for (const [rid, r] of remotes) if (!r.dead && !mates(r, me) && Math.hypot(r.x - nx, r.y - ny) < reach + binR(r.lv || 1) - 20) { target = r; break; }
+      if (!target) { fireCd = 0.05; return; }
+      fireCd = w.cd;
+      volley(me, now, w, { x: nx, y: ny });
+      packPlay("p_melee_hit", 1) || sfx(...w.sfx);
+      shotFeel("gauntlet", { x: nx, y: ny }, 0, ...w.feel);
+      sparkShower(nx, ny, Math.cos(me.a), Math.sin(me.a), 1.2);
+      return;
+    }
+    if (alt && pat.lunge) {   // lunge: a burst forward with the blade out
+      if (now < lungeReady) return;
+      lungeReady = now + 1200; me.lungeUntil = now + 450;
+      me.vx += Math.cos(me.a) * 950; me.vy += Math.sin(me.a) * 950; me.inv = Math.max(me.inv, now + 200);
+      dashBurst(me); packPlay("p_melee_run", 0.8) || sfx(...pat.sfx);
+      return;
+    }
     if (alt && pat.detonate) {   // the gamma orb's alt: a detonator at my orb, which sets it off on every screen
       const o = shots.filter(s => s.mine && s.kind === K.GAMMA && s.life > 0).pop();
       if (!o) return;
@@ -381,7 +414,7 @@
     const muzzle = volley(me, now, pat, gun, (k === "bolt" || k === "laser") && !alt ? boltLock(me, gun) : undefined, mul);
     const [name, vol, pitch] = pat.sfx;
     const packed = k === "laser" && !alt ? packHas("p_loop_laser") || packHas("p_fire_laser")   // the laser's beam sound runs while the trigger is held
-      : packPlay(alt ? ALT_SOUND[k] || "" : k === "holy" ? "p_throw" : "p_fire_" + k, 0.9);
+      : packPlay(alt ? ALT_SOUND[k] || "" : k === "holy" ? "p_fire_gren" : "p_fire_" + k, 0.9);
     if (!packed) sfx(name, vol, w.charge ? pitch * (1.3 - 0.4 * mul) : pitch) || blip(160, 0.1, "sawtooth");   // a fuller charge sounds deeper
     if (pat.fx) MUZZLE_FX[pat.fx](muzzle);
     shotFeel(k, muzzle, pat.kick * (w.charge ? mul : 1), ...pat.feel);
@@ -400,6 +433,8 @@
     const beam = alive && held && roundLive && me.weapon === "laser" && me.arsenal.laser > 0;
     if (beam && !(packLoops.beam)) packPlay("p_fire_laser", 0.8);
     packLoop("beam", beam ? "p_loop_laser" : null, 0.55);
+    me.gauntOn = alive && me.weapon === "gauntlet" && (held || now < (me.lungeUntil || 0));
+    packLoop("melee", me.gauntOn ? "p_melee_run" : null, 0.55);
     if (!w.charge) { charge = 0; return held && ready; }
     if (held && playing && !me.dead) {
       const was = charge;
@@ -438,7 +473,7 @@
     if (myBeacon()) { teleport(now); teleCdUntil = now + 350; return; }
     if (!(me.teleN > 0)) return;
     const w = WEAPONS.tele, muzzle = volley(me, now, w, muzzleAt("tele"));
-    packPlay("p_throw", 0.7) || sfx(...w.sfx);
+    sfx(...w.sfx);
     shotFeel("tele", muzzle, w.kick, ...w.feel);
     teleCdUntil = now + 350;
   }
@@ -510,7 +545,7 @@
     delete me.arsenal[k];
     packPlay("p_noammo", 0.8);   // the empty click
     // out of ammo: fall back to another gun you carry (never auto-pick the nuke), else the fireball
-    me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && w !== "holy" && w !== "tele" && me.arsenal[w]) || "fire";
+    me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && w !== "holy" && w !== "tele" && w !== "gauntlet" && me.arsenal[w]) || "fire";
     renderWeapon();
   }
   // quick dodge: a burst forward (or toward where you steer) with a moment of invulnerability
@@ -529,7 +564,7 @@
       const b = a + Math.PI + (Math.random() - 0.5) * 1.2, v = 120 + Math.random() * 220;
       puff(me.x, me.y, Math.cos(b) * v, Math.sin(b) * v, 0.45, 2.4, k % 2 ? "#bff9ff" : "#ffffff");
     }
-    packPlay("p_dash", 0.7) || sfx("dash", 0.8) || blip(520, 0.12, "triangle");
+    sfx("dash", 0.8) || blip(520, 0.12, "triangle");
   }
   let killer = "";
   function killedBy(owner) {
@@ -537,7 +572,7 @@
     if (r) killer = r.name;
   }
   const arsenalEl = document.getElementById("arsenal");
-  const owned = () => (MODES[MODE].sandbox ? SANDBOX_GUNS : WEAPON_KEYS).filter(k => me.arsenal[k]);
+  const owned = () => (MODES[MODE].sandbox ? SANDBOX_GUNS : GUN_ORDER).filter(k => me.arsenal[k]);
   const ammoFill = k => Math.min(1, me.arsenal[k] / WEAPONS[k].ammo);
   const chipText = () => { const n = me.arsenal[me.weapon], alt = WEAPONS[me.weapon].alt;
     return WEAPONS[me.weapon].name + (Number.isFinite(n) ? " · " + n : "") + (me.overheat && alt && alt.heat ? " · OVERHEATED" : "") + (alt && !COARSE ? " · right click: " + alt.name : ""); };
@@ -607,7 +642,7 @@
     const k = Math.exp(-damp * dt); s.vx *= k; s.vy *= k;
     if (s.x < 0 || s.x > W) { s.vx = -s.vx * 0.6; s.x = clamp(s.x, 0, W); }
     if (s.y < 0 || s.y > H) { s.vy = -s.vy * 0.6; s.y = clamp(s.y, 0, H); }
-    if (solidAny(s.x, s.y)) { s.x = s.px; s.y = s.py; s.vx *= -0.5; s.vy *= -0.5; if (Math.hypot(s.vx, s.vy) > 60) packPlay("p_bounce", 0.7, s.x, s.y); }
+    if (solidAny(s.x, s.y)) { s.x = s.px; s.y = s.py; s.vx *= -0.5; s.vy *= -0.5; if (Math.hypot(s.vx, s.vy) > 60) packPlay("p_bounce_gren", 0.7, s.x, s.y); }
   }
   function holyFlight(s, dt) {
     bounceFlight(s, dt, 1.4);
