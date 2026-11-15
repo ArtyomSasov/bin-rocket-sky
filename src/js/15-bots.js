@@ -62,7 +62,7 @@
     shotSound(pat.shot[0], b.x, b.y);
     b.vx -= Math.cos(b.a) * 25; b.vy -= Math.sin(b.a) * 25;
     if (!MODES[MODE].only && w !== "fire" && --b.ammo <= 0) b.weapon = "fire";
-    return pat.cd;
+    return w === "fire" && (b.lv || 1) >= 4 ? pat.cd * 1.4 : pat.cd;   // twin fireballs reload a little slower
   }
   function updateBots(dt, now) {
     if (!bots.length) return;
@@ -156,7 +156,7 @@
         b.vx += Math.cos(a) * 900; b.vy += Math.sin(a) * 900; b.energy -= 25; b.dashAt = now; b.inv = Math.max(b.inv, now + 280);
       }
       b.dashReq = false;
-      thrustPilot(b, st.x, st.y, b.boosting, false, dt, b.L.speed);
+      thrustPilot(b, st.x, st.y, b.boosting, false, dt, b.L.speed * (now < (b.pinnedUntil || 0) ? 0.6 : 1));
       slingshot(b, dt); padsFor(b, now);
       if (Math.hypot(st.x, st.y) > 0.15) b.a = lerpAng(b.a, Math.atan2(st.y, st.x), 1 - Math.exp(-13 * dt));
       gravityOn(b, dt);
@@ -213,6 +213,7 @@
           if (pierces(s)) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
           shotBurst(s); hitConfirm(s, b.lv, b.x, b.y, remotes.get(b.id)); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
           if (s.kind === K.BOLT || s.kind === K.LASER) boltChain(s, b.x, b.y, b.id, now);
+          if (s.kind === K.NAIL || s.kind === K.SPIKE) b.pinnedUntil = now + 1000;
           botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx));
         }
       }

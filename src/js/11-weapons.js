@@ -1,6 +1,6 @@
   // ---------- fire & damage ----------
   // shots leave from the tip of the gun drawn on the wing (left and right in turn), not from the middle of the bin
-  const mountsOf = w => ["nuke", "holy", "bolt", "gamma", "tele", "gauss", "gauntlet"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // art pixels, shared with drawMounts
+  const mountsOf = w => w === "laser" ? [[160, 96]] : ["nuke", "holy", "bolt", "gamma", "tele", "gauss", "gauntlet"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
   const BARREL = { laser: 60, rocket: 50, triple: 42, nuke: 96, holy: 30, saw: 40, gamma: 44, tele: 28, minigun: 58, gauss: 80, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48, nail: 54, gren: 44, gauntlet: 34 };   // tip, in mount units
   let gunSide = 0;
   function muzzleAt(weapon) {
@@ -40,7 +40,7 @@
   // shooter's team; my own shots never hurt me. Every hit, splash, blast, homing and chain asks this.
   // the shooter's own shot: it only hurts them through a blast (blast = true: rockets, plasma, mines, nukes, combos)
   const ownShot = (s, o, id) => (o === me && s.mine) || id === s.owner;
-  const SELF_DMG = 0.6;   // your own blast hurts you a bit less than it hurts others
+  const SELF_DMG = 0.3;   // rocket jumps, as in Quake: your own blast hurts you little and throws you hard (see splash)
   const canHurt = (s, o, id, blast = false) => ownShot(s, o, id) ? blast && !o.dead && (o !== me || playing)
     : !o.dead && !friendly(s, o.tm) && (o !== me || (playing && !s.mine));
   // I take damage from shot s: its shooter gets the credit, unless it was my own (then nobody does)
@@ -126,7 +126,7 @@
   function laserBeam(s, owner) {
     const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v;
     const e = beamEnd(s.x, s.y, dx, dy, v * SHOTS[s.kind].life, owner, s.mine);
-    lasers.push({ x1: s.x, y1: s.y, x2: e.x, y2: e.y, t: 0, hit: e.hit, seed: Math.random() * 100, shock: s.kind === K.SHOCK });
+    lasers.push({ x1: s.x, y1: s.y, x2: e.x, y2: e.y, t: 0, hit: e.hit, seed: Math.random() * 100, shock: s.kind === K.SHOCK, who: (s.mine ? "me" : owner || "?") + (s.kind === K.SHOCK ? "s" + s.id : "") });
     if (lasers.length > 40) lasers.shift();
     if (e.hit && e.hit !== "wall" && onScreen(sx(e.x), sy(e.y), 60)) {
       for (let k = 0; k < (lowQ ? 1 : 3); k++) { const a = Math.atan2(-dy, -dx) + (Math.random() - 0.5) * 2.2, sp = 80 + Math.random() * 260; puff(e.x, e.y, Math.cos(a) * sp, Math.sin(a) * sp, 0.25 + Math.random() * 0.25, 1.4 + Math.random() * 1.4, s.kind === K.SHOCK ? "#e4d2ff" : k % 2 ? "#bff9ff" : "#ffffff", 1, 0.05); }
@@ -195,7 +195,8 @@
     const hit = (o, id, rad) => {
       const d = Math.hypot(o.x - s.x, o.y - s.y), R = R0 + rad;
       if (d > R || id === s.direct || !canHurt(s, o, id, true)) return 0;
-      o.vx += (o.x - s.x) / (d || 1) * push; o.vy += (o.y - s.y) / (d || 1) * push;
+      const jump = ownShot(s, o, id) ? 2.6 : 1;   // a rocket jump: your own blast flings you
+      o.vx += (o.x - s.x) / (d || 1) * push * jump; o.vy += (o.y - s.y) / (d || 1) * push * jump;
       return (hi * (1 - d / R) + lo) * m;
     };
     const dm = hit(me, "me", 26 * sizeOf(me.lv));
@@ -273,6 +274,10 @@
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else if (kind === K.NAIL) nailSpray(s); else shots.push(s);
       if (kind === K.RAIL) railBeam(s.x, s.y, s.vx, s.vy);
       if (kind === K.MELEE && mine) myMelee.add(id);   // for Humiliation
+      if (kind === K.BULLET && onScreen(sx(p.x), sy(p.y), 200) && Math.random() < 0.7) {   // a spent casing spins off the side
+        const sd = Math.random() < 0.5 ? 1 : -1, cx = -by * sd, cy = bx * sd, v = 140 + Math.random() * 120;
+        puff(ox, oy, cx * v - bx * 60 + p.vx * 0.8, cy * v - by * 60 + p.vy * 0.8, 0.5 + Math.random() * 0.3, 1.8, "#e8c060");
+      }
       if (kind === K.RAIL && mine) {   // for Impressive (a miss breaks the run) and Headshot
         if (railLast && !railLast.hitAny) railRun = 0;
         railLast = s; myRails.set(id, { x: s.x, y: s.y, scoped: !!me.scoping }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value);
@@ -292,6 +297,13 @@
       const da = (k - 3) * 0.035 + (((k * 37) % 7) - 3) * 0.006, f = 0.95 + ((k * 3) % 5) * 0.025, c = Math.cos(da), sn = Math.sin(da);
       shots.push({ ...s, id: s.id + "n" + k, vx: (s.vx * c - s.vy * sn) * f, vy: (s.vx * sn + s.vy * c) * f });
     }
+  }
+  // nails left sticking out of rock (for 8 s, at most 150), riding along with it
+  const stuckNails = [];
+  function stickNail(b, x, y, a, spike) {
+    const [lx, ly] = toLocal(b, x, y);
+    stuckNails.push({ b, lx, ly, a: a - b.a, spike, at: performance.now() });
+    if (stuckNails.length > 150) stuckNails.shift();
   }
   // a grenade hits rock or the fence: it clinks and rolls off
   function grenBounce(s) {
@@ -432,7 +444,7 @@
       if (me.heat >= 1) { me.overheat = true; floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: "OVERHEAT", gold: false }); sfx("shield_hit", 0.7, 0.6); }
     }
     const cdMul = MODES[MODE].cdMul || 1;
-    fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
+    fireCd = alt ? pat.cd : k === "fire" && me.lv >= 4 ? w.cd * 1.4 * cdMul : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
     const gun = k === "fire" ? null : muzzleAt(k);
     const muzzle = volley(me, now, pat, gun, (k === "bolt" || k === "laser") && !alt ? boltLock(me, gun) : undefined, mul);
     const [name, vol, pitch] = pat.sfx;

@@ -411,6 +411,17 @@
       }
       g.globalAlpha = 1;
     }
+    for (let i = stuckNails.length - 1; i >= 0; i--) {   // nails sticking out of rock, fading after 8 s
+      const n = stuckNails[i], age = now - n.at;
+      if (age > 8000 || n.b.dead) { stuckNails.splice(i, 1); continue; }
+      const [wx, wy] = toWorld(n.b, n.lx, n.ly), x = sx(wx), y = sy(wy);
+      if (!onScreen(x, y, 40)) continue;
+      const a = n.a + n.b.a, L = n.spike ? 20 : 10;
+      g.globalAlpha = Math.min(1, (8000 - age) / 1000);
+      g.strokeStyle = "#cfd6e2"; g.lineWidth = n.spike ? 3 : 1.8; g.beginPath(); g.moveTo(x, y); g.lineTo(x - Math.cos(a) * L, y - Math.sin(a) * L); g.stroke();
+      g.fillStyle = "#5a6276"; g.fillRect(x - Math.cos(a) * L - 1.5, y - Math.sin(a) * L - 1.5, 3, 3);
+      g.globalAlpha = 1;
+    }
     for (const p of arena.pads) {   // boost pads: a glowing ring with chevrons running its way
       const x = sx(p.x), y = sy(p.y);
       if (!onScreen(x, y, 120)) continue;
@@ -617,24 +628,47 @@
         g.stroke();
       }
     }
-    for (const b of lasers) {   // laser and shock beams: a glow, a coloured body, a white core, and a shimmer along it
+    // the laser: one electric beam per shooter (the newest pulse; at 12 a second they'd fan out otherwise): a wide
+    // cold glow, a cyan body, a white-hot core, three jagged arcs crackling round it, bolts of energy running up it,
+    // a flare at the emitter and a spray of sparks where it lands. The shock beam is a thinner violet one.
+    const beamSeen = new Set();
+    for (let li = lasers.length - 1; li >= 0; li--) {
+      const b = lasers[li];
+      if (beamSeen.has(b.who)) continue;
+      beamSeen.add(b.who);
       const x1 = sx(b.x1), y1 = sy(b.y1), x2 = sx(b.x2), y2 = sy(b.y2), L = Math.hypot(x2 - x1, y2 - y1) || 1;
-      if (!onScreen((x1 + x2) / 2, (y1 + y2) / 2, L / 2 + 40)) continue;
-      const k = 1 - b.t / (b.shock ? 0.35 : LASER_T), nx = (x2 - x1) / L, ny = (y2 - y1) / L, now = performance.now();
-      const [glow, body] = b.shock ? ["150,100,255", "201,164,255"] : ["40,190,255", "125,249,255"];
+      if (!onScreen((x1 + x2) / 2, (y1 + y2) / 2, L / 2 + 60)) continue;
+      const now = performance.now(), k = Math.max(0, 1 - b.t / ((b.shock ? 0.35 : LASER_T) * 1.4)), nx = (x2 - x1) / L, ny = (y2 - y1) / L;
+      const [glow, body, arc] = b.shock ? ["150,100,255", "201,164,255", "235,220,255"] : ["40,170,255", "110,235,255", "200,250,255"];
       g.lineCap = "round"; g.lineJoin = "round";
       const line = (w, c) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
-      line((b.shock ? 18 : 22) * k + 4, `rgba(${glow},${0.22 * k})`);
-      line((b.shock ? 7 : 9) * k + 1, `rgba(${body},${0.75 * k})`);
-      line(2.6 * k + 0.6, `rgba(255,255,255,${0.95 * k})`);
-      if (!lowQ) {   // a thin strand winding round the beam, moving along it
-        g.strokeStyle = `rgba(${b.shock ? "235,220,255" : "210,255,255"},${0.6 * k})`; g.lineWidth = 1.4;
-        g.beginPath();
-        for (let d = 0; d <= L; d += 10) { const o = Math.sin(d / 16 - now / 35 + b.seed) * (b.shock ? 7 : 5) * (0.4 + 0.6 * Math.sin(d / L * Math.PI)); const px = x1 + nx * d - ny * o, py = y1 + ny * d + nx * o; d ? g.lineTo(px, py) : g.moveTo(px, py); }
-        g.stroke();
+      const flick = 0.85 + 0.15 * Math.sin(now / 23 + b.seed);
+      line((b.shock ? 22 : 34) * k * flick + 6, `rgba(${glow},${0.16 * k})`);
+      line((b.shock ? 10 : 15) * k * flick + 2, `rgba(${glow},${0.35 * k})`);
+      line((b.shock ? 4 : 6) * k + 1, `rgba(${body},${0.9 * k})`);
+      line((b.shock ? 1.6 : 2.4) * k + 0.6, `rgba(255,255,255,${k})`);
+      if (!lowQ) {   // electric arcs twisting round the beam, new every frame
+        for (let a = 0; a < (b.shock ? 2 : 3); a++) {
+          const amp = (b.shock ? 7 : 11) + a * 4, pts = [];
+          for (let d = 0; d <= L; d += 18) { const env = Math.sin(Math.PI * Math.min(1, d / L)) * 0.7 + 0.3, o = (Math.random() - 0.5) * 2 * amp * env; pts.push([x1 + nx * d - ny * o, y1 + ny * d + nx * o]); }
+          pts.push([x2, y2]);
+          for (const [w, al] of [[4, 0.25], [1.4, 0.9]]) {
+            g.strokeStyle = `rgba(${a === 1 ? "190,160,255" : arc},${al * k})`; g.lineWidth = w;
+            g.beginPath(); pts.forEach(([px, py], i) => i ? g.lineTo(px, py) : g.moveTo(px, py)); g.stroke();
+          }
+        }
+        for (let p = 0; p < 4; p++) {   // bolts of energy racing up the beam
+          const f = ((now / (b.shock ? 160 : 240) + p / 4 + b.seed) % 1), px = x1 + nx * L * f, py = y1 + ny * L * f;
+          g.globalAlpha = k * 0.9; g.drawImage(dotSprite(b.shock ? "#e4d2ff" : "#e8fdff"), px - 12, py - 12, 24, 24); g.globalAlpha = 1;
+        }
       }
-      if (b.hit && b.hit !== "wall") { g.globalAlpha = k; g.drawImage(dotSprite(b.shock ? "#e4d2ff" : "#d8fbff"), x2 - 26, y2 - 26, 52, 52); g.globalAlpha = 1; }   // the flare where it lands
-      g.globalAlpha = 0.8 * k; g.drawImage(dotSprite(b.shock ? "#c9a4ff" : "#bff9ff"), x1 - 16, y1 - 16, 32, 32); g.globalAlpha = 1;   // and at the gun
+      g.globalAlpha = k; g.drawImage(dotSprite(b.shock ? "#c9a4ff" : "#bff9ff"), x1 - 24, y1 - 24, 48, 48);   // the emitter's flare
+      if (b.hit && b.hit !== "wall") {   // where it lands: a white-hot flare and sparks spitting off it
+        g.drawImage(dotSprite(b.shock ? "#e4d2ff" : "#ffffff"), x2 - 34, y2 - 34, 68, 68);
+        g.strokeStyle = `rgba(${arc},${0.9 * k})`; g.lineWidth = 1.5;
+        for (let sp = 0; sp < 5; sp++) { const a = Math.atan2(-ny, -nx) + (Math.random() - 0.5) * 2.4, r = 10 + Math.random() * 26; g.beginPath(); g.moveTo(x2, y2); g.lineTo(x2 + Math.cos(a) * r, y2 + Math.sin(a) * r); g.stroke(); }
+      }
+      g.globalAlpha = 1;
     }
     for (const q of arcs) {   // chain lightning
       const k = 1 - q.t / 0.3, x1 = sx(q.x1), y1 = sy(q.y1), x2 = sx(q.x2), y2 = sy(q.y2), L = Math.hypot(x2 - x1, y2 - y1) || 1, nx = (x2 - x1) / L, ny = (y2 - y1) / L;

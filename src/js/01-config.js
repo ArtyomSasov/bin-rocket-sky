@@ -59,8 +59,8 @@
   // inert: never hits anything itself (the big bombs blow up their own way, the teleporter's beacon just sits there)
   const SHOTS = [
     { name: "fireball",  life: 1.1,  dmg: 0.3,  r: 0,      col: "#ffb43c", carve: 16, shove: 0,   sfx: ["fire", 0.6, 1] },
-    { name: "rocket",    life: 2.4,  dmg: 1.2,  r: 8,      col: "#ffb43c", carve: 52, shove: 0,   sfx: ["rocket", 0.6, 1] },
-    { name: "laser",     life: 0.125, dmg: 0.22, r: 0,     col: "#7df9ff", carve: 10, shove: 0,   sfx: ["laser", 0.2, 1] },
+    { name: "rocket",    life: 2.4,  dmg: 1.4,  r: 8,      col: "#ffb43c", carve: 52, shove: 0,   sfx: ["rocket", 0.6, 1] },
+    { name: "laser",     life: 0.125, dmg: 0.19, r: 0,     col: "#7df9ff", carve: 10, shove: 0,   sfx: ["laser", 0.2, 1] },
     { name: "nuke",      life: 6,    dmg: 0,    r: 0,      col: "#ffe14d", carve: 0,  shove: 0,   sfx: ["rocket", 0.6, 0.6], inert: true },
     { name: "pellet",    life: 0.64, dmg: 0,    r: 0,      col: "#ffd27a", carve: 9,  shove: 150, sfx: ["scatter", 0.6, 1] },
     { name: "rail slug", life: 0.7,  dmg: 3,    r: 0,      col: "#e9c8ff", carve: 14, shove: 650, sfx: ["rail", 0.6, 1], pierce: true },
@@ -74,7 +74,7 @@
     { name: "gamma orb", life: 4,    dmg: 1.35, r: 34,     col: "#7dff8a", carve: 90, shove: 500, sfx: ["shield_get", 0.8, 0.55] },
     { name: "beacon",    life: 15,   dmg: 0,    r: 0,      col: "#8ff0ff", carve: 0,  shove: 0,   sfx: ["mine_drop", 0.5, 1.5], inert: true },
     { name: "telefrag",  life: 0.12, dmg: 99,   r: 40,     col: "#8ff0ff", carve: 0,  shove: 900, sfx: ["rail", 0.6, 1.6] },
-    { name: "bullet",    life: 0.5,  dmg: 0.09, r: 0,      col: "#ffe08a", carve: 6,  shove: 30,  sfx: ["fire", 0.3, 1.8] },
+    { name: "bullet",    life: 0.5,  dmg: 0.1, r: 0,      col: "#ffe08a", carve: 6,  shove: 30,  sfx: ["fire", 0.3, 1.8] },
     { name: "gauss slug", life: 0.6, dmg: 3,    r: 4,      col: "#7fb8ff", carve: 26, shove: 700, sfx: ["rail", 0.7, 0.8], pierce: true },
     { name: "shock beam", life: 0.25, dmg: 0.75, r: 0,      col: "#c9a4ff", carve: 10, shove: 220, sfx: ["laser", 0.6, 0.55] },
     { name: "laser pulse", life: 0.12, dmg: 0.45, r: 60,    col: "#7df9ff", carve: 12, shove: 950, sfx: ["laser", 0.9, 0.5], pierce: true },
@@ -82,7 +82,7 @@
     { name: "detonator",  life: 0.05, dmg: 0,    r: 0,      col: "#7dff8a", carve: 0,  shove: 0,   sfx: ["hit", 0.5, 0.6], inert: true },
     { name: "nail",       life: 1.1,  dmg: 0.13, r: 0,      col: "#cfd6e2", carve: 6,  shove: 60,  sfx: ["fire", 0.4, 2.2] },
     { name: "grenade",    life: 2.5,  dmg: 0.9,  r: 10,     col: "#8fd06a", carve: 46, shove: 300, sfx: ["mine_drop", 0.8, 0.7], bounce: 99 },
-    { name: "gauntlet",   life: 0.06, dmg: 0.55, r: 46,     col: "#ffcf5a", carve: 0,  shove: 650, sfx: ["hit", 0.7, 0.7] },
+    { name: "gauntlet",   life: 0.06, dmg: 0.7, r: 46,     col: "#ffcf5a", carve: 0,  shove: 650, sfx: ["hit", 0.7, 0.7] },
     { name: "spike",      life: 0.9,  dmg: 0.6,  r: 2,      col: "#e8eef8", carve: 14, shove: 400, sfx: ["rail", 0.5, 1.6], pierce: true },
     { name: "mine detonator", life: 0.05, dmg: 0, r: 0,      col: "#ff6b3c", carve: 0,  shove: 0,   sfx: ["hit", 0.5, 0.6], inert: true },
     { name: "homing rocket", life: 3.6, dmg: 1.0,  r: 12,     col: "#ffb43c", carve: 52, shove: 0,   sfx: ["rocket", 0.6, 1] }

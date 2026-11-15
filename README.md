@@ -146,8 +146,8 @@ recent shots to both connected brokers at up to 8 messages/s, keeping below the 
 Two clients can play together as long as they share a reachable broker. Duplicate and older states are ignored.
 A silent player and its bots disappear after 7 seconds; losing one broker does not remove a player.
 
-The wire protocol uses `binrocket-sky/v9/` topics. Players must reload to this version to join each other;
-older pages are isolated (v2–v8 built different maps, guns or levels, v1 events do not identify the round). Taken terrain cells are sent in a
+The wire protocol uses `binrocket-sky/v10/` topics. Players must reload to this version to join each other;
+older pages are isolated (v2–v9 built different maps, guns or levels, v1 events do not identify the round). Taken terrain cells are sent in a
 rolling snapshot (one shared body per state), so late joins and reconnects recover holes after a full pass
 through the map. Detached rubble is still simulated locally.
 

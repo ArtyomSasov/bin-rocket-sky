@@ -598,8 +598,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // inert: never hits anything itself (the big bombs blow up their own way, the teleporter's beacon just sits there)
   const SHOTS = [
     { name: "fireball",  life: 1.1,  dmg: 0.3,  r: 0,      col: "#ffb43c", carve: 16, shove: 0,   sfx: ["fire", 0.6, 1] },
-    { name: "rocket",    life: 2.4,  dmg: 1.2,  r: 8,      col: "#ffb43c", carve: 52, shove: 0,   sfx: ["rocket", 0.6, 1] },
-    { name: "laser",     life: 0.125, dmg: 0.22, r: 0,     col: "#7df9ff", carve: 10, shove: 0,   sfx: ["laser", 0.2, 1] },
+    { name: "rocket",    life: 2.4,  dmg: 1.4,  r: 8,      col: "#ffb43c", carve: 52, shove: 0,   sfx: ["rocket", 0.6, 1] },
+    { name: "laser",     life: 0.125, dmg: 0.19, r: 0,     col: "#7df9ff", carve: 10, shove: 0,   sfx: ["laser", 0.2, 1] },
     { name: "nuke",      life: 6,    dmg: 0,    r: 0,      col: "#ffe14d", carve: 0,  shove: 0,   sfx: ["rocket", 0.6, 0.6], inert: true },
     { name: "pellet",    life: 0.64, dmg: 0,    r: 0,      col: "#ffd27a", carve: 9,  shove: 150, sfx: ["scatter", 0.6, 1] },
     { name: "rail slug", life: 0.7,  dmg: 3,    r: 0,      col: "#e9c8ff", carve: 14, shove: 650, sfx: ["rail", 0.6, 1], pierce: true },
@@ -613,7 +613,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     { name: "gamma orb", life: 4,    dmg: 1.35, r: 34,     col: "#7dff8a", carve: 90, shove: 500, sfx: ["shield_get", 0.8, 0.55] },
     { name: "beacon",    life: 15,   dmg: 0,    r: 0,      col: "#8ff0ff", carve: 0,  shove: 0,   sfx: ["mine_drop", 0.5, 1.5], inert: true },
     { name: "telefrag",  life: 0.12, dmg: 99,   r: 40,     col: "#8ff0ff", carve: 0,  shove: 900, sfx: ["rail", 0.6, 1.6] },
-    { name: "bullet",    life: 0.5,  dmg: 0.09, r: 0,      col: "#ffe08a", carve: 6,  shove: 30,  sfx: ["fire", 0.3, 1.8] },
+    { name: "bullet",    life: 0.5,  dmg: 0.1, r: 0,      col: "#ffe08a", carve: 6,  shove: 30,  sfx: ["fire", 0.3, 1.8] },
     { name: "gauss slug", life: 0.6, dmg: 3,    r: 4,      col: "#7fb8ff", carve: 26, shove: 700, sfx: ["rail", 0.7, 0.8], pierce: true },
     { name: "shock beam", life: 0.25, dmg: 0.75, r: 0,      col: "#c9a4ff", carve: 10, shove: 220, sfx: ["laser", 0.6, 0.55] },
     { name: "laser pulse", life: 0.12, dmg: 0.45, r: 60,    col: "#7df9ff", carve: 12, shove: 950, sfx: ["laser", 0.9, 0.5], pierce: true },
@@ -621,7 +621,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     { name: "detonator",  life: 0.05, dmg: 0,    r: 0,      col: "#7dff8a", carve: 0,  shove: 0,   sfx: ["hit", 0.5, 0.6], inert: true },
     { name: "nail",       life: 1.1,  dmg: 0.13, r: 0,      col: "#cfd6e2", carve: 6,  shove: 60,  sfx: ["fire", 0.4, 2.2] },
     { name: "grenade",    life: 2.5,  dmg: 0.9,  r: 10,     col: "#8fd06a", carve: 46, shove: 300, sfx: ["mine_drop", 0.8, 0.7], bounce: 99 },
-    { name: "gauntlet",   life: 0.06, dmg: 0.55, r: 46,     col: "#ffcf5a", carve: 0,  shove: 650, sfx: ["hit", 0.7, 0.7] },
+    { name: "gauntlet",   life: 0.06, dmg: 0.7, r: 46,     col: "#ffcf5a", carve: 0,  shove: 650, sfx: ["hit", 0.7, 0.7] },
     { name: "spike",      life: 0.9,  dmg: 0.6,  r: 2,      col: "#e8eef8", carve: 14, shove: 400, sfx: ["rail", 0.5, 1.6], pierce: true },
     { name: "mine detonator", life: 0.05, dmg: 0, r: 0,      col: "#ff6b3c", carve: 0,  shove: 0,   sfx: ["hit", 0.5, 0.6], inert: true },
     { name: "homing rocket", life: 3.6, dmg: 1.0,  r: 12,     col: "#ffb43c", carve: 52, shove: 0,   sfx: ["rocket", 0.6, 1] }
@@ -2899,7 +2899,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
 
   // ---------- fire & damage ----------
   // shots leave from the tip of the gun drawn on the wing (left and right in turn), not from the middle of the bin
-  const mountsOf = w => ["nuke", "holy", "bolt", "gamma", "tele", "gauss", "gauntlet"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // art pixels, shared with drawMounts
+  const mountsOf = w => w === "laser" ? [[160, 96]] : ["nuke", "holy", "bolt", "gamma", "tele", "gauss", "gauntlet"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
   const BARREL = { laser: 60, rocket: 50, triple: 42, nuke: 96, holy: 30, saw: 40, gamma: 44, tele: 28, minigun: 58, gauss: 80, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48, nail: 54, gren: 44, gauntlet: 34 };   // tip, in mount units
   let gunSide = 0;
   function muzzleAt(weapon) {
@@ -2939,7 +2939,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // shooter's team; my own shots never hurt me. Every hit, splash, blast, homing and chain asks this.
   // the shooter's own shot: it only hurts them through a blast (blast = true: rockets, plasma, mines, nukes, combos)
   const ownShot = (s, o, id) => (o === me && s.mine) || id === s.owner;
-  const SELF_DMG = 0.6;   // your own blast hurts you a bit less than it hurts others
+  const SELF_DMG = 0.3;   // rocket jumps, as in Quake: your own blast hurts you little and throws you hard (see splash)
   const canHurt = (s, o, id, blast = false) => ownShot(s, o, id) ? blast && !o.dead && (o !== me || playing)
     : !o.dead && !friendly(s, o.tm) && (o !== me || (playing && !s.mine));
   // I take damage from shot s: its shooter gets the credit, unless it was my own (then nobody does)
@@ -3025,7 +3025,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   function laserBeam(s, owner) {
     const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v;
     const e = beamEnd(s.x, s.y, dx, dy, v * SHOTS[s.kind].life, owner, s.mine);
-    lasers.push({ x1: s.x, y1: s.y, x2: e.x, y2: e.y, t: 0, hit: e.hit, seed: Math.random() * 100, shock: s.kind === K.SHOCK });
+    lasers.push({ x1: s.x, y1: s.y, x2: e.x, y2: e.y, t: 0, hit: e.hit, seed: Math.random() * 100, shock: s.kind === K.SHOCK, who: (s.mine ? "me" : owner || "?") + (s.kind === K.SHOCK ? "s" + s.id : "") });
     if (lasers.length > 40) lasers.shift();
     if (e.hit && e.hit !== "wall" && onScreen(sx(e.x), sy(e.y), 60)) {
       for (let k = 0; k < (lowQ ? 1 : 3); k++) { const a = Math.atan2(-dy, -dx) + (Math.random() - 0.5) * 2.2, sp = 80 + Math.random() * 260; puff(e.x, e.y, Math.cos(a) * sp, Math.sin(a) * sp, 0.25 + Math.random() * 0.25, 1.4 + Math.random() * 1.4, s.kind === K.SHOCK ? "#e4d2ff" : k % 2 ? "#bff9ff" : "#ffffff", 1, 0.05); }
@@ -3094,7 +3094,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const hit = (o, id, rad) => {
       const d = Math.hypot(o.x - s.x, o.y - s.y), R = R0 + rad;
       if (d > R || id === s.direct || !canHurt(s, o, id, true)) return 0;
-      o.vx += (o.x - s.x) / (d || 1) * push; o.vy += (o.y - s.y) / (d || 1) * push;
+      const jump = ownShot(s, o, id) ? 2.6 : 1;   // a rocket jump: your own blast flings you
+      o.vx += (o.x - s.x) / (d || 1) * push * jump; o.vy += (o.y - s.y) / (d || 1) * push * jump;
       return (hi * (1 - d / R) + lo) * m;
     };
     const dm = hit(me, "me", 26 * sizeOf(me.lv));
@@ -3172,6 +3173,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else if (kind === K.NAIL) nailSpray(s); else shots.push(s);
       if (kind === K.RAIL) railBeam(s.x, s.y, s.vx, s.vy);
       if (kind === K.MELEE && mine) myMelee.add(id);   // for Humiliation
+      if (kind === K.BULLET && onScreen(sx(p.x), sy(p.y), 200) && Math.random() < 0.7) {   // a spent casing spins off the side
+        const sd = Math.random() < 0.5 ? 1 : -1, cx = -by * sd, cy = bx * sd, v = 140 + Math.random() * 120;
+        puff(ox, oy, cx * v - bx * 60 + p.vx * 0.8, cy * v - by * 60 + p.vy * 0.8, 0.5 + Math.random() * 0.3, 1.8, "#e8c060");
+      }
       if (kind === K.RAIL && mine) {   // for Impressive (a miss breaks the run) and Headshot
         if (railLast && !railLast.hitAny) railRun = 0;
         railLast = s; myRails.set(id, { x: s.x, y: s.y, scoped: !!me.scoping }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value);
@@ -3191,6 +3196,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       const da = (k - 3) * 0.035 + (((k * 37) % 7) - 3) * 0.006, f = 0.95 + ((k * 3) % 5) * 0.025, c = Math.cos(da), sn = Math.sin(da);
       shots.push({ ...s, id: s.id + "n" + k, vx: (s.vx * c - s.vy * sn) * f, vy: (s.vx * sn + s.vy * c) * f });
     }
+  }
+  // nails left sticking out of rock (for 8 s, at most 150), riding along with it
+  const stuckNails = [];
+  function stickNail(b, x, y, a, spike) {
+    const [lx, ly] = toLocal(b, x, y);
+    stuckNails.push({ b, lx, ly, a: a - b.a, spike, at: performance.now() });
+    if (stuckNails.length > 150) stuckNails.shift();
   }
   // a grenade hits rock or the fence: it clinks and rolls off
   function grenBounce(s) {
@@ -3331,7 +3343,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (me.heat >= 1) { me.overheat = true; floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: "OVERHEAT", gold: false }); sfx("shield_hit", 0.7, 0.6); }
     }
     const cdMul = MODES[MODE].cdMul || 1;
-    fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
+    fireCd = alt ? pat.cd : k === "fire" && me.lv >= 4 ? w.cd * 1.4 * cdMul : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
     const gun = k === "fire" ? null : muzzleAt(k);
     const muzzle = volley(me, now, pat, gun, (k === "bolt" || k === "laser") && !alt ? boltLock(me, gun) : undefined, mul);
     const [name, vol, pitch] = pat.sfx;
@@ -3790,7 +3802,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // window.BRS_BROKER set before the game loads (see server/ in the repo)
   const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
   const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
-  const LOBBY_TOPIC = "binrocket-sky/v9/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  const LOBBY_TOPIC = "binrocket-sky/v10/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
   let lobbyRenderPending = false;
   function renderLobbies() {
@@ -4063,7 +4075,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     // Shots ride in state, including on the primary, and q deduplicates the two deliveries.
     const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
     const myId = "p" + Math.random().toString(36).slice(2, 10);
-    const base = "binrocket-sky/v9/" + code + "/";
+    const base = "binrocket-sky/v10/" + code + "/";
     const clients = BROKERS.map(url => {
       const c = mqtt.connect(url, {
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),
@@ -4480,7 +4492,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     shotSound(pat.shot[0], b.x, b.y);
     b.vx -= Math.cos(b.a) * 25; b.vy -= Math.sin(b.a) * 25;
     if (!MODES[MODE].only && w !== "fire" && --b.ammo <= 0) b.weapon = "fire";
-    return pat.cd;
+    return w === "fire" && (b.lv || 1) >= 4 ? pat.cd * 1.4 : pat.cd;   // twin fireballs reload a little slower
   }
   function updateBots(dt, now) {
     if (!bots.length) return;
@@ -4574,7 +4586,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         b.vx += Math.cos(a) * 900; b.vy += Math.sin(a) * 900; b.energy -= 25; b.dashAt = now; b.inv = Math.max(b.inv, now + 280);
       }
       b.dashReq = false;
-      thrustPilot(b, st.x, st.y, b.boosting, false, dt, b.L.speed);
+      thrustPilot(b, st.x, st.y, b.boosting, false, dt, b.L.speed * (now < (b.pinnedUntil || 0) ? 0.6 : 1));
       slingshot(b, dt); padsFor(b, now);
       if (Math.hypot(st.x, st.y) > 0.15) b.a = lerpAng(b.a, Math.atan2(st.y, st.x), 1 - Math.exp(-13 * dt));
       gravityOn(b, dt);
@@ -4631,6 +4643,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
           if (pierces(s)) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
           shotBurst(s); hitConfirm(s, b.lv, b.x, b.y, remotes.get(b.id)); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
           if (s.kind === K.BOLT || s.kind === K.LASER) boltChain(s, b.x, b.y, b.id, now);
+          if (s.kind === K.NAIL || s.kind === K.SPIKE) b.pinnedUntil = now + 1000;
           botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx));
         }
       }
@@ -4865,7 +4878,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     me.drift = drift;
     if (playing && !me.dead) {
       if (drift) thrustPilot(me, 0, 0, false, false, dt);
-      else thrustPilot(me, steer.x, steer.y, boost, braking, dt);
+      else thrustPilot(me, steer.x, steer.y, boost, braking, dt, now < (me.pinnedUntil || 0) ? 0.6 : 1);   // pinned by nails: slower
       if (drift && Math.abs(angD(Math.atan2(me.vy, me.vx) - me.a)) > 0.6 && Math.random() < 50 * dt) {   // the hull scrubs sideways: smoke off both flanks
         const s = 26 * sizeOf(me.lv), nx = -Math.sin(me.a), ny = Math.cos(me.a), side = Math.random() < 0.5 ? 1 : -1;
         puff(me.x + nx * s * side, me.y + ny * s * side, nx * side * 60 + (Math.random() - 0.5) * 40, ny * side * 60 + (Math.random() - 0.5) * 40, 0.6, 3 + Math.random() * 3, "rgb(190,200,225)", 2);
@@ -4950,6 +4963,33 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   }
   // every shot in flight: homing, ricochets, digging into bodies, hitting me (I decide) or reaching others
   let ricAt = 0, whizAt = 0;
+  // hitscan, as in Quake: the rail, the laser, the shock beam and lightning hit along their whole line at once, so the
+  // damage lands with the beam you see, not when a fast slug would have got there. The rail bores through every body
+  // to the fence (each bin on the line is hit once); the others stop at the first rock. The shot then spans that line
+  // (px,py -> x,y) for one frame, so the usual hit checks (me, the others, my bots, orbs for a combo) see all of it.
+  const HITSCAN = { [K.RAIL]: 1, [K.LASER]: 1, [K.SHOCK]: 1, [K.BOLT]: 1, [K.GAUSS]: 1 };
+  function traceBeam(s) {
+    s.traced = true;
+    const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v, max = v * SHOTS[s.kind].life, pierce = pierces(s);
+    const own = s.mine || botById.has(s.owner);
+    let L = 0, n = 0, stop = null;
+    while (L < max) {
+      const nl = Math.min(max, L + 14), x = s.x + dx * nl, y = s.y + dy * nl;
+      if (x < 0 || x > W || y < 0 || y > H) break;
+      L = nl;
+      const b = solidAny(x, y);
+      if (!b) continue;
+      if (!pierce) { stop = { b, x, y }; break; }
+      if ((own || b.free) && n++ % 2 === 0) carveAt(b, x, y, SHOTS[s.kind].carve, own);   // the rail's tunnel
+    }
+    const ex = s.x + dx * L, ey = s.y + dy * L;
+    s.px = s.x; s.py = s.y; s.x = ex; s.y = ey;
+    if (stop) {   // a beam ends on rock: it scorches a crater there
+      if (own || stop.b.free) carveAt(stop.b, stop.x, stop.y, SHOTS[s.kind].carve, own);
+      impact(stop.x, stop.y, SHOTS[s.kind].col, 0.8);
+    }
+    s.life = Math.min(s.life, 1e-4);   // one frame of hits, then gone
+  }
   const spotHeard = new Set();
   function updateShots(dt, now) {
     // fireballs
@@ -4957,6 +4997,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       const s = shots[i];
       s.life -= dt;
       if (s.kind === K.DET) { detonateOrb(s); if (s.life <= 0) shots.splice(i, 1); continue; }   // inert: it only sets off its orb
+      if (HITSCAN[s.kind] && !s.traced && s.life > 0) traceBeam(s);   // rail, laser, beams: the whole line, this very frame
       if (s.kind === K.MDET) { detonateMines(s); if (s.life <= 0) shots.splice(i, 1); continue; }   // ...and this one its pilot's mines
       if (s.kind === K.MINE && s.trigAt && now >= s.trigAt) s.life = 0;   // a triggered mine goes off
       if (s.life <= 0 && s.kind === K.FLAK) flakBurst(s);
@@ -4968,6 +5009,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         if (segHit(o, s.x, s.y, 24)) { s.life = 0; if (!pierces(o)) o.life = 0; impact(s.x, s.y, "#ffb43c", 1.6); explode(s.x, s.y, 40, 300); sfx("boom_small", 0.8, 1.2, s.x, s.y); break; }
       }
       if (s.life <= 0) continue;   // shot down: it blows up (splash) at the start of next frame
+      if (s.kind === K.SAW && s.stuck) {   // a stuck saw: rides its rock, grinds sparks, and bites anyone touching it again every half second
+        mineStick(s);
+        if (now - (s.bitAt || 0) > 500) { s.bitAt = now; s.hits = null; }
+        if (Math.random() < dt * 30) sparkShower(s.x, s.y, Math.random() - 0.5, Math.random() - 0.5, 0.3);
+      }
       if (s.kind === K.MINE) {
         if (s.stuck) mineStick(s); else { const k = Math.exp(-1.6 * dt); s.vx *= k; s.vy *= k; }   // a prox mine slows in flight, then rides the rock it stuck to
         if (!s.trigAt && SHOTS[K.MINE].life - s.life >= MINE_ARM) {   // armed: an enemy coming within reach sets it ticking
@@ -4978,8 +5024,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       }
       if (s.kind === K.GREN) { const k = Math.exp(-0.7 * dt); s.vx *= k; s.vy *= k; }   // a grenade slows as it flies
       if (s.kind === K.NUKE) { const v = Math.hypot(s.vx, s.vy), nv = Math.min(720, v + 260 * dt); s.vx *= nv / v; s.vy *= nv / v; }
-      s.px = s.x; s.py = s.y;
-      s.x += s.vx * dt; s.y += s.vy * dt;
+      if (!s.traced) { s.px = s.x; s.py = s.y; s.x += s.vx * dt; s.y += s.vy * dt; }   // a traced beam already spans its whole line
       if (s.kind === K.NUKE && (s.x < 0 || s.x > W || s.y < 0 || s.y > H || solidAny(s.x, s.y) || nukeTouches(s))) { detonate(s, now); shots.splice(i, 1); continue; }
       if (s.kind === K.HOLY) { holyFlight(s, dt); continue; }
       if (s.kind === K.BEACON) {   // the teleporter's beacon: slides to a stop and blinks
@@ -4996,6 +5041,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       const bounce = SHOTS[s.kind].bounce;
       if (bounce && s.bn < bounce) {   // shards and saws ricochet off the fence and off planets, losing a bit of speed
         let hit = false;
+        const sv = Math.hypot(s.vx, s.vy) || 1;
+        if (s.kind === K.SAW && !s.stuck && (((s.x < 0 || s.x > W) && Math.abs(s.vx) / sv > 0.85) || ((s.y < 0 || s.y > H) && Math.abs(s.vy) / sv > 0.85))) {
+          s.x = clamp(s.x, 0, W); s.y = clamp(s.y, 0, H); s.stuck = { b: null }; s.vx = s.vy = 0; s.life = 5; s.bitAt = now; continue;   // head-on into the fence: it bites in
+        }
         if (s.x < 0 || s.x > W) { s.vx = -s.vx; s.x = clamp(s.x, 0, W); hit = true; }
         if (s.y < 0 || s.y > H) { s.vy = -s.vy; s.y = clamp(s.y, 0, H); hit = true; }
         if (hit) { s.bn++; s.vx *= s.kind === K.GREN ? 0.6 : 0.85; s.vy *= s.kind === K.GREN ? 0.6 : 0.85; s.px = s.x; s.py = s.y; impact(s.x, s.y, SHOTS[s.kind].col, 0.5); if (s.kind === K.SHARD) shardRicochet(s); if (s.kind === K.GREN) grenBounce(s); }
@@ -5006,7 +5055,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (s.kind === K.ORB && SHOTS[K.ORB].life - s.life > 0.9) { const k = Math.exp(-5 * dt); s.vx *= k; s.vy *= k; }   // the shock orb stops and hangs there
       // planets, moons, wrecks and rubble: the shot digs a crater where it lands (my shots and my bots' report theirs;
       // others' craters on shared bodies arrive over the network, but anyone's shot chips local rubble)
-      const hb = s.stuck ? null : shotBody(s);
+      const hb = s.stuck || s.traced ? null : shotBody(s);
       if (hb) {
         const own = s.mine || botById.has(s.owner), dig = own || hb.b.free;
         if (s.kind === K.RAIL || s.kind === K.GAUSS) {   // rail and gauss slugs bore a tunnel straight through and keep going
@@ -5015,6 +5064,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         } else if (bounce && s.bn < bounce) {   // shards and saws chip and ricochet; grenades just bounce
           if (dig && s.kind !== K.GREN) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);
           const [nx, ny] = normalAt(hb.b, hb.x, hb.y), vn = s.vx * nx + s.vy * ny, keep = s.kind === K.GREN ? 0.6 : 0.85;
+          if (s.kind === K.SAW && -vn / (Math.hypot(s.vx, s.vy) || 1) > 0.85) {   // head-on into rock: the saw bites in and keeps spinning there
+            const [lx, ly] = toLocal(hb.b, hb.x, hb.y);
+            s.stuck = { b: hb.b, lx, ly }; s.x = hb.x; s.y = hb.y; s.vx = s.vy = 0; s.life = 5; s.bitAt = now;
+            continue;
+          }
           if (vn < 0) { s.vx = (s.vx - 2 * vn * nx) * keep; s.vy = (s.vy - 2 * vn * ny) * keep; }
           if (s.kind === K.GREN) grenBounce(s);
           s.x = hb.x + nx * 4; s.y = hb.y + ny * 4; s.px = s.x; s.py = s.y; s.bn++;
@@ -5023,6 +5077,12 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         } else {
           if (dig) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);
           if ((s.kind === K.BULLET || s.kind === K.PELLET) && now - ricAt > 90) { ricAt = now; packPlay("p_ric", 0.4, hb.x, hb.y); }   // whine off the rock
+          if (s.kind === K.NAIL || s.kind === K.SPIKE) stickNail(hb.b, hb.x, hb.y, Math.atan2(s.vy, s.vx), s.kind === K.SPIKE);
+          if (s.kind === K.SAW) {   // a saw with no bounces left bites into the rock and keeps spinning there for 5 s
+            const [lx, ly] = toLocal(hb.b, hb.x, hb.y);
+            s.stuck = { b: hb.b, lx, ly }; s.x = hb.x; s.y = hb.y; s.vx = s.vy = 0; s.life = 5; s.bitAt = now;
+            continue;
+          }
           if (s.kind === K.MINE) {   // a prox mine sticks where it lands, just off the surface
             const [nx, ny] = normalAt(hb.b, hb.x, hb.y), px = hb.x + nx * 10, py = hb.y + ny * 10, [lx, ly] = toLocal(hb.b, px, py);
             s.stuck = { b: hb.b, lx, ly }; s.x = px; s.y = py; s.vx = s.vy = 0;
@@ -5036,6 +5096,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
           if (s.kind === K.MINE) explode(hb.x, hb.y, 40, 260);
           shots.splice(i, 1); continue;
         }
+      }
+      if (s.kind === K.SAW && !s.stuck && (s.x < 0 || s.x > W || s.y < 0 || s.y > H)) {   // a saw out of bounces bites into the fence
+        s.x = clamp(s.x, 0, W); s.y = clamp(s.y, 0, H); s.stuck = { b: null }; s.vx = s.vy = 0; s.life = 5; s.bitAt = now; continue;
       }
       if ((s.x < 0 || s.x > W || s.y < 0 || s.y > H) && SPLASH[s.kind]) splash(s, now);
       if (s.x < 0 || s.x > W || s.y < 0 || s.y > H) { explode(clamp(s.x, 0, W), clamp(s.y, 0, H), s.kind === K.ROCKET ? 40 : 10, 160); shots.splice(i, 1); continue; }
@@ -5073,6 +5136,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         shotBurst(s);
         if (SHOTS[s.kind].shove) pelletShove(me, s, SHOTS[s.kind].shove);
         if (s.kind === K.BOLT || s.kind === K.LASER) boltChain(s, me.x, me.y, "me", now);
+        if (s.kind === K.NAIL || s.kind === K.SPIKE) { if (now > (me.pinnedUntil || 0)) floaters.push({ x: me.x, y: me.y - 50, t: 0, txt: "PINNED", gold: false }); me.pinnedUntil = now + 1000; }
         hurtMe(s, now, shotDmg(s), s.kind, Math.atan2(s.vy, s.vx));
       }
       // someone else's bolt hitting a third pilot can still jump to me or my bots
@@ -6339,7 +6403,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
 
   // the weapon you carry is mounted on the wings, so everyone can see what is coming at them.
   // Drawn in art pixels; -y points the way the bin flies.
-  let gauntSpinFast = false;   // my gauntlet whirls while it's on
+  let gauntSpinFast = false, mountHeat = 0;   // my gauntlet whirls while it's on; my minigun's heat
   function drawMounts(weapon, s, now) {
     if (!weapon || weapon === "fire") return;
     const u = s / 320, mounts = mountsOf(weapon);
@@ -6428,6 +6492,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         const turn = now / 18;
         for (let k = 0; k < 3; k++) { const off = Math.sin(turn + k * 2.094) * 7; g.fillStyle = k % 2 ? "#8a7fb0" : "#cfc6e8"; rrect(off - 2.5, -64, 5, 52, 2); g.fill(); }
         g.fillStyle = "#ffe08a"; g.fillRect(-9, -66, 18, 4);
+        if (mountHeat > 0.05) {   // the barrels glow red-hot as it spins (and white-hot when it overheats)
+          g.globalCompositeOperation = "lighter";
+          const hg = g.createLinearGradient(0, -66, 0, -30); hg.addColorStop(0, `rgba(255,${me.overheat ? 230 : 90},40,${0.85 * mountHeat})`); hg.addColorStop(1, "rgba(255,60,20,0)");
+          g.fillStyle = hg; rrect(-10, -66, 20, 36, 4); g.fill(); g.globalCompositeOperation = "source-over";
+        }
       } else if (weapon === "gauss") {   // a long barrel in blue coils
         g.fillStyle = "#3b2d5c"; rrect(-10, -6, 20, 16, 4); g.fill();
         g.fillStyle = "#cfc6e8"; rrect(-4, -78, 8, 76, 3); g.fill();
@@ -6591,7 +6660,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       g.restore();
     }
     drawWings(lv, s);
-    gauntSpinFast = isMe && !!me.gauntOn;
+    gauntSpinFast = isMe && !!me.gauntOn; mountHeat = isMe ? Math.max(spin, Math.min(1, me.heat || 0)) : 0;
     drawMounts(isMe ? me.weapon : b.weapon, s, now);
     if (body) {
       g.drawImage(b.ck ? tintedBody(teamCk(b)) : body, -s / 2, -s / 2, s, s);
@@ -7038,6 +7107,17 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       }
       g.globalAlpha = 1;
     }
+    for (let i = stuckNails.length - 1; i >= 0; i--) {   // nails sticking out of rock, fading after 8 s
+      const n = stuckNails[i], age = now - n.at;
+      if (age > 8000 || n.b.dead) { stuckNails.splice(i, 1); continue; }
+      const [wx, wy] = toWorld(n.b, n.lx, n.ly), x = sx(wx), y = sy(wy);
+      if (!onScreen(x, y, 40)) continue;
+      const a = n.a + n.b.a, L = n.spike ? 20 : 10;
+      g.globalAlpha = Math.min(1, (8000 - age) / 1000);
+      g.strokeStyle = "#cfd6e2"; g.lineWidth = n.spike ? 3 : 1.8; g.beginPath(); g.moveTo(x, y); g.lineTo(x - Math.cos(a) * L, y - Math.sin(a) * L); g.stroke();
+      g.fillStyle = "#5a6276"; g.fillRect(x - Math.cos(a) * L - 1.5, y - Math.sin(a) * L - 1.5, 3, 3);
+      g.globalAlpha = 1;
+    }
     for (const p of arena.pads) {   // boost pads: a glowing ring with chevrons running its way
       const x = sx(p.x), y = sy(p.y);
       if (!onScreen(x, y, 120)) continue;
@@ -7244,24 +7324,47 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         g.stroke();
       }
     }
-    for (const b of lasers) {   // laser and shock beams: a glow, a coloured body, a white core, and a shimmer along it
+    // the laser: one electric beam per shooter (the newest pulse; at 12 a second they'd fan out otherwise): a wide
+    // cold glow, a cyan body, a white-hot core, three jagged arcs crackling round it, bolts of energy running up it,
+    // a flare at the emitter and a spray of sparks where it lands. The shock beam is a thinner violet one.
+    const beamSeen = new Set();
+    for (let li = lasers.length - 1; li >= 0; li--) {
+      const b = lasers[li];
+      if (beamSeen.has(b.who)) continue;
+      beamSeen.add(b.who);
       const x1 = sx(b.x1), y1 = sy(b.y1), x2 = sx(b.x2), y2 = sy(b.y2), L = Math.hypot(x2 - x1, y2 - y1) || 1;
-      if (!onScreen((x1 + x2) / 2, (y1 + y2) / 2, L / 2 + 40)) continue;
-      const k = 1 - b.t / (b.shock ? 0.35 : LASER_T), nx = (x2 - x1) / L, ny = (y2 - y1) / L, now = performance.now();
-      const [glow, body] = b.shock ? ["150,100,255", "201,164,255"] : ["40,190,255", "125,249,255"];
+      if (!onScreen((x1 + x2) / 2, (y1 + y2) / 2, L / 2 + 60)) continue;
+      const now = performance.now(), k = Math.max(0, 1 - b.t / ((b.shock ? 0.35 : LASER_T) * 1.4)), nx = (x2 - x1) / L, ny = (y2 - y1) / L;
+      const [glow, body, arc] = b.shock ? ["150,100,255", "201,164,255", "235,220,255"] : ["40,170,255", "110,235,255", "200,250,255"];
       g.lineCap = "round"; g.lineJoin = "round";
       const line = (w, c) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
-      line((b.shock ? 18 : 22) * k + 4, `rgba(${glow},${0.22 * k})`);
-      line((b.shock ? 7 : 9) * k + 1, `rgba(${body},${0.75 * k})`);
-      line(2.6 * k + 0.6, `rgba(255,255,255,${0.95 * k})`);
-      if (!lowQ) {   // a thin strand winding round the beam, moving along it
-        g.strokeStyle = `rgba(${b.shock ? "235,220,255" : "210,255,255"},${0.6 * k})`; g.lineWidth = 1.4;
-        g.beginPath();
-        for (let d = 0; d <= L; d += 10) { const o = Math.sin(d / 16 - now / 35 + b.seed) * (b.shock ? 7 : 5) * (0.4 + 0.6 * Math.sin(d / L * Math.PI)); const px = x1 + nx * d - ny * o, py = y1 + ny * d + nx * o; d ? g.lineTo(px, py) : g.moveTo(px, py); }
-        g.stroke();
+      const flick = 0.85 + 0.15 * Math.sin(now / 23 + b.seed);
+      line((b.shock ? 22 : 34) * k * flick + 6, `rgba(${glow},${0.16 * k})`);
+      line((b.shock ? 10 : 15) * k * flick + 2, `rgba(${glow},${0.35 * k})`);
+      line((b.shock ? 4 : 6) * k + 1, `rgba(${body},${0.9 * k})`);
+      line((b.shock ? 1.6 : 2.4) * k + 0.6, `rgba(255,255,255,${k})`);
+      if (!lowQ) {   // electric arcs twisting round the beam, new every frame
+        for (let a = 0; a < (b.shock ? 2 : 3); a++) {
+          const amp = (b.shock ? 7 : 11) + a * 4, pts = [];
+          for (let d = 0; d <= L; d += 18) { const env = Math.sin(Math.PI * Math.min(1, d / L)) * 0.7 + 0.3, o = (Math.random() - 0.5) * 2 * amp * env; pts.push([x1 + nx * d - ny * o, y1 + ny * d + nx * o]); }
+          pts.push([x2, y2]);
+          for (const [w, al] of [[4, 0.25], [1.4, 0.9]]) {
+            g.strokeStyle = `rgba(${a === 1 ? "190,160,255" : arc},${al * k})`; g.lineWidth = w;
+            g.beginPath(); pts.forEach(([px, py], i) => i ? g.lineTo(px, py) : g.moveTo(px, py)); g.stroke();
+          }
+        }
+        for (let p = 0; p < 4; p++) {   // bolts of energy racing up the beam
+          const f = ((now / (b.shock ? 160 : 240) + p / 4 + b.seed) % 1), px = x1 + nx * L * f, py = y1 + ny * L * f;
+          g.globalAlpha = k * 0.9; g.drawImage(dotSprite(b.shock ? "#e4d2ff" : "#e8fdff"), px - 12, py - 12, 24, 24); g.globalAlpha = 1;
+        }
       }
-      if (b.hit && b.hit !== "wall") { g.globalAlpha = k; g.drawImage(dotSprite(b.shock ? "#e4d2ff" : "#d8fbff"), x2 - 26, y2 - 26, 52, 52); g.globalAlpha = 1; }   // the flare where it lands
-      g.globalAlpha = 0.8 * k; g.drawImage(dotSprite(b.shock ? "#c9a4ff" : "#bff9ff"), x1 - 16, y1 - 16, 32, 32); g.globalAlpha = 1;   // and at the gun
+      g.globalAlpha = k; g.drawImage(dotSprite(b.shock ? "#c9a4ff" : "#bff9ff"), x1 - 24, y1 - 24, 48, 48);   // the emitter's flare
+      if (b.hit && b.hit !== "wall") {   // where it lands: a white-hot flare and sparks spitting off it
+        g.drawImage(dotSprite(b.shock ? "#e4d2ff" : "#ffffff"), x2 - 34, y2 - 34, 68, 68);
+        g.strokeStyle = `rgba(${arc},${0.9 * k})`; g.lineWidth = 1.5;
+        for (let sp = 0; sp < 5; sp++) { const a = Math.atan2(-ny, -nx) + (Math.random() - 0.5) * 2.4, r = 10 + Math.random() * 26; g.beginPath(); g.moveTo(x2, y2); g.lineTo(x2 + Math.cos(a) * r, y2 + Math.sin(a) * r); g.stroke(); }
+      }
+      g.globalAlpha = 1;
     }
     for (const q of arcs) {   // chain lightning
       const k = 1 - q.t / 0.3, x1 = sx(q.x1), y1 = sy(q.y1), x2 = sx(q.x2), y2 = sy(q.y2), L = Math.hypot(x2 - x1, y2 - y1) || 1, nx = (x2 - x1) / L, ny = (y2 - y1) / L;

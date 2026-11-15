@@ -756,7 +756,7 @@
 
   // the weapon you carry is mounted on the wings, so everyone can see what is coming at them.
   // Drawn in art pixels; -y points the way the bin flies.
-  let gauntSpinFast = false;   // my gauntlet whirls while it's on
+  let gauntSpinFast = false, mountHeat = 0;   // my gauntlet whirls while it's on; my minigun's heat
   function drawMounts(weapon, s, now) {
     if (!weapon || weapon === "fire") return;
     const u = s / 320, mounts = mountsOf(weapon);
@@ -845,6 +845,11 @@
         const turn = now / 18;
         for (let k = 0; k < 3; k++) { const off = Math.sin(turn + k * 2.094) * 7; g.fillStyle = k % 2 ? "#8a7fb0" : "#cfc6e8"; rrect(off - 2.5, -64, 5, 52, 2); g.fill(); }
         g.fillStyle = "#ffe08a"; g.fillRect(-9, -66, 18, 4);
+        if (mountHeat > 0.05) {   // the barrels glow red-hot as it spins (and white-hot when it overheats)
+          g.globalCompositeOperation = "lighter";
+          const hg = g.createLinearGradient(0, -66, 0, -30); hg.addColorStop(0, `rgba(255,${me.overheat ? 230 : 90},40,${0.85 * mountHeat})`); hg.addColorStop(1, "rgba(255,60,20,0)");
+          g.fillStyle = hg; rrect(-10, -66, 20, 36, 4); g.fill(); g.globalCompositeOperation = "source-over";
+        }
       } else if (weapon === "gauss") {   // a long barrel in blue coils
         g.fillStyle = "#3b2d5c"; rrect(-10, -6, 20, 16, 4); g.fill();
         g.fillStyle = "#cfc6e8"; rrect(-4, -78, 8, 76, 3); g.fill();
@@ -1008,7 +1013,7 @@
       g.restore();
     }
     drawWings(lv, s);
-    gauntSpinFast = isMe && !!me.gauntOn;
+    gauntSpinFast = isMe && !!me.gauntOn; mountHeat = isMe ? Math.max(spin, Math.min(1, me.heat || 0)) : 0;
     drawMounts(isMe ? me.weapon : b.weapon, s, now);
     if (body) {
       g.drawImage(b.ck ? tintedBody(teamCk(b)) : body, -s / 2, -s / 2, s, s);
