@@ -927,7 +927,7 @@
     const bf = isMe ? me.boostFx : b.boost || 0;
     const burst = isMe ? Math.max(0, 1 - (now - me.dashAt) / 350) : bf === 2 ? 1 : 0;
     // the main engine burns for thrust ahead; pushing sideways or backwards it drops to a pilot light (jets, below)
-    const tA = isMe ? (Number.isFinite(me.ta) ? me.ta : b.a) : thrustAngle(b), mainF = clamp(Math.cos(angD(tA - b.a)) * 1.3, 0, 1);
+    const tA = isMe ? (Number.isFinite(me.tdir) ? me.tdir : b.a) : thrustAngle(b), mainF = clamp(Math.cos(angD(tA - b.a)) * 1.3, 0, 1);
     const lenMul = (1 + (bf ? 0.85 : 0) + burst * 1.1) * (0.3 + 0.7 * mainF), widMul = (1 + (bf ? 0.35 : 0) + burst * 0.3) * (0.6 + 0.4 * mainF);
     const pal = bf ? { outer: firePal.outer, mid: firePal.mid, core: [255, 255, 255] } : firePal;
     if (bf && mainF > 0.5) {   // afterburner glow around the nozzle

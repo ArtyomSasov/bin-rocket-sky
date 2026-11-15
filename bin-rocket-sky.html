@@ -2491,7 +2491,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // boost: a dense jet of fire out of the nozzle
   // which way a pilot is pushing (ta), or where it faces when that isn't known: exhaust always comes out the
   // other side, so flying backwards or sideways fires the jets on the front or the flank
-  function thrustAngle(b) { return Number.isFinite(b.ta) ? b.ta : b.a; }
+  function thrustAngle(b) { return Number.isFinite(b.tdir) ? b.tdir : b.a; }   // tdir: the push (b.ta is a remote's facing target)
   function afterburner(b, fx, dt) {
     if (!fx) return;
     const A = thrustAngle(b), bx = Math.cos(A), by = Math.sin(A), sz = sizeOf(b.lv || 1), tail = 46 * sz, q = lowQ ? 0.4 : 1;
@@ -3703,7 +3703,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (Math.hypot(r.tx - r.x, r.ty - r.y) > 300) { r.x = r.tx; r.y = r.ty; }   // teleport (respawn, black hole)
       if (Number.isFinite(p.a)) r.ta = p.a;
       r.thrust = p.t ? 1 : 0;
-      r.ta = Number.isFinite(p.td) ? clamp(p.td, -7, 7) : undefined;   // which way they push
+      r.tdir = Number.isFinite(p.td) ? clamp(p.td, -7, 7) : undefined;   // which way they push (r.ta is where they face)
       const bf = p.b === 1 || p.b === 2 ? p.b : 0;
       if (bf === 2 && r.boost !== 2) dashBurst(r);   // they just dashed
       r.boost = bf;
@@ -4733,7 +4733,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     } else if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-(drift ? 20 : 13) * dt));
     else if (!playing && sp > 25) me.a = lerpAng(me.a, Math.atan2(me.vy, me.vx), 1 - Math.exp(-6 * dt));
     me.thrust += ((playing ? (drift ? 0 : Math.min(1, im)) * (boost ? 1.4 : 1) : 0.6) - me.thrust) * Math.min(1, dt * 6);
-    if (playing && !drift && steerMag > 0.1) me.ta = Math.atan2(steer.y, steer.x); else if (!playing) me.ta = undefined;   // the way I push: the jets fire the other way
+    if (playing && !drift && steerMag > 0.1) me.tdir = Math.atan2(steer.y, steer.x); else if (!playing) me.tdir = undefined;   // the way I push: the jets fire the other way
     // the bin banks into a turn (drawn as a lean), and settles back when flying straight
     const turn = dt > 0 ? angD(me.a - a0) / dt : 0;
     me.bank += (clamp(turn * 0.09, -0.4, 0.4) - me.bank) * Math.min(1, dt * 8);
@@ -5174,7 +5174,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         vx: Math.round(me.vx), vy: Math.round(me.vy), a: +me.a.toFixed(2),
         t: me.thrust > 0.3 ? 1 : 0, b: me.boostFx, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0, ds: me.dead ? me.ds : 0,
         dk: me.dead ? me.dk : 0, da: me.dead ? +me.da.toFixed(2) : 0, tm: me.tm ?? -1,   // the team rides every message: shots need it
-        td: Number.isFinite(me.ta) ? +me.ta.toFixed(2) : undefined   // which way I push (the jets show it)
+        td: Number.isFinite(me.tdir) ? +me.tdir.toFixed(2) : undefined   // which way I push (the jets show it)
       };
       const slow = {
         tm: me.tm ?? -1, fc: me.fc ?? -1, cp: [stats.round, me.caps || 0], pg: Math.round(myPing / 10) * 10, bc: bots.length ? [bots.length, bots[0].level] : 0,
@@ -6288,7 +6288,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const bf = isMe ? me.boostFx : b.boost || 0;
     const burst = isMe ? Math.max(0, 1 - (now - me.dashAt) / 350) : bf === 2 ? 1 : 0;
     // the main engine burns for thrust ahead; pushing sideways or backwards it drops to a pilot light (jets, below)
-    const tA = isMe ? (Number.isFinite(me.ta) ? me.ta : b.a) : thrustAngle(b), mainF = clamp(Math.cos(angD(tA - b.a)) * 1.3, 0, 1);
+    const tA = isMe ? (Number.isFinite(me.tdir) ? me.tdir : b.a) : thrustAngle(b), mainF = clamp(Math.cos(angD(tA - b.a)) * 1.3, 0, 1);
     const lenMul = (1 + (bf ? 0.85 : 0) + burst * 1.1) * (0.3 + 0.7 * mainF), widMul = (1 + (bf ? 0.35 : 0) + burst * 0.3) * (0.6 + 0.4 * mainF);
     const pal = bf ? { outer: firePal.outer, mid: firePal.mid, core: [255, 255, 255] } : firePal;
     if (bf && mainF > 0.5) {   // afterburner glow around the nozzle

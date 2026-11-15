@@ -25,6 +25,7 @@
     key("KeyF", 1); await wait(250); key("KeyF", 0);
     // A shot may already have hit a wall or expired; inspect emitted shots, not only survivors.
     fired[w] = [...new Set(T.myShotLog.filter(e => !before.has(e.d[0])).map(e => e.d[5]))].join(",");
+    if (!fired[w]) (out.missed = out.missed || {})[w] = { dead: m.dead, weapon: m.weapon, ammo: m.arsenal[w], round: document.getElementById("roundInfo").textContent, playing: T.playing, roundLive: T.roundLive };   // why nothing went out
   }
   out.fired = fired;
   if (!solo) {

@@ -102,7 +102,7 @@
   // boost: a dense jet of fire out of the nozzle
   // which way a pilot is pushing (ta), or where it faces when that isn't known: exhaust always comes out the
   // other side, so flying backwards or sideways fires the jets on the front or the flank
-  function thrustAngle(b) { return Number.isFinite(b.ta) ? b.ta : b.a; }
+  function thrustAngle(b) { return Number.isFinite(b.tdir) ? b.tdir : b.a; }   // tdir: the push (b.ta is a remote's facing target)
   function afterburner(b, fx, dt) {
     if (!fx) return;
     const A = thrustAngle(b), bx = Math.cos(A), by = Math.sin(A), sz = sizeOf(b.lv || 1), tail = 46 * sz, q = lowQ ? 0.4 : 1;

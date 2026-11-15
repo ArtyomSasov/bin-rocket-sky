@@ -152,7 +152,7 @@ try {
   await until(smoke, '!!window.__smoke', 90000);
   const result = await evaluate(smoke, '__smoke');
   assert.deepEqual(result.errors, []);
-  for (const [weapon, kinds] of Object.entries(result.fired)) assert.ok(kinds.length, 'Weapon fired: ' + weapon);
+  for (const [weapon, kinds] of Object.entries(result.fired)) assert.ok(kinds.length, 'Weapon fired: ' + weapon + ' ' + JSON.stringify(result.missed));
   assert.equal(Object.keys(result.fired).length, 11); assert.ok(result.ctfCaps > 0);
   assert.deepEqual(result.altCost, {rocket:3,scatter:2,triple:1,mine:1});
   console.log('PASS six-bot weapon/death/CTF smoke', JSON.stringify(result));

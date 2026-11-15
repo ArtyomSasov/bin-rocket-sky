@@ -115,7 +115,7 @@
       if (Math.hypot(r.tx - r.x, r.ty - r.y) > 300) { r.x = r.tx; r.y = r.ty; }   // teleport (respawn, black hole)
       if (Number.isFinite(p.a)) r.ta = p.a;
       r.thrust = p.t ? 1 : 0;
-      r.ta = Number.isFinite(p.td) ? clamp(p.td, -7, 7) : undefined;   // which way they push
+      r.tdir = Number.isFinite(p.td) ? clamp(p.td, -7, 7) : undefined;   // which way they push (r.ta is where they face)
       const bf = p.b === 1 || p.b === 2 ? p.b : 0;
       if (bf === 2 && r.boost !== 2) dashBurst(r);   // they just dashed
       r.boost = bf;

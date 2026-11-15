@@ -168,7 +168,7 @@
     } else if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-(drift ? 20 : 13) * dt));
     else if (!playing && sp > 25) me.a = lerpAng(me.a, Math.atan2(me.vy, me.vx), 1 - Math.exp(-6 * dt));
     me.thrust += ((playing ? (drift ? 0 : Math.min(1, im)) * (boost ? 1.4 : 1) : 0.6) - me.thrust) * Math.min(1, dt * 6);
-    if (playing && !drift && steerMag > 0.1) me.ta = Math.atan2(steer.y, steer.x); else if (!playing) me.ta = undefined;   // the way I push: the jets fire the other way
+    if (playing && !drift && steerMag > 0.1) me.tdir = Math.atan2(steer.y, steer.x); else if (!playing) me.tdir = undefined;   // the way I push: the jets fire the other way
     // the bin banks into a turn (drawn as a lean), and settles back when flying straight
     const turn = dt > 0 ? angD(me.a - a0) / dt : 0;
     me.bank += (clamp(turn * 0.09, -0.4, 0.4) - me.bank) * Math.min(1, dt * 8);
@@ -609,7 +609,7 @@
         vx: Math.round(me.vx), vy: Math.round(me.vy), a: +me.a.toFixed(2),
         t: me.thrust > 0.3 ? 1 : 0, b: me.boostFx, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0, ds: me.dead ? me.ds : 0,
         dk: me.dead ? me.dk : 0, da: me.dead ? +me.da.toFixed(2) : 0, tm: me.tm ?? -1,   // the team rides every message: shots need it
-        td: Number.isFinite(me.ta) ? +me.ta.toFixed(2) : undefined   // which way I push (the jets show it)
+        td: Number.isFinite(me.tdir) ? +me.tdir.toFixed(2) : undefined   // which way I push (the jets show it)
       };
       const slow = {
         tm: me.tm ?? -1, fc: me.fc ?? -1, cp: [stats.round, me.caps || 0], pg: Math.round(myPing / 10) * 10, bc: bots.length ? [bots.length, bots[0].level] : 0,

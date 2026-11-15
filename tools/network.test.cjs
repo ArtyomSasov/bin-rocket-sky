@@ -59,6 +59,14 @@ test('trophies accept only a real gun index; keys like "length" or "map" are ref
   c.api.applyRemote('pother', state(2, { wd: [['gg', 5, 5, 1, 4]] }));
   assert.deepEqual([...c.gunDrops.values()].map(d => d.type + ':' + d.ammo), ['rail:4']);
 });
+test('the push direction (td) never touches the facing target (ta), with or without td', () => {
+  const { c } = setup();
+  c.api.applyRemote('pother', state(1, { a: 1.5, t: 1, td: -2 }));
+  c.api.applyRemote('pother', state(2, { a: 1.2, t: 0 }));   // stopped pushing: no td
+  const r = c.remotes.get('pother'); assert.equal(r.ta, 1.2); assert.equal(r.tdir, undefined);
+  c.api.applyRemote('pother', state(3, { a: 0.4, t: 1, td: 3 }));
+  assert.equal(r.ta, 0.4); assert.equal(r.tdir, 3);
+});
 test('duplicate and older states cannot roll back team, flags, or captures', () => {
   const { c } = setup();
   c.api.applyRemote('pother', state(2, { tm: 0, fc: -1, cp: [1, 2] }));
