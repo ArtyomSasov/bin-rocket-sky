@@ -2534,12 +2534,12 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   }
   // dead but intact: a dark, cracked, engine-off bin tumbling slowly, smoking and sparking for ~12 s
   const hulks = [];
-  function makeHulk(b, zap) {
+  function makeHulk(b, zap, quiet) {
     const life = Infinity;   // stays until the round ends
     hulks.push({ x: b.x, y: b.y, vx: (b.vx || 0) * 0.5 + (Math.random() - 0.5) * 60, vy: (b.vy || 0) * 0.5 + (Math.random() - 0.5) * 60,
                  a: b.a, spin: (Math.random() - 0.5) * (zap ? 0.6 : 1.6), lv: b.lv || 1, ck: b.ck, life, max: life, born: performance.now(), zap: !!zap });
     if (hulks.length > 30) hulks.shift();
-    if (zap) return;
+    if (zap || quiet) return;
     impacts.push({ x: b.x, y: b.y, t: 0, r: 70, col: "#ff9a2e" });
     rings.push({ x: b.x, y: b.y, t: 0, r: 140, col: "255,200,160", warp: true });
     explode(b.x, b.y, lowQ ? 14 : 30, 220);
@@ -2732,13 +2732,75 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   }
   // ---------- how a bin dies depends on what got it ----------
   // 0 blown apart (fire, rockets, mines, shards, crashes...), 1 sliced by a rail slug, 2 fried by laser or lightning, 3 melted by plasma
-  const deathStyleOf = kind => kind === K.RAIL || kind === K.SAW || kind === K.GAUSS ? 1 : kind === K.LASER || kind === K.BOLT || kind === K.GAMMA ? 2 : kind === K.ORB ? 3 : 0;
+  // how a bin dies follows what killed it: 0 blown up (a blast: in pieces; anything else may leave a hulk), 1 cut
+  // clean by a rail, 2 fried by electricity, 3 melted by plasma, 4 nailed (it flies on along the nail and is pinned to
+  // the rock it meets), 5 burnt (it burns, chars and crumbles to ash), 6 sawn into four by a blade
+  const DEATH_KINDS = 6;
+  const deathStyleOf = kind => kind === K.RAIL || kind === K.GAUSS ? 1
+    : kind === K.LASER || kind === K.BOLT || kind === K.GAMMA || kind === K.SHOCK || kind === K.PULSE ? 2 : kind === K.ORB ? 3
+    : kind === K.NAIL || kind === K.SPIKE ? 4 : kind === K.FIRE ? 5 : kind === K.SAW || kind === K.MELEE ? 6 : 0;
+  // pieces for a blast (2-4), a hulk sometimes for the rest
+  const BLASTS = new Set([K.ROCKET, K.HROCKET, K.GREN, K.MINE, K.NUKE, K.HOLY, K.FLAK, K.SHARD, K.PELLET, K.SLUG, K.TFRAG]);
+  const deathPiecesOf = kind => BLASTS.has(kind) ? 3 + Math.floor(Math.random() * 2) : 1 + Math.floor(Math.random() * 4);
   function deathFx(b, ds, dk, da) {
     b = { ...b, ck: teamCk(b) };   // the wreck keeps the colours the bin flew in
     if (dk === 1) railCut(b, da);
     else if (dk === 2) electrocute(b);
     else if (dk === 3) meltDown(b);
+    else if (dk === 4) nailDeath(b, da);
+    else if (dk === 5) burnDeath(b);
+    else if (dk === 6) sawDeath(b, da);
     else if (ds === 1) makeHulk(b); else binExplosion(b, ds >= 2 && ds <= 4 ? ds : 3);
+  }
+  // nailed: the hulk flies on along the nail, nails sticking out of it, and is pinned to the first rock it meets
+  function nailDeath(b, da) {
+    makeHulk(b, false, true);
+    const h = hulks[hulks.length - 1];
+    h.nailA = da; h.vx = Math.cos(da) * 620 + (b.vx || 0) * 0.3; h.vy = Math.sin(da) * 620 + (b.vy || 0) * 0.3; h.spin = 0;
+    h.nails = Array.from({ length: 3 }, (_, k) => ({ off: (k - 1) * 0.22 + (Math.random() - 0.5) * 0.1, len: 0.5 + Math.random() * 0.2 }));
+    sparkShower(b.x, b.y, Math.cos(da), Math.sin(da), 1.2);
+    packPlay("p_hit_nail", 0.9, b.x, b.y) || sfx("hit", 0.7, 1.6, b.x, b.y);
+  }
+  // burnt: the hulk burns for a few seconds, chars black, then crumbles to ash
+  function burnDeath(b) {
+    makeHulk(b, false, true);
+    const h = hulks[hulks.length - 1];
+    h.burn = performance.now(); h.spin *= 0.4; h.life = h.max = 4.2;
+    impacts.push({ x: b.x, y: b.y, t: 0, r: 110, col: "#ff9a2e" });
+    explode(b.x, b.y, lowQ ? 10 : 24, 160);
+  }
+  // sawn into four: two cuts across each other, red-hot edges, a storm of sparks
+  function sawDeath(b, da) {
+    const sz = sizeOf(b.lv || 1), s = BOT * sz, rot = b.a + Math.PI / 2 - SPRITE_TILT, a = da - rot;
+    for (const piece of quarterSprite(a))
+      addFrag(b, piece, s, rot, renderPiece(piece, s, b.lv || 1, b.ck || [0, 0, 0, 0, 0], "255,170,80", "255,240,200", 2), (wx, wy) => {
+        const d = Math.hypot(wx, wy) || 1, v = 120 + Math.random() * 90;
+        return [wx / d * v + (b.vx || 0) * 0.3, wy / d * v + (b.vy || 0) * 0.3, (Math.random() - 0.5) * 3];
+      });
+    for (let k = 0; k < (lowQ ? 20 : 60); k++) { const a2 = Math.random() * 6.283, v = 200 + Math.random() * 500; puff(b.x, b.y, Math.cos(a2) * v, Math.sin(a2) * v, 0.3 + Math.random() * 0.5, 1 + Math.random() * 1.4, k % 3 ? "#ffd27a" : "#ffffff", 1, 0.05); }
+    impacts.push({ x: b.x, y: b.y, t: 0, r: 90 * sz, col: "#ffcf5a" });
+    packPlay("p_melee_hit", 1, b.x, b.y) || sfx("hit", 0.8, 0.8, b.x, b.y);
+  }
+  // the sprite square cut by two lines through its middle at right angles (angle a, sprite frame): four pieces
+  function quarterSprite(a) {
+    const c = [160, 150], u = [Math.cos(a), Math.sin(a)], v = [-u[1], u[0]];
+    const clip = (poly, n, sg) => {   // keep the side of the line through c with normal n where sg * dot >= 0
+      const out = [], side = q => sg * ((q[0] - c[0]) * n[0] + (q[1] - c[1]) * n[1]);
+      for (let i = 0; i < poly.length; i++) {
+        const p = poly[i], q = poly[(i + 1) % poly.length], sp = side(p), sq = side(q);
+        if (sp >= 0) out.push(p);
+        if ((sp >= 0) !== (sq >= 0)) { const t = sp / (sp - sq); out.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]); }
+      }
+      return out;
+    };
+    const square = [[0, 0], [320, 0], [320, 320], [0, 320]], pieces = [];
+    for (const s1 of [1, -1]) for (const s2 of [1, -1]) {
+      const poly = clip(clip(square, u, s1), v, s2);
+      if (poly.length < 3) continue;
+      const cx = poly.reduce((t, q) => t + q[0], 0) / poly.length, cy = poly.reduce((t, q) => t + q[1], 0) / poly.length;
+      pieces.push({ poly, edges: [[[c[0] - u[0] * 240, c[1] - u[1] * 240], [c[0] + u[0] * 240, c[1] + u[1] * 240]], [[c[0] - v[0] * 240, c[1] - v[1] * 240], [c[0] + v[0] * 240, c[1] + v[1] * 240]]], cx, cy });
+    }
+    return pieces;
   }
   // the sprite square (0..320) cut in two along a straight line at angle a (sprite frame), off the middle by off;
   // the cut has a fine saw-tooth edge
@@ -3724,7 +3786,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     sfx("hit", 1, 0.85) || blip(110, 0.3, "square");
     if (me.lives <= 0) {
       stats.deaths++; stats.streak = 0;
-      me.ds = 1 + Math.floor(Math.random() * 4);   // pieces the bin breaks into: 1 = intact dead hulk, 2-4 = shattered
+      me.ds = deathPiecesOf(kind);   // pieces the bin breaks into: 1 = intact dead hulk, 2-4 = shattered (always pieces for a blast)
       me.dk = deathStyleOf(kind); me.da = ang;
       deathFx(me, me.ds, me.dk, me.da);
       me.dead = true; me.respawnAt = now + 3000; me.vx = me.vy = 0;
@@ -3814,7 +3876,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // window.BRS_BROKER set before the game loads (see server/ in the repo)
   const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
   const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
-  const LOBBY_TOPIC = "binrocket-sky/v11/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  const LOBBY_TOPIC = "binrocket-sky/v12/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
   let lobbyRenderPending = false;
   function renderLobbies() {
@@ -3913,7 +3975,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (bf === 2 && r.boost !== 2) dashBurst(r);   // they just dashed
       r.boost = bf;
       const dead = p.d === 1;
-      if (dead && !r.dead) deathFx(r, p.ds, Number.isInteger(p.dk) && p.dk >= 0 && p.dk <= 3 ? p.dk : 0, num(p.da, 0));
+      if (dead && !r.dead) deathFx(r, p.ds, Number.isInteger(p.dk) && p.dk >= 0 && p.dk <= DEATH_KINDS ? p.dk : 0, num(p.da, 0));
       r.dead = dead; r.inv = p.i === 1;
     }
     if (typeof p.tg === "string" && /^[a-z0-9]{1,8}$/.test(p.tg)) r.tag = p.tg;
@@ -4092,7 +4154,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     // Shots ride in state, including on the primary, and q deduplicates the two deliveries.
     const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
     const myId = "p" + Math.random().toString(36).slice(2, 10);
-    const base = "binrocket-sky/v11/" + code + "/";
+    const base = "binrocket-sky/v12/" + code + "/";
     const clients = BROKERS.map(url => {
       const c = mqtt.connect(url, {
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),
@@ -4493,7 +4555,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (b.lives <= 0) {
       if (b.weapon !== "fire" && !MODES[MODE].only) dropGun(b.x, b.y, b.weapon, b.ammo);   // its trophy
       b.dead = true; b.respawnAt = now + 3000; b.fc = -1; b.weapon = "fire";
-      b.lv = levelAfterDeath(b.lv); b.xp = XP_STEPS[b.lv - 1]; b.ds = 1 + Math.floor(Math.random() * 4); b.dk = deathStyleOf(kind); b.da = ang;
+      b.lv = levelAfterDeath(b.lv); b.xp = XP_STEPS[b.lv - 1]; b.ds = deathPiecesOf(kind); b.dk = deathStyleOf(kind); b.da = ang;
       b.st.deaths++; b.st.streak = 0;
       if (byHole) feedPush(`<span class="v">${esc(b.name)}</span> ${shotId === "p" ? "crashed into a planet" : "was swallowed by the black hole"}`);
       else pushCapped(b.koBy, shotId, 12);
@@ -5399,8 +5461,23 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       h.life -= dt;
       if (h.life <= 0) { hulks.splice(i, 1); continue; }
       const drag = Math.exp(-0.015 * dt);   // space: practically no drag
-      h.x += h.vx * dt; h.y += h.vy * dt; h.vx *= drag; h.vy *= drag; h.a += h.spin * dt;
-      bounceOff(h, 30 * sizeOf(h.lv), 0.8);
+      if (h.pin) {   // nailed to rock: it rides along with it
+        if (h.pin.b && (h.pin.b.dead || !bodies.includes(h.pin.b))) h.pin = null;
+        else if (h.pin.b) { [h.x, h.y] = toWorld(h.pin.b, h.pin.lx, h.pin.ly); h.a = h.pin.a + h.pin.b.a; }
+        h.vx = h.vy = 0;
+      } else {
+        h.x += h.vx * dt; h.y += h.vy * dt; h.vx *= drag; h.vy *= drag; h.a += h.spin * dt;
+        if (h.nailA !== undefined) {   // flying on along the nail: the first rock (or the fence) it meets, it is pinned to
+          const sz0 = sizeOf(h.lv), fx = h.x + Math.cos(h.nailA) * 30 * sz0, fy = h.y + Math.sin(h.nailA) * 30 * sz0, rb = solidAny(fx, fy);
+          if (rb) { const [lx, ly] = toLocal(rb, h.x, h.y); h.pin = { b: rb, lx, ly, a: h.a - rb.a }; sparkShower(fx, fy, -Math.cos(h.nailA), -Math.sin(h.nailA), 1); packPlay("p_hit_nail", 0.8, fx, fy); }
+          else if (h.x < 40 || h.x > W - 40 || h.y < 40 || h.y > H - 40) { h.x = clamp(h.x, 40, W - 40); h.y = clamp(h.y, 40, H - 40); h.pin = { b: null }; }
+        } else bounceOff(h, 30 * sizeOf(h.lv), 0.8);
+      }
+      if (h.burn) {   // burning: flames lick up off it, then it crumbles to ash
+        const bt = (now - h.burn) / 1000, sz1 = sizeOf(h.lv);
+        if (bt < 3.2 && Math.random() < (lowQ ? 20 : 50) * dt) puff(h.x + (Math.random() - 0.5) * 50 * sz1, h.y + (Math.random() - 0.5) * 50 * sz1, (Math.random() - 0.5) * 40, -60 - Math.random() * 80, 0.5 + Math.random() * 0.4, 3 + Math.random() * 4, FIRE_COLS[(Math.random() * 4) | 0]);
+        if (bt > 3.4 && !h.ashed) { h.ashed = true; for (let k = 0; k < (lowQ ? 20 : 50); k++) { const a = Math.random() * 6.28, v = 30 + Math.random() * 120; puff(h.x, h.y, Math.cos(a) * v, Math.sin(a) * v, 1.2 + Math.random(), 2 + Math.random() * 3, k % 2 ? "rgb(60,56,62)" : "rgb(120,112,110)", 2); } }
+      }
       if (h.x < 40 || h.x > W - 40) { h.vx = -h.vx; h.x = clamp(h.x, 40, W - 40); }
       if (h.y < 40 || h.y > H - 40) { h.vy = -h.vy; h.y = clamp(h.y, 40, H - 40); }
       const sz = sizeOf(h.lv);
@@ -5895,15 +5972,15 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       const t = SHOTS[K.GREN].life - s.life, blink = Math.floor(t * (t > 1.8 ? 14 : 4)) % 2;
       g.save(); g.translate(x, y); g.rotate(t * 5 + s.x * 0.001); g.scale(1.25, 1.25);
       if (blink) { g.globalCompositeOperation = "lighter"; g.drawImage(dotSprite("#ff5a3c"), -16, -16, 32, 32); g.globalCompositeOperation = "source-over"; }
-      const bg = g.createRadialGradient(-3, -3, 1, 0, 0, 11); bg.addColorStop(0, "#9bb36a"); bg.addColorStop(0.6, "#5a6e34"); bg.addColorStop(1, "#2e3a1a");
-      g.fillStyle = bg; g.beginPath(); g.ellipse(1, 0, 10, 7.5, 0, 0, 6.29); g.fill();   // the ribbed body
-      g.strokeStyle = "rgba(20,26,10,0.7)"; g.lineWidth = 1;
-      for (const gx of [-4, 0, 4]) { g.beginPath(); g.moveTo(gx + 1, -7); g.lineTo(gx + 1, 7); g.stroke(); }
-      for (const gy of [-3, 1.5]) { g.beginPath(); g.moveTo(-8, gy); g.lineTo(10, gy); g.stroke(); }
-      g.fillStyle = "#3a3f46"; g.fillRect(-13, -3, 5, 6);   // the fuse cap
-      g.fillStyle = "#8a909a"; g.beginPath(); g.moveTo(-12, -3); g.lineTo(6, -9.5); g.lineTo(7, -8); g.lineTo(-10, -1.5); g.fill();   // the spoon
-      g.strokeStyle = "#c9ced6"; g.lineWidth = 1.2; g.beginPath(); g.arc(-15, -4, 2.6, 0, 6.29); g.stroke();   // the pin's ring
-      g.fillStyle = blink ? "#ffd2c0" : "#802010"; g.beginPath(); g.arc(-11, 0, 1.6, 0, 6.29); g.fill();   // the fuse light, faster near the end
+      // Quake-style: a dark gunmetal egg with a lighter ridged band round its waist, a capped nose and a fuse light
+      const bg = g.createRadialGradient(-2, -3, 1, 0, 0, 12); bg.addColorStop(0, "#b8bec8"); bg.addColorStop(0.45, "#5c626c"); bg.addColorStop(1, "#24272d");
+      g.fillStyle = bg; g.beginPath(); g.ellipse(0, 0, 11, 8, 0, 0, 6.29); g.fill();
+      g.strokeStyle = "rgba(10,12,16,0.8)"; g.lineWidth = 1; g.beginPath(); g.ellipse(0, 0, 11, 8, 0, 0, 6.29); g.stroke();
+      const band = g.createLinearGradient(0, -8, 0, 8); band.addColorStop(0, "#8f969f"); band.addColorStop(0.5, "#d6dbe2"); band.addColorStop(1, "#6a7079");
+      g.fillStyle = band; g.fillRect(-2.2, -7.8, 4.4, 15.6);   // the band
+      g.strokeStyle = "rgba(20,22,26,0.7)"; for (const by of [-4, 0, 4]) { g.beginPath(); g.moveTo(-2.2, by); g.lineTo(2.2, by); g.stroke(); }
+      g.fillStyle = "#30343b"; g.beginPath(); g.ellipse(10, 0, 3, 4, 0, 0, 6.29); g.fill();   // the capped nose
+      g.fillStyle = blink ? "#ffd2c0" : "#802010"; g.beginPath(); g.arc(11, 0, 1.8, 0, 6.29); g.fill();   // the fuse light, faster near the end
       g.restore();
       return;
     }
@@ -7218,10 +7295,22 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     for (const h of hulks) {
       const x = sx(h.x), y = sy(h.y), s = BOT * sizeOf(h.lv);
       if (!onScreen(x, y, s)) continue;
-      g.globalAlpha = Math.min(1, h.life / 2);
+      const char = h.burn ? Math.min(1, (now - h.burn) / 2600) : 0;   // burning: it chars black, then crumbles (fades)
+      g.globalAlpha = Math.min(1, h.life / 2) * (h.burn ? Math.min(1, Math.max(0, (4200 - (now - h.burn)) / 800)) : 1);
       g.save(); g.translate(x, y); g.rotate(h.a + Math.PI / 2 - SPRITE_TILT);
       drawWings(h.lv, s);
-      if (body) g.drawImage(darkBody(h.ck || [0, 0, 0, 0, 0], h.zap ? 0.8 : 0.58), -s / 2, -s / 2, s, s);
+      if (body) g.drawImage(darkBody(h.ck || [0, 0, 0, 0, 0], h.zap ? 0.8 : 0.58 - 0.45 * char), -s / 2, -s / 2, s, s);
+      if (h.burn && char < 1) {   // the embers glowing through
+        g.globalCompositeOperation = "lighter"; g.globalAlpha *= 0.5 * (1 - char * 0.6) * (0.7 + 0.3 * Math.sin(now / 60));
+        g.drawImage(dotSprite("#ff6a1f"), -s * 0.5, -s * 0.5, s, s); g.globalCompositeOperation = "source-over";
+      }
+      if (h.nails) {   // the nails it was killed with, sticking out of it
+        for (const n of h.nails) {
+          const a2 = (h.nailA - (h.a + Math.PI / 2 - SPRITE_TILT)) + n.off, L = s * n.len;
+          g.strokeStyle = "#dfe5ee"; g.lineWidth = 3; g.beginPath(); g.moveTo(Math.cos(a2) * s * 0.1, Math.sin(a2) * s * 0.1); g.lineTo(-Math.cos(a2) * L, -Math.sin(a2) * L); g.stroke();
+          g.fillStyle = "#5a6276"; g.fillRect(-Math.cos(a2) * L - 3, -Math.sin(a2) * L - 3, 6, 6);
+        }
+      }
       drawDamage(1, s, now, h.x);
       const zk = h.zap ? 1 - (now - h.born) / 2800 : 0;
       if (zk > 0) {   // fried: blue arcs crawl over the shell and it flickers

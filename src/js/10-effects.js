@@ -61,12 +61,12 @@
   }
   // dead but intact: a dark, cracked, engine-off bin tumbling slowly, smoking and sparking for ~12 s
   const hulks = [];
-  function makeHulk(b, zap) {
+  function makeHulk(b, zap, quiet) {
     const life = Infinity;   // stays until the round ends
     hulks.push({ x: b.x, y: b.y, vx: (b.vx || 0) * 0.5 + (Math.random() - 0.5) * 60, vy: (b.vy || 0) * 0.5 + (Math.random() - 0.5) * 60,
                  a: b.a, spin: (Math.random() - 0.5) * (zap ? 0.6 : 1.6), lv: b.lv || 1, ck: b.ck, life, max: life, born: performance.now(), zap: !!zap });
     if (hulks.length > 30) hulks.shift();
-    if (zap) return;
+    if (zap || quiet) return;
     impacts.push({ x: b.x, y: b.y, t: 0, r: 70, col: "#ff9a2e" });
     rings.push({ x: b.x, y: b.y, t: 0, r: 140, col: "255,200,160", warp: true });
     explode(b.x, b.y, lowQ ? 14 : 30, 220);
@@ -259,13 +259,75 @@
   }
   // ---------- how a bin dies depends on what got it ----------
   // 0 blown apart (fire, rockets, mines, shards, crashes...), 1 sliced by a rail slug, 2 fried by laser or lightning, 3 melted by plasma
-  const deathStyleOf = kind => kind === K.RAIL || kind === K.SAW || kind === K.GAUSS ? 1 : kind === K.LASER || kind === K.BOLT || kind === K.GAMMA ? 2 : kind === K.ORB ? 3 : 0;
+  // how a bin dies follows what killed it: 0 blown up (a blast: in pieces; anything else may leave a hulk), 1 cut
+  // clean by a rail, 2 fried by electricity, 3 melted by plasma, 4 nailed (it flies on along the nail and is pinned to
+  // the rock it meets), 5 burnt (it burns, chars and crumbles to ash), 6 sawn into four by a blade
+  const DEATH_KINDS = 6;
+  const deathStyleOf = kind => kind === K.RAIL || kind === K.GAUSS ? 1
+    : kind === K.LASER || kind === K.BOLT || kind === K.GAMMA || kind === K.SHOCK || kind === K.PULSE ? 2 : kind === K.ORB ? 3
+    : kind === K.NAIL || kind === K.SPIKE ? 4 : kind === K.FIRE ? 5 : kind === K.SAW || kind === K.MELEE ? 6 : 0;
+  // pieces for a blast (2-4), a hulk sometimes for the rest
+  const BLASTS = new Set([K.ROCKET, K.HROCKET, K.GREN, K.MINE, K.NUKE, K.HOLY, K.FLAK, K.SHARD, K.PELLET, K.SLUG, K.TFRAG]);
+  const deathPiecesOf = kind => BLASTS.has(kind) ? 3 + Math.floor(Math.random() * 2) : 1 + Math.floor(Math.random() * 4);
   function deathFx(b, ds, dk, da) {
     b = { ...b, ck: teamCk(b) };   // the wreck keeps the colours the bin flew in
     if (dk === 1) railCut(b, da);
     else if (dk === 2) electrocute(b);
     else if (dk === 3) meltDown(b);
+    else if (dk === 4) nailDeath(b, da);
+    else if (dk === 5) burnDeath(b);
+    else if (dk === 6) sawDeath(b, da);
     else if (ds === 1) makeHulk(b); else binExplosion(b, ds >= 2 && ds <= 4 ? ds : 3);
+  }
+  // nailed: the hulk flies on along the nail, nails sticking out of it, and is pinned to the first rock it meets
+  function nailDeath(b, da) {
+    makeHulk(b, false, true);
+    const h = hulks[hulks.length - 1];
+    h.nailA = da; h.vx = Math.cos(da) * 620 + (b.vx || 0) * 0.3; h.vy = Math.sin(da) * 620 + (b.vy || 0) * 0.3; h.spin = 0;
+    h.nails = Array.from({ length: 3 }, (_, k) => ({ off: (k - 1) * 0.22 + (Math.random() - 0.5) * 0.1, len: 0.5 + Math.random() * 0.2 }));
+    sparkShower(b.x, b.y, Math.cos(da), Math.sin(da), 1.2);
+    packPlay("p_hit_nail", 0.9, b.x, b.y) || sfx("hit", 0.7, 1.6, b.x, b.y);
+  }
+  // burnt: the hulk burns for a few seconds, chars black, then crumbles to ash
+  function burnDeath(b) {
+    makeHulk(b, false, true);
+    const h = hulks[hulks.length - 1];
+    h.burn = performance.now(); h.spin *= 0.4; h.life = h.max = 4.2;
+    impacts.push({ x: b.x, y: b.y, t: 0, r: 110, col: "#ff9a2e" });
+    explode(b.x, b.y, lowQ ? 10 : 24, 160);
+  }
+  // sawn into four: two cuts across each other, red-hot edges, a storm of sparks
+  function sawDeath(b, da) {
+    const sz = sizeOf(b.lv || 1), s = BOT * sz, rot = b.a + Math.PI / 2 - SPRITE_TILT, a = da - rot;
+    for (const piece of quarterSprite(a))
+      addFrag(b, piece, s, rot, renderPiece(piece, s, b.lv || 1, b.ck || [0, 0, 0, 0, 0], "255,170,80", "255,240,200", 2), (wx, wy) => {
+        const d = Math.hypot(wx, wy) || 1, v = 120 + Math.random() * 90;
+        return [wx / d * v + (b.vx || 0) * 0.3, wy / d * v + (b.vy || 0) * 0.3, (Math.random() - 0.5) * 3];
+      });
+    for (let k = 0; k < (lowQ ? 20 : 60); k++) { const a2 = Math.random() * 6.283, v = 200 + Math.random() * 500; puff(b.x, b.y, Math.cos(a2) * v, Math.sin(a2) * v, 0.3 + Math.random() * 0.5, 1 + Math.random() * 1.4, k % 3 ? "#ffd27a" : "#ffffff", 1, 0.05); }
+    impacts.push({ x: b.x, y: b.y, t: 0, r: 90 * sz, col: "#ffcf5a" });
+    packPlay("p_melee_hit", 1, b.x, b.y) || sfx("hit", 0.8, 0.8, b.x, b.y);
+  }
+  // the sprite square cut by two lines through its middle at right angles (angle a, sprite frame): four pieces
+  function quarterSprite(a) {
+    const c = [160, 150], u = [Math.cos(a), Math.sin(a)], v = [-u[1], u[0]];
+    const clip = (poly, n, sg) => {   // keep the side of the line through c with normal n where sg * dot >= 0
+      const out = [], side = q => sg * ((q[0] - c[0]) * n[0] + (q[1] - c[1]) * n[1]);
+      for (let i = 0; i < poly.length; i++) {
+        const p = poly[i], q = poly[(i + 1) % poly.length], sp = side(p), sq = side(q);
+        if (sp >= 0) out.push(p);
+        if ((sp >= 0) !== (sq >= 0)) { const t = sp / (sp - sq); out.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]); }
+      }
+      return out;
+    };
+    const square = [[0, 0], [320, 0], [320, 320], [0, 320]], pieces = [];
+    for (const s1 of [1, -1]) for (const s2 of [1, -1]) {
+      const poly = clip(clip(square, u, s1), v, s2);
+      if (poly.length < 3) continue;
+      const cx = poly.reduce((t, q) => t + q[0], 0) / poly.length, cy = poly.reduce((t, q) => t + q[1], 0) / poly.length;
+      pieces.push({ poly, edges: [[[c[0] - u[0] * 240, c[1] - u[1] * 240], [c[0] + u[0] * 240, c[1] + u[1] * 240]], [[c[0] - v[0] * 240, c[1] - v[1] * 240], [c[0] + v[0] * 240, c[1] + v[1] * 240]]], cx, cy });
+    }
+    return pieces;
   }
   // the sprite square (0..320) cut in two along a straight line at angle a (sprite frame), off the middle by off;
   // the cut has a fine saw-tooth edge

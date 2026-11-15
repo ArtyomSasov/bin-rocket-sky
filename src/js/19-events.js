@@ -484,10 +484,22 @@
     for (const h of hulks) {
       const x = sx(h.x), y = sy(h.y), s = BOT * sizeOf(h.lv);
       if (!onScreen(x, y, s)) continue;
-      g.globalAlpha = Math.min(1, h.life / 2);
+      const char = h.burn ? Math.min(1, (now - h.burn) / 2600) : 0;   // burning: it chars black, then crumbles (fades)
+      g.globalAlpha = Math.min(1, h.life / 2) * (h.burn ? Math.min(1, Math.max(0, (4200 - (now - h.burn)) / 800)) : 1);
       g.save(); g.translate(x, y); g.rotate(h.a + Math.PI / 2 - SPRITE_TILT);
       drawWings(h.lv, s);
-      if (body) g.drawImage(darkBody(h.ck || [0, 0, 0, 0, 0], h.zap ? 0.8 : 0.58), -s / 2, -s / 2, s, s);
+      if (body) g.drawImage(darkBody(h.ck || [0, 0, 0, 0, 0], h.zap ? 0.8 : 0.58 - 0.45 * char), -s / 2, -s / 2, s, s);
+      if (h.burn && char < 1) {   // the embers glowing through
+        g.globalCompositeOperation = "lighter"; g.globalAlpha *= 0.5 * (1 - char * 0.6) * (0.7 + 0.3 * Math.sin(now / 60));
+        g.drawImage(dotSprite("#ff6a1f"), -s * 0.5, -s * 0.5, s, s); g.globalCompositeOperation = "source-over";
+      }
+      if (h.nails) {   // the nails it was killed with, sticking out of it
+        for (const n of h.nails) {
+          const a2 = (h.nailA - (h.a + Math.PI / 2 - SPRITE_TILT)) + n.off, L = s * n.len;
+          g.strokeStyle = "#dfe5ee"; g.lineWidth = 3; g.beginPath(); g.moveTo(Math.cos(a2) * s * 0.1, Math.sin(a2) * s * 0.1); g.lineTo(-Math.cos(a2) * L, -Math.sin(a2) * L); g.stroke();
+          g.fillStyle = "#5a6276"; g.fillRect(-Math.cos(a2) * L - 3, -Math.sin(a2) * L - 3, 6, 6);
+        }
+      }
       drawDamage(1, s, now, h.x);
       const zk = h.zap ? 1 - (now - h.born) / 2800 : 0;
       if (zk > 0) {   // fried: blue arcs crawl over the shell and it flickers

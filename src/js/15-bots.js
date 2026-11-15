@@ -46,7 +46,7 @@
     if (b.lives <= 0) {
       if (b.weapon !== "fire" && !MODES[MODE].only) dropGun(b.x, b.y, b.weapon, b.ammo);   // its trophy
       b.dead = true; b.respawnAt = now + 3000; b.fc = -1; b.weapon = "fire";
-      b.lv = levelAfterDeath(b.lv); b.xp = XP_STEPS[b.lv - 1]; b.ds = 1 + Math.floor(Math.random() * 4); b.dk = deathStyleOf(kind); b.da = ang;
+      b.lv = levelAfterDeath(b.lv); b.xp = XP_STEPS[b.lv - 1]; b.ds = deathPiecesOf(kind); b.dk = deathStyleOf(kind); b.da = ang;
       b.st.deaths++; b.st.streak = 0;
       if (byHole) feedPush(`<span class="v">${esc(b.name)}</span> ${shotId === "p" ? "crashed into a planet" : "was swallowed by the black hole"}`);
       else pushCapped(b.koBy, shotId, 12);

@@ -28,14 +28,14 @@ function setup() {
     mapOf: () => 'm', modeOf: () => 'd', mapThemeOf: () => 'c', setMapSize() {}, buildPlanets() {}, setMode() {}, spawnPoint: () => ({}),
     MODES: { d: { label: 'DM' } }, MODE: 'd', MAPS: { c: { label: 'Classic' } }, playing: true,
     sizeOf: () => 1, clockTarget: 0, clockOff: 0, clockBase: 0, lerpAng: () => 0, vw: 1, vh: 1, wrapD: x => x,
-    gainXp() {}, killXp: () => 10, announce() {}, killStyle() {}, gunDrops: new Map(), WEAPON_KEYS: ['fire', 'rail', 'tele'],
+    gainXp() {}, killXp: () => 10, announce() {}, killStyle() {}, gunDrops: new Map(), DEATH_KINDS: 6, WEAPON_KEYS: ['fire', 'rail', 'tele'],
   };
   vm.createContext(c);
   vm.runInContext(read('12-network.js') + '\nglobalThis.api = {applyRemote, initNet, chooseLobby, botsOf, net};', c);
   return { c, clients, timers, advance: n => { now += n; }, async start() { const p = c.api.initNet(); c.api.chooseLobby('test'); await p; } };
 }
 const state = (q, extra = {}) => ({ x: 10, y: 10, q, rd: 1, ...extra });
-const deliver = (client, id, p) => client.emit('message', 'binrocket-sky/v11/test/s/' + id, Buffer.from(JSON.stringify(p)));
+const deliver = (client, id, p) => client.emit('message', 'binrocket-sky/v12/test/s/' + id, Buffer.from(JSON.stringify(p)));
 
 test('malformed JSON values do not break the message callback; next state still arrives', async () => {
   const { c, clients, start } = setup(); await start();

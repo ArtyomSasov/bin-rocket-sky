@@ -617,8 +617,23 @@
       h.life -= dt;
       if (h.life <= 0) { hulks.splice(i, 1); continue; }
       const drag = Math.exp(-0.015 * dt);   // space: practically no drag
-      h.x += h.vx * dt; h.y += h.vy * dt; h.vx *= drag; h.vy *= drag; h.a += h.spin * dt;
-      bounceOff(h, 30 * sizeOf(h.lv), 0.8);
+      if (h.pin) {   // nailed to rock: it rides along with it
+        if (h.pin.b && (h.pin.b.dead || !bodies.includes(h.pin.b))) h.pin = null;
+        else if (h.pin.b) { [h.x, h.y] = toWorld(h.pin.b, h.pin.lx, h.pin.ly); h.a = h.pin.a + h.pin.b.a; }
+        h.vx = h.vy = 0;
+      } else {
+        h.x += h.vx * dt; h.y += h.vy * dt; h.vx *= drag; h.vy *= drag; h.a += h.spin * dt;
+        if (h.nailA !== undefined) {   // flying on along the nail: the first rock (or the fence) it meets, it is pinned to
+          const sz0 = sizeOf(h.lv), fx = h.x + Math.cos(h.nailA) * 30 * sz0, fy = h.y + Math.sin(h.nailA) * 30 * sz0, rb = solidAny(fx, fy);
+          if (rb) { const [lx, ly] = toLocal(rb, h.x, h.y); h.pin = { b: rb, lx, ly, a: h.a - rb.a }; sparkShower(fx, fy, -Math.cos(h.nailA), -Math.sin(h.nailA), 1); packPlay("p_hit_nail", 0.8, fx, fy); }
+          else if (h.x < 40 || h.x > W - 40 || h.y < 40 || h.y > H - 40) { h.x = clamp(h.x, 40, W - 40); h.y = clamp(h.y, 40, H - 40); h.pin = { b: null }; }
+        } else bounceOff(h, 30 * sizeOf(h.lv), 0.8);
+      }
+      if (h.burn) {   // burning: flames lick up off it, then it crumbles to ash
+        const bt = (now - h.burn) / 1000, sz1 = sizeOf(h.lv);
+        if (bt < 3.2 && Math.random() < (lowQ ? 20 : 50) * dt) puff(h.x + (Math.random() - 0.5) * 50 * sz1, h.y + (Math.random() - 0.5) * 50 * sz1, (Math.random() - 0.5) * 40, -60 - Math.random() * 80, 0.5 + Math.random() * 0.4, 3 + Math.random() * 4, FIRE_COLS[(Math.random() * 4) | 0]);
+        if (bt > 3.4 && !h.ashed) { h.ashed = true; for (let k = 0; k < (lowQ ? 20 : 50); k++) { const a = Math.random() * 6.28, v = 30 + Math.random() * 120; puff(h.x, h.y, Math.cos(a) * v, Math.sin(a) * v, 1.2 + Math.random(), 2 + Math.random() * 3, k % 2 ? "rgb(60,56,62)" : "rgb(120,112,110)", 2); } }
+      }
       if (h.x < 40 || h.x > W - 40) { h.vx = -h.vx; h.x = clamp(h.x, 40, W - 40); }
       if (h.y < 40 || h.y > H - 40) { h.vy = -h.vy; h.y = clamp(h.y, 40, H - 40); }
       const sz = sizeOf(h.lv);

@@ -21,7 +21,7 @@
   // window.BRS_BROKER set before the game loads (see server/ in the repo)
   const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
   const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
-  const LOBBY_TOPIC = "binrocket-sky/v11/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  const LOBBY_TOPIC = "binrocket-sky/v12/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
   let lobbyRenderPending = false;
   function renderLobbies() {
@@ -120,7 +120,7 @@
       if (bf === 2 && r.boost !== 2) dashBurst(r);   // they just dashed
       r.boost = bf;
       const dead = p.d === 1;
-      if (dead && !r.dead) deathFx(r, p.ds, Number.isInteger(p.dk) && p.dk >= 0 && p.dk <= 3 ? p.dk : 0, num(p.da, 0));
+      if (dead && !r.dead) deathFx(r, p.ds, Number.isInteger(p.dk) && p.dk >= 0 && p.dk <= DEATH_KINDS ? p.dk : 0, num(p.da, 0));
       r.dead = dead; r.inv = p.i === 1;
     }
     if (typeof p.tg === "string" && /^[a-z0-9]{1,8}$/.test(p.tg)) r.tag = p.tg;
@@ -299,7 +299,7 @@
     // Shots ride in state, including on the primary, and q deduplicates the two deliveries.
     const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
     const myId = "p" + Math.random().toString(36).slice(2, 10);
-    const base = "binrocket-sky/v11/" + code + "/";
+    const base = "binrocket-sky/v12/" + code + "/";
     const clients = BROKERS.map(url => {
       const c = mqtt.connect(url, {
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),

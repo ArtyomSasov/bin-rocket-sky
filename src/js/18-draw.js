@@ -227,15 +227,15 @@
       const t = SHOTS[K.GREN].life - s.life, blink = Math.floor(t * (t > 1.8 ? 14 : 4)) % 2;
       g.save(); g.translate(x, y); g.rotate(t * 5 + s.x * 0.001); g.scale(1.25, 1.25);
       if (blink) { g.globalCompositeOperation = "lighter"; g.drawImage(dotSprite("#ff5a3c"), -16, -16, 32, 32); g.globalCompositeOperation = "source-over"; }
-      const bg = g.createRadialGradient(-3, -3, 1, 0, 0, 11); bg.addColorStop(0, "#9bb36a"); bg.addColorStop(0.6, "#5a6e34"); bg.addColorStop(1, "#2e3a1a");
-      g.fillStyle = bg; g.beginPath(); g.ellipse(1, 0, 10, 7.5, 0, 0, 6.29); g.fill();   // the ribbed body
-      g.strokeStyle = "rgba(20,26,10,0.7)"; g.lineWidth = 1;
-      for (const gx of [-4, 0, 4]) { g.beginPath(); g.moveTo(gx + 1, -7); g.lineTo(gx + 1, 7); g.stroke(); }
-      for (const gy of [-3, 1.5]) { g.beginPath(); g.moveTo(-8, gy); g.lineTo(10, gy); g.stroke(); }
-      g.fillStyle = "#3a3f46"; g.fillRect(-13, -3, 5, 6);   // the fuse cap
-      g.fillStyle = "#8a909a"; g.beginPath(); g.moveTo(-12, -3); g.lineTo(6, -9.5); g.lineTo(7, -8); g.lineTo(-10, -1.5); g.fill();   // the spoon
-      g.strokeStyle = "#c9ced6"; g.lineWidth = 1.2; g.beginPath(); g.arc(-15, -4, 2.6, 0, 6.29); g.stroke();   // the pin's ring
-      g.fillStyle = blink ? "#ffd2c0" : "#802010"; g.beginPath(); g.arc(-11, 0, 1.6, 0, 6.29); g.fill();   // the fuse light, faster near the end
+      // Quake-style: a dark gunmetal egg with a lighter ridged band round its waist, a capped nose and a fuse light
+      const bg = g.createRadialGradient(-2, -3, 1, 0, 0, 12); bg.addColorStop(0, "#b8bec8"); bg.addColorStop(0.45, "#5c626c"); bg.addColorStop(1, "#24272d");
+      g.fillStyle = bg; g.beginPath(); g.ellipse(0, 0, 11, 8, 0, 0, 6.29); g.fill();
+      g.strokeStyle = "rgba(10,12,16,0.8)"; g.lineWidth = 1; g.beginPath(); g.ellipse(0, 0, 11, 8, 0, 0, 6.29); g.stroke();
+      const band = g.createLinearGradient(0, -8, 0, 8); band.addColorStop(0, "#8f969f"); band.addColorStop(0.5, "#d6dbe2"); band.addColorStop(1, "#6a7079");
+      g.fillStyle = band; g.fillRect(-2.2, -7.8, 4.4, 15.6);   // the band
+      g.strokeStyle = "rgba(20,22,26,0.7)"; for (const by of [-4, 0, 4]) { g.beginPath(); g.moveTo(-2.2, by); g.lineTo(2.2, by); g.stroke(); }
+      g.fillStyle = "#30343b"; g.beginPath(); g.ellipse(10, 0, 3, 4, 0, 0, 6.29); g.fill();   // the capped nose
+      g.fillStyle = blink ? "#ffd2c0" : "#802010"; g.beginPath(); g.arc(11, 0, 1.8, 0, 6.29); g.fill();   // the fuse light, faster near the end
       g.restore();
       return;
     }

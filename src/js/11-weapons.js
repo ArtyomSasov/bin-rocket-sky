@@ -825,7 +825,7 @@
     sfx("hit", 1, 0.85) || blip(110, 0.3, "square");
     if (me.lives <= 0) {
       stats.deaths++; stats.streak = 0;
-      me.ds = 1 + Math.floor(Math.random() * 4);   // pieces the bin breaks into: 1 = intact dead hulk, 2-4 = shattered
+      me.ds = deathPiecesOf(kind);   // pieces the bin breaks into: 1 = intact dead hulk, 2-4 = shattered (always pieces for a blast)
       me.dk = deathStyleOf(kind); me.da = ang;
       deathFx(me, me.ds, me.dk, me.da);
       me.dead = true; me.respawnAt = now + 3000; me.vx = me.vy = 0;
