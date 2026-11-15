@@ -154,7 +154,7 @@ try {
   assert.deepEqual(result.errors, []);
   for (const [weapon, kinds] of Object.entries(result.fired)) assert.ok(kinds.length, 'Weapon fired: ' + weapon + ' ' + JSON.stringify(result.missed));
   assert.equal(Object.keys(result.fired).length, 11); assert.ok(result.ctfCaps > 0);
-  assert.deepEqual(result.altCost, {rocket:3,scatter:2,triple:1,mine:1});
+  assert.deepEqual(result.altCost, {rocket:3,scatter:2,triple:1,mine:0});   // mines: the alt is Detonate (free, and nothing to set off yet)
   console.log('PASS six-bot weapon/death/CTF smoke', JSON.stringify(result));
   // Max-sized crater history plus six busy bots must still fit the receiver's byte limit.
   await evaluate(smoke, `(()=>{const t=__t, now=performance.now();

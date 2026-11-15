@@ -205,16 +205,25 @@
       const s = shots[i];
       s.life -= dt;
       if (s.kind === K.DET) { detonateOrb(s); if (s.life <= 0) shots.splice(i, 1); continue; }   // inert: it only sets off its orb
+      if (s.kind === K.MDET) { detonateMines(s); if (s.life <= 0) shots.splice(i, 1); continue; }   // ...and this one its pilot's mines
+      if (s.kind === K.MINE && s.trigAt && now >= s.trigAt) s.life = 0;   // a triggered mine goes off
       if (s.life <= 0 && s.kind === K.FLAK) flakBurst(s);
-      if (s.life <= 0) { if (SPLASH[s.kind]) splash(s, now); if (BOMBS[s.kind]) detonate(s, now); else if (s.kind === K.MINE && !s.boom) explode(s.x, s.y, 20, 180); shots.splice(i, 1); continue; }
-      if (s.kind === K.ROCKET) steerRocket(s, dt);
-      if (s.kind === K.ROCKET && s.life > 0) for (const o of shots) {   // rockets are big and slow: any enemy shot can blow one up mid-air
+      if (s.life <= 0) { if (SPLASH[s.kind]) splash(s, now); if (BOMBS[s.kind]) detonate(s, now); shots.splice(i, 1); continue; }
+      if (s.kind === K.HROCKET) steerRocket(s, dt);
+      if (s.kind === K.HROCKET && s.life > 0) for (const o of shots) {   // homing rockets are slow: any enemy shot can blow one up mid-air
         if (o === s || o.life <= 0 || SHOTS[o.kind].inert || o.kind === K.MINE || (o.mine ? s.mine : o.owner === s.owner)) continue;
         if (isTeams() && teamOfShot(o) !== undefined && teamOfShot(o) === teamOfShot(s)) continue;   // a teammate's shot passes it
         if (segHit(o, s.x, s.y, 24)) { s.life = 0; if (!pierces(o)) o.life = 0; impact(s.x, s.y, "#ffb43c", 1.6); explode(s.x, s.y, 40, 300); sfx("boom_small", 0.8, 1.2, s.x, s.y); break; }
       }
       if (s.life <= 0) continue;   // shot down: it blows up (splash) at the start of next frame
-      if (s.kind === K.MINE) { const k = Math.exp(-2.5 * dt); s.vx *= k; s.vy *= k; }
+      if (s.kind === K.MINE) {
+        if (s.stuck) mineStick(s); else { const k = Math.exp(-1.6 * dt); s.vx *= k; s.vy *= k; }   // a prox mine slows in flight, then rides the rock it stuck to
+        if (!s.trigAt && SHOTS[K.MINE].life - s.life >= MINE_ARM) {   // armed: an enemy coming within reach sets it ticking
+          let near = canHurt(s, me, "me") && playing && Math.hypot(me.x - s.x, me.y - s.y) < 150;
+          if (!near) for (const [rid, r] of remotes) if (canHurt(s, r, rid) && Math.hypot(r.x - s.x, r.y - s.y) < 150 + binR(r.lv || 1) * 0.5) { near = true; break; }
+          if (near) { s.trigAt = now + 250; packPlay("p_tick_mine", 0.8, s.x, s.y) || sfx("hit", 0.4, 2.4, s.x, s.y); }
+        }
+      }
       if (s.kind === K.GREN) { const k = Math.exp(-0.7 * dt); s.vx *= k; s.vy *= k; }   // a grenade slows as it flies
       if (s.kind === K.NUKE) { const v = Math.hypot(s.vx, s.vy), nv = Math.min(720, v + 260 * dt); s.vx *= nv / v; s.vy *= nv / v; }
       s.px = s.x; s.py = s.y;
@@ -231,7 +240,7 @@
         if (Math.random() < dt * 70) puff(s.x, s.y, -s.vx * 0.15 + (Math.random() - .5) * 50, -s.vy * 0.15 + (Math.random() - .5) * 50, 0.9, 3 + Math.random() * 3, Math.random() < 0.5 ? "#8a7fb0" : "#ffe14d");
         continue;
       }
-      if (s.kind === K.MINE && (s.x < 0 || s.x > W || s.y < 0 || s.y > H)) { s.x = clamp(s.x, 0, W); s.y = clamp(s.y, 0, H); s.vx = s.vy = 0; }
+      if (s.kind === K.MINE && !s.stuck && (s.x < 0 || s.x > W || s.y < 0 || s.y > H)) { s.x = clamp(s.x, 0, W); s.y = clamp(s.y, 0, H); s.stuck = { b: null }; packPlay("p_mine_hit", 0.7, s.x, s.y); }   // sticks to the fence
       const bounce = SHOTS[s.kind].bounce;
       if (bounce && s.bn < bounce) {   // shards and saws ricochet off the fence and off planets, losing a bit of speed
         let hit = false;
@@ -245,7 +254,7 @@
       if (s.kind === K.ORB && SHOTS[K.ORB].life - s.life > 0.9) { const k = Math.exp(-5 * dt); s.vx *= k; s.vy *= k; }   // the shock orb stops and hangs there
       // planets, moons, wrecks and rubble: the shot digs a crater where it lands (my shots and my bots' report theirs;
       // others' craters on shared bodies arrive over the network, but anyone's shot chips local rubble)
-      const hb = shotBody(s);
+      const hb = s.stuck ? null : shotBody(s);
       if (hb) {
         const own = s.mine || botById.has(s.owner), dig = own || hb.b.free;
         if (s.kind === K.RAIL || s.kind === K.GAUSS) {   // rail and gauss slugs bore a tunnel straight through and keep going
@@ -262,7 +271,12 @@
         } else {
           if (dig) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);
           if ((s.kind === K.BULLET || s.kind === K.PELLET) && now - ricAt > 90) { ricAt = now; packPlay("p_ric", 0.4, hb.x, hb.y); }   // whine off the rock
-          if (s.kind === K.MINE) packPlay("p_mine_hit", 0.7, hb.x, hb.y);
+          if (s.kind === K.MINE) {   // a prox mine sticks where it lands, just off the surface
+            const [nx, ny] = normalAt(hb.b, hb.x, hb.y), px = hb.x + nx * 10, py = hb.y + ny * 10, [lx, ly] = toLocal(hb.b, px, py);
+            s.stuck = { b: hb.b, lx, ly }; s.x = px; s.y = py; s.vx = s.vy = 0;
+            packPlay("p_mine_hit", 0.7, hb.x, hb.y);
+            continue;
+          }
           s.x = hb.x; s.y = hb.y;
           if (s.kind === K.FLAK) { const [nx, ny] = normalAt(hb.b, hb.x, hb.y); s.x += nx * 12; s.y += ny * 12; flakBurst(s); }   // bursts just off the surface
           if (SPLASH[s.kind]) splash(s, now);
@@ -273,7 +287,7 @@
       }
       if ((s.x < 0 || s.x > W || s.y < 0 || s.y > H) && SPLASH[s.kind]) splash(s, now);
       if (s.x < 0 || s.x > W || s.y < 0 || s.y > H) { explode(clamp(s.x, 0, W), clamp(s.y, 0, H), s.kind === K.ROCKET ? 40 : 10, 160); shots.splice(i, 1); continue; }
-      if (s.kind === K.ROCKET) {   // a thick billowing smoke trail with fire licking out of the motor
+      if (s.kind === K.ROCKET || s.kind === K.HROCKET) {   // a smoke trail with fire licking out of the motor
         const sp = Math.hypot(s.vx, s.vy) || 1, bx = s.x - s.vx / sp * 26, by = s.y - s.vy / sp * 26;
         if (Math.random() < dt * (lowQ ? 30 : 70)) puff(bx, by, -s.vx * 0.08 + (Math.random() - .5) * 50, -s.vy * 0.08 + (Math.random() - .5) * 50, 1.2 + Math.random() * 1.0, 6 + Math.random() * 6, "rgb(120,110,140)", 2);
         if (Math.random() < dt * 60) puff(bx, by, -s.vx * 0.4 + (Math.random() - .5) * 60, -s.vy * 0.4 + (Math.random() - .5) * 60, 0.2 + Math.random() * 0.2, 3 + Math.random() * 3, FIRE_COLS[(Math.random() * 3) | 0]);
@@ -294,15 +308,10 @@
       if (!s.mine && !s.whiz && playing && !me.dead && (s.kind === K.BULLET || s.kind === K.PELLET || s.kind === K.SHARD || s.kind === K.RAIL || s.kind === K.NAIL || s.kind === K.SPIKE) && now - whizAt > 120
           && segHit(s, me.x, me.y, binR(me.lv) + 140) && !segHit(s, me.x, me.y, binR(me.lv))) { s.whiz = true; whizAt = now; packPlay(s.kind === K.NAIL || s.kind === K.SPIKE ? "p_whiz_nail" : "p_whiz", 0.7, s.x, s.y); }
       // a rocket or an orb flying past roars by (yours too, once, as it leaves)
-      if (!s.flyby && (s.kind === K.ROCKET || s.kind === K.ORB) && playing && !me.dead && Math.hypot(s.x - me.x, s.y - me.y) < (s.mine ? 200 : 380)) {
-        s.flyby = true; packPlay(s.kind === K.ROCKET ? "p_fly_rocket" : "p_fly_orb", s.mine ? 0.35 : 0.7, s.x, s.y);
+      if (!s.flyby && (s.kind === K.ROCKET || s.kind === K.HROCKET || s.kind === K.ORB) && playing && !me.dead && Math.hypot(s.x - me.x, s.y - me.y) < (s.mine ? 200 : 380)) {
+        s.flyby = true; packPlay(s.kind === K.ORB ? "p_fly_orb" : "p_fly_rocket", s.mine ? 0.35 : 0.7, s.x, s.y);
       }
-      // my armed mine ticks while an enemy is near it
-      if (s.kind === K.MINE && s.mine && s.armedFx && now - (s.tickAt || 0) > 550) {
-        let near = false;
-        for (const [rid, r] of remotes) if (!r.dead && !mates(r, me) && Math.hypot(r.x - s.x, r.y - s.y) < 320) { near = true; break; }
-        if (near) { s.tickAt = now; packPlay("p_tick_mine", 0.6, s.x, s.y); }
-      }
+
       if (s.kind === K.MINE && s.mine && !s.armedFx && SHOTS[K.MINE].life - s.life >= MINE_ARM) { s.armedFx = true; packPlay("p_arm_mine", 0.5, s.x, s.y); }   // my mine is armed
       // enemy fireball hits me (I decide, then report the shot id)
       const armed = s.kind !== K.MINE || SHOTS[K.MINE].life - s.life >= MINE_ARM;

@@ -437,9 +437,9 @@
       g.restore();
       return;
     }
-    if (s.kind === K.ROCKET) {
+    if (s.kind === K.ROCKET || s.kind === K.HROCKET) {   // a rocket the size of a rocket (it used to be drawn twice as big)
       const a = Math.atan2(s.vy, s.vx), fl = 1 + Math.sin(now / 25 + s.x) * 0.25;
-      g.save(); g.translate(x, y); g.rotate(a); g.scale(2, 2);
+      g.save(); g.translate(x, y); g.rotate(a); g.scale(1.15, 1.15);
       const fg = g.createLinearGradient(-34 * fl, 0, -8, 0);
       fg.addColorStop(0, "rgba(255,60,20,0)"); fg.addColorStop(1, "rgba(255,210,90,0.95)");
       g.fillStyle = fg; g.beginPath(); g.moveTo(-8, -4); g.lineTo(-34 * fl, 0); g.lineTo(-8, 4); g.fill();
@@ -449,7 +449,7 @@
       bg.addColorStop(0, "#f4f1ff"); bg.addColorStop(1, "#a59cc8");
       g.fillStyle = bg; rrect(-10, -4.5, 20, 9, 4); g.fill();
       g.fillStyle = "#ff5a6e"; g.beginPath(); g.moveTo(10, -4.5); g.quadraticCurveTo(18, 0, 10, 4.5); g.fill();
-      if (Math.floor(now / 140 + s.x) % 2) {   // homing seeker light blinking on the nose
+      if (s.kind === K.HROCKET && Math.floor(now / 140 + s.x) % 2) {   // homing seeker light blinking on the nose
         g.globalCompositeOperation = "lighter";
         const sg = g.createRadialGradient(13, 0, 0, 13, 0, 9);
         sg.addColorStop(0, "rgba(255,255,255,0.95)"); sg.addColorStop(1, "rgba(255,60,80,0)");

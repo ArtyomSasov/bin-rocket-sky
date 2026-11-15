@@ -22,7 +22,7 @@
   // how someone else's shot sounds here (quieter with distance)
   // which gun a shot kind comes from, for a sound pack's gun sounds
   const KIND_GUN = { [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
-    [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.NAIL]: "nail", [K.SPIKE]: "nail", [K.GREN]: "gren" };
+    [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.NAIL]: "nail", [K.SPIKE]: "nail", [K.GREN]: "gren", [K.HROCKET]: "rocket" };
   let laserHeardAt = 0;
   const shotSound = (kind, x, y) => {
     if (kind === K.LASER && packHas("p_fire_laser")) { const t = performance.now(); if (t - laserHeardAt > 900) { laserHeardAt = t; packPlay("p_fire_laser", 0.5, x, y); } return; }   // a beam, not twelve shots a second
@@ -207,6 +207,11 @@
     if (s.fxDone) return;
     s.fxDone = true; s.boom = true;
     const x = s.x, y = s.y, near = Math.hypot(x - me.x, y - me.y) < 1400;
+    if (s.kind === K.MINE) {   // a mine: a hard orange blast and a shock ring
+      explode(x, y, lowQ ? 30 : 60, 340); rings.push({ x, y, t: 0, r: 170, col: "255,140,80", dur: 0.45, w: 10 });
+      if (near) { packPlay("p_boom_mine", 1, x, y) || sfx("boom_small", 1, 0.9, x, y); shake = Math.max(shake, 0.28 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
+      return;
+    }
     if (s.kind === K.ORB) {   // plasma: a blue-white flash, a warping shock ring, crackling sparks, a sizzle
       impacts.push({ x, y, t: 0, r: 170, col: "#bff4ff" });
       rings.push({ x, y, t: 0, r: 280, col: "120,220,255", warp: true, dur: 0.55, w: 16 });
@@ -306,6 +311,19 @@
     }
     sfx("boom_small", 0.8, 1.3, s.x, s.y);
   }
+  // a mine detonator: every armed mine of that pilot goes off now
+  function detonateMines(d) {
+    if (d.done) return;
+    d.done = true;
+    const t = performance.now();
+    for (const o of shots) if (o.kind === K.MINE && o.life > 0 && (d.mine ? o.mine : o.owner === d.owner) && SHOTS[K.MINE].life - o.life >= MINE_ARM) o.trigAt = Math.min(o.trigAt || Infinity, t);
+  }
+  // a prox mine stuck to rock rides along with it; if the rock is gone it floats free
+  function mineStick(s) {
+    const st = s.stuck;
+    if (st.b) { if (st.b.dead || !bodies.includes(st.b)) { s.stuck = null; return; } [s.x, s.y] = toWorld(st.b, st.lx, st.ly); }
+    s.px = s.x; s.py = s.y; s.vx = s.vy = 0;
+  }
   // the gamma orb's detonator: the shooter's nearest gamma orb goes off right here
   function detonateOrb(d) {
     if (d.done) return;
@@ -323,7 +341,7 @@
   }
   // what every client shows where a shot lands on a bin
   function shotBurst(s) {
-    if (s.kind === K.MINE) { s.boom = true; explode(s.x, s.y, 50, 320); rings.push({ x: s.x, y: s.y, t: 0, r: 150, col: "255,140,80", dur: 0.45, w: 10 }); shake = Math.max(shake, 0.25); packPlay("p_boom_mine", 1, s.x, s.y) || sfx("boom_small", 1, 0.9, s.x, s.y) || boomSound(0.6, 900, 0.35); return; }
+    if (s.kind === K.MINE) { blastFx(s); return; }
     if (SPLASH[s.kind]) blastFx(s);
     else packPlay(s.kind === K.BULLET ? "p_hit_bullet" : s.kind === K.LASER || s.kind === K.BOLT ? "p_hit_laser" : s.kind === K.NAIL || s.kind === K.SPIKE ? "p_hit_nail" : s.kind === K.RAIL ? "p_boom_orb" : "", 0.6, s.x, s.y) || sfx("hit", 0.55, 1.1, s.x, s.y);
     if (s.kind === K.RAIL) sparkShower(s.x, s.y, s.vx / 4200, s.vy / 4200, 1.2);
@@ -368,7 +386,7 @@
       for (let k = 0; k < 16; k++) { const a = me.a + (Math.random() - 0.5) * 1.2, v = 150 + Math.random() * 300; puff(m.x, m.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.3, 2, k % 2 ? "#9fe8ff" : "#ffffff"); }
     }
   };
-  const DETONATOR = { shot: [K.DET, 0] };
+  const DETONATOR = { shot: [K.DET, 0] }, MINE_DETONATOR = { shot: [K.MDET, 0] };
   let lungeReady = 0;
   // the pack's sound for each alt fire (the rest keep their own)
   const ALT_SOUND = { minigun: "p_burst_minigun", mine: "p_fire_mine", scatter: "p_fire_scatter", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_fire_laser", gren: "p_fire_gren", nail: "p_fire_nail" };
@@ -395,6 +413,11 @@
       lungeReady = now + 1200; me.lungeUntil = now + 450;
       me.vx += Math.cos(me.a) * 950; me.vy += Math.sin(me.a) * 950; me.inv = Math.max(me.inv, now + 200);
       dashBurst(me); packPlay("p_melee_run", 0.8) || sfx(...pat.sfx);
+      return;
+    }
+    if (alt && pat.minedet) {   // set off every mine of mine, on every screen
+      if (!shots.some(s => s.mine && s.kind === K.MINE && s.life > 0)) return;
+      volley(me, now, MINE_DETONATOR, { x: me.x, y: me.y }); fireCd = pat.cd; sfx(...pat.sfx);
       return;
     }
     if (alt && pat.detonate) {   // the gamma orb's alt: a detonator at my orb, which sets it off on every screen
