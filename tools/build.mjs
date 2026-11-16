@@ -52,9 +52,8 @@ if (args[0] === "--debug") {
   const walk = d => readdirSync(join(root, d), { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(d + "/" + e.name) : /\.(wav|mp3|ogg)$/i.test(e.name) ? [d + "/" + e.name] : []);
   const packFiles = walk("sfx/pack").map(f => f.slice("sfx/pack/".length)).sort();
   writeFileSync(join(root, "sfx/pack/index.json"), JSON.stringify(packFiles));
-  const files = ["./", "index.html", "bin-rocket-sky.html", "bot.png", "holy.png", "manifest.webmanifest", "sfx/pack/index.json", ...packFiles.map(f => "sfx/pack/" + f), ...readdirSync(join(root, "sfx")).filter(f => /\.(wav|mp3)$/.test(f)).sort().map(f => "sfx/" + f)];
-  const version = createHash("sha256").update(body).update(files.join()).digest("hex").slice(0, 12);
-  writeFileSync(join(root, "sw.js"), read("src/sw.js").replace("__VERSION__", version).replace("__FILES__", JSON.stringify(files)));
+  const assets = ["bot.png", "holy.png", "manifest.webmanifest", "vendor/qrcode.min.js", "vendor/jsQR.min.js", "sfx/pack/index.json", ...packFiles.map(f => "sfx/pack/" + f), ...readdirSync(join(root, "sfx")).filter(f => /\.(wav|mp3)$/.test(f)).sort().map(f => "sfx/" + f)];
+  const files = ["./", "index.html", "bin-rocket-sky.html", ...assets];
   const page = "<!doctype html>\n" +
     '<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>\n' +
     body + "</body></html>\n";
@@ -68,5 +67,10 @@ if (args[0] === "--debug") {
     + ["vendor/qrcode.min.js", "vendor/jsQR.min.js"].map(f => "<script>\n" + read(f).replace(/<\/script/gi, "<\\/script") + "\n</script>\n").join("");
   if (page.split("<script>\n(() => {").length !== 2) throw new Error("one-file anchor not found");
   writeFileSync(join(root, "bin-rocket-sky.html"), page.replace("<script>\n(() => {", () => inline + "<script>\n(() => {"));
+  // Asset-only and worker-only changes must also replace the offline cache.
+  const hash = createHash("sha256").update(read("src/sw.js")).update(files.join());
+  for (const file of files.filter(f => f !== "./")) hash.update(readFileSync(join(root, file)));
+  const version = hash.digest("hex").slice(0, 12);
+  writeFileSync(join(root, "sw.js"), read("src/sw.js").replace("__VERSION__", version).replace("__FILES__", JSON.stringify(files)));
   console.log(`wrote index.html (${parts.length} script sections) and bin-rocket-sky.html`);
 }

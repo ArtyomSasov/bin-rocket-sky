@@ -58,6 +58,8 @@ and joins a local room. (Android opens local HTML files well; on an iPhone, open
 **Playing without internet** needs the game on each device first: open the page once while online (or add it
 to the home screen). A service worker (`sw.js`, built from `src/sw.js` with the file list) keeps the page,
 sounds and QR libraries, so it opens and plays offline afterwards.
+The QR libraries are served with the game and cached on installation. Changes to sounds, images or
+libraries also refresh the offline cache; opening the standalone download keeps the cached home page intact.
 
 ## Levels
 
@@ -239,7 +241,7 @@ numeric prefixes set the order they run in.
 
 ### Checking a change
 
-`npm test` runs the network, round and terrain regression tests using Node's built-in test runner.
+`npm test` runs the combat, network, round, terrain and offline-cache regression tests using Node's built-in test runner.
 To check that the regressions fail against an earlier revision, use `TEST_REF=<commit> npm test`.
 
 `BROWSER_PATH=/path/to/chrome npm run test:browser` runs the game in real headless Chrome (Node 22+).

@@ -4455,13 +4455,20 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // candidates on the local network are used. The host relays every pilot's state to the others, like the broker does.
   const lan = { host: false, guest: false, code: "", myId: "p" + Math.random().toString(36).slice(2, 10), peers: [] };
   const LAN_TAG = "BRS14";
-  const QR_LIB = "https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js";
-  const JSQR_LIB = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
-  const loadScript = src => new Promise((res, rej) => {
-    if ((src === QR_LIB && window.qrcode) || (src === JSQR_LIB && window.jsQR)) { res(); return; }   // built into the one-file game
-    if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
-    const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s);
-  });
+  const QR_LIB = "vendor/qrcode.min.js";
+  const JSQR_LIB = "vendor/jsQR.min.js";
+  const scriptLoads = new Map();
+  const loadScript = src => {
+    if ((src === QR_LIB && window.qrcode) || (src === JSQR_LIB && window.jsQR)) return Promise.resolve();   // built into the one-file game
+    if (scriptLoads.has(src)) return scriptLoads.get(src);
+    const promise = new Promise((res, rej) => {
+      const s = document.createElement("script"); s.src = src; s.onload = res;
+      s.onerror = () => { s.remove(); scriptLoads.delete(src); rej(new Error("Could not load " + src)); };
+      document.head.appendChild(s);
+    });
+    scriptLoads.set(src, promise);
+    return promise;
+  };
 
   // ---- the handshake, packed small: ICE user and password, the DTLS fingerprint and the local candidates
   // (an offer also carries the lobby code). Everything is checked piece by piece and the SDP is rebuilt from it.

@@ -3,20 +3,19 @@
 // list and a version filled in; a new build replaces the cache.
 const VERSION = "__VERSION__";
 const FILES = __FILES__;
-// libraries the local room loads (QR codes); the multiplayer library is never cached, so the game can tell it is offline
-const LIBS = ["https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js", "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"];
-const CACHE = "brs-" + VERSION;
+// Keep caches separate from other games hosted on the same GitHub Pages origin.
+const PREFIX = "brs-" + self.registration.scope + "-";
+const CACHE = PREFIX + VERSION;
 self.addEventListener("install", e => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
     await c.addAll(FILES);
-    await Promise.all(LIBS.map(u => fetch(u, { mode: "cors" }).then(r => r.ok && c.put(u, r)).catch(() => {})));
     self.skipWaiting();
   })());
 });
 self.addEventListener("activate", e => {
   e.waitUntil((async () => {
-    for (const k of await caches.keys()) if (k.startsWith("brs-") && k !== CACHE) await caches.delete(k);
+    for (const k of await caches.keys()) if (k.startsWith(PREFIX) && k !== CACHE) await caches.delete(k);
     await self.clients.claim();
   })());
 });
@@ -24,27 +23,31 @@ self.addEventListener("fetch", e => {
   const req = e.request, url = new URL(req.url);
   if (req.method !== "GET") return;
   const same = url.origin === self.location.origin;
+  const cacheKey = same ? url.origin + url.pathname : req;
+  const isGamePage = same && (url.href.split("?")[0] === self.registration.scope || url.pathname === new URL("index.html", self.registration.scope).pathname);
   // the page itself: the newest from the network when there is one, else the saved copy
   if (req.mode === "navigate" || (same && /\/(index\.html)?$/.test(url.pathname))) {
     e.respondWith((async () => {
       try {
         const r = await fetch(req);
-        if (r.ok) (await caches.open(CACHE)).put(same ? url.pathname.replace(/[^/]*$/, "") + "index.html" : req, r.clone());
+        if (r.ok) await (await caches.open(CACHE)).put(cacheKey, r.clone());
         return r;
       } catch {
-        return (await caches.match(req, { ignoreSearch: true })) || (await caches.match(new URL("index.html", self.registration.scope).href)) || Response.error();
+        const c = await caches.open(CACHE);
+        return (await c.match(cacheKey)) || (isGamePage && await c.match(new URL("index.html", self.registration.scope).href)) || Response.error();
       }
     })());
     return;
   }
   // sounds, the sprite, the QR libraries and fonts: the saved copy first
-  if (same || LIBS.includes(req.url) || /fonts\.(googleapis|gstatic)\.com$/.test(url.hostname)) {
+  if (same || /fonts\.(googleapis|gstatic)\.com$/.test(url.hostname)) {
     e.respondWith((async () => {
-      const hit = await caches.match(req, { ignoreSearch: same });
+      const c = await caches.open(CACHE);
+      const hit = await c.match(cacheKey);
       if (hit) return hit;
       try {
         const r = await fetch(req);
-        if (r.ok || r.type === "opaque") (await caches.open(CACHE)).put(req, r.clone());
+        if (r.ok || r.type === "opaque") await c.put(cacheKey, r.clone());
         return r;
       } catch { return Response.error(); }
     })());
