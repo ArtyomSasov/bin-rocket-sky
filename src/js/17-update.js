@@ -333,6 +333,7 @@
             continue;
           }
           s.x = hb.x; s.y = hb.y;
+          if (s.kind === K.SHARD) packPlay("p_boom_shard", 0.65, s.x, s.y);
           if (s.kind === K.FLAK) { const [nx, ny] = normalAt(hb.b, hb.x, hb.y); s.x += nx * 12; s.y += ny * 12; flakBurst(s); }   // bursts just off the surface
           if (SPLASH[s.kind]) splash(s, now);
           impact(hb.x, hb.y, SHOTS[s.kind].col, s.kind === K.MINE ? 1.6 : 0.8);

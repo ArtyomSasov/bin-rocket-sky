@@ -95,8 +95,8 @@
   const PACK_PATHS = {
     p_user_demonic: ["user/demonic-shot.wav"], p_user_fire: ["user/demonic-shot-short.wav"],
     p_user_cannon: ["user/explosive-canon.wav"], p_user_autocannon: ["user/autocannon.wav"],
-    p_user_explosion: ["user/explosion-rumb.wav"], p_user_massive: ["user/massive-explosion.wav"],
-    p_user_engine: ["user/engine-working.wav"],
+    p_user_explosion: ["user/explosion-rumb.wav"], p_user_massive: ["user/massive-explosion.wav", "user/explosive-nuke-or-holybomb.wav"],
+    p_user_engine: ["user/engine-working.wav"], p_user_demonic_explosion: ["user/demonic-explosions.wav"],
     p_metal: ["physical/metal_1.wav", "physical/metal_10.wav", "physical/metal_20.wav"],
     p_blast: ["physical/bang_04.ogg", "physical/bang_05.ogg"],
     p_blast_heavy: ["physical/cannon_01.ogg", "physical/cannon_02.ogg"],
@@ -167,11 +167,11 @@
   document.addEventListener("visibilitychange", () => { if (document.hidden) { for (const slot of Object.keys(packLoops)) packLoop(slot, null); } });
   // x, y: where it happens (quieter with distance, silent past ~2200); rate: pitch, with a little random spread
   const SOUND_OVERRIDE = { fire: "p_user_fire", triple: "p_user_fire", crash: "p_metal", ram: "p_metal", dash: "p_boost",
-    p_fire_gamma: "p_user_demonic", p_fire_minigun: "p_user_autocannon", p_burst_minigun: "p_user_autocannon",
-    p_fire_rocket: "p_user_cannon", p_fire_gren: "p_user_cannon", p_fire_shard: "p_user_cannon",
-    p_boom_rocket: "p_user_explosion", p_boom_mine: "p_user_explosion",
-    p_death: "p_user_explosion", boom_small: "p_blast", boom_bin: "p_user_explosion", boom_big: "p_user_massive", chunk: "p_metal" };
-  const USER_SOUND_GAIN = { p_user_fire: 0.75, p_user_demonic: 0.7, p_user_autocannon: 0.46, p_user_cannon: 0.75, p_user_explosion: 0.7, p_user_massive: 0.85 };
+    p_fire_gamma: "p_user_demonic", p_fire_minigun: "p_burst_minigun",
+    p_fire_shard: "p_user_autocannon", p_boom_shard: "p_user_cannon", p_boom_nuke: "p_user_massive", p_boom_holy: "p_user_massive",
+    p_boom_gamma: "p_user_demonic_explosion",
+    p_death: "p_user_explosion", boom_small: "p_blast", boom_bin: "p_user_explosion", boom_big: "p_blast_heavy", chunk: "p_metal" };
+  const USER_SOUND_GAIN = { p_user_fire: 0.75, p_user_demonic: 0.7, p_user_autocannon: 0.8, p_user_cannon: 0.75, p_user_explosion: 0.7, p_user_massive: 0.85, p_user_demonic_explosion: 0.8 };
   let collisionSoundAt = -Infinity;
   function sfx(name, vol = 1, rate = 1, x, y) {
     if (/^(a_|v_)/.test(name)) return queueVoice(name, vol);
@@ -205,7 +205,7 @@
       subGain.gain.value = vol * tune[1][2] * 0.18;
       sub.connect(subGain).connect(heavyBus); sub.start(); sub.stop(audio.currentTime + Math.min(0.5, tune[1][1]));
     }
-    if (!userSound && ["boom_bin", "boom_big", "p_death", "p_boom_rocket", "p_boom_mine"].includes(name)) {
+    if (!userSound && ["boom_bin", "boom_big", "p_death"].includes(name)) {
       // Material detail trails the blast; bounded by the normal voice budget and distance attenuation.
       sfx("boom_low", vol * 0.24, 0.75, x, y);
       setTimeout(() => { if (!document.hidden) sfx("p_metal", vol * 0.22, 0.65, x, y); }, 65);

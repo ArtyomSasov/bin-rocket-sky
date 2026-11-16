@@ -293,6 +293,13 @@
       if (near) { packPlay("p_boom_mine", 1, x, y) || sfx("boom_small", 1, 0.9, x, y); shake = Math.max(shake, 0.28 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
       return;
     }
+    if (s.kind === K.GAMMA) {
+      impacts.push({ x, y, t: 0, r: 155, col: "#b8ff91" });
+      rings.push({ x, y, t: 0, r: 270, col: "75,255,110", warp: true, dur: 0.6, w: 14 });
+      for (let k = 0; k < (lowQ ? 20 : 48); k++) { const a = Math.random() * 6.283, v = 140 + Math.random() * 500; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.45 + Math.random() * 0.6, 2 + Math.random() * 3, k % 3 ? "#58f77a" : "#d4ffad"); }
+      if (near) { packPlay("p_boom_gamma", 1, x, y) || sfx("boom_small", 1, 0.8, x, y); shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
+      return;
+    }
     if (s.kind === K.ORB) {   // plasma: a blue-white flash, a warping shock ring, crackling sparks, a sizzle
       impacts.push({ x, y, t: 0, r: 170, col: "#bff4ff" });
       rings.push({ x, y, t: 0, r: 280, col: "120,220,255", warp: true, dur: 0.55, w: 16 });
@@ -432,7 +439,7 @@
       explode(s.x, s.y, lowQ ? 20 : 45, 380); impacts.push({ x: s.x, y: s.y, t: 0, r: 110, col: "#ffb060" });
       rings.push({ x: s.x, y: s.y, t: 0, r: 160, col: "255,170,90", dur: 0.35, w: 8 });
     }
-    sfx("boom_small", 0.8, 1.3, s.x, s.y);
+    packPlay("p_boom_shard", 0.8, s.x, s.y) || sfx("boom_small", 0.8, 1.3, s.x, s.y);
   }
   // a mine detonator: every armed mine of that pilot goes off now
   function detonateMines(d) {
@@ -466,7 +473,7 @@
   function shotBurst(s) {
     if (s.kind === K.MINE) { blastFx(s); return; }
     if (SPLASH[s.kind]) blastFx(s);
-    else packPlay(s.kind === K.BULLET ? "p_hit_bullet" : s.kind === K.LASER || s.kind === K.BOLT ? "p_hit_laser" : s.kind === K.NAIL || s.kind === K.SPIKE ? "p_hit_nail" : s.kind === K.RAIL ? "p_boom_orb" : "", 0.6, s.x, s.y) || sfx("hit", 0.55, 1.1, s.x, s.y);
+    else packPlay(s.kind === K.SHARD ? "p_boom_shard" : s.kind === K.BULLET ? "p_hit_bullet" : s.kind === K.LASER || s.kind === K.BOLT ? "p_hit_laser" : s.kind === K.NAIL || s.kind === K.SPIKE ? "p_hit_nail" : s.kind === K.RAIL ? "p_boom_orb" : "", 0.6, s.x, s.y) || sfx("hit", 0.55, 1.1, s.x, s.y);
     if (s.kind === K.RAIL) sparkShower(s.x, s.y, s.vx / 4200, s.vy / 4200, 1.2);
     if (s.kind === K.PELLET) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
     if (s.kind === K.SLUG) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
@@ -512,7 +519,7 @@
   const DETONATOR = { shot: [K.DET, 0] }, MINE_DETONATOR = { shot: [K.MDET, 0] };
   let lungeReady = 0;
   // the pack's sound for each alt fire (the rest keep their own)
-  const ALT_SOUND = { minigun: "p_burst_minigun", mine: "p_fire_mine", scatter: "p_fire_scatter", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_fire_laser", gren: "p_fire_gren", nail: "p_fire_nail", rail: "p_fire_rail", shard: "p_fire_shard" };
+  const ALT_SOUND = { mine: "p_fire_mine", scatter: "p_fire_scatter", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_fire_laser", gren: "p_fire_gren", nail: "p_fire_nail", rail: "p_fire_rail", shard: "p_fire_shard" };
   // fire the gun in hand (alt: its alternate fire, which needs its full ammo cost)
   // mul: the charge cannon's charge (0.25..1)
   function shoot(now, alt, mul = 1) {
@@ -879,8 +886,11 @@
     rings.push({ x, y, t: -0.12, r: R * 0.95, col: holy ? "255,236,160" : "255,190,110", warp: true, dur: 1.2, w: 34 });
     rings.push({ x, y, t: -0.3, r: R * 1.8, col: "255,220,180", dur: 1.6, w: 14 });
     explode(x, y, Math.round(140 * q), 1300);
-    if (!sfx("boom_big", 1, holy ? 0.8 : 1, x, y)) boomSound(2.6, 700, 0.6);
-    sfx("boom_low", 1, holy ? 0.5 : 0.6, x, y);
+    const customBomb = packPlay(holy ? "p_boom_holy" : "p_boom_nuke", 1, x, y);
+    if (!customBomb) {
+      if (!sfx("boom_big", 1, holy ? 0.8 : 1, x, y)) boomSound(2.6, 700, 0.6);
+      sfx("boom_low", 1, holy ? 0.5 : 0.6, x, y);
+    }
     for (let k = 0; k < (holy ? 200 : 120) * q; k++) {   // long glowing streaks thrown out with the blast
       const a = Math.random() * 6.28, v = 700 + Math.random() * (holy ? 1600 : 1100);
       puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 1.2 + Math.random() * 1.2, 2 + Math.random() * 2, Math.random() < 0.5 ? (holy ? "#ffe9a0" : "#ffb43c") : "#fff2c0", 1, 0.06);
@@ -888,7 +898,7 @@
     smoke(x, y, Math.round(60 * q), 560, 6);
     rings.push({ x, y, t: -0.5, r: far, col: holy ? "255,240,190" : "255,140,80", dur: 2.2, w: 22 });   // the slow heat wave rolling far out
     if (d < far) { shake = Math.max(shake, (holy ? 1.8 : 1.4) * (1 - d / far)); flash = Math.max(flash, d < R * 1.6 ? 1 : 1 - (d - R * 1.6) / (far - R * 1.6)); }
-    packPlay("p_death", 1) || boomSound(2.2, 120, 0.8);
+    if (!customBomb) packPlay("p_death", 1) || boomSound(2.2, 120, 0.8);
     if (canHurt(s, me, "me", true) && d < R) {   // your own bomb too: get clear of it
       hurtMe(s, now, bombDmg(bm, d), s.kind, 0, d < bm.kill);
     }

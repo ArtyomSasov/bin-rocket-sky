@@ -12,7 +12,7 @@ const chromePath = process.env.BROWSER_PATH;
 assert.ok(chromePath, 'Set BROWSER_PATH to a Chrome/Chromium executable');
 execFileSync(process.execPath, ['tools/build.mjs'], { cwd: root });
 const gameplayChecks = await readFile(join(root, "tools/gameplay-checks.js"), "utf8");
-const hook = gameplayChecks + `window.__t = {runGameplayChecks, renderVfxPreview, renderWeapon, renderTele, renderShield, ampHud, settings, packHas, packBuf, engineHum, packLoops, K, SHOTS, hitPose, targetHit, recordHitPose, updateShots, volley, net, netSend, gotPing,
+const hook = gameplayChecks + `window.__t = {runGameplayChecks, renderSkullPreview, WEAPONS, renderVfxPreview, renderWeapon, renderTele, renderShield, ampHud, settings, packHas, packBuf, engineHum, packLoops, K, SHOTS, hitPose, targetHit, recordHitPose, updateShots, volley, net, netSend, gotPing,
  isolate(){bodies=[];det=[];shots.length=0;},
  me, stats, PACK_PATHS, PACK_VOICES, SFX_NAMES, sfxBuf, queueVoice, get voiceActive(){return voiceActive?.name}, get voiceQueue(){return voiceQueue.map(v=>v.name)}, setScoreLimit(v){SCORE_LIMIT=v}, setEnd(v){matchEnd=v}, getFrame(){return frameAvg}, startMatch, roundAt, receiveMatchClock, playerRows, renderBoard, foundryOpen, foundryPoint, foundryRoute, stationMap, beamReach, solidAny, spawnPoint, get arena(){return arena}, get match(){return [matchRound,matchStart,matchEnd]}, updateJunk, rock, rockMotion, clockNow, get world(){return world}, deathFx, hurt, ctfTick, roundTick, shoot, carveAt, nextTerrain, applyTerrain,
  get bodies(){return bodies}, get det(){return det}, get bots(){return bots}, get shots(){return shots}, get mode(){return MODE},
@@ -173,6 +173,12 @@ try {
   await evaluate(combat, 'window.__pauseGame=true');
   const combatResult = await evaluate(combat, '__t.runGameplayChecks()');
   console.log('PASS real gameplay checks', combatResult);
+  const minigun = await evaluate(combat, `(()=>{const t=__t;t.me.weapon='minigun';t.me.arsenal.minigun=100;t.renderWeapon();
+    const before=t.shots.length;t.shoot(performance.now(),true);
+    const altShots=t.shots.length-before,altAmmo=t.me.arsenal.minigun;t.shoot(performance.now(),false);
+    return {altDefined:!!t.WEAPONS.minigun.alt,altShots,altAmmo,primaryShots:t.shots.length-before,ammo:t.me.arsenal.minigun};})()`);
+  assert.deepEqual(minigun,{altDefined:false,altShots:0,altAmmo:100,primaryShots:1,ammo:99});
+  if(process.env.BRS_SKULL_PREVIEW) {const png=await evaluate(combat,'__t.renderSkullPreview()');await writeFile(process.env.BRS_SKULL_PREVIEW,Buffer.from(png.split(',')[1],'base64'));}
   await until(combat, '["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine","a_firstblood","v_flawless","p_user_engine","p_user_fire","p_user_demonic","p_user_cannon","p_user_autocannon","p_user_explosion","p_user_massive"].every(__t.packHas)',10000);
   const decoded = await evaluate(combat, 'Object.fromEntries(["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine"].map(k=>[k,+__t.packBuf[k][0].duration.toFixed(2)]))');
   await evaluate(combat, '__t.settings.engine="on";__t.engineHum(500,1,1,performance.now())');
@@ -320,5 +326,5 @@ try {
   if (socket) socket.close();
   const exited = new Promise(r => chrome.once('exit', r)); chrome.kill(); await exited;
   server.closeAllConnections(); await new Promise(r => server.close(r));
-  await rm(profile, { recursive: true, force: true });
+  await rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 }

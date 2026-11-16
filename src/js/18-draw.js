@@ -163,6 +163,33 @@
     g.restore(); g.globalAlpha = 1;
   }
 
+  function drawDemonicSkull(x, y, radius, now) {
+    g.save(); g.translate(x, y); g.scale(radius / 32, radius / 32);
+    g.globalAlpha *= 0.35; g.drawImage(dotSprite("#35ff61"), -74, -82, 148, 148); g.globalAlpha = 1;
+    g.rotate(Math.sin(now / 260) * 0.06);
+    // Swept horns, angular cheekbones and a separate toothed jaw keep the silhouette readable.
+    g.fillStyle = "#4dce60"; g.strokeStyle = "#153f26"; g.lineWidth = 2.5;
+    for (const side of [-1, 1]) {
+      g.beginPath(); g.moveTo(side * 18, -15); g.quadraticCurveTo(side * 39, -22, side * 34, -43);
+      g.quadraticCurveTo(side * 23, -29, side * 12, -26); g.closePath(); g.fill(); g.stroke();
+    }
+    const bone = g.createLinearGradient(-20, -30, 17, 29);
+    bone.addColorStop(0, "#e0ffd0"); bone.addColorStop(0.4, "#97ff80"); bone.addColorStop(1, "#25894d");
+    g.fillStyle = bone; g.beginPath(); g.moveTo(-16, -28);
+    g.quadraticCurveTo(0, -37, 16, -28); g.quadraticCurveTo(31, -19, 29, -2);
+    g.lineTo(24, 11); g.lineTo(14, 15); g.lineTo(13, 29); g.lineTo(-13, 29); g.lineTo(-14, 15);
+    g.lineTo(-24, 11); g.lineTo(-29, -2); g.quadraticCurveTo(-31, -19, -16, -28); g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = "#082519";
+    for (const side of [-1, 1]) {
+      g.beginPath(); g.moveTo(side * 5, -5); g.lineTo(side * 24, -13); g.lineTo(side * 20, 4); g.lineTo(side * 8, 7); g.closePath(); g.fill();
+      g.fillStyle = "#d7ff85"; g.beginPath(); g.ellipse(side * 15, -2, 4.5, 2.5, side * -0.35, 0, 6.29); g.fill(); g.fillStyle = "#082519";
+    }
+    g.beginPath(); g.moveTo(0, 7); g.lineTo(-5, 16); g.lineTo(5, 16); g.closePath(); g.fill();
+    g.fillRect(-13, 20, 26, 5); g.fillStyle = "#c7ffa1";
+    for (let tx = -11; tx < 12; tx += 6) { g.fillRect(tx, 18, 4, 6); g.fillRect(tx, 26, 4, 3); }
+    g.strokeStyle = "#3c7f47"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-3, -29); g.lineTo(2, -22); g.lineTo(-2, -17); g.stroke();
+    g.restore();
+  }
   function drawShot(s, x, y, now) {
     if (s.m >= QUAD) {   // Quad damage shots carry a violet-blue halo
       const hg = g.createRadialGradient(x, y, 0, x, y, 26);
@@ -344,14 +371,13 @@
       g.restore();
       return;
     }
-    if (s.kind === K.GAMMA) {   // a big green ball, seething, with a wide glow
-      const r = 30 + Math.sin(now / 50 + s.x) * 3;
-      g.globalAlpha = 0.55; g.drawImage(dotSprite("#3dff6a"), x - r * 3.6, y - r * 3.6, r * 7.2, r * 7.2); g.globalAlpha = 1;
-      const og = g.createRadialGradient(x, y, 0, x, y, r * 1.6);
-      og.addColorStop(0, "#ffffff"); og.addColorStop(0.35, "rgba(190,255,190,0.95)"); og.addColorStop(0.75, "rgba(70,230,100,0.6)"); og.addColorStop(1, "rgba(30,200,60,0)");
-      g.fillStyle = og; g.beginPath(); g.arc(x, y, r * 1.6, 0, 6.29); g.fill();
-      g.strokeStyle = "rgba(200,255,200,0.7)"; g.lineWidth = 2;
-      for (let k = 0; k < 2; k++) { g.beginPath(); g.arc(x, y, r * (1.1 + 0.25 * k), now / (200 - k * 60), now / (200 - k * 60) + 4); g.stroke(); }
+    if (s.kind === K.GAMMA) {   // a horned green skull with a spectral wake
+      const speed = Math.hypot(s.vx, s.vy) || 1;
+      for (let i = 3; i > 0; i--) {
+        const trail = 22 + i * 7; g.save(); g.globalAlpha = 0.14 / i;
+        g.drawImage(dotSprite("#35ff61"), x - s.vx / speed * i * 22 - trail, y - s.vy / speed * i * 22 - trail, trail * 2, trail * 2); g.restore();
+      }
+      drawDemonicSkull(x, y, 32 + Math.sin(now / 160) * 1.5, now);
       return;
     }
     if (s.kind === K.BEACON) {   // the teleporter's beacon: a cyan diamond with a beating ring
@@ -839,11 +865,9 @@
         g.save(); g.translate(0, -38); g.rotate(now / 60); g.fillStyle = "#d6dde8"; g.beginPath();
         for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, r = k % 2 ? 10 : 15; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
         g.closePath(); g.fill(); g.fillStyle = s.returning ? "#6fffe0" : "#5a6684"; g.beginPath(); g.arc(0, 0, 4, 0, 6.29); g.fill(); g.restore();
-      } else if (weapon === "gamma") {   // a green ball in a cage
+      } else if (weapon === "gamma") {   // a demonic skull mounted on the launcher
         g.fillStyle = "#3b2d5c"; rrect(-12, -20, 24, 26, 6); g.fill();
-        const gg = g.createRadialGradient(0, -40, 2, 0, -40, 18); gg.addColorStop(0, "#ffffff"); gg.addColorStop(0.5, "#7dff8a"); gg.addColorStop(1, "rgba(60,220,90,0.2)");
-        g.fillStyle = gg; g.beginPath(); g.arc(0, -40, 18, 0, 6.29); g.fill();
-        g.strokeStyle = "#5a6684"; g.lineWidth = 3; for (const bx of [-12, 0, 12]) { g.beginPath(); g.moveTo(bx, -24); g.lineTo(bx * 0.6, -58); g.stroke(); }
+        drawDemonicSkull(0, -39, 18, now);
       } else if (weapon === "tele") {   // a little dish with a cyan tip
         g.fillStyle = "#3b2d5c"; rrect(-5, -24, 10, 28, 3); g.fill();
         g.fillStyle = "#5a6684"; g.beginPath(); g.ellipse(0, -28, 16, 6, 0, 0, 6.29); g.fill();

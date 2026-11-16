@@ -11,11 +11,13 @@
 | Торможение | Короткий тихий акцент `rocket_01.ogg` |
 | Столкновение с объектом / противником | Три записи cast-iron clang; разные тон и громкость, ограничение частоты ударов |
 | Малый взрыв | `bang_04/05.ogg` |
-| Взрыв корабля / большой взрыв | Пользовательские `explosion-rumb.aac` / `massive-explosion.aac` |
-| Ракета / мина | Пользовательский `explosion-rumb.aac`, без старых дополнительных слоёв |
-| Gamma Orb | Полная версия `demonic-shot.aac` |
-| Миниган, включая альтернативный огонь | Короткий `Shoot - Autocannon.aac` |
-| Ракетница / гранатомёт / Shard Cannon и Flak | `explosive-canon.aac` |
+| Взрыв корабля | `explosion-rumb.aac` |
+| Nuke / Holy Bomb | Варианты `massive-explosion.aac` и `explosive-nuke-or-holybomb.aac`; у Holy Bomb сохранён хор |
+| Ракета / граната / мина | Возвращены звуки Quake |
+| Demonic Skull (бывший Gamma Orb) | Полная версия `demonic-shot.aac` |
+| Миниган | Один основной режим; старый звук альтернативной очереди Quake (`chaingun`) |
+| Shard Cannon / Flak | Выстрел `Shoot - Autocannon.aac`, попадание/разрыв `explosive-canon.aac` |
+| Взрыв Demonic Skull | `demonic-explosions.aac`, при попадании и ручном подрыве |
 | Остальные оружия, попадания, рикошеты | Существующие отдельные файлы оружейного пака |
 | Телепорт / возрождение | `teleport_02.ogg` |
 | Искры / убийство / ступени заряда | `beep_01`, `terminal_05`, `terminal_02` |

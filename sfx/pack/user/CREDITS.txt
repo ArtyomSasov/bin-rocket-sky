@@ -4,13 +4,13 @@ Original AAC inputs remain outside the repository and were not modified.
 Published derivatives: mono PCM WAV, 48 kHz / 16-bit.
 
 Mappings and edits:
-- demonic-shot.wav: demonic-shot.aac, 0.12–4.65 s; Gamma Orb.
+- demonic-shot.wav: demonic-shot.aac, 0.12–4.65 s; Demonic Skull (formerly Gamma Orb).
 - demonic-shot-short.wav: demonic-shot.aac, 0.18–0.60 s; Fireball / Triple shot.
-- explosive-canon.wav: explosive-canon.aac, 0.02–2.50 s; rocket, grenade, shard/flak launchers.
-- autocannon.wav: Shoot - Autocannon.aac, 0–0.23 s; Minigun primary and alternate fire.
-- explosion-rumb.wav: explosion-rumb.aac, 0–3.30 s; rocket, mine and ship explosions.
-- massive-explosion.wav: massive-explosion.aac, 0–6.40 s; large/nuclear/holy explosions.
-One-shots have short attack/release fades; the Minigun version has a 90 ms fade-out.
+- explosive-canon.wav: explosive-canon.aac, 0.02–2.50 s; Shard Cannon impacts and Flak burst.
+- autocannon.wav: Shoot - Autocannon.aac, 0–2.00 s; Shard Cannon / Flak firing.
+- explosion-rumb.wav: explosion-rumb.aac, 0–3.30 s; ship explosions.
+- massive-explosion.wav: massive-explosion.aac, 0–6.40 s; Nuke / Holy Bomb explosion variation.
+One-shots have short attack/release fades; Autocannon retains a 2-second tail with a 120 ms fade-out.
 - engine-working.wav: engine-working.aac, 1–3 s, 200 ms end/start crossfade;
   resulting loop 1.8 s, gain 0.75. Engine pitch/gain follows movement/boost.
 All effects use event-specific playback gain. Existing weapon and voice assets remain.
@@ -26,3 +26,13 @@ Original AAC SHA-256:
 4a63526f2751df2a36ea9a572f76c11b89d53e38024c706bab5116f68f77c88d  explosion-rumb.aac
 88a639d096836587bae0228cb8d8198edfb910dad2bb555a4cc647d64adf72e5  massive-explosion.aac
 ef86f5518243398fca516cff5c273bf7c91a3cd5a0da052df079d20eb47824df  engine-working.aac
+
+Corrections: rocket/grenade fire and explosions restored to Quake. Minigun has
+one primary mode using the existing chaingun burst recordings. No other weapon
+uses the new cannon/autocannon pairing.
+Added demonic-explosions.aac -> demonic-explosions.wav: silence trimmed, mono PCM,
+short endpoint fades; dedicated Demonic Skull explosion.
+Added explosive-nuke-or-holybomb.aac -> explosive-nuke-or-holybomb.wav: silence
+trimmed, mono PCM, short endpoint fades; second random Nuke / Holy Bomb variant.
+3da0417bd6166fda5cbfc718aeeac0834a7dfd7870d87b106cf3e392fddca797  demonic-explosions.aac
+6fe6da0237255ac4d44fcd7ede4ac31edb8c7bc4dbe895f6dae978e2cbb03e79  explosive-nuke-or-holybomb.aac

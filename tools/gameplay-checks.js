@@ -82,6 +82,18 @@ function runGameplayChecks() {
 }
 
 // Optional contact sheet from the real renderers; no production debug API.
+function renderSkullPreview() {
+  const c = document.createElement('canvas'); c.width = 800; c.height = 360;
+  const old = g;
+  try {
+    g = c.getContext('2d'); g.fillStyle = '#10212b'; g.fillRect(0, 0, c.width, c.height);
+    g.fillStyle = '#c1fca5'; g.font = 'bold 22px sans-serif'; g.fillText('DEMONIC SKULL', 32, 40);
+    drawDemonicSkull(220, 192, 94, 1400);
+    drawShot({kind:K.GAMMA, x:520,y:190,vx:420,vy:0},520,190,1400);
+    g.fillStyle = '#a6c2b6'; g.font = '16px sans-serif'; g.fillText('Detail', 196, 330);g.fillText('In-game projectile', 450, 280);
+    return c.toDataURL('image/png');
+  } finally { g = old; }
+}
 function renderVfxPreview() {
   const c=document.createElement('canvas');c.width=1200;c.height=700;
   const old={g,vw,vh,cx:cam.x,cy:cam.y,lowQ};
