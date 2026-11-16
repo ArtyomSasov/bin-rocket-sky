@@ -421,3 +421,19 @@ body:not(.playing) .match-clock, body:not(.playing) .hud-tools { display: none; 
 .audio-credits { margin-top: 14px; font-size: 11px; color: #9eb5c3; }
 .audio-credits summary { cursor: pointer; }
 .audio-credits a { color: #8edce4; }
+
+/* Reserve a separate row for the clock, regardless of the weapon label's width. */
+.match-hud { position: fixed; z-index: 4; top: max(12px, env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.match-header { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: start; gap: 12px; }
+.match-header .match-clock { grid-column: 2; position: static; transform: none; max-width: 100%; box-sizing: border-box; }
+.match-header .hud-tools { grid-column: 3; justify-self: end; position: static; pointer-events: auto; }
+body.playing .match-hud .score { position: static; box-sizing: border-box; width: fit-content; max-width: min(660px, 100%); flex-wrap: wrap; row-gap: 6px; }
+.match-hud .score .wpn { white-space: normal; overflow-wrap: anywhere; min-width: 0; max-width: 100%; box-sizing: border-box; }
+body.playing .event { top: calc(var(--hud-bottom, 150px) + 8px); }
+body:not(.playing) .match-hud { display: none; }
+#c:focus { outline: none; }
+@media (max-width: 600px) {
+  .match-header { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .match-header .match-clock { grid-column: 1; justify-self: start; }
+  .match-header .hud-tools { grid-column: 2; }
+}

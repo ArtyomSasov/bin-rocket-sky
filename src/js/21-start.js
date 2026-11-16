@@ -171,6 +171,10 @@
     if (fromLink.length >= 4) { lobbyInput.value = fromLink.toUpperCase(); setTab(true); }   // an invite link opens on Join
   }
   syncGo();
+  const hud = document.querySelector(".match-hud");
+  const measureHud = () => document.documentElement.style.setProperty("--hud-bottom", Math.ceil(hud.getBoundingClientRect().bottom) + "px");
+  new ResizeObserver(measureHud).observe(hud);
+  addEventListener("resize", measureHud);
   // graphics settings: the gear on the scoreboard, or the button on the start card
   const setEl = document.getElementById("settings");
   const pickRes = v => { settings.res = v; saveSettings(); resScale = v === "auto" ? 1 : v; resize(); };

@@ -430,11 +430,26 @@ body:not(.playing) .match-clock, body:not(.playing) .hud-tools { display: none; 
 .audio-credits { margin-top: 14px; font-size: 11px; color: #9eb5c3; }
 .audio-credits summary { cursor: pointer; }
 .audio-credits a { color: #8edce4; }
+
+/* Reserve a separate row for the clock, regardless of the weapon label's width. */
+.match-hud { position: fixed; z-index: 4; top: max(12px, env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.match-header { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: start; gap: 12px; }
+.match-header .match-clock { grid-column: 2; position: static; transform: none; max-width: 100%; box-sizing: border-box; }
+.match-header .hud-tools { grid-column: 3; justify-self: end; position: static; pointer-events: auto; }
+body.playing .match-hud .score { position: static; box-sizing: border-box; width: fit-content; max-width: min(660px, 100%); flex-wrap: wrap; row-gap: 6px; }
+.match-hud .score .wpn { white-space: normal; overflow-wrap: anywhere; min-width: 0; max-width: 100%; box-sizing: border-box; }
+body.playing .event { top: calc(var(--hud-bottom, 150px) + 8px); }
+body:not(.playing) .match-hud { display: none; }
+#c:focus { outline: none; }
+@media (max-width: 600px) {
+  .match-header { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .match-header .match-clock { grid-column: 1; justify-self: start; }
+  .match-header .hud-tools { grid-column: 2; }
+}
 </style>
 
 <canvas id="c" tabindex="0" aria-label="Game arena"></canvas>
 
-<div class="score chip"><b id="score">0</b><span>points</span><span class="lv"><b id="lvNum">Lv 1</b><span class="xpbar"><i id="xpFill"></i></span><span class="xpbar nrg" title="Boost energy"><i id="nrgFill"></i></span></span><span class="hp" id="hearts" role="img" aria-label="Health 100%"><span class="hpbar"><i id="hpFill"></i></span><b id="hpNum">100%</b></span><span class="shieldchip" id="shieldChip" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z"/></svg><b id="shieldNum">0</b></span><span class="ampchip" id="ampChip" hidden></span><span class="telechip" id="teleChip" hidden></span><span class="wpn" id="wpn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg>Fireball</span></div>
 <button class="fire boostbtn" id="boostBtn" aria-label="Boost: tap to dash, hold to boost" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l7 6-7 6zM12 6l7 6-7 6z"/></svg></button>
 <div class="joy" id="joy" hidden><i></i></div>
 <div class="arsenal" id="arsenal" hidden></div>
@@ -443,8 +458,12 @@ body:not(.playing) .match-clock, body:not(.playing) .hud-tools { display: none; 
 <button class="fire altbtn" id="altBtn" aria-label="Alternate fire" hidden><span id="altName">ALT</span></button>
 <button class="fire" id="fireBtn" aria-label="Fire" hidden><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg></button>
 <div class="event" id="eventBanner" hidden></div>
+<div class="match-hud"><div class="match-header">
 <div class="match-clock chip" id="roundInfo" role="timer" aria-label="Round timer">Round 1 · 5:00</div>
 <div class="hud-tools"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><button type="button" id="scoreBtn" aria-controls="scoreboard" aria-expanded="false">Scores <span>Tab</span></button></div>
+</div>
+<div class="score chip"><b id="score">0</b><span>points</span><span class="lv"><b id="lvNum">Lv 1</b><span class="xpbar"><i id="xpFill"></i></span><span class="xpbar nrg" title="Boost energy"><i id="nrgFill"></i></span></span><span class="hp" id="hearts" role="img" aria-label="Health 100%"><span class="hpbar"><i id="hpFill"></i></span><b id="hpNum">100%</b></span><span class="shieldchip" id="shieldChip" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z"/></svg><b id="shieldNum">0</b></span><span class="ampchip" id="ampChip" hidden></span><span class="telechip" id="teleChip" hidden></span><span class="wpn" id="wpn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg>Fireball</span></div>
+</div>
 <div class="board chip" id="scoreboard" hidden><h2 id="boardTitle">Flyers</h2><div class="ping" id="pingInfo"></div><div class="bhead"><span>Pilot</span><span>Kills / Deaths · Points</span></div><ol id="board"></ol></div>
 <div class="feed" id="feed" aria-live="off"></div>
 <div class="lockhint chip" id="lockHint" hidden>Click to take the mouse · Esc lets it go</div>
@@ -1525,9 +1544,10 @@ body:not(.playing) .match-clock, body:not(.playing) .hud-tools { display: none; 
   function engineHum(speed, thrust, boost, now) {
     if (!audio || !sfxBus) return;
     const on = !document.hidden && settings.engine !== "off" && speed > 0;
-    if (packHas("p_fly_rocket")) {
+    const engineSound = packHas("p_user_engine") ? "p_user_engine" : "p_fly_rocket";
+    if (packHas(engineSound)) {
       if (engine) engine.v.gain.setTargetAtTime(0, audio.currentTime, 0.05);
-      packLoop("engine", on ? "p_fly_rocket" : null, 0);
+      packLoop("engine", on ? engineSound : null, 0);
       const loop = packLoops.engine;
       if (loop) {
         loop.src.playbackRate.setTargetAtTime(0.65 + Math.min(0.6, speed / 2400) + boost * 0.12, audio.currentTime, 0.18);
@@ -1574,6 +1594,10 @@ body:not(.playing) .match-clock, body:not(.playing) .hud-tools { display: none; 
   // a sound it plays instead of the built-in or synthesized one. sfx/pack/index.json (written by the build) lists them;
   // the one-file game carries them inside (window.BRS_PACK)
   const PACK_PATHS = {
+    p_user_demonic: ["user/demonic-shot.wav"], p_user_fire: ["user/demonic-shot-short.wav"],
+    p_user_cannon: ["user/explosive-canon.wav"], p_user_autocannon: ["user/autocannon.wav"],
+    p_user_explosion: ["user/explosion-rumb.wav"], p_user_massive: ["user/massive-explosion.wav"],
+    p_user_engine: ["user/engine-working.wav"],
     p_metal: ["physical/metal_1.wav", "physical/metal_10.wav", "physical/metal_20.wav"],
     p_blast: ["physical/bang_04.ogg", "physical/bang_05.ogg"],
     p_blast_heavy: ["physical/cannon_01.ogg", "physical/cannon_02.ogg"],
@@ -1627,7 +1651,7 @@ body:not(.playing) .match-clock, body:not(.playing) .hud-tools { display: none; 
     if (window.BRS_PACK) { for (const [p, d] of Object.entries(window.BRS_PACK)) add(p, d); return; }
     fetch("sfx/pack/index.json").then(r => r.json()).then(list => { for (const p of list) add(p, "sfx/pack/" + p.split("/").map(encodeURIComponent).join("/")); }).catch(() => {});
   }
-  const packHas = ev => !!(packBuf[ev] && packBuf[ev].length);
+  const packHas = ev => !!(packBuf[SOUND_OVERRIDE[ev]]?.length || packBuf[ev]?.length);
   function packPlay(ev, vol = 1, x, y) { return ev && packHas(ev) ? sfx(ev, vol, 1, x, y) : false; }
   // looping pack sounds in two slots: "hum" (the gun in your hands) and "beam" (the laser while it fires)
   const packLoops = {};
@@ -1643,8 +1667,12 @@ body:not(.playing) .match-clock, body:not(.playing) .hud-tools { display: none; 
   }
   document.addEventListener("visibilitychange", () => { if (document.hidden) { for (const slot of Object.keys(packLoops)) packLoop(slot, null); } });
   // x, y: where it happens (quieter with distance, silent past ~2200); rate: pitch, with a little random spread
-  const SOUND_OVERRIDE = { fire: "p_fire_orb", triple: "p_fire_orb", crash: "p_metal", ram: "p_metal", dash: "p_boost",
-    p_death: "p_blast_heavy", boom_small: "p_blast", boom_bin: "p_blast_heavy", boom_big: "p_blast_heavy", chunk: "p_metal" };
+  const SOUND_OVERRIDE = { fire: "p_user_fire", triple: "p_user_fire", crash: "p_metal", ram: "p_metal", dash: "p_boost",
+    p_fire_gamma: "p_user_demonic", p_fire_minigun: "p_user_autocannon", p_burst_minigun: "p_user_autocannon",
+    p_fire_rocket: "p_user_cannon", p_fire_gren: "p_user_cannon", p_fire_shard: "p_user_cannon",
+    p_boom_rocket: "p_user_explosion", p_boom_mine: "p_user_explosion",
+    p_death: "p_user_explosion", boom_small: "p_blast", boom_bin: "p_user_explosion", boom_big: "p_user_massive", chunk: "p_metal" };
+  const USER_SOUND_GAIN = { p_user_fire: 0.75, p_user_demonic: 0.7, p_user_autocannon: 0.46, p_user_cannon: 0.75, p_user_explosion: 0.7, p_user_massive: 0.85 };
   let collisionSoundAt = -Infinity;
   function sfx(name, vol = 1, rate = 1, x, y) {
     if (/^(a_|v_)/.test(name)) return queueVoice(name, vol);
@@ -1656,6 +1684,8 @@ body:not(.playing) .match-clock, body:not(.playing) .hud-tools { display: none; 
     const replacement = SOUND_OVERRIDE[name];
     const pk = packBuf[replacement] || packBuf[name], b = pk && pk.length ? pk[(Math.random() * pk.length) | 0] : sfxBuf[name], tune = pk && pk.length ? null : SFX_TUNE[name];   // a pack's own sound plays as it is
     if (!audio || !b) return false;
+    const userSound = packBuf[replacement]?.length && USER_SOUND_GAIN[replacement];
+    if (userSound) vol *= userSound;
     if (x !== undefined) {
       const d = Math.hypot(x - me.x, y - me.y);
       if (d > 2200) return true;
@@ -1676,7 +1706,7 @@ body:not(.playing) .match-clock, body:not(.playing) .hud-tools { display: none; 
       subGain.gain.value = vol * tune[1][2] * 0.18;
       sub.connect(subGain).connect(heavyBus); sub.start(); sub.stop(audio.currentTime + Math.min(0.5, tune[1][1]));
     }
-    if (["boom_bin", "boom_big", "p_death", "p_boom_rocket", "p_boom_mine"].includes(name)) {
+    if (!userSound && ["boom_bin", "boom_big", "p_death", "p_boom_rocket", "p_boom_mine"].includes(name)) {
       // Material detail trails the blast; bounded by the normal voice budget and distance attenuation.
       sfx("boom_low", vol * 0.24, 0.75, x, y);
       setTimeout(() => { if (!document.hidden) sfx("p_metal", vol * 0.22, 0.65, x, y); }, 65);
@@ -3375,7 +3405,7 @@ body:not(.playing) .match-clock, body:not(.playing) .hud-tools { display: none; 
   // how someone else's shot sounds here (quieter with distance)
   // which gun a shot kind comes from, for a sound pack's gun sounds
   const KIND_GUN = { [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
-    [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.NAIL]: "nail", [K.SPIKE]: "nail", [K.GREN]: "gren", [K.HROCKET]: "rocket", [K.GAUSS]: "rail" };
+    [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.NAIL]: "nail", [K.SPIKE]: "nail", [K.GREN]: "gren", [K.HROCKET]: "rocket", [K.GAUSS]: "rail", [K.SHARD]: "shard", [K.FLAK]: "shard" };
   let laserHeardAt = 0;
   const shotSound = (kind, x, y) => {
     if (kind === K.LASER && packHas("p_fire_laser")) { const t = performance.now(); if (t - laserHeardAt > 900) { laserHeardAt = t; packPlay("p_fire_laser", 0.5, x, y); } return; }   // a beam, not twelve shots a second
@@ -3865,7 +3895,7 @@ body:not(.playing) .match-clock, body:not(.playing) .hud-tools { display: none; 
   const DETONATOR = { shot: [K.DET, 0] }, MINE_DETONATOR = { shot: [K.MDET, 0] };
   let lungeReady = 0;
   // the pack's sound for each alt fire (the rest keep their own)
-  const ALT_SOUND = { minigun: "p_burst_minigun", mine: "p_fire_mine", scatter: "p_fire_scatter", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_fire_laser", gren: "p_fire_gren", nail: "p_fire_nail", rail: "p_fire_rail" };
+  const ALT_SOUND = { minigun: "p_burst_minigun", mine: "p_fire_mine", scatter: "p_fire_scatter", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_fire_laser", gren: "p_fire_gren", nail: "p_fire_nail", rail: "p_fire_rail", shard: "p_fire_shard" };
   // fire the gun in hand (alt: its alternate fire, which needs its full ammo cost)
   // mul: the charge cannon's charge (0.25..1)
   function shoot(now, alt, mul = 1) {
@@ -5332,7 +5362,7 @@ body:not(.playing) .match-clock, body:not(.playing) .hud-tools { display: none; 
   function renderFeed() {
     const now = performance.now();
     while (feed.length && now - feed[0].at > 7000) feed.shift();
-    feedEl.style.top = (72) + "px";
+    feedEl.style.top = "calc(var(--hud-bottom, 150px) + 8px)";
     feedEl.innerHTML = feed.map(e => `<div class="fe${e.me ? " me" : ""}${e.spree ? " spree" : ""}">${e.html}</div>`).join("");
   }
   const tagOwner = tag => {
@@ -8559,6 +8589,10 @@ body:not(.playing) .match-clock, body:not(.playing) .hud-tools { display: none; 
     if (fromLink.length >= 4) { lobbyInput.value = fromLink.toUpperCase(); setTab(true); }   // an invite link opens on Join
   }
   syncGo();
+  const hud = document.querySelector(".match-hud");
+  const measureHud = () => document.documentElement.style.setProperty("--hud-bottom", Math.ceil(hud.getBoundingClientRect().bottom) + "px");
+  new ResizeObserver(measureHud).observe(hud);
+  addEventListener("resize", measureHud);
   // graphics settings: the gear on the scoreboard, or the button on the start card
   const setEl = document.getElementById("settings");
   const pickRes = v => { settings.res = v; saveSettings(); resScale = v === "auto" ? 1 : v; resize(); };

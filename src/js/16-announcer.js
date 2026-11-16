@@ -5,7 +5,7 @@
   function renderFeed() {
     const now = performance.now();
     while (feed.length && now - feed[0].at > 7000) feed.shift();
-    feedEl.style.top = (72) + "px";
+    feedEl.style.top = "calc(var(--hud-bottom, 150px) + 8px)";
     feedEl.innerHTML = feed.map(e => `<div class="fe${e.me ? " me" : ""}${e.spree ? " spree" : ""}">${e.html}</div>`).join("");
   }
   const tagOwner = tag => {

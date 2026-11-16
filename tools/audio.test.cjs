@@ -48,13 +48,16 @@ test('primary fire, boost, collisions and large blasts select the replacement re
   const c = { audio: { currentTime: 1,
     createBufferSource() { const s = { playbackRate: {}, connect() { return this; }, start() { played.push(this.buffer); } }; return s; },
     createGain() { return { gain: {}, connect() { return this; } }; }
-  }, packBuf: Object.fromEntries(['p_fire_orb', 'p_boost', 'p_metal', 'p_blast_heavy'].map(k => [k, [k]])),
+  }, packBuf: Object.fromEntries(['p_user_fire', 'p_user_demonic', 'p_user_cannon', 'p_user_autocannon', 'p_user_explosion', 'p_user_massive', 'p_boost', 'p_metal'].map(k => [k, [k]])),
     sfxBuf: { boom_low: 'low' }, SFX_TUNE: {}, sfxBus: {}, heavyBus: {}, sfxVoices: 0,
     document: { hidden: false }, setTimeout: f => later.push(f), queueVoice() {} };
   const source = read('05-sound.js'); vm.createContext(c);
   vm.runInContext(source.slice(source.indexOf('  const SOUND_OVERRIDE'), source.indexOf('  // the holy bomb')), c);
   c.sfx('fire'); c.sfx('dash'); c.sfx('crash'); c.sfx('crash');
-  assert.deepEqual(played, ['p_fire_orb', 'p_boost', 'p_metal']);
-  c.sfx('p_death'); later.pop()();
-  assert.deepEqual(played.slice(3), ['low', 'p_blast_heavy', 'p_metal']);
+  assert.deepEqual(played, ['p_user_fire', 'p_boost', 'p_metal']);
+  for (const event of ['p_death', 'boom_big', 'p_fire_gamma', 'p_fire_minigun', 'p_burst_minigun', 'p_fire_rocket', 'p_fire_gren', 'p_fire_shard', 'p_boom_rocket', 'p_boom_mine']) c.sfx(event);
+  assert.deepEqual(played.slice(3), ['p_user_explosion', 'p_user_massive', 'p_user_demonic', 'p_user_autocannon', 'p_user_autocannon', 'p_user_cannon', 'p_user_cannon', 'p_user_cannon', 'p_user_explosion', 'p_user_explosion']);
+  assert.equal(later.length, 0, 'custom explosion tails are not covered with the old extra layers');
+  delete c.packBuf.p_user_cannon; c.packBuf.p_fire_rocket = ['original rocket']; c.sfx('p_fire_rocket');
+  assert.equal(played.at(-1), 'original rocket', 'retain the supplied old pack while the replacement loads');
 });

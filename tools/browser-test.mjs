@@ -12,7 +12,7 @@ const chromePath = process.env.BROWSER_PATH;
 assert.ok(chromePath, 'Set BROWSER_PATH to a Chrome/Chromium executable');
 execFileSync(process.execPath, ['tools/build.mjs'], { cwd: root });
 const gameplayChecks = await readFile(join(root, "tools/gameplay-checks.js"), "utf8");
-const hook = gameplayChecks + `window.__t = {runGameplayChecks, renderVfxPreview, settings, packHas, packBuf, engineHum, packLoops, K, SHOTS, hitPose, targetHit, recordHitPose, updateShots, volley, net, netSend, gotPing,
+const hook = gameplayChecks + `window.__t = {runGameplayChecks, renderVfxPreview, renderWeapon, renderTele, renderShield, ampHud, settings, packHas, packBuf, engineHum, packLoops, K, SHOTS, hitPose, targetHit, recordHitPose, updateShots, volley, net, netSend, gotPing,
  isolate(){bodies=[];det=[];shots.length=0;},
  me, stats, PACK_PATHS, PACK_VOICES, SFX_NAMES, sfxBuf, queueVoice, get voiceActive(){return voiceActive?.name}, get voiceQueue(){return voiceQueue.map(v=>v.name)}, setScoreLimit(v){SCORE_LIMIT=v}, setEnd(v){matchEnd=v}, getFrame(){return frameAvg}, startMatch, roundAt, receiveMatchClock, playerRows, renderBoard, foundryOpen, foundryPoint, foundryRoute, stationMap, beamReach, solidAny, spawnPoint, get arena(){return arena}, get match(){return [matchRound,matchStart,matchEnd]}, updateJunk, rock, rockMotion, clockNow, get world(){return world}, deathFx, hurt, ctfTick, roundTick, shoot, carveAt, nextTerrain, applyTerrain,
  get bodies(){return bodies}, get det(){return det}, get bots(){return bots}, get shots(){return shots}, get mode(){return MODE},
@@ -173,13 +173,24 @@ try {
   await evaluate(combat, 'window.__pauseGame=true');
   const combatResult = await evaluate(combat, '__t.runGameplayChecks()');
   console.log('PASS real gameplay checks', combatResult);
-  await until(combat, '["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine","a_firstblood","v_flawless"].every(__t.packHas)',10000);
+  await until(combat, '["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine","a_firstblood","v_flawless","p_user_engine","p_user_fire","p_user_demonic","p_user_cannon","p_user_autocannon","p_user_explosion","p_user_massive"].every(__t.packHas)',10000);
   const decoded = await evaluate(combat, 'Object.fromEntries(["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine"].map(k=>[k,+__t.packBuf[k][0].duration.toFixed(2)]))');
   await evaluate(combat, '__t.settings.engine="on";__t.engineHum(500,1,1,performance.now())');
-  assert.equal(await evaluate(combat, '__t.packLoops.engine?.ev'), 'p_fly_rocket');
+  assert.equal(await evaluate(combat, '__t.packLoops.engine?.ev'), 'p_user_engine');
   await evaluate(combat, '__t.engineHum(0,0,0,performance.now())');
   assert.equal(await evaluate(combat, '!!__t.packLoops.engine'), false);
   console.log('PASS decoded supplemental audio, supplied voices and engine start/stop',decoded);
+  await evaluate(combat, '__t.me.weapon="gamma";__t.me.teleN=99;__t.me.shield=3;__t.me.ampUntil=performance.now()+20000;__t.renderWeapon();__t.renderTele();__t.renderShield();__t.ampHud(performance.now())');
+  for (const width of [320,390,700,1024,1440,1920]) {
+    await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600},combat);
+    await wait(100);
+    const hud = await evaluate(combat,`(()=>{const rect=s=>document.querySelector(s).getBoundingClientRect(),a=rect('.score'),b=rect('.match-clock'),c=rect('.hud-tools');
+      const overlaps=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+      return {overlap:overlaps(a,b)||overlaps(a,c)||overlaps(b,c),overflow:document.documentElement.scrollWidth>innerWidth,below:a.top>=b.bottom};})()`);
+    assert.equal(hud.overlap,false,'HUD overlap at '+width);assert.equal(hud.overflow,false,'HUD overflow at '+width);assert.equal(hud.below,true);
+    if(process.env.BRS_HUD_PREVIEW && width===1440){const shot=await send('Page.captureScreenshot',{format:'png'},combat);await writeFile(process.env.BRS_HUD_PREVIEW,Buffer.from(shot.data,'base64'));}
+  }
+  console.log('PASS clock, full weapon/teleport/power-up HUD and settings do not overlap at 320–1920px');
   if(process.env.BRS_VFX_PREVIEW) {
     const png=await evaluate(combat,'__t.renderVfxPreview()');
     await writeFile(process.env.BRS_VFX_PREVIEW,Buffer.from(png.split(',')[1],'base64'));

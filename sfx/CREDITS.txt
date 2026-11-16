@@ -20,3 +20,5 @@ Recorded VoiceBosch announcer additions: pack/voice/warlord/CREDITS.txt (CC BY-S
   https://opengameart.org/content/space-ship-shield-sounds
 
 rail.mp3 (railgun): made by the game's author.
+
+Additional user-provided weapon, explosion and engine recordings: pack/user/CREDITS.txt.

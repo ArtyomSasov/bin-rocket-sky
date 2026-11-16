@@ -132,7 +132,7 @@ players (they face where they steer, so they make attack runs, break off and loo
 - **Fire:** the left mouse button, Space, F, J or Enter (or the fire button).
 - **Boost / dash:** hold Shift to boost, tap it to dash.
 - **Brake / drift:** hold X to brake; X with a direction drifts (you slide on while the nose swings round).
-- **Scoreboard:** hold Tab to see every player and bot; release to hide. The Scores button toggles it on touchscreens. The round clock stays at the top.
+- **Scoreboard:** hold Tab to see every player and bot; release to hide. The Scores button toggles it on touchscreens. The round clock stays in its own top row; the wrapping status/weapon panel sits below it.
 - **Weapons:** 1–9, 0 or Q/E (not the mouse wheel: a touch-surface mouse scrolls by accident). **Alt fire:** right mouse button or C — every gun has one: laser
   pulse (shoves), minigun burst (no spin-up, overheats), rail breach cutter (hold up to 1.1 s to widen the cut; release: 1100 range, fixed damage, 2 ammo), flak (bursts into eight
   shards), shock beam (combo on your orb), gamma detonate, rocket salvo, shotgun slug, mine detonation, saw recall.
@@ -265,10 +265,11 @@ Generic and additional effects are CC0 from OpenGameArt (Kenney, rubberduck, zer
 ## Audio and visual effects update
 
 The existing generic sound files are attributed to CC0 authors, not documented as AI-generated.
-The first weapon now uses the supplied plasma shot. Movement uses the supplied rocket-flight loop,
+The first weapon now uses a short cut of the supplied Demonic Shot; Gamma Orb uses its longer version.
+Minigun uses Autocannon; rocket, grenade and shard launchers use Explosive Canon. Movement uses Engine Working,
 with thrust/speed/boost controlling its mix. Boost, dash, teleport, respawn, warnings, shield transitions
 and power-down have sample feedback. Metal collisions use three recorded cast-iron impacts; larger
-blasts use recorded cannon/firework impacts with low and debris layers. Quiet atmosphere and saw loops
+blasts use the supplied Explosion Rumb and Massive Explosion. Quiet atmosphere and saw loops
 complete the mix. The engine is enabled by default and can be disabled in Settings.
 
 The existing First Blood, Flawless Victory and other supplied announcer lines remain. Additional recorded
