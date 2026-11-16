@@ -20,7 +20,7 @@ function setup() {
     document: { getElementById(id) { if (!els.has(id)) els.set(id, element()); return els.get(id); }, createElement: element, head: { appendChild(s) { s.onload(); } }, addEventListener() {} },
     window: {}, navigator: {}, setInterval(f) { timers.push(f); }, setTimeout() {}, addEventListener() {}, history: { replaceState() {} }, location: {},
     mqtt: { connect(url, options) { const e = new EventEmitter(); Object.assign(e, { url, options, connected: true, sent: [], subscribe() {}, publish(topic, payload) { e.sent.push({ topic, payload: JSON.parse(payload) }); }, end() { e.ended = true; } }); clients.push(e); return e; } },
-    W: 1000, H: 1000, LIVES: 5, MAX_LV: 5, MAX_SHIELD: 6, DROP_LIFE: 20000,
+    joining: false, lan: { guest: false }, MAX_BOTS: 24, startMatch() {}, receiveMatchClock() {}, W: 1000, H: 1000, LIVES: 5, MAX_LV: 5, MAX_SHIELD: 6, DROP_LIFE: 20000,
     clamp: (v,a,b) => Math.max(a, Math.min(b,v)), num: (v,d) => Number.isFinite(v) ? v : d,
     remotes: new Map(), botById: new Map(), bots: [], drops: new Map(), grabbed: new Set(), credited: new Set(), myTag: 'local',
     stats: { round: 1, hits: 0, kills: 0, deaths: 0, streak: 0, best: 0 }, me: { score: 0 }, floaters: [],
@@ -35,7 +35,7 @@ function setup() {
   return { c, clients, timers, advance: n => { now += n; }, async start() { const p = c.api.initNet(); c.api.chooseLobby('test'); await p; } };
 }
 const state = (q, extra = {}) => ({ x: 10, y: 10, q, rd: 1, ...extra });
-const deliver = (client, id, p) => client.emit('message', 'binrocket-sky/v14/test/s/' + id, Buffer.from(JSON.stringify(p)));
+const deliver = (client, id, p) => client.emit('message', 'binrocket-sky/v15/test/s/' + id, Buffer.from(JSON.stringify(p)));
 
 test('malformed JSON values do not break the message callback; next state still arrives', async () => {
   const { c, clients, start } = setup(); await start();
@@ -163,7 +163,7 @@ test('instant shots are published before a state and their repeated journals nev
   const f=['other.1',10,10,6400,0,c.K.SHOCK,1,0,0,Date.now()];
   c.api.net.shot(f);assert.ok(clients[1].sent[0].topic.includes('/f/'));assert.deepEqual(clients[1].sent[0],clients[2].sent[0]);
   const packet={rd:1,ts:Date.now(),f:[f]};
-  for(const client of clients.slice(1))client.emit('message','binrocket-sky/v14/test/f/pother',Buffer.from(JSON.stringify(packet)));
+  for(const client of clients.slice(1))client.emit('message','binrocket-sky/v15/test/f/pother',Buffer.from(JSON.stringify(packet)));
   deliver(clients[1],'pother',state(2,packet));
   assert.equal(c.shots.length,1);assert.equal(c.shots[0].vx,6400,'shock velocity must not be clamped to 4500');
 });

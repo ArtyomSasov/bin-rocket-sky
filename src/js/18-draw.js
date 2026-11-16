@@ -29,6 +29,7 @@
   // a quarter of the pixels for the layers that cover the whole screen
   const skyCv = document.createElement("canvas"), skyQ = skyCv.getContext("2d", { alpha: false });
   function drawSky(now) {
+    if (stationMap()) { drawFoundry(now); return; }
     if (dpr <= 1.05) { paintSky(now); return; }
     const w = Math.ceil(innerWidth), h = Math.ceil(innerHeight);
     if (skyCv.width !== w || skyCv.height !== h) { skyCv.width = w; skyCv.height = h; }

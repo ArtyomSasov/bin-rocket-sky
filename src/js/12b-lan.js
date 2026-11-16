@@ -3,7 +3,7 @@
   // codes (host -> guest, then guest -> host) or copied as text, so no server is involved at all. Only the
   // candidates on the local network are used. The host relays every pilot's state to the others, like the broker does.
   const lan = { host: false, guest: false, code: "", myId: "p" + Math.random().toString(36).slice(2, 10), peers: [] };
-  const LAN_TAG = "BRS14";
+  const LAN_TAG = "BRS15";
   const QR_LIB = "vendor/qrcode.min.js";
   const JSQR_LIB = "vendor/jsQR.min.js";
   const scriptLoads = new Map();
@@ -53,7 +53,7 @@
   function lanSendTo(peer, data) { if (peer.ch && peer.ch.readyState === "open") try { peer.ch.send(data); } catch {} }
   function lanSend(p) { const data = JSON.stringify({ i: lan.myId, p }); for (const peer of lan.peers) lanSendTo(peer, data); }
   function lanReceive(peer, data) {
-    if (typeof data !== "string" || data.length > 20000) return;
+    if (typeof data !== "string" || data.length > 65536) return;
     let m; try { m = JSON.parse(data); } catch { return; }
     if (!m || typeof m !== "object") return;
     if (m.t === "ping") { lanSendTo(peer, JSON.stringify({ t: "pong", v: m.v })); return; }

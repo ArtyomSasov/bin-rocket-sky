@@ -111,7 +111,7 @@
     if (!joining) document.getElementById("codeLine").innerHTML = localRun
       ? `${describe(newGameCode)} · local room: you host, players nearby join with your QR code`
       : offlineRun
-      ? `${describe(newGameCode)} · offline: just you and ${botChoice.n || 4} bots in this browser${botChoice.n ? "" : " (none picked, so 4)"}`
+      ? `${describe(newGameCode)} · offline: just you and ${botChoice.n} bots in this browser`
       : `${describe(newGameCode)} · code <b>${newGameCode.toUpperCase()}</b> (share it to play together)`;
   };
   const setTab = join => {
@@ -154,7 +154,7 @@
       setStatus(false, msg);
     };
     if (offlineOnly) noNetwork("Offline · you against the bots");
-    for (const el of [document.getElementById("botCount"), document.getElementById("botLevel")]) el.addEventListener("click", () => syncGo());
+    for (const el of [document.getElementById("botCount"), document.getElementById("botLevel")]) el.addEventListener(el.id === "botCount" ? "input" : "click", () => syncGo());
     segButtons(document.getElementById("modePick"), Object.entries(MODES).map(([k, v]) => [k, v.label, v.hint]), modePick, v => { modePick = v; store.set("binrocket.mode", v); drawScores(); newCode(); });
     segButtons(document.getElementById("themePick"), Object.entries(MAPS).map(([k, v]) => [k, v.label, v.hint]), themePick, v => { themePick = v; store.set("binrocket.theme", v); newCode(); });
     segButtons(document.getElementById("timePick"), Object.entries(TIME_OPTS).map(([k, v]) => [k, v + " min"]), timePick, v => { timePick = v; store.set("binrocket.time", v); newCode(); });
@@ -192,16 +192,14 @@
     if (!setEl.hidden) { setEl.hidden = true; cv.focus(); lockAim(); } else if (playing) openSettings();
   });
   document.getElementById("setLeave").addEventListener("click", () => { location.href = location.pathname + location.search; });   // back to the start screen
-  // on a small screen the scoreboard shows only you (and the teams); a tap opens the whole table
-  document.querySelector(".board").addEventListener("click", e => e.currentTarget.classList.toggle("open"));
-  // fold the scoreboard on a big screen (remembered); hold Tab to peek at everyone while it's folded
-  const boardBox = document.querySelector(".board"), foldBtn = document.getElementById("boardFold");
-  const setFold = f => { boardBox.classList.toggle("folded", f); foldBtn.setAttribute("aria-expanded", String(!f)); foldBtn.setAttribute("aria-label", f ? "Expand the scoreboard" : "Collapse the scoreboard"); store.set("binrocket.boardFold", f ? "1" : ""); };
-  setFold(store.get("binrocket.boardFold") === "1");
-  foldBtn.addEventListener("click", e => { e.stopPropagation(); setFold(!boardBox.classList.contains("folded")); });
-  addEventListener("keydown", e => { if (e.code === "Tab" && playing && e.target.tagName !== "INPUT") { e.preventDefault(); boardBox.classList.add("peek"); } });
-  addEventListener("keyup", e => { if (e.code === "Tab") boardBox.classList.remove("peek"); });
-  addEventListener("blur", () => boardBox.classList.remove("peek"));
+  const boardBox = document.querySelector(".board"), scoreBtn = document.getElementById("scoreBtn");
+  let scorePinned = false;
+  const showBoard = show => { boardBox.hidden = !show; scoreBtn.setAttribute("aria-expanded", String(show)); if (show) renderBoard(); };
+  scoreBtn.addEventListener("click", e => { e.stopPropagation(); scorePinned = !scorePinned; showBoard(scorePinned); });
+  addEventListener("keydown", e => { if (e.code === "Tab" && playing && setEl.hidden && !/INPUT|TEXTAREA/.test(e.target.tagName)) { e.preventDefault(); showBoard(true); } });
+  addEventListener("keyup", e => { if (e.code === "Tab") { e.preventDefault(); showBoard(scorePinned); } });
+  addEventListener("blur", () => { scorePinned = false; showBoard(false); });
+  addEventListener("wheel", e => { if (!boardBox.hidden) { e.preventDefault(); boardBox.scrollTop += e.deltaY; } }, { passive: false });
   document.getElementById("startForm").addEventListener("submit", e => {
     e.preventDefault();
     if (lan.guest) { joining = false; offlineRun = false; localRun = true; }   // a guest in a local room plays the host's game
@@ -210,13 +208,15 @@
     // bots: in a lobby only its host adds them (everyone else sees the host's); in the Claude room they stay local anyway;
     // offline there is nobody else, so there are always some
     const host = !lan.guest && (!standalone || !joining || hosted().includes(lobbyCode()));
-    if (offlineRun && !bots.length) addBots(botChoice.n || 4, botChoice.level);
+    if (offlineRun && !bots.length) addBots(botChoice.n, botChoice.level);
     else if (host && !bots.length && botChoice.n > 0) addBots(botChoice.n, botChoice.level);
     if (standalone) chooseLobby(lan.guest ? lan.code : lobbyCode());
     me.name = nameInput.value.trim().slice(0, 14) || "Bin";
     store.set("binrocket.name", me.name);
-    try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { audio = null; }
+    wakeAudio();
     loadSfx();
+    // The lobby mode is selected asynchronously by initNet; let it finish before the spoken introduction.
+    setTimeout(() => queueVoice(({ d: "a_deathmatch", t: "a_teamdeathmatch", c: "a_capturetheflag" })[MODE] || "v_fight"), 100);
     document.getElementById("start").hidden = true;
     document.body.classList.add("playing");   // the compact phone HUD applies from here on
     fireBtn.hidden = false; boostBtn.hidden = false; mm.hidden = false; joyEl.hidden = false;

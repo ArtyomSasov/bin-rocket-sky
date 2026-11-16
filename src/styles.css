@@ -394,3 +394,30 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
 .dl { display: block; margin-top: 8px; font: 600 12px var(--body); color: var(--muted); text-align: center; }
 .dl:hover { color: var(--ink); }
 .lockhint { position: fixed; left: 50%; bottom: calc(110px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); padding: 6px 14px; font: 700 13px var(--display); color: var(--ink); pointer-events: none; z-index: 5; }
+
+/* Match HUD: timer stays visible; the full roster is shown only on request. */
+.match-clock { position: fixed; z-index: 3; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); padding: 9px 16px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 800; pointer-events: none; }
+.match-clock.last { color: #ff847c; }
+.hud-tools { position: fixed; z-index: 4; right: max(12px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); display: flex; align-items: center; gap: 8px; }
+.hud-tools .gear { position: static; }
+.hud-tools button { border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: #18112dd9; padding: 7px 10px; cursor: pointer; }
+.hud-tools span { opacity: .55; font-size: 11px; }
+body.playing .board { top: 76px; left: 50%; right: auto; transform: translateX(-50%); width: min(660px, calc(100vw - 24px)); max-width: none; min-width: 0; max-height: calc(100dvh - 110px); overflow-y: auto; box-sizing: border-box; padding: 18px; opacity: 1; font-size: 14px; z-index: 4; cursor: default; }
+body.playing .board h2, body.playing .board .bhead { display: block; }
+body.playing .board .bhead { display: flex; }
+body.playing .board:not(.open) li:not(.me):not(.team) { display: flex; }
+body.playing .board li { padding-block: 3px; }
+.board[hidden] { display: none !important; }
+body:not(.playing) .match-clock, body:not(.playing) .hud-tools { display: none; }
+.bot-slider { display: grid; grid-template-columns: 1fr auto; gap: 8px; width: 100%; }
+.bot-slider input { grid-column: 1 / -1; width: 100%; accent-color: #66e3cc; cursor: pointer; }
+.bot-slider output { color: #66e3cc; font-weight: 800; }
+@media (max-width: 600px) { .match-clock { top: 54px; font-size: 12px; padding: 6px 10px; } .hud-tools span { display: none; } body.playing .board { top: 90px; font-size: 12px; padding: 12px; } }
+
+.hud-tools .gear { width: 34px; height: 34px; padding: 6px; box-sizing: border-box; }
+.hud-tools .gear svg { width: 20px; height: 20px; }
+@media (max-width: 1100px) { body.playing .score { top: 55px; } .event { top: 100px; } }
+@media (max-width: 600px) { .match-clock { top: 12px; left: 12px; transform: none; } .event { top: 92px; } }
+.audio-credits { margin-top: 14px; font-size: 11px; color: #9eb5c3; }
+.audio-credits summary { cursor: pointer; }
+.audio-credits a { color: #8edce4; }

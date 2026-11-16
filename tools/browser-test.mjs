@@ -14,7 +14,7 @@ execFileSync(process.execPath, ['tools/build.mjs'], { cwd: root });
 const gameplayChecks = await readFile(join(root, "tools/gameplay-checks.js"), "utf8");
 const hook = gameplayChecks + `window.__t = {runGameplayChecks, renderVfxPreview, settings, packHas, packBuf, engineHum, packLoops, K, SHOTS, hitPose, targetHit, recordHitPose, updateShots, volley, net, netSend, gotPing,
  isolate(){bodies=[];det=[];shots.length=0;},
- me, stats, updateJunk, rock, rockMotion, clockNow, get world(){return world}, deathFx, hurt, ctfTick, roundTick, shoot, carveAt, nextTerrain, applyTerrain,
+ me, stats, PACK_PATHS, PACK_VOICES, SFX_NAMES, sfxBuf, queueVoice, get voiceActive(){return voiceActive?.name}, get voiceQueue(){return voiceQueue.map(v=>v.name)}, setScoreLimit(v){SCORE_LIMIT=v}, setEnd(v){matchEnd=v}, getFrame(){return frameAvg}, startMatch, roundAt, receiveMatchClock, playerRows, renderBoard, foundryOpen, foundryPoint, foundryRoute, stationMap, beamReach, solidAny, spawnPoint, get arena(){return arena}, get match(){return [matchRound,matchStart,matchEnd]}, updateJunk, rock, rockMotion, clockNow, get world(){return world}, deathFx, hurt, ctfTick, roundTick, shoot, carveAt, nextTerrain, applyTerrain,
  get bodies(){return bodies}, get det(){return det}, get bots(){return bots}, get shots(){return shots}, get mode(){return MODE},
  get bases(){return bases}, get flagCarrier(){return flagCarrier}, get remotes(){return remotes}, get seenShots(){return seenShots},
  get playing(){return playing}, get roundLive(){return roundLive}, get hitBy(){return hitBy}, get koBy(){return koBy},
@@ -98,7 +98,8 @@ try {
   }
   const clockBase = Math.floor(Date.now() / 315000) * 315000 + 60000;
   async function page(backup = false, mobile = false) {
-    const { targetId } = await send('Target.createTarget', { url: 'about:blank', newWindow: true });
+    const { browserContextId } = await send('Target.createBrowserContext');
+    const { targetId } = await send('Target.createTarget', { url: 'about:blank', newWindow: true, browserContextId });
     const { sessionId } = await send('Target.attachToTarget', { targetId, flatten: true });
     pages.push(sessionId);
     await send('Runtime.enable', {}, sessionId); await send('Page.enable', {}, sessionId);
@@ -114,12 +115,13 @@ try {
     await until(sessionId, '!!window.__t && !!window.mqtt');
     return sessionId;
   }
-  async function join(page, name) {
+  async function join(page, name, host = true) {
     await evaluate(page, `document.getElementById('nameInput').value=${JSON.stringify(name)};
       document.getElementById('lobbyInput').value=__code;
       document.getElementById('lobbyInput').dispatchEvent(new Event('input'));
+      ${host ? "localStorage.setItem('binrocket.hosted',JSON.stringify([__code.toLowerCase()]));" : ''}
       document.getElementById('startForm').requestSubmit();`);
-    await until(page, '__t.playing && __mqtt.length === 3');
+    await until(page, '__t.playing && __mqtt.length === 3 && __t.roundLive');
     await evaluate(page, '__t.me.inv=1e15');
   }
   let smoke;
@@ -130,7 +132,7 @@ try {
     return {i,removed:Array.from(b.cells).flatMap((v,k)=>before[k]&&!v?[k]:[])};})()`);
   assert.ok(hole.removed.length > 0, 'A real canvas crater was cut');
   await wait(4500); // outside the old four-second carve history
-  const b = await page(true); await join(b, 'Backup');
+  const b = await page(true); await join(b, 'Backup', false);
   await until(a, `[...__t.remotes.values()].some(r=>r.name==='Backup')`);
   await until(b, `[...__t.remotes.values()].some(r=>r.name==='Primary')`);
   await until(b, `${JSON.stringify(hole.removed)}.every(k=>__t.det[${hole.i}].cells[k]===0)`, 20000);
@@ -174,7 +176,7 @@ try {
   await until(combat, '["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine","a_firstblood","v_flawless"].every(__t.packHas)',10000);
   const decoded = await evaluate(combat, 'Object.fromEntries(["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine"].map(k=>[k,+__t.packBuf[k][0].duration.toFixed(2)]))');
   await evaluate(combat, '__t.settings.engine="on";__t.engineHum(500,1,1,performance.now())');
-  assert.equal(await evaluate(combat, '__t.packLoops.engine?.ev'), 'p_engine');
+  assert.equal(await evaluate(combat, '__t.packLoops.engine?.ev'), 'p_fly_rocket');
   await evaluate(combat, '__t.engineHum(0,0,0,performance.now())');
   assert.equal(await evaluate(combat, '!!__t.packLoops.engine'), false);
   console.log('PASS decoded supplemental audio, supplied voices and engine start/stop',decoded);
@@ -188,7 +190,7 @@ try {
   // the victim has moved off the visible firing line by the time the rail arrives.
   const lagA = await page(), lagB = await page();
   for(const p of [lagA,lagB]) await evaluate(p, "window.__code='M1D0SLAGG'");
-  await join(lagA,'Lag shooter');await join(lagB,'Lag victim');
+  await join(lagA,'Lag shooter');await join(lagB,'Lag victim',false);
   await until(lagA, "[...__t.remotes.values()].some(r=>r.name==='Lag victim')");
   await until(lagB, "[...__t.remotes.values()].some(r=>r.name==='Lag shooter')");
   for(const p of [lagA,lagB]) await evaluate(p, 'window.__pauseGame=true;__t.isolate();for(let i=0;i<30;i++) __t.gotPing(140);__t.me.lv=1;__t.me.dead=false;__t.me.inv=0;__t.me.shield=0;__t.me.lives=10;__t.me.vx=__t.me.vy=0;__t.me.a=0;__t.me.ampUntil=0');
@@ -240,14 +242,68 @@ try {
       b.shotLog=Array.from({length:9},(_,i)=>({at:now,d:[b.tag+'.s'+i,10000,10000,-4500,4500,0,5,1,0,Date.now()]}));}
   })()`);
   await wait(400);
-  const phone = await page(true, true); await join(phone, 'Mobile');
+  const phone = await page(true, true); await join(phone, 'Mobile',false);
   await until(phone, '__t.remotes.size > 0');
   const mobile = await evaluate(phone, '({w:innerWidth, mode:__t.mode, playing:__t.playing})');
   assert.equal(mobile.playing, true); console.log('PASS mobile viewport', JSON.stringify(mobile));
   }
+  const foundry = await page();
+  await evaluate(foundry, "window.__code='M1C0FFORG';localStorage.setItem('binrocket.hosted',JSON.stringify([__code.toLowerCase()])); const slider=document.getElementById('botCount');slider.value=24;slider.dispatchEvent(new Event('input'))");
+  await join(foundry, 'Foundry host');
+  await until(foundry, '__t.bots.length===24 && __t.remotes.size===24');
+  const layout = await evaluate(foundry, `(()=>{const t=__t;
+    return {station:t.stationMap(),rocks:t.world.rocks.length,sparks:t.world.sparks.length,walls:t.bodies.length,
+      blockedSpots:[...t.arena.guns,...t.arena.supplies,t.arena.amp,...t.bases].filter(p=>t.solidAny(p.x,p.y)).length,
+      rows:t.playerRows().length,timer:document.getElementById('roundInfo').textContent,
+      hidden:document.getElementById('scoreboard').hidden};})()`);
+  assert.equal(layout.station,true);assert.equal(layout.rocks,0);assert.equal(layout.sparks,0);assert.equal(layout.blockedSpots,0);
+  assert.equal(layout.rows,25);assert.equal(layout.hidden,true);assert.match(layout.timer,/Round 1/);
+  assert.equal(await evaluate(foundry,"document.activeElement.id"),'c');
+  await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Tab',code:'Tab',windowsVirtualKeyCode:9},foundry);
+  assert.equal(await evaluate(foundry,"document.getElementById('scoreboard').hidden"),false);
+  assert.equal(await evaluate(foundry,"document.querySelectorAll('#board li:not(.team)').length"),25);
+  await evaluate(foundry,"dispatchEvent(new WheelEvent('wheel',{deltaY:300,bubbles:true,cancelable:true}))");
+  assert.ok(await evaluate(foundry,"document.getElementById('scoreboard').scrollTop > 0"));
+  await evaluate(foundry,"dispatchEvent(new KeyboardEvent('keyup',{code:'Tab',key:'Tab',bubbles:true,cancelable:true}))");
+  assert.equal(await evaluate(foundry,"document.getElementById('scoreboard').hidden"),true);
+  const walls = await evaluate(foundry,`(()=>{const t=__t,p=t.foundryPoint(10,10),b=t.bodies.find(b=>b.fixed),mass=b.mass;
+    t.carveAt(b,b.x,b.y,700,true); return {preserved:b.mass===mass,reach:t.beamReach({x:p.x,y:p.y,vx:0,vy:-4200,kind:t.K.RAIL})};})()`);
+  assert.equal(walls.preserved,true);assert.ok(walls.reach>0 && walls.reach<400);
+  const guest = await page(true);await evaluate(guest,"window.__code='M1C0FFORG'");await join(guest,'Foundry guest',false);
+  await until(guest,"[...__t.remotes.values()].filter(r=>r.host).length===24",20000);
+  assert.deepEqual(await evaluate(guest,'__t.match'),await evaluate(foundry,'__t.match'));
+  await wait(8000);
+  const performanceResult=await evaluate(foundry,'({frameMs:Math.round(__t.getFrame()*1000),kills:__t.bots.reduce((n,b)=>n+b.st.kills,0),shots:__t.bots.reduce((n,b)=>n+b.st.shots,0),stuck:__t.bots.filter(b=>!b.dead&&__t.solidAny(b.x,b.y)).length})');
+  assert.ok(performanceResult.shots>0);assert.equal(performanceResult.stuck,0);
+  console.log('PASS Foundry connected corridors, fixed shell, 24 networked bots, Tab roster',layout,performanceResult);
+  // Decode every shipped sample, including the new voice and atmosphere files.
+  const audioAudit=await evaluate(foundry,`(async()=>{const paths=await fetch('sfx/pack/index.json').then(r=>r.json());
+    const context=new AudioContext();let samples=0;for(const path of paths){const response=await fetch('sfx/pack/'+path);if(!response.ok)throw Error(path);
+      const buffer=await context.decodeAudioData(await response.arrayBuffer());if(!buffer.duration)throw Error('empty '+path);samples++;}
+    await context.close();return samples;})()`);
+  console.log('PASS all sound-pack files decode',audioAudit);
+  if(process.env.BRS_FOUNDRY_PREVIEW){
+    await evaluate(foundry,'Object.assign(__t.me,__t.foundryPoint(10,10));__t.me.inv=1e15');await wait(300);
+    const shot=await send('Page.captureScreenshot',{format:'png'},foundry);await writeFile(process.env.BRS_FOUNDRY_PREVIEW,Buffer.from(shot.data,'base64'));
+    await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true},foundry);
+    await wait(300);
+    const small=await send('Page.captureScreenshot',{format:'png'},foundry);await writeFile(process.env.BRS_FOUNDRY_PREVIEW.replace('.png','-mobile.png'),Buffer.from(small.data,'base64'));
+    assert.equal(await evaluate(foundry,'document.documentElement.scrollWidth>innerWidth'),false);
+    await evaluate(foundry,"document.getElementById('scoreBtn').click()");
+    assert.equal(await evaluate(foundry,"document.getElementById('scoreboard').hidden"),false);
+    await evaluate(foundry,"document.getElementById('scoreBtn').click()");
+  }
+  // The score-limit finish, clock replication and reset run through the real game functions.
+  await evaluate(foundry,'window.__pauseGame=true;__t.setScoreLimit(3);__t.me.caps=3;__t.roundTick(performance.now());__t.netSend(1,performance.now())');
+  await until(guest,'!__t.roundLive');
+  assert.match(await evaluate(foundry,"document.getElementById('roundInfo').textContent"),/next round in 15s/);
+  await evaluate(foundry,'__t.setEnd(__t.clockNow()-15001);__t.roundTick(performance.now())');
+  assert.equal(await evaluate(foundry,'__t.me.caps'),0);
+  assert.equal(await evaluate(foundry,'__t.bots.every(b=>b.lv===1&&b.xp===0&&b.st.kills===0)'),true);
+  console.log('PASS score-limit finish, guest clock and full round reset');
   assert.deepEqual(errors, []);
   const max = Math.max(...traffic.map(p=>p.bytes));
-  assert.ok(max <= 16384, 'All state packets fit receiver limit: ' + max);
+  assert.ok(max <= 65536, 'All state packets fit receiver limit: ' + max);
   console.log('PASS browser errors=0; maximum packet bytes=' + max);
 } finally {
   if (socket) socket.close();

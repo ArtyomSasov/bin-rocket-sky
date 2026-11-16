@@ -403,9 +403,36 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
 .dl { display: block; margin-top: 8px; font: 600 12px var(--body); color: var(--muted); text-align: center; }
 .dl:hover { color: var(--ink); }
 .lockhint { position: fixed; left: 50%; bottom: calc(110px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); padding: 6px 14px; font: 700 13px var(--display); color: var(--ink); pointer-events: none; z-index: 5; }
+
+/* Match HUD: timer stays visible; the full roster is shown only on request. */
+.match-clock { position: fixed; z-index: 3; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); padding: 9px 16px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 800; pointer-events: none; }
+.match-clock.last { color: #ff847c; }
+.hud-tools { position: fixed; z-index: 4; right: max(12px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); display: flex; align-items: center; gap: 8px; }
+.hud-tools .gear { position: static; }
+.hud-tools button { border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: #18112dd9; padding: 7px 10px; cursor: pointer; }
+.hud-tools span { opacity: .55; font-size: 11px; }
+body.playing .board { top: 76px; left: 50%; right: auto; transform: translateX(-50%); width: min(660px, calc(100vw - 24px)); max-width: none; min-width: 0; max-height: calc(100dvh - 110px); overflow-y: auto; box-sizing: border-box; padding: 18px; opacity: 1; font-size: 14px; z-index: 4; cursor: default; }
+body.playing .board h2, body.playing .board .bhead { display: block; }
+body.playing .board .bhead { display: flex; }
+body.playing .board:not(.open) li:not(.me):not(.team) { display: flex; }
+body.playing .board li { padding-block: 3px; }
+.board[hidden] { display: none !important; }
+body:not(.playing) .match-clock, body:not(.playing) .hud-tools { display: none; }
+.bot-slider { display: grid; grid-template-columns: 1fr auto; gap: 8px; width: 100%; }
+.bot-slider input { grid-column: 1 / -1; width: 100%; accent-color: #66e3cc; cursor: pointer; }
+.bot-slider output { color: #66e3cc; font-weight: 800; }
+@media (max-width: 600px) { .match-clock { top: 54px; font-size: 12px; padding: 6px 10px; } .hud-tools span { display: none; } body.playing .board { top: 90px; font-size: 12px; padding: 12px; } }
+
+.hud-tools .gear { width: 34px; height: 34px; padding: 6px; box-sizing: border-box; }
+.hud-tools .gear svg { width: 20px; height: 20px; }
+@media (max-width: 1100px) { body.playing .score { top: 55px; } .event { top: 100px; } }
+@media (max-width: 600px) { .match-clock { top: 12px; left: 12px; transform: none; } .event { top: 92px; } }
+.audio-credits { margin-top: 14px; font-size: 11px; color: #9eb5c3; }
+.audio-credits summary { cursor: pointer; }
+.audio-credits a { color: #8edce4; }
 </style>
 
-<canvas id="c"></canvas>
+<canvas id="c" tabindex="0" aria-label="Game arena"></canvas>
 
 <div class="score chip"><b id="score">0</b><span>points</span><span class="lv"><b id="lvNum">Lv 1</b><span class="xpbar"><i id="xpFill"></i></span><span class="xpbar nrg" title="Boost energy"><i id="nrgFill"></i></span></span><span class="hp" id="hearts" role="img" aria-label="Health 100%"><span class="hpbar"><i id="hpFill"></i></span><b id="hpNum">100%</b></span><span class="shieldchip" id="shieldChip" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z"/></svg><b id="shieldNum">0</b></span><span class="ampchip" id="ampChip" hidden></span><span class="telechip" id="teleChip" hidden></span><span class="wpn" id="wpn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg>Fireball</span></div>
 <button class="fire boostbtn" id="boostBtn" aria-label="Boost: tap to dash, hold to boost" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l7 6-7 6zM12 6l7 6-7 6z"/></svg></button>
@@ -416,7 +443,9 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
 <button class="fire altbtn" id="altBtn" aria-label="Alternate fire" hidden><span id="altName">ALT</span></button>
 <button class="fire" id="fireBtn" aria-label="Fire" hidden><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg></button>
 <div class="event" id="eventBanner" hidden></div>
-<div class="board chip"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><button type="button" class="gear fold" id="boardFold" aria-label="Collapse the scoreboard" aria-expanded="true" title="Collapse (hold Tab to see everyone)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5l7 7 7-7-1.6-1.6L12 13.3 6.6 7.9z"/></svg></button><h2 id="boardTitle">Flyers</h2><div class="round" id="roundInfo">Round 1 · 5:00</div><div class="ping" id="pingInfo"></div><div class="bhead"><span>Pilot</span><span>Kills · Deaths</span></div><ol id="board"></ol></div>
+<div class="match-clock chip" id="roundInfo" role="timer" aria-label="Round timer">Round 1 · 5:00</div>
+<div class="hud-tools"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><button type="button" id="scoreBtn" aria-controls="scoreboard" aria-expanded="false">Scores <span>Tab</span></button></div>
+<div class="board chip" id="scoreboard" hidden><h2 id="boardTitle">Flyers</h2><div class="ping" id="pingInfo"></div><div class="bhead"><span>Pilot</span><span>Kills / Deaths · Points</span></div><ol id="board"></ol></div>
 <div class="feed" id="feed" aria-live="off"></div>
 <div class="lockhint chip" id="lockHint" hidden>Click to take the mouse · Esc lets it go</div>
 <div class="announce" id="announce"></div>
@@ -505,7 +534,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     </section>
 
     <div class="pick" id="botsPick"><span>Bots</span>
-      <div class="segs" id="botCount" role="group" aria-label="Number of bots"></div>
+      <label class="bot-slider" for="botCount"><span>Bot count</span><output id="botCountValue" for="botCount">No bots</output><input type="range" id="botCount" min="0" max="24" step="1" value="0" aria-label="Number of bots"></label>
       <div class="segs" id="botLevel" role="group" aria-label="Bot difficulty"></div>
     </div>
 
@@ -518,6 +547,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       <span id="ctrlTitle">Controls</span>
       <dl class="clist" id="clist"></dl>
     </section>
+    <details class="audio-credits"><summary>Audio credits</summary><p>Additional effects: Kenney, rubberduck, zer0sol and bart (CC0). Additional recorded announcer: <a href="https://opengameart.org/content/warlord-video-game-announcer" target="_blank" rel="noopener">Warlord</a> and <a href="https://opengameart.org/content/dragon-announcer-audio-pack" target="_blank" rel="noopener">Dragon</a> by VoiceBosch, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>; source recordings unchanged. Existing weapon and announcer pack supplied by the game's author. Railgun recording by the game's author.</p></details>
   </form>
 </div>
 
@@ -532,6 +562,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // e.g. M0Y... or M1C0A...; generated codes never contain 0, and a code without it is Classic.
   // The layout of each map is in 01b-arenas.js. star: a sun in the middle; lumpy: planets become ragged asteroids
   const MAPS = {
+    f: { name: "Foundry", label: "Foundry · NEW", hint: "industrial corridors, three routes", station: true },
     c: { name: "Twin Worlds", label: "Twin Worlds", hint: "two giants, an open centre" },
     a: { name: "The Ring", label: "The Ring", hint: "a ring of asteroids, four gates", lumpy: true },
     y: { name: "Drydocks", label: "Drydocks", hint: "rows of moored hulls" },
@@ -717,7 +748,30 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   const ROUND_BREAK = 15;
   let ROUND_LEN = ROUND_PLAY + ROUND_BREAK;
   function setMatch(code) { ROUND_PLAY = TIME_OPTS[timeOf(code)] * 60; ROUND_LEN = ROUND_PLAY + ROUND_BREAK; SCORE_LIMIT = scoreLimit(code); }
-  const roundAt = ms => { const t = ms / 1000, idx = Math.floor(t / ROUND_LEN), ph = t - idx * ROUND_LEN; return { idx, ph, live: ph < ROUND_PLAY, left: ROUND_PLAY - ph }; };
+  let matchStart = 0, matchRound = 0, matchEnd = 0, matchReady = false;
+  function startMatch(ms) { matchStart = ms; matchRound = 0; matchEnd = 0; matchReady = true; }
+  function roundAt(ms) {
+    // Each lobby starts a full round when created, independent of the wall-clock minute.
+    if (!matchReady) return { idx: -1, ph: 0, live: false, left: ROUND_PLAY, next: 0 };
+    let end = matchEnd || matchStart + ROUND_PLAY * 1000;
+    if (ms >= end + ROUND_BREAK * 1000) {
+      matchStart = end + ROUND_BREAK * 1000; matchRound++; matchEnd = 0;
+      const skipped = Math.floor(Math.max(0, ms - matchStart) / (ROUND_LEN * 1000));
+      matchStart += skipped * ROUND_LEN * 1000; matchRound += skipped;
+      end = matchStart + ROUND_PLAY * 1000;
+    }
+    return { idx: matchRound, ph: Math.max(0, ms - matchStart) / 1000, live: ms < end,
+      left: Math.max(0, end - ms) / 1000, next: Math.max(0, end + ROUND_BREAK * 1000 - ms) / 1000 };
+  }
+  function receiveMatchClock(value) {
+    if (!Array.isArray(value) || value.length !== 3) return;
+    const [round, start, end] = value;
+    if (!Number.isSafeInteger(round) || round < 0 || !Number.isFinite(start) || start <= 0 || Math.abs(start - clockNow()) > 86400000
+      || !Number.isFinite(end) || (end !== 0 && (end < start || end > start + ROUND_PLAY * 1000))) return;
+    if (!matchReady || round > matchRound) {
+      matchRound = round; matchStart = start; matchEnd = end; matchReady = true;
+    } else if (round === matchRound && Math.abs(start - matchStart) < 1 && end && (!matchEnd || end < matchEnd)) matchEnd = end;
+  }
   // armour (in lives, like health): it takes only ARMOR_SOAK of each hit, the rest still hurts; at most MAX_SHIELD
   const SUPPLY_PERIOD = 20, MAX_SHIELD = 3, ARMOR_SOAK = 0.6; let SUPPLY_SLOTS = 0;
   // the big bombs: one huge blast each. Inside kill nothing survives; out to R the damage falls from 4 to 1.5 lives.
@@ -911,6 +965,122 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     if (Math.abs(x - 0.5) < 0.005 && Math.abs(y - 0.5) < 0.005) return [e];
     return [e, [k, 1 - x, 1 - y, ...rest]];
   });
+  // Foundry: a fixed, point-symmetric station with three lanes and cross-connectors.
+  // The shell is permanent; wreckage from combat remains physical inside the corridors.
+  const FOUNDRY_N = 21;
+  const foundryOpen = (x, y) => {
+    if (x < 1 || x > 19 || y < 1 || y > 19) return false;
+    const lane = (y >= 2 && y <= 4 || y >= 9 && y <= 11 || y >= 16 && y <= 18) && x >= 2 && x <= 18;
+    const link = [3, 7, 13, 17].some(c => Math.abs(x - c) <= 1) && y >= 3 && y <= 17;
+    const room = (x >= 1 && x <= 5 || x >= 8 && x <= 12 || x >= 15 && x <= 19) && y >= 7 && y <= 13;
+    const pillar = x === 10 && (y === 8 || y === 12);
+    return (lane || link || room) && !pillar;
+  };
+  const foundryPoint = (x, y) => ({ x: (x + 0.5) * W / FOUNDRY_N, y: (y + 0.5) * H / FOUNDRY_N });
+  const stationMap = () => mapThemeOf(worldCode) === "f";
+  const foundryCell = p => [clamp(Math.floor(p.x / W * FOUNDRY_N), 0, 20), clamp(Math.floor(p.y / H * FOUNDRY_N), 0, 20)];
+  function foundryRoute(from, to) {
+    const start = foundryCell(from), end = foundryCell(to), key = (x, y) => y * FOUNDRY_N + x;
+    if (!foundryOpen(...start) || !foundryOpen(...end)) return null;
+    const queue = [start], seen = new Map([[key(...start), null]]);
+    for (let i = 0; i < queue.length; i++) {
+      const [x, y] = queue[i];
+      if (x === end[0] && y === end[1]) {
+        let cur = [x, y], prev = seen.get(key(...cur));
+        while (prev && key(...prev) !== key(...start)) { cur = prev; prev = seen.get(key(...cur)); }
+        return foundryPoint(...cur);
+      }
+      for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
+        const nx = x + dx, ny = y + dy, k = key(nx, ny);
+        if (!foundryOpen(nx, ny) || seen.has(k)) continue;
+        seen.set(k, [x, y]); queue.push([nx, ny]);
+      }
+    }
+    return null;
+  }
+  function buildFoundry() {
+    SLOTS = ROCKS = GOLD_N = 0;
+    world.sparks.length = world.rocks.length = 0;
+    const unit = W / FOUNDRY_N;
+    for (let y = 0; y < FOUNDRY_N; y++) for (let x = 0; x < FOUNDRY_N;) {
+      if (foundryOpen(x, y)) { x++; continue; }
+      const start = x; while (x < FOUNDRY_N && !foundryOpen(x, y)) x++;
+      const b = newBody("f" + wrecks.length, "station", (x - start) * unit, unit, unit / 12);
+      Object.assign(b, { fixed: true, hx: (start + x) * unit / 2, hy: (y + 0.5) * unit });
+      b.x = b.hx; b.y = b.hy;
+      const q = b.q, w = b.hw * 2, h = b.hh * 2;
+      const shade = q.createLinearGradient(0, 0, 0, h);
+      shade.addColorStop(0, "#4a6372"); shade.addColorStop(0.12, "#233743"); shade.addColorStop(0.86, "#15232f"); shade.addColorStop(1, "#081119");
+      q.fillStyle = shade; q.fillRect(0, 0, w, h);
+      q.strokeStyle = "#63808b"; q.lineWidth = 3; q.strokeRect(3, 3, w - 6, h - 6);
+      q.strokeStyle = "#0b1620"; q.lineWidth = 5;
+      for (let i = 0; i < w; i += unit) { q.strokeRect(i + 14, 18, unit - 28, h - 36); q.fillStyle = "#0a131c"; for (let v = 0; v < 5; v++) q.fillRect(i + unit * 0.3, h * 0.35 + v * 8, unit * 0.4, 3); }
+      const col = (start + x) / 2 < 10.5 ? "#e49a59" : "#62d7e0";
+      q.fillStyle = col; q.fillRect(12, h - 11, w - 24, 3);
+      cellsFromArt(b); wrecks.push(b);
+    }
+    const spot = (type, x, y, P = GUN_PERIOD[type] || GUN_PERIOD_BASE) => ({ type, ...foundryPoint(x, y), P, off: 0 });
+    const gunLayout = [["scatter", 3, 9], ["minigun", 3, 12], ["rocket", 7, 3], ["rail", 10, 2], ["laser", 7, 7], ["orb", 8, 10], ["shard", 7, 17], ["saw", 13, 5], ["mine", 3, 5], ["tele", 3, 15], ["gamma", 10, 4], ["nail", 13, 8], ["gren", 7, 13]];
+    const guns = gunLayout.flatMap(([type, x, y]) => [spot(type, x, y), spot(type, 20 - x, 20 - y)]);
+    arena = { guns, supplies: [["med", 3, 7], ["shield", 7, 10], ["bigmed", 13, 16]].flatMap(([t, x, y]) => [spot(t, x, y, SUPPLY_PERIOD), spot(t, 20 - x, 20 - y, SUPPLY_PERIOD)]),
+      amp: spot("amp", 10, 10, AMP_PERIOD), nuke: null, holy: null,
+      pads: [ { ...foundryPoint(5, 3), a: 0 }, { ...foundryPoint(15, 17), a: Math.PI } ] };
+    PICKS = guns.length; SUPPLY_SLOTS = arena.supplies.length;
+    det = [...wrecks]; rebuildBodies();
+  }
+  function drawFoundry(now) {
+    g.fillStyle = "#060d16"; g.fillRect(0, 0, vw, vh);
+    const unit = W / FOUNDRY_N;
+    for (let y = 1; y < 20; y++) for (let x = 1; x < 20; x++) {
+      if (!foundryOpen(x, y)) continue;
+      const px = sx(x * unit), py = sy(y * unit);
+      if (!onScreen(px, py, unit)) continue;
+      g.fillStyle = (x + y) % 2 ? "#14232d" : "#182832"; g.fillRect(px, py, unit, unit);
+      g.strokeStyle = "#253b46"; g.lineWidth = 2; g.strokeRect(px + 8, py + 8, unit - 16, unit - 16);
+      g.fillStyle = "#31434b"; for (const ox of [16, unit - 20]) for (const oy of [16, unit - 20]) g.fillRect(px + ox, py + oy, 4, 4);
+      if (y === 3 || y === 17) { g.fillStyle = "#b58a3b"; g.fillRect(px + unit * 0.1, py + unit * 0.49, unit * 0.65, 3); }
+      // Recessed service grates and lit seams make the floor read as machinery.
+      if ((x + y) % 3 === 0) {
+        g.fillStyle = "#0a151e"; g.fillRect(px + unit * 0.28, py + unit * 0.27, unit * 0.44, unit * 0.46);
+        g.strokeStyle = "#2c424e"; g.lineWidth = 3;
+        for (let v = 0; v < 6; v++) { const yy = py + unit * (0.3 + v * 0.07); g.beginPath(); g.moveTo(px + unit * 0.29, yy); g.lineTo(px + unit * 0.71, yy); g.stroke(); }
+      }
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) if (!foundryOpen(x + dx, y + dy)) {
+        g.fillStyle = "#02080c88";
+        const ex = dx > 0 ? px + unit - 16 : px, ey = dy > 0 ? py + unit - 16 : py;
+        g.fillRect(ex, ey, dx ? 16 : unit, dy ? 16 : unit);
+        g.fillStyle = x < 10 ? "#dd9359" : "#63c3d0";
+        g.fillRect(dx ? ex + 6 : px + unit * 0.3, dy ? ey + 6 : py + unit * 0.3, dx ? 3 : unit * 0.4, dy ? 3 : unit * 0.4);
+      }
+    }
+    // Walkable reactor hatch: a visual landmark beneath the contested Quad pickup.
+    const reactor = foundryPoint(10, 10), rx = sx(reactor.x), ry = sy(reactor.y), radius = unit * 0.76;
+    if (onScreen(rx, ry, radius * 2)) {
+      g.save(); g.translate(rx, ry);
+      const glow = g.createRadialGradient(0, 0, radius * 0.15, 0, 0, radius * 1.65);
+      glow.addColorStop(0, "#57dcbc26"); glow.addColorStop(1, "#57dcbc00");
+      g.fillStyle = glow; g.fillRect(-radius * 1.65, -radius * 1.65, radius * 3.3, radius * 3.3);
+      g.fillStyle = "#0a161f"; g.strokeStyle = "#46606c"; g.lineWidth = 9;
+      g.beginPath(); g.arc(0, 0, radius, 0, Math.PI * 2); g.fill(); g.stroke();
+      g.strokeStyle = "#213a43"; g.lineWidth = 14;
+      g.beginPath(); g.arc(0, 0, radius * 0.72, 0, Math.PI * 2); g.stroke();
+      for (let i = 0; i < 12; i++) {
+        const a = i * Math.PI / 6;
+        g.strokeStyle = i % 3 ? "#d7a650" : "#70e0c1"; g.lineWidth = 4;
+        g.beginPath(); g.arc(0, 0, radius * 0.9, a, a + 0.22); g.stroke();
+        g.strokeStyle = "#324a55"; g.lineWidth = 7;
+        g.beginPath(); g.moveTo(Math.cos(a) * radius * 0.25, Math.sin(a) * radius * 0.25); g.lineTo(Math.cos(a) * radius * 0.62, Math.sin(a) * radius * 0.62); g.stroke();
+      }
+      g.strokeStyle = "rgba(104,239,201," + (0.4 + Math.sin(now / 1100) * 0.15) + ")"; g.lineWidth = 3;
+      g.beginPath(); g.arc(0, 0, radius * 0.52, 0, Math.PI * 2); g.stroke(); g.restore();
+    }
+    for (const [text, x, y, color] of [["FORGE 01", 3, 10, "#ffae70"], ["REACTOR", 10, 10, "#a8eacb"], ["FORGE 02", 17, 10, "#76e3ed"], ["RAIL DECK", 10, 3, "#bbabdf"], ["SERVICE LOOP", 10, 17, "#b8a987"]]) {
+      const p = foundryPoint(x, y), px = sx(p.x), py = sy(p.y);
+      if (!onScreen(px, py, unit * 2)) continue;
+      g.save(); g.globalAlpha = 0.3; g.strokeStyle = color; g.lineWidth = 4; g.strokeRect(px - unit * 0.9, py - unit * 0.7, unit * 1.8, unit * 1.4);
+      g.fillStyle = color; g.font = "800 " + Math.max(18, unit * 0.15) + "px monospace"; g.textAlign = "center"; g.fillText(text, px, py + unit * 0.55); g.restore();
+    }
+  }
   // ---------- helpers ----------
   const hash = (a, b, c) => {
     let x = (Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263) + Math.imul(c | 0, 1442695041)) | 0;
@@ -938,12 +1108,12 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // graphics settings, kept in this browser: res "auto" (drops when slow) or a fixed share of the screen's resolution,
   // fx "high" or "low" (lighter effects), aim: the crosshair ("off", "small", "big"), aimCol: its colour
   const settings = (() => {
-    const d = { res: "auto", fx: "high", aim: "small", aimCol: "gun", engine: "off", mouse: "aim" };   // engine: a recorded loop with synthesized fallback, off unless asked for
+    const d = { res: "auto", fx: "high", aim: "small", aimCol: "gun", engine: "on", engineV: 3, mouse: "aim" };   // recorded rocket-engine loop; the sound setting can still disable it
     try {
       const v = JSON.parse(store.get("binrocket.gfx"));
       if (!v || typeof v !== "object") return d;
       if (typeof v.aim === "boolean") v.aim = v.aim ? "small" : "off";   // older saves had the crosshair as on/off
-      if (!v.engineV) { v.engine = "off"; v.engineV = 2; }   // the synthesized engine hum is off now unless switched on again
+      if ((v.engineV || 0) < 3) { v.engine = "on"; v.engineV = 3; }   // replace the former silent default with the new recorded engine
       return { ...d, ...v };
     } catch { return d; }
   })();
@@ -994,6 +1164,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   const EV_CYCLE = 45, EV_START = 10, EV_LEN = 25;
   const EV_TYPES = ["blackhole", "meteors", "aliens", "goldrain"];
   function eventAt(ms) {
+    if (stationMap()) return { cyc: 0, ph: 0, et: 0, type: "blackhole", active: false, warn: false };
     const t = ms / 1000, cyc = Math.floor(t / EV_CYCLE), ph = t - cyc * EV_CYCLE;
     return {
       cyc, ph, et: ph - EV_START,
@@ -1228,7 +1399,10 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   let audio = null;
 
   // ---------- input ----------
-  const wakeAudio = () => { if (audio && audio.state === "suspended") audio.resume(); };
+  const wakeAudio = () => {
+    if (!audio) { try { audio = new (window.AudioContext || window.webkitAudioContext)(); loadSfx(); } catch {} }
+    if (audio && audio.state === "suspended") audio.resume().catch(() => {});
+  };
   addEventListener("pointerdown", wakeAudio);
   addEventListener("keydown", e => {
     wakeAudio();
@@ -1327,7 +1501,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     "v_fight", "v_prepare", "v_multikill", "v_flawless", "v_win", "v_lose", "v_levelup", "v_powerup"];   // v_*: Kenney's CC0 voice-over packs
   const SFX_MP3 = new Set(["rail"]);   // rail.mp3: made by the game's author
   const sfxBuf = {};
-  let sfxBus = null, heavyBus = null, sfxVoices = 0, hall = null;
+  let sfxBus = null, heavyBus = null, mixBus = null, voiceBus = null, sfxVoices = 0, hall = null;
   // a big room's echo, shared by the announcer sting and the guns
   function getHall() {
     if (!hall) {
@@ -1335,7 +1509,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       const len = audio.sampleRate * 2.6, ir = audio.createBuffer(2, len, audio.sampleRate);
       for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
       hall.buffer = ir;
-      const wet = audio.createGain(); wet.gain.value = 0.5; hall.connect(wet).connect(audio.destination);
+      const wet = audio.createGain(); wet.gain.value = 0.5; hall.connect(wet).connect(mixBus || audio.destination);
     }
     return hall;
   }
@@ -1351,13 +1525,13 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   function engineHum(speed, thrust, boost, now) {
     if (!audio || !sfxBus) return;
     const on = !document.hidden && settings.engine !== "off" && speed > 0;
-    if (packHas("p_engine")) {
+    if (packHas("p_fly_rocket")) {
       if (engine) engine.v.gain.setTargetAtTime(0, audio.currentTime, 0.05);
-      packLoop("engine", on ? "p_engine" : null, 0);
+      packLoop("engine", on ? "p_fly_rocket" : null, 0);
       const loop = packLoops.engine;
       if (loop) {
         loop.src.playbackRate.setTargetAtTime(0.65 + Math.min(0.6, speed / 2400) + boost * 0.12, audio.currentTime, 0.18);
-        loop.g.gain.setTargetAtTime(0.06 + thrust * 0.08 + boost * 0.05, audio.currentTime, 0.12);
+        loop.g.gain.setTargetAtTime(0.015 + thrust * 0.09 + boost * 0.07, audio.currentTime, 0.12);
       }
       return;
     }
@@ -1377,17 +1551,18 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     engine.v.gain.setTargetAtTime(on ? 0.035 + thrust * 0.035 + boost * 0.03 + Math.min(0.03, speed / 30000) : 0, t, 0.12);
   }
   function loadSfx() {
-    if (!audio) return;
+    if (!audio || sfxBus) return;
     sfxBus = audio.createGain(); sfxBus.gain.value = 0.7;
     const comp = audio.createDynamicsCompressor();   // keeps a pile-up of explosions from clipping
-    sfxBus.connect(comp).connect(audio.destination);
+    mixBus = audio.createGain(); voiceBus = audio.createGain(); voiceBus.gain.value = 0.9;
+    sfxBus.connect(mixBus); mixBus.connect(comp); voiceBus.connect(comp); comp.connect(audio.destination);
     heavyBus = audio.createGain(); heavyBus.gain.value = 0.75;
     const drive = audio.createWaveShaper(), curve = new Float32Array(1024);
     for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; curve[i] = Math.tanh(2.6 * x) / Math.tanh(2.6); }
     drive.curve = curve; drive.oversample = "2x";
     const lows = audio.createBiquadFilter(); lows.type = "lowshelf"; lows.frequency.value = 140; lows.gain.value = 7;
     const room = audio.createGain(); room.gain.value = 0.18;
-    heavyBus.connect(drive).connect(lows).connect(comp);
+    heavyBus.connect(drive).connect(lows).connect(mixBus);
     lows.connect(room).connect(getHall());
     // the one-file game carries its sounds inside (window.BRS_SFX, data: URLs); the page fetches them from sfx/
     for (const n of SFX_NAMES) fetch((window.BRS_SFX && window.BRS_SFX[n]) || "sfx/" + n + (SFX_MP3.has(n) ? ".mp3" : ".wav")).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
@@ -1399,6 +1574,17 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // a sound it plays instead of the built-in or synthesized one. sfx/pack/index.json (written by the build) lists them;
   // the one-file game carries them inside (window.BRS_PACK)
   const PACK_PATHS = {
+    p_metal: ["physical/metal_1.wav", "physical/metal_10.wav", "physical/metal_20.wav"],
+    p_blast: ["physical/bang_04.ogg", "physical/bang_05.ogg"],
+    p_blast_heavy: ["physical/cannon_01.ogg", "physical/cannon_02.ogg"],
+    a_unstoppable: ["voice/warlord/unstoppable.wav"], a_deathmatch: ["voice/warlord/deathmatch.wav"],
+    a_teamdeathmatch: ["voice/warlord/team_deathmatch.wav"], a_capturetheflag: ["voice/warlord/capture_the_flag.wav"],
+    v_win: ["voice/warlord/round_winner.wav"], v_lose: ["voice/warlord/mission_failed.wav"],
+    p_teleport: ["supplemental/teleport_02.ogg"], p_boost: ["supplemental/rocket_01.ogg"],
+    p_ambient: ["supplemental/loop_ambient_01.ogg"], p_blackhole: ["supplemental/loop_ambient_weird.ogg"],
+    p_saw: ["supplemental/loop_machine_02.ogg"], p_warning: ["supplemental/beep_03.ogg"],
+    p_ready: ["supplemental/terminal_01.ogg"], p_powerdown: ["supplemental/terminal_03.ogg"],
+    p_ui: ["supplemental/terminal_06.ogg"], p_event: ["supplemental/explosion_01.ogg"],
     p_pickup: ["supplemental/beep_01.ogg"], p_kill: ["supplemental/terminal_05.ogg"],
     p_charge: ["supplemental/terminal_02.ogg"], p_sting: ["supplemental/teleport_01.ogg"],
     p_death: ["supplemental/explosion_02.ogg"], p_engine: ["supplemental/loop_machine_01.ogg"],
@@ -1446,6 +1632,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // looping pack sounds in two slots: "hum" (the gun in your hands) and "beam" (the laser while it fires)
   const packLoops = {};
   function packLoop(slot, ev, vol = 0.3) {
+    if (document.hidden) ev = null;
     const cur = packLoops[slot];
     if (cur && cur.ev === ev) return;
     if (cur) { try { cur.g.gain.setTargetAtTime(0, audio.currentTime, 0.04); cur.src.stop(audio.currentTime + 0.25); } catch {} packLoops[slot] = null; }
@@ -1456,8 +1643,18 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   }
   document.addEventListener("visibilitychange", () => { if (document.hidden) { for (const slot of Object.keys(packLoops)) packLoop(slot, null); } });
   // x, y: where it happens (quieter with distance, silent past ~2200); rate: pitch, with a little random spread
+  const SOUND_OVERRIDE = { fire: "p_fire_orb", triple: "p_fire_orb", crash: "p_metal", ram: "p_metal", dash: "p_boost",
+    p_death: "p_blast_heavy", boom_small: "p_blast", boom_bin: "p_blast_heavy", boom_big: "p_blast_heavy", chunk: "p_metal" };
+  let collisionSoundAt = -Infinity;
   function sfx(name, vol = 1, rate = 1, x, y) {
-    const pk = packBuf[name], b = pk && pk.length ? pk[(Math.random() * pk.length) | 0] : sfxBuf[name], tune = pk && pk.length ? null : SFX_TUNE[name];   // a pack's own sound plays as it is
+    if (/^(a_|v_)/.test(name)) return queueVoice(name, vol);
+    if ((name === "crash" || name === "ram") && audio) {
+      if (audio.currentTime - collisionSoundAt < 0.1) return true;
+      collisionSoundAt = audio.currentTime;
+      rate *= name === "ram" ? 0.7 : 0.9;
+    }
+    const replacement = SOUND_OVERRIDE[name];
+    const pk = packBuf[replacement] || packBuf[name], b = pk && pk.length ? pk[(Math.random() * pk.length) | 0] : sfxBuf[name], tune = pk && pk.length ? null : SFX_TUNE[name];   // a pack's own sound plays as it is
     if (!audio || !b) return false;
     if (x !== undefined) {
       const d = Math.hypot(x - me.x, y - me.y);
@@ -1468,12 +1665,21 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     const src = audio.createBufferSource(), v = audio.createGain(), out = tune ? heavyBus : sfxBus;
     src.buffer = b; src.playbackRate.value = rate * (tune ? tune[0] : 1) * (0.94 + Math.random() * 0.12);
     v.gain.value = vol;
-    src.connect(v).connect(out);
-    if (tune && tune[1]) {   // the punch: a falling sine you feel more than hear
-      const [f, dur, tv] = tune[1], o = audio.createOscillator(), og = audio.createGain(), t = audio.currentTime;
-      o.type = "sine"; o.frequency.setValueAtTime(f * 1.8, t); o.frequency.exponentialRampToValueAtTime(f * 0.6, t + dur);
-      og.gain.setValueAtTime(vol * tv * 0.8, t); og.gain.exponentialRampToValueAtTime(0.001, t + dur);
-      o.connect(og).connect(heavyBus); o.start(t); o.stop(t + dur + 0.02);
+    src.connect(v);
+    if (x !== undefined && audio.createStereoPanner) {
+      const pan = audio.createStereoPanner(); pan.pan.value = Math.max(-0.85, Math.min(0.85, (x - me.x) / 1000)); v.connect(pan).connect(out);
+    } else v.connect(out);
+    if (tune && tune[1] && sfxBuf.boom_low && name !== "boom_low") {
+      // A recorded low impact replaces the old falling sine-wave punch.
+      const sub = audio.createBufferSource(), subGain = audio.createGain();
+      sub.buffer = sfxBuf.boom_low; sub.playbackRate.value = 0.8;
+      subGain.gain.value = vol * tune[1][2] * 0.18;
+      sub.connect(subGain).connect(heavyBus); sub.start(); sub.stop(audio.currentTime + Math.min(0.5, tune[1][1]));
+    }
+    if (["boom_bin", "boom_big", "p_death", "p_boom_rocket", "p_boom_mine"].includes(name)) {
+      // Material detail trails the blast; bounded by the normal voice budget and distance attenuation.
+      sfx("boom_low", vol * 0.24, 0.75, x, y);
+      setTimeout(() => { if (!document.hidden) sfx("p_metal", vol * 0.22, 0.65, x, y); }, 65);
     }
     sfxVoices++; src.onended = () => { sfxVoices--; };
     src.start();
@@ -1520,6 +1726,88 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     o.connect(v).connect(audio.destination); o.start(t); o.stop(t + dur);
   }
 
+  // Recorded feedback. A short cooldown makes a cluster of pickups or impacts one readable cue.
+  const CUES = {
+    boost: ["p_boost", 0.4, 0.85, 650], brake: ["p_boost", 0.16, 1.5, 700],
+    teleport: ["p_teleport", 0.75, 0.85, 250], respawn: ["p_teleport", 0.45, 1.2, 800],
+    ready: ["p_ready", 0.4, 0.9, 800], warning: ["p_warning", 0.5, 0.8, 1800],
+    shieldBreak: ["shield_hit", 0.95, 0.55, 600], shieldReady: ["shield_get", 0.45, 0.8, 1500],
+    powerDown: ["p_powerdown", 0.5, 0.8, 800], flagReturn: ["p_ready", 0.7, 0.7, 800],
+    event: ["p_event", 0.55, 0.75, 2000], ui: ["p_ui", 0.18, 1.1, 120],
+    sawCatch: ["p_change", 0.45, 1.1, 200], pickup: ["p_pickup", 0.4, 1, 80]
+  };
+  const cueTimes = new Map();
+  function audioCue(name, x, y) {
+    const cue = CUES[name]; if (!cue || !audio || document.hidden) return false;
+    const now = performance.now();
+    if (now - (cueTimes.get(name) ?? -Infinity) < cue[3]) return true;
+    const ok = sfx(cue[0], cue[1], cue[2], x, y);
+    if (ok) cueTimes.set(name, now);
+    return ok;
+  }
+
+  // Keep the supplied announcer intact: no random pitch, no overlapping speech, no combat voice cap.
+  const voiceQueue = [];
+  let voiceActive = null, voiceTimer = null;
+  function queueVoice(name, volume = 1) {
+    if (!audio || document.hidden) return false;
+    if (voiceActive?.name === name || voiceQueue.some(v => v.name === name)) return true;
+    const priority = /^(v_win|v_lose|v_flawless|v_fight|v_prepare)$/.test(name) ? 3 : /flag/.test(name) ? 2 : 1;
+    if (priority === 3) voiceQueue.length = 0;
+    voiceQueue.push({ name, volume, priority, expires: performance.now() + 6000 });
+    voiceQueue.sort((a, b) => b.priority - a.priority);
+    if (voiceQueue.length > 4) voiceQueue.length = 4;
+    pumpVoice(); return true;
+  }
+  function pumpVoice() {
+    if (voiceTimer) { clearTimeout(voiceTimer); voiceTimer = null; }
+    if (voiceActive || !audio || !voiceBus || document.hidden) return;
+    while (voiceQueue.length && voiceQueue[0].expires < performance.now()) voiceQueue.shift();
+    if (!voiceQueue.length) return;
+    const item = voiceQueue[0], buffer = packBuf[item.name]?.[0] || sfxBuf[item.name];
+    if (!buffer) { voiceTimer = setTimeout(pumpVoice, 100); return; }
+    voiceQueue.shift();
+    const src = audio.createBufferSource(), gain = audio.createGain(); src.buffer = buffer;
+    src.playbackRate.value = 1; gain.gain.value = item.volume;
+    src.connect(gain).connect(voiceBus);
+    voiceActive = { name: item.name, src };
+    mixBus.gain.setTargetAtTime(0.55, audio.currentTime, 0.04);
+    src.onended = () => {
+      voiceActive = null;
+      mixBus.gain.setTargetAtTime(1, audio.currentTime, 0.18);
+      voiceTimer = setTimeout(pumpVoice, 100);
+    };
+    src.start();
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) return;
+    voiceQueue.length = 0;
+    if (voiceTimer) clearTimeout(voiceTimer);
+    voiceTimer = null;
+    if (voiceActive) voiceActive.src.stop();
+  });
+
+  let eventAudioKey = "", lastShield = 0, lowHealthWarned = false, lastPower = false, lastBraking = false;
+  function audioTick(now) {
+    const active = playing && !me.dead && roundLive && !document.hidden;
+    if (!active) { packLoop("atmosphere", null); packLoop("saw", null); return; }
+    const ev = stationMap() ? { cyc: 0, active: false, warn: false } : eventAt(clockNow()), key = ev.cyc + ":" + (ev.warn ? "warn" : ev.active ? "active" : "quiet");
+    if (key !== eventAudioKey) { if (ev.warn) audioCue("warning"); else if (ev.active) audioCue("event"); eventAudioKey = key; }
+    packLoop("atmosphere", ev.active && ev.type === "blackhole" ? "p_blackhole" : "p_ambient", ev.active && ev.type === "blackhole" ? 0.12 : 0.025);
+    packLoop("saw", shots.some(s => s.kind === K.SAW && s.life > 0 && Math.hypot(s.x - me.x, s.y - me.y) < 900) ? "p_saw" : null, 0.09);
+    if (lastShield > 0 && me.shield === 0) audioCue("shieldBreak");
+    if (lastShield < 0.6 && me.shield >= 0.6) audioCue("shieldReady");
+    lastShield = me.shield;
+    const low = me.lives <= maxLivesOf(me.lv) * 0.25;
+    if (low && !lowHealthWarned) audioCue("warning");
+    lowHealthWarned = low;
+    const power = now < me.ampUntil;
+    if (lastPower && !power) audioCue("powerDown");
+    lastPower = power;
+    const braking = keys.has("KeyX") && Math.hypot(me.vx, me.vy) > 120;
+    if (braking && !lastBraking) audioCue("brake");
+    lastBraking = braking;
+  }
   // ---------- destructible bodies: planets, moons and drifting wrecks are grids of small cells that shots chip away ----------
   // They move on the shared clock, so every player has the same ones. Each player reports the craters its own shots
   // (and its bots' shots) make and everyone applies them, so holes match. Pieces that break off become free rubble
@@ -1777,7 +2065,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   }
   const solidAny = (x, y) => { for (const b of bodies) if (solidAt(b, x, y)) return b; return null; };
   // rough test for placement and steering: inside a body's footprint (plus a margin)
-  const inBody = (x, y, pad) => { for (const b of bodies) if (!b.free && (x - b.x) ** 2 + (y - b.y) ** 2 < (b.rr + pad) ** 2) return b; return null; };
+  const inBody = (x, y, pad) => { for (const b of bodies) if (!b.free && (b.fixed ? Math.abs(x - b.x) < b.hw + pad && Math.abs(y - b.y) < b.hh + pad : (x - b.x) ** 2 + (y - b.y) ** 2 < (b.rr + pad) ** 2)) return b; return null; };
   function rebuildBodies() { bodies = det.filter(b => !b.dead && !b.free).concat(rubble.filter(b => !b.dead)); }
 
   // everything that scales with the arena: pick-ups and junk keep about the same density (capped for the huge map)
@@ -1814,6 +2102,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     for (const ch of theme + mapKey) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) | 0;
     buildSky(seed ^ 0x2b7);
     planets = []; moons = []; wrecks = []; rubble = [];
+    if (T.station) { buildFoundry(); return; }
     const addPlanet = (x, y, R, kind, pseed, tilt) => {
       const rnd = k => hash(pseed, k, 404), p = newBody("p" + planets.length, kind, R * 2 + 4, R * 2 + 4, clamp(R / 28, 8, 12));
       Object.assign(p, { x, y, rr: R, planet: true, tilt });
@@ -1912,7 +2201,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   function posesAt(t, dt) {
     const s = t / 1000;
     for (const b of det) {
-      if (b.free || b.dead) continue;
+      if (b.free || b.dead || b.fixed) continue;
       const ox = b.x, oy = b.y;
       // angles are wrapped to 0..2π: the shared clock is huge (s ~ 1.7e9), and canvas rotate() keeps angles in single
       // precision, so an unwrapped 3e7 rad drew a wreck up to a radian off from where hits were tested
@@ -1928,6 +2217,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   const myCarves = [], seenCarves = new Set();
   let carveSeq = 0;
   function bodyCol(b) {
+    if (b.fixed) return "#6f8996";
     const list = PLANET_PAL[b.kind] ? PLANET_PAL[b.kind].bands : WRECK_PAL[b.kind];
     return list[Math.floor(Math.random() * list.length)];
   }
@@ -1965,7 +2255,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     }
     return n;
   }
-  function carveLocal(b, lx, ly, rad, hot, rnd = Math.random) {   // rnd: a seeded one when every client must cut the same shape
+  function carveLocal(b, lx, ly, rad, hot, rnd = Math.random) {
+    if (b.fixed) return 0;   // rnd: a seeded one when every client must cut the same shape
     const cs = b.cs, R2 = rad * 1.2, i0 = Math.max(0, Math.floor((lx - R2) / cs)), i1 = Math.min(b.gw - 1, Math.floor((lx + R2) / cs));
     const j0 = Math.max(0, Math.floor((ly - R2) / cs)), j1 = Math.min(b.gh - 1, Math.floor((ly + R2) / cs));
     // one ragged outline for both the cells and the art, so what you see is exactly what can be hit
@@ -2049,6 +2340,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // A rail cut is one continuous capsule, not a row of craters. Cell removal is geometric
   // (independent of canvas resolution), so desktop and mobile agree on the entire tunnel.
   function carveLineLocal(b, x1, y1, x2, y2, rad) {
+    if (b.fixed) return 0;
     const cs = b.cs, dx = x2 - x1, dy = y2 - y1, len2 = dx * dx + dy * dy;
     const i0 = Math.max(0, Math.floor((Math.min(x1, x2) - rad) / cs)), i1 = Math.min(b.gw - 1, Math.floor((Math.max(x1, x2) + rad) / cs));
     const j0 = Math.max(0, Math.floor((Math.min(y1, y2) - rad) / cs)), j1 = Math.min(b.gh - 1, Math.floor((Math.max(y1, y2) + rad) / cs));
@@ -2112,6 +2404,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   function nextTerrain() {
     if (!det.length) return null;
     const bi = terrainCursor++ % det.length, b = det[bi];
+    if (b.fixed) return null;
     if (b.dead || b.free) return [stats.round, bi, 1, ""];
     let bytes = "";
     for (let i = 0; i < b.cells.length; i += 8) {
@@ -2124,7 +2417,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   function applyTerrain(s) {
     if (s.length !== 4 || s[0] !== stats.round || !Number.isSafeInteger(s[1]) || (s[2] !== 0 && s[2] !== 1) || typeof s[3] !== "string") return;
     const b = det[s[1]];
-    if (!b || b.dead || b.free) return;
+    if (!b || b.dead || b.free || b.fixed) return;
     if (s[2] === 1) {
       if (s[3] !== "") return;
       b.dead = true; rebuildBodies(); return;
@@ -2241,6 +2534,11 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     if (bodies.some(b => b.dead || b.mass <= 0)) { for (const b of bodies) if (b.mass <= 0) b.dead = true; rubble = rubble.filter(b => !b.dead); rebuildBodies(); }
   }
   function spawnPoint(tm) {
+    if (stationMap()) {
+      const cells = [];
+      for (let y = 2; y < 19; y++) for (let x = 2; x < 19; x++) if (foundryOpen(x, y) && (tm !== 0 && tm !== 1 || (tm === 0 ? x < 7 : x > 13))) cells.push([x, y]);
+      return foundryPoint(...cells[Math.floor(Math.random() * cells.length)]);
+    }
     const half = bases && (tm === 0 || tm === 1), rx = () => half ? (tm ? W / 2 : 0) + rndIn(W / 2, 300) : rndIn(W, 300);
     let x = rx(), y = rndIn(H, 300);
     for (let k = 0; k < 30 && inBody(x, y, 160); k++) { x = rx(); y = rndIn(H, 300); }
@@ -2261,6 +2559,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     if (typeof renderTele === "function") renderTele();
   }
   function findBase(t) {
+    if (stationMap()) return foundryPoint(t ? 17 : 3, 10);
     const x = t ? W - Math.max(380, W * 0.1) : Math.max(380, W * 0.1);
     for (let k = 0; k < 40; k++) { const y = H / 2 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 120; if (!inBody(x, y, 260)) return { x, y }; }
     return { x, y: H / 2 };
@@ -3231,9 +3530,19 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   const BEAM_T = 1.1;   // a rail trail lingers: the hot core goes fast, the spiral slowly unwinds
   function beamReach(s) {
     const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v;
-    return Math.max(0, Math.min(s.cut ? 1100 : v * SHOTS[s.kind].life,
+    let reach = Math.max(0, Math.min(s.cut ? 1100 : v * SHOTS[s.kind].life,
       dx > 0 ? (W - s.x) / dx : dx < 0 ? -s.x / dx : Infinity,
       dy > 0 ? (H - s.y) / dy : dy < 0 ? -s.y / dy : Infinity));
+    // The station shell blocks even penetrating weapons; old maps keep their terrain cutting.
+    for (const b of bodies) if (b.fixed) {
+      let near = 0, far = reach;
+      for (const [p, d, lo, hi] of [[s.x, dx, b.x - b.hw, b.x + b.hw], [s.y, dy, b.y - b.hh, b.y + b.hh]]) {
+        if (Math.abs(d) < 1e-9) { if (p < lo || p > hi) { far = -1; break; } }
+        else { const a = (lo - p) / d, z = (hi - p) / d; near = Math.max(near, Math.min(a, z)); far = Math.min(far, Math.max(a, z)); }
+      }
+      if (far >= near) reach = Math.min(reach, near);
+    }
+    return reach;
   }
   function railBeam(s) {
     const {x, y, vx, vy} = s, v = Math.hypot(vx, vy) || 1, dx = vx / v, dy = vy / v, L = beamReach(s), big = s.kind === K.GAUSS;
@@ -3665,7 +3974,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     me.x = b.x; me.y = b.y; me.vx = me.vy = 0;
     volley(me, now, TELEFRAG, { x: b.x, y: b.y });
     me.vx = b.vx * 0.5; me.vy = b.vy * 0.5;
-    sfx("rail", 0.7, 1.6) || blip(900, 0.15, "sine");
+    audioCue("teleport");
     flash = Math.max(flash, 0.15);
     me.teleN = Math.max(0, (me.teleN || 0) - 1); renderTele();
   }
@@ -4043,6 +4352,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   }
   function respawn(now) {
     killer = "";
+    audioCue("respawn");
     me.dead = false; me.lives = maxLivesOf(me.lv); me.inv = now + 2000; me.shield = 0; renderShield();
     if (me.lv >= 8 && !(me.teleN > 0)) { me.teleN = 1; renderTele(); }   // perk: a teleport jump on every respawn
     Object.assign(me, spawnPoint(me.tm)); me.vx = 0; me.vy = -60;
@@ -4072,7 +4382,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // window.BRS_BROKER set before the game loads (see server/ in the repo)
   const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
   const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
-  const LOBBY_TOPIC = "binrocket-sky/v14/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  const LOBBY_TOPIC = "binrocket-sky/v15/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
   let lobbyRenderPending = false;
   function renderLobbies() {
@@ -4195,7 +4505,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       r.dead = dead; r.inv = p.i === 1;
     }
     if (typeof p.tg === "string" && /^[a-z0-9]{1,8}$/.test(p.tg)) r.tag = p.tg;
-    if (Array.isArray(p.bc) && Number.isInteger(p.bc[0]) && p.bc[0] > 0 && p.bc[0] <= 6 && BOT_LEVELS[p.bc[1]] && !/^pb/.test(id)) lobbyBots = { host: id, n: p.bc[0], level: p.bc[1] };
+    if (Array.isArray(p.bc) && Number.isInteger(p.bc[0]) && p.bc[0] > 0 && p.bc[0] <= MAX_BOTS && BOT_LEVELS[p.bc[1]] && !/^pb/.test(id)) lobbyBots = { host: id, n: p.bc[0], level: p.bc[1] };
     if ("tm" in p) {
       const was = r.tm;
       r.tm = p.tm === 0 || p.tm === 1 ? p.tm : undefined;
@@ -4215,15 +4525,15 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     if (Number.isFinite(p.pg)) r.ping = clamp(p.pg, 0, 5000);
     if ("am" in p) r.amp = p.am === 1;
     if (Number.isFinite(p.l)) r.lives = clamp(p.l, 0, maxLivesOf(r.lv));
-    if (Array.isArray(p.g)) for (const k of p.g.slice(0, 48)) if (typeof k === "string" && /^[a-zA-Z][a-z0-9.:]{1,20}$/.test(k) && (grabbed.has(k) || grabbed.size < 16384)) grabbed.add(k);   // only pick-up keys
+    if (p.rd === stats.round && Array.isArray(p.g)) for (const k of p.g.slice(0, 48)) if (typeof k === "string" && /^[a-zA-Z][a-z0-9.:]{1,20}$/.test(k) && (grabbed.has(k) || grabbed.size < 16384)) grabbed.add(k);   // only pick-up keys
     if (p.rd === stats.round && Array.isArray(p.f)) for (const f of p.f.slice(0, 24)) addRemoteShot(id, f, p.ts);
     if (Array.isArray(p.gw) && p.gw.length === 6 && typeof p.gw[0] === "string" && p.gw.slice(1).every(Number.isFinite)) guideRemote(id, p.gw);
-    if (Array.isArray(p.dr)) for (const d of p.dr.slice(0, 3)) {
+    if (p.rd === stats.round && Array.isArray(p.dr)) for (const d of p.dr.slice(0, 3)) {
       if (drops.size >= MAX_DROPS) break;
       if (!Array.isArray(d) || typeof d[0] !== "string" || d[0].length > 10 || drops.has(d[0])) continue;
       drops.set(d[0], { x: clamp(num(d[1], 0), 0, W), y: clamp(num(d[2], 0), 0, H), n: clamp(Math.floor(num(d[3], 0)), 0, 40), born: performance.now() });
     }
-    if (Array.isArray(p.wd)) for (const d of p.wd.slice(0, 3)) {   // trophies: a dead pilot's gun and its ammo
+    if (p.rd === stats.round && Array.isArray(p.wd)) for (const d of p.wd.slice(0, 3)) {   // trophies: a dead pilot's gun and its ammo
       if (gunDrops.size >= 64) break;
       if (!Array.isArray(d) || typeof d[0] !== "string" || !/^[a-z0-9]{2,16}$/.test(d[0]) || gunDrops.has(d[0])) continue;
       if (!Number.isInteger(d[3]) || d[3] < 0 || d[3] >= WEAPON_KEYS.length) continue;   // an index, never a key like "length"
@@ -4263,9 +4573,10 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   }
   // a pilot's state, from whichever transport (MQTT or the local room): the pilot, then the bots it flies
   function receiveState(id, p) {
+    if (p && p.mc) receiveMatchClock(p.mc);
     const fresh = applyRemote(id, p);
     if (!fresh) {
-      if (p && p.rd === stats.round && Array.isArray(p.bots)) for (const e of p.bots.slice(0, 8)) {
+      if (p && p.rd === stats.round && Array.isArray(p.bots)) for (const e of p.bots.slice(0, MAX_BOTS)) {
         if (!Array.isArray(e)) continue;
         const r = remotes.get(e[0]);
         if (r?.host === id && !botById.has(e[0])) applyRemote(e[0], e[1]);
@@ -4274,7 +4585,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     }
     if (Array.isArray(p.bots)) {
       const ids = [];
-      for (const e of p.bots.slice(0, 8)) {
+      for (const e of p.bots.slice(0, MAX_BOTS)) {
         if (!Array.isArray(e) || typeof e[0] !== "string" || !/^pb[a-z0-9]{1,10}$/.test(e[0]) || botById.has(e[0])) continue;
         const old = remotes.get(e[0]);
         if (old && old.host !== id) continue;   // another host's bot (or a real player) cannot be claimed
@@ -4357,6 +4668,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     buildPlanets(code);
     setMode(modeOf(code));
     setMatch(code);
+    if (offlineRun || !online || ((!joining || hosted().includes(code)) && !lan.guest)) startMatch(clockNow());
     Object.assign(me, spawnPoint(me.tm));
     for (const b of bots) Object.assign(b, spawnPoint(b.tm));
     const shown = code.toUpperCase();
@@ -4365,8 +4677,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       // nobody else is here: the bots fly in this browser, nothing is sent and the lobby is not announced. Rounds run
       // on the shared clock (so everyone in a lobby is in the same one); alone, the clock is shifted so that a fresh
       // round starts right now instead of joining one already under way
-      const ph = (Date.now() / 1000) % ROUND_LEN;
-      clockBase = clockOff = clockTarget = (ROUND_LEN - ph + 0.5) * 1000;
+      clockBase = clockOff = clockTarget = 0;
+      startMatch(clockNow());
       firstRoundIdx = null;   // so the fresh round is Round 1
       document.getElementById("boardTitle").textContent = "Offline · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
       setStatus(false, "Offline · you and " + bots.length + (bots.length === 1 ? " bot" : " bots"));
@@ -4384,7 +4696,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     // Shots ride in state, including on the primary, and q deduplicates the two deliveries.
     const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
     const myId = "p" + Math.random().toString(36).slice(2, 10);
-    const base = "binrocket-sky/v14/" + code + "/";
+    const base = "binrocket-sky/v15/" + code + "/";
     const clients = BROKERS.map(url => {
       const c = mqtt.connect(url, {
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),
@@ -4401,7 +4713,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
         if (kind === "e") { if (id === myId && c === pingVia()) { const t = Number(payload.toString()); if (t > 0) gotPing(performance.now() - t); } return; }   // my ping echo
         if (id === myId) return;
         // A disconnect on one broker is not departure from the room. Expire silent peers instead.
-        if ((kind !== "s" && kind !== "f") || payload.length > (kind === "f" ? 2048 : 16384)) return;
+        if ((kind !== "s" && kind !== "f") || payload.length > (kind === "f" ? 2048 : 65536)) return;
         let p; try { p = JSON.parse(payload.toString()); } catch { return; }
         if (kind === "f") {
           if (p && p.rd === stats.round && Array.isArray(p.f) && remotes.has(id)) for (const f of p.f.slice(0, 4)) addRemoteShot(id, f, p.ts);
@@ -4454,7 +4766,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // codes (host -> guest, then guest -> host) or copied as text, so no server is involved at all. Only the
   // candidates on the local network are used. The host relays every pilot's state to the others, like the broker does.
   const lan = { host: false, guest: false, code: "", myId: "p" + Math.random().toString(36).slice(2, 10), peers: [] };
-  const LAN_TAG = "BRS14";
+  const LAN_TAG = "BRS15";
   const QR_LIB = "vendor/qrcode.min.js";
   const JSQR_LIB = "vendor/jsQR.min.js";
   const scriptLoads = new Map();
@@ -4504,7 +4816,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   function lanSendTo(peer, data) { if (peer.ch && peer.ch.readyState === "open") try { peer.ch.send(data); } catch {} }
   function lanSend(p) { const data = JSON.stringify({ i: lan.myId, p }); for (const peer of lan.peers) lanSendTo(peer, data); }
   function lanReceive(peer, data) {
-    if (typeof data !== "string" || data.length > 20000) return;
+    if (typeof data !== "string" || data.length > 65536) return;
     let m; try { m = JSON.parse(data); } catch { return; }
     if (!m || typeof m !== "object") return;
     if (m.t === "ping") { lanSendTo(peer, JSON.stringify({ t: "pong", v: m.v })); return; }
@@ -4689,7 +5001,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       let best = null;
       const claim = (id, o) => { if (!id || o.dead || o.fc !== f || o.tm === f || (o.tm !== 0 && o.tm !== 1)) return; if (!best || id < best.id) best = { id, o }; };
       if (playing) claim(myTag, me);
-      for (const [id, r] of remotes) if (!botById.has(id)) claim(r.tag, r);
+      for (const [id, r] of remotes) if (!botById.has(id) && r.cpRound === stats.round) claim(r.tag, r);
       for (const b of bots) claim(b.tag, b);
       flagCarrier[f] = best;
     }
@@ -4723,6 +5035,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
         const held = flagHeld[f], capturedBy = held && held.o, scored = !!held && (held.o.caps || 0) > held.caps;
         flagHeld[f] = null;
         announce(scored ? TEAM_NAME[1 - f] + " team scores!" : TEAM_NAME[f] + " flag returned", scored ? whoName(capturedBy) + " captured the " + TEAM_NAME[f] + " flag" : "", TEAM_HEX[scored ? 1 - f : f], scored ? 2 : 1, !scored);
+        if (!scored) audioCue("flagReturn");
         if (scored) { sfx("level_up", 1); rings.push({ x: pad.x, y: pad.y, t: 0, r: 420, col: TEAM_RGB[1 - f], warp: true, dur: 0.8, w: 18 }); }
         renderBoard();
       }
@@ -4757,10 +5070,13 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     }
   }
   // ---------- bots (simulated here, broadcast like real pilots) ----------
-  const BOT_NAMES = ["Rusty", "Bolt", "Zappy", "Clank", "Nova", "Sprocket", "Dusty", "Orbit"];
+  const MAX_BOTS = 24;
+  const BOT_NAMES = ["Rusty", "Bolt", "Zappy", "Clank", "Nova", "Sprocket", "Dusty", "Orbit", "Razor", "Vex", "Scrap", "Fury", "Nail", "Cinder", "Hex", "Rivet", "Grinder", "Rook", "Torque", "Wraith", "Flint", "Rattle", "Havoc", "Slag"];
   const BOT_LEVELS = { easy: { aim: 0.26, cd: 0.7, speed: 0.75, label: "Easy" }, normal: { aim: 0.13, cd: 0.45, speed: 0.9, label: "Normal" }, hard: { aim: 0.05, cd: 0.3, speed: 1, label: "Hard" } };
   const bots = [], botById = new Map(), botCredited = new Set();
   function addBots(n, level) {
+    n = Math.max(0, Math.min(MAX_BOTS - bots.length, Math.floor(Number(n) || 0)));
+    if (!BOT_LEVELS[level]) level = "normal";
     const L = BOT_LEVELS[level];
     for (let i = 0; i < n; i++) {
       const id = "pb" + Math.random().toString(36).slice(2, 8);
@@ -4777,7 +5093,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       if (typeof k !== "string") continue;
       const key = (ko ? "ko" : "") + victim + ":" + k;
       if (botCredited.has(key) || botCredited.size >= MAX_CREDITS) continue;
-      for (const b of bots) if (k.startsWith(b.tag + ".")) {
+      for (const b of bots) if (b.id !== victim && k.startsWith(b.tag + ".")) {
         botCredited.add(key);
         if (ko) { b.st.kills++; b.st.streak++; b.st.best = Math.max(b.st.best, b.st.streak); botXp(b, 10); } else { b.st.hits++; botXp(b, 1); }
       }
@@ -4844,7 +5160,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       // a bot flies like a player: it pushes a stick, the bin turns to face where it pushes, and it can only shoot
       // where it faces. So it makes attack runs at its target (aiming ahead of it), breaks off when it gets too
       // close, loops round and comes back; it boosts to close a long gap and dashes aside when it gets hit
-      let dx = 0, dy = 0, aimA = null, wantBoost = false;
+      let dx = 0, dy = 0, aimA = null, wantBoost = false, routeGoal = tgt;
       if (tgt) {
         const fly = td / 1000 * 0.8, px = tgt.x + (tgt.vx || 0) * fly - (b.vx || 0) * fly * 0.6, py = tgt.y + (tgt.vy || 0) * fly - (b.vy || 0) * fly * 0.6;
         aimA = Math.atan2(py - b.y, px - b.x);
@@ -4866,7 +5182,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
         else if (thief) goal = thief.o;                                          // get our flag back
         else if (b.attacker && !flagCarrier[ef]) goal = bases[ef];               // go and grab theirs
         else if (!b.attacker && Math.hypot(home.x - b.x, home.y - b.y) > 500) goal = home;   // guard
-        if (goal) { const gx = goal.x - b.x, gy = goal.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * w; dy += gy / gd * w; }
+        if (goal) { routeGoal = goal; const gx = goal.x - b.x, gy = goal.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * w; dy += gy / gd * w; }
       }
       if (!MODES[MODE].only && roundLive) {
         let best = null, bd = b.weapon === "fire" && td > 700 ? 1300 : 0;
@@ -4888,12 +5204,13 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
           if (dd < 64) { grabbed.add("W" + gid); pushCapped(myGrabs, "W" + gid, 40); b.weapon = d.type; b.ammo = d.ammo; sfx("weapon_get", 0.5, 1, d.x, d.y); best = null; break; }
           if (dd < bd) { bd = dd; best = d; }
         }
-        if (best) { const gx = best.x - b.x, gy = best.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * 1.4; dy += gy / gd * 1.4; }
+        if (best) { routeGoal = best; const gx = best.x - b.x, gy = best.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * 1.4; dy += gy / gd * 1.4; }
       }
       const m = 260;   // keep off the fence
       if (b.x < m) dx += (m - b.x) / m * 2.5; if (b.x > W - m) dx -= (b.x - W + m) / m * 2.5;
       if (b.y < m) dy += (m - b.y) / m * 2.5; if (b.y > H - m) dy -= (b.y - H + m) / m * 2.5;
       for (const p of bodies) {   // and around planets and moons
+        if (p.fixed) continue;
         const hx = b.x - p.x, hy = b.y - p.y, hd = Math.hypot(hx, hy) || 1, gap = hd - p.rr;
         if (gap < 280) { dx += hx / hd * 3 * (1 - gap / 280); dy += hy / hd * 3 * (1 - gap / 280); }
       }
@@ -4902,6 +5219,14 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
         if (hd < 900) { dx += hx / hd * 3 * (1 - hd / 900) * 2; dy += hy / hd * 3 * (1 - hd / 900) * 2; }
         if (hd < 1500) { const acc = bh.k * 9e7 / (hd * hd + 1.5e4); b.vx -= hx / hd * acc * dt; b.vy -= hy / hd * acc * dt; }
         if (hd < 60 * bh.k) botHurt(b, 99, "x", now, true);
+      }
+      if (stationMap()) {
+        if (!routeGoal) {
+          if (!b.patrol || Math.hypot(b.x - b.patrol.x, b.y - b.patrol.y) < 140) b.patrol = spawnPoint();
+          routeGoal = b.patrol;
+        }
+        if (!b.navAt || now > b.navAt || !b.nav || Math.hypot(b.x - b.nav.x, b.y - b.nav.y) < 50) { b.nav = foundryRoute(b, routeGoal); b.navAt = now + 350; }
+        if (b.nav) { const nx = b.nav.x - b.x, ny = b.nav.y - b.y, nd = Math.hypot(nx, ny) || 1; dx = nx / nd; dy = ny / nd; wantBoost = false; }
       }
       // the stick, eased in like a thumb on a joystick, then the same thrust and turning as the player
       const dm = Math.hypot(dx, dy), ux = dm > 1 ? dx / dm : dx, uy = dm > 1 ? dy / dm : dy, ease = 1 - Math.exp(-(6 + 4 * b.L.speed) * dt);
@@ -4960,7 +5285,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
         const dx = b.x - me.x, dy = b.y - me.y, d = Math.hypot(dx, dy) || 1;
         b.vx += dx / d * 900; b.vy += dy / d * 900; me.vx -= dx / d * 260; me.vy -= dy / d * 260;
         sparkShower((b.x + me.x) / 2, (b.y + me.y) / 2, -dy, dx, 1.3); sparkShower((b.x + me.x) / 2, (b.y + me.y) / 2, dy, -dx, 1.3);
-        shake = Math.max(shake, 0.4); packPlay("p_melee_hit", 1) || sfx("ram", 1) || blip(120, 0.2, "square");
+        shake = Math.max(shake, 0.4); sfx("ram", 1);
         botHurt(b, me.boostFx === 2 ? 1.2 : 0.6, myTag + ".ram" + Math.floor(now), now, false);
       }
       recordHitPose(b, now);
@@ -5007,7 +5332,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   function renderFeed() {
     const now = performance.now();
     while (feed.length && now - feed[0].at > 7000) feed.shift();
-    feedEl.style.top = (document.querySelector(".board").getBoundingClientRect().bottom + 8) + "px";
+    feedEl.style.top = (72) + "px";
     feedEl.innerHTML = feed.map(e => `<div class="fe${e.me ? " me" : ""}${e.spree ? " spree" : ""}">${e.html}</div>`).join("");
   }
   const tagOwner = tag => {
@@ -5082,7 +5407,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       : text === "BEYOND GODLIKE" ? "a_holyshit" : "a_" + text.toLowerCase().replace(/[^a-z]/g, "");
     if (!silent && !packHas(key)) sting(level);   // a cue only where the pack has no voice for the line
     const voice = { "ULTRA KILL": "v_multikill", "MULTI KILL": "v_multikill", "RAMPAGE": "v_multikill", "QUAD DAMAGE": "v_powerup" }[text];
-    if (!silent || packHas(key)) setTimeout(() => { if (!packPlay(key, 1) && voice) sfx(voice, 1); }, 180);
+    if (!silent || packHas(key)) { if (!packPlay(key, 1) && voice) sfx(voice, 1); }
   }
 
   // ---------- update ----------
@@ -5107,10 +5432,10 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided;
     const altW = WEAPONS[me.weapon].alt, altHeld = altFiring || keys.has("KeyC");
     if (altW && altW.charge) {   // rail alt: hold to widen the cutter, release to open a short breach
-      if (altHeld && ready && me.arsenal[me.weapon] >= altW.cost) railCharge = Math.min(1, railCharge + dt / altW.charge);
+      if (altHeld && ready && me.arsenal[me.weapon] >= altW.cost) { const was = railCharge; railCharge = Math.min(1, railCharge + dt / altW.charge); if (Math.floor(was * 6) !== Math.floor(railCharge * 6)) sfx("p_charge", 0.3, 0.8 + railCharge * 0.5); }
       else if (railCharge > 0) { if (ready) shoot(now, true); railCharge = 0; }
     } else railCharge = 0;
-    me.heat = Math.max(0, (me.heat || 0) - 0.45 * dt); if (me.overheat && me.heat < 0.3) { me.overheat = false; renderAmmo(me.weapon); }
+    me.heat = Math.max(0, (me.heat || 0) - 0.45 * dt); if (me.overheat && me.heat < 0.3) { me.overheat = false; renderAmmo(me.weapon); audioCue("ready"); }
     if (ready && altHeld && altW && !altW.charge) shoot(now, true);
     else if (triggerTick(dt, now, ready && fireCd <= 0 && !(altHeld && altW?.charge) && railCharge === 0, held) || (ready && me.weapon === "gauntlet" && now < (me.lungeUntil || 0))) shoot(now);   // a lunge lands blows too
     if (playing && !me.dead) {
@@ -5264,6 +5589,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     me.bank += (clamp(turn * 0.09, -0.4, 0.4) - me.bank) * Math.min(1, dt * 8);
     // lighting the boost gives a shove forward and a flash of exhaust
     if (boost && !me.boostOn && playing && !me.dead) {
+      audioCue("boost");
       me.vx += Math.cos(me.a) * 220; me.vy += Math.sin(me.a) * 220;
       camKick.x -= Math.cos(me.a) * 10; camKick.y -= Math.sin(me.a) * 10;
       const jet = exhaustJets(me, now).sort((a, b) => b.power - a.power)[0];
@@ -5283,7 +5609,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     const vzT = playing && !me.dead && boost ? 0.84 : 1;
     viewZoom += (vzT - viewZoom) * (1 - Math.exp(-(vzT < viewZoom ? 2.2 : 1.4) * dt));
     applyView();
-    engineHum(playing && !me.dead ? Math.hypot(me.vx, me.vy) : 0, drift ? 0 : me.thrust, me.boostFx, now);
+    engineHum(playing && roundLive && !me.dead ? Math.hypot(me.vx, me.vy) : 0, drift ? 0 : me.thrust, me.boostFx, now);
     if (!me.dead) { trailFrom(me, 0.6 + me.thrust * 1.6 + me.boostFx * 1.5, dt); if (playing) damageFx(me, dt); afterburner(me, me.boostFx, dt); }
   }
   // every shot in flight: homing, ricochets, digging into bodies, hitting me (I decide) or reaching others
@@ -5565,7 +5891,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
         me.vx += dx / d * kick; me.vy += dy / d * kick;
         impact(me.x - dx / 2, me.y - dy / 2, "#bdfff6", 1.2);
         if (rammed || mineRam) { sparkShower(me.x - dx / 2, me.y - dy / 2, -dy, dx, 1.3); sparkShower(me.x - dx / 2, me.y - dy / 2, dy, -dx, 1.3); shake = Math.max(shake, 0.4); }
-        packPlay("p_melee_hit", rammed ? 1 : 0.6) || sfx("ram", rammed ? 1 : 0.6) || blip(rammed ? 120 : 220, 0.2, "square");
+        sfx("ram", rammed ? 1 : 0.6);
         // they rammed me on boost: I take the damage and report it so they get the credit
         if (rammed && r.tag && !mates(r, me)) {
           const id = r.tag + ".ram" + Math.floor(now);
@@ -5580,6 +5906,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // sparks, spilled stars, medkits and shields, Overdrive and weapon crates
   const magnet = () => me.lv >= 5 ? 70 : 0;   // perk: pick-ups from further away from Lv 5
   function updatePickups(dt, now) {
+    if (!roundLive) return;
     // sparks
     if (playing && !me.dead) {
       for (let i = 0; i < SLOTS; i++) {
@@ -5596,7 +5923,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
             const a = Math.random() * 6.28, v = 60 + Math.random() * 200;
             puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.5 + Math.random() * 0.6, 1.5 + Math.random() * 2, s.gold ? "#ffd36b" : "#ffffff");
           }
-          sfx("p_pickup", s.gold ? 0.65 : 0.4, s.gold ? 0.85 : 1.1) || blip(s.gold ? 660 : 880, s.gold ? 0.3 : 0.12);
+          audioCue("pickup");
         }
       }
     }
@@ -5611,7 +5938,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
           grabbed.add(st.key); pushCapped(myGrabs, st.key, 40);
           me.score += 1; showScore();
           for (let k = 0; k < 8; k++) { const a = Math.random() * 6.28; puff(st.x, st.y, Math.cos(a) * 120, Math.sin(a) * 120, 0.4, 1.8, "#ffe3f6"); }
-          sfx("p_pickup", 0.3, 1.2) || blip(990, 0.06);
+          audioCue("pickup");
           gainXp(1, now);
         }
       }
@@ -5814,7 +6141,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     if (playing && sendAcc >= 1 / net.hz) {
       sendAcc = 0;
       const msg = {
-        q: ++sendSeq, rd: stats.round, hb: hitBy, ko: koBy, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),
+        q: ++sendSeq, mc: matchReady ? [matchRound, matchStart, matchEnd] : undefined, rd: stats.round, hb: hitBy, ko: koBy, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),
         vx: Math.round(me.vx), vy: Math.round(me.vy), a: +me.a.toFixed(2),
         t: me.thrust > 0.3 ? 1 : 0, b: me.boostFx, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0, ds: me.dead ? me.ds : 0,
         dk: me.dead ? me.dk : 0, da: me.dead ? +me.da.toFixed(2) : 0, tm: me.tm ?? -1,   // the team rides every message: shots need it
@@ -5865,6 +6192,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     updateRemotes(dt, now);
     updatePickups(dt, now);
     updateFx(dt, now);
+    audioTick(now);
     netSend(dt, now);
   }
 
@@ -5872,9 +6200,11 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // everyone's numbers for the current round (others' come from their latest state)
   function playerRows() {
     const rows = [{ name: me.name || "You", hue: me.hue, me: true, ping: myPing, score: me.score, kills: stats.kills, deaths: stats.deaths, shots: stats.shots, hits: stats.hits, best: stats.best, tm: me.tm, caps: me.caps || 0 }];
-    for (const r of remotes.values()) {
+    for (const b of bots) rows.push({ name: b.name, hue: b.hue, ping: 0, score: b.st.kills * 5, ...b.st, tm: b.tm, caps: b.caps || 0 });
+    for (const [id, r] of remotes) {
+      if (botById.has(id)) continue;
       const st = r.st && r.st[0] === stats.round ? r.st : [0, 0, 0, 0, 0, 0];
-      rows.push({ name: r.name, hue: r.hue, ping: r.ping, score: r.score, kills: st[1], deaths: st[2], shots: st[3], hits: st[4], best: st[5], tm: r.tm, caps: r.cpRound === stats.round ? r.caps || 0 : 0 });
+      rows.push({ name: r.name, hue: r.hue, ping: r.ping, score: r.st && r.st[0] === stats.round ? r.score : 0, kills: st[1], deaths: st[2], shots: st[3], hits: st[4], best: st[5], tm: r.tm, caps: r.cpRound === stats.round ? r.caps || 0 : 0 });
     }
     return rows;
   }
@@ -5887,9 +6217,10 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     const w = t.lead > 0 ? 0 : 1;
     return `<span style="color:${TEAM_HEX[w]}">${TEAM_NAME[w]} team wins</span> · ${sc(w)} to ${sc(1 - w)}`;
   }
+  const comparePlayers = (a, b) => (MODES[MODE].flags ? b.caps - a.caps : 0) || b.kills - a.kills || a.deaths - b.deaths;
   function showResults(roundNo) {
-    const rows = playerRows().sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
-    const top = rows[0];
+    const rows = playerRows().sort(comparePlayers);
+    const top = rows[0], tied = rows.length > 1 && comparePlayers(rows[0], rows[1]) === 0;
     const shooters = rows.filter(r => r.shots >= 10);
     const pick = (list, f) => list.length ? list.reduce((a, b) => f(b) > f(a) ? b : a) : null;
     const awards = [
@@ -5902,9 +6233,9 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     ].filter(([, who]) => who);
     const card = document.getElementById("resultsCard");
     card.innerHTML = `<h2>Round ${roundNo} over</h2>
-      <div class="winner">${teamWinLine() || (top.kills ? "Winner: " + esc(top.name) + " · " + top.kills + " kills" : "Nobody scored a kill")}</div>
-      <table><thead><tr><th>Pilot</th><th>Kills</th><th>Deaths</th><th>Accuracy</th></tr></thead><tbody>
-      ${rows.map(r => `<tr class="${r.me ? "me" : ""}"><td${isTeams() && onTeam(r) ? ` style="color:${TEAM_HEX[r.tm]}"` : ""}>${esc(r.name)}${r.me ? " (you)" : ""}</td><td>${r.kills}</td><td>${r.deaths}</td><td>${r.shots ? acc(r) + "%" : "–"}</td></tr>`).join("")}
+      <div class="winner">${teamWinLine() || (top.kills ? tied ? "Draw · " + top.kills + " kills" : "Winner: " + esc(top.name) + " · " + top.kills + " kills" : "Nobody scored a kill")}</div>
+      <table><thead><tr><th>Pilot</th><th>Kills</th><th>Deaths</th>${MODES[MODE].flags ? "<th>Flags</th>" : ""}<th>Points</th><th>Accuracy</th></tr></thead><tbody>
+      ${rows.map(r => `<tr class="${r.me ? "me" : ""}"><td${isTeams() && onTeam(r) ? ` style="color:${TEAM_HEX[r.tm]}"` : ""}>${esc(r.name)}${r.me ? " (you)" : ""}</td><td>${r.kills}</td><td>${r.deaths}</td>${MODES[MODE].flags ? `<td>${r.caps}</td>` : ""}<td>${r.score}</td><td>${r.shots ? acc(r) + "%" : "–"}</td></tr>`).join("")}
       </tbody></table>
       <div class="awards">${awards.map(([title, who, why]) => `<div class="award"><b>${title}</b><span>${esc(who.name)}</span><small>${why(who)}</small></div>`).join("")}</div>
       <div class="next" id="nextRound"></div>`;
@@ -5917,7 +6248,9 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   function roundEndVoice() {
     const rows = playerRows();
     if (rows.length < 2) return;
-    const top = rows.reduce((a, b) => b.kills > a.kills || (b.kills === a.kills && b.deaths < a.deaths) ? b : a);
+    rows.sort(comparePlayers);
+    if (isTeams() ? teamTotals().lead === 0 : comparePlayers(rows[0], rows[1]) === 0) return;
+    const top = rows[0];
     const won = isTeams() ? (teamTotals().lead || 0) * (me.tm === 0 ? 1 : -1) > 0 : top.me && stats.kills > 0;
     setTimeout(() => { const line = won ? (stats.deaths === 0 ? "v_flawless" : "v_win") : "v_lose"; packPlay(line, 1) || sfx(line, 1); }, 600);
   }
@@ -5929,20 +6262,29 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   }
   function roundTick(now) {
     const rd = roundAt(clockNow());
+    if (!matchReady) { roundLive = false; document.getElementById("roundInfo").textContent = "Waiting for host…"; return; }
     if (rd.idx !== stats.round) {
       // a new round: everyone starts from scratch
       Object.assign(stats, { round: rd.idx, kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 });
       if (shownRound !== -1 && playing) {
         me.score = 0; showScore(); me.xp = 0; me.lv = 1; renderLevel();
         baseArsenal(); me.ampUntil = 0; renderWeapon();
-        if (!me.dead) { me.lives = maxLivesOf(1); me.shield = 0; renderShield(); renderHearts(false); me.inv = now + 2000; }
-        floaters.push({ x: me.x, y: me.y - 90, t: 0, txt: "ROUND " + (rd.idx % 1000) + " · FIGHT!", gold: true });
+        me.dead = false; me.respawnAt = 0; me.lives = maxLivesOf(1); me.shield = 0; renderShield(); renderHearts(false); me.inv = now + 2000;
+        floaters.push({ x: me.x, y: me.y - 90, t: 0, txt: "ROUND " + (rd.idx - (firstRoundIdx ?? rd.idx) + 1) + " · FIGHT!", gold: true });
         sfx("v_fight", 1);
       }
-      for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0, weapon: "fire" });
-      me.fc = -1; me.caps = 0;
+      for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, lv: 1, xp: 0, vx: 0, vy: 0, ammo: 0, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0, weapon: "fire" });
+      me.fc = -1; me.caps = 0; me.heat = 0; me.overheat = false; railCharge = 0; charge = 0;
+      energy = 100; energyRegenAt = 0; dashReadyAt = 0; lungeReady = 0;
+      flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
+      grabbed.clear(); myGrabs.length = 0; drops.clear(); gunDrops.clear(); myDrops.length = 0; myGunDrops.length = 0;
       hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0;
-      if (shownRound !== -1) { myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode); }   // every crater filled in again
+      if (shownRound !== -1) {
+        myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode);
+        // Respawn after rebuilding: a repaired planet must not enclose a pilot in its old tunnel.
+        Object.assign(me, spawnPoint(me.tm), { vx: 0, vy: 0 });
+        for (const b of bots) Object.assign(b, spawnPoint(b.tm), { nav: null, navAt: 0, patrol: null, dashReq: false });
+      }
       firstBlood = false; streaks.clear(); multi = 0;
       me.hitHistory = []; for (const b of bots) b.hitHistory = [];
       credited.clear(); botCredited.clear(); killSeen.clear(); ufoHits.clear(); pendingHitFx.clear();
@@ -5955,25 +6297,26 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     }
     // the score limit: once someone (or a team) reaches it, the round is decided; results show until the next one
     if (rd.live && SCORE_LIMIT && decidedRound !== rd.idx && leaderScore() >= SCORE_LIMIT) {
-      decidedRound = rd.idx;
+      decidedRound = rd.idx; matchEnd = clockNow(); rd.next = ROUND_BREAK;
       announce("ROUND DECIDED", "score limit " + SCORE_LIMIT + " reached", "#ffd36b", 2);
     }
     const live = rd.live && decidedRound !== rd.idx;
+    if (roundLive && !live) { shots.length = 0; guided = null; }
     roundLive = live;
     const info = document.getElementById("roundInfo");
     if (live) {
-      const m = Math.floor(rd.left / 60), sec = Math.floor(rd.left % 60);
+      const remaining = Math.ceil(rd.left), m = Math.floor(remaining / 60), sec = remaining % 60;
       if (firstRoundIdx === null) firstRoundIdx = rd.idx;
       info.textContent = "Round " + (rd.idx - firstRoundIdx + 1) + " · " + m + ":" + String(sec).padStart(2, "0") + (SCORE_LIMIT ? " · first to " + SCORE_LIMIT : "");
       info.classList.toggle("last", rd.left < 30);
     } else {
-      info.textContent = "Results · next round in " + Math.ceil(ROUND_LEN - rd.ph) + "s";
+      info.textContent = "Results · next round in " + Math.ceil(rd.next) + "s";
       if (playing && resultsFor !== rd.idx) roundEndVoice();
-      if (playing && ROUND_LEN - rd.ph < 2.6 && preparedFor !== rd.idx) { preparedFor = rd.idx; sfx("v_prepare", 1); }
+      if (playing && rd.next < 2.6 && preparedFor !== rd.idx) { preparedFor = rd.idx; sfx("v_prepare", 1); }
       // refresh once a second so late state updates from other pilots still land in the table
       if (playing && (resultsFor !== rd.idx || now - resultsAt > 1000)) { resultsFor = rd.idx; resultsAt = now; showResults(rd.idx - (firstRoundIdx ?? rd.idx) + 1); }
       const nx = document.getElementById("nextRound");
-      if (nx) nx.textContent = "Next round in " + Math.ceil(ROUND_LEN - rd.ph) + " s";
+      if (nx) nx.textContent = "Next round in " + Math.ceil(rd.next) + " s";
     }
   }
   // team totals: kills, and flags captured
@@ -5984,9 +6327,8 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   }
   function renderBoard() {
     const rows = playerRows();
-    rows.sort((a, b) => b.kills - a.kills || a.deaths - b.deaths || b.score - a.score);
-    const shown = rows.slice(0, 8);
-    if (!shown.some(r => r.me)) shown[7] = rows.find(r => r.me);
+    rows.sort(comparePlayers);
+    const shown = rows;
     const team = [];
     if (isTeams()) {   // the two teams first: kills, or captures in CTF
       const t = teamTotals(), flags = MODES[MODE].flags;
@@ -6000,7 +6342,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     boardEl.replaceChildren(...team, ...shown.map(r => {
       const li = document.createElement("li"); if (r.me) li.className = "me";
       const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = r.name; nm.style.color = isTeams() && onTeam(r) ? TEAM_HEX[r.tm] : `hsl(${r.hue} 90% 80%)`;
-      const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = r.kills + " · " + r.deaths;
+      const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = (MODES[MODE].flags ? r.caps + " flags · " : "") + r.kills + " / " + r.deaths + " · " + r.score + " pts";
       if (r.ping) { const pg = document.createElement("small"); pg.className = "pg " + (r.ping < 90 ? "good" : r.ping < 180 ? "ok" : "bad"); pg.textContent = Math.round(r.ping) + "ms"; nm.append(" ", pg); }
       li.append(nm, pts); return li;
     }));
@@ -6037,6 +6379,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   // a quarter of the pixels for the layers that cover the whole screen
   const skyCv = document.createElement("canvas"), skyQ = skyCv.getContext("2d", { alpha: false });
   function drawSky(now) {
+    if (stationMap()) { drawFoundry(now); return; }
     if (dpr <= 1.05) { paintSky(now); return; }
     const w = Math.ceil(innerWidth), h = Math.ceil(innerHeight);
     if (skyCv.width !== w || skyCv.height !== h) { skyCv.width = w; skyCv.height = h; }
@@ -7108,6 +7451,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   let bannerAcc = 0;
 
   function updateEvents(dt, now) {
+    if (stationMap()) { bannerEl.hidden = true; return; }
     const ev = eventAt(clockNow());
     bannerAcc += dt;
     if (bannerAcc > 0.25) {
@@ -7231,7 +7575,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
           me.score += 5; showScore();
           floaters.push({ x: gd.x, y: gd.y, t: 0, txt: "+5", gold: true });
           for (let k = 0; k < 24; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 200; puff(gd.x, gd.y, Math.cos(a) * v, Math.sin(a) * v, 0.7, 2.2, "#ffd36b"); }
-          packPlay("p_sting", 0.65) || blip(700, 0.25);
+          audioCue("pickup");
           gainXp(5, now);
         }
       }
@@ -7239,6 +7583,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   }
 
   function drawEvents(now) {
+    if (stationMap()) return;
     const ev = eventAt(clockNow());
     if (!ev.active) return;
     const t = now / 1000;
@@ -8024,7 +8369,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
   }
 
   // ---------- bot picker ----------
-  const botChoice = (() => { try { const v = JSON.parse(store.get("binrocket.bots")); if (v && [0, 2, 4, 6].includes(v.n) && BOT_LEVELS[v.level]) return v; } catch {} return { n: 0, level: "normal" }; })();
+  const botChoice = (() => { try { const v = JSON.parse(store.get("binrocket.bots")); if (v && Number.isInteger(v.n) && v.n >= 0 && v.n <= MAX_BOTS && BOT_LEVELS[v.level]) return v; } catch {} return { n: 0, level: "normal" }; })();
   function segButtons(el, items, current, onPick) {
     for (const [val, label, hint] of items) {
       const b = document.createElement("button"); b.type = "button"; b.textContent = label;
@@ -8034,7 +8379,11 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       el.appendChild(b);
     }
   }
-  segButtons(document.getElementById("botCount"), [[0, "No bots"], [2, "2 bots"], [4, "4 bots"], [6, "6 bots"]], botChoice.n, v => { botChoice.n = v; store.set("binrocket.bots", JSON.stringify(botChoice)); });
+  const botSlider = document.getElementById("botCount"), botOutput = document.getElementById("botCountValue");
+  botSlider.max = MAX_BOTS; botSlider.value = botChoice.n;
+  const showBotCount = () => { botOutput.value = botChoice.n ? botChoice.n + " bots" : "No bots"; botSlider.setAttribute("aria-valuetext", botOutput.value); };
+  showBotCount();
+  botSlider.addEventListener("input", () => { botChoice.n = Math.max(0, Math.min(MAX_BOTS, Number(botSlider.value))); showBotCount(); store.set("binrocket.bots", JSON.stringify(botChoice)); });
   segButtons(document.getElementById("botLevel"), Object.entries(BOT_LEVELS).map(([k, L]) => [k, L.label]), botChoice.level, v => { botChoice.level = v; store.set("binrocket.bots", JSON.stringify(botChoice)); });
 
   // ---------- controls help, tailored to the device ----------
@@ -8150,7 +8499,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     if (!joining) document.getElementById("codeLine").innerHTML = localRun
       ? `${describe(newGameCode)} · local room: you host, players nearby join with your QR code`
       : offlineRun
-      ? `${describe(newGameCode)} · offline: just you and ${botChoice.n || 4} bots in this browser${botChoice.n ? "" : " (none picked, so 4)"}`
+      ? `${describe(newGameCode)} · offline: just you and ${botChoice.n} bots in this browser`
       : `${describe(newGameCode)} · code <b>${newGameCode.toUpperCase()}</b> (share it to play together)`;
   };
   const setTab = join => {
@@ -8193,7 +8542,7 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
       setStatus(false, msg);
     };
     if (offlineOnly) noNetwork("Offline · you against the bots");
-    for (const el of [document.getElementById("botCount"), document.getElementById("botLevel")]) el.addEventListener("click", () => syncGo());
+    for (const el of [document.getElementById("botCount"), document.getElementById("botLevel")]) el.addEventListener(el.id === "botCount" ? "input" : "click", () => syncGo());
     segButtons(document.getElementById("modePick"), Object.entries(MODES).map(([k, v]) => [k, v.label, v.hint]), modePick, v => { modePick = v; store.set("binrocket.mode", v); drawScores(); newCode(); });
     segButtons(document.getElementById("themePick"), Object.entries(MAPS).map(([k, v]) => [k, v.label, v.hint]), themePick, v => { themePick = v; store.set("binrocket.theme", v); newCode(); });
     segButtons(document.getElementById("timePick"), Object.entries(TIME_OPTS).map(([k, v]) => [k, v + " min"]), timePick, v => { timePick = v; store.set("binrocket.time", v); newCode(); });
@@ -8231,16 +8580,14 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     if (!setEl.hidden) { setEl.hidden = true; cv.focus(); lockAim(); } else if (playing) openSettings();
   });
   document.getElementById("setLeave").addEventListener("click", () => { location.href = location.pathname + location.search; });   // back to the start screen
-  // on a small screen the scoreboard shows only you (and the teams); a tap opens the whole table
-  document.querySelector(".board").addEventListener("click", e => e.currentTarget.classList.toggle("open"));
-  // fold the scoreboard on a big screen (remembered); hold Tab to peek at everyone while it's folded
-  const boardBox = document.querySelector(".board"), foldBtn = document.getElementById("boardFold");
-  const setFold = f => { boardBox.classList.toggle("folded", f); foldBtn.setAttribute("aria-expanded", String(!f)); foldBtn.setAttribute("aria-label", f ? "Expand the scoreboard" : "Collapse the scoreboard"); store.set("binrocket.boardFold", f ? "1" : ""); };
-  setFold(store.get("binrocket.boardFold") === "1");
-  foldBtn.addEventListener("click", e => { e.stopPropagation(); setFold(!boardBox.classList.contains("folded")); });
-  addEventListener("keydown", e => { if (e.code === "Tab" && playing && e.target.tagName !== "INPUT") { e.preventDefault(); boardBox.classList.add("peek"); } });
-  addEventListener("keyup", e => { if (e.code === "Tab") boardBox.classList.remove("peek"); });
-  addEventListener("blur", () => boardBox.classList.remove("peek"));
+  const boardBox = document.querySelector(".board"), scoreBtn = document.getElementById("scoreBtn");
+  let scorePinned = false;
+  const showBoard = show => { boardBox.hidden = !show; scoreBtn.setAttribute("aria-expanded", String(show)); if (show) renderBoard(); };
+  scoreBtn.addEventListener("click", e => { e.stopPropagation(); scorePinned = !scorePinned; showBoard(scorePinned); });
+  addEventListener("keydown", e => { if (e.code === "Tab" && playing && setEl.hidden && !/INPUT|TEXTAREA/.test(e.target.tagName)) { e.preventDefault(); showBoard(true); } });
+  addEventListener("keyup", e => { if (e.code === "Tab") { e.preventDefault(); showBoard(scorePinned); } });
+  addEventListener("blur", () => { scorePinned = false; showBoard(false); });
+  addEventListener("wheel", e => { if (!boardBox.hidden) { e.preventDefault(); boardBox.scrollTop += e.deltaY; } }, { passive: false });
   document.getElementById("startForm").addEventListener("submit", e => {
     e.preventDefault();
     if (lan.guest) { joining = false; offlineRun = false; localRun = true; }   // a guest in a local room plays the host's game
@@ -8249,13 +8596,15 @@ body:not(.playing) .score, body:not(.playing) .board, body:not(.playing) .status
     // bots: in a lobby only its host adds them (everyone else sees the host's); in the Claude room they stay local anyway;
     // offline there is nobody else, so there are always some
     const host = !lan.guest && (!standalone || !joining || hosted().includes(lobbyCode()));
-    if (offlineRun && !bots.length) addBots(botChoice.n || 4, botChoice.level);
+    if (offlineRun && !bots.length) addBots(botChoice.n, botChoice.level);
     else if (host && !bots.length && botChoice.n > 0) addBots(botChoice.n, botChoice.level);
     if (standalone) chooseLobby(lan.guest ? lan.code : lobbyCode());
     me.name = nameInput.value.trim().slice(0, 14) || "Bin";
     store.set("binrocket.name", me.name);
-    try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch { audio = null; }
+    wakeAudio();
     loadSfx();
+    // The lobby mode is selected asynchronously by initNet; let it finish before the spoken introduction.
+    setTimeout(() => queueVoice(({ d: "a_deathmatch", t: "a_teamdeathmatch", c: "a_capturetheflag" })[MODE] || "v_fight"), 100);
     document.getElementById("start").hidden = true;
     document.body.classList.add("playing");   // the compact phone HUD applies from here on
     fireBtn.hidden = false; boostBtn.hidden = false; mm.hidden = false; joyEl.hidden = false;

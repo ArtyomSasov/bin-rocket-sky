@@ -76,7 +76,10 @@
   let audio = null;
 
   // ---------- input ----------
-  const wakeAudio = () => { if (audio && audio.state === "suspended") audio.resume(); };
+  const wakeAudio = () => {
+    if (!audio) { try { audio = new (window.AudioContext || window.webkitAudioContext)(); loadSfx(); } catch {} }
+    if (audio && audio.state === "suspended") audio.resume().catch(() => {});
+  };
   addEventListener("pointerdown", wakeAudio);
   addEventListener("keydown", e => {
     wakeAudio();

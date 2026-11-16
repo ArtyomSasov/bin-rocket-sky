@@ -5,7 +5,7 @@
   function renderFeed() {
     const now = performance.now();
     while (feed.length && now - feed[0].at > 7000) feed.shift();
-    feedEl.style.top = (document.querySelector(".board").getBoundingClientRect().bottom + 8) + "px";
+    feedEl.style.top = (72) + "px";
     feedEl.innerHTML = feed.map(e => `<div class="fe${e.me ? " me" : ""}${e.spree ? " spree" : ""}">${e.html}</div>`).join("");
   }
   const tagOwner = tag => {
@@ -80,6 +80,6 @@
       : text === "BEYOND GODLIKE" ? "a_holyshit" : "a_" + text.toLowerCase().replace(/[^a-z]/g, "");
     if (!silent && !packHas(key)) sting(level);   // a cue only where the pack has no voice for the line
     const voice = { "ULTRA KILL": "v_multikill", "MULTI KILL": "v_multikill", "RAMPAGE": "v_multikill", "QUAD DAMAGE": "v_powerup" }[text];
-    if (!silent || packHas(key)) setTimeout(() => { if (!packPlay(key, 1) && voice) sfx(voice, 1); }, 180);
+    if (!silent || packHas(key)) { if (!packPlay(key, 1) && voice) sfx(voice, 1); }
   }
 

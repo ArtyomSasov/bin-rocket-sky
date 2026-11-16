@@ -1,8 +1,11 @@
   // ---------- bots (simulated here, broadcast like real pilots) ----------
-  const BOT_NAMES = ["Rusty", "Bolt", "Zappy", "Clank", "Nova", "Sprocket", "Dusty", "Orbit"];
+  const MAX_BOTS = 24;
+  const BOT_NAMES = ["Rusty", "Bolt", "Zappy", "Clank", "Nova", "Sprocket", "Dusty", "Orbit", "Razor", "Vex", "Scrap", "Fury", "Nail", "Cinder", "Hex", "Rivet", "Grinder", "Rook", "Torque", "Wraith", "Flint", "Rattle", "Havoc", "Slag"];
   const BOT_LEVELS = { easy: { aim: 0.26, cd: 0.7, speed: 0.75, label: "Easy" }, normal: { aim: 0.13, cd: 0.45, speed: 0.9, label: "Normal" }, hard: { aim: 0.05, cd: 0.3, speed: 1, label: "Hard" } };
   const bots = [], botById = new Map(), botCredited = new Set();
   function addBots(n, level) {
+    n = Math.max(0, Math.min(MAX_BOTS - bots.length, Math.floor(Number(n) || 0)));
+    if (!BOT_LEVELS[level]) level = "normal";
     const L = BOT_LEVELS[level];
     for (let i = 0; i < n; i++) {
       const id = "pb" + Math.random().toString(36).slice(2, 8);
@@ -19,7 +22,7 @@
       if (typeof k !== "string") continue;
       const key = (ko ? "ko" : "") + victim + ":" + k;
       if (botCredited.has(key) || botCredited.size >= MAX_CREDITS) continue;
-      for (const b of bots) if (k.startsWith(b.tag + ".")) {
+      for (const b of bots) if (b.id !== victim && k.startsWith(b.tag + ".")) {
         botCredited.add(key);
         if (ko) { b.st.kills++; b.st.streak++; b.st.best = Math.max(b.st.best, b.st.streak); botXp(b, 10); } else { b.st.hits++; botXp(b, 1); }
       }
@@ -86,7 +89,7 @@
       // a bot flies like a player: it pushes a stick, the bin turns to face where it pushes, and it can only shoot
       // where it faces. So it makes attack runs at its target (aiming ahead of it), breaks off when it gets too
       // close, loops round and comes back; it boosts to close a long gap and dashes aside when it gets hit
-      let dx = 0, dy = 0, aimA = null, wantBoost = false;
+      let dx = 0, dy = 0, aimA = null, wantBoost = false, routeGoal = tgt;
       if (tgt) {
         const fly = td / 1000 * 0.8, px = tgt.x + (tgt.vx || 0) * fly - (b.vx || 0) * fly * 0.6, py = tgt.y + (tgt.vy || 0) * fly - (b.vy || 0) * fly * 0.6;
         aimA = Math.atan2(py - b.y, px - b.x);
@@ -108,7 +111,7 @@
         else if (thief) goal = thief.o;                                          // get our flag back
         else if (b.attacker && !flagCarrier[ef]) goal = bases[ef];               // go and grab theirs
         else if (!b.attacker && Math.hypot(home.x - b.x, home.y - b.y) > 500) goal = home;   // guard
-        if (goal) { const gx = goal.x - b.x, gy = goal.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * w; dy += gy / gd * w; }
+        if (goal) { routeGoal = goal; const gx = goal.x - b.x, gy = goal.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * w; dy += gy / gd * w; }
       }
       if (!MODES[MODE].only && roundLive) {
         let best = null, bd = b.weapon === "fire" && td > 700 ? 1300 : 0;
@@ -130,12 +133,13 @@
           if (dd < 64) { grabbed.add("W" + gid); pushCapped(myGrabs, "W" + gid, 40); b.weapon = d.type; b.ammo = d.ammo; sfx("weapon_get", 0.5, 1, d.x, d.y); best = null; break; }
           if (dd < bd) { bd = dd; best = d; }
         }
-        if (best) { const gx = best.x - b.x, gy = best.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * 1.4; dy += gy / gd * 1.4; }
+        if (best) { routeGoal = best; const gx = best.x - b.x, gy = best.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * 1.4; dy += gy / gd * 1.4; }
       }
       const m = 260;   // keep off the fence
       if (b.x < m) dx += (m - b.x) / m * 2.5; if (b.x > W - m) dx -= (b.x - W + m) / m * 2.5;
       if (b.y < m) dy += (m - b.y) / m * 2.5; if (b.y > H - m) dy -= (b.y - H + m) / m * 2.5;
       for (const p of bodies) {   // and around planets and moons
+        if (p.fixed) continue;
         const hx = b.x - p.x, hy = b.y - p.y, hd = Math.hypot(hx, hy) || 1, gap = hd - p.rr;
         if (gap < 280) { dx += hx / hd * 3 * (1 - gap / 280); dy += hy / hd * 3 * (1 - gap / 280); }
       }
@@ -144,6 +148,14 @@
         if (hd < 900) { dx += hx / hd * 3 * (1 - hd / 900) * 2; dy += hy / hd * 3 * (1 - hd / 900) * 2; }
         if (hd < 1500) { const acc = bh.k * 9e7 / (hd * hd + 1.5e4); b.vx -= hx / hd * acc * dt; b.vy -= hy / hd * acc * dt; }
         if (hd < 60 * bh.k) botHurt(b, 99, "x", now, true);
+      }
+      if (stationMap()) {
+        if (!routeGoal) {
+          if (!b.patrol || Math.hypot(b.x - b.patrol.x, b.y - b.patrol.y) < 140) b.patrol = spawnPoint();
+          routeGoal = b.patrol;
+        }
+        if (!b.navAt || now > b.navAt || !b.nav || Math.hypot(b.x - b.nav.x, b.y - b.nav.y) < 50) { b.nav = foundryRoute(b, routeGoal); b.navAt = now + 350; }
+        if (b.nav) { const nx = b.nav.x - b.x, ny = b.nav.y - b.y, nd = Math.hypot(nx, ny) || 1; dx = nx / nd; dy = ny / nd; wantBoost = false; }
       }
       // the stick, eased in like a thumb on a joystick, then the same thrust and turning as the player
       const dm = Math.hypot(dx, dy), ux = dm > 1 ? dx / dm : dx, uy = dm > 1 ? dy / dm : dy, ease = 1 - Math.exp(-(6 + 4 * b.L.speed) * dt);
@@ -202,7 +214,7 @@
         const dx = b.x - me.x, dy = b.y - me.y, d = Math.hypot(dx, dy) || 1;
         b.vx += dx / d * 900; b.vy += dy / d * 900; me.vx -= dx / d * 260; me.vy -= dy / d * 260;
         sparkShower((b.x + me.x) / 2, (b.y + me.y) / 2, -dy, dx, 1.3); sparkShower((b.x + me.x) / 2, (b.y + me.y) / 2, dy, -dx, 1.3);
-        shake = Math.max(shake, 0.4); packPlay("p_melee_hit", 1) || sfx("ram", 1) || blip(120, 0.2, "square");
+        shake = Math.max(shake, 0.4); sfx("ram", 1);
         botHurt(b, me.boostFx === 2 ? 1.2 : 0.6, myTag + ".ram" + Math.floor(now), now, false);
       }
       recordHitPose(b, now);

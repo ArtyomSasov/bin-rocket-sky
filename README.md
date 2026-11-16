@@ -29,13 +29,15 @@ Use **Random look** below the centered pilot preview to randomize all five appea
 
 Small drifting asteroids exchange momentum with the bin on collision: speed and bin size/level increase the push, while larger asteroids resist it. The changed trajectory is shared with other players and lasts until that asteroid respawns. Hard impacts still chip the asteroid.
 
-Bots (2, 4 or 6, three skill levels) join any mode and play its rules. Only the lobby's host (whoever made the
+Bots (a slider from 0 to 24, three skill levels) join any mode and play its rules. Only the lobby's host (whoever made the
 code, remembered in that browser) brings bots; players who join with the code play with the host's.
+
+Rounds start with the full selected duration when the lobby is created. Guests adopt that lobby clock. Reaching the score limit starts a 15-second results screen immediately. Each new round clears captures, scores, levels, combat receipts and temporary pickups.
 
 ## Offline against bots
 
 Pick **Offline with bots** on the New game tab to play alone against bots, with any mode, map and length. Nothing
-is sent or announced and nobody can join. If you picked "No bots", 4 bots fly. Opening the page as `?offline`
+is sent or announced and nobody can join. The slider is respected offline too: 0 means an empty practice arena. Opening the page as `?offline`
 starts there without even loading the multiplayer library, and when that library can't be loaded (no
 connection) the game switches to offline by itself.
 
@@ -51,7 +53,7 @@ The two codes carry a WebRTC handshake (only local-network addresses), so the br
 directly; the host relays every pilot's state, and its bots join everyone. No camera? Copy and paste the codes.
 
 **Someone has no internet and never opened the game?** On the start screen, "Download the game as one file"
-saves `bin-rocket-sky.html` (about 7 MB, built by `npm run build` with the sounds, sprite and QR libraries
+saves `bin-rocket-sky.html` (built by `npm run build` with the sounds, sprite and QR libraries
 inside, see `vendor/`). Send it over Nearby Share, AirDrop or Bluetooth; it opens in a browser with no internet
 and joins a local room. (Android opens local HTML files well; on an iPhone, open the site once online instead.)
 
@@ -95,10 +97,11 @@ game already uses, so there is no server of our own; a lobby disappears from the
 
 Also picked with a new lobby (and carried in its code), on top of the map size. Every map is hand-laid and always
 the same, in every lobby, so it can be learned. Each layout is mirrored through the centre, so both halves (and
-both CTF bases) are equal. The layouts live in `src/js/01b-arenas.js`.
+both CTF bases) are equal. The space layouts live in `src/js/01b-arenas.js`; Foundry lives in `src/js/01c-foundry.js`.
 
 | Map | Layout |
 |---|---|
+| Foundry | An industrial station with three connected routes, a contested reactor, mirrored bases, cross-corridors and permanent walls; no ambient space junk or world events, but combat debris remains |
 | Twin Worlds | Two ringed giants and two ice worlds; two towers form a gate round an open centre with Overdrive |
 | The Ring | A ring of asteroids round the centre with four gates, rock clusters in two corners |
 | Drydocks | Rows of moored hulls above and below, ring stations either side of a small moonbase |
@@ -111,7 +114,7 @@ both CTF bases) are equal. The layouts live in `src/js/01b-arenas.js`.
 nuke, holy bomb) and keeps it until someone takes it: nothing expires. A taken one comes back at the start of
 that spot's next cycle (20 s for most guns, 26–45 s for the strong ones, 20 s for supplies, 60–95 s for the
 power-ups). The empty pad shows what comes back and the countdown. The mini map shows the arena's outline and
-every spot. Every map has every gun: its own layout places its signature ones, the rest go into its widest gaps
+every spot. Foundry has fixed mirrored weapon/supply pads and central Overdrive, without nuke or holy-bomb pickups. Its permanent shell also blocks rail shots. Each space map has every gun: its own layout places its signature ones, the rest go into its widest gaps
 (always the same places). Large and Huge maps add a few more bodies and spots.
 
 **Boost pads** (glowing rings with running chevrons, arrows on the mini map) fling whoever flies over them their
@@ -129,7 +132,7 @@ players (they face where they steer, so they make attack runs, break off and loo
 - **Fire:** the left mouse button, Space, F, J or Enter (or the fire button).
 - **Boost / dash:** hold Shift to boost, tap it to dash.
 - **Brake / drift:** hold X to brake; X with a direction drifts (you slide on while the nose swings round).
-- **Scoreboard:** the arrow by the gear folds it to the timer and your own row; hold Tab to see everyone.
+- **Scoreboard:** hold Tab to see every player and bot; release to hide. The Scores button toggles it on touchscreens. The round clock stays at the top.
 - **Weapons:** 1–9, 0 or Q/E (not the mouse wheel: a touch-surface mouse scrolls by accident). **Alt fire:** right mouse button or C — every gun has one: laser
   pulse (shoves), minigun burst (no spin-up, overheats), rail breach cutter (hold up to 1.1 s to widen the cut; release: 1100 range, fixed damage, 2 ammo), flak (bursts into eight
   shards), shock beam (combo on your orb), gamma detonate, rocket salvo, shotgun slug, mine detonation, saw recall.
@@ -171,8 +174,8 @@ This is still peer-to-peer, with health owned by the victim (bots by their host)
 server. Compensation helps hitscan and fast linear rounds under ordinary latency; it cannot remove long outages or make
 all projectile and moving-terrain simulations identical between clients.
 
-The wire protocol uses `binrocket-sky/v14/` topics. Players must reload to this version to join each other;
-older pages are isolated (v2–v13 built different maps, guns or levels, v1 events do not identify the round). Taken terrain cells are sent in a
+The wire protocol uses `binrocket-sky/v15/` topics. Players must reload to this version to join each other;
+older pages are isolated (v2–v14 use older maps, clocks or gameplay; v1 events do not identify the round). Taken terrain cells are sent in a
 rolling snapshot (one shared body per state), so late joins and reconnects recover holes after a full pass
 through the map. Detached rubble is still simulated locally.
 
@@ -249,7 +252,7 @@ It serves local assets and substitutes an in-process two-broker relay, with all 
 intercepted: no test traffic reaches public brokers. It checks two-window visibility with one broker offline,
 late-join and reconnect terrain repair, round reset, the six-bot weapon/CTF smoke sequence, mobile rendering,
 browser exceptions and packet sizes. Combat checks also cover 140 ms relay delay, dropped immediate shots,
-duplicate damage/confirmation suppression, fast-round catch-up, decoded audio and nozzle geometry. This does not test the availability or latency of the public brokers.
+duplicate damage/confirmation suppression, fast-round catch-up, decoded audio and nozzle geometry. It also exercises Foundry with 24 networked bots, permanent walls, Tab, early score-limit finish and the shared clock. This does not test the availability or latency of the public brokers.
 
 Run `node tools/build.mjs --debug test.html`, serve it next to `sfx/`, and load `tools/smoke.js` in that page (see the comment at its top): it
 fires every gun and alt fire, plays every death effect, runs bots and a CTF capture, and reports frame
@@ -257,17 +260,22 @@ times and errors.
 
 ## Credits
 
-Sound effects are CC0 from OpenGameArt (Kenney, rubberduck, zer0sol), see `sfx/CREDITS.txt`. The railgun
-sound was made by the game's author.
+Generic and additional effects are CC0 from OpenGameArt (Kenney, rubberduck, zer0sol, bart). Added recorded announcer lines from **Warlord** and **Dragon** by **VoiceBosch** are **CC BY-SA 4.0**; original files are unchanged. The existing user-supplied weapon/voice pack retains its own provenance. The railgun sound was made by the game's author. See `sfx/CREDITS.txt` and the credits files under `sfx/pack/`.
 
 ## Audio and visual effects update
 
 The existing generic sound files are attributed to CC0 authors, not documented as AI-generated.
-Six additional CC0 samples from rubberduck replace the normal pickup/kill/charge/announcement cues,
-death accent and engine oscillator. The author's Quake weapon pack and announcer lines remain primary.
-The two supplied First Blood and Flawless Victory MP3 files are mapped to their events. Browser speech
-synthesis is no longer used for missing announcer lines; those keep their title and a short cue.
-The engine remains optional in Settings. See `sfx/AUDIO-AUDIT.md` for remaining procedural audio and sources.
+The first weapon now uses the supplied plasma shot. Movement uses the supplied rocket-flight loop,
+with thrust/speed/boost controlling its mix. Boost, dash, teleport, respawn, warnings, shield transitions
+and power-down have sample feedback. Metal collisions use three recorded cast-iron impacts; larger
+blasts use recorded cannon/firework impacts with low and debris layers. Quiet atmosphere and saw loops
+complete the mix. The engine is enabled by default and can be disabled in Settings.
+
+The existing First Blood, Flawless Victory and other supplied announcer lines remain. Additional recorded
+lines cover the three main modes, Unstoppable, round victory and defeat. Speech is serialized at its
+original pitch and ducks combat sounds. Custom events without a matching spoken recording use a cue
+and text; browser speech synthesis is not used. See `sfx/AUDIO-AUDIT.md` for coverage, remaining procedural
+fallbacks and sources. Decoder checks do not substitute for listening on speakers/headphones.
 
 Hull banking, nozzle flames and particle origins share one transform. Front and side thrusters occupy fixed
 mounts, the main engine can deflect slightly, and exhaust inherits ship velocity. Emission budgets and particle

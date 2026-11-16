@@ -7,6 +7,7 @@
   // e.g. M0Y... or M1C0A...; generated codes never contain 0, and a code without it is Classic.
   // The layout of each map is in 01b-arenas.js. star: a sun in the middle; lumpy: planets become ragged asteroids
   const MAPS = {
+    f: { name: "Foundry", label: "Foundry · NEW", hint: "industrial corridors, three routes", station: true },
     c: { name: "Twin Worlds", label: "Twin Worlds", hint: "two giants, an open centre" },
     a: { name: "The Ring", label: "The Ring", hint: "a ring of asteroids, four gates", lumpy: true },
     y: { name: "Drydocks", label: "Drydocks", hint: "rows of moored hulls" },
@@ -192,7 +193,30 @@
   const ROUND_BREAK = 15;
   let ROUND_LEN = ROUND_PLAY + ROUND_BREAK;
   function setMatch(code) { ROUND_PLAY = TIME_OPTS[timeOf(code)] * 60; ROUND_LEN = ROUND_PLAY + ROUND_BREAK; SCORE_LIMIT = scoreLimit(code); }
-  const roundAt = ms => { const t = ms / 1000, idx = Math.floor(t / ROUND_LEN), ph = t - idx * ROUND_LEN; return { idx, ph, live: ph < ROUND_PLAY, left: ROUND_PLAY - ph }; };
+  let matchStart = 0, matchRound = 0, matchEnd = 0, matchReady = false;
+  function startMatch(ms) { matchStart = ms; matchRound = 0; matchEnd = 0; matchReady = true; }
+  function roundAt(ms) {
+    // Each lobby starts a full round when created, independent of the wall-clock minute.
+    if (!matchReady) return { idx: -1, ph: 0, live: false, left: ROUND_PLAY, next: 0 };
+    let end = matchEnd || matchStart + ROUND_PLAY * 1000;
+    if (ms >= end + ROUND_BREAK * 1000) {
+      matchStart = end + ROUND_BREAK * 1000; matchRound++; matchEnd = 0;
+      const skipped = Math.floor(Math.max(0, ms - matchStart) / (ROUND_LEN * 1000));
+      matchStart += skipped * ROUND_LEN * 1000; matchRound += skipped;
+      end = matchStart + ROUND_PLAY * 1000;
+    }
+    return { idx: matchRound, ph: Math.max(0, ms - matchStart) / 1000, live: ms < end,
+      left: Math.max(0, end - ms) / 1000, next: Math.max(0, end + ROUND_BREAK * 1000 - ms) / 1000 };
+  }
+  function receiveMatchClock(value) {
+    if (!Array.isArray(value) || value.length !== 3) return;
+    const [round, start, end] = value;
+    if (!Number.isSafeInteger(round) || round < 0 || !Number.isFinite(start) || start <= 0 || Math.abs(start - clockNow()) > 86400000
+      || !Number.isFinite(end) || (end !== 0 && (end < start || end > start + ROUND_PLAY * 1000))) return;
+    if (!matchReady || round > matchRound) {
+      matchRound = round; matchStart = start; matchEnd = end; matchReady = true;
+    } else if (round === matchRound && Math.abs(start - matchStart) < 1 && end && (!matchEnd || end < matchEnd)) matchEnd = end;
+  }
   // armour (in lives, like health): it takes only ARMOR_SOAK of each hit, the rest still hurts; at most MAX_SHIELD
   const SUPPLY_PERIOD = 20, MAX_SHIELD = 3, ARMOR_SOAK = 0.6; let SUPPLY_SLOTS = 0;
   // the big bombs: one huge blast each. Inside kill nothing survives; out to R the damage falls from 4 to 1.5 lives.

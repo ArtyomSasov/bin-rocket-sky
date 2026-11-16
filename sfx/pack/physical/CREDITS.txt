@@ -1,0 +1,16 @@
+Recorded physical impacts; original files copied without audio edits.
+
+metal_1.wav, metal_10.wav, metal_20.wav:
+"33 metal clang sounds (cast iron pans)" by bart.
+https://opengameart.org/content/33-metal-clang-sounds-cast-iron-pans
+https://opengameart.org/sites/default/files/cast_iron_clangs.7z
+Original filenames: cast iron clangs - Marker #1.wav, #10.wav, #20.wav.
+License: CC0 1.0, https://creativecommons.org/publicdomain/zero/1.0/
+
+bang_04.ogg, bang_05.ogg, cannon_01.ogg, cannon_02.ogg:
+"25 CC0 bang / firework SFX" by rubberduck.
+https://opengameart.org/content/25-cc0-bang-firework-sfx
+https://opengameart.org/sites/default/files/25-CC0-bang-sfx.zip
+License: CC0 1.0, https://creativecommons.org/publicdomain/zero/1.0/
+
+Playback pitch, volume and layering vary in game. Added 2026-11-16.

@@ -1,0 +1,20 @@
+Recorded announcer by VoiceBosch. Original recordings, unchanged.
+License: Creative Commons Attribution-ShareAlike 4.0 International
+https://creativecommons.org/licenses/by-sa/4.0/
+
+Warlord Video Game Announcer:
+https://opengameart.org/content/warlord-video-game-announcer
+https://voicebosch.itch.io/warlord-announcer-audio-pack
+unstoppable.wav <- 06._unstoppable.wav
+team_deathmatch.wav <- 12._team_deathmatch.wav
+capture_the_flag.wav <- 14._capture_the_flag.wav
+round_winner.wav <- 19._round_winner.wav
+mission_failed.wav <- 20._mission_failed.wav
+
+Dragon Announcer Audio Pack (same author and license):
+https://opengameart.org/content/dragon-announcer-audio-pack
+deathmatch.wav <- 13._death_match.wav
+
+These files retain CC BY-SA 4.0 when redistributed, including their embedded
+copies in the standalone HTML. Source filenames changed only for event mapping.
+Voice playback retains the original pitch. Added 2026-11-16.

@@ -1,6 +1,8 @@
 Generic WAV sound effects in this directory: CC0 (public domain), from OpenGameArt.org. Trimmed, mixed to mono and resampled for the game.
 User-supplied weapon/voice files in pack/ have separate provenance. New CC0 supplements: pack/supplemental/CREDITS.txt.
 Audio audit and remaining procedural effects: AUDIO-AUDIT.md.
+Recorded metal and blast additions: pack/physical/CREDITS.txt (CC0).
+Recorded VoiceBosch announcer additions: pack/voice/warlord/CREDITS.txt (CC BY-SA 4.0).
 
 - "Sci-Fi Sounds" and "63 Digital sound effects" by Kenney (www.kenney.nl)
   https://opengameart.org/content/sci-fi-sounds

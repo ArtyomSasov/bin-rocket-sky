@@ -13,6 +13,7 @@
     if (typeof renderTele === "function") renderTele();
   }
   function findBase(t) {
+    if (stationMap()) return foundryPoint(t ? 17 : 3, 10);
     const x = t ? W - Math.max(380, W * 0.1) : Math.max(380, W * 0.1);
     for (let k = 0; k < 40; k++) { const y = H / 2 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 120; if (!inBody(x, y, 260)) return { x, y }; }
     return { x, y: H / 2 };

@@ -43,6 +43,7 @@
   let bannerAcc = 0;
 
   function updateEvents(dt, now) {
+    if (stationMap()) { bannerEl.hidden = true; return; }
     const ev = eventAt(clockNow());
     bannerAcc += dt;
     if (bannerAcc > 0.25) {
@@ -166,7 +167,7 @@
           me.score += 5; showScore();
           floaters.push({ x: gd.x, y: gd.y, t: 0, txt: "+5", gold: true });
           for (let k = 0; k < 24; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 200; puff(gd.x, gd.y, Math.cos(a) * v, Math.sin(a) * v, 0.7, 2.2, "#ffd36b"); }
-          packPlay("p_sting", 0.65) || blip(700, 0.25);
+          audioCue("pickup");
           gainXp(5, now);
         }
       }
@@ -174,6 +175,7 @@
   }
 
   function drawEvents(now) {
+    if (stationMap()) return;
     const ev = eventAt(clockNow());
     if (!ev.active) return;
     const t = now / 1000;

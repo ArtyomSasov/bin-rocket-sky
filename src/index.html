@@ -6,7 +6,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Nunito:wght@600;800&display=swap">
 <!-- @styles -->
 
-<canvas id="c"></canvas>
+<canvas id="c" tabindex="0" aria-label="Game arena"></canvas>
 
 <div class="score chip"><b id="score">0</b><span>points</span><span class="lv"><b id="lvNum">Lv 1</b><span class="xpbar"><i id="xpFill"></i></span><span class="xpbar nrg" title="Boost energy"><i id="nrgFill"></i></span></span><span class="hp" id="hearts" role="img" aria-label="Health 100%"><span class="hpbar"><i id="hpFill"></i></span><b id="hpNum">100%</b></span><span class="shieldchip" id="shieldChip" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z"/></svg><b id="shieldNum">0</b></span><span class="ampchip" id="ampChip" hidden></span><span class="telechip" id="teleChip" hidden></span><span class="wpn" id="wpn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg>Fireball</span></div>
 <button class="fire boostbtn" id="boostBtn" aria-label="Boost: tap to dash, hold to boost" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l7 6-7 6zM12 6l7 6-7 6z"/></svg></button>
@@ -17,7 +17,9 @@
 <button class="fire altbtn" id="altBtn" aria-label="Alternate fire" hidden><span id="altName">ALT</span></button>
 <button class="fire" id="fireBtn" aria-label="Fire" hidden><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg></button>
 <div class="event" id="eventBanner" hidden></div>
-<div class="board chip"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><button type="button" class="gear fold" id="boardFold" aria-label="Collapse the scoreboard" aria-expanded="true" title="Collapse (hold Tab to see everyone)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5l7 7 7-7-1.6-1.6L12 13.3 6.6 7.9z"/></svg></button><h2 id="boardTitle">Flyers</h2><div class="round" id="roundInfo">Round 1 · 5:00</div><div class="ping" id="pingInfo"></div><div class="bhead"><span>Pilot</span><span>Kills · Deaths</span></div><ol id="board"></ol></div>
+<div class="match-clock chip" id="roundInfo" role="timer" aria-label="Round timer">Round 1 · 5:00</div>
+<div class="hud-tools"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><button type="button" id="scoreBtn" aria-controls="scoreboard" aria-expanded="false">Scores <span>Tab</span></button></div>
+<div class="board chip" id="scoreboard" hidden><h2 id="boardTitle">Flyers</h2><div class="ping" id="pingInfo"></div><div class="bhead"><span>Pilot</span><span>Kills / Deaths · Points</span></div><ol id="board"></ol></div>
 <div class="feed" id="feed" aria-live="off"></div>
 <div class="lockhint chip" id="lockHint" hidden>Click to take the mouse · Esc lets it go</div>
 <div class="announce" id="announce"></div>
@@ -106,7 +108,7 @@
     </section>
 
     <div class="pick" id="botsPick"><span>Bots</span>
-      <div class="segs" id="botCount" role="group" aria-label="Number of bots"></div>
+      <label class="bot-slider" for="botCount"><span>Bot count</span><output id="botCountValue" for="botCount">No bots</output><input type="range" id="botCount" min="0" max="24" step="1" value="0" aria-label="Number of bots"></label>
       <div class="segs" id="botLevel" role="group" aria-label="Bot difficulty"></div>
     </div>
 
@@ -119,6 +121,7 @@
       <span id="ctrlTitle">Controls</span>
       <dl class="clist" id="clist"></dl>
     </section>
+    <details class="audio-credits"><summary>Audio credits</summary><p>Additional effects: Kenney, rubberduck, zer0sol and bart (CC0). Additional recorded announcer: <a href="https://opengameart.org/content/warlord-video-game-announcer" target="_blank" rel="noopener">Warlord</a> and <a href="https://opengameart.org/content/dragon-announcer-audio-pack" target="_blank" rel="noopener">Dragon</a> by VoiceBosch, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>; source recordings unchanged. Existing weapon and announcer pack supplied by the game's author. Railgun recording by the game's author.</p></details>
   </form>
 </div>
 

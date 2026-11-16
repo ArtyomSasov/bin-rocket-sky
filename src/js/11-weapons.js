@@ -177,9 +177,19 @@
   const BEAM_T = 1.1;   // a rail trail lingers: the hot core goes fast, the spiral slowly unwinds
   function beamReach(s) {
     const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v;
-    return Math.max(0, Math.min(s.cut ? 1100 : v * SHOTS[s.kind].life,
+    let reach = Math.max(0, Math.min(s.cut ? 1100 : v * SHOTS[s.kind].life,
       dx > 0 ? (W - s.x) / dx : dx < 0 ? -s.x / dx : Infinity,
       dy > 0 ? (H - s.y) / dy : dy < 0 ? -s.y / dy : Infinity));
+    // The station shell blocks even penetrating weapons; old maps keep their terrain cutting.
+    for (const b of bodies) if (b.fixed) {
+      let near = 0, far = reach;
+      for (const [p, d, lo, hi] of [[s.x, dx, b.x - b.hw, b.x + b.hw], [s.y, dy, b.y - b.hh, b.y + b.hh]]) {
+        if (Math.abs(d) < 1e-9) { if (p < lo || p > hi) { far = -1; break; } }
+        else { const a = (lo - p) / d, z = (hi - p) / d; near = Math.max(near, Math.min(a, z)); far = Math.min(far, Math.max(a, z)); }
+      }
+      if (far >= near) reach = Math.min(reach, near);
+    }
+    return reach;
   }
   function railBeam(s) {
     const {x, y, vx, vy} = s, v = Math.hypot(vx, vy) || 1, dx = vx / v, dy = vy / v, L = beamReach(s), big = s.kind === K.GAUSS;
@@ -611,7 +621,7 @@
     me.x = b.x; me.y = b.y; me.vx = me.vy = 0;
     volley(me, now, TELEFRAG, { x: b.x, y: b.y });
     me.vx = b.vx * 0.5; me.vy = b.vy * 0.5;
-    sfx("rail", 0.7, 1.6) || blip(900, 0.15, "sine");
+    audioCue("teleport");
     flash = Math.max(flash, 0.15);
     me.teleN = Math.max(0, (me.teleN || 0) - 1); renderTele();
   }
@@ -989,6 +999,7 @@
   }
   function respawn(now) {
     killer = "";
+    audioCue("respawn");
     me.dead = false; me.lives = maxLivesOf(me.lv); me.inv = now + 2000; me.shield = 0; renderShield();
     if (me.lv >= 8 && !(me.teleN > 0)) { me.teleN = 1; renderTele(); }   // perk: a teleport jump on every respawn
     Object.assign(me, spawnPoint(me.tm)); me.vx = 0; me.vy = -60;

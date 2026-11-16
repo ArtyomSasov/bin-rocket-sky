@@ -255,7 +255,7 @@
   }
   const solidAny = (x, y) => { for (const b of bodies) if (solidAt(b, x, y)) return b; return null; };
   // rough test for placement and steering: inside a body's footprint (plus a margin)
-  const inBody = (x, y, pad) => { for (const b of bodies) if (!b.free && (x - b.x) ** 2 + (y - b.y) ** 2 < (b.rr + pad) ** 2) return b; return null; };
+  const inBody = (x, y, pad) => { for (const b of bodies) if (!b.free && (b.fixed ? Math.abs(x - b.x) < b.hw + pad && Math.abs(y - b.y) < b.hh + pad : (x - b.x) ** 2 + (y - b.y) ** 2 < (b.rr + pad) ** 2)) return b; return null; };
   function rebuildBodies() { bodies = det.filter(b => !b.dead && !b.free).concat(rubble.filter(b => !b.dead)); }
 
   // everything that scales with the arena: pick-ups and junk keep about the same density (capped for the huge map)
@@ -292,6 +292,7 @@
     for (const ch of theme + mapKey) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) | 0;
     buildSky(seed ^ 0x2b7);
     planets = []; moons = []; wrecks = []; rubble = [];
+    if (T.station) { buildFoundry(); return; }
     const addPlanet = (x, y, R, kind, pseed, tilt) => {
       const rnd = k => hash(pseed, k, 404), p = newBody("p" + planets.length, kind, R * 2 + 4, R * 2 + 4, clamp(R / 28, 8, 12));
       Object.assign(p, { x, y, rr: R, planet: true, tilt });
@@ -390,7 +391,7 @@
   function posesAt(t, dt) {
     const s = t / 1000;
     for (const b of det) {
-      if (b.free || b.dead) continue;
+      if (b.free || b.dead || b.fixed) continue;
       const ox = b.x, oy = b.y;
       // angles are wrapped to 0..2π: the shared clock is huge (s ~ 1.7e9), and canvas rotate() keeps angles in single
       // precision, so an unwrapped 3e7 rad drew a wreck up to a radian off from where hits were tested
@@ -406,6 +407,7 @@
   const myCarves = [], seenCarves = new Set();
   let carveSeq = 0;
   function bodyCol(b) {
+    if (b.fixed) return "#6f8996";
     const list = PLANET_PAL[b.kind] ? PLANET_PAL[b.kind].bands : WRECK_PAL[b.kind];
     return list[Math.floor(Math.random() * list.length)];
   }
@@ -443,7 +445,8 @@
     }
     return n;
   }
-  function carveLocal(b, lx, ly, rad, hot, rnd = Math.random) {   // rnd: a seeded one when every client must cut the same shape
+  function carveLocal(b, lx, ly, rad, hot, rnd = Math.random) {
+    if (b.fixed) return 0;   // rnd: a seeded one when every client must cut the same shape
     const cs = b.cs, R2 = rad * 1.2, i0 = Math.max(0, Math.floor((lx - R2) / cs)), i1 = Math.min(b.gw - 1, Math.floor((lx + R2) / cs));
     const j0 = Math.max(0, Math.floor((ly - R2) / cs)), j1 = Math.min(b.gh - 1, Math.floor((ly + R2) / cs));
     // one ragged outline for both the cells and the art, so what you see is exactly what can be hit
@@ -527,6 +530,7 @@
   // A rail cut is one continuous capsule, not a row of craters. Cell removal is geometric
   // (independent of canvas resolution), so desktop and mobile agree on the entire tunnel.
   function carveLineLocal(b, x1, y1, x2, y2, rad) {
+    if (b.fixed) return 0;
     const cs = b.cs, dx = x2 - x1, dy = y2 - y1, len2 = dx * dx + dy * dy;
     const i0 = Math.max(0, Math.floor((Math.min(x1, x2) - rad) / cs)), i1 = Math.min(b.gw - 1, Math.floor((Math.max(x1, x2) + rad) / cs));
     const j0 = Math.max(0, Math.floor((Math.min(y1, y2) - rad) / cs)), j1 = Math.min(b.gh - 1, Math.floor((Math.max(y1, y2) + rad) / cs));
@@ -590,6 +594,7 @@
   function nextTerrain() {
     if (!det.length) return null;
     const bi = terrainCursor++ % det.length, b = det[bi];
+    if (b.fixed) return null;
     if (b.dead || b.free) return [stats.round, bi, 1, ""];
     let bytes = "";
     for (let i = 0; i < b.cells.length; i += 8) {
@@ -602,7 +607,7 @@
   function applyTerrain(s) {
     if (s.length !== 4 || s[0] !== stats.round || !Number.isSafeInteger(s[1]) || (s[2] !== 0 && s[2] !== 1) || typeof s[3] !== "string") return;
     const b = det[s[1]];
-    if (!b || b.dead || b.free) return;
+    if (!b || b.dead || b.free || b.fixed) return;
     if (s[2] === 1) {
       if (s[3] !== "") return;
       b.dead = true; rebuildBodies(); return;
@@ -719,6 +724,11 @@
     if (bodies.some(b => b.dead || b.mass <= 0)) { for (const b of bodies) if (b.mass <= 0) b.dead = true; rubble = rubble.filter(b => !b.dead); rebuildBodies(); }
   }
   function spawnPoint(tm) {
+    if (stationMap()) {
+      const cells = [];
+      for (let y = 2; y < 19; y++) for (let x = 2; x < 19; x++) if (foundryOpen(x, y) && (tm !== 0 && tm !== 1 || (tm === 0 ? x < 7 : x > 13))) cells.push([x, y]);
+      return foundryPoint(...cells[Math.floor(Math.random() * cells.length)]);
+    }
     const half = bases && (tm === 0 || tm === 1), rx = () => half ? (tm ? W / 2 : 0) + rndIn(W / 2, 300) : rndIn(W, 300);
     let x = rx(), y = rndIn(H, 300);
     for (let k = 0; k < 30 && inBody(x, y, 160); k++) { x = rx(); y = rndIn(H, 300); }

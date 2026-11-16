@@ -21,7 +21,7 @@
   // window.BRS_BROKER set before the game loads (see server/ in the repo)
   const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
   const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
-  const LOBBY_TOPIC = "binrocket-sky/v14/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  const LOBBY_TOPIC = "binrocket-sky/v15/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
   let lobbyRenderPending = false;
   function renderLobbies() {
@@ -144,7 +144,7 @@
       r.dead = dead; r.inv = p.i === 1;
     }
     if (typeof p.tg === "string" && /^[a-z0-9]{1,8}$/.test(p.tg)) r.tag = p.tg;
-    if (Array.isArray(p.bc) && Number.isInteger(p.bc[0]) && p.bc[0] > 0 && p.bc[0] <= 6 && BOT_LEVELS[p.bc[1]] && !/^pb/.test(id)) lobbyBots = { host: id, n: p.bc[0], level: p.bc[1] };
+    if (Array.isArray(p.bc) && Number.isInteger(p.bc[0]) && p.bc[0] > 0 && p.bc[0] <= MAX_BOTS && BOT_LEVELS[p.bc[1]] && !/^pb/.test(id)) lobbyBots = { host: id, n: p.bc[0], level: p.bc[1] };
     if ("tm" in p) {
       const was = r.tm;
       r.tm = p.tm === 0 || p.tm === 1 ? p.tm : undefined;
@@ -164,15 +164,15 @@
     if (Number.isFinite(p.pg)) r.ping = clamp(p.pg, 0, 5000);
     if ("am" in p) r.amp = p.am === 1;
     if (Number.isFinite(p.l)) r.lives = clamp(p.l, 0, maxLivesOf(r.lv));
-    if (Array.isArray(p.g)) for (const k of p.g.slice(0, 48)) if (typeof k === "string" && /^[a-zA-Z][a-z0-9.:]{1,20}$/.test(k) && (grabbed.has(k) || grabbed.size < 16384)) grabbed.add(k);   // only pick-up keys
+    if (p.rd === stats.round && Array.isArray(p.g)) for (const k of p.g.slice(0, 48)) if (typeof k === "string" && /^[a-zA-Z][a-z0-9.:]{1,20}$/.test(k) && (grabbed.has(k) || grabbed.size < 16384)) grabbed.add(k);   // only pick-up keys
     if (p.rd === stats.round && Array.isArray(p.f)) for (const f of p.f.slice(0, 24)) addRemoteShot(id, f, p.ts);
     if (Array.isArray(p.gw) && p.gw.length === 6 && typeof p.gw[0] === "string" && p.gw.slice(1).every(Number.isFinite)) guideRemote(id, p.gw);
-    if (Array.isArray(p.dr)) for (const d of p.dr.slice(0, 3)) {
+    if (p.rd === stats.round && Array.isArray(p.dr)) for (const d of p.dr.slice(0, 3)) {
       if (drops.size >= MAX_DROPS) break;
       if (!Array.isArray(d) || typeof d[0] !== "string" || d[0].length > 10 || drops.has(d[0])) continue;
       drops.set(d[0], { x: clamp(num(d[1], 0), 0, W), y: clamp(num(d[2], 0), 0, H), n: clamp(Math.floor(num(d[3], 0)), 0, 40), born: performance.now() });
     }
-    if (Array.isArray(p.wd)) for (const d of p.wd.slice(0, 3)) {   // trophies: a dead pilot's gun and its ammo
+    if (p.rd === stats.round && Array.isArray(p.wd)) for (const d of p.wd.slice(0, 3)) {   // trophies: a dead pilot's gun and its ammo
       if (gunDrops.size >= 64) break;
       if (!Array.isArray(d) || typeof d[0] !== "string" || !/^[a-z0-9]{2,16}$/.test(d[0]) || gunDrops.has(d[0])) continue;
       if (!Number.isInteger(d[3]) || d[3] < 0 || d[3] >= WEAPON_KEYS.length) continue;   // an index, never a key like "length"
@@ -212,9 +212,10 @@
   }
   // a pilot's state, from whichever transport (MQTT or the local room): the pilot, then the bots it flies
   function receiveState(id, p) {
+    if (p && p.mc) receiveMatchClock(p.mc);
     const fresh = applyRemote(id, p);
     if (!fresh) {
-      if (p && p.rd === stats.round && Array.isArray(p.bots)) for (const e of p.bots.slice(0, 8)) {
+      if (p && p.rd === stats.round && Array.isArray(p.bots)) for (const e of p.bots.slice(0, MAX_BOTS)) {
         if (!Array.isArray(e)) continue;
         const r = remotes.get(e[0]);
         if (r?.host === id && !botById.has(e[0])) applyRemote(e[0], e[1]);
@@ -223,7 +224,7 @@
     }
     if (Array.isArray(p.bots)) {
       const ids = [];
-      for (const e of p.bots.slice(0, 8)) {
+      for (const e of p.bots.slice(0, MAX_BOTS)) {
         if (!Array.isArray(e) || typeof e[0] !== "string" || !/^pb[a-z0-9]{1,10}$/.test(e[0]) || botById.has(e[0])) continue;
         const old = remotes.get(e[0]);
         if (old && old.host !== id) continue;   // another host's bot (or a real player) cannot be claimed
@@ -306,6 +307,7 @@
     buildPlanets(code);
     setMode(modeOf(code));
     setMatch(code);
+    if (offlineRun || !online || ((!joining || hosted().includes(code)) && !lan.guest)) startMatch(clockNow());
     Object.assign(me, spawnPoint(me.tm));
     for (const b of bots) Object.assign(b, spawnPoint(b.tm));
     const shown = code.toUpperCase();
@@ -314,8 +316,8 @@
       // nobody else is here: the bots fly in this browser, nothing is sent and the lobby is not announced. Rounds run
       // on the shared clock (so everyone in a lobby is in the same one); alone, the clock is shifted so that a fresh
       // round starts right now instead of joining one already under way
-      const ph = (Date.now() / 1000) % ROUND_LEN;
-      clockBase = clockOff = clockTarget = (ROUND_LEN - ph + 0.5) * 1000;
+      clockBase = clockOff = clockTarget = 0;
+      startMatch(clockNow());
       firstRoundIdx = null;   // so the fresh round is Round 1
       document.getElementById("boardTitle").textContent = "Offline · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
       setStatus(false, "Offline · you and " + bots.length + (bots.length === 1 ? " bot" : " bots"));
@@ -333,7 +335,7 @@
     // Shots ride in state, including on the primary, and q deduplicates the two deliveries.
     const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
     const myId = "p" + Math.random().toString(36).slice(2, 10);
-    const base = "binrocket-sky/v14/" + code + "/";
+    const base = "binrocket-sky/v15/" + code + "/";
     const clients = BROKERS.map(url => {
       const c = mqtt.connect(url, {
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),
@@ -350,7 +352,7 @@
         if (kind === "e") { if (id === myId && c === pingVia()) { const t = Number(payload.toString()); if (t > 0) gotPing(performance.now() - t); } return; }   // my ping echo
         if (id === myId) return;
         // A disconnect on one broker is not departure from the room. Expire silent peers instead.
-        if ((kind !== "s" && kind !== "f") || payload.length > (kind === "f" ? 2048 : 16384)) return;
+        if ((kind !== "s" && kind !== "f") || payload.length > (kind === "f" ? 2048 : 65536)) return;
         let p; try { p = JSON.parse(payload.toString()); } catch { return; }
         if (kind === "f") {
           if (p && p.rd === stats.round && Array.isArray(p.f) && remotes.has(id)) for (const f of p.f.slice(0, 4)) addRemoteShot(id, f, p.ts);

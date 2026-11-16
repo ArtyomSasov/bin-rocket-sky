@@ -11,7 +11,7 @@
       let best = null;
       const claim = (id, o) => { if (!id || o.dead || o.fc !== f || o.tm === f || (o.tm !== 0 && o.tm !== 1)) return; if (!best || id < best.id) best = { id, o }; };
       if (playing) claim(myTag, me);
-      for (const [id, r] of remotes) if (!botById.has(id)) claim(r.tag, r);
+      for (const [id, r] of remotes) if (!botById.has(id) && r.cpRound === stats.round) claim(r.tag, r);
       for (const b of bots) claim(b.tag, b);
       flagCarrier[f] = best;
     }
@@ -45,6 +45,7 @@
         const held = flagHeld[f], capturedBy = held && held.o, scored = !!held && (held.o.caps || 0) > held.caps;
         flagHeld[f] = null;
         announce(scored ? TEAM_NAME[1 - f] + " team scores!" : TEAM_NAME[f] + " flag returned", scored ? whoName(capturedBy) + " captured the " + TEAM_NAME[f] + " flag" : "", TEAM_HEX[scored ? 1 - f : f], scored ? 2 : 1, !scored);
+        if (!scored) audioCue("flagReturn");
         if (scored) { sfx("level_up", 1); rings.push({ x: pad.x, y: pad.y, t: 0, r: 420, col: TEAM_RGB[1 - f], warp: true, dur: 0.8, w: 18 }); }
         renderBoard();
       }

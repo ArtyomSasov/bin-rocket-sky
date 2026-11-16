@@ -20,10 +20,10 @@
     const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided;
     const altW = WEAPONS[me.weapon].alt, altHeld = altFiring || keys.has("KeyC");
     if (altW && altW.charge) {   // rail alt: hold to widen the cutter, release to open a short breach
-      if (altHeld && ready && me.arsenal[me.weapon] >= altW.cost) railCharge = Math.min(1, railCharge + dt / altW.charge);
+      if (altHeld && ready && me.arsenal[me.weapon] >= altW.cost) { const was = railCharge; railCharge = Math.min(1, railCharge + dt / altW.charge); if (Math.floor(was * 6) !== Math.floor(railCharge * 6)) sfx("p_charge", 0.3, 0.8 + railCharge * 0.5); }
       else if (railCharge > 0) { if (ready) shoot(now, true); railCharge = 0; }
     } else railCharge = 0;
-    me.heat = Math.max(0, (me.heat || 0) - 0.45 * dt); if (me.overheat && me.heat < 0.3) { me.overheat = false; renderAmmo(me.weapon); }
+    me.heat = Math.max(0, (me.heat || 0) - 0.45 * dt); if (me.overheat && me.heat < 0.3) { me.overheat = false; renderAmmo(me.weapon); audioCue("ready"); }
     if (ready && altHeld && altW && !altW.charge) shoot(now, true);
     else if (triggerTick(dt, now, ready && fireCd <= 0 && !(altHeld && altW?.charge) && railCharge === 0, held) || (ready && me.weapon === "gauntlet" && now < (me.lungeUntil || 0))) shoot(now);   // a lunge lands blows too
     if (playing && !me.dead) {
@@ -177,6 +177,7 @@
     me.bank += (clamp(turn * 0.09, -0.4, 0.4) - me.bank) * Math.min(1, dt * 8);
     // lighting the boost gives a shove forward and a flash of exhaust
     if (boost && !me.boostOn && playing && !me.dead) {
+      audioCue("boost");
       me.vx += Math.cos(me.a) * 220; me.vy += Math.sin(me.a) * 220;
       camKick.x -= Math.cos(me.a) * 10; camKick.y -= Math.sin(me.a) * 10;
       const jet = exhaustJets(me, now).sort((a, b) => b.power - a.power)[0];
@@ -196,7 +197,7 @@
     const vzT = playing && !me.dead && boost ? 0.84 : 1;
     viewZoom += (vzT - viewZoom) * (1 - Math.exp(-(vzT < viewZoom ? 2.2 : 1.4) * dt));
     applyView();
-    engineHum(playing && !me.dead ? Math.hypot(me.vx, me.vy) : 0, drift ? 0 : me.thrust, me.boostFx, now);
+    engineHum(playing && roundLive && !me.dead ? Math.hypot(me.vx, me.vy) : 0, drift ? 0 : me.thrust, me.boostFx, now);
     if (!me.dead) { trailFrom(me, 0.6 + me.thrust * 1.6 + me.boostFx * 1.5, dt); if (playing) damageFx(me, dt); afterburner(me, me.boostFx, dt); }
   }
   // every shot in flight: homing, ricochets, digging into bodies, hitting me (I decide) or reaching others
@@ -478,7 +479,7 @@
         me.vx += dx / d * kick; me.vy += dy / d * kick;
         impact(me.x - dx / 2, me.y - dy / 2, "#bdfff6", 1.2);
         if (rammed || mineRam) { sparkShower(me.x - dx / 2, me.y - dy / 2, -dy, dx, 1.3); sparkShower(me.x - dx / 2, me.y - dy / 2, dy, -dx, 1.3); shake = Math.max(shake, 0.4); }
-        packPlay("p_melee_hit", rammed ? 1 : 0.6) || sfx("ram", rammed ? 1 : 0.6) || blip(rammed ? 120 : 220, 0.2, "square");
+        sfx("ram", rammed ? 1 : 0.6);
         // they rammed me on boost: I take the damage and report it so they get the credit
         if (rammed && r.tag && !mates(r, me)) {
           const id = r.tag + ".ram" + Math.floor(now);
@@ -493,6 +494,7 @@
   // sparks, spilled stars, medkits and shields, Overdrive and weapon crates
   const magnet = () => me.lv >= 5 ? 70 : 0;   // perk: pick-ups from further away from Lv 5
   function updatePickups(dt, now) {
+    if (!roundLive) return;
     // sparks
     if (playing && !me.dead) {
       for (let i = 0; i < SLOTS; i++) {
@@ -509,7 +511,7 @@
             const a = Math.random() * 6.28, v = 60 + Math.random() * 200;
             puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.5 + Math.random() * 0.6, 1.5 + Math.random() * 2, s.gold ? "#ffd36b" : "#ffffff");
           }
-          sfx("p_pickup", s.gold ? 0.65 : 0.4, s.gold ? 0.85 : 1.1) || blip(s.gold ? 660 : 880, s.gold ? 0.3 : 0.12);
+          audioCue("pickup");
         }
       }
     }
@@ -524,7 +526,7 @@
           grabbed.add(st.key); pushCapped(myGrabs, st.key, 40);
           me.score += 1; showScore();
           for (let k = 0; k < 8; k++) { const a = Math.random() * 6.28; puff(st.x, st.y, Math.cos(a) * 120, Math.sin(a) * 120, 0.4, 1.8, "#ffe3f6"); }
-          sfx("p_pickup", 0.3, 1.2) || blip(990, 0.06);
+          audioCue("pickup");
           gainXp(1, now);
         }
       }
@@ -727,7 +729,7 @@
     if (playing && sendAcc >= 1 / net.hz) {
       sendAcc = 0;
       const msg = {
-        q: ++sendSeq, rd: stats.round, hb: hitBy, ko: koBy, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),
+        q: ++sendSeq, mc: matchReady ? [matchRound, matchStart, matchEnd] : undefined, rd: stats.round, hb: hitBy, ko: koBy, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),
         vx: Math.round(me.vx), vy: Math.round(me.vy), a: +me.a.toFixed(2),
         t: me.thrust > 0.3 ? 1 : 0, b: me.boostFx, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0, ds: me.dead ? me.ds : 0,
         dk: me.dead ? me.dk : 0, da: me.dead ? +me.da.toFixed(2) : 0, tm: me.tm ?? -1,   // the team rides every message: shots need it
@@ -778,6 +780,7 @@
     updateRemotes(dt, now);
     updatePickups(dt, now);
     updateFx(dt, now);
+    audioTick(now);
     netSend(dt, now);
   }
 
@@ -785,9 +788,11 @@
   // everyone's numbers for the current round (others' come from their latest state)
   function playerRows() {
     const rows = [{ name: me.name || "You", hue: me.hue, me: true, ping: myPing, score: me.score, kills: stats.kills, deaths: stats.deaths, shots: stats.shots, hits: stats.hits, best: stats.best, tm: me.tm, caps: me.caps || 0 }];
-    for (const r of remotes.values()) {
+    for (const b of bots) rows.push({ name: b.name, hue: b.hue, ping: 0, score: b.st.kills * 5, ...b.st, tm: b.tm, caps: b.caps || 0 });
+    for (const [id, r] of remotes) {
+      if (botById.has(id)) continue;
       const st = r.st && r.st[0] === stats.round ? r.st : [0, 0, 0, 0, 0, 0];
-      rows.push({ name: r.name, hue: r.hue, ping: r.ping, score: r.score, kills: st[1], deaths: st[2], shots: st[3], hits: st[4], best: st[5], tm: r.tm, caps: r.cpRound === stats.round ? r.caps || 0 : 0 });
+      rows.push({ name: r.name, hue: r.hue, ping: r.ping, score: r.st && r.st[0] === stats.round ? r.score : 0, kills: st[1], deaths: st[2], shots: st[3], hits: st[4], best: st[5], tm: r.tm, caps: r.cpRound === stats.round ? r.caps || 0 : 0 });
     }
     return rows;
   }
@@ -800,9 +805,10 @@
     const w = t.lead > 0 ? 0 : 1;
     return `<span style="color:${TEAM_HEX[w]}">${TEAM_NAME[w]} team wins</span> · ${sc(w)} to ${sc(1 - w)}`;
   }
+  const comparePlayers = (a, b) => (MODES[MODE].flags ? b.caps - a.caps : 0) || b.kills - a.kills || a.deaths - b.deaths;
   function showResults(roundNo) {
-    const rows = playerRows().sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
-    const top = rows[0];
+    const rows = playerRows().sort(comparePlayers);
+    const top = rows[0], tied = rows.length > 1 && comparePlayers(rows[0], rows[1]) === 0;
     const shooters = rows.filter(r => r.shots >= 10);
     const pick = (list, f) => list.length ? list.reduce((a, b) => f(b) > f(a) ? b : a) : null;
     const awards = [
@@ -815,9 +821,9 @@
     ].filter(([, who]) => who);
     const card = document.getElementById("resultsCard");
     card.innerHTML = `<h2>Round ${roundNo} over</h2>
-      <div class="winner">${teamWinLine() || (top.kills ? "Winner: " + esc(top.name) + " · " + top.kills + " kills" : "Nobody scored a kill")}</div>
-      <table><thead><tr><th>Pilot</th><th>Kills</th><th>Deaths</th><th>Accuracy</th></tr></thead><tbody>
-      ${rows.map(r => `<tr class="${r.me ? "me" : ""}"><td${isTeams() && onTeam(r) ? ` style="color:${TEAM_HEX[r.tm]}"` : ""}>${esc(r.name)}${r.me ? " (you)" : ""}</td><td>${r.kills}</td><td>${r.deaths}</td><td>${r.shots ? acc(r) + "%" : "–"}</td></tr>`).join("")}
+      <div class="winner">${teamWinLine() || (top.kills ? tied ? "Draw · " + top.kills + " kills" : "Winner: " + esc(top.name) + " · " + top.kills + " kills" : "Nobody scored a kill")}</div>
+      <table><thead><tr><th>Pilot</th><th>Kills</th><th>Deaths</th>${MODES[MODE].flags ? "<th>Flags</th>" : ""}<th>Points</th><th>Accuracy</th></tr></thead><tbody>
+      ${rows.map(r => `<tr class="${r.me ? "me" : ""}"><td${isTeams() && onTeam(r) ? ` style="color:${TEAM_HEX[r.tm]}"` : ""}>${esc(r.name)}${r.me ? " (you)" : ""}</td><td>${r.kills}</td><td>${r.deaths}</td>${MODES[MODE].flags ? `<td>${r.caps}</td>` : ""}<td>${r.score}</td><td>${r.shots ? acc(r) + "%" : "–"}</td></tr>`).join("")}
       </tbody></table>
       <div class="awards">${awards.map(([title, who, why]) => `<div class="award"><b>${title}</b><span>${esc(who.name)}</span><small>${why(who)}</small></div>`).join("")}</div>
       <div class="next" id="nextRound"></div>`;
@@ -830,7 +836,9 @@
   function roundEndVoice() {
     const rows = playerRows();
     if (rows.length < 2) return;
-    const top = rows.reduce((a, b) => b.kills > a.kills || (b.kills === a.kills && b.deaths < a.deaths) ? b : a);
+    rows.sort(comparePlayers);
+    if (isTeams() ? teamTotals().lead === 0 : comparePlayers(rows[0], rows[1]) === 0) return;
+    const top = rows[0];
     const won = isTeams() ? (teamTotals().lead || 0) * (me.tm === 0 ? 1 : -1) > 0 : top.me && stats.kills > 0;
     setTimeout(() => { const line = won ? (stats.deaths === 0 ? "v_flawless" : "v_win") : "v_lose"; packPlay(line, 1) || sfx(line, 1); }, 600);
   }
@@ -842,20 +850,29 @@
   }
   function roundTick(now) {
     const rd = roundAt(clockNow());
+    if (!matchReady) { roundLive = false; document.getElementById("roundInfo").textContent = "Waiting for host…"; return; }
     if (rd.idx !== stats.round) {
       // a new round: everyone starts from scratch
       Object.assign(stats, { round: rd.idx, kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 });
       if (shownRound !== -1 && playing) {
         me.score = 0; showScore(); me.xp = 0; me.lv = 1; renderLevel();
         baseArsenal(); me.ampUntil = 0; renderWeapon();
-        if (!me.dead) { me.lives = maxLivesOf(1); me.shield = 0; renderShield(); renderHearts(false); me.inv = now + 2000; }
-        floaters.push({ x: me.x, y: me.y - 90, t: 0, txt: "ROUND " + (rd.idx % 1000) + " · FIGHT!", gold: true });
+        me.dead = false; me.respawnAt = 0; me.lives = maxLivesOf(1); me.shield = 0; renderShield(); renderHearts(false); me.inv = now + 2000;
+        floaters.push({ x: me.x, y: me.y - 90, t: 0, txt: "ROUND " + (rd.idx - (firstRoundIdx ?? rd.idx) + 1) + " · FIGHT!", gold: true });
         sfx("v_fight", 1);
       }
-      for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0, weapon: "fire" });
-      me.fc = -1; me.caps = 0;
+      for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, lv: 1, xp: 0, vx: 0, vy: 0, ammo: 0, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0, weapon: "fire" });
+      me.fc = -1; me.caps = 0; me.heat = 0; me.overheat = false; railCharge = 0; charge = 0;
+      energy = 100; energyRegenAt = 0; dashReadyAt = 0; lungeReady = 0;
+      flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
+      grabbed.clear(); myGrabs.length = 0; drops.clear(); gunDrops.clear(); myDrops.length = 0; myGunDrops.length = 0;
       hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0;
-      if (shownRound !== -1) { myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode); }   // every crater filled in again
+      if (shownRound !== -1) {
+        myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode);
+        // Respawn after rebuilding: a repaired planet must not enclose a pilot in its old tunnel.
+        Object.assign(me, spawnPoint(me.tm), { vx: 0, vy: 0 });
+        for (const b of bots) Object.assign(b, spawnPoint(b.tm), { nav: null, navAt: 0, patrol: null, dashReq: false });
+      }
       firstBlood = false; streaks.clear(); multi = 0;
       me.hitHistory = []; for (const b of bots) b.hitHistory = [];
       credited.clear(); botCredited.clear(); killSeen.clear(); ufoHits.clear(); pendingHitFx.clear();
@@ -868,25 +885,26 @@
     }
     // the score limit: once someone (or a team) reaches it, the round is decided; results show until the next one
     if (rd.live && SCORE_LIMIT && decidedRound !== rd.idx && leaderScore() >= SCORE_LIMIT) {
-      decidedRound = rd.idx;
+      decidedRound = rd.idx; matchEnd = clockNow(); rd.next = ROUND_BREAK;
       announce("ROUND DECIDED", "score limit " + SCORE_LIMIT + " reached", "#ffd36b", 2);
     }
     const live = rd.live && decidedRound !== rd.idx;
+    if (roundLive && !live) { shots.length = 0; guided = null; }
     roundLive = live;
     const info = document.getElementById("roundInfo");
     if (live) {
-      const m = Math.floor(rd.left / 60), sec = Math.floor(rd.left % 60);
+      const remaining = Math.ceil(rd.left), m = Math.floor(remaining / 60), sec = remaining % 60;
       if (firstRoundIdx === null) firstRoundIdx = rd.idx;
       info.textContent = "Round " + (rd.idx - firstRoundIdx + 1) + " · " + m + ":" + String(sec).padStart(2, "0") + (SCORE_LIMIT ? " · first to " + SCORE_LIMIT : "");
       info.classList.toggle("last", rd.left < 30);
     } else {
-      info.textContent = "Results · next round in " + Math.ceil(ROUND_LEN - rd.ph) + "s";
+      info.textContent = "Results · next round in " + Math.ceil(rd.next) + "s";
       if (playing && resultsFor !== rd.idx) roundEndVoice();
-      if (playing && ROUND_LEN - rd.ph < 2.6 && preparedFor !== rd.idx) { preparedFor = rd.idx; sfx("v_prepare", 1); }
+      if (playing && rd.next < 2.6 && preparedFor !== rd.idx) { preparedFor = rd.idx; sfx("v_prepare", 1); }
       // refresh once a second so late state updates from other pilots still land in the table
       if (playing && (resultsFor !== rd.idx || now - resultsAt > 1000)) { resultsFor = rd.idx; resultsAt = now; showResults(rd.idx - (firstRoundIdx ?? rd.idx) + 1); }
       const nx = document.getElementById("nextRound");
-      if (nx) nx.textContent = "Next round in " + Math.ceil(ROUND_LEN - rd.ph) + " s";
+      if (nx) nx.textContent = "Next round in " + Math.ceil(rd.next) + " s";
     }
   }
   // team totals: kills, and flags captured
@@ -897,9 +915,8 @@
   }
   function renderBoard() {
     const rows = playerRows();
-    rows.sort((a, b) => b.kills - a.kills || a.deaths - b.deaths || b.score - a.score);
-    const shown = rows.slice(0, 8);
-    if (!shown.some(r => r.me)) shown[7] = rows.find(r => r.me);
+    rows.sort(comparePlayers);
+    const shown = rows;
     const team = [];
     if (isTeams()) {   // the two teams first: kills, or captures in CTF
       const t = teamTotals(), flags = MODES[MODE].flags;
@@ -913,7 +930,7 @@
     boardEl.replaceChildren(...team, ...shown.map(r => {
       const li = document.createElement("li"); if (r.me) li.className = "me";
       const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = r.name; nm.style.color = isTeams() && onTeam(r) ? TEAM_HEX[r.tm] : `hsl(${r.hue} 90% 80%)`;
-      const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = r.kills + " · " + r.deaths;
+      const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = (MODES[MODE].flags ? r.caps + " flags · " : "") + r.kills + " / " + r.deaths + " · " + r.score + " pts";
       if (r.ping) { const pg = document.createElement("small"); pg.className = "pg " + (r.ping < 90 ? "good" : r.ping < 180 ? "ok" : "bad"); pg.textContent = Math.round(r.ping) + "ms"; nm.append(" ", pg); }
       li.append(nm, pts); return li;
     }));

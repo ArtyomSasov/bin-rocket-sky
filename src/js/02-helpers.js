@@ -25,12 +25,12 @@
   // graphics settings, kept in this browser: res "auto" (drops when slow) or a fixed share of the screen's resolution,
   // fx "high" or "low" (lighter effects), aim: the crosshair ("off", "small", "big"), aimCol: its colour
   const settings = (() => {
-    const d = { res: "auto", fx: "high", aim: "small", aimCol: "gun", engine: "off", mouse: "aim" };   // engine: a recorded loop with synthesized fallback, off unless asked for
+    const d = { res: "auto", fx: "high", aim: "small", aimCol: "gun", engine: "on", engineV: 3, mouse: "aim" };   // recorded rocket-engine loop; the sound setting can still disable it
     try {
       const v = JSON.parse(store.get("binrocket.gfx"));
       if (!v || typeof v !== "object") return d;
       if (typeof v.aim === "boolean") v.aim = v.aim ? "small" : "off";   // older saves had the crosshair as on/off
-      if (!v.engineV) { v.engine = "off"; v.engineV = 2; }   // the synthesized engine hum is off now unless switched on again
+      if ((v.engineV || 0) < 3) { v.engine = "on"; v.engineV = 3; }   // replace the former silent default with the new recorded engine
       return { ...d, ...v };
     } catch { return d; }
   })();
@@ -81,6 +81,7 @@
   const EV_CYCLE = 45, EV_START = 10, EV_LEN = 25;
   const EV_TYPES = ["blackhole", "meteors", "aliens", "goldrain"];
   function eventAt(ms) {
+    if (stationMap()) return { cyc: 0, ph: 0, et: 0, type: "blackhole", active: false, warn: false };
     const t = ms / 1000, cyc = Math.floor(t / EV_CYCLE), ph = t - cyc * EV_CYCLE;
     return {
       cyc, ph, et: ph - EV_START,
