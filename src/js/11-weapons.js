@@ -297,7 +297,9 @@
       impacts.push({ x, y, t: 0, r: 155, col: "#b8ff91" });
       rings.push({ x, y, t: 0, r: 270, col: "75,255,110", warp: true, dur: 0.6, w: 14 });
       for (let k = 0; k < (lowQ ? 20 : 48); k++) { const a = Math.random() * 6.283, v = 140 + Math.random() * 500; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.45 + Math.random() * 0.6, 2 + Math.random() * 3, k % 3 ? "#58f77a" : "#d4ffad"); }
-      if (near) { packPlay("p_boom_gamma", 1, x, y) || sfx("boom_small", 1, 0.8, x, y); shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
+      // The orb travels beyond the old 1400px gate; let the sound mixer handle distance.
+      packPlay("p_boom_gamma", 1, x, y) || sfx("boom_small", 1, 0.8, x, y);
+      if (near) shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400));
       return;
     }
     if (s.kind === K.ORB) {   // plasma: a blue-white flash, a warping shock ring, crackling sparks, a sizzle

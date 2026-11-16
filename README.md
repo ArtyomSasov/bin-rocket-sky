@@ -265,11 +265,11 @@ Generic and additional effects are CC0 from OpenGameArt (Kenney, rubberduck, zer
 ## Audio and visual effects update
 
 The existing generic sound files are attributed to CC0 authors, not documented as AI-generated.
-The first weapon now uses a short cut of the supplied Demonic Shot; Demonic Skull (formerly Gamma Orb) uses its longer version.
+The first weapon now uses a short cut of the supplied Demonic Shot; Demonic Orb (formerly Gamma Orb) uses its longer version.
 Minigun has one primary mode with its original Quake chaingun/burst sound. Rocket and grenade launchers
 retain Quake shots and explosions. Shard Cannon uses Autocannon to fire and Explosive Canon on impacts/flak bursts.
-Demonic Skull flies as a horned green skull and uses Demonic Explosions on impact or manual detonation. Movement uses Engine Working,
-with thrust/speed/boost controlling its mix. Boost, dash, teleport, respawn, warnings, shield transitions
+Demonic Orb flies as a green molten orb and uses Demonic Explosions on impact or manual detonation. Movement uses Engine Working,
+with thrust/speed/boost controlling its mix. Engine Working keeps a near-original pitch and audible thrust/boost levels; it no longer falls back to a rocket loop or synthesized hum. Boost, dash, teleport, respawn, warnings, shield transitions
 and power-down have sample feedback. Metal collisions use three recorded cast-iron impacts; larger
 ship blasts use Explosion Rumb; Nuke/Holy Bomb choose between Massive Explosion and Explosive Nuke or Holy Bomb. Quiet atmosphere and saw loops
 complete the mix. The engine is enabled by default and can be disabled in Settings.

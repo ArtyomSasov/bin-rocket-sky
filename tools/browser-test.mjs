@@ -12,7 +12,12 @@ const chromePath = process.env.BROWSER_PATH;
 assert.ok(chromePath, 'Set BROWSER_PATH to a Chrome/Chromium executable');
 execFileSync(process.execPath, ['tools/build.mjs'], { cwd: root });
 const gameplayChecks = await readFile(join(root, "tools/gameplay-checks.js"), "utf8");
-const hook = gameplayChecks + `window.__t = {runGameplayChecks, renderSkullPreview, WEAPONS, renderVfxPreview, renderWeapon, renderTele, renderShield, ampHud, settings, packHas, packBuf, engineHum, packLoops, K, SHOTS, hitPose, targetHit, recordHitPose, updateShots, volley, net, netSend, gotPing,
+const hook = gameplayChecks + `window.__t = {runGameplayChecks, renderDemonicPreview, WEAPONS, renderVfxPreview, renderWeapon, renderTele, renderShield, ampHud, settings, packHas, packBuf, engineHum, packLoops, K, SHOTS, hitPose, targetHit, recordHitPose, updateShots, volley, net, netSend, gotPing,
+ checkDemonicAudio(){const original=audio.createBufferSource;let heard=0;audio.createBufferSource=function(){const src=original.call(audio),start=src.start.bind(src);src.start=(...args)=>{if(src.buffer===packBuf.p_user_demonic_explosion[0])heard++;return start(...args);};return src;};
+ try {bodies=[];det=[];shots.length=0;me.x=100;me.y=100;me.inv=1e15;
+ const far=volley(me,performance.now(),WEAPONS.gamma,{x:1700,y:100});far.life=0;updateShots(0.016,performance.now());
+ const manual=volley(me,performance.now(),WEAPONS.gamma,{x:200,y:100});detonateOrb({mine:true,x:manual.x,y:manual.y});updateShots(0.016,performance.now());return heard;
+ }finally{audio.createBufferSource=original;}},
  isolate(){bodies=[];det=[];shots.length=0;},
  me, stats, PACK_PATHS, PACK_VOICES, SFX_NAMES, sfxBuf, queueVoice, get voiceActive(){return voiceActive?.name}, get voiceQueue(){return voiceQueue.map(v=>v.name)}, setScoreLimit(v){SCORE_LIMIT=v}, setEnd(v){matchEnd=v}, getFrame(){return frameAvg}, startMatch, roundAt, receiveMatchClock, playerRows, renderBoard, foundryOpen, foundryPoint, foundryRoute, stationMap, beamReach, solidAny, spawnPoint, get arena(){return arena}, get match(){return [matchRound,matchStart,matchEnd]}, updateJunk, rock, rockMotion, clockNow, get world(){return world}, deathFx, hurt, ctfTick, roundTick, shoot, carveAt, nextTerrain, applyTerrain,
  get bodies(){return bodies}, get det(){return det}, get bots(){return bots}, get shots(){return shots}, get mode(){return MODE},
@@ -178,11 +183,19 @@ try {
     const altShots=t.shots.length-before,altAmmo=t.me.arsenal.minigun;t.shoot(performance.now(),false);
     return {altDefined:!!t.WEAPONS.minigun.alt,altShots,altAmmo,primaryShots:t.shots.length-before,ammo:t.me.arsenal.minigun};})()`);
   assert.deepEqual(minigun,{altDefined:false,altShots:0,altAmmo:100,primaryShots:1,ammo:99});
-  if(process.env.BRS_SKULL_PREVIEW) {const png=await evaluate(combat,'__t.renderSkullPreview()');await writeFile(process.env.BRS_SKULL_PREVIEW,Buffer.from(png.split(',')[1],'base64'));}
-  await until(combat, '["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine","a_firstblood","v_flawless","p_user_engine","p_user_fire","p_user_demonic","p_user_cannon","p_user_autocannon","p_user_explosion","p_user_massive"].every(__t.packHas)',10000);
+  if(process.env.BRS_DEMONIC_PREVIEW) {const png=await evaluate(combat,'__t.renderDemonicPreview()');await writeFile(process.env.BRS_DEMONIC_PREVIEW,Buffer.from(png.split(',')[1],'base64'));}
+  await until(combat, '["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine","a_firstblood","v_flawless","p_user_engine","p_user_fire","p_user_demonic","p_user_demonic_explosion","p_user_cannon","p_user_autocannon","p_user_explosion","p_user_massive"].every(__t.packHas)',10000);
+  assert.equal(await evaluate(combat,'__t.checkDemonicAudio()'),2,'the supplied explosion starts on distant expiry and manual detonation');
   const decoded = await evaluate(combat, 'Object.fromEntries(["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine"].map(k=>[k,+__t.packBuf[k][0].duration.toFixed(2)]))');
   await evaluate(combat, '__t.settings.engine="on";__t.engineHum(500,1,1,performance.now())');
   assert.equal(await evaluate(combat, '__t.packLoops.engine?.ev'), 'p_user_engine');
+  assert.equal(await evaluate(combat, '__t.packLoops.engine.src.buffer===__t.packBuf.p_user_engine[0]'),true);
+  await evaluate(combat, '__t.engineHum(500,1,0,performance.now())');await wait(400);
+  const engineLevel=await evaluate(combat,'({gain:__t.packLoops.engine.g.gain.value,pitch:__t.packLoops.engine.src.playbackRate.value})');
+  assert.ok(engineLevel.gain>0.4 && engineLevel.gain<0.45,'engine thrust is audible');
+  assert.ok(engineLevel.pitch>0.96 && engineLevel.pitch<1.12,'recorded timbre is preserved');
+  await evaluate(combat, '__t.engineHum(800,1.4,2,performance.now())');await wait(400);
+  assert.ok(await evaluate(combat,'__t.packLoops.engine.g.gain.value>0.56'),'boost is louder');
   await evaluate(combat, '__t.engineHum(0,0,0,performance.now())');
   assert.equal(await evaluate(combat, '!!__t.packLoops.engine'), false);
   console.log('PASS decoded supplemental audio, supplied voices and engine start/stop',decoded);

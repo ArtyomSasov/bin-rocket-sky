@@ -163,31 +163,33 @@
     g.restore(); g.globalAlpha = 1;
   }
 
-  function drawDemonicSkull(x, y, radius, now) {
+  function drawDemonicOrb(x, y, radius, now) {
     g.save(); g.translate(x, y); g.scale(radius / 32, radius / 32);
-    g.globalAlpha *= 0.35; g.drawImage(dotSprite("#35ff61"), -74, -82, 148, 148); g.globalAlpha = 1;
-    g.rotate(Math.sin(now / 260) * 0.06);
-    // Swept horns, angular cheekbones and a separate toothed jaw keep the silhouette readable.
-    g.fillStyle = "#4dce60"; g.strokeStyle = "#153f26"; g.lineWidth = 2.5;
-    for (const side of [-1, 1]) {
-      g.beginPath(); g.moveTo(side * 18, -15); g.quadraticCurveTo(side * 39, -22, side * 34, -43);
-      g.quadraticCurveTo(side * 23, -29, side * 12, -26); g.closePath(); g.fill(); g.stroke();
+    g.globalAlpha *= 0.55; g.drawImage(dotSprite("#36ef56"), -90, -90, 180, 180); g.globalAlpha = 1;
+    const skin = g.createRadialGradient(-8, -10, 1, 0, 0, 34);
+    skin.addColorStop(0, "#f0ffb7"); skin.addColorStop(0.25, "#b9ff65"); skin.addColorStop(0.58, "#42df40");
+    skin.addColorStop(0.85, "#116d31"); skin.addColorStop(1, "#062719");
+    g.fillStyle = skin; g.beginPath(); g.arc(0, 0, 32, 0, Math.PI * 2); g.fill();
+    g.save(); g.beginPath(); g.arc(0, 0, 31, 0, Math.PI * 2); g.clip();
+    g.rotate(now / 1700);
+    // Dark moving fissures around a molten core, with green fire escaping the surface.
+    for (let i = 0; i < 7; i++) {
+      g.save(); g.rotate(i * Math.PI * 2 / 7);
+      const bend = Math.sin(now / 340 + i * 2) * 5;
+      g.strokeStyle = "#063a22"; g.lineWidth = 3;
+      g.beginPath(); g.moveTo(10, -3); g.bezierCurveTo(18, -9 + bend, 17, 12, 25, 8); g.lineTo(36, bend); g.stroke();
+      g.strokeStyle = "#a6ff65"; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(15, -7 + bend); g.quadraticCurveTo(22, -13, 33, -7); g.stroke(); g.restore();
     }
-    const bone = g.createLinearGradient(-20, -30, 17, 29);
-    bone.addColorStop(0, "#e0ffd0"); bone.addColorStop(0.4, "#97ff80"); bone.addColorStop(1, "#25894d");
-    g.fillStyle = bone; g.beginPath(); g.moveTo(-16, -28);
-    g.quadraticCurveTo(0, -37, 16, -28); g.quadraticCurveTo(31, -19, 29, -2);
-    g.lineTo(24, 11); g.lineTo(14, 15); g.lineTo(13, 29); g.lineTo(-13, 29); g.lineTo(-14, 15);
-    g.lineTo(-24, 11); g.lineTo(-29, -2); g.quadraticCurveTo(-31, -19, -16, -28); g.closePath(); g.fill(); g.stroke();
-    g.fillStyle = "#082519";
-    for (const side of [-1, 1]) {
-      g.beginPath(); g.moveTo(side * 5, -5); g.lineTo(side * 24, -13); g.lineTo(side * 20, 4); g.lineTo(side * 8, 7); g.closePath(); g.fill();
-      g.fillStyle = "#d7ff85"; g.beginPath(); g.ellipse(side * 15, -2, 4.5, 2.5, side * -0.35, 0, 6.29); g.fill(); g.fillStyle = "#082519";
+    g.restore();
+    const core = g.createRadialGradient(-4, -4, 0, 0, 0, 15);
+    core.addColorStop(0, "#ffffde"); core.addColorStop(0.3, "#e4ffa4"); core.addColorStop(1, "#b3ff5300");
+    g.fillStyle = core; g.beginPath(); g.arc(0, 0, 15, 0, Math.PI * 2); g.fill();
+    for (let i = 0; i < 6; i++) {
+      const a = i * Math.PI / 3 + now / 1300, tip = 39 + Math.sin(now / 110 + i) * 5;
+      g.save(); g.rotate(a); g.fillStyle = "#7aff7070"; g.beginPath(); g.moveTo(27, -5);
+      g.quadraticCurveTo(tip, -10, tip + 4, 3); g.quadraticCurveTo(33, -2, 28, 6); g.closePath(); g.fill(); g.restore();
     }
-    g.beginPath(); g.moveTo(0, 7); g.lineTo(-5, 16); g.lineTo(5, 16); g.closePath(); g.fill();
-    g.fillRect(-13, 20, 26, 5); g.fillStyle = "#c7ffa1";
-    for (let tx = -11; tx < 12; tx += 6) { g.fillRect(tx, 18, 4, 6); g.fillRect(tx, 26, 4, 3); }
-    g.strokeStyle = "#3c7f47"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-3, -29); g.lineTo(2, -22); g.lineTo(-2, -17); g.stroke();
     g.restore();
   }
   function drawShot(s, x, y, now) {
@@ -371,13 +373,13 @@
       g.restore();
       return;
     }
-    if (s.kind === K.GAMMA) {   // a horned green skull with a spectral wake
+    if (s.kind === K.GAMMA) {   // a molten demonic orb with a spectral wake
       const speed = Math.hypot(s.vx, s.vy) || 1;
       for (let i = 3; i > 0; i--) {
         const trail = 22 + i * 7; g.save(); g.globalAlpha = 0.14 / i;
         g.drawImage(dotSprite("#35ff61"), x - s.vx / speed * i * 22 - trail, y - s.vy / speed * i * 22 - trail, trail * 2, trail * 2); g.restore();
       }
-      drawDemonicSkull(x, y, 32 + Math.sin(now / 160) * 1.5, now);
+      drawDemonicOrb(x, y, 32 + Math.sin(now / 160) * 1.5, now);
       return;
     }
     if (s.kind === K.BEACON) {   // the teleporter's beacon: a cyan diamond with a beating ring
@@ -865,9 +867,9 @@
         g.save(); g.translate(0, -38); g.rotate(now / 60); g.fillStyle = "#d6dde8"; g.beginPath();
         for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, r = k % 2 ? 10 : 15; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
         g.closePath(); g.fill(); g.fillStyle = s.returning ? "#6fffe0" : "#5a6684"; g.beginPath(); g.arc(0, 0, 4, 0, 6.29); g.fill(); g.restore();
-      } else if (weapon === "gamma") {   // a demonic skull mounted on the launcher
+      } else if (weapon === "gamma") {   // a demonic orb mounted on the launcher
         g.fillStyle = "#3b2d5c"; rrect(-12, -20, 24, 26, 6); g.fill();
-        drawDemonicSkull(0, -39, 18, now);
+        drawDemonicOrb(0, -39, 18, now);
       } else if (weapon === "tele") {   // a little dish with a cyan tip
         g.fillStyle = "#3b2d5c"; rrect(-5, -24, 10, 28, 3); g.fill();
         g.fillStyle = "#5a6684"; g.beginPath(); g.ellipse(0, -28, 16, 6, 0, 0, 6.29); g.fill();

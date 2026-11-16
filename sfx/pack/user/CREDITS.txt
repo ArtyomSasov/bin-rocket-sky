@@ -4,7 +4,7 @@ Original AAC inputs remain outside the repository and were not modified.
 Published derivatives: mono PCM WAV, 48 kHz / 16-bit.
 
 Mappings and edits:
-- demonic-shot.wav: demonic-shot.aac, 0.12–4.65 s; Demonic Skull (formerly Gamma Orb).
+- demonic-shot.wav: demonic-shot.aac, 0.12–4.65 s; Demonic Orb (formerly Gamma Orb).
 - demonic-shot-short.wav: demonic-shot.aac, 0.18–0.60 s; Fireball / Triple shot.
 - explosive-canon.wav: explosive-canon.aac, 0.02–2.50 s; Shard Cannon impacts and Flak burst.
 - autocannon.wav: Shoot - Autocannon.aac, 0–2.00 s; Shard Cannon / Flak firing.
@@ -31,7 +31,7 @@ Corrections: rocket/grenade fire and explosions restored to Quake. Minigun has
 one primary mode using the existing chaingun burst recordings. No other weapon
 uses the new cannon/autocannon pairing.
 Added demonic-explosions.aac -> demonic-explosions.wav: silence trimmed, mono PCM,
-short endpoint fades; dedicated Demonic Skull explosion.
+short endpoint fades; dedicated Demonic Orb explosion.
 Added explosive-nuke-or-holybomb.aac -> explosive-nuke-or-holybomb.wav: silence
 trimmed, mono PCM, short endpoint fades; second random Nuke / Holy Bomb variant.
 3da0417bd6166fda5cbfc718aeeac0834a7dfd7870d87b106cf3e392fddca797  demonic-explosions.aac

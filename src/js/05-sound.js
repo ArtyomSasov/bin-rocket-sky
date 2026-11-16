@@ -19,7 +19,7 @@
     "v_fight", "v_prepare", "v_multikill", "v_flawless", "v_win", "v_lose", "v_levelup", "v_powerup"];   // v_*: Kenney's CC0 voice-over packs
   const SFX_MP3 = new Set(["rail"]);   // rail.mp3: made by the game's author
   const sfxBuf = {};
-  let sfxBus = null, heavyBus = null, mixBus = null, voiceBus = null, sfxVoices = 0, hall = null;
+  let sfxBus = null, heavyBus = null, mixBus = null, voiceBus = null, sfxVoices = 0, blastVoices = 0, hall = null;
   // a big room's echo, shared by the announcer sting and the guns
   function getHall() {
     if (!hall) {
@@ -38,36 +38,19 @@
     boom_small: [0.8, [55, 0.5, 0.9]], boom_bin: [0.8, [45, 0.8, 1]], boom_big: [0.8, [38, 1.2, 1]], boom_low: [0.85, [32, 1.4, 1]],
     chunk: [0.8, [60, 0.4, 0.8]], hit: [0.7, [90, 0.12, 0.6]], crash: [0.75, [70, 0.22, 0.7]], ram: [0.75, [65, 0.25, 0.8]]
   };
-  // the engine: a low hum that rises with speed, opens up with thrust and roars on boost (Settings: Engine)
-  let engine = null, engineAt = 0;
-  function engineHum(speed, thrust, boost, now) {
+  // Engine Working retains its recorded timbre; never substitute the old rocket loop or oscillators.
+  function engineHum(speed, thrust, boost, now, active = true) {
     if (!audio || !sfxBus) return;
-    const on = !document.hidden && settings.engine !== "off" && speed > 0;
-    const engineSound = packHas("p_user_engine") ? "p_user_engine" : "p_fly_rocket";
-    if (packHas(engineSound)) {
-      if (engine) engine.v.gain.setTargetAtTime(0, audio.currentTime, 0.05);
-      packLoop("engine", on ? engineSound : null, 0);
-      const loop = packLoops.engine;
-      if (loop) {
-        loop.src.playbackRate.setTargetAtTime(0.65 + Math.min(0.6, speed / 2400) + boost * 0.12, audio.currentTime, 0.18);
-        loop.g.gain.setTargetAtTime(0.015 + thrust * 0.09 + boost * 0.07, audio.currentTime, 0.12);
-      }
-      return;
-    }
-    if (!engine) {
-      const o1 = audio.createOscillator(), o2 = audio.createOscillator(), f = audio.createBiquadFilter(), v = audio.createGain();
-      o1.type = "sawtooth"; o2.type = "square"; o2.detune.value = 9; f.type = "lowpass"; f.Q.value = 3; v.gain.value = 0;
-      o1.connect(f); o2.connect(f); f.connect(v).connect(sfxBus); o1.start(); o2.start();
-      engine = { o1, o2, f, v };
-      document.addEventListener("visibilitychange", () => { if (document.hidden && engine) engine.v.gain.setTargetAtTime(0, audio.currentTime, 0.05); });
-    }
-    if (now - engineAt < 50) return;   // a few updates a second are plenty
-    engineAt = now;
-    const t = audio.currentTime;
-    engine.o1.frequency.setTargetAtTime(42 + speed * 0.06 + boost * 14, t, 0.12);
-    engine.o2.frequency.setTargetAtTime((42 + speed * 0.06 + boost * 14) * 0.5, t, 0.12);
-    engine.f.frequency.setTargetAtTime(180 + speed * 0.9 + thrust * 260 + boost * 700, t, 0.1);
-    engine.v.gain.setTargetAtTime(on ? 0.035 + thrust * 0.035 + boost * 0.03 + Math.min(0.03, speed / 30000) : 0, t, 0.12);
+    const power = Math.max(0, Math.min(1, thrust)), afterburner = Math.max(0, Math.min(1, boost));
+    const on = active && !document.hidden && settings.engine !== "off" && (speed > 4 || power > 0.03);
+    packLoop("engine", on && packHas("p_user_engine") ? "p_user_engine" : null, 0);
+    const loop = packLoops.engine;
+    if (!loop) return;
+    // A restrained pitch range preserves the identity of the supplied recording.
+    const pitch = 0.96 + Math.min(0.08, speed / 9000) + power * 0.04 + afterburner * 0.08;
+    const volume = 0.065 + power * 0.36 + afterburner * 0.16;
+    loop.src.playbackRate.setTargetAtTime(pitch, audio.currentTime, 0.18);
+    loop.g.gain.setTargetAtTime(volume, audio.currentTime, 0.08);
   }
   function loadSfx() {
     if (!audio || sfxBus) return;
@@ -171,7 +154,7 @@
     p_fire_shard: "p_user_autocannon", p_boom_shard: "p_user_cannon", p_boom_nuke: "p_user_massive", p_boom_holy: "p_user_massive",
     p_boom_gamma: "p_user_demonic_explosion",
     p_death: "p_user_explosion", boom_small: "p_blast", boom_bin: "p_user_explosion", boom_big: "p_blast_heavy", chunk: "p_metal" };
-  const USER_SOUND_GAIN = { p_user_fire: 0.75, p_user_demonic: 0.7, p_user_autocannon: 0.8, p_user_cannon: 0.75, p_user_explosion: 0.7, p_user_massive: 0.85, p_user_demonic_explosion: 0.8 };
+  const USER_SOUND_GAIN = { p_user_fire: 0.75, p_user_demonic: 0.7, p_user_autocannon: 0.8, p_user_cannon: 0.75, p_user_explosion: 0.7, p_user_massive: 0.85, p_user_demonic_explosion: 1.15 };
   let collisionSoundAt = -Infinity;
   function sfx(name, vol = 1, rate = 1, x, y) {
     if (/^(a_|v_)/.test(name)) return queueVoice(name, vol);
@@ -185,14 +168,16 @@
     if (!audio || !b) return false;
     const userSound = packBuf[replacement]?.length && USER_SOUND_GAIN[replacement];
     if (userSound) vol *= userSound;
+    const majorBlast = name === "p_boom_gamma" || name === "p_boom_nuke" || name === "p_boom_holy";
     if (x !== undefined) {
       const d = Math.hypot(x - me.x, y - me.y);
-      if (d > 2200) return true;
-      vol *= 1 - d / 2200;
+      const reach = majorBlast ? 3200 : 2200;
+      if (d > reach) return true;
+      vol *= majorBlast ? Math.sqrt(1 - d / reach) : 1 - d / reach;
     }
-    if (sfxVoices > 28) return true;   // too many at once: skip quietly
+    if (majorBlast ? blastVoices >= 4 : sfxVoices > 28) return true;   // reserve blast voices so automatic fire cannot swallow them
     const src = audio.createBufferSource(), v = audio.createGain(), out = tune ? heavyBus : sfxBus;
-    src.buffer = b; src.playbackRate.value = rate * (tune ? tune[0] : 1) * (0.94 + Math.random() * 0.12);
+    src.buffer = b; src.playbackRate.value = rate * (tune ? tune[0] : 1) * (majorBlast ? 1 : 0.94 + Math.random() * 0.12);
     v.gain.value = vol;
     src.connect(v);
     if (x !== undefined && audio.createStereoPanner) {
@@ -210,7 +195,8 @@
       sfx("boom_low", vol * 0.24, 0.75, x, y);
       setTimeout(() => { if (!document.hidden) sfx("p_metal", vol * 0.22, 0.65, x, y); }, 65);
     }
-    sfxVoices++; src.onended = () => { sfxVoices--; };
+    if (majorBlast) blastVoices++; else sfxVoices++;
+    src.onended = () => { if (majorBlast) blastVoices--; else sfxVoices--; };
     src.start();
     return true;
   }

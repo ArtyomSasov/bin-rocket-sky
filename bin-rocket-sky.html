@@ -660,7 +660,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     { name: "slug",      life: 0.6,  dmg: 1,    r: 4,      col: "#ffe7a0", carve: 20, shove: 450, sfx: ["scatter", 0.6, 1] },
     { name: "holy bomb", life: 3.6,  dmg: 0,    r: 0,      col: "#fff3b0", carve: 0,  shove: 0,   sfx: ["mine_drop", 0.8, 0.6], inert: true },
     { name: "saw blade", life: 3.2,  dmg: 0.85,  r: 8,      col: "#d6dde8", carve: 12, shove: 180, sfx: ["scatter", 0.5, 1.7], pierce: true, bounce: 6 },
-    { name: "demonic skull", life: 4,    dmg: 1.35, r: 34,     col: "#7dff8a", carve: 90, shove: 500, sfx: ["shield_get", 0.8, 0.55] },
+    { name: "demonic orb", life: 4,    dmg: 1.35, r: 34,     col: "#7dff8a", carve: 90, shove: 500, sfx: ["shield_get", 0.8, 0.55] },
     { name: "beacon",    life: 15,   dmg: 0,    r: 0,      col: "#8ff0ff", carve: 0,  shove: 0,   sfx: ["mine_drop", 0.5, 1.5], inert: true },
     { name: "telefrag",  life: 0.12, dmg: 99,   r: 40,     col: "#8ff0ff", carve: 0,  shove: 900, sfx: ["rail", 0.6, 1.6] },
     { name: "bullet",    life: 0.5,  dmg: 0.1, r: 0,      col: "#ffe08a", carve: 6,  shove: 30,  sfx: ["fire", 0.3, 1.8] },
@@ -714,7 +714,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     saw:     { name: "Buzzsaw", ammo: 20, cd: 0.42, col: "#d6dde8", shot: [K.SAW, 1500], kick: 60, feel: [8, 0.08, 50], sfx: ["scatter", 0.55, 1.7],
                alt: { name: "Recall blades", recall: true, cost: 0, cd: 0.3, shot: [K.RECALL, 0], sfx: ["dash", 0.6, 1.4] } },
     // alt: set your gamma orb off where it is now
-    gamma:   { name: "Demonic Skull", ammo: 3, cd: 1.6, col: "#7dff8a", shot: [K.GAMMA, 420], kick: 220, feel: [24, 0.35, 130], sfx: ["shield_get", 1, 0.5], fx: "gamma",
+    gamma:   { name: "Demonic Orb", ammo: 3, cd: 1.6, col: "#7dff8a", shot: [K.GAMMA, 420], kick: 220, feel: [24, 0.35, 130], sfx: ["shield_get", 1, 0.5], fx: "gamma",
                alt: { name: "Detonate", detonate: true, cost: 0, cd: 0.3, sfx: ["hit", 0.6, 0.6] } },
     tele:    { name: "Teleporter", ammo: 3, cd: 0.35, col: "#8ff0ff", shot: [K.BEACON, 1250], kick: 0, feel: [3, 0.02, 30], sfx: ["mine_drop", 0.7, 1.5] },
     // One primary mode with spin-up; its sound is the original Quake chaingun burst.
@@ -833,7 +833,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     nuke: "M14.10 8.36L17.25 2.91A10.5 10.5 0 0 0 6.75 2.91L9.90 8.36A4.2 4.2 0 0 1 14.10 8.36ZM7.80 12.00L1.50 12.00A10.5 10.5 0 0 0 6.75 21.09L9.90 15.64A4.2 4.2 0 0 1 7.80 12.00ZM14.10 15.64L17.25 21.09A10.5 10.5 0 0 0 22.50 12.00L16.20 12.00A4.2 4.2 0 0 1 14.10 15.64ZM12 9.8a2.2 2.2 0 1 0 0.01 0Z",
     holy: "M12 10a6.5 6.5 0 1 0 0.01 0ZM12 1C6.5 1 3.5 2.4 3.5 4.2S6.5 7.4 12 7.4s8.5-1.4 8.5-3.2S17.5 1 12 1Zm0 1.7c4 0 6.4.8 6.4 1.5S16 5.7 12 5.7 5.6 4.9 5.6 4.2 8 2.7 12 2.7Z",
     saw: "M23 12L19.67 14.27L21.53 17.5L17.51 17.8L17.5 21.53L13.87 19.78L12 23L9.73 19.67L6.5 21.53L6.2 17.51L2.47 17.5L4.22 13.87L1 12L4.33 9.73L2.47 6.5L6.49 6.2L6.5 2.47L10.13 4.22L12 1L14.27 4.33L17.5 2.47L17.8 6.49L21.53 6.5L19.78 10.13ZM12 9a3 3 0 1 0 0.01 0Z",
-    gamma: "M4 8L1 1l7 4Q12 2 16 5l7-4-3 7q3 8-4 10v5H8v-5Q1 16 4 8ZM6 10l4 2-1 3-4-2ZM18 10l1 3-4 2-1-3ZM12 14l-2 4h4Z",
+    gamma: "M12 2a10 10 0 1 0 .01 0ZM12 5l-3 5 3 2-4 6 8-6-3-2 3-5Z",
     tele: "M12 2a10 10 0 1 0 0.01 0ZM12 5a7 7 0 1 0 0.01 0ZM12 9.4a2.6 2.6 0 1 0 0.01 0Z",
     minigun: "M2 9h7v7H2ZM4 16h3v4H4ZM9 10h1v5H9ZM10 8.5h12v2H10ZM10 11.5h12v2H10ZM10 14.5h12v2H10Z",
     gauss: "M2 10.5h4v3H2ZM8.5 10.5h2v3h-2ZM13 10.5h2v3h-2ZM17.5 10.5H22v3h-4.5ZM6 7h2.5v10H6ZM10.5 7H13v10h-2.5ZM15 7h2.5v10H15Z",
@@ -1140,7 +1140,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // graphics settings, kept in this browser: res "auto" (drops when slow) or a fixed share of the screen's resolution,
   // fx "high" or "low" (lighter effects), aim: the crosshair ("off", "small", "big"), aimCol: its colour
   const settings = (() => {
-    const d = { res: "auto", fx: "high", aim: "small", aimCol: "gun", engine: "on", engineV: 3, mouse: "aim" };   // recorded rocket-engine loop; the sound setting can still disable it
+    const d = { res: "auto", fx: "high", aim: "small", aimCol: "gun", engine: "on", engineV: 3, mouse: "aim" };   // Engine Working recording; the sound setting can still disable it
     try {
       const v = JSON.parse(store.get("binrocket.gfx"));
       if (!v || typeof v !== "object") return d;
@@ -1533,7 +1533,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     "v_fight", "v_prepare", "v_multikill", "v_flawless", "v_win", "v_lose", "v_levelup", "v_powerup"];   // v_*: Kenney's CC0 voice-over packs
   const SFX_MP3 = new Set(["rail"]);   // rail.mp3: made by the game's author
   const sfxBuf = {};
-  let sfxBus = null, heavyBus = null, mixBus = null, voiceBus = null, sfxVoices = 0, hall = null;
+  let sfxBus = null, heavyBus = null, mixBus = null, voiceBus = null, sfxVoices = 0, blastVoices = 0, hall = null;
   // a big room's echo, shared by the announcer sting and the guns
   function getHall() {
     if (!hall) {
@@ -1552,36 +1552,19 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     boom_small: [0.8, [55, 0.5, 0.9]], boom_bin: [0.8, [45, 0.8, 1]], boom_big: [0.8, [38, 1.2, 1]], boom_low: [0.85, [32, 1.4, 1]],
     chunk: [0.8, [60, 0.4, 0.8]], hit: [0.7, [90, 0.12, 0.6]], crash: [0.75, [70, 0.22, 0.7]], ram: [0.75, [65, 0.25, 0.8]]
   };
-  // the engine: a low hum that rises with speed, opens up with thrust and roars on boost (Settings: Engine)
-  let engine = null, engineAt = 0;
-  function engineHum(speed, thrust, boost, now) {
+  // Engine Working retains its recorded timbre; never substitute the old rocket loop or oscillators.
+  function engineHum(speed, thrust, boost, now, active = true) {
     if (!audio || !sfxBus) return;
-    const on = !document.hidden && settings.engine !== "off" && speed > 0;
-    const engineSound = packHas("p_user_engine") ? "p_user_engine" : "p_fly_rocket";
-    if (packHas(engineSound)) {
-      if (engine) engine.v.gain.setTargetAtTime(0, audio.currentTime, 0.05);
-      packLoop("engine", on ? engineSound : null, 0);
-      const loop = packLoops.engine;
-      if (loop) {
-        loop.src.playbackRate.setTargetAtTime(0.65 + Math.min(0.6, speed / 2400) + boost * 0.12, audio.currentTime, 0.18);
-        loop.g.gain.setTargetAtTime(0.015 + thrust * 0.09 + boost * 0.07, audio.currentTime, 0.12);
-      }
-      return;
-    }
-    if (!engine) {
-      const o1 = audio.createOscillator(), o2 = audio.createOscillator(), f = audio.createBiquadFilter(), v = audio.createGain();
-      o1.type = "sawtooth"; o2.type = "square"; o2.detune.value = 9; f.type = "lowpass"; f.Q.value = 3; v.gain.value = 0;
-      o1.connect(f); o2.connect(f); f.connect(v).connect(sfxBus); o1.start(); o2.start();
-      engine = { o1, o2, f, v };
-      document.addEventListener("visibilitychange", () => { if (document.hidden && engine) engine.v.gain.setTargetAtTime(0, audio.currentTime, 0.05); });
-    }
-    if (now - engineAt < 50) return;   // a few updates a second are plenty
-    engineAt = now;
-    const t = audio.currentTime;
-    engine.o1.frequency.setTargetAtTime(42 + speed * 0.06 + boost * 14, t, 0.12);
-    engine.o2.frequency.setTargetAtTime((42 + speed * 0.06 + boost * 14) * 0.5, t, 0.12);
-    engine.f.frequency.setTargetAtTime(180 + speed * 0.9 + thrust * 260 + boost * 700, t, 0.1);
-    engine.v.gain.setTargetAtTime(on ? 0.035 + thrust * 0.035 + boost * 0.03 + Math.min(0.03, speed / 30000) : 0, t, 0.12);
+    const power = Math.max(0, Math.min(1, thrust)), afterburner = Math.max(0, Math.min(1, boost));
+    const on = active && !document.hidden && settings.engine !== "off" && (speed > 4 || power > 0.03);
+    packLoop("engine", on && packHas("p_user_engine") ? "p_user_engine" : null, 0);
+    const loop = packLoops.engine;
+    if (!loop) return;
+    // A restrained pitch range preserves the identity of the supplied recording.
+    const pitch = 0.96 + Math.min(0.08, speed / 9000) + power * 0.04 + afterburner * 0.08;
+    const volume = 0.065 + power * 0.36 + afterburner * 0.16;
+    loop.src.playbackRate.setTargetAtTime(pitch, audio.currentTime, 0.18);
+    loop.g.gain.setTargetAtTime(volume, audio.currentTime, 0.08);
   }
   function loadSfx() {
     if (!audio || sfxBus) return;
@@ -1685,7 +1668,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     p_fire_shard: "p_user_autocannon", p_boom_shard: "p_user_cannon", p_boom_nuke: "p_user_massive", p_boom_holy: "p_user_massive",
     p_boom_gamma: "p_user_demonic_explosion",
     p_death: "p_user_explosion", boom_small: "p_blast", boom_bin: "p_user_explosion", boom_big: "p_blast_heavy", chunk: "p_metal" };
-  const USER_SOUND_GAIN = { p_user_fire: 0.75, p_user_demonic: 0.7, p_user_autocannon: 0.8, p_user_cannon: 0.75, p_user_explosion: 0.7, p_user_massive: 0.85, p_user_demonic_explosion: 0.8 };
+  const USER_SOUND_GAIN = { p_user_fire: 0.75, p_user_demonic: 0.7, p_user_autocannon: 0.8, p_user_cannon: 0.75, p_user_explosion: 0.7, p_user_massive: 0.85, p_user_demonic_explosion: 1.15 };
   let collisionSoundAt = -Infinity;
   function sfx(name, vol = 1, rate = 1, x, y) {
     if (/^(a_|v_)/.test(name)) return queueVoice(name, vol);
@@ -1699,14 +1682,16 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (!audio || !b) return false;
     const userSound = packBuf[replacement]?.length && USER_SOUND_GAIN[replacement];
     if (userSound) vol *= userSound;
+    const majorBlast = name === "p_boom_gamma" || name === "p_boom_nuke" || name === "p_boom_holy";
     if (x !== undefined) {
       const d = Math.hypot(x - me.x, y - me.y);
-      if (d > 2200) return true;
-      vol *= 1 - d / 2200;
+      const reach = majorBlast ? 3200 : 2200;
+      if (d > reach) return true;
+      vol *= majorBlast ? Math.sqrt(1 - d / reach) : 1 - d / reach;
     }
-    if (sfxVoices > 28) return true;   // too many at once: skip quietly
+    if (majorBlast ? blastVoices >= 4 : sfxVoices > 28) return true;   // reserve blast voices so automatic fire cannot swallow them
     const src = audio.createBufferSource(), v = audio.createGain(), out = tune ? heavyBus : sfxBus;
-    src.buffer = b; src.playbackRate.value = rate * (tune ? tune[0] : 1) * (0.94 + Math.random() * 0.12);
+    src.buffer = b; src.playbackRate.value = rate * (tune ? tune[0] : 1) * (majorBlast ? 1 : 0.94 + Math.random() * 0.12);
     v.gain.value = vol;
     src.connect(v);
     if (x !== undefined && audio.createStereoPanner) {
@@ -1724,7 +1709,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       sfx("boom_low", vol * 0.24, 0.75, x, y);
       setTimeout(() => { if (!document.hidden) sfx("p_metal", vol * 0.22, 0.65, x, y); }, 65);
     }
-    sfxVoices++; src.onended = () => { sfxVoices--; };
+    if (majorBlast) blastVoices++; else sfxVoices++;
+    src.onended = () => { if (majorBlast) blastVoices--; else sfxVoices--; };
     src.start();
     return true;
   }
@@ -3693,7 +3679,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       impacts.push({ x, y, t: 0, r: 155, col: "#b8ff91" });
       rings.push({ x, y, t: 0, r: 270, col: "75,255,110", warp: true, dur: 0.6, w: 14 });
       for (let k = 0; k < (lowQ ? 20 : 48); k++) { const a = Math.random() * 6.283, v = 140 + Math.random() * 500; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.45 + Math.random() * 0.6, 2 + Math.random() * 3, k % 3 ? "#58f77a" : "#d4ffad"); }
-      if (near) { packPlay("p_boom_gamma", 1, x, y) || sfx("boom_small", 1, 0.8, x, y); shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
+      // The orb travels beyond the old 1400px gate; let the sound mixer handle distance.
+      packPlay("p_boom_gamma", 1, x, y) || sfx("boom_small", 1, 0.8, x, y);
+      if (near) shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400));
       return;
     }
     if (s.kind === K.ORB) {   // plasma: a blue-white flash, a warping shock ring, crackling sparks, a sizzle
@@ -5662,7 +5650,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const vzT = playing && !me.dead && boost ? 0.84 : 1;
     viewZoom += (vzT - viewZoom) * (1 - Math.exp(-(vzT < viewZoom ? 2.2 : 1.4) * dt));
     applyView();
-    engineHum(playing && roundLive && !me.dead ? Math.hypot(me.vx, me.vy) : 0, drift ? 0 : me.thrust, me.boostFx, now);
+    engineHum(Math.hypot(me.vx, me.vy), drift ? 0 : me.thrust, me.boostFx, now, playing && roundLive && !me.dead);
     if (!me.dead) { trailFrom(me, 0.6 + me.thrust * 1.6 + me.boostFx * 1.5, dt); if (playing) damageFx(me, dt); afterburner(me, me.boostFx, dt); }
   }
   // every shot in flight: homing, ricochets, digging into bodies, hitting me (I decide) or reaching others
@@ -6567,31 +6555,33 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     g.restore(); g.globalAlpha = 1;
   }
 
-  function drawDemonicSkull(x, y, radius, now) {
+  function drawDemonicOrb(x, y, radius, now) {
     g.save(); g.translate(x, y); g.scale(radius / 32, radius / 32);
-    g.globalAlpha *= 0.35; g.drawImage(dotSprite("#35ff61"), -74, -82, 148, 148); g.globalAlpha = 1;
-    g.rotate(Math.sin(now / 260) * 0.06);
-    // Swept horns, angular cheekbones and a separate toothed jaw keep the silhouette readable.
-    g.fillStyle = "#4dce60"; g.strokeStyle = "#153f26"; g.lineWidth = 2.5;
-    for (const side of [-1, 1]) {
-      g.beginPath(); g.moveTo(side * 18, -15); g.quadraticCurveTo(side * 39, -22, side * 34, -43);
-      g.quadraticCurveTo(side * 23, -29, side * 12, -26); g.closePath(); g.fill(); g.stroke();
+    g.globalAlpha *= 0.55; g.drawImage(dotSprite("#36ef56"), -90, -90, 180, 180); g.globalAlpha = 1;
+    const skin = g.createRadialGradient(-8, -10, 1, 0, 0, 34);
+    skin.addColorStop(0, "#f0ffb7"); skin.addColorStop(0.25, "#b9ff65"); skin.addColorStop(0.58, "#42df40");
+    skin.addColorStop(0.85, "#116d31"); skin.addColorStop(1, "#062719");
+    g.fillStyle = skin; g.beginPath(); g.arc(0, 0, 32, 0, Math.PI * 2); g.fill();
+    g.save(); g.beginPath(); g.arc(0, 0, 31, 0, Math.PI * 2); g.clip();
+    g.rotate(now / 1700);
+    // Dark moving fissures around a molten core, with green fire escaping the surface.
+    for (let i = 0; i < 7; i++) {
+      g.save(); g.rotate(i * Math.PI * 2 / 7);
+      const bend = Math.sin(now / 340 + i * 2) * 5;
+      g.strokeStyle = "#063a22"; g.lineWidth = 3;
+      g.beginPath(); g.moveTo(10, -3); g.bezierCurveTo(18, -9 + bend, 17, 12, 25, 8); g.lineTo(36, bend); g.stroke();
+      g.strokeStyle = "#a6ff65"; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(15, -7 + bend); g.quadraticCurveTo(22, -13, 33, -7); g.stroke(); g.restore();
     }
-    const bone = g.createLinearGradient(-20, -30, 17, 29);
-    bone.addColorStop(0, "#e0ffd0"); bone.addColorStop(0.4, "#97ff80"); bone.addColorStop(1, "#25894d");
-    g.fillStyle = bone; g.beginPath(); g.moveTo(-16, -28);
-    g.quadraticCurveTo(0, -37, 16, -28); g.quadraticCurveTo(31, -19, 29, -2);
-    g.lineTo(24, 11); g.lineTo(14, 15); g.lineTo(13, 29); g.lineTo(-13, 29); g.lineTo(-14, 15);
-    g.lineTo(-24, 11); g.lineTo(-29, -2); g.quadraticCurveTo(-31, -19, -16, -28); g.closePath(); g.fill(); g.stroke();
-    g.fillStyle = "#082519";
-    for (const side of [-1, 1]) {
-      g.beginPath(); g.moveTo(side * 5, -5); g.lineTo(side * 24, -13); g.lineTo(side * 20, 4); g.lineTo(side * 8, 7); g.closePath(); g.fill();
-      g.fillStyle = "#d7ff85"; g.beginPath(); g.ellipse(side * 15, -2, 4.5, 2.5, side * -0.35, 0, 6.29); g.fill(); g.fillStyle = "#082519";
+    g.restore();
+    const core = g.createRadialGradient(-4, -4, 0, 0, 0, 15);
+    core.addColorStop(0, "#ffffde"); core.addColorStop(0.3, "#e4ffa4"); core.addColorStop(1, "#b3ff5300");
+    g.fillStyle = core; g.beginPath(); g.arc(0, 0, 15, 0, Math.PI * 2); g.fill();
+    for (let i = 0; i < 6; i++) {
+      const a = i * Math.PI / 3 + now / 1300, tip = 39 + Math.sin(now / 110 + i) * 5;
+      g.save(); g.rotate(a); g.fillStyle = "#7aff7070"; g.beginPath(); g.moveTo(27, -5);
+      g.quadraticCurveTo(tip, -10, tip + 4, 3); g.quadraticCurveTo(33, -2, 28, 6); g.closePath(); g.fill(); g.restore();
     }
-    g.beginPath(); g.moveTo(0, 7); g.lineTo(-5, 16); g.lineTo(5, 16); g.closePath(); g.fill();
-    g.fillRect(-13, 20, 26, 5); g.fillStyle = "#c7ffa1";
-    for (let tx = -11; tx < 12; tx += 6) { g.fillRect(tx, 18, 4, 6); g.fillRect(tx, 26, 4, 3); }
-    g.strokeStyle = "#3c7f47"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-3, -29); g.lineTo(2, -22); g.lineTo(-2, -17); g.stroke();
     g.restore();
   }
   function drawShot(s, x, y, now) {
@@ -6775,13 +6765,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       g.restore();
       return;
     }
-    if (s.kind === K.GAMMA) {   // a horned green skull with a spectral wake
+    if (s.kind === K.GAMMA) {   // a molten demonic orb with a spectral wake
       const speed = Math.hypot(s.vx, s.vy) || 1;
       for (let i = 3; i > 0; i--) {
         const trail = 22 + i * 7; g.save(); g.globalAlpha = 0.14 / i;
         g.drawImage(dotSprite("#35ff61"), x - s.vx / speed * i * 22 - trail, y - s.vy / speed * i * 22 - trail, trail * 2, trail * 2); g.restore();
       }
-      drawDemonicSkull(x, y, 32 + Math.sin(now / 160) * 1.5, now);
+      drawDemonicOrb(x, y, 32 + Math.sin(now / 160) * 1.5, now);
       return;
     }
     if (s.kind === K.BEACON) {   // the teleporter's beacon: a cyan diamond with a beating ring
@@ -7269,9 +7259,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         g.save(); g.translate(0, -38); g.rotate(now / 60); g.fillStyle = "#d6dde8"; g.beginPath();
         for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, r = k % 2 ? 10 : 15; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
         g.closePath(); g.fill(); g.fillStyle = s.returning ? "#6fffe0" : "#5a6684"; g.beginPath(); g.arc(0, 0, 4, 0, 6.29); g.fill(); g.restore();
-      } else if (weapon === "gamma") {   // a demonic skull mounted on the launcher
+      } else if (weapon === "gamma") {   // a demonic orb mounted on the launcher
         g.fillStyle = "#3b2d5c"; rrect(-12, -20, 24, 26, 6); g.fill();
-        drawDemonicSkull(0, -39, 18, now);
+        drawDemonicOrb(0, -39, 18, now);
       } else if (weapon === "tele") {   // a little dish with a cyan tip
         g.fillStyle = "#3b2d5c"; rrect(-5, -24, 10, 28, 3); g.fill();
         g.fillStyle = "#5a6684"; g.beginPath(); g.ellipse(0, -28, 16, 6, 0, 0, 6.29); g.fill();
@@ -8474,7 +8464,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     ["Dash", `tap ${KEY(shift)} — a quick dodge forward`],
     ["Boost", `hold ${KEY(shift)} — uses the blue energy bar`],
     ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")}, or click a gun in the bar`],
-    ["Alt fire", `right mouse button or ${KEY("C")}: available per weapon — laser pulse, rail breach cutter (hold for width, release), flak, shock beam, skull detonate, rocket salvo, slug, thrown mine, saw recall (bring blades back through enemies)`],
+    ["Alt fire", `right mouse button or ${KEY("C")}: available per weapon — laser pulse, rail breach cutter (hold for width, release), flak, shock beam, demonic orb detonate, rocket salvo, slug, thrown mine, saw recall (bring blades back through enemies)`],
     ["Teleporter", `${KEY("T")} throws the beacon, ${KEY("T")} again jumps onto it (land on someone: telefrag)`],
     ["Brake / drift", `hold ${KEY("X")} to brake; ${KEY("X")} + a direction drifts: you slide on while the nose swings round (shoot back)`],
     ["Levels", "kills, sparks and planets give XP; every level adds a perk (Lv 4 twin fireballs, Lv 7 piercing, Lv 10 the crown); dying costs 2 levels"]] });

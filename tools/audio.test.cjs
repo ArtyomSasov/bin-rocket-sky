@@ -49,7 +49,7 @@ test('primary fire, boost, collisions and large blasts select the replacement re
     createBufferSource() { const s = { playbackRate: {}, connect() { return this; }, start() { played.push(this.buffer); } }; return s; },
     createGain() { return { gain: {}, connect() { return this; } }; }
   }, packBuf: Object.fromEntries(['p_user_fire', 'p_user_demonic', 'p_user_demonic_explosion', 'p_user_cannon', 'p_user_autocannon', 'p_user_explosion', 'p_user_massive', 'p_burst_minigun', 'p_fire_rocket', 'p_fire_gren', 'p_boom_rocket', 'p_boom_mine', 'p_boost', 'p_metal'].map(k => [k, [k]])),
-    sfxBuf: { boom_low: 'low' }, SFX_TUNE: {}, sfxBus: {}, heavyBus: {}, sfxVoices: 0,
+    sfxBuf: { boom_low: 'low' }, SFX_TUNE: {}, sfxBus: {}, heavyBus: {}, sfxVoices: 0, blastVoices: 0, me:{x:0,y:0},
     document: { hidden: false }, setTimeout: f => later.push(f), queueVoice() {} };
   const source = read('05-sound.js'); vm.createContext(c);
   vm.runInContext(source.slice(source.indexOf('  const SOUND_OVERRIDE'), source.indexOf('  // the holy bomb')), c);
@@ -60,15 +60,39 @@ test('primary fire, boost, collisions and large blasts select the replacement re
   assert.equal(later.length, 0, 'custom explosion tails are not covered with the old extra layers');
   c.packBuf.p_fire_rocket = ['original rocket']; c.sfx('p_fire_rocket');
   assert.equal(played.at(-1), 'original rocket', 'retain the supplied old pack while the replacement loads');
+  c.sfxVoices=29;c.blastVoices=0;
+  c.sfx('p_boom_gamma',1,1,1700,0);
+  assert.equal(played.at(-1),'p_user_demonic_explosion','a distant demonic blast survives the ordinary voice limit');
+  const count=played.length;c.blastVoices=4;c.sfx('p_boom_gamma');assert.equal(played.length,count,'reserved voices stay bounded');
 });
 
-test('rocket and grenade impacts keep Quake while a skull plays its own explosion once', () => {
+test('rocket and grenade impacts keep Quake while the demonic orb plays its own explosion once', () => {
   const events = [];
   const c = { K:{MINE:6,ORB:7,GAMMA:13,ROCKET:1,GREN:23}, me:{x:0,y:0}, lowQ:true, shake:0,
     impacts:[],rings:[],arcs:[], explode(){},puff(){},smoke(){},
     packPlay(name){events.push(name);return true;},sfx(){throw Error('unexpected fallback');} };
   vm.createContext(c); const source=read('11-weapons.js');
   vm.runInContext(source.slice(source.indexOf('  function blastFx'),source.indexOf('  let hitTickAt')),c);
-  for(const kind of [1,23,13]) {const shot={kind,x:20,y:20};c.blastFx(shot);c.blastFx(shot);}
+  for(const kind of [1,23,13]) {const shot={kind,x:kind===13?1700:20,y:20};c.blastFx(shot);c.blastFx(shot);}
   assert.deepEqual(events,['p_boom_rocket','p_boom_rocket','p_boom_gamma']);
+});
+
+test('Engine Working stays recognizable and audible on thrust, boost and wall contact; never falls back', () => {
+  let available = true;
+  const c = {audio:{currentTime:0},sfxBus:{},settings:{engine:'on'},document:{hidden:false},packLoops:{},
+    packHas:event=>available && event==='p_user_engine', packLoop(slot,event) {
+      c.packLoops[slot] = event ? {ev:event,src:{playbackRate:{setTargetAtTime:v=>c.pitch=v}},g:{gain:{setTargetAtTime:v=>c.volume=v}}} : null;
+    }};
+  vm.createContext(c);const source=read('05-sound.js');
+  vm.runInContext(source.slice(source.indexOf('  function engineHum'),source.indexOf('  function loadSfx')),c);
+  c.engineHum(500,0,0,0);const coast=c.volume;
+  c.engineHum(500,1,0,0);const thrust=c.volume;
+  assert.equal(c.packLoops.engine.ev,'p_user_engine');assert.ok(thrust>coast*5);assert.ok(c.pitch>=0.96&&c.pitch<=1.12);
+  c.engineHum(800,1.4,2,0);assert.ok(c.volume>thrust);assert.ok(c.volume<0.65);assert.ok(c.pitch<=1.160001);
+  c.engineHum(0,1,0,0);assert.ok(c.packLoops.engine,'thrust against a wall is audible');
+  c.engineHum(0,0,0,0);assert.equal(c.packLoops.engine,null);
+  for(const reason of ['inactive','hidden','off','unloaded']) {
+    c.document.hidden=reason==='hidden';c.settings.engine=reason==='off'?'off':'on';available=reason!=='unloaded';
+    c.engineHum(800,1,1,0,reason!=='inactive');assert.equal(c.packLoops.engine,null,reason);
+  }
 });
