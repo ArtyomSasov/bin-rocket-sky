@@ -8,10 +8,10 @@
     ["Dash", `tap ${KEY(shift)} — a quick dodge forward`],
     ["Boost", `hold ${KEY(shift)} — uses the blue energy bar`],
     ["Weapon", `fixed ${KEY("1")}–${KEY("9")} / ${KEY("0")}; ${KEY("Alt")}+${KEY("1")}–${KEY("6")} for extras; ${KEY("Q")} / ${KEY("E")} or click a gun`],
-    ["Alt fire", `right mouse button or ${KEY("C")}: available per weapon — laser pulse, rail breach cutter (hold for width, release), flak, shock beam, demonic orb detonate, rocket salvo, slug, mine detonation, saw recall (bring blades back through enemies)`],
+    ["Alt fire", `right mouse button or ${KEY("C")}: available per weapon — Pulse beam, rail breach cutter (hold/release), Flak shell, Shock beam, Demonic detonation, loaded rockets (hold/release), Stinger shards, slug, mine detonation, explosive Ripper disc`],
     ["Teleporter", `${KEY("T")} throws the beacon, ${KEY("T")} again jumps onto it (land on someone: telefrag)`],
     ["Brake / drift", `hold ${KEY("X")} to brake; ${KEY("X")} + a direction drifts: you slide on while the nose swings round (shoot back)`],
-    ["Levels", "kills, sparks and planets give XP; every level adds a perk (Lv 4 twin fireballs, Lv 7 piercing, Lv 10 the crown); dying costs 2 levels"]] });
+    ["Health & armor", "100 HP on spawn; Health Pack +20 (cap 100), Vial +5 and Big Keg +100 (cap 199). Body Armor absorbs 75%; Shield Belt absorbs all damage until depleted. No levels or XP bonuses."]] });
   const CONTROLS = {
     mac: desk("Mac", "⇧ Shift", "Return", "the trackpad / mouse button"),
     windows: desk("Windows", "Shift", "Enter", "the left mouse button"),
@@ -24,7 +24,7 @@
       ["Weapon", "tap a gun in the bar above the fire button"],
       ["Alt fire", "the small orange button above the fire button (shock beam, rockets, shotgun, mines, saws)"],
       ["Teleporter", "the cyan button: throw the beacon, tap again to jump onto it"],
-      ["Levels", "kills, sparks and planets give XP; every level adds a perk; dying costs 2 levels"]] }
+      ["Health & armor", "100 HP on spawn; Health Pack +20 (cap 100), Vial +5 and Big Keg +100 (cap 199). Body Armor absorbs 75%; Shield Belt absorbs all damage until depleted. No levels or XP bonuses."]] }
   };
   function detectDevice() {
     const ua = navigator.userAgent, plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";

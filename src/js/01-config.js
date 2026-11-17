@@ -32,18 +32,10 @@
   const SPRITE_TILT = 0.24;          // the art leans right a little (its engine points down-left)
   const NOZZLE = [140 / 320 - 0.5, 186 / 320 - 0.5];   // engine opening in the art, as a fraction of size
   const LIVES = 3, ROCK_PERIOD = 22; let ROCKS = 36;
-  // levels: sparks are XP; each level makes the bin bigger, adds lives and changes the fire
-  const XP_STEPS = [0, 6, 15, 28, 45, 66, 92, 124, 162, 210];   // total XP to reach Lv 1..10
-  const MAX_LV = XP_STEPS.length;
-  const lvOf = xp => { let l = 1; while (l < MAX_LV && xp >= XP_STEPS[l]) l++; return l; };
-  const sizeOf = lv => 1 + (lv - 1) * 0.04;                       // Lv 10 is about 1.36x
-  const maxLivesOf = lv => LIVES + Math.floor((lv - 1) / 4);      // 3 lives at Lv 1-4, 4 at 5-8, 5 at 9-10
-  // levels: XP comes from kills (10, more for a higher-level victim), sparks and stars, planets and flags. Every
-  // level adds a perk (they stack); dying costs two levels. The same rules for players and bots
-  const PERKS = { 2: "faster energy", 3: "double dash", 4: "faster Enforcer", 5: "magnet: pick-ups from afar", 6: "shield regenerates",
-    7: "Enforcer damage +15%", 8: "a teleport jump on every respawn", 9: "more health", 10: "THE CROWN: +25% damage, everyone sees you" };
-  const killXp = (myLv, victimLv) => 10 + Math.max(0, victimLv - myLv) * 3 + (victimLv >= MAX_LV ? 20 : 0);
-  const levelAfterDeath = lv => Math.max(1, lv - 2);
+  // Fixed arena stats. Legacy level fields stay at one on the wire.
+  const XP_STEPS = [0], MAX_LV = 10;
+  const lvOf = () => 1, sizeOf = () => 1, maxLivesOf = () => LIVES;
+  const PERKS = {}, killXp = () => 0, levelAfterDeath = () => 1;
   const TIERS = [
     { from: 1,  outer: [255, 70, 20],  mid: [255, 150, 40], core: [255, 240, 170], aura: null },
     { from: 4,  outer: [255, 60, 150], mid: [255, 140, 70], core: [255, 245, 210], aura: [255, 120, 200] },
@@ -125,7 +117,7 @@
     // arms, and goes off a beat after an enemy comes near; alt sets off all your mines at once
     mine:    { name: "Prox mines", ammo: 8, cd: 0.7, col: "#ff6b3c", shot: [K.MINE, 760], kick: 60, feel: [6, 0.08, 60], sfx: ["mine_drop", 0.8],
                alt: { name: "Detonate", minedet: true, cost: 0, cd: 0.5, sfx: ["hit", 0.6, 0.6] } },
-    // the shock orb: a slow ball that stops and hangs in the air; its alt fire is a beam, and the beam through a ball sets off a combo
+    // the shock orb: a continuously travelling ball; its alt fire is a beam, and the beam through a ball sets off a combo
     orb:     { name: "Shock orb", ammo: 12, cd: 0.85, col: "#6fd8ff", shot: [K.ORB, 420], kick: 140, feel: [16, 0.18, 110], sfx: ["shield_get", 1, 0.9], fx: "plasma",
                alt: { name: "Beam", cost: 1, cd: 0.6, shot: [K.SHOCK, 6400], kick: 70, feel: [8, 0.08, 60], sfx: ["laser", 0.8, 0.55], fx: "shock" } },
     bolt:    { name: "Lightning", ammo: 90, cd: 0.11, col: "#bfefff", shot: [K.BOLT, 5600], kick: 4, feel: [2, 0.03, 35], sfx: ["laser", 0.22, 1.7] },
@@ -154,19 +146,55 @@
     shard:   { name: "Flak Cannon", ammo: 14, cd: 0.8, col: "#ff9a3c", shot: [K.SHARD, 1500], kick: 340, feel: [28, 0.42, 130], sfx: ["scatter", 1, 0.7], fx: "shard",
                alt: { name: "Flak shell", cost: 1, cd: 0.95, shot: [K.FLAK, 1100], kick: 220, feel: [20, 0.28, 110], sfx: ["scatter", 1, 0.55], fx: "shard" } }
   };
+  // Source-based baseline; 100 HP = 3 internal lives. See WEAPON-BALANCE.md.
+  const HP = n => n * .03;
+  const balanceShot = (kind, props) => Object.assign(SHOTS[kind], props);
+  balanceShot(K.PISTOL, { dmg: HP(17) });
+  balanceShot(K.ROCKET, { dmg: HP(75) });
+  balanceShot(K.PULSE_BOLT, { dmg: HP(20) });
+  balanceShot(K.LASER, { dmg: HP(72 * .24) }); // UT99 beam: 72 HP per second
+  balanceShot(K.SHARD, { dmg: HP(16), life: 1.15 });
+  balanceShot(K.FLAK, { dmg: HP(70), life: .8 });
+  balanceShot(K.ORB, { dmg: HP(55), life: 3, r: 16 });
+  balanceShot(K.SHOCK, { dmg: HP(40) });
+  balanceShot(K.SAW, { dmg: HP(30) });
+  balanceShot(K.SAW_ALT, { dmg: HP(34) });
+  balanceShot(K.BULLET, { dmg: HP(14), life: .5 });
+  balanceShot(K.BULLET_ALT, { name: "Stinger shard", dmg: HP(38), life: 1.4, r: 7, col: "#94caff" });
+  balanceShot(K.PELLET, { dmg: HP(10), life: 1.6 });
+  balanceShot(K.SLUG, { dmg: HP(60), life: 1.4 });
+  balanceShot(K.GREN, { dmg: HP(100) });
+  balanceShot(K.MELEE, { dmg: HP(50) });
+  balanceShot(K.MINE, { dmg: HP(100) });
+  Object.assign(WEAPONS.fire, { cd: .4 }); Object.assign(WEAPONS.fire.alt, { cd: .2 });
+  Object.assign(WEAPONS.laser.alt, { cd: .24 });
+  Object.assign(WEAPONS.laser, { cd: .18, shot: [K.PULSE_BOLT, 2030] });
+  Object.assign(WEAPONS.rocket, { shot: [K.ROCKET, 1260] }); WEAPONS.rocket.alt.shot = [K.ROCKET, 1260];
+  Object.assign(WEAPONS.orb, { shot: [K.ORB, 1400] });
+  Object.assign(WEAPONS.shard, { shot: [K.SHARD, 3500] }); WEAPONS.shard.alt.shot = [K.FLAK, 1680];
+  Object.assign(WEAPONS.saw, { shot: [K.SAW, 1680] }); WEAPONS.saw.alt.shot = [K.SAW_ALT, 1680];
+  Object.assign(WEAPONS.minigun, { cd: .1, jitter: .03375, shot: [K.BULLET, 6000] });
+  Object.assign(WEAPONS.minigun.alt, { name: "Heavy shards", cost: 2, cd: .28, jitter: .01, shot: [K.BULLET_ALT, 2500] });
+  Object.assign(WEAPONS.scatter, { cd: 1, shot: [K.PELLET, 2000] });
+  WEAPONS.rail.cd = 1.5; WEAPONS.gren.shot = [K.GREN, 1225];
+  WEAPONS.gauntlet.cd = .4; WEAPONS.mine.cd = .8;
+  WEAPONS.nuke.shot = [K.NUKE, 840]; WEAPONS.nuke.alt.shot = [K.NUKE, 840];
+  WEAPONS.nail.disabled = true; // keep wire IDs and other weapons' number keys stable
   let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
-  const SPLASH = { [K.SAW_ALT]: [160, .7, .2, 350], [K.MINE]: [170, 1.2, 0.3, 450], [K.HROCKET]: [170, 0.6, 0.15, 320], [K.GREN]: [190, 0.9, 0.2, 420], [K.ROCKET]: [170, 0.6, 0.15, 320], [K.ORB]: [160, 0.6, 0.2, 380], [K.GAMMA]: [260, 1, 0.3, 600] };
+  const SPLASH = { [K.FLAK]: [210, HP(70), 0, 400], [K.SAW_ALT]: [252, HP(34), 0, 350], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [260, HP(50), 0, 600] };
   const GAMMA_ZAP = { r: 480, every: 0.3, dmg: 0.15 };   // the gamma orb zaps every enemy this close as it flies
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
   const AMP_PERIOD = 95, AMP_TIME = 20000, QUAD = 4;         // Quad damage: a rare pick-up, four times the damage for 20 s                        // mines go off when a bin comes this close, after arming
-  // Doom-style supplies: medkits give lives back, shields add armour that soaks part of each hit
+  // UT99 pickups: ordinary health caps at 100; super health at 199.
   const SUPPLIES = {
-    med:    { name: "Medkit",      col: "#ff5a6e", heal: 1, icon: "cross" },
-    bigmed: { name: "Big medkit",  col: "#ff2d55", heal: 3, icon: "cross", big: true },
-    shield: { name: "Shield",      col: "#4fe39a", armor: 0.75, icon: "shield" },
-    mega:   { name: "Mega shield", col: "#4fa8ff", armor: 1.5, icon: "shield", big: true }
+    med: { name: "Health Pack +20", col: "#ff5a6e", heal: HP(20), cap: HP(100), period: 20, icon: "cross" },
+    vial: { name: "Health Vial +5", col: "#6ddcff", heal: HP(5), cap: HP(199), period: 30, icon: "cross" },
+    bigmed: { name: "Big Keg +100", col: "#ff2d55", heal: HP(100), cap: HP(199), period: 100, icon: "cross", big: true },
+    pads: { name: "Thigh Pads · 50", col: "#8fc6ff", armor: HP(50), layer: "padsArmor", period: 30, icon: "shield" },
+    shield: { name: "Body Armor · 100", col: "#4fe39a", armor: HP(100), layer: "bodyArmor", period: 30, icon: "shield" },
+    mega: { name: "Shield Belt · 150", col: "#ffd85e", armor: HP(150), layer: "beltArmor", period: 60, icon: "shield", big: true }
   };
   // game modes: picked with a new lobby and carried in its code ("<size>1<mode>...", e.g. M1CK7QX); a plain code is deathmatch
   // rules: teams (Red/Blue, no friendly fire); flags (capture the flag); only: the one gun everyone has (no crates,
@@ -182,7 +210,7 @@
     x: { name: "Test range", label: "Test range", hint: "every gun, endless ammo", sandbox: true }
   };
   // the guns the test range hands out (the retired ones stay out), in gun-bar order
-  const SANDBOX_GUNS = ["fire", "gauntlet", "nail", "minigun", "scatter", "shard", "gren", "rocket", "laser", "orb", "rail", "saw", "mine", "gamma", "nuke", "holy"];
+  const SANDBOX_GUNS = ["fire", "gauntlet", "minigun", "scatter", "shard", "gren", "rocket", "laser", "orb", "rail", "saw", "mine", "gamma", "nuke", "holy"];
   const modeOf = code => MODES[codeOpts(code).mode] ? codeOpts(code).mode : "d";
   // match settings: round length (minutes) and a score that ends the round early (kills, or flags in CTF)
   const TIME_OPTS = { 2: 3, 3: 5, 4: 8, 5: 10, 6: 15 }, TIME_DEFAULT = "3";
@@ -225,16 +253,16 @@
     } else if (round === matchRound && Math.abs(start - matchStart) < 1 && end && (!matchEnd || end < matchEnd)) matchEnd = end;
   }
   // armour (in lives, like health): it takes only ARMOR_SOAK of each hit, the rest still hurts; at most MAX_SHIELD
-  const SUPPLY_PERIOD = 20, MAX_SHIELD = 3, ARMOR_SOAK = 0.6; let SUPPLY_SLOTS = 0;
+  const SUPPLY_PERIOD = 20, MAX_SHIELD = 4.5, ARMOR_SOAK = 0.75; let SUPPLY_SLOTS = 0;
   // the big bombs: one huge blast each. Inside kill nothing survives; out to R the damage falls from 4 to 1.5 lives.
   // The holy bomb is thrown, bounces, sings a choir sing seconds before its fuse runs out, then outdoes the nuke
   const BOOM_LIFE = 4;
   // big-bomb crates, each on its own spot: once taken, it comes back at the start of its next cycle (s)
   const BOMB_CRATES = { nuke: { key: "N", period: 70 }, holy: { key: "H", period: 60 } };
   // wave: [reach, seconds to get there, push at the centre] of the blast wave that flings everything outward
-  const BOMBS = { [K.NUKE]: { R: 1100, kill: 620, carve: 420, wave: [2100, 1.1, 2400] },
+  const BOMBS = { [K.NUKE]: { R: 1100, kill: 0, damage: HP(1000), carve: 420, wave: [2100, 1.1, 2400] },
                   [K.HOLY]: { R: 2000, kill: 1300, carve: 700, wave: [3600, 1.5, 3000], sing: 2.55, holy: true, wipe: true } };   // sing: the holy bomb's sound (2.53 s) starts so it ends with the blast   // wipe: bodies inside kill are erased whole
-  const bombDmg = (bm, d) => d < bm.kill ? 99 : 1.5 + 2.5 * (1 - (d - bm.kill) / (bm.R - bm.kill));
+  const bombDmg = (bm, d) => bm.damage ? bm.damage * Math.max(0, 1 - d / bm.R) : d < bm.kill ? 99 : 1.5 + 2.5 * (1 - (d - bm.kill) / (bm.R - bm.kill));
   // weapon icons (24x24 SVG path data, even-odd fill): used on crates (canvas) and in the HUD (SVG)
   const ICONS = {
     fire: "M2 6h19v6h-9v3H9l-2 6H2l3-9H2ZM13 12v2h-2v-2Z",

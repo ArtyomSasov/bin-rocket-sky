@@ -56,11 +56,7 @@
     boost = boost && playing && !me.dead && energy > 0 && im > 0.1;
     me.boostFx = now - me.dashAt < 350 ? 2 : boost ? 1 : 0;
     if (boost) { energy = Math.max(0, energy - 20 * dt); energyRegenAt = now + 700; }   // a full bar is ~5 s of boost
-    else if (now > energyRegenAt) energy = Math.min(100, energy + 22 * (me.lv >= 2 ? 1.4 : 1) * dt);   // perk: faster energy from Lv 2
-    if (me.lv >= 6 && playing && !me.dead && now - (me.hitAt || 0) > 4000 && me.shield < 0.6) {   // perk: the shield regrows to 20% out of combat
-      const was = Math.round(me.shield * 20); me.shield = Math.min(0.6, me.shield + 0.12 * dt);
-      if (Math.round(me.shield * 20) !== was) renderShield();
-    }
+    else if (now > energyRegenAt) energy = Math.min(100, energy + 22 * dt);   // perk: faster energy from Lv 2
     return { im, boost };
   }
   // the flight model every pilot flies by, me and the bots alike (sx, sy: the stick, eased; k: a bot's speed factor).
@@ -213,7 +209,7 @@
   // damage lands with the beam you see, not when a fast slug would have got there. The rail bores through every body
   // to the fence (each bin on the line is hit once); the others stop at the first rock. The shot then spans that line
   // (px,py -> x,y) for one frame, so the usual hit checks (me, the others, my bots, orbs for a combo) see all of it.
-  const HITSCAN = { [K.PISTOL]: 1, [K.RAIL]: 1, [K.LASER]: 1, [K.SHOCK]: 1, [K.BOLT]: 1, [K.GAUSS]: 1 };
+  const HITSCAN = { [K.BULLET]: 1, [K.PELLET]: 1, [K.PISTOL]: 1, [K.RAIL]: 1, [K.LASER]: 1, [K.SHOCK]: 1, [K.BOLT]: 1, [K.GAUSS]: 1 };
   function traceBeam(s) {
     s.traced = true; s.expireAfterStep = true;
     const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v, pierce = pierces(s);
@@ -237,7 +233,7 @@
       if (own || stop.b.free) carveAt(stop.b, stop.x, stop.y, SHOTS[s.kind].carve, own);
       impact(stop.x, stop.y, SHOTS[s.kind].col, 0.8);
     }
-    if (s.kind === K.PISTOL) beams.push({ x1: s.px, y1: s.py, x2: s.x, y2: s.y, t: 0, pistol: true });
+    if (s.kind === K.PISTOL || s.kind === K.BULLET || s.kind === K.PELLET) beams.push({ x1: s.px, y1: s.py, x2: s.x, y2: s.y, t: 0, pistol: true });
     s.beamHit = stop ? "body" : max < reach ? "bin" : null;
     if (s.kind === K.LASER || s.kind === K.SHOCK) laserBeam(s, s.owner);
     s.life = Math.min(s.life, 1e-4);   // one frame of hits, then gone
@@ -312,7 +308,6 @@
       if ((s.kind === K.RAIL || s.kind === K.SHOCK) && s.life > 0) for (const o of shots) {
         if (o.kind === K.ORB && o.life > 0 && !o.combo && segHit(s, o.x, o.y, 45)) { comboBlast(o, s, now); if (s.kind === K.SHOCK) { s.life = 0; break; } }
       }
-      if (s.kind === K.ORB && SHOTS[K.ORB].life - s.life > 0.9) { const k = Math.exp(-5 * stepDt); s.vx *= k; s.vy *= k; }   // the shock orb stops and hangs there
       // planets, moons, wrecks and rubble: the shot digs a crater where it lands (my shots and my bots' report theirs;
       // others' craters on shared bodies arrive over the network, but anyone's shot chips local rubble)
       const hb = s.stuck || s.traced ? null : shotBody(s);
@@ -506,7 +501,7 @@
     }
   }
   // sparks, spilled stars, medkits and shields, Overdrive and weapon crates
-  const magnet = () => me.lv >= 5 ? 70 : 0;   // perk: pick-ups from further away from Lv 5
+  const magnet = () => 0;   // perk: pick-ups from further away from Lv 5
   function updatePickups(dt, now) {
     if (!roundLive) return;
     // sparks
@@ -549,7 +544,7 @@
     for (const [id, d] of gunDrops) {
       if (now - d.born > GUN_DROP_LIFE) { gunDrops.delete(id); continue; }
       const key = "W" + id;
-      if (!playing || me.dead || grabbed.has(key) || now - d.born < 600 || Math.hypot(d.x - me.x, d.y - me.y) > 30 + 30 * sizeOf(me.lv) + magnet()) continue;
+      if (WEAPONS[d.type]?.disabled || !playing || me.dead || grabbed.has(key) || now - d.born < 600 || Math.hypot(d.x - me.x, d.y - me.y) > 30 + 30 * sizeOf(me.lv) + magnet()) continue;
       grabbed.add(key); pushCapped(myGrabs, key, 40);
       const w = WEAPONS[d.type];
       me.arsenal[d.type] = Math.min(Number.isFinite(w.ammo) ? w.ammo * 2 : 1, (me.arsenal[d.type] || 0) + d.ammo);
@@ -563,13 +558,11 @@
       for (const c of world.supplies) {
         if (grabbed.has(c.key) || c.age < 0.05) continue;
         if (Math.hypot(c.x - me.x, c.y - me.y) > 26 + 30 * sizeOf(me.lv) + magnet()) continue;
-        const sp = SUPPLIES[c.type], maxL = maxLivesOf(me.lv);
-        if (sp.heal && me.lives >= maxL) continue;
-        if (sp.armor && me.shield >= MAX_SHIELD) continue;
+        const sp = SUPPLIES[c.type];
+        if (!applySupply(me, c.type)) continue;
         grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
-        if (sp.heal) { me.lives = Math.min(maxL, me.lives + sp.heal); renderHearts(false); }
-        if (sp.armor) { me.shield = Math.min(MAX_SHIELD, me.shield + sp.armor); renderShield(); }
-        floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: "+" + Math.round((sp.heal || sp.armor) / maxLivesOf(me.lv) * 100) + "% " + (sp.heal ? "health" : "armour"), gold: !!sp.big });
+        renderHearts(false); renderShield();
+        floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: sp.name, gold: !!sp.big });
         for (let k = 0; k < 26; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 200; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, sp.col); }
         impacts.push({ x: c.x, y: c.y, t: 0, r: 70, col: sp.col });
         if (!sfx(sp.heal ? "heal" : "shield_get", 0.8)) [523, 784].forEach((f, j) => setTimeout(() => blip(f, 0.14, "triangle"), j * 70));
@@ -874,11 +867,11 @@
       if (shownRound !== -1 && playing) {
         me.score = 0; showScore(); me.xp = 0; me.lv = 1; renderLevel();
         baseArsenal(); me.ampUntil = 0; renderWeapon();
-        me.dead = false; me.respawnAt = 0; me.lives = maxLivesOf(1); me.shield = 0; renderShield(); renderHearts(false); me.inv = now + 2000;
+        me.dead = false; me.respawnAt = 0; me.lives = maxLivesOf(1); clearArmor(me); renderShield(); renderHearts(false); me.inv = now + 2000;
         floaters.push({ x: me.x, y: me.y - 90, t: 0, txt: "ROUND " + (rd.idx - (firstRoundIdx ?? rd.idx) + 1) + " · FIGHT!", gold: true });
         sfx("v_fight", 1);
       }
-      for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, lv: 1, xp: 0, vx: 0, vy: 0, ammo: 0, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0, weapon: "fire" });
+      for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, shield: 0, beltArmor: 0, bodyArmor: 0, padsArmor: 0, lv: 1, xp: 0, vx: 0, vy: 0, ammo: 0, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0, weapon: "fire" });
       me.fc = -1; me.caps = 0; me.heat = 0; me.overheat = false; railCharge = 0; charge = 0; cancelRocketLoad();
       energy = 100; energyRegenAt = 0; dashReadyAt = 0; lungeReady = 0;
       flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);

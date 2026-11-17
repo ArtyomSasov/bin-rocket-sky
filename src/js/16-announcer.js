@@ -1,8 +1,25 @@
   // ---------- kill feed & announcer ----------
   const feedEl = document.getElementById("feed"), annEl = document.getElementById("announce");
   const feed = [];
+  const killNotices = [];
+  const killNoticeEl = document.createElement("div");
+  killNoticeEl.id = "killNotice"; killNoticeEl.setAttribute("role", "status");
+  killNoticeEl.setAttribute("aria-live", "polite"); document.body.appendChild(killNoticeEl);
+  function showKillNotice(name) {
+    killNotices.push({ name: String(name).slice(0, 40), at: performance.now(), round: stats.round });
+    if (killNotices.length > 6) killNotices.shift();
+    renderKillNotices();
+  }
+  function renderKillNotices() {
+    const now = performance.now();
+    while (killNotices.length && (now - killNotices[0].at > 4500 || killNotices[0].round !== stats.round)) killNotices.shift();
+    killNoticeEl.replaceChildren(...killNotices.map(n => {
+      const line = document.createElement("div"); line.textContent = "YOU KILLED · " + n.name; return line;
+    }));
+  }
   function feedPush(html, isMe) { feed.push({ html, at: performance.now(), me: !!isMe }); if (feed.length > 6) feed.shift(); renderFeed(); }
   function renderFeed() {
+    renderKillNotices();
     const now = performance.now();
     while (feed.length && now - feed[0].at > 7000) feed.shift();
     feedEl.style.top = "calc(var(--hud-bottom, 150px) + 8px)";
@@ -29,6 +46,7 @@
     if (killSeen.has(key) || killSeen.size >= MAX_CREDITS || !roundLive) return;
     killSeen.add(key);
     const k = tagOwner(shotId.split(".")[0]), killer = k ? k.name : "Someone", ram = shotId.includes(".ram");
+    if (k?.me && victimId !== "me") showKillNotice(victim);
     const icon = ram ? RAM_ICON : ICONS[k ? k.weapon : "fire"];
     feedPush(`<span class="k">${esc(killer)}</span><svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="${icon}"/></svg><span class="v">${esc(victim)}</span>`, k && k.me || victim === (me.name || "You"));
     if (!firstBlood) { firstBlood = true; announce("FIRST BLOOD", killer + " drew first blood", "#ff5a6e"); }

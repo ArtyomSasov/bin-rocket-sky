@@ -185,7 +185,7 @@ try {
     const before=t.shots.length;t.shoot(performance.now(),true);
     const altShots=t.shots.length-before,altAmmo=t.me.arsenal.minigun;t.shoot(performance.now(),false);
     return {altDefined:!!t.WEAPONS.minigun.alt,altShots,altAmmo,primaryShots:t.shots.length-before,ammo:t.me.arsenal.minigun};})()`);
-  assert.deepEqual(minigun,{altDefined:true,altShots:1,altAmmo:99,primaryShots:2,ammo:98});
+  assert.deepEqual(minigun,{altDefined:true,altShots:1,altAmmo:98,primaryShots:2,ammo:97});
   if(process.env.BRS_DEMONIC_PREVIEW) {const png=await evaluate(combat,'__t.renderDemonicPreview()');await writeFile(process.env.BRS_DEMONIC_PREVIEW,Buffer.from(png.split(',')[1],'base64'));}
   await until(combat, '["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine","a_firstblood","v_flawless","p_loop_minigun","p_start_minigun","p_stop_minigun","p_stop_laser","p_fire_laser","p_loop_laser","p_ship_engine","p_warp","p_ut_mini_fire","p_ut_mini_alt","p_ut_mini_stop","p_ut_fire","p_ut_flak_fire","p_ut_rocket_load","p_ut_pulse_fire","p_ut_pulse_bolt","p_ut_pulse_down","p_ut_pulse_explode","p_burst_minigun","p_user_engine","p_user_fire","p_user_demonic","p_user_demonic_explosion","p_user_cannon","p_user_autocannon","p_user_explosion","p_user_massive"].every(__t.packHas) && !!__t.sfxBuf.hit && !!__t.sfxBuf.boom_low',10000);
   console.log('PASS weapon audit scenarios', await evaluate(combat,'__t.runWeaponAuditChecks()'));
@@ -271,10 +271,10 @@ try {
   const hitsBefore=await evaluate(lagA,'__t.stats.hits');
   await evaluate(lagB,'__t.recordHitPose(__t.me,performance.now()-260);__t.recordHitPose(__t.me,performance.now())');
   relayDelay=140;dropFire=true;
-  const bullet=await evaluate(lagA,'__t.volley(__t.me,performance.now(),{shot:[__t.K.BULLET,2600]},{x:100,y:600}).id');
+  const bullet=await evaluate(lagA,'__t.volley(__t.me,performance.now(),{shot:[__t.K.BULLET_ALT,2600]},{x:100,y:600}).id');
   await evaluate(lagA,'__t.netSend(1,performance.now())');
   await until(lagB,`__t.seenShots.has(${JSON.stringify(bullet)})`,3000);
-  assert.equal(await evaluate(lagB,'__t.recordHitPose(__t.me,performance.now());__t.updateShots(0.016,performance.now());__t.me.lives'),9.9,'delayed bullet catches up and hits');
+  assert.equal(await evaluate(lagB,'__t.recordHitPose(__t.me,performance.now());__t.updateShots(0.016,performance.now());__t.me.lives'),8.86,'delayed heavy bullet catches up and hits');
   await evaluate(lagB,'__t.netSend(1,performance.now())');
   await until(lagA,`__t.stats.hits===${hitsBefore+1}`,3000);
   await evaluate(lagB,'__t.netSend(1,performance.now())');await wait(300);

@@ -28,20 +28,12 @@
       }
     }
   }
-  // bots level up like players (kills, hits, and a trickle for staying alive) and drop two levels when they die
-  function botXp(b, v) {
-    b.xp += v;
-    const nl = lvOf(b.xp);
-    if (nl > b.lv) {
-      b.lv = nl; b.lives = Math.min(maxLivesOf(nl), b.lives + 1);
-      const c = `rgb(${tierOf(nl).aura || tierOf(nl).mid})`;
-      for (let k = 0; k < 30; k++) { const a = k / 30 * 6.283; puff(b.x, b.y, Math.cos(a) * 260, Math.sin(a) * 260, 0.7, 2.2, k % 3 ? c : "#ffffff"); }
-      if (nl >= MAX_LV) feedPush(`<span class="v">${esc(b.name)}</span> wears the crown`);
-    }
-  }
+  function botXp(b) { b.lv = 1; b.xp = 0; }
   function botHurt(b, dmg, shotId, now, force, kind = -1, ang = 0) {
     if (b.dead || (!force && now < b.inv) || !roundLive) return;
-    if (!shotId.startsWith(b.tag + ".")) metricDamage(shotId, Math.min(b.lives, dmg), b.lives <= dmg);
+    const absorbed = force ? 0 : absorbArmor(b, dmg);
+    dmg -= absorbed;
+    if (!shotId.startsWith(b.tag + ".")) metricDamage(shotId, absorbed + Math.min(b.lives, dmg), b.lives <= dmg);
     b.lives = Math.round((b.lives - dmg) * 1000) / 1000;
     if (Math.random() < ({ easy: 0.15, normal: 0.35, hard: 0.6 })[b.level]) b.dashReq = true;
     const shown = remotes.get(b.id); if (shown) shown.hitAt = performance.now();
@@ -66,7 +58,7 @@
     shotSound(pat.shot[0], b.x, b.y, b.id);
     b.vx -= Math.cos(b.a) * 25; b.vy -= Math.sin(b.a) * 25;
     if (!MODES[MODE].only && w !== "fire" && --b.ammo <= 0) b.weapon = "fire";
-    return w === "fire" && (b.lv || 1) >= 4 ? pat.cd * .8 : pat.cd;   // twin fireballs reload a little slower
+    return pat.cd;   // twin fireballs reload a little slower
   }
   function updateBots(dt, now) {
     if (!bots.length) return;
@@ -77,6 +69,7 @@
       while (b.shotLog.length && now - b.shotLog[0].at > 700) b.shotLog.shift();
       if (b.dead) {
         if (now < b.respawnAt) continue;
+        clearArmor(b);
         Object.assign(b, { dead: false, lives: maxLivesOf(b.lv), inv: now + 2000, ...spawnPoint(b.tm), vx: 0, vy: 0 });
       }
       // nearest living target: me or anyone else in the lobby (other bots included)
@@ -114,10 +107,15 @@
         else if (!b.attacker && Math.hypot(home.x - b.x, home.y - b.y) > 500) goal = home;   // guard
         if (goal) { routeGoal = goal; const gx = goal.x - b.x, gy = goal.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * w; dy += gy / gd * w; }
       }
+      if (roundLive && !MODES[MODE].noSupplies) for (const c of world.supplies) {
+        if (grabbed.has(c.key) || c.age < .05 || Math.hypot(c.x - b.x, c.y - b.y) > 56 || !applySupply(b, c.type)) continue;
+        grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
+        sfx(SUPPLIES[c.type].heal ? "heal" : "shield_get", .5, 1, c.x, c.y);
+      }
       if (!MODES[MODE].only && roundLive) {
         let best = null, bd = b.weapon === "fire" && td > 700 ? 1300 : 0;
         for (const c of world.picks) {
-          if (grabbed.has(c.key) || c.age < 0.05 || c.type === "mine" || c.type === "tele") continue;   // mines and the teleporter are left for players
+          if (grabbed.has(c.key) || c.age < 0.05 || c.type === "mine" || c.type === "tele" || WEAPONS[c.type]?.disabled) continue;   // mines and the teleporter are left for players
           const d = Math.hypot(c.x - b.x, c.y - b.y);
           if (d < 34 + 30) {   // picked up
             grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
@@ -129,7 +127,7 @@
           if (d < bd) { bd = d; best = c; }
         }
         for (const [gid, d] of gunDrops) {   // trophies count as crates
-          if (grabbed.has("W" + gid) || d.type === "mine" || performance.now() - d.born < 600) continue;
+          if (grabbed.has("W" + gid) || WEAPONS[d.type]?.disabled || d.type === "mine" || performance.now() - d.born < 600) continue;
           const dd = Math.hypot(d.x - b.x, d.y - b.y);
           if (dd < 64) { grabbed.add("W" + gid); pushCapped(myGrabs, "W" + gid, 40); b.weapon = d.type; b.ammo = d.ammo; sfx("weapon_get", 0.5, 1, d.x, d.y); best = null; break; }
           if (dd < bd) { bd = dd; best = d; }
@@ -247,7 +245,8 @@
         l: Math.max(0, Math.round(b.lives * 100) / 100), hb: b.hitBy, ko: b.koBy, f: b.shotLog.slice(-9).map(e => e.d),
         tm: b.tm ?? -1, fc: b.fc ?? -1, cp: [stats.round, b.caps || 0], tg: b.tag
       };
-      if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, lv: b.lv, sh: 0, wp: WEAPON_KEYS.indexOf(botWeapon(b)), tg: b.tag,
+      m.sh = b.shield || 0;
+      if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, lv: 1, wp: WEAPON_KEYS.indexOf(botWeapon(b)), tg: b.tag,
         st: [stats.round, b.st.kills, b.st.deaths, b.st.shots, b.st.hits, b.st.best] });
       applyRemote(b.id, m);   // show it here
       out.push([b.id, m]);

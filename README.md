@@ -23,16 +23,16 @@ Pick a mode when you create a lobby; the lobby code carries it, so friends who j
 | Capture the Flag | Take the enemy flag from their pad to yours while your own flag is home |
 | Nukes only | Everyone has unlimited nukes and nothing else |
 | Railgun instagib | Unlimited railguns, one hit kills |
-| Test range | Every gun at once with endless ammo and 99 teleport jumps, to try them all (9 and 0 pick the 9th and 10th gun) |
+| Test range | Every gun at once with endless ammo and 99 teleport jumps, to try them all; uses the same fixed keys as matches |
 
 Use **Random look** below the centered pilot preview to randomize all five appearance choices. The look is saved in this browser.
 
-Small drifting asteroids exchange momentum with the bin on collision: speed and bin size/level increase the push, while larger asteroids resist it. The changed trajectory is shared with other players and lasts until that asteroid respawns. Hard impacts still chip the asteroid.
+Small drifting asteroids exchange momentum with the bin on collision: speed increases the push, while larger asteroids resist it. The changed trajectory is shared with other players and lasts until that asteroid respawns. Hard impacts still chip the asteroid.
 
 Bots (a slider from 0 to 24, three skill levels) join any mode and play its rules. Only the lobby's host (whoever made the
 code, remembered in that browser) brings bots; players who join with the code play with the host's.
 
-Rounds start with the full selected duration when the lobby is created. Guests adopt that lobby clock. Reaching the score limit starts a 15-second results screen immediately. Each new round clears captures, scores, levels, combat receipts and temporary pickups.
+Rounds start with the full selected duration when the lobby is created. Guests adopt that lobby clock. Reaching the score limit starts a 15-second results screen immediately. Each new round clears captures, scores, combat receipts and temporary pickups.
 
 ## Offline against bots
 
@@ -63,13 +63,14 @@ sounds and QR libraries, so it opens and plays offline afterwards.
 The QR libraries are served with the game and cached on installation. Changes to sounds, images or
 libraries also refresh the offline cache; opening the standalone download keeps the cached home page intact.
 
-## Levels
+## Arena balance
 
-XP comes from kills (10, plus 3 for each level the victim is above you, and a bounty on the crown), sparks,
-stars, planets and flags. Every level adds a perk and they stack: 2 faster energy, 3 double dash, 4 faster
-Enforcer, 5 magnet, 6 the shield regrows out of combat, 7 increased Enforcer damage, 8 a teleport jump on every
-respawn, 9 more health, 10 **the crown** (+25% damage, a gold ring on everyone's mini map). Health grows from
-3 to 5 lives. Dying costs two levels. Bots level up the same way.
+Combat progression is disabled: fixed 100 HP and hitbox size, no passive XP perks, no level loss on death.
+Health Pack heals 20 up to 100; Vial heals 5 and Big Keg heals 100 up to 199.
+Thigh Pads hold 50 armor (50% absorption); Body Armor holds 100 (75%); Shield Belt holds 150 (100%).
+Armor refills its own layer instead of stacking repeatedly. Belt replaces other layers; total armor caps at 150.
+Death clears armor and carried weapons; confirmed kills display the victim's name separately from announcements.
+See [source parameters, adaptations and complete weapon table](WEAPON-BALANCE.md).
 
 ## Your own server
 
@@ -133,14 +134,14 @@ players (they face where they steer, so they make attack runs, break off and loo
 - **Brake / drift:** hold X to brake; X with a direction drifts (you slide on while the nose swings round).
 - **Scoreboard:** hold Tab to see every player and bot; release to hide. The Scores button toggles it on touchscreens. The round clock stays in its own top row; the wrapping status/weapon panel sits below it.
 - **Weapons:** fixed 1–9, 0; Alt+1–6 for extended slots; Q/E cycles carried weapons. Right mouse button or C uses alternate fire.
-- **Enforcer:** starting pistol with unlimited ammo, instant accurate hits; alternate fire is faster with a wider spread. Level 4 improves primary cadence; level 7 adds 15% pistol damage.
+- **Enforcer:** starting pistol with unlimited ammo, instant accurate hits; alternate fire is faster with a wider spread.
 - **Rocket launcher:** primary fires one straight rocket. Hold alternate fire to load one rocket every 0.45 seconds, up to three; release to launch exactly that many. Switching, death or round end cancels without spending ammo.
-- **Minigun:** accurate primary stream; alternate stream doubles the rate with wider spread. Each mode uses its supplied UT loop, followed by winddown.
+- **Minigun:** Stinger UT3 baseline: 14 HP hitscan at 10 shots/s; alternative fires large 38 HP projectiles every 0.28 s. Each mode uses its supplied UT loop, followed by winddown.
 - **Pulse Gun:** rapid green plasma bolts; alternate fire holds a short green beam that stops at cover. One ammo per bolt or beam tick.
-- **Flak Cannon:** eight ricocheting fragments; alternate fires a lofted shell that bursts on impact or landing into eight fragments. Both modes cost one ammo; ricochets lose damage.
+- **Flak Cannon:** eight ricocheting fragments; alternate fires a lofted shell that explodes for up to 70 HP and releases five fragments on impact or landing. Both modes cost one ammo; ricochets lose damage.
 - **Ripper:** straight discs ricochet off walls; alternate discs explode on contact. No automatic return or Recall.
-- **Shock orb:** alternate beam detonates an orb for a combo; separate supplied firing, beam and combo recordings.
-- **Quake's three:** Nailgun (seven nails; alt piercing Spike), Grenade launcher (bouncing grenades; alt three-grenade volley), Gauntlet (melee; alt Lunge). These remain alongside the UT-inspired weapons.
+- **Shock orb:** ball travels continuously; alternate beam detonates an orb for a combo; separate supplied firing, beam and combo recordings.
+- **Quake weapons:** Grenade launcher (bouncing grenades; alt three-grenade volley), Gauntlet (melee; alt Lunge). Nailgun has been removed from play; its old number key remains reserved.
 - **Railgun:** primary cuts a continuous tunnel; hold alternate fire up to 1.1 seconds for a wider, shorter breach at fixed damage and two ammo.
 - **Remote commands:** mines and Demonic Orb retain their command slots after the last shot until their projectiles expire.
 - **Trophies:** the gun a pilot dies with drops where it died, with its ammo, for 15 s; anyone can take it.
@@ -176,7 +177,7 @@ This is still peer-to-peer, with health owned by the victim (bots by their host)
 server. Compensation helps hitscan and fast linear rounds under ordinary latency; it cannot remove long outages or make
 all projectile and moving-terrain simulations identical between clients.
 
-The wire protocol uses `binrocket-sky/v16/` topics. Players must reload to this version to join each other;
+The wire protocol uses `binrocket-sky/v17/` topics. Players must reload to this version to join each other;
 older pages are isolated (v2–v14 use older maps, clocks or gameplay; v1 events do not identify the round). Taken terrain cells are sent in a
 rolling snapshot (one shared body per state), so late joins and reconnects recover holes after a full pass
 through the map. Detached rubble is still simulated locally.
@@ -194,7 +195,7 @@ index.html        built page (what GitHub Pages serves) - do not edit, run the b
 src/index.html    markup; the build puts the styles and script in place of <!-- @styles --> / <!-- @script -->
 src/styles.css    all styling
 src/js/           the game code, one file per section, joined in file-name order into one scope
-  01-config.js         world size, levels, weapons, shot tables, modes, supplies, rounds
+  01-config.js         world size, fixed stats, weapons, shot tables, modes, supplies, rounds
   01b-arenas.js        the hand-made map layouts: bodies, gun and supply spots
   02-helpers.js        maths and colour helpers, bin recolouring, world event timing
   03-sky-art.js        stars, the Milky Way, galaxies, nebulae, far planets (placed per lobby)

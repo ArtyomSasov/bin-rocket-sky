@@ -404,7 +404,7 @@
     }
     if (s.kind === K.BULLET || s.kind === K.BULLET_ALT) {   // a minigun tracer
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
-      g.strokeStyle = "rgba(255,224,138,0.9)"; g.lineWidth = 2.5; g.lineCap = "round";
+      g.strokeStyle = s.kind === K.BULLET_ALT ? "#a5d4ff" : "rgba(255,224,138,0.9)"; g.lineWidth = s.kind === K.BULLET_ALT ? 9 : 2.5; g.lineCap = "round";
       g.beginPath(); g.moveTo(-30, 0); g.lineTo(0, 0); g.stroke();
       g.restore();
       return;
@@ -586,6 +586,10 @@
       g.fillStyle = "rgba(255,255,255,0.35)"; g.save(); g.translate(-9, -11); g.scale(18 / 24, 18 / 24); g.fill(ICON_PATHS.shield); g.restore();
     }
     g.restore();
+    if (Math.hypot(c.x - me.x, c.y - me.y) < 260) {
+      g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.textAlign = "center"; g.fillStyle = sp.col;
+      g.fillText(sp.name, x, y + 38 * big);
+    }
   }
   // the rare nuke crate: bigger, hazard-striped, pulsing
   function drawAmpCrate(c, x, y, now) {   // Quad damage: a blue rune with a 4, turning in a cold glow, motes circling it
@@ -1083,7 +1087,7 @@
       g.fillStyle = f > 0.6 ? "#4fe39a" : f > 0.3 ? "#ffc23d" : "#ff4d5e"; rrect(x - bw / 2, by, bw * f, 5, 2.5); g.fill();
     }
 
-    const label = b.name ? (lv >= MAX_LV ? "♛ " : "") + "Lv " + lv + " · " + b.name : "";
+    const label = b.name || "";
     if (label) {
       g.font = `700 ${13 * TS}px ` + DISPLAY_FONT;
       g.textAlign = "center";

@@ -34,7 +34,7 @@
   function continuousAudioTick(now) {
     for (const [id, state] of firingSounds) {
       const pilot = id === "me" ? me : botById.get(id) || remotes.get(id);
-      if (!playing || !roundLive || document.hidden || !pilot || pilot.dead || (id === "me" && pilot.weapon !== state.weapon) || now - state.last > (id === "me" ? 190 : 350)) { stopContinuous(id); continue; }
+      if (!playing || !roundLive || document.hidden || !pilot || pilot.dead || (id === "me" && pilot.weapon !== state.weapon) || now - state.last > (state.weapon === "laser" || state.alt ? 400 : id === "me" ? 190 : 350)) { stopContinuous(id); continue; }
       const loop = packLoops["fire:" + id];
       if (!loop) { firingSounds.delete(id); continue; }
       state.x = pilot.x; state.y = pilot.y; state.distance = Math.hypot(pilot.x - me.x, pilot.y - me.y);

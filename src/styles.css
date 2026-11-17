@@ -439,3 +439,6 @@ body:not(.playing) .match-hud { display: none; }
 }
 
 .slot i { font-size: 9px; white-space: nowrap; }
+
+#killNotice { position: fixed; z-index: 32; top: max(24%, calc(var(--hud-bottom, 100px) + 48px)); left: 50%; transform: translateX(-50%); width: min(90vw, 460px); text-align: center; pointer-events: none; color: #ffe19a; font: 800 clamp(15px, 2vw, 22px)/1.45 system-ui, sans-serif; text-shadow: 0 2px 5px #000, 0 0 12px #000; }
+#killNotice > div { margin: 4px 0; padding: 4px 12px; background: linear-gradient(90deg, transparent, #15121ddd 20%, #15121ddd 80%, transparent); overflow-wrap: anywhere; }

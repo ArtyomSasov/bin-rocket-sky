@@ -3,7 +3,7 @@
   const weaponKey = k => { const i = WEAPON_SLOTS.indexOf(k); return i < 0 ? "Q/E" : (i >= 10 ? "Alt+" : "") + ((i % 10 + 1) % 10); };
   const controlledKind = k => ({ gamma: K.GAMMA, mine: K.MINE })[k];
   const controlledShots = k => shots.filter(s => s.mine && s.life > 0 && !s.boom && s.kind === controlledKind(k));
-  const hasWeapon = k => !!me.arsenal[k] || controlledShots(k).length > 0;
+  const hasWeapon = k => !WEAPONS[k]?.disabled && (!!me.arsenal[k] || controlledShots(k).length > 0);
   let rejectAt = -Infinity, lastWeaponStatus = "", wasLungeReady = true;
   function rejectFire(reason, now) {
     if (now - rejectAt < 700) return;
@@ -44,9 +44,9 @@
   const ALT_HINTS = {
     fire: "Enforcer: instant accurate shots; alternate fire is faster with wider spread. Unlimited starting ammo.",
     rocket: "Hold alternate fire to load one rocket every 0.45 s, up to three. Release for a straight salvo; ammo cost equals rockets loaded.",
-    minigun: "Primary: accurate stream. Alternate: faster fire with wider spread; 1 ammo per round.",
+    minigun: "Primary: 14 HP hitscan bullets, 10/s. Alternate: large 38 HP Stinger shards, one every 0.28 s; primary costs 1 ammo, alternate costs 2.",
     scatter: "Slug: longer range and a stronger push than the close-range pellet fan; 2 ammo.",
-    shard: "Flak shell: a lofted shell bursts into eight shards on impact or landing; 1 ammo.",
+    shard: "Flak shell: a lofted shell explodes for up to 70 HP and releases five shards on impact or landing; 1 ammo.",
     gren: "Volley: three bouncing grenades to cover several routes; 3 ammo.",
     gauntlet: "Lunge: free, forward-only melee approach; 1.2 s recharge and 0.2 s protection. Dash uses movement direction and costs energy.",
     nail: "Spike: a fast, precise round that passes through multiple bins; 2 ammo. Walls still stop it.",

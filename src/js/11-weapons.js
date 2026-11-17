@@ -12,14 +12,15 @@
   }
   // one scatter record on the wire becomes the same ten pellets everywhere
   function scatterPellets(s) {
-    for (let k = 0; k < 10; k++) {
-      const da = (k - 4.5) * 0.066, f = 0.86 + ((k * 7) % 10) * 0.028, c = Math.cos(da), sn = Math.sin(da);
+    for (let k = 0; k < 11; k++) {
+      const da = (k - 5) * 0.066, f = 0.86 + ((k * 7) % 10) * 0.028, c = Math.cos(da), sn = Math.sin(da);
       metricChild(s.id, s.id + "p" + k);
       shots.push({ ...s, id: s.id + "p" + k, ox: s.x, oy: s.y, vx: (s.vx * c - s.vy * sn) * f, vy: (s.vx * sn + s.vy * c) * f });
     }
   }
   // a pellet hurts more the closer it was fired from (the classic shotgun falloff); it also shoves what it hits
-  const pelletDmg = s => { const d = Math.hypot(s.x - s.ox, s.y - s.oy); return d < 300 ? 0.27 : d < 550 ? 0.18 : 0.09; };
+  const pelletDmg = () => SHOTS[K.PELLET].dmg; // Q3: spread, not damage falloff
+
   // how someone else's shot sounds here (quieter with distance)
   // which gun a shot kind comes from, for a sound pack's gun sounds
   const KIND_GUN = { [K.PULSE_BOLT]: "laser", [K.PISTOL]: "fire", [K.SAW]: "saw", [K.SAW_ALT]: "saw", [K.NUKE]: "nuke", [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
@@ -69,7 +70,7 @@
   // a rail slug or a shock beam through a shock orb sets it off: a huge blast credited to whoever pulled the trigger
   function comboBlast(o, s, now) {
     o.combo = true; o.life = 0; o.boom = true;
-    const big = true, R = s.kind === K.RAIL ? 300 : 290, base = (s.kind === K.RAIL ? 2.4 : 2.7) * (s.m || 1), x = o.x, y = o.y;
+    const big = true, R = 350, base = HP(165) * (s.m || 1), x = o.x, y = o.y;
     const own = s.mine || botById.has(s.owner);
     for (const b of [...bodies]) if (Math.hypot(b.x - x, b.y - y) - b.r < R * 0.5 && (own || b.free)) carveAt(b, x, y, big ? 130 : 80, own);
     rings.push({ x, y, t: 0, r: R * 1.4, col: "160,235,255", warp: true, dur: 0.7, w: big ? 22 : 12 });
@@ -216,7 +217,7 @@
   // the laser's look: each pulse lays a short-lived beam from the gun to where it stops; at 12 a second they
   // overlap into one shimmering beam, flaring and melting where it lands
   const lasers = [];
-  const LASER_T = 0.11;
+  const LASER_T = 0.26;
   function laserBeam(s, owner) {
     const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v;
     const e = { x: s.x, y: s.y, hit: s.beamHit };
@@ -295,7 +296,7 @@
       if (d > R || id === s.direct || !canHurt(s, o, id, true) || fixedCover(s.x, s.y, o.x, o.y)) return 0;
       const jump = ownShot(s, o, id) ? 2.6 : 1;   // a rocket jump: your own blast flings you
       o.vx += (o.x - s.x) / (d || 1) * push * jump; o.vy += (o.y - s.y) / (d || 1) * push * jump;
-      return (hi * (1 - d / R) + lo) * m;
+      return (lo + (hi - lo) * (1 - d / R)) * m;
     };
     const dm = hit(me, "me", 26 * sizeOf(me.lv));
     if (dm) hurtMe(s, now, dm);
@@ -375,10 +376,7 @@
   const FIRE_TWIN = { ...WEAPONS.fire, spread: [-0.05, 0.05] };
   function volley(p, now, pat, from, aim, mul = 1) {
     metricVolley(p, pat);
-    const plv = p.lv || 1;
-    if (pat.shot?.[0] === K.PISTOL && plv >= 7) mul *= 1.15;   // perks: twin fireballs from Lv 4
-    if (plv >= MAX_LV) mul *= 1.25;                          // the crown: +25% damage
-    const mine = p === me, [kind, speed] = pat.shot, amp = (mine && me.ampUntil > now ? QUAD : 1) * mul, ride = kind === K.BOLT || kind === K.LASER || kind === K.SHOCK || kind === K.PISTOL ? 0 : 0.6;
+    const mine = p === me, [kind, speed] = pat.shot, amp = (mine && me.ampUntil > now ? QUAD : 1) * mul, ride = kind === K.GREN || kind === K.HOLY || kind === K.MINE ? .6 : 0;
     const base = (aim ?? p.a) + (pat.back ? Math.PI : 0), sz = sizeOf(p.lv || 1);
     let s;
     for (const da of pat.spread || [0]) {
@@ -389,7 +387,7 @@
       // (sideways drift no longer bends it off the crosshair), and firing ahead while flying fast still adds reach
       const fwd = speed > 0 ? Math.max(0, p.vx * bx + p.vy * by) * ride : 0;
       s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * (speed + fwd) + (speed > 0 ? 0 : p.vx * ride), vy: by * (speed + fwd) + (speed > 0 ? 0 : p.vy * ride),
-            life: SHOTS[kind].life, cut: pat.cut || 0, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: kind === K.FIRE && plv >= 7 };   // pc: pierces (fireballs from Lv 7)
+            life: SHOTS[kind].life, cut: pat.cut || 0, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: false };   // pc: pierces (fireballs from Lv 7)
       metricShot(s, p, pat);
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else if (kind === K.NAIL) nailSpray(s); else shots.push(s);
       if (kind === K.RAIL || kind === K.GAUSS) railBeam(s);
@@ -451,14 +449,15 @@
   function grenBounce(s) {
     if (Math.hypot(s.vx, s.vy) > 80 && performance.now() - (s.clinkAt || 0) > 90) { s.clinkAt = performance.now(); packPlay("p_bounce_gren", 0.7, s.x, s.y) || sfx("mine_drop", 0.5, 1.3, s.x, s.y); }
   }
-  // a flak shell bursts: eight shards all round, the same on every screen (their ids follow from the shell's)
+  // a flak shell bursts: five shards all round, the same on every screen (their ids follow from the shell's)
   function flakBurst(s) {
     if (s.burst) return;
     s.burst = true; s.boom = true;
-    for (let k = 0; k < 8; k++) {
-      const a = k / 8 * 6.283 + 0.2, v = 1300;
+    splash(s, performance.now());
+    for (let k = 0; k < 5; k++) {
+      const a = k / 5 * 6.283 + 0.2, v = 2200;
       metricChild(s.id, s.id + "f" + k);
-      shots.push({ ...s, id: s.id + "f" + k, kind: K.SHARD, ox: s.x, oy: s.y, px: s.x, py: s.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: SHOTS[K.SHARD].life * 0.6, bn: 0, burst: false, boom: false, hits: undefined });
+      shots.push({ ...s, id: s.id + "f" + k, kind: K.SHARD, ox: s.x, oy: s.y, px: s.x, py: s.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: SHOTS[K.SHARD].life * 0.6, bn: 0, burst: false, boom: false, hits: undefined, expireAfterStep: false, traced: false, catchup: 0, direct: undefined, splashed: false, fxDone: false, impactSound: false });
     }
     if (onScreen(sx(s.x), sy(s.y), 300)) {
       explode(s.x, s.y, lowQ ? 20 : 45, 380); impacts.push({ x: s.x, y: s.y, t: 0, r: 110, col: "#ffb060" });
@@ -608,7 +607,7 @@
       if (me.heat >= 1) { me.overheat = true; floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: "OVERHEAT", gold: false }); sfx("shield_hit", 0.7, 0.6); }
     }
     const cdMul = MODES[MODE].cdMul || 1;
-    fireCd = alt ? pat.cd : k === "fire" && me.lv >= 4 ? w.cd * .8 * cdMul : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
+    fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
     const gun = muzzleAt(k);
     const muzzle = volley(me, now, pat, gun, (k === "bolt" && !alt || k === "laser" && alt) ? boltLock(me, gun) : undefined, mul);
     const [name, vol, pitch] = pat.sfx;
@@ -762,8 +761,8 @@
   }
   // quick dodge: a burst forward (or toward where you steer) with a moment of invulnerability
   function dash(now) {
-    me.dashTimes = (me.dashTimes || []).filter(t => now - t < (me.lv >= 3 ? 1100 : 450));
-    if (!playing || me.dead || energy < 25 || now < dashReadyAt || me.dashTimes.length >= (me.lv >= 3 ? 2 : 1)) return;
+    me.dashTimes = (me.dashTimes || []).filter(t => now - t < 450);
+    if (!playing || me.dead || energy < 25 || now < dashReadyAt || me.dashTimes.length >= 1) return;
     me.dashTimes.push(now);
     energy -= 25; dashReadyAt = now + 150; energyRegenAt = now + 700;
     me.dashAt = now;
@@ -978,7 +977,7 @@
   // armour is counted in lives like health, so it shows as a percentage of your full health too
   function renderShield() {
     document.getElementById("shieldChip").hidden = me.shield <= 0;
-    document.getElementById("shieldNum").textContent = Math.ceil(me.shield / maxLivesOf(me.lv) * 100) + "%";
+    document.getElementById("shieldNum").textContent = Math.ceil(me.shield / .03) + " ARMOR";
   }
   let shieldHitAt = -1e9;
   function hurt(now, dmg = 1, force = false, kind = -1, ang = 0) {   // kind, ang: the shot that hit (picks how the bin dies)
@@ -986,8 +985,8 @@
     if (me.dead || (!force && now < me.inv)) return false;
     // armour soaks part of the hit first (black hole and the nuke's core ignore it)
     if (!force && me.shield > 0) {
-      const absorbed = Math.min(me.shield, dmg * ARMOR_SOAK);   // armour soaks part of the hit, the rest gets through
-      me.shield = Math.round((me.shield - absorbed) * 1000) / 1000; dmg = Math.round((dmg - absorbed) * 1000) / 1000;   // no float dust left behind
+      const absorbed = absorbArmor(me, dmg);   // armour soaks part of the hit, the rest gets through
+      dmg = Math.round((dmg - absorbed) * 1000) / 1000;   // no float dust left behind
       shieldHitAt = now; renderShield();
       impacts.push({ x: me.x, y: me.y, t: 0, r: 90 * sizeOf(me.lv), col: "#6fc2ff" });
       sfx("shield_hit", 0.8) || blip(640, 0.12, "triangle");
@@ -1008,35 +1007,14 @@
       spillStars(now);
       const trophy = me.weapon !== "fire" && me.weapon !== "tele" ? me.weapon : owned().find(k => k !== "fire" && k !== "tele");
       if (trophy && !MODES[MODE].only) dropGun(me.x, me.y, trophy, me.arsenal[trophy]);
-      if (me.lv > 1) floaters.push({ x: me.x, y: me.y - 80, t: 0, txt: "-" + (me.lv - levelAfterDeath(me.lv)) + " levels", gold: false });
-      me.lv = levelAfterDeath(me.lv); me.xp = XP_STEPS[me.lv - 1];   // a destroyed bin drops two levels
+      me.lv = levelAfterDeath(me.lv); me.xp = XP_STEPS[me.lv - 1];   // no progression penalty
       baseArsenal(); me.ampUntil = 0; me.fc = -1; renderWeapon();   // its guns are lost with it (and a carried flag goes home)
       renderLevel();
       packPlay("p_death", 0.7) || blip(60, 0.6, "sawtooth");
     } else explode(me.x, me.y, 18, 180);
     return true;
   }
-  function gainXp(v, now) {
-    me.xp += v; me.carry += v;
-    const nl = lvOf(me.xp);
-    if (nl > me.lv) {
-      const oldMax = maxLivesOf(me.lv);
-      me.lv = nl;
-      me.lives = Math.min(maxLivesOf(nl), me.lives + 1 + maxLivesOf(nl) - oldMax);
-      const t = tierOf(nl), col = `rgb(${t.aura || t.mid})`;
-      for (let k = 0; k < 90; k++) {
-        const a = k / 90 * 6.283, v = 260 + Math.random() * 120;
-        puff(me.x, me.y, Math.cos(a) * v, Math.sin(a) * v, 0.9, 2.6, k % 3 ? col : "#ffffff");
-      }
-      floaters.push({ x: me.x, y: me.y - 70, t: 0, txt: "LEVEL " + nl + "!", gold: true });
-      announce("LEVEL " + nl, PERKS[nl] || "", col, nl >= MAX_LV ? 4 : 2);
-      setTimeout(() => sfx("v_levelup", 0.9), 350);
-      if (!sfx("level_up", 0.7)) [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => blip(f, 0.18), i * 90));
-      shake = Math.max(shake, 0.15);
-      renderHearts(false);
-    }
-    renderLevel();
-  }
+  function gainXp(v) { me.carry += v; } // salvage still belongs to its game mode; no combat progression
   // a trophy: the gun drops where its pilot died (mine, or one of my bots')
   function dropGun(x, y, type, ammo) {
     if (!(ammo > 0) || !Number.isFinite(ammo)) return;
@@ -1063,8 +1041,7 @@
   function respawn(now) {
     killer = "";
     audioCue("respawn");
-    me.dead = false; me.lives = maxLivesOf(me.lv); me.inv = now + 2000; me.shield = 0; renderShield();
-    if (me.lv >= 8 && !(me.teleN > 0)) { me.teleN = 1; renderTele(); }   // perk: a teleport jump on every respawn
+    me.dead = false; me.lives = maxLivesOf(me.lv); me.inv = now + 2000; clearArmor(me); renderShield();
     Object.assign(me, spawnPoint(me.tm)); me.vx = 0; me.vy = -60;
     renderHearts(false);
   }

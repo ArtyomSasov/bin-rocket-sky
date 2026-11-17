@@ -1,6 +1,6 @@
 function runWeaponAuditChecks() {
   const passed = [], ok = (v, why) => { if (!v) throw Error(why); }, check = (name, f) => { f(); passed.push(name); };
-  const reset = () => { bodies=[];det=[];shots.length=0;remotes.clear();keys.clear();me.x=100;me.y=500;me.a=0;me.vx=me.vy=0;me.inv=0;me.shield=0;me.dead=false;me.lives=20;me.lv=1;me.ampUntil=0;fireCd=0;baseArsenal(); };
+  const reset = () => { bodies=[];det=[];shots.length=0;remotes.clear();keys.clear();me.x=100;me.y=500;me.a=0;me.vx=me.vy=0;me.inv=0;clearArmor(me);me.dead=false;me.lives=20;me.lv=1;me.ampUntil=0;fireCd=0;baseArsenal(); };
   const now = performance.now();reset();
   check('UT rocket loading releases only loaded rockets and cancels without spending ammo', () => {
     for (const ammo of [1,2,5]) {
@@ -31,7 +31,7 @@ function runWeaponAuditChecks() {
     const s=shots[0],damage=shotDmg(s);s.bn=1;ok(shotDmg(s)<damage,'ricochets lose energy');
     shoot(now,true);const shell=shots.at(-1);shell.life=SHOTS[K.FLAK].life/2;
     ok(flakHeight(shell)>40,'visible ballistic loft');
-    ok(WEAPONS.minigun.alt.cd<WEAPONS.minigun.cd&&WEAPONS.minigun.alt.jitter>WEAPONS.minigun.jitter,'two minigun modes');
+    ok(WEAPONS.minigun.alt.cd>WEAPONS.minigun.cd&&SHOTS[K.BULLET_ALT].dmg>SHOTS[K.BULLET].dmg,'two minigun modes');
     reset();me.weapon='laser';me.arsenal.laser=20;shoot(now,false);
     ok(shots.at(-1).kind===K.PULSE_BOLT&&!HITSCAN[K.PULSE_BOLT],'Pulse primary is moving plasma');
     shoot(now,true);ok(shots.at(-1).kind===K.LASER&&HITSCAN[K.LASER],'Pulse alternate is short hitscan beam');
@@ -72,13 +72,10 @@ function runWeaponAuditChecks() {
     bodies=[{fixed:true,x:400,y:500,hw:20,hh:120}];ok(boltLock(me)===undefined,'covered lock');
     bodies=[];me.x=700;const before=me.lives;boltChain({id:'test.laser',kind:K.LASER,owner:'enemy'},650,500,'target',now);ok(me.lives===before,'laser chain removed');
   });
-  check('Spike pierces two bins; Slug reaches beyond close scatter; Flak and Volley are area attacks', () => {
-    reset();remotes.set('a',{x:500,y:500,lv:1});remotes.set('b',{x:800,y:500,lv:1});
-    me.weapon='nail';me.arsenal.nail=10;shoot(now,true);const s=shots.at(-1);
-    ok(me.arsenal.nail===8,'two ammo per spike');s.px=100;s.py=500;s.x=1000;s.y=500;ok(pierces(s)&&targetHit(s,remotes.get('a'))&&targetHit(s,remotes.get('b')),'spike piercing');
-    ok(WEAPONS.scatter.alt.shot[1]*SHOTS[K.SLUG].life>WEAPONS.scatter.shot[1]*SHOTS[K.PELLET].life,'slug range');
+  check('Nailgun is retired; Flak and grenade alternate fire remain area attacks', () => {
+    reset();me.arsenal.nail=10;ok(!hasWeapon('nail')&&!SANDBOX_GUNS.includes('nail'),'retired nailgun');
     reset();me.weapon='shard';me.arsenal.shard=10;shoot(now,true);const shell=shots.at(-1);flakBurst(shell);
-    ok(shots.filter(s=>s.kind===K.SHARD).length===8&&me.arsenal.shard===9,'radial flak');
+    ok(shots.filter(s=>s.kind===K.SHARD).length===5&&me.arsenal.shard===9,'radial flak');
     reset();me.weapon='gren';me.arsenal.gren=10;shoot(now,true);ok(shots.filter(s=>s.kind===K.GREN).length===3&&me.arsenal.gren===7,'grenade volley');
   });
   check('lunge has a cooldown, is facing-bound and cannot be repeated by holding alt', () => {
@@ -88,10 +85,43 @@ function runWeaponAuditChecks() {
     lungeReady=0;
   });
   check('local measurements retain shot identity after weapon switch and count real damage', () => {
-    reset();me.weapon='nail';me.arsenal.nail=10;shoot(now,false);const s=shots.at(-1),row=metricForShot(s.id);
-    ok(row?.weapon==='nail'&&row.fireMode==='primary','child shot attribution');
+    reset();me.weapon='shard';me.arsenal.shard=10;shoot(now,false);const s=shots.at(-1),row=metricForShot(s.id);
+    ok(row?.weapon==='shard'&&row.fireMode==='primary','child shot attribution');
     me.weapon='fire';const before=row.damageValidated;metricDamage(s.id,0.13,false);ok(Math.abs(row.damageValidated-before-0.13)<1e-6,'damage attribution');
     const hits=row.peerHits;metricPeer(s.id,'test',false);metricPeer(s.id,'test',false);ok(row.peerHits===hits+1,'confirmation dedupe');
+  });
+  check('expired Flak shell releases living fragments that travel and damage a target', () => {
+    reset();me.x=50;me.y=50;me.weapon='shard';me.arsenal.shard=2;shoot(now,true);
+    const shell=shots.at(-1);Object.assign(shell,{x:1000,y:1000,px:1000,py:1000,life:.001,expireAfterStep:true});
+    updateShots(.016,now+16);
+    const fragments=shots.filter(s=>s.kind===K.SHARD);ok(fragments.length===5,'five fragments on expiry');
+    const fragment=fragments[0],startX=fragment.x;
+    me.x=fragment.x+Math.cos(.2)*180;me.y=fragment.y+Math.sin(.2)*180;me.lives=3;me.inv=0;
+    fragment.mine=false;fragment.owner='flak-enemy';
+    updateShots(.05,now+66);ok(fragment.x>startX&&fragment.life>0,'fragment survives and travels');
+    updateShots(.05,now+116);ok(me.lives<3,'fragment actually hurts a victim');
+  });
+  check('Shock ball never brakes in open space; Stinger primary is instant and alt is a projectile', () => {
+    reset();me.x=100;me.y=100;me.weapon='orb';me.arsenal.orb=2;shoot(now,false);
+    const orb=shots.at(-1),v=Math.hypot(orb.vx,orb.vy);orb.life=SHOTS[K.ORB].life-1.2;
+    updateShots(.05,now+50);ok(Math.abs(Math.hypot(orb.vx,orb.vy)-v)<.001,'no late braking');
+    reset();me.weapon='minigun';me.arsenal.minigun=10;shoot(now,false);const bullet=shots.at(-1);updateShots(.016,now+16);
+    ok(bullet.traced,'primary hitscan');shoot(now,true);const heavy=shots.at(-1);updateShots(.016,now+32);
+    ok(heavy.kind===K.BULLET_ALT&&!heavy.traced&&heavy.life>0,'heavy travelling alternate');
+  });
+  check('fixed health and layered armor work through real hurt, and XP never grants combat perks', () => {
+    reset();me.lives=3;applySupply(me,'mega');hurt(now,3);ok(me.lives===3&&me.shield===1.5,'belt absorbs all');
+    hurt(now+10,3);ok(me.lives===1.5&&me.shield===0,'belt overflow reaches health');
+    clearArmor(me);applySupply(me,'shield');me.lives=3;hurt(now+20,1.2);ok(Math.abs(me.lives-2.7)<.001,'body armor leaks 25 percent');
+    applySupply(me,'bigmed');ok(me.lives>3&&hpPct(me)>100,'super health displayed');
+    gainXp(10000,now);ok(me.lv===1&&maxLivesOf(me.lv)===3,'no leveling');
+  });
+  check('each confirmed victim gets a visible kill notice, repeated reports do not duplicate it', () => {
+    reset();killNotices.length=0;const id=myTag+'.notice'+now;
+    reportKill(id,'Alpha','alpha');reportKill(id,'Beta','beta');reportKill(id,'Alpha','alpha');
+    ok(killNotices.length===2,'one notice per unique victim');
+    ok(killNoticeEl.textContent.includes('Alpha')&&killNoticeEl.textContent.includes('Beta'),'both names visible');
+    killNotices.length=0;renderKillNotices();
   });
   reset();renderWeapon();return passed;
 }
@@ -99,6 +129,8 @@ function runWeaponAuditChecks() {
 async function checkContinuousAudio() {
   const now=performance.now(), ok=(v,msg)=>{if(!v)throw Error(msg);};
   for(const id of firingSounds.keys())stopContinuous(id);
+  for (const v of [...priorityActive]) v.src.stop();
+  await new Promise(resolve => setTimeout(resolve, 30));
   const original=audio.createBufferSource, started=[];
   audio.createBufferSource=function(){const s=original.call(audio),start=s.start.bind(s);s.start=(...a)=>{started.push(s.buffer);return start(...a);};return s;};
   try {

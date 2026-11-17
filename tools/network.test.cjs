@@ -14,7 +14,7 @@ function setup() {
   let now = 0;
   const clients = [], timers = [], els = new Map();
   const element = () => ({ classList: { toggle() {} }, textContent: '', hidden: false });
-  const c = { metricPeer(){},
+  const c = { WEAPONS: {fire:{}, rail:{}, tele:{}, nail:{disabled:true}}, metricPeer(){},
     performance: { now: () => now }, console, Date, Math, Map, Set, Number, Array, JSON, Promise,
     btoa: s => Buffer.from(s, 'binary').toString('base64'), atob: s => Buffer.from(s, 'base64').toString('binary'),
     document: { getElementById(id) { if (!els.has(id)) els.set(id, element()); return els.get(id); }, createElement: element, head: { appendChild(s) { s.onload(); } }, addEventListener() {} },
@@ -35,7 +35,7 @@ function setup() {
   return { c, clients, timers, advance: n => { now += n; }, async start() { const p = c.api.initNet(); c.api.chooseLobby('test'); await p; } };
 }
 const state = (q, extra = {}) => ({ x: 10, y: 10, q, rd: 1, ...extra });
-const deliver = (client, id, p) => client.emit('message', 'binrocket-sky/v16/test/s/' + id, Buffer.from(JSON.stringify(p)));
+const deliver = (client, id, p) => client.emit('message', 'binrocket-sky/v17/test/s/' + id, Buffer.from(JSON.stringify(p)));
 
 test('malformed JSON values do not break the message callback; next state still arrives', async () => {
   const { c, clients, start } = setup(); await start();
@@ -163,7 +163,7 @@ test('instant shots are published before a state and their repeated journals nev
   const f=['other.1',10,10,6400,0,c.K.SHOCK,1,0,0,Date.now()];
   c.api.net.shot(f);assert.ok(clients[1].sent[0].topic.includes('/f/'));assert.deepEqual(clients[1].sent[0],clients[2].sent[0]);
   const packet={rd:1,ts:Date.now(),f:[f]};
-  for(const client of clients.slice(1))client.emit('message','binrocket-sky/v16/test/f/pother',Buffer.from(JSON.stringify(packet)));
+  for(const client of clients.slice(1))client.emit('message','binrocket-sky/v17/test/f/pother',Buffer.from(JSON.stringify(packet)));
   deliver(clients[1],'pother',state(2,packet));
   assert.equal(c.shots.length,1);assert.equal(c.shots[0].vx,6400,'shock velocity must not be clamped to 4500');
 });

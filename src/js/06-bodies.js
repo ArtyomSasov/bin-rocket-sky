@@ -369,7 +369,7 @@
     const spot = ([type, fx, fy], i, P) => ({ type, x: fx * W, y: fy * H, P, off: hash(seed, i, 61) * P });
     arena = {
       guns: guns.map((e, i) => spot(e, i, GUN_PERIOD[e[0]] || GUN_PERIOD_BASE)),
-      supplies: supplies.map((e, i) => spot(e, i + 100, SUPPLY_PERIOD)),
+      supplies: supplies.map((e, i) => spot(e, i + 100, SUPPLIES[e[0]].period)),
       amp: A.amp ? spot(["amp", ...A.amp], 200, AMP_PERIOD) : null,
       nuke: A.nuke && (big || modeOf(code) === "n" || modeOf(code) === "x") ? spot(["nuke", ...A.nuke], 201, BOMB_CRATES.nuke.period) : null,
       holy: A.holy && (big || modeOf(code) === "x") ? spot(["holy", ...A.holy], 202, BOMB_CRATES.holy.period) : null,
