@@ -100,7 +100,7 @@
     fire:    { name: "Fireball", ammo: Infinity, cd: 0.22, shot: [K.FIRE, 1000], kick: 25, feel: [5, 0.05, 40], sfx: ["fire", 0.55] },
     triple:  { name: "Triple shot", ammo: 24, cd: 0.3, col: "#ffb43c", shot: [K.FIRE, 1000], spread: [-0.2, 0, 0.2], kick: 25, feel: [7, 0.07, 50], sfx: ["triple", 0.7],
                alt: { name: "Focus", cost: 1, cd: 0.3, shot: [K.FIRE, 1050], spread: [-0.035, 0, 0.035], kick: 60, feel: [10, 0.13, 80], sfx: ["triple", 0.8, 0.9] } },
-    // the laser: a beam of ~700 px that locks onto the nearest enemy you point at and arcs on to one more close by
+    // the laser: a beam of 700 px with a narrow lock cone, only for visible enemies; no chain damage
     // alt: a wide pulse that shoves everything in front of you away (12 charges)
     laser:   { name: "Laser", ammo: 120, cd: 0.08, col: "#7df9ff", shot: [K.LASER, 5600], kick: 6, feel: [2, 0.02, 30], sfx: ["laser", 0.4],
                alt: { name: "Pulse", cost: 12, cd: 1.0, shot: [K.PULSE, 3000], kick: 160, feel: [14, 0.22, 90], sfx: ["laser", 1, 0.5], fx: "pulse" } },
@@ -138,7 +138,7 @@
     // bounce off rock and go off after 2.5 s or on a bin, alt three at once), and the gauntlet everyone carries
     // (hold fire: the blade spins and tears into a bin it touches; alt: a lunge forward with it)
     nail:    { name: "Nailgun", ammo: 30, cd: 0.55, col: "#cfd6e2", shot: [K.NAIL, 1700], kick: 90, feel: [10, 0.12, 60], sfx: ["fire", 0.6, 1.6],
-               alt: { name: "Spike", cost: 4, cd: 1.0, shot: [K.SPIKE, 2600], kick: 200, feel: [16, 0.22, 80], sfx: ["rail", 0.6, 1.6] } },
+               alt: { name: "Spike", cost: 2, cd: 1.0, shot: [K.SPIKE, 2600], kick: 200, feel: [16, 0.22, 80], sfx: ["rail", 0.6, 1.6] } },
     gren:    { name: "Grenade launcher", ammo: 10, cd: 0.8, col: "#8fd06a", shot: [K.GREN, 900], kick: 140, feel: [14, 0.18, 80], sfx: ["mine_drop", 0.9, 0.7],
                alt: { name: "Volley", cost: 3, cd: 1.5, shot: [K.GREN, 850], spread: [-0.25, 0, 0.25], kick: 260, feel: [20, 0.28, 100], sfx: ["mine_drop", 1, 0.6] } },
     gauntlet: { name: "Gauntlet", ammo: Infinity, cd: 0.4, col: "#ffcf5a", shot: [K.MELEE, 0], melee: true, kick: 0, feel: [6, 0.1, 0], sfx: ["hit", 0.7, 0.7],
@@ -299,7 +299,7 @@
   let body = null;
   img.onload = () => {
     const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight;
-    const cx2 = c.getContext("2d"); cx2.drawImage(img, 0, 0);
+    const cx2 = c.getContext("2d", { willReadFrequently: true }); cx2.drawImage(img, 0, 0);
     const d = cx2.getImageData(0, 0, c.width, c.height), px = d.data;
     for (let i = 0; i < px.length; i += 4) {
       const r = px[i], gg = px[i + 1], b = px[i + 2];

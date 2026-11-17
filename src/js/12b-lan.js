@@ -110,6 +110,7 @@
   function lanStart(code) {
     lan.code = code; lan.host = !lan.guest;
     net.send = lanSend;
+    net.hz = 20;   // straight to the devices in the room, no broker's message budget: 20 states a second instead of 8
     document.getElementById("boardTitle").textContent = "Local room · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
     if (lan.host) { const b = document.getElementById("lanAdd"); b.hidden = false; b.onclick = () => lanDialog("host"); }
     setInterval(() => { lanRefresh(); if (!lan.host) for (const p of lan.peers) lanSendTo(p, JSON.stringify({ t: "ping", v: performance.now() })); }, 2000);

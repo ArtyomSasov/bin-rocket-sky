@@ -437,3 +437,5 @@ body:not(.playing) .match-hud { display: none; }
   .match-header .match-clock { grid-column: 1; justify-self: start; }
   .match-header .hud-tools { grid-column: 2; }
 }
+
+.slot i { font-size: 9px; white-space: nowrap; }

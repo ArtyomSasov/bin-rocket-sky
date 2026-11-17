@@ -446,6 +446,8 @@ body:not(.playing) .match-hud { display: none; }
   .match-header .match-clock { grid-column: 1; justify-self: start; }
   .match-header .hud-tools { grid-column: 2; }
 }
+
+.slot i { font-size: 9px; white-space: nowrap; }
 </style>
 
 <canvas id="c" tabindex="0" aria-label="Game arena"></canvas>
@@ -481,6 +483,8 @@ body:not(.playing) .match-hud { display: none; }
     <div class="pick"><span>Engine sound</span><div class="segs" id="setEngine" role="group" aria-label="Engine sound"></div></div>
     <div class="pick"><span>Crosshair</span><div class="segs" id="setAim" role="group" aria-label="Crosshair"></div>
       <div class="segs" id="setAimCol" role="group" aria-label="Crosshair colour"></div></div>
+    <details><summary>Weapon controls</summary><p id="weaponHint"></p><small>Fixed slots: 1–9, 0; Alt+1–6 for additional weapons. Q/E cycles carried weapons. T: teleport. Hold Tab: scores.</small></details>
+    <button type="button" class="ghost" id="exportWeapons">Export weapon match stats</button>
     <button type="button" class="go" id="setDone">Back to the game</button>
     <button type="button" class="ghost menu-only" id="setLeave">Leave to the start screen</button>
   </div>
@@ -566,7 +570,7 @@ body:not(.playing) .match-hud { display: none; }
       <span id="ctrlTitle">Controls</span>
       <dl class="clist" id="clist"></dl>
     </section>
-    <details class="audio-credits"><summary>Audio credits</summary><p>Additional effects: Kenney, rubberduck, zer0sol and bart (CC0). Additional recorded announcer: <a href="https://opengameart.org/content/warlord-video-game-announcer" target="_blank" rel="noopener">Warlord</a> and <a href="https://opengameart.org/content/dragon-announcer-audio-pack" target="_blank" rel="noopener">Dragon</a> by VoiceBosch, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>; source recordings unchanged. Existing weapon and announcer pack supplied by the game's author. Railgun recording by the game's author.</p></details>
+    <details class="audio-credits"><summary>Audio credits</summary><p>Spaceship engine: <a href="https://opengameart.org/content/sci-fi-sound-effects-library" target="_blank" rel="noopener">Little Robot Sound Factory</a>, <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a> (loop crossfade and level adjusted). Additional effects: Kenney, rubberduck, zer0sol and bart (CC0). Additional recorded announcer: <a href="https://opengameart.org/content/warlord-video-game-announcer" target="_blank" rel="noopener">Warlord</a> and <a href="https://opengameart.org/content/dragon-announcer-audio-pack" target="_blank" rel="noopener">Dragon</a> by VoiceBosch, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>; source recordings unchanged. Existing weapon and announcer pack supplied by the game's author. Railgun recording by the game's author.</p></details>
   </form>
 </div>
 
@@ -674,7 +678,7 @@ body:not(.playing) .match-hud { display: none; }
     fire:    { name: "Fireball", ammo: Infinity, cd: 0.22, shot: [K.FIRE, 1000], kick: 25, feel: [5, 0.05, 40], sfx: ["fire", 0.55] },
     triple:  { name: "Triple shot", ammo: 24, cd: 0.3, col: "#ffb43c", shot: [K.FIRE, 1000], spread: [-0.2, 0, 0.2], kick: 25, feel: [7, 0.07, 50], sfx: ["triple", 0.7],
                alt: { name: "Focus", cost: 1, cd: 0.3, shot: [K.FIRE, 1050], spread: [-0.035, 0, 0.035], kick: 60, feel: [10, 0.13, 80], sfx: ["triple", 0.8, 0.9] } },
-    // the laser: a beam of ~700 px that locks onto the nearest enemy you point at and arcs on to one more close by
+    // the laser: a beam of 700 px with a narrow lock cone, only for visible enemies; no chain damage
     // alt: a wide pulse that shoves everything in front of you away (12 charges)
     laser:   { name: "Laser", ammo: 120, cd: 0.08, col: "#7df9ff", shot: [K.LASER, 5600], kick: 6, feel: [2, 0.02, 30], sfx: ["laser", 0.4],
                alt: { name: "Pulse", cost: 12, cd: 1.0, shot: [K.PULSE, 3000], kick: 160, feel: [14, 0.22, 90], sfx: ["laser", 1, 0.5], fx: "pulse" } },
@@ -712,7 +716,7 @@ body:not(.playing) .match-hud { display: none; }
     // bounce off rock and go off after 2.5 s or on a bin, alt three at once), and the gauntlet everyone carries
     // (hold fire: the blade spins and tears into a bin it touches; alt: a lunge forward with it)
     nail:    { name: "Nailgun", ammo: 30, cd: 0.55, col: "#cfd6e2", shot: [K.NAIL, 1700], kick: 90, feel: [10, 0.12, 60], sfx: ["fire", 0.6, 1.6],
-               alt: { name: "Spike", cost: 4, cd: 1.0, shot: [K.SPIKE, 2600], kick: 200, feel: [16, 0.22, 80], sfx: ["rail", 0.6, 1.6] } },
+               alt: { name: "Spike", cost: 2, cd: 1.0, shot: [K.SPIKE, 2600], kick: 200, feel: [16, 0.22, 80], sfx: ["rail", 0.6, 1.6] } },
     gren:    { name: "Grenade launcher", ammo: 10, cd: 0.8, col: "#8fd06a", shot: [K.GREN, 900], kick: 140, feel: [14, 0.18, 80], sfx: ["mine_drop", 0.9, 0.7],
                alt: { name: "Volley", cost: 3, cd: 1.5, shot: [K.GREN, 850], spread: [-0.25, 0, 0.25], kick: 260, feel: [20, 0.28, 100], sfx: ["mine_drop", 1, 0.6] } },
     gauntlet: { name: "Gauntlet", ammo: Infinity, cd: 0.4, col: "#ffcf5a", shot: [K.MELEE, 0], melee: true, kick: 0, feel: [6, 0.1, 0], sfx: ["hit", 0.7, 0.7],
@@ -873,7 +877,7 @@ body:not(.playing) .match-hud { display: none; }
   let body = null;
   img.onload = () => {
     const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight;
-    const cx2 = c.getContext("2d"); cx2.drawImage(img, 0, 0);
+    const cx2 = c.getContext("2d", { willReadFrequently: true }); cx2.drawImage(img, 0, 0);
     const d = cx2.getImageData(0, 0, c.width, c.height), px = d.data;
     for (let i = 0; i < px.length; i += 4) {
       const r = px[i], gg = px[i + 1], b = px[i + 2];
@@ -916,12 +920,11 @@ body:not(.playing) .match-hud { display: none; }
   //   supplies: [med | bigmed | shield | mega, x, y]
   //   amp, nuke, holy: [x, y] one spot each (on the vertical axis or the centre: as far from either base)
   //   pads:     [x, y, direction in degrees] boost pads: fly over one and it flings you that way
-  // Every map has every gun: the ones its layout doesn't place go into its widest gaps (the same every time).
+  // Each layout has its own deliberate weapon pool; large maps repeat its placements.
   // The Large and Huge arenas add a few more bodies and spots in the widest gaps (fixed too, see buildPlanets).
   // Gun respawn (s): a taken crate comes back at the start of its spot's next cycle
   const GUN_PERIOD = { rail: 30, gamma: 60, rocket: 26, orb: 26, tele: 26, gren: 26 }, GUN_PERIOD_BASE = 20;
   const ARENA_SCALE = { s: 0.72, m: 1, l: 1.2, x: 1.4 };   // body sizes per map size
-  const ALL_GUNS = ["scatter", "laser", "minigun", "rail", "rocket", "orb", "shard", "saw", "mine", "tele", "gamma", "nail", "gren"];
   // the asteroid ring: rocks round the centre with wide gates towards the bases and the top and bottom
   const ringRocks = (r, angles, R) => angles.map((a, i) => ["rock", 0.5 + Math.cos(a / 57.3) * r, 0.5 + Math.sin(a / 57.3) * r, R + (i % 2) * 18, 0]);
   const ARENAS = {
@@ -1038,7 +1041,7 @@ body:not(.playing) .match-hud { display: none; }
       cellsFromArt(b); wrecks.push(b);
     }
     const spot = (type, x, y, P = GUN_PERIOD[type] || GUN_PERIOD_BASE) => ({ type, ...foundryPoint(x, y), P, off: 0 });
-    const gunLayout = [["scatter", 3, 9], ["minigun", 3, 12], ["rocket", 7, 3], ["rail", 10, 2], ["laser", 7, 7], ["orb", 8, 10], ["shard", 7, 17], ["saw", 13, 5], ["mine", 3, 5], ["tele", 3, 15], ["gamma", 10, 4], ["nail", 13, 8], ["gren", 7, 13]];
+    const gunLayout = [["scatter", 3, 9], ["minigun", 3, 12], ["rocket", 7, 3], ["rail", 10, 2], ["laser", 7, 7], ["orb", 8, 10], ["shard", 7, 17], ["mine", 3, 5], ["tele", 3, 15], ["gren", 7, 13]];
     const guns = gunLayout.flatMap(([type, x, y]) => [spot(type, x, y), spot(type, 20 - x, 20 - y)]);
     arena = { guns, supplies: [["med", 3, 7], ["shield", 7, 10], ["bigmed", 13, 16]].flatMap(([t, x, y]) => [spot(t, x, y, SUPPLY_PERIOD), spot(t, 20 - x, 20 - y, SUPPLY_PERIOD)]),
       amp: spot("amp", 10, 10, AMP_PERIOD), nuke: null, holy: null,
@@ -1126,7 +1129,7 @@ body:not(.playing) .match-hud { display: none; }
   // graphics settings, kept in this browser: res "auto" (drops when slow) or a fixed share of the screen's resolution,
   // fx "high" or "low" (lighter effects), aim: the crosshair ("off", "small", "big"), aimCol: its colour
   const settings = (() => {
-    const d = { res: "auto", fx: "high", aim: "small", aimCol: "gun", engine: "on", engineV: 3, mouse: "aim" };   // Engine Working recording; the sound setting can still disable it
+    const d = { res: "auto", fx: "high", aim: "small", aimCol: "gun", engine: "on", engineV: 3, mouse: "aim" };   // Recorded spaceship loop; the sound setting can still disable it
     try {
       const v = JSON.parse(store.get("binrocket.gfx"));
       if (!v || typeof v !== "object") return d;
@@ -1162,7 +1165,7 @@ body:not(.playing) .match-hud { display: none; }
     let c = tintCache.get(key);
     if (c) return c;
     c = document.createElement("canvas"); c.width = body.width; c.height = body.height;
-    const x = c.getContext("2d"); x.drawImage(body, 0, 0);
+    const x = c.getContext("2d", { willReadFrequently: true }); x.drawImage(body, 0, 0);   // read back at once: a GPU canvas stalls the frame for it
     const d = x.getImageData(0, 0, c.width, c.height), px = d.data;
     for (let i = 0; i < px.length; i += 4) {
       if (!px[i + 3]) continue;
@@ -1519,7 +1522,25 @@ body:not(.playing) .match-hud { display: none; }
     "v_fight", "v_prepare", "v_multikill", "v_flawless", "v_win", "v_lose", "v_levelup", "v_powerup"];   // v_*: Kenney's CC0 voice-over packs
   const SFX_MP3 = new Set(["rail"]);   // rail.mp3: made by the game's author
   const sfxBuf = {};
-  let sfxBus = null, heavyBus = null, mixBus = null, voiceBus = null, sfxVoices = 0, blastVoices = 0, hall = null;
+  let sfxBus = null, heavyBus = null, mixBus = null, voiceBus = null, engineBus = null, userBus = null, priorityBus = null, priorityVoices = 0, sfxVoices = 0, blastVoices = 0, hall = null;
+  function createSoundMix(ctx) {
+    const effects = ctx.createGain(), mix = ctx.createGain(), voice = ctx.createGain(), engine = ctx.createGain(), priority = ctx.createGain();
+    effects.gain.value = 0.7; voice.gain.value = 0.9; engine.gain.value = 0.65;
+    // Web Audio's defaults compress almost everything above -24 dB at 12:1.
+    // Leave room for shot attacks; only dense combat needs sustained compression.
+    const combat = ctx.createDynamicsCompressor();
+    combat.threshold.value = -10; combat.knee.value = 6; combat.ratio.value = 4;
+    combat.attack.value = 0.012; combat.release.value = 0.14;
+    const output = ctx.createDynamicsCompressor();
+    output.threshold.value = -3; output.knee.value = 0; output.ratio.value = 20;
+    output.attack.value = 0.001; output.release.value = 0.08;
+    const presence = ctx.createBiquadFilter();
+    presence.type = "highshelf"; presence.frequency.value = 2200; presence.gain.value = 3;
+    presence.connect(effects); effects.connect(mix); mix.connect(combat).connect(output);
+    // Thrust keeps its level during gunfire and announcer ducking.
+    engine.connect(output); priority.connect(output); voice.connect(output); const headroom = ctx.createGain(); headroom.gain.value = 0.9; output.connect(headroom).connect(ctx.destination);
+    return { effects, mix, voice, engine, priority, presence, output };
+  }
   // a big room's echo, shared by the announcer sting and the guns
   function getHall() {
     if (!hall) {
@@ -1538,12 +1559,12 @@ body:not(.playing) .match-hud { display: none; }
     boom_small: [0.8, [55, 0.5, 0.9]], boom_bin: [0.8, [45, 0.8, 1]], boom_big: [0.8, [38, 1.2, 1]], boom_low: [0.85, [32, 1.4, 1]],
     chunk: [0.8, [60, 0.4, 0.8]], hit: [0.7, [90, 0.12, 0.6]], crash: [0.75, [70, 0.22, 0.7]], ram: [0.75, [65, 0.25, 0.8]]
   };
-  // Engine Working retains its recorded timbre; never substitute the old rocket loop or oscillators.
+  // Dedicated sci-fi thrust loop; no rocket-flight loop or oscillators.
   function engineHum(speed, thrust, boost, now, active = true) {
     if (!audio || !sfxBus) return;
     const power = Math.max(0, Math.min(1, thrust)), afterburner = Math.max(0, Math.min(1, boost));
     const on = active && !document.hidden && settings.engine !== "off" && (speed > 4 || power > 0.03);
-    packLoop("engine", on && packHas("p_user_engine") ? "p_user_engine" : null, 0);
+    packLoop("engine", on && packHas("p_ship_engine") ? "p_ship_engine" : null, 0);
     const loop = packLoops.engine;
     if (!loop) return;
     // A restrained pitch range preserves the identity of the supplied recording.
@@ -1554,10 +1575,9 @@ body:not(.playing) .match-hud { display: none; }
   }
   function loadSfx() {
     if (!audio || sfxBus) return;
-    sfxBus = audio.createGain(); sfxBus.gain.value = 0.7;
-    const comp = audio.createDynamicsCompressor();   // keeps a pile-up of explosions from clipping
-    mixBus = audio.createGain(); voiceBus = audio.createGain(); voiceBus.gain.value = 0.9;
-    sfxBus.connect(mixBus); mixBus.connect(comp); voiceBus.connect(comp); comp.connect(audio.destination);
+    const buses = createSoundMix(audio);
+    sfxBus = buses.effects; mixBus = buses.mix; voiceBus = buses.voice;
+    engineBus = buses.engine; userBus = buses.presence; priorityBus = buses.priority;
     heavyBus = audio.createGain(); heavyBus.gain.value = 0.75;
     const drive = audio.createWaveShaper(), curve = new Float32Array(1024);
     for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; curve[i] = Math.tanh(2.6 * x) / Math.tanh(2.6); }
@@ -1576,10 +1596,12 @@ body:not(.playing) .match-hud { display: none; }
   // a sound it plays instead of the built-in or synthesized one. sfx/pack/index.json (written by the build) lists them;
   // the one-file game carries them inside (window.BRS_PACK)
   const PACK_PATHS = {
+    p_start_minigun: ["derived/minigun-start.wav"], p_loop_minigun: ["derived/minigun-loop.wav"],
+    p_stop_minigun: ["derived/minigun-stop.wav"], p_stop_laser: ["derived/laser-stop.wav"],
     p_user_demonic: ["user/demonic-shot.wav"], p_user_fire: ["user/demonic-shot-short.wav"],
     p_user_cannon: ["user/explosive-canon.wav"], p_user_autocannon: ["user/autocannon.wav"],
     p_user_explosion: ["user/explosion-rumb.wav"], p_user_massive: ["user/massive-explosion.wav", "user/explosive-nuke-or-holybomb.wav"],
-    p_user_engine: ["user/engine-working.wav"], p_user_demonic_explosion: ["user/demonic-explosions.wav"],
+    p_user_engine: ["user/engine-working.wav"], p_ship_engine: ["engine/spaceship-thrust.wav"], p_user_demonic_explosion: ["user/demonic-explosions.wav"],
     p_metal: ["physical/metal_1.wav", "physical/metal_10.wav", "physical/metal_20.wav"],
     p_blast: ["physical/bang_04.ogg", "physical/bang_05.ogg"],
     p_blast_heavy: ["physical/cannon_01.ogg", "physical/cannon_02.ogg"],
@@ -1644,8 +1666,10 @@ body:not(.playing) .match-hud { display: none; }
     if (cur) { try { cur.g.gain.setTargetAtTime(0, audio.currentTime, 0.04); cur.src.stop(audio.currentTime + 0.25); } catch {} packLoops[slot] = null; }
     if (!ev || !audio || !sfxBus || !packHas(ev)) return;
     const src = audio.createBufferSource(), g = audio.createGain();
-    src.buffer = packBuf[ev][0]; src.loop = true; g.gain.value = vol; src.connect(g).connect(sfxBus); src.start();
-    packLoops[slot] = { ev, src, g };
+    src.buffer = packBuf[ev][0]; src.loop = true; g.gain.value = vol; src.connect(g);
+    const pan = slot.startsWith("fire:") && audio.createStereoPanner ? audio.createStereoPanner() : null;
+    (pan ? g.connect(pan) : g).connect(slot === "engine" ? engineBus : sfxBus); src.start();
+    packLoops[slot] = { ev, src, g, pan };
   }
   document.addEventListener("visibilitychange", () => { if (document.hidden) { for (const slot of Object.keys(packLoops)) packLoop(slot, null); } });
   // x, y: where it happens (quieter with distance, silent past ~2200); rate: pitch, with a little random spread
@@ -1654,7 +1678,9 @@ body:not(.playing) .match-hud { display: none; }
     p_fire_shard: "p_user_autocannon", p_boom_shard: "p_user_cannon", p_boom_nuke: "p_user_massive", p_boom_holy: "p_user_massive",
     p_boom_gamma: "p_user_demonic_explosion",
     p_death: "p_user_explosion", boom_small: "p_blast", boom_bin: "p_user_explosion", boom_big: "p_blast_heavy", chunk: "p_metal" };
-  const USER_SOUND_GAIN = { p_user_fire: 0.75, p_user_demonic: 0.7, p_user_autocannon: 0.8, p_user_cannon: 0.75, p_user_explosion: 0.7, p_user_massive: 0.85, p_user_demonic_explosion: 1.15 };
+  const USER_SOUND_GAIN = { p_user_fire: 0.9, p_user_demonic: 0.85, p_user_autocannon: 0.95, p_user_cannon: 0.75, p_user_explosion: 0.7, p_user_massive: 0.85, p_user_demonic_explosion: 1.15 };
+  const prioritySounds = new Set(["hit", "shield_hit", "p_kill", "p_warning", "p_noammo", "p_ready"]);
+  const impactTimes = new Map();
   let collisionSoundAt = -Infinity;
   function sfx(name, vol = 1, rate = 1, x, y) {
     if (/^(a_|v_)/.test(name)) return queueVoice(name, vol);
@@ -1662,6 +1688,11 @@ body:not(.playing) .match-hud { display: none; }
       if (audio.currentTime - collisionSoundAt < 0.1) return true;
       collisionSoundAt = audio.currentTime;
       rate *= name === "ram" ? 0.7 : 0.9;
+    }
+    const priority = prioritySounds.has(name) && x === undefined;
+    if (["p_hit_bullet", "p_hit_nail", "p_hit_laser"].includes(name) && audio) {
+      if (audio.currentTime - (impactTimes.get(name) ?? -Infinity) < 0.065) return true;
+      impactTimes.set(name, audio.currentTime);
     }
     const replacement = SOUND_OVERRIDE[name];
     const pk = packBuf[replacement] || packBuf[name], b = pk && pk.length ? pk[(Math.random() * pk.length) | 0] : sfxBuf[name], tune = pk && pk.length ? null : SFX_TUNE[name];   // a pack's own sound plays as it is
@@ -1675,9 +1706,9 @@ body:not(.playing) .match-hud { display: none; }
       if (d > reach) return true;
       vol *= majorBlast ? Math.sqrt(1 - d / reach) : 1 - d / reach;
     }
-    if (majorBlast ? blastVoices >= 4 : sfxVoices > 28) return true;   // reserve blast voices so automatic fire cannot swallow them
-    const src = audio.createBufferSource(), v = audio.createGain(), out = tune ? heavyBus : sfxBus;
-    src.buffer = b; src.playbackRate.value = rate * (tune ? tune[0] : 1) * (majorBlast ? 1 : 0.94 + Math.random() * 0.12);
+    if (priority ? priorityVoices >= 8 : majorBlast ? blastVoices >= 4 : sfxVoices > 28) return true;   // reserve blast voices so automatic fire cannot swallow them
+    const src = audio.createBufferSource(), v = audio.createGain(), out = priority ? priorityBus : tune ? heavyBus : userSound ? userBus : sfxBus;
+    src.buffer = b; src.playbackRate.value = rate * (tune ? tune[0] : 1) * (majorBlast || userSound ? 1 : 0.94 + Math.random() * 0.12);
     v.gain.value = vol;
     src.connect(v);
     if (x !== undefined && audio.createStereoPanner) {
@@ -1695,9 +1726,13 @@ body:not(.playing) .match-hud { display: none; }
       sfx("boom_low", vol * 0.24, 0.75, x, y);
       setTimeout(() => { if (!document.hidden) sfx("p_metal", vol * 0.22, 0.65, x, y); }, 65);
     }
-    if (majorBlast) blastVoices++; else sfxVoices++;
-    src.onended = () => { if (majorBlast) blastVoices--; else sfxVoices--; };
+    if (priority) priorityVoices++; else if (majorBlast) blastVoices++; else sfxVoices++;
+    src.onended = () => { if (priority) priorityVoices--; else if (majorBlast) blastVoices--; else sfxVoices--; };
     src.start();
+    if (["p_hit_bullet", "p_hit_nail", "p_hit_laser"].includes(name)) {
+      v.gain.setValueAtTime(vol, audio.currentTime + 0.12);
+      v.gain.linearRampToValueAtTime(0, audio.currentTime + 0.22); src.stop(audio.currentTime + 0.23);
+    }
     return true;
   }
   // the holy bomb's choir, synthesized: four sung syllables "Hal-le-lu-jah", each a D-major-ish chord of detuned
@@ -1749,7 +1784,13 @@ body:not(.playing) .match-hud { display: none; }
     shieldBreak: ["shield_hit", 0.95, 0.55, 600], shieldReady: ["shield_get", 0.45, 0.8, 1500],
     powerDown: ["p_powerdown", 0.5, 0.8, 800], flagReturn: ["p_ready", 0.7, 0.7, 800],
     event: ["p_event", 0.55, 0.75, 2000], ui: ["p_ui", 0.18, 1.1, 120],
-    sawCatch: ["p_change", 0.45, 1.1, 200], pickup: ["p_pickup", 0.4, 1, 80]
+    sawCatch: ["p_change", 0.45, 1.1, 200], sawReturn: ["p_saw", 0.35, 1.55, 200],
+    refuse: ["p_noammo", 0.65, 1, 700], lowAmmo: ["p_warning", 0.35, 1.4, 1000],
+    nailWall: ["p_hit_nail", 0.5, 1, 70], chargeFull: ["p_ready", 0.65, 1.4, 500],
+    chargeCancel: ["p_powerdown", 0.35, 1.2, 200],
+    shockCombo: ["p_boom_orb", 1, 0.65, 120], shockBeam: ["p_fire_rail", 0.5, 1.7, 100],
+    laserPulse: ["p_boom_orb", 0.75, 1.4, 150], demonicZap: ["p_hit_laser", 0.4, 0.6, 100],
+    pickup: ["p_pickup", 0.4, 1, 80]
   };
   const cueTimes = new Map();
   function audioCue(name, x, y) {
@@ -1823,6 +1864,48 @@ body:not(.playing) .match-hud { display: none; }
     if (braking && !lastBraking) audioCue("brake");
     lastBraking = braking;
   }
+  // One bounded voice per shooter, refreshed by actual shots. Network stalls,
+  // death, switching weapons and hidden tabs cannot leave a loop running forever.
+  const firingSounds = new Map();
+  function continuousFire(owner, weapon, x, y, now = performance.now()) {
+    if (!audio || document.hidden) return false;
+    const event = weapon === "minigun" ? "p_loop_minigun" : "p_loop_laser";
+    if (!packHas(event)) return false;
+    if (Math.hypot(x - me.x, y - me.y) > 1800) return true;
+    const old = firingSounds.get(owner);
+    if (old && old.weapon !== weapon) stopContinuous(owner);
+    if (!firingSounds.has(owner)) {
+      if (firingSounds.size >= 8) {
+        const farthest = [...firingSounds].filter(([id]) => id !== "me").sort((a, b) => b[1].distance - a[1].distance)[0];
+        if (!farthest || (owner !== "me" && farthest[1].distance < Math.hypot(x - me.x, y - me.y))) return true;
+        stopContinuous(farthest[0]);
+      }
+      packPlay(weapon === "minigun" ? "p_start_minigun" : "p_fire_laser", owner === "me" ? 0.7 : 0.4, x, y);
+      packLoop("fire:" + owner, event, 0);
+      if (!packLoops["fire:" + owner]) return false;
+      firingSounds.set(owner, { weapon, last: now, x, y, distance: Math.hypot(x - me.x, y - me.y) });
+    }
+    Object.assign(firingSounds.get(owner), { last: now, x, y });
+    return true;
+  }
+  function stopContinuous(owner) {
+    const state = firingSounds.get(owner);
+    if (!state) return;
+    packLoop("fire:" + owner, null); firingSounds.delete(owner);
+    if (!document.hidden) packPlay(state.weapon === "minigun" ? "p_stop_minigun" : "p_stop_laser", owner === "me" ? 0.4 : 0.2, state.x, state.y);
+  }
+  function continuousAudioTick(now) {
+    for (const [id, state] of firingSounds) {
+      const pilot = id === "me" ? me : botById.get(id) || remotes.get(id);
+      if (!playing || !roundLive || document.hidden || !pilot || pilot.dead || (id === "me" && pilot.weapon !== state.weapon) || now - state.last > (id === "me" ? 190 : 350)) { stopContinuous(id); continue; }
+      const loop = packLoops["fire:" + id];
+      if (!loop) { firingSounds.delete(id); continue; }
+      state.x = pilot.x; state.y = pilot.y; state.distance = Math.hypot(pilot.x - me.x, pilot.y - me.y);
+      loop.g.gain.setTargetAtTime((id === "me" ? 0.55 : 0.23) * Math.max(0, 1 - state.distance / 1800), audio.currentTime, 0.035);
+      if (loop.pan) loop.pan.pan.value = Math.max(-0.85, Math.min(0.85, (pilot.x - me.x) / 1000));
+    }
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) for (const id of firingSounds.keys()) stopContinuous(id); });
   // ---------- destructible bodies: planets, moons and drifting wrecks are grids of small cells that shots chip away ----------
   // They move on the shared clock, so every player has the same ones. Each player reports the craters its own shots
   // (and its bots' shots) make and everyone applies them, so holes match. Pieces that break off become free rubble
@@ -2185,11 +2268,6 @@ body:not(.playing) .match-hud { display: none; }
       ...moons.map(m => ({ x: m.p.hx / W, y: m.p.hy / H, r: 0 }))];
     const spotsNow = () => [...taken, ...bodyReach(), ...reach(guns), ...reach(supplies), ...padList.map(([, x, y]) => ({ x, y, r: 0.02 })),
       ...[A.amp, A.nuke, A.holy].filter(Boolean).map(([x, y]) => ({ x, y, r: 0 }))];
-    // every gun on every map: what the layout leaves out goes into the widest gaps
-    for (const type of ALL_GUNS.filter(t => !A.guns.some(g => g[0] === t))) {
-      const at = widestGap(spotsNow(), 0.04, 0.05);
-      if (at) guns.push(...mirrored([[type, at.x, at.y]]));
-    }
     for (let k = 0; k < big * 3; k++) {
       const at = widestGap(spotsNow(), 0.06, 0.05);
       if (!at) break;
@@ -2201,8 +2279,8 @@ body:not(.playing) .match-hud { display: none; }
       guns: guns.map((e, i) => spot(e, i, GUN_PERIOD[e[0]] || GUN_PERIOD_BASE)),
       supplies: supplies.map((e, i) => spot(e, i + 100, SUPPLY_PERIOD)),
       amp: A.amp ? spot(["amp", ...A.amp], 200, AMP_PERIOD) : null,
-      nuke: A.nuke ? spot(["nuke", ...A.nuke], 201, BOMB_CRATES.nuke.period) : null,
-      holy: A.holy ? spot(["holy", ...A.holy], 202, BOMB_CRATES.holy.period) : null,
+      nuke: A.nuke && (big || modeOf(code) === "n" || modeOf(code) === "x") ? spot(["nuke", ...A.nuke], 201, BOMB_CRATES.nuke.period) : null,
+      holy: A.holy && (big || modeOf(code) === "x") ? spot(["holy", ...A.holy], 202, BOMB_CRATES.holy.period) : null,
       pads: padList.map(([, fx, fy, deg]) => ({ x: fx * W, y: fy * H, a: deg / 57.2958 }))
     };
     PICKS = arena.guns.length; SUPPLY_SLOTS = arena.supplies.length;
@@ -3382,6 +3460,7 @@ body:not(.playing) .match-hud { display: none; }
   function scatterPellets(s) {
     for (let k = 0; k < 10; k++) {
       const da = (k - 4.5) * 0.066, f = 0.86 + ((k * 7) % 10) * 0.028, c = Math.cos(da), sn = Math.sin(da);
+      metricChild(s.id, s.id + "p" + k);
       shots.push({ ...s, id: s.id + "p" + k, ox: s.x, oy: s.y, vx: (s.vx * c - s.vy * sn) * f, vy: (s.vx * sn + s.vy * c) * f });
     }
   }
@@ -3391,9 +3470,11 @@ body:not(.playing) .match-hud { display: none; }
   // which gun a shot kind comes from, for a sound pack's gun sounds
   const KIND_GUN = { [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
     [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.NAIL]: "nail", [K.SPIKE]: "nail", [K.GREN]: "gren", [K.HROCKET]: "rocket", [K.GAUSS]: "rail", [K.SHARD]: "shard", [K.FLAK]: "shard" };
-  let laserHeardAt = 0;
-  const shotSound = (kind, x, y) => {
-    if (kind === K.LASER && packHas("p_fire_laser")) { const t = performance.now(); if (t - laserHeardAt > 900) { laserHeardAt = t; packPlay("p_fire_laser", 0.5, x, y); } return; }   // a beam, not twelve shots a second
+  const shotSound = (kind, x, y, owner = "unknown") => {
+    if (kind === K.LASER || kind === K.BULLET) { if (continuousFire(owner, kind === K.LASER ? "laser" : "minigun", x, y)) return; }
+    if (kind !== K.LASER && kind !== K.BULLET) stopContinuous(owner);
+    if (kind === K.SHOCK) { audioCue("shockBeam", x, y); return; }
+    if (kind === K.PULSE) { audioCue("laserPulse", x, y); return; }
     if (kind === K.MELEE && packPlay("p_melee_hit", 0.9, x, y)) return;
     if (KIND_GUN[kind] && packPlay("p_fire_" + KIND_GUN[kind], 0.75, x, y)) return;
     const [name, vol, pitch] = SHOTS[kind].sfx; sfx(name, vol, pitch, x, y);
@@ -3413,7 +3494,9 @@ body:not(.playing) .match-hud { display: none; }
     : !o.dead && !friendly(s, o.tm) && (o !== me || (playing && !s.mine));
   // I take damage from shot s: its shooter gets the credit, unless it was my own (then nobody does)
   function hurtMe(s, now, dmg, kind = s.kind, ang = 0, force = false) {
+    const before = me.lives + me.shield;
     if (!hurt(now, s.mine ? dmg * SELF_DMG : dmg, force, kind, ang)) return false;
+    if (!s.mine) metricDamage(s.id, before - me.lives - me.shield, me.dead);
     if (s.mine) { if (me.dead) killer = "your own blast"; return true; }
     pushCapped(hitBy, s.id, 12);
     if (me.dead) { meKilled(s.id); killedBy(s.owner); }
@@ -3424,6 +3507,7 @@ body:not(.playing) .match-hud { display: none; }
   function shardSpray(s) {
     for (let k = 0; k < 4; k++) {
       const da = (k - 1.5) * 0.085, f = 0.92 + ((k * 3) % 4) * 0.04, c = Math.cos(da), sn = Math.sin(da);
+      metricChild(s.id, s.id + "s" + k);
       shots.push({ ...s, id: s.id + "s" + k, vx: (s.vx * c - s.vy * sn) * f, vy: (s.vx * sn + s.vy * c) * f, bn: 0 });
     }
   }
@@ -3441,22 +3525,28 @@ body:not(.playing) .match-hud { display: none; }
     shove(x, y, R * 1.5, big ? 900 : 500);
     const d = Math.hypot(me.x - x, me.y - y);
     if (d < 1600) { shake = Math.max(shake, (big ? 0.7 : 0.35) * (1 - d / 1600)); if (big) flash = Math.max(flash, 0.35 * (1 - d / 1600)); }
-    sfx(big ? "boom_big" : "boom_small", 1, big ? 1.25 : 1.4, x, y);
+    audioCue("shockCombo", x, y);
     if (s.mine) { floaters.push({ x, y: y - 60, t: 0, txt: s.kind === K.SHOCK ? "SHOCK COMBO!" : "COMBO!", gold: true }); if (s.kind === K.SHOCK) announce("SHOCK COMBO", "", "#c9a4ff", 1.5); }
     if (s.kind === K.SHOCK) for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283; arcs.push({ x1: x, y1: y, x2: x + Math.cos(a) * R, y2: y + Math.sin(a) * R, t: 0, col: "190,150,255" }); }
-    if (canHurt(s, me, "me", true) && d < R + 26 * sizeOf(me.lv)) {
+    if (canHurt(s, me, "me", true) && !fixedCover(x, y, me.x, me.y) && d < R + 26 * sizeOf(me.lv)) {
       me.vx += (me.x - x) / (d || 1) * 700; me.vy += (me.y - y) / (d || 1) * 700;
       hurtMe(s, now, base * Math.max(0.25, 1 - d / R), K.ORB);
     }
     for (const b of bots) {
-      if (!canHurt(s, b, b.id, true)) continue;
+      if (!canHurt(s, b, b.id, true) || fixedCover(x, y, b.x, b.y)) continue;
       const bd = Math.hypot(b.x - x, b.y - y);
       if (bd < R + 26 * sizeOf(b.lv || 1)) { b.vx += (b.x - x) / (bd || 1) * 700; b.vy += (b.y - y) / (bd || 1) * 700; botHurt(b, base * Math.max(0.25, 1 - bd / R) * selfMul(s, b.id), s.id, now, false, K.ORB); }
     }
   }
   const REWIND_MS = 250;
-  // Only straight, non-explosive rounds can safely catch up as one swept segment.
-  const straightShot = kind => kind === K.BULLET || kind === K.NAIL || kind === K.SPIKE || kind === K.PELLET || kind === K.SLUG;
+  // Rounds that fly straight for their first quarter second can catch up with the network delay as one swept
+  // segment: without it a fireball or a rocket arrives on the victim's screen 150-250 px behind where its shooter
+  // saw it. Homing, bouncing and sticking shots keep their own flight and start late instead.
+  const straightShot = kind => STRAIGHT.has(kind);
+  const STRAIGHT = new Set([K.BULLET, K.NAIL, K.SPIKE, K.PELLET, K.SLUG, K.FIRE, K.ROCKET, K.FLAK, K.ORB, K.GAMMA]);
+  // dash, respawn and lunge protection: a protected bin is not there for a shot, which flies on through it instead
+  // of stopping on it (my bots and I keep the time it ends, the others send a flag)
+  const shielded = o => typeof o.inv === "number" ? performance.now() < o.inv : !!o.inv;
   function recordHitPose(o, now) {
     let h = o.hitHistory || (o.hitHistory = []), prev = h[h.length - 1];
     if (prev && (prev.dead !== !!o.dead || prev.inv !== o.inv || Math.hypot(o.x - prev.x, o.y - prev.y) > 180)) h.length = 0;
@@ -3478,6 +3568,7 @@ body:not(.playing) .match-hud { display: none; }
     if (straightShot(s.kind) && Number.isFinite(s.stepFrom) && s.stepTo > s.stepFrom) return projectileContact(s, o) <= 1;
     const p = hitPose(s, o);
     if (p.dead || (HITSCAN[s.kind] && s.hitTime && p.inv > s.hitTime)) return false;
+    if (p === o && shielded(o)) return false;
     return segHit(s, p.x, p.y, binR(p.lv) + shotRadius(s));
   }
   const shotRadius = s => s.cut || SHOTS[s.kind].r;
@@ -3494,7 +3585,10 @@ body:not(.playing) .match-hud { display: none; }
   function projectileContact(s, o) {
     const start = s.stepFrom, end = s.stepTo, duration = end - start, h = o.hitHistory;
     const dx = s.x - s.px, dy = s.y - s.py, radius = shotRadius(s);
-    if (!h?.length || duration <= 0) return circleContact(s.px - o.x, s.py - o.y, dx, dy, binR(o.lv) + radius);
+    // nowhere near: no bin flies faster than ~1.6 px/ms, so its recorded path can't reach the shot's either
+    const far = Math.hypot(dx, dy) + binR(o.lv) + radius + 60 + 1.6 * Math.max(0, duration);
+    if ((o.x - s.px) ** 2 + (o.y - s.py) ** 2 > far * far) return Infinity;
+    if (!h?.length || duration <= 0) return shielded(o) ? Infinity : circleContact(s.px - o.x, s.py - o.y, dx, dy, binR(o.lv) + radius);
     let best = Infinity;
     // Do not extrapolate across a teleport/respawn or back before available history.
     for (let i = 0; i < h.length; i++) {
@@ -3519,7 +3613,7 @@ body:not(.playing) .match-hud { display: none; }
     const v = Math.hypot(s.vx, s.vy) || 1, ux = s.vx / v, uy = s.vy / v;
     let first = range, found = false;
     const test = (o, id) => {
-      if (!canHurt(s, o, id)) return;
+      if (!canHurt(s, o, id) || shielded(o)) return;
       if (straightShot(s.kind) && Number.isFinite(s.stepFrom) && s.stepTo > s.stepFrom) {
         const hit = projectileContact(s, o);
         if (hit * range < first) { first = hit * range; found = true; }
@@ -3578,28 +3672,28 @@ body:not(.playing) .match-hud { display: none; }
       if (e.hit === "body" && Math.random() < 0.5) puff(e.x, e.y, (Math.random() - 0.5) * 30, -20 - Math.random() * 30, 0.6, 3 + Math.random() * 3, "rgb(255,140,60)", 1);   // the rock glows and melts
     }
   }
-  // lightning locks on: the nearest enemy within ~30° of where you point and within reach gets the bolt
-  const BOLT_LOCK_R = 800, BOLT_LOCK_A = 0.55;
+  // lightning locks on: the nearest visible enemy within ~13° of where you point and within reach gets the bolt
+  const BOLT_LOCK_R = 700, BOLT_LOCK_A = 0.22;
   function boltLock(p, from) {
     const ox = from ? from.x : p.x, oy = from ? from.y : p.y;
     let best, score = Infinity;
     for (const [id, r] of remotes) {
       if (r.dead || id === p.id || mates(r, p)) continue;
       const dx = r.x - ox, dy = r.y - oy, d = Math.hypot(dx, dy), da = Math.abs(angD(Math.atan2(dy, dx) - p.a));
-      if (d < BOLT_LOCK_R && da < BOLT_LOCK_A && d * (1 + da * 2) < score) { score = d * (1 + da * 2); best = Math.atan2(dy, dx); }
+      if (d < BOLT_LOCK_R && da < BOLT_LOCK_A && clearAim(ox, oy, r.x, r.y) && d * (1 + da * 2) < score) { score = d * (1 + da * 2); best = Math.atan2(dy, dx); }
     }
     return best;
   }
   // and it jumps on: up to two more enemies close to the one it hit, each taking a little less
   const CHAIN_R = 340, CHAIN_DMG = 0.14, CHAIN_JUMPS = 2;   // the laser: one jump, shorter and weaker
   function boltChain(s, hx, hy, hitId, now) {
-    if (s.chained) return;
+    if (s.chained || s.kind === K.LASER) return; // Laser keeps tracking and Pulse; chaining belongs to Lightning.
     s.chained = true;
     const done = new Set([hitId]), laser = s.kind === K.LASER;
     let x = hx, y = hy;
     for (let j = 0; j < (laser ? 1 : CHAIN_JUMPS); j++) {
       let best = null, bd = laser ? 260 : CHAIN_R;
-      const consider = (id, o) => { if (done.has(id) || !canHurt(s, o, id)) return; const d = Math.hypot(o.x - x, o.y - y); if (d < bd) { bd = d; best = { id, o }; } };
+      const consider = (id, o) => { if (done.has(id) || !canHurt(s, o, id) || fixedCover(x, y, o.x, o.y)) return; const d = Math.hypot(o.x - x, o.y - y); if (d < bd) { bd = d; best = { id, o }; } };
       consider("me", me);
       for (const [id, r] of remotes) consider(id, r);
       if (!best) return;
@@ -3609,6 +3703,7 @@ body:not(.playing) .match-hud { display: none; }
       impact(t.x, t.y, "#bfefff", 1);
       packPlay("p_hit_laser", 0.5, t.x, t.y) || sfx("laser", 0.35, 2.2, t.x, t.y);
       const dmg = (laser ? 0.1 : CHAIN_DMG * (1 - j * 0.25)) * (s.m || 1), cid = s.id + "c" + j;
+      metricChild(s.id, cid);
       if (best.id === "me") { if (hurt(now, dmg, false, K.BOLT, a)) { pushCapped(hitBy, cid, 12); if (me.dead) { meKilled(cid); killedBy(s.owner); } } }
       else if (botById.has(best.id)) botHurt(botById.get(best.id), dmg, cid, now, false, K.BOLT, a);
       else if (s.mine) hitConfirm({ ...s, kind: K.BOLT }, t.lv, t.x, t.y, t);
@@ -3642,7 +3737,7 @@ body:not(.playing) .match-hud { display: none; }
     if (dig) for (const b of [...bodies]) if (Math.hypot(b.x - s.x, b.y - s.y) - b.r < dig && (own || b.free)) carveAt(b, s.x, s.y, dig, own);
     const hit = (o, id, rad) => {
       const d = Math.hypot(o.x - s.x, o.y - s.y), R = R0 + rad;
-      if (d > R || id === s.direct || !canHurt(s, o, id, true)) return 0;
+      if (d > R || id === s.direct || !canHurt(s, o, id, true) || fixedCover(s.x, s.y, o.x, o.y)) return 0;
       const jump = ownShot(s, o, id) ? 2.6 : 1;   // a rocket jump: your own blast flings you
       o.vx += (o.x - s.x) / (d || 1) * push * jump; o.vy += (o.y - s.y) / (d || 1) * push * jump;
       return (hi * (1 - d / R) + lo) * m;
@@ -3724,6 +3819,7 @@ body:not(.playing) .match-hud { display: none; }
   // mul: extra damage (the charge cannon's charge), sent along with Overdrive's
   const FIRE_TWIN = { ...WEAPONS.fire, spread: [-0.05, 0.05] };
   function volley(p, now, pat, from, aim, mul = 1) {
+    metricVolley(p, pat);
     const plv = p.lv || 1;
     if (pat === WEAPONS.fire && plv >= 4) pat = FIRE_TWIN;   // perks: twin fireballs from Lv 4
     if (plv >= MAX_LV) mul *= 1.25;                          // the crown: +25% damage
@@ -3739,6 +3835,7 @@ body:not(.playing) .match-hud { display: none; }
       const fwd = speed > 0 ? Math.max(0, p.vx * bx + p.vy * by) * ride : 0;
       s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * (speed + fwd) + (speed > 0 ? 0 : p.vx * ride), vy: by * (speed + fwd) + (speed > 0 ? 0 : p.vy * ride),
             life: SHOTS[kind].life, cut: pat.cut || 0, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: kind === K.FIRE && plv >= 7 };   // pc: pierces (fireballs from Lv 7)
+      metricShot(s, p, pat);
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else if (kind === K.NAIL) nailSpray(s); else shots.push(s);
       if (kind === K.RAIL || kind === K.GAUSS) railBeam(s);
       if (kind === K.GAUSS && mine) { myRails.set(id, { x: s.x, y: s.y, charged: true, cut: !!s.cut }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value); }
@@ -3760,6 +3857,7 @@ body:not(.playing) .match-hud { display: none; }
   // Blades make one outbound pass and one return pass. Recall never resets a return hit list.
   function returnSaw(s) {
     if (s.returning) return;
+    if (s.mine) audioCue("sawReturn", s.x, s.y);
     s.returning = true; s.hits = new Set();
   }
   function recallSaws(signal) {
@@ -3774,7 +3872,7 @@ body:not(.playing) .match-hud { display: none; }
     const owner = s.mine ? me : botById.get(s.owner) || remotes.get(s.owner);
     if (!owner || owner.dead) return; // keeps flying until its bounded lifetime expires
     const dx = owner.x - s.x, dy = owner.y - s.y, d = Math.hypot(dx, dy), speed = 1750;
-    if (d < binR(owner.lv || 1) + 18) { s.life = 0; return; }
+    if (d < binR(owner.lv || 1) + 18) { s.life = 0; if (s.mine) audioCue("sawCatch"); return; }
     // A short ricochet grace lets the blade escape a wall before homing resumes.
     s.ricTime = Math.max(0, (s.ricTime || 0) - dt);
     if (!s.ricTime) { const v = Math.min(speed, d / Math.max(dt, 0.001)); s.vx = dx / d * v; s.vy = dy / d * v; }
@@ -3783,6 +3881,7 @@ body:not(.playing) .match-hud { display: none; }
   function nailSpray(s) {
     for (let k = 0; k < 7; k++) {
       const da = (k - 3) * 0.035 + (((k * 37) % 7) - 3) * 0.006, f = 0.95 + ((k * 3) % 5) * 0.025, c = Math.cos(da), sn = Math.sin(da);
+      metricChild(s.id, s.id + "n" + k);
       shots.push({ ...s, id: s.id + "n" + k, vx: (s.vx * c - s.vy * sn) * f, vy: (s.vx * sn + s.vy * c) * f });
     }
   }
@@ -3803,6 +3902,7 @@ body:not(.playing) .match-hud { display: none; }
     s.burst = true; s.boom = true;
     for (let k = 0; k < 8; k++) {
       const a = k / 8 * 6.283 + 0.2, v = 1300;
+      metricChild(s.id, s.id + "f" + k);
       shots.push({ ...s, id: s.id + "f" + k, kind: K.SHARD, ox: s.x, oy: s.y, px: s.x, py: s.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: SHOTS[K.SHARD].life * 0.6, bn: 0, burst: false, boom: false, hits: undefined });
     }
     if (onScreen(sx(s.x), sy(s.y), 300)) {
@@ -3816,7 +3916,10 @@ body:not(.playing) .match-hud { display: none; }
     if (d.done) return;
     d.done = true;
     const t = performance.now();
-    for (const o of shots) if (o.kind === K.MINE && o.life > 0 && (d.mine ? o.mine : o.owner === d.owner) && SHOTS[K.MINE].life - o.life >= MINE_ARM) o.trigAt = Math.min(o.trigAt || Infinity, t);
+    for (const o of shots) if (o.kind === K.MINE && o.life > 0 && (d.mine ? o.mine : o.owner === d.owner)) {
+      // A delayed peer must retain the command until its copy finishes arming.
+      o.trigAt = Math.min(o.trigAt || Infinity, t + Math.max(0, MINE_ARM - (SHOTS[K.MINE].life - o.life)) * 1000);
+    }
   }
   // a prox mine stuck to rock rides along with it; if the rock is gone it floats free
   function mineStick(s) {
@@ -3869,7 +3972,7 @@ body:not(.playing) .match-hud { display: none; }
       rings.push({ x: m.x, y: m.y, t: 0, r: 110, col: "255,170,90", dur: 0.25, w: 8 });
       for (let k = 0; k < (lowQ ? 14 : 34); k++) { const a = me.a + (Math.random() - 0.5) * 0.6, v = 300 + Math.random() * 700; puff(m.x, m.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.15 + Math.random() * 0.25, 1.5 + Math.random() * 2.5, k % 3 ? "#ffc070" : "#fff4e0", 1, 0.04); }
       smoke(m.x, m.y, lowQ ? 5 : 11, 150, 1.4);
-      sfx("boom_small", 0.7, 0.75);
+      // The supplied cannon shot has its own body; an extra bass blast masks its attack.
       setTimeout(() => sfx("pump", 0.6, 1.25), 330);
     },
     pulse(m) {   // the laser's pulse: a wide cyan wave rolls out of the gun
@@ -3895,10 +3998,12 @@ body:not(.playing) .match-hud { display: none; }
   function shoot(now, alt, mul = 1) {
     const k = me.weapon, w = WEAPONS[k];
     let pat = alt ? w.alt : w;
-    if (alt && !(pat && me.arsenal[k] >= pat.cost)) return;
+    if (alt && !pat) return;
+    if (!alt && !(me.arsenal[k] > 0)) { rejectFire("NO AMMO · use alternate command", now); return; }
+    if (alt && (me.arsenal[k] || 0) < pat.cost) { rejectFire("NEED " + pat.cost + " AMMO", now); return; }
     if (alt && pat.cutter) pat = { ...pat, cut: Math.round(24 + 48 * railCharge) };
     if (alt && pat.recall) {
-      if (!shots.some(s => s.mine && s.kind === K.SAW && !s.returning && s.life > 0)) return;
+      if (!shots.some(s => s.mine && s.kind === K.SAW && !s.returning && s.life > 0)) { rejectFire(controlledShots("saw").length ? "BLADES ALREADY RETURNING" : "NO ACTIVE BLADES", now); return; }
       const signal = volley(me, now, pat, { x: me.x, y: me.y }); recallSaws(signal); fireCd = pat.cd; sfx(...pat.sfx); return;
     }
     if (k === "tele" && myBeacon()) { teleport(now); return; }   // the second shot jumps you to the beacon
@@ -3916,20 +4021,21 @@ body:not(.playing) .match-hud { display: none; }
       return;
     }
     if (alt && pat.lunge) {   // lunge: a burst forward with the blade out
-      if (now < lungeReady) return;
+      if (now < lungeReady) { rejectFire("LUNGE RECHARGING", now); return; }
       lungeReady = now + 1200; me.lungeUntil = now + 450;
       me.vx += Math.cos(me.a) * 950; me.vy += Math.sin(me.a) * 950; me.inv = Math.max(me.inv, now + 200);
       dashBurst(me); packPlay("p_melee_run", 0.8) || sfx(...pat.sfx);
       return;
     }
     if (alt && pat.minedet) {   // set off every mine of mine, on every screen
-      if (!shots.some(s => s.mine && s.kind === K.MINE && s.life > 0)) return;
+      if (!shots.some(s => s.mine && s.kind === K.MINE && s.life > 0)) { rejectFire("NO ACTIVE MINES", now); return; }
+      if (!controlledShots("mine").some(s => SHOTS[K.MINE].life - s.life >= MINE_ARM)) { rejectFire("MINES ARMING", now); return; }
       volley(me, now, MINE_DETONATOR, { x: me.x, y: me.y }); fireCd = pat.cd; sfx(...pat.sfx);
       return;
     }
     if (alt && pat.detonate) {   // the gamma orb's alt: a detonator at my orb, which sets it off on every screen
       const o = shots.filter(s => s.mine && s.kind === K.GAMMA && s.life > 0).pop();
-      if (!o) return;
+      if (!o) { rejectFire("NO ACTIVE DEMONIC ORB", now); return; }
       volley(me, now, DETONATOR, { x: o.x, y: o.y }); fireCd = pat.cd; sfx(...pat.sfx);
       return;
     }
@@ -3943,7 +4049,7 @@ body:not(.playing) .match-hud { display: none; }
     const gun = k === "fire" ? null : muzzleAt(k);
     const muzzle = volley(me, now, pat, gun, (k === "bolt" || k === "laser") && !alt ? boltLock(me, gun) : undefined, mul);
     const [name, vol, pitch] = pat.sfx;
-    const packed = k === "laser" && !alt ? packHas("p_loop_laser") || packHas("p_fire_laser")   // the laser's beam sound runs while the trigger is held
+    const packed = alt && (k === "orb" || k === "laser") ? audioCue(k === "orb" ? "shockBeam" : "laserPulse") : k === "minigun" ? continuousFire("me", "minigun", me.x, me.y, now) : k === "laser" && !alt ? packHas("p_loop_laser") || packHas("p_fire_laser")   // the laser's beam sound runs while the trigger is held
       : packPlay(alt ? ALT_SOUND[k] || "" : k === "holy" ? "p_fire_gren" : "p_fire_" + k, 0.9);
     if (!packed) sfx(name, vol, w.charge ? pitch * (1.3 - 0.4 * mul) : pitch) || blip(160, 0.1, "sawtooth");   // a fuller charge sounds deeper
     if (pat.fx) MUZZLE_FX[pat.fx](muzzle);
@@ -3961,8 +4067,8 @@ body:not(.playing) .match-hud { display: none; }
     const alive = playing && !me.dead;
     packLoop("hum", alive ? { rail: "p_hum_rail", laser: "p_hum_laser", gamma: "p_hum_gamma" }[me.weapon] || null : null, 0.22);
     const beam = alive && held && roundLive && me.weapon === "laser" && me.arsenal.laser > 0;
-    if (beam && !(packLoops.beam)) packPlay("p_fire_laser", 0.8);
-    packLoop("beam", beam ? "p_loop_laser" : null, 0.55);
+    if (beam) continuousFire("me", "laser", me.x, me.y, now);
+    if ((!held || !alive || !roundLive) && firingSounds.has("me")) stopContinuous("me");
     me.gauntOn = alive && me.weapon === "gauntlet" && (held || now < (me.lungeUntil || 0));
     if (me.gauntOn) {   // the blade grinds whatever rock it touches: sparks fly and it bites in
       const nx = me.x + Math.cos(me.a) * (binR(me.lv) + 14), ny = me.y + Math.sin(me.a) * (binR(me.lv) + 14), b = solidAny(nx, ny);
@@ -4061,12 +4167,12 @@ body:not(.playing) .match-hud { display: none; }
     s.zap = (s.zap || 0) - dt;
     if (s.zap > 0) return;
     s.zap = GAMMA_ZAP.every;
-    const near = o => Math.hypot(o.x - s.x, o.y - s.y) < GAMMA_ZAP.r, zap = o => arcs.push({ x1: s.x, y1: s.y, x2: o.x, y2: o.y, t: 0, col: "125,255,138" });
+    const near = o => Math.hypot(o.x - s.x, o.y - s.y) < GAMMA_ZAP.r && !fixedCover(s.x, s.y, o.x, o.y), zap = o => arcs.push({ x1: s.x, y1: s.y, x2: o.x, y2: o.y, t: 0, col: "125,255,138" });
     let any = false;
     if (playing && !me.dead && canHurt(s, me, "me") && near(me)) { zap(me); any = true; hurtMe(s, now, GAMMA_ZAP.dmg * s.m, K.GAMMA); }
     for (const b of bots) if (!b.dead && canHurt(s, b, b.id) && near(b)) { zap(b); any = true; botHurt(b, GAMMA_ZAP.dmg * s.m, s.id, now, false, K.GAMMA); }
     for (const [rid, r] of remotes) if (!botById.has(rid) && !r.dead && canHurt(s, r, rid) && near(r)) { zap(r); any = true; }   // they judge their own
-    if (any) sfx("laser", 0.35, 0.6, s.x, s.y);
+    if (any) audioCue("demonicZap", s.x, s.y);
   }
   // feel, scaled per gun: recoil shoves the bin back, the view jolts, the screen shakes and the muzzle lights up
   function shotFeel(k, muzzle, kick, camK, shk, flashR) {
@@ -4078,7 +4184,11 @@ body:not(.playing) .match-hud { display: none; }
   }
   function spend(k, n) {
     if (k === "fire") return;
-    if ((me.arsenal[k] -= n) > 0) { renderAmmo(k); return; }
+    const before = me.arsenal[k];
+    me.arsenal[k] = Math.max(0, before - n);
+    const low = Math.max(1, Math.ceil(WEAPONS[k].ammo * 0.15));
+    if (before > low && me.arsenal[k] <= low) audioCue("lowAmmo");
+    if (me.arsenal[k] > 0 || controlledShots(k).length) { renderAmmo(k); return; }
     delete me.arsenal[k];
     packPlay("p_noammo", 0.8);   // the empty click
     // out of ammo: fall back to another gun you carry (never auto-pick the nuke), else the fireball
@@ -4109,10 +4219,15 @@ body:not(.playing) .match-hud { display: none; }
     if (r) killer = r.name;
   }
   const arsenalEl = document.getElementById("arsenal");
-  const owned = () => (MODES[MODE].sandbox ? SANDBOX_GUNS : GUN_ORDER).filter(k => me.arsenal[k]);
-  const ammoFill = k => Math.min(1, me.arsenal[k] / WEAPONS[k].ammo);
-  const chipText = () => { const n = me.arsenal[me.weapon], alt = WEAPONS[me.weapon].alt;
-    return WEAPONS[me.weapon].name + (Number.isFinite(n) ? " · " + n : "") + (me.overheat && alt && alt.heat ? " · OVERHEATED" : "") + (alt && !COARSE ? " · right click: " + alt.name : ""); };
+  const owned = () => WEAPON_SLOTS.filter(hasWeapon);
+  const ammoFill = k => Number.isFinite(me.arsenal[k]) ? Math.min(1, (me.arsenal[k] || 0) / WEAPONS[k].ammo) : 1;
+  const chipText = () => { const n = me.arsenal[me.weapon] || 0, alt = WEAPONS[me.weapon].alt, count = controlledShots(me.weapon).length;
+    const armed = me.weapon === "mine" ? controlledShots("mine").filter(s => SHOTS[K.MINE].life - s.life >= MINE_ARM).length : 0;
+    return WEAPONS[me.weapon].name + (Number.isFinite(n) ? " · " + n : "") + (me.overheat && alt && alt.heat ? " · OVERHEATED" : "") + (count ? " · ACTIVE " + count : "") + (me.weapon === "mine" && count ? " · ARMED " + armed : "")
+      + (Number.isFinite(n) && n <= Math.max(1, Math.ceil(WEAPONS[me.weapon].ammo * 0.15)) ? " · LOW AMMO" : "")
+      + (me.weapon === "gauntlet" ? (performance.now() >= lungeReady ? " · LUNGE READY" : " · LUNGE " + Math.ceil((lungeReady - performance.now()) / 100) / 10 + "s") : "")
+      + (alt ? " · " + (COARSE ? "ALT: " : "right click: ") + alt.name + " [" + alt.cost + " ammo]" : "")
+      + (me.weapon === "saw" ? " · catch does not refund ammo" : ""); };
   // after a shot: just the numbers of that gun
   function renderAmmo(k) {
     const n = me.arsenal[k], slot = arsenalEl.querySelector(`[data-w="${k}"]`);
@@ -4123,6 +4238,7 @@ body:not(.playing) .match-hud { display: none; }
   }
   function renderWeapon() {
     const w = WEAPONS[me.weapon];
+    document.getElementById("weaponHint").textContent = weaponHint(me.weapon);
     const el = document.getElementById("wpn");
     el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICONS[me.weapon]}"/></svg>`;
     el.append(chipText());
@@ -4133,15 +4249,16 @@ body:not(.playing) .match-hud { display: none; }
     arsenalEl.innerHTML = list.map((k, i) => {
       const n = me.arsenal[k];
       return `<button type="button" class="slot${k === me.weapon ? " on" : ""}" data-w="${k}" style="--c:${WEAPONS[k].col || "#ffb43c"}" aria-label="${WEAPONS[k].name}">`
-        + `<i>${i + 1}</i><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICONS[k]}"/></svg><span>${Number.isFinite(n) ? n : "∞"}</span>`
+        + `<i>${weaponKey(k)}</i><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICONS[k]}"/></svg><span>${Number.isFinite(n) ? n : "∞"}</span>`
         + `<b style="--f:${(Number.isFinite(n) ? ammoFill(k) : 1).toFixed(3)}"></b></button>`;
     }).join("");
     const alt = WEAPONS[me.weapon].alt;
     document.getElementById("altBtn").hidden = !playing || !COARSE || !alt;
-    if (alt) document.getElementById("altName").textContent = alt.name.toUpperCase();
+    if (alt) document.getElementById("altName").textContent = (alt.name + " · " + alt.cost + " AMMO").toUpperCase();
   }
   function selectWeapon(k) {
-    if (!me.arsenal[k] || k === me.weapon) return;
+    if (!hasWeapon(k) || k === me.weapon) return;
+    if (railCharge > 0) { railCharge = 0; audioCue("chargeCancel"); }
     me.weapon = k; fireCd = Math.max(fireCd, 0.15);
     packPlay("p_change", 0.6) || blip(520, 0.05, "square");
     renderWeapon();
@@ -4158,7 +4275,7 @@ body:not(.playing) .match-hud { display: none; }
   });
   addEventListener("keydown", e => {
     if (!playing || e.target.tagName === "INPUT" || e.repeat) return;
-    if (/^Digit[0-9]$/.test(e.code)) { const k = owned()[(+e.code.slice(5) || 10) - 1]; if (k) selectWeapon(k); }   // 1-9, then 0 for the 10th
+    if (/^Digit[0-9]$/.test(e.code)) { const k = WEAPON_SLOTS[(+e.code.slice(5) || 10) - 1 + (e.altKey ? 10 : 0)]; e.preventDefault(); if (k) selectWeapon(k); }   // 1-9, then 0 for the 10th
     else if (e.code === "KeyQ") cycleWeapon(-1);
     else if (e.code === "KeyE") cycleWeapon(1);
   });
@@ -4206,7 +4323,7 @@ body:not(.playing) .match-hud { display: none; }
       const swept = (o, id = o) => {   // each thing is pushed once, even if it flies out ahead of the front and gets caught again
         if (w.hit.has(id)) return -1;
         const d = Math.hypot(o.x - w.x, o.y - w.y);
-        if (d < r0 || d >= w.r) return -1;
+        if (d < r0 || d >= w.r || fixedCover(w.x, w.y, o.x, o.y)) return -1;
         w.hit.add(id); return d;
       };
       const push = (o, d, mass) => { const f = w.power * Math.pow(1 - d / w.max, 0.6) / mass; o.vx += (o.x - w.x) / (d || 1) * f; o.vy += (o.y - w.y) / (d || 1) * f; };
@@ -4269,12 +4386,12 @@ body:not(.playing) .match-hud { display: none; }
     rings.push({ x, y, t: -0.5, r: far, col: holy ? "255,240,190" : "255,140,80", dur: 2.2, w: 22 });   // the slow heat wave rolling far out
     if (d < far) { shake = Math.max(shake, (holy ? 1.8 : 1.4) * (1 - d / far)); flash = Math.max(flash, d < R * 1.6 ? 1 : 1 - (d - R * 1.6) / (far - R * 1.6)); }
     if (!customBomb) packPlay("p_death", 1) || boomSound(2.2, 120, 0.8);
-    if (canHurt(s, me, "me", true) && d < R) {   // your own bomb too: get clear of it
+    if (canHurt(s, me, "me", true) && d < R && !fixedCover(x, y, me.x, me.y)) {   // your own bomb too: get clear of it
       hurtMe(s, now, bombDmg(bm, d), s.kind, 0, d < bm.kill);
     }
     for (const b of bots) {
       const bd = Math.hypot(b.x - x, b.y - y);
-      if (bd > R || !canHurt(s, b, b.id, true)) continue;
+      if (bd > R || !canHurt(s, b, b.id, true) || fixedCover(x, y, b.x, b.y)) continue;
       botHurt(b, bd < bm.kill ? 99 : bombDmg(bm, bd) * selfMul(s, b.id), s.id, now, bd < bm.kill, s.kind);
     }
     if (!s.mine) return;
@@ -4386,6 +4503,120 @@ body:not(.playing) .match-hud { display: none; }
     renderHearts(false);
   }
 
+  // Stable controls are independent of inventory and mode; protocol IDs stay in WEAPON_KEYS.
+  const WEAPON_SLOTS = ["fire", "gauntlet", "minigun", "scatter", "rocket", "gren", "laser", "orb", "rail", "nail", "shard", "saw", "mine", "gamma", "nuke", "holy"];
+  const weaponKey = k => { const i = WEAPON_SLOTS.indexOf(k); return i < 0 ? "Q/E" : (i >= 10 ? "Alt+" : "") + ((i % 10 + 1) % 10); };
+  const controlledKind = k => ({ gamma: K.GAMMA, mine: K.MINE, saw: K.SAW })[k];
+  const controlledShots = k => shots.filter(s => s.mine && s.life > 0 && !s.boom && s.kind === controlledKind(k));
+  const hasWeapon = k => !!me.arsenal[k] || controlledShots(k).length > 0;
+  let rejectAt = -Infinity, lastWeaponStatus = "", wasLungeReady = true;
+  function rejectFire(reason, now) {
+    if (now - rejectAt < 700) return;
+    rejectAt = now; audioCue("refuse");
+    floaters.push({ x: me.x, y: me.y - 65, t: 0, txt: reason, gold: false });
+  }
+  function reconcileWeapons(now) {
+    let changed = false;
+    for (const k of ["gamma", "mine", "saw"]) if (me.arsenal[k] === 0 && !controlledShots(k).length) { delete me.arsenal[k]; changed = true; }
+    if (!hasWeapon(me.weapon)) { me.weapon = "fire"; changed = true; }
+    if (changed) renderWeapon();
+    const status = chipText();
+    if (status !== lastWeaponStatus) { lastWeaponStatus = status; renderAmmo(me.weapon); }
+    const ready = now >= lungeReady;
+    if (ready && !wasLungeReady && me.weapon === "gauntlet" && !me.dead) audioCue("ready");
+    wasLungeReady = ready;
+  }
+  // Slab intersection against permanent station walls only. Destructible terrain
+  // retains its established blast behaviour. Touching a wall on the source side is allowed.
+  function fixedCover(x, y, tx, ty) {
+    for (const b of bodies) if (b.fixed && !b.dead) {
+      let near = 0, far = 1;
+      for (const [p, d, lo, hi] of [[x, tx - x, b.x - b.hw, b.x + b.hw], [y, ty - y, b.y - b.hh, b.y + b.hh]]) {
+        if (Math.abs(d) < 1e-9) { if (p <= lo || p >= hi) { far = -1; break; } }
+        else { const a = (lo - p) / d, z = (hi - p) / d; near = Math.max(near, Math.min(a, z)); far = Math.min(far, Math.max(a, z)); }
+      }
+      if (far - near > 1e-6 && far > 1e-6 && near < 1 - 1e-6) return true;
+    }
+    return false;
+  }
+  function clearAim(x, y, tx, ty) {
+    if (fixedCover(x, y, tx, ty)) return false;
+    const d = Math.hypot(tx - x, ty - y), steps = Math.ceil(d / 4);
+    for (let i = 1; i < steps; i++) if (solidAny(x + (tx - x) * i / steps, y + (ty - y) * i / steps)) return false;
+    return true;
+  }
+
+  const ALT_HINTS = {
+    scatter: "Slug: longer range and a stronger push than the close-range pellet fan; 2 ammo.",
+    shard: "Flak: bursts into eight radial shards. Aim into a room or behind cover; 2 ammo.",
+    gren: "Volley: three bouncing grenades to cover several routes; 3 ammo.",
+    gauntlet: "Lunge: free, forward-only melee approach; 1.2 s recharge and 0.2 s protection. Dash uses movement direction and costs energy.",
+    nail: "Spike: a fast, precise round that passes through multiple bins; 2 ammo. Walls still stop it.",
+    saw: "Recall sends active blades back for one more hit per target. Catching a blade does not return ammo.",
+    mine: "Detonate works with zero ammo while your mines are active.",
+    gamma: "Detonate works with zero ammo while your Demonic Orb is active.",
+    laser: "Aim near a visible enemy within beam range. Pulse pushes enemies away; 12 ammo. The beam does not chain.",
+    rail: "Hold alternate fire to widen Breach cutter, release to fire. Cost: 2 ammo. Switching weapons cancels the charge."
+  };
+  const weaponHint = k => WEAPONS[k].name + " · " + weaponKey(k) + ". " + (ALT_HINTS[k] || "Q/E cycles carried weapons. Right click or C uses alternate fire when available.");
+  // Local, bounded measurements. Never sent to an analytics service. Damage can
+  // only be validated for this client and its bots; peer confirmations are separate.
+  const weaponMetrics = new Map(), metricShots = new Map(), metricConfirmations = new Set();
+  const metricRow = (weapon, pilot, alt = false) => {
+    const info = { round: stats.round, map: mapThemeOf(worldCode), size: mapKey, mode: MODE,
+      actor: pilot === me ? "player" : "bot", level: pilot.lv || 1, weapon, fireMode: alt ? "alt" : "primary" };
+    const key = JSON.stringify(info);
+    if (!weaponMetrics.has(key)) {
+      if (weaponMetrics.size >= 512) weaponMetrics.delete(weaponMetrics.keys().next().value);
+      weaponMetrics.set(key, { ...info, volleys: 0, shotRecords: 0, ammoCost: 0, heldSeconds: 0,
+        damageEvents: 0, damageValidated: 0, killsValidated: 0, peerHits: 0, peerKills: 0 });
+    }
+    return weaponMetrics.get(key);
+  };
+  function metricShot(s, pilot, pattern) {
+    const weapon = pilot === me ? me.weapon : botWeapon(pilot);
+    const alt = pattern !== WEAPONS[weapon] && pattern !== FIRE_TWIN;
+    const row = metricRow(weapon, pilot, alt);
+    row.shotRecords++;
+    if (!metricShots.has(s.id)) metricShots.set(s.id, row);
+    if (metricShots.size > 4096) metricShots.delete(metricShots.keys().next().value);
+  }
+  function metricVolley(pilot, pattern) {
+    const weapon = pilot === me ? me.weapon : botWeapon(pilot), alt = pattern !== WEAPONS[weapon] && pattern !== FIRE_TWIN;
+    const row = metricRow(weapon, pilot, alt); row.volleys++; row.ammoCost += alt ? WEAPONS[weapon].alt?.cost || 0 : weapon === "fire" || weapon === "gauntlet" ? 0 : 1;
+  }
+  function metricForShot(id) {
+    if (typeof id !== "string") return null;
+    // Children have p/s/n/c + index appended to the base36 shot sequence.
+    // Exact IDs win; map child IDs explicitly when expanding a volley.
+    return metricShots.get(id) || null;
+  }
+  function metricChild(parent, child) { const row = metricForShot(parent); if (row) { metricShots.set(child, row); if (metricShots.size > 4096) metricShots.delete(metricShots.keys().next().value); } }
+  function metricDamage(id, amount, killed) {
+    const row = metricForShot(id); if (!row) return;
+    row.damageEvents++; row.damageValidated += Math.max(0, amount); if (killed) row.killsValidated++;
+  }
+  function metricPeer(id, victim, killed) {
+    const row = metricForShot(id), key = id + ":" + victim + ":" + killed;
+    if (!row || metricConfirmations.has(key)) return;
+    if (metricConfirmations.size >= 8192) metricConfirmations.delete(metricConfirmations.values().next().value);
+    metricConfirmations.add(key); row[killed ? "peerKills" : "peerHits"]++;
+  }
+  function metricTick(dt) {
+    if (!playing || !roundLive) return;
+    if (!me.dead) metricRow(me.weapon, me).heldSeconds += dt;
+    for (const bot of bots) if (!bot.dead) metricRow(botWeapon(bot), bot).heldSeconds += dt;
+  }
+  function metricsReport() {
+    return { schema: 1, created: new Date().toISOString(), scope: "This browser's player and hosted bots; no remote damage estimates",
+      limitations: "Bots do not reproduce most player alt-fire, shields or minigun spin-up. Damage is HP plus absorbed shield, capped at remaining health. Peer hits/kills are separate confirmations; do not add them to validated events.",
+      rows: [...weaponMetrics.values()].map(r => ({ ...r, damageValidated: +r.damageValidated.toFixed(3), heldSeconds: +r.heldSeconds.toFixed(2) })) };
+  }
+  document.getElementById("exportWeapons").addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify(metricsReport(), null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = "bin-rocket-weapon-metrics.json"; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
   // ---------- networking ----------
   // State and recent shots travel together; every connected broker receives the same sequence.
   const net = { send() {}, shot() {}, shotsInState: true, hz: 8 };
@@ -4487,7 +4718,7 @@ body:not(.playing) .match-hud { display: none; }
     seenShots.set(f[0], performance.now());
     if (kind === K.PELLET) scatterPellets(sh); else if (kind === K.SHARD) shardSpray(sh); else if (kind === K.NAIL) nailSpray(sh); else shots.push(sh);
     if (kind === K.RAIL || kind === K.GAUSS) railBeam(sh);
-    shotSound(kind, x, y);
+    shotSound(kind, x, y, owner);
     if (seenShots.size > 400) { const t = performance.now(); for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k); }
   }
   // Messages are partial: fast ones carry only motion, slow ones add name/look/score/lists.
@@ -4584,6 +4815,7 @@ body:not(.playing) .match-hud { display: none; }
     const mine = k => validHit(k) && k.startsWith(myTag + ".") && credited.size < MAX_CREDITS;
     for (const k of Array.isArray(p.hb) ? p.hb.slice(0, 16).filter(validHit) : []) if (mine(k) && !credited.has(id + ":" + k)) {
       credited.add(id + ":" + k); me.score += 1; stats.hits++; floaters.push({ x: r.x, y: r.y - 30, t: 0, txt: "Hit +1", gold: false });
+      metricPeer(k, id, false);
       confirmShotHit(id, k, r);
     }
     if (bots.length) { creditBots(Array.isArray(p.hb) ? p.hb.slice(0, 16).filter(validHit) : [], false, id); creditBots(Array.isArray(p.ko) ? p.ko.slice(0, 16).filter(validHit) : [], true, id); }
@@ -4592,6 +4824,7 @@ body:not(.playing) .match-hud { display: none; }
       credited.add("ko" + id + ":" + k); me.score += 5; floaters.push({ x: r.x, y: r.y - 50, t: 0, txt: "KILL " + r.name, gold: true });
       if ((r.lv || 1) >= MAX_LV) announce("KING SLAIN", "you took the crown's bounty", "#ffd36b", 3);
       gainXp(killXp(me.lv, r.lv || 1), performance.now());
+      metricPeer(k, id, true);
       killStyle(k, r);
       stats.kills++; stats.streak++; stats.best = Math.max(stats.best, stats.streak);
       myKillAnnounce(performance.now());
@@ -4722,6 +4955,7 @@ body:not(.playing) .match-hud { display: none; }
     // Eight state messages/s plus discovery stay below the backup broker's ~10/s budget.
     // Shots ride in state, including on the primary, and q deduplicates the two deliveries.
     const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
+    if (ownBroker()) net.hz = 15;   // a broker of your own has no such budget: nearly twice the updates, so flyers move smoother
     const myId = "p" + Math.random().toString(36).slice(2, 10);
     const base = "binrocket-sky/v15/" + code + "/";
     const clients = BROKERS.map(url => {
@@ -4900,6 +5134,7 @@ body:not(.playing) .match-hud { display: none; }
   function lanStart(code) {
     lan.code = code; lan.host = !lan.guest;
     net.send = lanSend;
+    net.hz = 20;   // straight to the devices in the room, no broker's message budget: 20 states a second instead of 8
     document.getElementById("boardTitle").textContent = "Local room · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
     if (lan.host) { const b = document.getElementById("lanAdd"); b.hidden = false; b.onclick = () => lanDialog("host"); }
     setInterval(() => { lanRefresh(); if (!lan.host) for (const p of lan.peers) lanSendTo(p, JSON.stringify({ t: "ping", v: performance.now() })); }, 2000);
@@ -5139,6 +5374,7 @@ body:not(.playing) .match-hud { display: none; }
   }
   function botHurt(b, dmg, shotId, now, force, kind = -1, ang = 0) {
     if (b.dead || (!force && now < b.inv) || !roundLive) return;
+    if (!shotId.startsWith(b.tag + ".")) metricDamage(shotId, Math.min(b.lives, dmg), b.lives <= dmg);
     b.lives = Math.round((b.lives - dmg) * 1000) / 1000;
     if (Math.random() < ({ easy: 0.15, normal: 0.35, hard: 0.6 })[b.level]) b.dashReq = true;
     const shown = remotes.get(b.id); if (shown) shown.hitAt = performance.now();
@@ -5160,7 +5396,7 @@ body:not(.playing) .match-hud { display: none; }
     const w = botWeapon(b), pat = WEAPONS[w];
     const s = volley(b, now, pat, null, w === "bolt" || w === "laser" ? boltLock(b, null) : undefined);
     if (w === "orb") b.orb = s;   // a bot can set its orb off with the beam (see updateBots)
-    shotSound(pat.shot[0], b.x, b.y);
+    shotSound(pat.shot[0], b.x, b.y, b.id);
     b.vx -= Math.cos(b.a) * 25; b.vy -= Math.sin(b.a) * 25;
     if (!MODES[MODE].only && w !== "fire" && --b.ammo <= 0) b.weapon = "fire";
     return w === "fire" && (b.lv || 1) >= 4 ? pat.cd * 1.4 : pat.cd;   // twin fireballs reload a little slower
@@ -5459,8 +5695,14 @@ body:not(.playing) .match-hud { display: none; }
     const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided;
     const altW = WEAPONS[me.weapon].alt, altHeld = altFiring || keys.has("KeyC");
     if (altW && altW.charge) {   // rail alt: hold to widen the cutter, release to open a short breach
-      if (altHeld && ready && me.arsenal[me.weapon] >= altW.cost) { const was = railCharge; railCharge = Math.min(1, railCharge + dt / altW.charge); if (Math.floor(was * 6) !== Math.floor(railCharge * 6)) sfx("p_charge", 0.3, 0.8 + railCharge * 0.5); }
-      else if (railCharge > 0) { if (ready) shoot(now, true); railCharge = 0; }
+      if (altHeld && ready && me.arsenal[me.weapon] >= altW.cost) {
+        const was = railCharge; railCharge = Math.min(1, railCharge + dt / altW.charge);
+        if (Math.floor(was * 6) !== Math.floor(railCharge * 6)) sfx("p_charge", 0.3, 0.8 + railCharge * 0.5);
+        if (was < 1 && railCharge === 1) audioCue("chargeFull");
+      } else {
+        if (altHeld && ready && (me.arsenal[me.weapon] || 0) < altW.cost) rejectFire("NEED " + altW.cost + " AMMO", now);
+        if (railCharge > 0) { if (!altHeld && ready && me.arsenal[me.weapon] >= altW.cost) shoot(now, true); else audioCue("chargeCancel"); railCharge = 0; }
+      }
     } else railCharge = 0;
     me.heat = Math.max(0, (me.heat || 0) - 0.45 * dt); if (me.overheat && me.heat < 0.3) { me.overheat = false; renderAmmo(me.weapon); audioCue("ready"); }
     if (ready && altHeld && altW && !altW.charge) shoot(now, true);
@@ -5764,7 +6006,7 @@ body:not(.playing) .match-hud { display: none; }
         } else {
           if (dig && SHOTS[s.kind].carve && s.kind !== K.MINE && s.kind !== K.SAW) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);   // only the mine attaches; an exhausted saw disappears
           if ((s.kind === K.BULLET || s.kind === K.PELLET) && now - ricAt > 90) { ricAt = now; packPlay("p_ric", 0.4, hb.x, hb.y); }   // whine off the rock
-          if (s.kind === K.NAIL || s.kind === K.SPIKE) stickNail(hb.b, hb.x, hb.y, Math.atan2(s.vy, s.vx), s.kind === K.SPIKE);
+          if (s.kind === K.NAIL || s.kind === K.SPIKE) { stickNail(hb.b, hb.x, hb.y, Math.atan2(s.vy, s.vx), s.kind === K.SPIKE); audioCue("nailWall", hb.x, hb.y); }
           if (s.kind === K.MINE) {   // a prox mine sticks where it lands, just off the surface
             const [nx, ny] = normalAt(hb.b, hb.x, hb.y), px = hb.x + nx * 10, py = hb.y + ny * 10, [lx, ly] = toLocal(hb.b, px, py);
             s.stuck = { b: hb.b, lx, ly }; s.x = px; s.y = py; s.vx = s.vy = 0;
@@ -5826,13 +6068,17 @@ body:not(.playing) .match-hud { display: none; }
         if (r.inv || botById.has(rid) || !canHurt(s, r, rid)) continue;
         if (segHit(s, r.x, r.y, binR(r.lv))) { s.life = 0; boltChain(s, r.x, r.y, rid, now); break; }
       }
-      // my fireball reaches another bin: fizzle here, they confirm the hit
-      if (s.mine && s.life > 0) for (const [rid, r] of remotes) {
+      // a shot reaches a bin flown in another browser: it ends here and they confirm the hit. Mine is predicted
+      // (the hit marker waits for their word); a bot's or a third pilot's just bursts, so it neither hangs on its
+      // target nor flies on through it and blows up somewhere it never reached on the victim's screen
+      if (s.life > 0) for (const [rid, r] of remotes) {
         if (botById.has(rid)) continue;
         if (r.inv || !canHurt(s, r, rid)) continue;
         if (armed && targetHit(s, r)) {
-          if (pierces(s)) { if (railOnce(s, rid)) { shotBurst(s); predictHit(s, rid, r); } continue; }
-          s.life = 0; shotBurst(s); predictHit(s, rid, r); if (s.kind === K.BOLT || s.kind === K.LASER) boltChain(s, r.x, r.y, rid, now); break;
+          if (pierces(s)) { if (railOnce(s, rid)) { shotBurst(s); if (s.mine) predictHit(s, rid, r); } continue; }
+          s.life = 0; s.direct = rid; shotBurst(s); if (s.mine) predictHit(s, rid, r);
+          if ((s.kind === K.BOLT || s.kind === K.LASER) && s.mine) boltChain(s, r.x, r.y, rid, now);
+          break;
         }
       }
     }
@@ -6033,7 +6279,7 @@ body:not(.playing) .match-hud { display: none; }
           const had = !!me.arsenal[c.type];   // a gun you already carry just gets more ammo; a new one joins the gun bar
           me.arsenal[c.type] = Math.min(w.ammo * 2, (me.arsenal[c.type] || 0) + w.ammo);
           renderWeapon();   // it goes into the gun bar; the gun in your hands stays until you switch
-          const slot = owned().indexOf(c.type) + 1, key = COARSE ? "" : " · press " + slot;
+          const key = COARSE ? "" : " · press " + weaponKey(c.type);
           floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: had ? "+AMMO " + w.name.toUpperCase() : w.name.toUpperCase() + key, gold: true });
           for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 220; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, w.col); }
           if (!sfx("weapon_get", 0.8)) [440, 660, 880].forEach((f, j) => setTimeout(() => blip(f, 0.1, "square"), j * 60));
@@ -6167,7 +6413,7 @@ body:not(.playing) .match-hud { display: none; }
     const elapsed = Math.max(dt, Math.min(0.25, (now - lastNetTick) / 1000)); lastNetTick = now;
     sendAcc += elapsed; slowAcc += elapsed;
     if (playing && sendAcc >= 1 / net.hz) {
-      sendAcc = 0;
+      sendAcc %= 1 / net.hz;   // keep the remainder: frames don't divide the interval evenly, and dropping it sent 7.5 a second for 8
       const msg = {
         q: ++sendSeq, mc: matchReady ? [matchRound, matchStart, matchEnd] : undefined, rd: stats.round, hb: hitBy, ko: koBy, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),
         vx: Math.round(me.vx), vy: Math.round(me.vy), a: +me.a.toFixed(2),
@@ -6206,6 +6452,7 @@ body:not(.playing) .match-hud { display: none; }
   // everything is now, then the rest reacts, and last what happened goes out over the network
   function update(dt, now) {
     ampHud(now);
+    metricTick(dt);
     const kd = Math.exp(-14 * dt); camKick.x *= kd; camKick.y *= kd;
     hurtFlash = Math.max(0, hurtFlash - dt * 2.2);
     const { im, boost } = steerAndShoot(dt, now);
@@ -6213,9 +6460,11 @@ body:not(.playing) .match-hud { display: none; }
     flyMe(dt, now, im, boost);
     recordHitPose(me, now);
     updateShots(dt, now);
+    if (playing) reconcileWeapons(now);
     updateJunk(dt, now);
     updateEvents(dt, now);
     updateBots(dt, now);
+    continuousAudioTick(now);
     ctfTick(now);
     updateRemotes(dt, now);
     updatePickups(dt, now);

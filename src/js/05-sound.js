@@ -19,7 +19,25 @@
     "v_fight", "v_prepare", "v_multikill", "v_flawless", "v_win", "v_lose", "v_levelup", "v_powerup"];   // v_*: Kenney's CC0 voice-over packs
   const SFX_MP3 = new Set(["rail"]);   // rail.mp3: made by the game's author
   const sfxBuf = {};
-  let sfxBus = null, heavyBus = null, mixBus = null, voiceBus = null, sfxVoices = 0, blastVoices = 0, hall = null;
+  let sfxBus = null, heavyBus = null, mixBus = null, voiceBus = null, engineBus = null, userBus = null, priorityBus = null, priorityVoices = 0, sfxVoices = 0, blastVoices = 0, hall = null;
+  function createSoundMix(ctx) {
+    const effects = ctx.createGain(), mix = ctx.createGain(), voice = ctx.createGain(), engine = ctx.createGain(), priority = ctx.createGain();
+    effects.gain.value = 0.7; voice.gain.value = 0.9; engine.gain.value = 0.65;
+    // Web Audio's defaults compress almost everything above -24 dB at 12:1.
+    // Leave room for shot attacks; only dense combat needs sustained compression.
+    const combat = ctx.createDynamicsCompressor();
+    combat.threshold.value = -10; combat.knee.value = 6; combat.ratio.value = 4;
+    combat.attack.value = 0.012; combat.release.value = 0.14;
+    const output = ctx.createDynamicsCompressor();
+    output.threshold.value = -3; output.knee.value = 0; output.ratio.value = 20;
+    output.attack.value = 0.001; output.release.value = 0.08;
+    const presence = ctx.createBiquadFilter();
+    presence.type = "highshelf"; presence.frequency.value = 2200; presence.gain.value = 3;
+    presence.connect(effects); effects.connect(mix); mix.connect(combat).connect(output);
+    // Thrust keeps its level during gunfire and announcer ducking.
+    engine.connect(output); priority.connect(output); voice.connect(output); const headroom = ctx.createGain(); headroom.gain.value = 0.9; output.connect(headroom).connect(ctx.destination);
+    return { effects, mix, voice, engine, priority, presence, output };
+  }
   // a big room's echo, shared by the announcer sting and the guns
   function getHall() {
     if (!hall) {
@@ -38,12 +56,12 @@
     boom_small: [0.8, [55, 0.5, 0.9]], boom_bin: [0.8, [45, 0.8, 1]], boom_big: [0.8, [38, 1.2, 1]], boom_low: [0.85, [32, 1.4, 1]],
     chunk: [0.8, [60, 0.4, 0.8]], hit: [0.7, [90, 0.12, 0.6]], crash: [0.75, [70, 0.22, 0.7]], ram: [0.75, [65, 0.25, 0.8]]
   };
-  // Engine Working retains its recorded timbre; never substitute the old rocket loop or oscillators.
+  // Dedicated sci-fi thrust loop; no rocket-flight loop or oscillators.
   function engineHum(speed, thrust, boost, now, active = true) {
     if (!audio || !sfxBus) return;
     const power = Math.max(0, Math.min(1, thrust)), afterburner = Math.max(0, Math.min(1, boost));
     const on = active && !document.hidden && settings.engine !== "off" && (speed > 4 || power > 0.03);
-    packLoop("engine", on && packHas("p_user_engine") ? "p_user_engine" : null, 0);
+    packLoop("engine", on && packHas("p_ship_engine") ? "p_ship_engine" : null, 0);
     const loop = packLoops.engine;
     if (!loop) return;
     // A restrained pitch range preserves the identity of the supplied recording.
@@ -54,10 +72,9 @@
   }
   function loadSfx() {
     if (!audio || sfxBus) return;
-    sfxBus = audio.createGain(); sfxBus.gain.value = 0.7;
-    const comp = audio.createDynamicsCompressor();   // keeps a pile-up of explosions from clipping
-    mixBus = audio.createGain(); voiceBus = audio.createGain(); voiceBus.gain.value = 0.9;
-    sfxBus.connect(mixBus); mixBus.connect(comp); voiceBus.connect(comp); comp.connect(audio.destination);
+    const buses = createSoundMix(audio);
+    sfxBus = buses.effects; mixBus = buses.mix; voiceBus = buses.voice;
+    engineBus = buses.engine; userBus = buses.presence; priorityBus = buses.priority;
     heavyBus = audio.createGain(); heavyBus.gain.value = 0.75;
     const drive = audio.createWaveShaper(), curve = new Float32Array(1024);
     for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; curve[i] = Math.tanh(2.6 * x) / Math.tanh(2.6); }
@@ -76,10 +93,12 @@
   // a sound it plays instead of the built-in or synthesized one. sfx/pack/index.json (written by the build) lists them;
   // the one-file game carries them inside (window.BRS_PACK)
   const PACK_PATHS = {
+    p_start_minigun: ["derived/minigun-start.wav"], p_loop_minigun: ["derived/minigun-loop.wav"],
+    p_stop_minigun: ["derived/minigun-stop.wav"], p_stop_laser: ["derived/laser-stop.wav"],
     p_user_demonic: ["user/demonic-shot.wav"], p_user_fire: ["user/demonic-shot-short.wav"],
     p_user_cannon: ["user/explosive-canon.wav"], p_user_autocannon: ["user/autocannon.wav"],
     p_user_explosion: ["user/explosion-rumb.wav"], p_user_massive: ["user/massive-explosion.wav", "user/explosive-nuke-or-holybomb.wav"],
-    p_user_engine: ["user/engine-working.wav"], p_user_demonic_explosion: ["user/demonic-explosions.wav"],
+    p_user_engine: ["user/engine-working.wav"], p_ship_engine: ["engine/spaceship-thrust.wav"], p_user_demonic_explosion: ["user/demonic-explosions.wav"],
     p_metal: ["physical/metal_1.wav", "physical/metal_10.wav", "physical/metal_20.wav"],
     p_blast: ["physical/bang_04.ogg", "physical/bang_05.ogg"],
     p_blast_heavy: ["physical/cannon_01.ogg", "physical/cannon_02.ogg"],
@@ -144,8 +163,10 @@
     if (cur) { try { cur.g.gain.setTargetAtTime(0, audio.currentTime, 0.04); cur.src.stop(audio.currentTime + 0.25); } catch {} packLoops[slot] = null; }
     if (!ev || !audio || !sfxBus || !packHas(ev)) return;
     const src = audio.createBufferSource(), g = audio.createGain();
-    src.buffer = packBuf[ev][0]; src.loop = true; g.gain.value = vol; src.connect(g).connect(sfxBus); src.start();
-    packLoops[slot] = { ev, src, g };
+    src.buffer = packBuf[ev][0]; src.loop = true; g.gain.value = vol; src.connect(g);
+    const pan = slot.startsWith("fire:") && audio.createStereoPanner ? audio.createStereoPanner() : null;
+    (pan ? g.connect(pan) : g).connect(slot === "engine" ? engineBus : sfxBus); src.start();
+    packLoops[slot] = { ev, src, g, pan };
   }
   document.addEventListener("visibilitychange", () => { if (document.hidden) { for (const slot of Object.keys(packLoops)) packLoop(slot, null); } });
   // x, y: where it happens (quieter with distance, silent past ~2200); rate: pitch, with a little random spread
@@ -154,7 +175,9 @@
     p_fire_shard: "p_user_autocannon", p_boom_shard: "p_user_cannon", p_boom_nuke: "p_user_massive", p_boom_holy: "p_user_massive",
     p_boom_gamma: "p_user_demonic_explosion",
     p_death: "p_user_explosion", boom_small: "p_blast", boom_bin: "p_user_explosion", boom_big: "p_blast_heavy", chunk: "p_metal" };
-  const USER_SOUND_GAIN = { p_user_fire: 0.75, p_user_demonic: 0.7, p_user_autocannon: 0.8, p_user_cannon: 0.75, p_user_explosion: 0.7, p_user_massive: 0.85, p_user_demonic_explosion: 1.15 };
+  const USER_SOUND_GAIN = { p_user_fire: 0.9, p_user_demonic: 0.85, p_user_autocannon: 0.95, p_user_cannon: 0.75, p_user_explosion: 0.7, p_user_massive: 0.85, p_user_demonic_explosion: 1.15 };
+  const prioritySounds = new Set(["hit", "shield_hit", "p_kill", "p_warning", "p_noammo", "p_ready"]);
+  const impactTimes = new Map();
   let collisionSoundAt = -Infinity;
   function sfx(name, vol = 1, rate = 1, x, y) {
     if (/^(a_|v_)/.test(name)) return queueVoice(name, vol);
@@ -162,6 +185,11 @@
       if (audio.currentTime - collisionSoundAt < 0.1) return true;
       collisionSoundAt = audio.currentTime;
       rate *= name === "ram" ? 0.7 : 0.9;
+    }
+    const priority = prioritySounds.has(name) && x === undefined;
+    if (["p_hit_bullet", "p_hit_nail", "p_hit_laser"].includes(name) && audio) {
+      if (audio.currentTime - (impactTimes.get(name) ?? -Infinity) < 0.065) return true;
+      impactTimes.set(name, audio.currentTime);
     }
     const replacement = SOUND_OVERRIDE[name];
     const pk = packBuf[replacement] || packBuf[name], b = pk && pk.length ? pk[(Math.random() * pk.length) | 0] : sfxBuf[name], tune = pk && pk.length ? null : SFX_TUNE[name];   // a pack's own sound plays as it is
@@ -175,9 +203,9 @@
       if (d > reach) return true;
       vol *= majorBlast ? Math.sqrt(1 - d / reach) : 1 - d / reach;
     }
-    if (majorBlast ? blastVoices >= 4 : sfxVoices > 28) return true;   // reserve blast voices so automatic fire cannot swallow them
-    const src = audio.createBufferSource(), v = audio.createGain(), out = tune ? heavyBus : sfxBus;
-    src.buffer = b; src.playbackRate.value = rate * (tune ? tune[0] : 1) * (majorBlast ? 1 : 0.94 + Math.random() * 0.12);
+    if (priority ? priorityVoices >= 8 : majorBlast ? blastVoices >= 4 : sfxVoices > 28) return true;   // reserve blast voices so automatic fire cannot swallow them
+    const src = audio.createBufferSource(), v = audio.createGain(), out = priority ? priorityBus : tune ? heavyBus : userSound ? userBus : sfxBus;
+    src.buffer = b; src.playbackRate.value = rate * (tune ? tune[0] : 1) * (majorBlast || userSound ? 1 : 0.94 + Math.random() * 0.12);
     v.gain.value = vol;
     src.connect(v);
     if (x !== undefined && audio.createStereoPanner) {
@@ -195,9 +223,13 @@
       sfx("boom_low", vol * 0.24, 0.75, x, y);
       setTimeout(() => { if (!document.hidden) sfx("p_metal", vol * 0.22, 0.65, x, y); }, 65);
     }
-    if (majorBlast) blastVoices++; else sfxVoices++;
-    src.onended = () => { if (majorBlast) blastVoices--; else sfxVoices--; };
+    if (priority) priorityVoices++; else if (majorBlast) blastVoices++; else sfxVoices++;
+    src.onended = () => { if (priority) priorityVoices--; else if (majorBlast) blastVoices--; else sfxVoices--; };
     src.start();
+    if (["p_hit_bullet", "p_hit_nail", "p_hit_laser"].includes(name)) {
+      v.gain.setValueAtTime(vol, audio.currentTime + 0.12);
+      v.gain.linearRampToValueAtTime(0, audio.currentTime + 0.22); src.stop(audio.currentTime + 0.23);
+    }
     return true;
   }
   // the holy bomb's choir, synthesized: four sung syllables "Hal-le-lu-jah", each a D-major-ish chord of detuned

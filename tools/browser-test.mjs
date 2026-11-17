@@ -12,7 +12,9 @@ const chromePath = process.env.BROWSER_PATH;
 assert.ok(chromePath, 'Set BROWSER_PATH to a Chrome/Chromium executable');
 execFileSync(process.execPath, ['tools/build.mjs'], { cwd: root });
 const gameplayChecks = await readFile(join(root, "tools/gameplay-checks.js"), "utf8");
-const hook = gameplayChecks + `window.__t = {runGameplayChecks, renderDemonicPreview, WEAPONS, renderVfxPreview, renderWeapon, renderTele, renderShield, ampHud, settings, packHas, packBuf, engineHum, packLoops, K, SHOTS, hitPose, targetHit, recordHitPose, updateShots, volley, net, netSend, gotPing,
+const audioChecks = await readFile(join(root, "tools/audio-render-checks.js"), "utf8");
+const weaponChecks = await readFile(join(root, "tools/weapon-audit-checks.js"), "utf8");
+const hook = gameplayChecks + audioChecks + weaponChecks + `window.__t = {runWeaponAuditChecks, checkContinuousAudio, metricsReport, checkAudioRender, keys, update, runGameplayChecks, renderDemonicPreview, WEAPONS, renderVfxPreview, renderWeapon, renderTele, renderShield, ampHud, settings, packHas, packBuf, engineHum, packLoops, K, SHOTS, hitPose, targetHit, recordHitPose, updateShots, volley, net, netSend, gotPing,
  checkDemonicAudio(){const original=audio.createBufferSource;let heard=0;audio.createBufferSource=function(){const src=original.call(audio),start=src.start.bind(src);src.start=(...args)=>{if(src.buffer===packBuf.p_user_demonic_explosion[0])heard++;return start(...args);};return src;};
  try {bodies=[];det=[];shots.length=0;me.x=100;me.y=100;me.inv=1e15;
  const far=volley(me,performance.now(),WEAPONS.gamma,{x:1700,y:100});far.life=0;updateShots(0.016,performance.now());
@@ -184,21 +186,35 @@ try {
     return {altDefined:!!t.WEAPONS.minigun.alt,altShots,altAmmo,primaryShots:t.shots.length-before,ammo:t.me.arsenal.minigun};})()`);
   assert.deepEqual(minigun,{altDefined:false,altShots:0,altAmmo:100,primaryShots:1,ammo:99});
   if(process.env.BRS_DEMONIC_PREVIEW) {const png=await evaluate(combat,'__t.renderDemonicPreview()');await writeFile(process.env.BRS_DEMONIC_PREVIEW,Buffer.from(png.split(',')[1],'base64'));}
-  await until(combat, '["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine","a_firstblood","v_flawless","p_user_engine","p_user_fire","p_user_demonic","p_user_demonic_explosion","p_user_cannon","p_user_autocannon","p_user_explosion","p_user_massive"].every(__t.packHas)',10000);
+  await until(combat, '["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine","a_firstblood","v_flawless","p_loop_minigun","p_start_minigun","p_stop_minigun","p_stop_laser","p_fire_laser","p_loop_laser","p_ship_engine","p_user_engine","p_user_fire","p_user_demonic","p_user_demonic_explosion","p_user_cannon","p_user_autocannon","p_user_explosion","p_user_massive"].every(__t.packHas)',10000);
+  console.log('PASS weapon audit scenarios', await evaluate(combat,'__t.runWeaponAuditChecks()'));
+  console.log('PASS continuous audio', await evaluate(combat,'__t.checkContinuousAudio()'));
   assert.equal(await evaluate(combat,'__t.checkDemonicAudio()'),2,'the supplied explosion starts on distant expiry and manual detonation');
   const decoded = await evaluate(combat, 'Object.fromEntries(["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine"].map(k=>[k,+__t.packBuf[k][0].duration.toFixed(2)]))');
   await evaluate(combat, '__t.settings.engine="on";__t.engineHum(500,1,1,performance.now())');
-  assert.equal(await evaluate(combat, '__t.packLoops.engine?.ev'), 'p_user_engine');
-  assert.equal(await evaluate(combat, '__t.packLoops.engine.src.buffer===__t.packBuf.p_user_engine[0]'),true);
-  await evaluate(combat, '__t.engineHum(500,1,0,performance.now())');await wait(400);
+  assert.equal(await evaluate(combat, '__t.packLoops.engine?.ev'), 'p_ship_engine');
+  assert.equal(await evaluate(combat, '__t.packLoops.engine.src.buffer===__t.packBuf.p_ship_engine[0]'),true);
+  await evaluate(combat, '__t.engineHum(500,1,0,performance.now())');await until(combat,'__t.packLoops.engine.g.gain.value>0.4 && __t.packLoops.engine.g.gain.value<0.45',3000);
   const engineLevel=await evaluate(combat,'({gain:__t.packLoops.engine.g.gain.value,pitch:__t.packLoops.engine.src.playbackRate.value})');
   assert.ok(engineLevel.gain>0.4 && engineLevel.gain<0.45,'engine thrust is audible');
   assert.ok(engineLevel.pitch>0.96 && engineLevel.pitch<1.12,'recorded timbre is preserved');
-  await evaluate(combat, '__t.engineHum(800,1.4,2,performance.now())');await wait(400);
+  await evaluate(combat, '__t.engineHum(800,1.4,2,performance.now())');await until(combat,'__t.packLoops.engine.g.gain.value>0.56',3000);
   assert.ok(await evaluate(combat,'__t.packLoops.engine.g.gain.value>0.56'),'boost is louder');
   await evaluate(combat, '__t.engineHum(0,0,0,performance.now())');
   assert.equal(await evaluate(combat, '!!__t.packLoops.engine'), false);
   console.log('PASS decoded supplemental audio, supplied voices and engine start/stop',decoded);
+  const rendered = await evaluate(combat,'__t.checkAudioRender()');
+  console.log('Audio render measurements',JSON.stringify(rendered));
+  assert.ok(rendered.engine.rms > 0.04, 'engine has a measurable output level, not just a loaded buffer');
+  assert.ok(Math.abs(rendered.engine.rms-rendered.duckedEngine.rms)<0.0001,'announcer ducking does not silence thrust');
+  for(const shot of rendered.shots) assert.ok(shot.current.peak > shot.legacy.peak*1.25,'retain attack: '+shot.name);
+  assert.ok(rendered.battle.peak < 1, 'dense weapon mix stays below full scale');
+  await evaluate(combat, '__t.isolate();__t.me.dead=false;__t.me.vx=__t.me.vy=__t.me.thrust=0;__t.keys.add("KeyW");for(let i=0;i<30;i++)__t.update(1/60,performance.now()+i*16.67)');
+  assert.equal(await evaluate(combat,'__t.packLoops.engine?.ev'),'p_ship_engine','movement input starts the new engine through the real game update');
+  await evaluate(combat,'__t.keys.clear();__t.hurt(performance.now(),99,true);__t.me.respawnAt=1e15;__t.update(1/60,performance.now());');
+  assert.equal(await evaluate(combat,'!!__t.packLoops.engine'),false,'death stops the engine through the real game update');
+  await evaluate(combat,'__t.me.dead=false');
+
   await evaluate(combat, '__t.me.weapon="gamma";__t.me.teleN=99;__t.me.shield=3;__t.me.ampUntil=performance.now()+20000;__t.renderWeapon();__t.renderTele();__t.renderShield();__t.ampHud(performance.now())');
   for (const width of [320,390,700,1024,1440,1920]) {
     await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600},combat);
@@ -263,6 +279,24 @@ try {
   assert.equal(await evaluate(lagA,'__t.stats.hits'),hitsBefore+1,'duplicate confirmation is credited once');
   dropFire=false;relayDelay=0;
   console.log('PASS delayed hitscan and bullet damage, confirmed hit, duplicate suppression and dropped-shot recovery');
+  // The free command after the last round must reach the other browser too.
+  dropFire=false;relayDelay=0;
+  for(const [weapon,kind] of [['gamma',13],['mine',6],['saw',12]]) {
+    for(const p of [lagA,lagB]) await evaluate(p,'__t.isolate();__t.me.dead=false;__t.me.inv=1e15;__t.me.x=100;__t.me.y=100;__t.me.vx=__t.me.vy=0');
+    const id=await evaluate(lagA,`__t.me.weapon=${JSON.stringify(weapon)};__t.me.arsenal[${JSON.stringify(weapon)}]=1;__t.shoot(performance.now(),false);__t.netSend(1,performance.now());__t.myShotLog.at(-1).d[0]`);
+    await until(lagB,`__t.shots.some(s=>s.id===${JSON.stringify(id)})`);
+    assert.equal(await evaluate(lagA,'__t.me.weapon'),weapon,'last-round command slot over network');
+    if(weapon==='mine') await evaluate(lagA,`__t.shots.find(s=>s.id===${JSON.stringify(id)}).life-=0.8`);
+    if(weapon==='saw') for(const p of [lagA,lagB]) await evaluate(p,`const blade=__t.shots.find(s=>s.id===${JSON.stringify(id)});blade.x=blade.px=500;blade.y=blade.py=100`);
+    await evaluate(lagA,'__t.shoot(performance.now()+2000,true);__t.netSend(1,performance.now())');
+    const command=await evaluate(lagA,'__t.myShotLog.at(-1).d[0]');
+    await until(lagB,`__t.seenShots.has(${JSON.stringify(command)})`);
+    await evaluate(lagB,'__t.updateShots(0.016,performance.now())');
+    if(weapon==='mine') {await wait(750);await evaluate(lagB,'__t.updateShots(0.016,performance.now())');}
+    assert.equal(await evaluate(lagB,`(()=>{const s=__t.shots.find(s=>s.id===${JSON.stringify(id)});return ${weapon==='saw'?'!!s?.returning':'!s || s.life<=0 || !!s.boom'};})()`),true,'remote '+weapon+' command');
+  }
+  console.log('PASS last gamma/mine/saw commands reach the other browser');
+
   // Max-sized crater history plus six busy bots must still fit the receiver's byte limit.
   if (smoke) {
   await evaluate(smoke, `(()=>{const t=__t, now=performance.now();
@@ -306,6 +340,14 @@ try {
   const performanceResult=await evaluate(foundry,'({frameMs:Math.round(__t.getFrame()*1000),kills:__t.bots.reduce((n,b)=>n+b.st.kills,0),shots:__t.bots.reduce((n,b)=>n+b.st.shots,0),stuck:__t.bots.filter(b=>!b.dead&&__t.solidAny(b.x,b.y)).length})');
   assert.ok(performanceResult.shots>0);assert.equal(performanceResult.stuck,0);
   console.log('PASS Foundry connected corridors, fixed shell, 24 networked bots, Tab roster',layout,performanceResult);
+  if (process.env.BRS_BALANCE_REPORT) {
+    await evaluate(foundry,'__t.setScoreLimit(0);__t.setEnd(__t.clockNow()+180000)');
+    for(let i=0;i<6;i++) {await wait(30000);console.log('Match sample', (i+1)*30, 'seconds');}
+    const report=await evaluate(foundry,'__t.metricsReport()');
+    await writeFile(process.env.BRS_BALANCE_REPORT,JSON.stringify(report,null,2));
+    assert.ok(report.rows.some(r=>r.damageValidated>0),'match measurements include actual damage');
+    console.log('PASS three-minute hosted-bot match measurements',report.rows.length,'rows');
+  }
   // Decode every shipped sample, including the new voice and atmosphere files.
   const audioAudit=await evaluate(foundry,`(async()=>{const paths=await fetch('sfx/pack/index.json').then(r=>r.json());
     const context=new AudioContext();let samples=0;for(const path of paths){const response=await fetch('sfx/pack/'+path);if(!response.ok)throw Error(path);

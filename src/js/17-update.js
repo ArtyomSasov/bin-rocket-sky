@@ -20,8 +20,14 @@
     const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided;
     const altW = WEAPONS[me.weapon].alt, altHeld = altFiring || keys.has("KeyC");
     if (altW && altW.charge) {   // rail alt: hold to widen the cutter, release to open a short breach
-      if (altHeld && ready && me.arsenal[me.weapon] >= altW.cost) { const was = railCharge; railCharge = Math.min(1, railCharge + dt / altW.charge); if (Math.floor(was * 6) !== Math.floor(railCharge * 6)) sfx("p_charge", 0.3, 0.8 + railCharge * 0.5); }
-      else if (railCharge > 0) { if (ready) shoot(now, true); railCharge = 0; }
+      if (altHeld && ready && me.arsenal[me.weapon] >= altW.cost) {
+        const was = railCharge; railCharge = Math.min(1, railCharge + dt / altW.charge);
+        if (Math.floor(was * 6) !== Math.floor(railCharge * 6)) sfx("p_charge", 0.3, 0.8 + railCharge * 0.5);
+        if (was < 1 && railCharge === 1) audioCue("chargeFull");
+      } else {
+        if (altHeld && ready && (me.arsenal[me.weapon] || 0) < altW.cost) rejectFire("NEED " + altW.cost + " AMMO", now);
+        if (railCharge > 0) { if (!altHeld && ready && me.arsenal[me.weapon] >= altW.cost) shoot(now, true); else audioCue("chargeCancel"); railCharge = 0; }
+      }
     } else railCharge = 0;
     me.heat = Math.max(0, (me.heat || 0) - 0.45 * dt); if (me.overheat && me.heat < 0.3) { me.overheat = false; renderAmmo(me.weapon); audioCue("ready"); }
     if (ready && altHeld && altW && !altW.charge) shoot(now, true);
@@ -325,7 +331,7 @@
         } else {
           if (dig && SHOTS[s.kind].carve && s.kind !== K.MINE && s.kind !== K.SAW) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);   // only the mine attaches; an exhausted saw disappears
           if ((s.kind === K.BULLET || s.kind === K.PELLET) && now - ricAt > 90) { ricAt = now; packPlay("p_ric", 0.4, hb.x, hb.y); }   // whine off the rock
-          if (s.kind === K.NAIL || s.kind === K.SPIKE) stickNail(hb.b, hb.x, hb.y, Math.atan2(s.vy, s.vx), s.kind === K.SPIKE);
+          if (s.kind === K.NAIL || s.kind === K.SPIKE) { stickNail(hb.b, hb.x, hb.y, Math.atan2(s.vy, s.vx), s.kind === K.SPIKE); audioCue("nailWall", hb.x, hb.y); }
           if (s.kind === K.MINE) {   // a prox mine sticks where it lands, just off the surface
             const [nx, ny] = normalAt(hb.b, hb.x, hb.y), px = hb.x + nx * 10, py = hb.y + ny * 10, [lx, ly] = toLocal(hb.b, px, py);
             s.stuck = { b: hb.b, lx, ly }; s.x = px; s.y = py; s.vx = s.vy = 0;
@@ -387,13 +393,17 @@
         if (r.inv || botById.has(rid) || !canHurt(s, r, rid)) continue;
         if (segHit(s, r.x, r.y, binR(r.lv))) { s.life = 0; boltChain(s, r.x, r.y, rid, now); break; }
       }
-      // my fireball reaches another bin: fizzle here, they confirm the hit
-      if (s.mine && s.life > 0) for (const [rid, r] of remotes) {
+      // a shot reaches a bin flown in another browser: it ends here and they confirm the hit. Mine is predicted
+      // (the hit marker waits for their word); a bot's or a third pilot's just bursts, so it neither hangs on its
+      // target nor flies on through it and blows up somewhere it never reached on the victim's screen
+      if (s.life > 0) for (const [rid, r] of remotes) {
         if (botById.has(rid)) continue;
         if (r.inv || !canHurt(s, r, rid)) continue;
         if (armed && targetHit(s, r)) {
-          if (pierces(s)) { if (railOnce(s, rid)) { shotBurst(s); predictHit(s, rid, r); } continue; }
-          s.life = 0; shotBurst(s); predictHit(s, rid, r); if (s.kind === K.BOLT || s.kind === K.LASER) boltChain(s, r.x, r.y, rid, now); break;
+          if (pierces(s)) { if (railOnce(s, rid)) { shotBurst(s); if (s.mine) predictHit(s, rid, r); } continue; }
+          s.life = 0; s.direct = rid; shotBurst(s); if (s.mine) predictHit(s, rid, r);
+          if ((s.kind === K.BOLT || s.kind === K.LASER) && s.mine) boltChain(s, r.x, r.y, rid, now);
+          break;
         }
       }
     }
@@ -594,7 +604,7 @@
           const had = !!me.arsenal[c.type];   // a gun you already carry just gets more ammo; a new one joins the gun bar
           me.arsenal[c.type] = Math.min(w.ammo * 2, (me.arsenal[c.type] || 0) + w.ammo);
           renderWeapon();   // it goes into the gun bar; the gun in your hands stays until you switch
-          const slot = owned().indexOf(c.type) + 1, key = COARSE ? "" : " · press " + slot;
+          const key = COARSE ? "" : " · press " + weaponKey(c.type);
           floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: had ? "+AMMO " + w.name.toUpperCase() : w.name.toUpperCase() + key, gold: true });
           for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 220; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, w.col); }
           if (!sfx("weapon_get", 0.8)) [440, 660, 880].forEach((f, j) => setTimeout(() => blip(f, 0.1, "square"), j * 60));
@@ -728,7 +738,7 @@
     const elapsed = Math.max(dt, Math.min(0.25, (now - lastNetTick) / 1000)); lastNetTick = now;
     sendAcc += elapsed; slowAcc += elapsed;
     if (playing && sendAcc >= 1 / net.hz) {
-      sendAcc = 0;
+      sendAcc %= 1 / net.hz;   // keep the remainder: frames don't divide the interval evenly, and dropping it sent 7.5 a second for 8
       const msg = {
         q: ++sendSeq, mc: matchReady ? [matchRound, matchStart, matchEnd] : undefined, rd: stats.round, hb: hitBy, ko: koBy, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),
         vx: Math.round(me.vx), vy: Math.round(me.vy), a: +me.a.toFixed(2),
@@ -767,6 +777,7 @@
   // everything is now, then the rest reacts, and last what happened goes out over the network
   function update(dt, now) {
     ampHud(now);
+    metricTick(dt);
     const kd = Math.exp(-14 * dt); camKick.x *= kd; camKick.y *= kd;
     hurtFlash = Math.max(0, hurtFlash - dt * 2.2);
     const { im, boost } = steerAndShoot(dt, now);
@@ -774,9 +785,11 @@
     flyMe(dt, now, im, boost);
     recordHitPose(me, now);
     updateShots(dt, now);
+    if (playing) reconcileWeapons(now);
     updateJunk(dt, now);
     updateEvents(dt, now);
     updateBots(dt, now);
+    continuousAudioTick(now);
     ctfTick(now);
     updateRemotes(dt, now);
     updatePickups(dt, now);

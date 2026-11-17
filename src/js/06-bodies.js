@@ -360,11 +360,6 @@
       ...moons.map(m => ({ x: m.p.hx / W, y: m.p.hy / H, r: 0 }))];
     const spotsNow = () => [...taken, ...bodyReach(), ...reach(guns), ...reach(supplies), ...padList.map(([, x, y]) => ({ x, y, r: 0.02 })),
       ...[A.amp, A.nuke, A.holy].filter(Boolean).map(([x, y]) => ({ x, y, r: 0 }))];
-    // every gun on every map: what the layout leaves out goes into the widest gaps
-    for (const type of ALL_GUNS.filter(t => !A.guns.some(g => g[0] === t))) {
-      const at = widestGap(spotsNow(), 0.04, 0.05);
-      if (at) guns.push(...mirrored([[type, at.x, at.y]]));
-    }
     for (let k = 0; k < big * 3; k++) {
       const at = widestGap(spotsNow(), 0.06, 0.05);
       if (!at) break;
@@ -376,8 +371,8 @@
       guns: guns.map((e, i) => spot(e, i, GUN_PERIOD[e[0]] || GUN_PERIOD_BASE)),
       supplies: supplies.map((e, i) => spot(e, i + 100, SUPPLY_PERIOD)),
       amp: A.amp ? spot(["amp", ...A.amp], 200, AMP_PERIOD) : null,
-      nuke: A.nuke ? spot(["nuke", ...A.nuke], 201, BOMB_CRATES.nuke.period) : null,
-      holy: A.holy ? spot(["holy", ...A.holy], 202, BOMB_CRATES.holy.period) : null,
+      nuke: A.nuke && (big || modeOf(code) === "n" || modeOf(code) === "x") ? spot(["nuke", ...A.nuke], 201, BOMB_CRATES.nuke.period) : null,
+      holy: A.holy && (big || modeOf(code) === "x") ? spot(["holy", ...A.holy], 202, BOMB_CRATES.holy.period) : null,
       pads: padList.map(([, fx, fy, deg]) => ({ x: fx * W, y: fy * H, a: deg / 57.2958 }))
     };
     PICKS = arena.guns.length; SUPPLY_SLOTS = arena.supplies.length;

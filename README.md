@@ -114,8 +114,7 @@ both CTF bases) are equal. The space layouts live in `src/js/01b-arenas.js`; Fou
 nuke, holy bomb) and keeps it until someone takes it: nothing expires. A taken one comes back at the start of
 that spot's next cycle (20 s for most guns, 26–45 s for the strong ones, 20 s for supplies, 60–95 s for the
 power-ups). The empty pad shows what comes back and the countdown. The mini map shows the arena's outline and
-every spot. Foundry has fixed mirrored weapon/supply pads and central Overdrive, without nuke or holy-bomb pickups. Its permanent shell also blocks rail shots. Each space map has every gun: its own layout places its signature ones, the rest go into its widest gaps
-(always the same places). Large and Huge maps add a few more bodies and spots.
+every spot. Foundry has fixed mirrored weapon/supply pads and central Overdrive, without nuke or holy-bomb pickups. Its permanent shell blocks rails, splash damage, shock combos and secondary discharges. Each space map keeps its signature weapon pool; Large and Huge maps add repeated pads from that pool. Nuke and Holy Bomb pads are restricted to Large/Huge space maps (or their explicit special modes).
 
 **Boost pads** (glowing rings with running chevrons, arrows on the mini map) fling whoever flies over them their
 way. **Gravity slingshot:** skimming fast along a planet's rim adds speed. Bots fly by the same flight model as
@@ -133,14 +132,14 @@ players (they face where they steer, so they make attack runs, break off and loo
 - **Boost / dash:** hold Shift to boost, tap it to dash.
 - **Brake / drift:** hold X to brake; X with a direction drifts (you slide on while the nose swings round).
 - **Scoreboard:** hold Tab to see every player and bot; release to hide. The Scores button toggles it on touchscreens. The round clock stays in its own top row; the wrapping status/weapon panel sits below it.
-- **Weapons:** 1–9, 0 or Q/E (not the mouse wheel: a touch-surface mouse scrolls by accident). **Alt fire:** right mouse button or C on weapons with an alternate mode: laser
+- **Weapons:** fixed 1–9, 0; Alt+1–6 for extended slots; Q/E cycles carried weapons (not the mouse wheel: a touch-surface mouse scrolls by accident). **Alt fire:** right mouse button or C on weapons with an alternate mode: laser
   pulse (shoves), rail breach cutter (hold up to 1.1 s to widen the cut; release: 1100 range, fixed damage, 2 ammo), flak (bursts into eight
-  shards), shock beam (combo on your orb), demonic skull detonate, rocket salvo, shotgun slug, mine detonation, saw recall.
+  shards), shock beam (combo on your orb), demonic orb detonate, rocket salvo, shotgun slug, mine detonation, saw recall.
 - **Quake's three:** the Nailgun (a fan of seven nails that fly far; alt a piercing Spike), the Grenade launcher
   (grenades bounce off rock and go off after 2.5 s or on a bin; alt three at once) and the Gauntlet everyone carries
   (hold fire: the blade spins and tears into a bin within reach; alt a Lunge). Quad damage multiplies by 4.
 - **Railgun:** primary fire cuts a continuous tunnel through every body on its line. The breach cutter trades range and ammo for a wider hit area and a flyable passage.
-- **Buzzsaw:** blades pierce once outbound and once on return, turn back after 0.55 s or a ricochet, and expire after 3.2 s. Alt recalls your flying blades early; move sideways to sweep their return path through enemies.
+- **Buzzsaw:** blades pierce once outbound and once on return, turn back after 0.55 s or a ricochet, and expire after 3.2 s. Alt recalls your flying blades early; move sideways to sweep their return path through enemies. Catching does not refund ammo. Mines, Buzzsaw and Demonic Orb retain their command slots after the last shot until their projectiles expire.
 - **Trophies:** the gun a pilot dies with drops where it died, with its ammo, for 15 s; anyone can take it.
 - **Teleporter:** T throws the beacon, T again jumps onto it (a pick-up gives three jumps).
 
@@ -266,10 +265,9 @@ Generic and additional effects are CC0 from OpenGameArt (Kenney, rubberduck, zer
 
 The existing generic sound files are attributed to CC0 authors, not documented as AI-generated.
 The first weapon now uses a short cut of the supplied Demonic Shot; Demonic Orb (formerly Gamma Orb) uses its longer version.
-Minigun has one primary mode with its original Quake chaingun/burst sound. Rocket and grenade launchers
+Minigun has one primary mode and start/loop/stop segments derived from its original Quake chaingun sounds. Rocket and grenade launchers
 retain Quake shots and explosions. Shard Cannon uses Autocannon to fire and Explosive Canon on impacts/flak bursts.
-Demonic Orb flies as a green molten orb and uses Demonic Explosions on impact or manual detonation. Movement uses Engine Working,
-with thrust/speed/boost controlling its mix. Engine Working keeps a near-original pitch and audible thrust/boost levels; it no longer falls back to a rocket loop or synthesized hum. Boost, dash, teleport, respawn, warnings, shield transitions
+Demonic Orb flies as a green molten orb and uses Demonic Explosions on impact or manual detonation. Movement uses a dedicated spaceship engine loop by Little Robot Sound Factory (CC BY 3.0), with speed/thrust/boost controlling its mix. It bypasses combat compression and announcer ducking. Boost, dash, teleport, respawn, warnings, shield transitions
 and power-down have sample feedback. Metal collisions use three recorded cast-iron impacts; larger
 ship blasts use Explosion Rumb; Nuke/Holy Bomb choose between Massive Explosion and Explosive Nuke or Holy Bomb. Quiet atmosphere and saw loops
 complete the mix. The engine is enabled by default and can be disabled in Settings.
@@ -288,3 +286,16 @@ reduced particle budgets and skips extra shock diamonds/arcs. No additional bitm
 
 To save a contact sheet from the real canvas renderers while testing:
 `BRS_COMBAT_ONLY=1 BRS_VFX_PREVIEW=/tmp/brs-vfx.png BROWSER_PATH=/path/to/chrome npm run test:browser`.
+
+
+## Weapon measurements
+
+Settings → **Export weapon match stats** downloads local JSON for the current browser session.
+Rows separate map, size, mode, round, player/bot, level, weapon and primary/alt fire.
+They include volleys, network shot records (before pellet expansion), ammo cost, equipped seconds,
+validated damage/hit events/kills, and separate peer hit/kill confirmations. Shot IDs retain weapon
+attribution after switching weapons. No analytics are uploaded. Counters are bounded in memory.
+Damage is measured for this player's targets simulated here and hosted bots; remote damage is not
+estimated from nominal weapon values. Do not add peer confirmations to validated hit events.
+Bots still do not reproduce most alt-fire, player shielding or minigun spin-up; their results are
+stability/coverage evidence, not an equal PvP balance study. See `WEAPON-IMPLEMENTATION.md`.

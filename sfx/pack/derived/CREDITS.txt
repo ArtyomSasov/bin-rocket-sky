@@ -1,0 +1,6 @@
+Derived only from the existing author-supplied Quake weapon pack.
+No additional license is asserted. Original assets remain unchanged.
+minigun-start.wav: chaingun/f1b.wav, first 140 ms, 10 ms endpoint fades.
+minigun-stop.wav: same source, 140–650 ms, 10 ms endpoint fades.
+minigun-loop.wav: chaingun/fire.wav, gain 1.5, 20 ms loop crossfade.
+laser-stop.wav: lightning/lg_fire_loop.wav, first 160 ms, 60 ms fades.

@@ -14,7 +14,7 @@ function setup() {
   let now = 0;
   const clients = [], timers = [], els = new Map();
   const element = () => ({ classList: { toggle() {} }, textContent: '', hidden: false });
-  const c = {
+  const c = { metricPeer(){},
     performance: { now: () => now }, console, Date, Math, Map, Set, Number, Array, JSON, Promise,
     btoa: s => Buffer.from(s, 'binary').toString('base64'), atob: s => Buffer.from(s, 'base64').toString('binary'),
     document: { getElementById(id) { if (!els.has(id)) els.set(id, element()); return els.get(id); }, createElement: element, head: { appendChild(s) { s.onload(); } }, addEventListener() {} },
@@ -213,4 +213,12 @@ test('old shots cannot replay after duplicate cache expiry via an old snapshot',
   assert.equal(c.shots.length,0);
   c.api.applyRemote('pother',state(11,{ts,f:[['other.2',10,10,1000,0,c.K.NAIL,1,0,0,ts]]}));
   assert.equal(c.shots.length,1);assert.ok(c.shots[0].catchup>0&&c.shots[0].catchup<=0.25);
+});
+test('a fireball and a rocket start caught up with the delay; a grenade keeps its own flight',()=>{
+  const {c}=setup();enableShots(c);const ts=Date.now();
+  c.api.applyRemote('pother',state(1,{tg:'other',ts}));
+  c.api.applyRemote('pother',state(2,{ts,f:[['other.1',10,10,1000,0,c.K.FIRE,1,0,0,ts-100],['other.2',10,10,1350,0,c.K.ROCKET,1,0,0,ts-100],['other.3',10,10,900,0,c.K.GREN,1,0,0,ts-100]]}));
+  assert.equal(c.shots.length,3);
+  assert.ok(c.shots[0].catchup>=0.1&&c.shots[0].catchup<=0.25);assert.ok(c.shots[1].catchup>=0.1&&c.shots[1].catchup<=0.25);
+  assert.equal(c.shots[2].catchup,0);
 });

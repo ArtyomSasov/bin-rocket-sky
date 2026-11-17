@@ -99,7 +99,7 @@
     seenShots.set(f[0], performance.now());
     if (kind === K.PELLET) scatterPellets(sh); else if (kind === K.SHARD) shardSpray(sh); else if (kind === K.NAIL) nailSpray(sh); else shots.push(sh);
     if (kind === K.RAIL || kind === K.GAUSS) railBeam(sh);
-    shotSound(kind, x, y);
+    shotSound(kind, x, y, owner);
     if (seenShots.size > 400) { const t = performance.now(); for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k); }
   }
   // Messages are partial: fast ones carry only motion, slow ones add name/look/score/lists.
@@ -196,6 +196,7 @@
     const mine = k => validHit(k) && k.startsWith(myTag + ".") && credited.size < MAX_CREDITS;
     for (const k of Array.isArray(p.hb) ? p.hb.slice(0, 16).filter(validHit) : []) if (mine(k) && !credited.has(id + ":" + k)) {
       credited.add(id + ":" + k); me.score += 1; stats.hits++; floaters.push({ x: r.x, y: r.y - 30, t: 0, txt: "Hit +1", gold: false });
+      metricPeer(k, id, false);
       confirmShotHit(id, k, r);
     }
     if (bots.length) { creditBots(Array.isArray(p.hb) ? p.hb.slice(0, 16).filter(validHit) : [], false, id); creditBots(Array.isArray(p.ko) ? p.ko.slice(0, 16).filter(validHit) : [], true, id); }
@@ -204,6 +205,7 @@
       credited.add("ko" + id + ":" + k); me.score += 5; floaters.push({ x: r.x, y: r.y - 50, t: 0, txt: "KILL " + r.name, gold: true });
       if ((r.lv || 1) >= MAX_LV) announce("KING SLAIN", "you took the crown's bounty", "#ffd36b", 3);
       gainXp(killXp(me.lv, r.lv || 1), performance.now());
+      metricPeer(k, id, true);
       killStyle(k, r);
       stats.kills++; stats.streak++; stats.best = Math.max(stats.best, stats.streak);
       myKillAnnounce(performance.now());
@@ -334,6 +336,7 @@
     // Eight state messages/s plus discovery stay below the backup broker's ~10/s budget.
     // Shots ride in state, including on the primary, and q deduplicates the two deliveries.
     const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
+    if (ownBroker()) net.hz = 15;   // a broker of your own has no such budget: nearly twice the updates, so flyers move smoother
     const myId = "p" + Math.random().toString(36).slice(2, 10);
     const base = "binrocket-sky/v15/" + code + "/";
     const clients = BROKERS.map(url => {

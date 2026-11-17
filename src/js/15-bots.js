@@ -41,6 +41,7 @@
   }
   function botHurt(b, dmg, shotId, now, force, kind = -1, ang = 0) {
     if (b.dead || (!force && now < b.inv) || !roundLive) return;
+    if (!shotId.startsWith(b.tag + ".")) metricDamage(shotId, Math.min(b.lives, dmg), b.lives <= dmg);
     b.lives = Math.round((b.lives - dmg) * 1000) / 1000;
     if (Math.random() < ({ easy: 0.15, normal: 0.35, hard: 0.6 })[b.level]) b.dashReq = true;
     const shown = remotes.get(b.id); if (shown) shown.hitAt = performance.now();
@@ -62,7 +63,7 @@
     const w = botWeapon(b), pat = WEAPONS[w];
     const s = volley(b, now, pat, null, w === "bolt" || w === "laser" ? boltLock(b, null) : undefined);
     if (w === "orb") b.orb = s;   // a bot can set its orb off with the beam (see updateBots)
-    shotSound(pat.shot[0], b.x, b.y);
+    shotSound(pat.shot[0], b.x, b.y, b.id);
     b.vx -= Math.cos(b.a) * 25; b.vy -= Math.sin(b.a) * 25;
     if (!MODES[MODE].only && w !== "fire" && --b.ammo <= 0) b.weapon = "fire";
     return w === "fire" && (b.lv || 1) >= 4 ? pat.cd * 1.4 : pat.cd;   // twin fireballs reload a little slower

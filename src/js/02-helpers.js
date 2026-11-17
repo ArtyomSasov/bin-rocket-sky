@@ -25,7 +25,7 @@
   // graphics settings, kept in this browser: res "auto" (drops when slow) or a fixed share of the screen's resolution,
   // fx "high" or "low" (lighter effects), aim: the crosshair ("off", "small", "big"), aimCol: its colour
   const settings = (() => {
-    const d = { res: "auto", fx: "high", aim: "small", aimCol: "gun", engine: "on", engineV: 3, mouse: "aim" };   // Engine Working recording; the sound setting can still disable it
+    const d = { res: "auto", fx: "high", aim: "small", aimCol: "gun", engine: "on", engineV: 3, mouse: "aim" };   // Recorded spaceship loop; the sound setting can still disable it
     try {
       const v = JSON.parse(store.get("binrocket.gfx"));
       if (!v || typeof v !== "object") return d;
@@ -61,7 +61,7 @@
     let c = tintCache.get(key);
     if (c) return c;
     c = document.createElement("canvas"); c.width = body.width; c.height = body.height;
-    const x = c.getContext("2d"); x.drawImage(body, 0, 0);
+    const x = c.getContext("2d", { willReadFrequently: true }); x.drawImage(body, 0, 0);   // read back at once: a GPU canvas stalls the frame for it
     const d = x.getImageData(0, 0, c.width, c.height), px = d.data;
     for (let i = 0; i < px.length; i += 4) {
       if (!px[i + 3]) continue;

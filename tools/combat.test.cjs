@@ -9,7 +9,7 @@ function setup() {
   const c = { Math, Map, Set, Number, Array, Uint8Array, performance: {now:()=>1000},
     clamp:(v,a,b)=>Math.max(a,Math.min(b,v)), binR:()=>40, botById:new Map(), bots:[], remotes:new Map(),
     me:{x:1000,y:1000,lv:1}, playing:false, W:4000,H:4000,
-    canHurt:(s,o,id)=>!o.dead && id!==s.owner, sweepOrphans(){},
+    audioCue(){}, canHurt:(s,o,id)=>!o.dead && id!==s.owner, sweepOrphans(){},
     toLocal:(b,x,y)=>[x-b.x+b.hw,y-b.y+b.hh], toWorld:(b,x,y)=>[x+b.x-b.hw,y+b.y-b.hh],
     rubbleFx(){}, bodies:[],det:[],stats:{round:1},myCarves:[],carveSeq:0,MAX_CARVES:320,seenCarves:new Set(),carveRnd(){},carveLocal(){return 0;}
   };
@@ -109,4 +109,33 @@ test('projectile history never sweeps through a teleport or an invulnerability i
   assert.equal(c.targetHit(s,o),false);
   o.x=100;o.y=80;o.inv=2000;o.hitHistory=[];c.recordHitPose(o,900);o.y=-80;c.recordHitPose(o,1000);
   assert.equal(c.targetHit(s,o),false);
+});
+test('slow straight projectiles catch up with network delay; steered, bouncing and sticking ones do not',()=>{
+  const c=setup(), K=c.K;
+  for(const k of ['FIRE','ROCKET','FLAK','ORB','GAMMA','BULLET','PELLET','SLUG','NAIL','SPIKE'])assert.equal(vm.runInContext(`straightShot(K.${k})`,c),true,k);
+  for(const k of ['HROCKET','GREN','MINE','SAW','SHARD','NUKE','HOLY','BEACON','RAIL'])assert.equal(vm.runInContext(`straightShot(K.${k})`,c),false,k);
+});
+test('a protected bin neither stops a shot nor is hit by it; an unprotected one does both',()=>{
+  const c=setup(), K=c.K;
+  const target={x:500,y:0,lv:1,inv:true};c.remotes.set('pother',target);
+  const rocket=()=>({kind:K.ROCKET,px:0,py:0,x:900,y:0,vx:1350,vy:0,owner:'pshooter'});
+  assert.equal(c.firstBinAlong(rocket(),900),900,'flag from another browser');
+  assert.equal(c.targetHit(rocket(),target),false);
+  target.inv=false;
+  assert.ok(Math.abs(c.firstBinAlong(rocket(),900)-(500-40-8+0.5))<1e-6);
+  assert.equal(c.targetHit(rocket(),target),true);
+  target.inv=2000;   // my own bins keep the time protection ends (the clock here reads 1000)
+  assert.equal(c.firstBinAlong(rocket(),900),900,'time kept locally');
+  const swept={...rocket(),stepFrom:984,stepTo:1000};
+  assert.equal(c.firstBinAlong(swept,900),900,'swept catch-up step');
+  target.inv=500;
+  assert.ok(c.firstBinAlong(swept,900)<460);
+});
+test('a shot far from a bin skips its recorded path, and one that crosses it still finds the contact',()=>{
+  const c=setup(), K=c.K;
+  const history=Array.from({length:40},(_,i)=>({at:600+i*10,x:500,y:0,lv:1,inv:false,dead:false}));
+  const far={x:500,y:3000,lv:1,hitHistory:history.map(h=>({...h,y:3000}))}, near={x:500,y:0,lv:1,hitHistory:history};
+  const s={kind:K.BULLET,px:0,py:0,x:900,y:0,vx:2600,vy:0,stepFrom:750,stepTo:1000};
+  assert.equal(c.projectileContact(s,far),Infinity);
+  assert.ok(Math.abs(c.projectileContact(s,near)*900-460)<1e-6);
 });
