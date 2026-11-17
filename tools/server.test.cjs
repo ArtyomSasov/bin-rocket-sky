@@ -9,7 +9,7 @@ const skip = ready ? false : 'server dependencies are not installed (cd server &
 let srv, port, WebSocket;
 before(async () => {
   if (!ready) return;
-  Object.assign(process.env, { PORT: '0', MAX_ROOMS: '2', BRS_NO_SIGNALS: '1', ORIGINS: 'https://artyomsasov.github.io' });
+  Object.assign(process.env, { PORT: '0', MAX_ROOMS: '4', BRS_NO_SIGNALS: '1', ORIGINS: 'https://artyomsasov.github.io', AFK_MS: '1500', ROOMS_PER_IP: '2' });
   srv = await import('../server/index.mjs'); port = await srv.listening;
   WebSocket = require('../server/node_modules/ws');
 });
@@ -55,11 +55,41 @@ test('a second player in the same room sees the first one; leaving takes the pil
   b.close();
 });
 
-test('the server refuses another site’s page, a bad code and a third room', { skip }, async () => {
+test('the server refuses another site’s page, a bad code and too many rooms from one address', { skip }, async () => {
   await assert.rejects(client({ Origin: 'https://evil.example' }).opened, /HTTP 401/);
   const bad = client(); await bad.opened; bad.sendJ({ t: 'join', code: '../x' });
   assert.equal((await bad.next(m => m.t === 'error')).reason, 'bad code');
-  // two rooms are already open (earlier tests keep theirs for a minute); a third does not fit
+  // the first two tests opened two rooms from this address (they stay open a minute): a third is refused
   const extra = client(); await extra.opened; extra.sendJ({ t: 'join', code: 'm1d0othird' });
-  assert.equal((await extra.next(m => m.t === 'error')).reason, 'server full');
+  assert.equal((await extra.next(m => m.t === 'error')).reason, 'you already have a room');
+});
+
+test('/health shows counts, never room codes, and no cross-site access', { skip }, async () => {
+  const res = await fetch(`http://127.0.0.1:${port}/health`), body = await res.text();
+  assert.equal(res.headers.get('access-control-allow-origin'), null);
+  assert.ok(!/m1d0o/.test(body), body);
+  const h = JSON.parse(body); assert.ok(Number.isInteger(h.rooms) && Number.isInteger(h.players));
+});
+
+test('a player who sends no controls is let go; one who keeps playing stays', { skip }, async () => {
+  const idle = client(), busy = client(); await idle.opened; await busy.opened;
+  idle.sendJ({ t: 'join', code: 'm1d0opair', name: 'Idle' }); busy.sendJ({ t: 'join', code: 'm1d0opair', name: 'Busy' });
+  await idle.next(m => m.t === 'welcome'); await busy.next(m => m.t === 'welcome');
+  const keep = setInterval(() => busy.sendJ({ t: 'in', mx: 0, my: 0, aim: 0 }), 200);
+  const closed = new Promise(r => idle.on('close', code => r(code)));
+  assert.equal(await closed, 4000);
+  assert.equal(busy.readyState, 1);
+  clearInterval(keep); busy.close();
+});
+
+test('a socket error ends that connection only; the server keeps serving', { skip }, async () => {
+  const net = require('node:net');
+  // a raw client that completes the handshake, then sends a frame the protocol forbids (an unmasked one)
+  await new Promise(resolve => {
+    const s = net.connect(port, '127.0.0.1', () => s.write('GET / HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n'));
+    s.once('data', () => { s.write(Buffer.from([0x81, 0x02, 0x68, 0x69])); });
+    s.on('close', resolve); s.on('error', resolve);
+  });
+  const res = await fetch(`http://127.0.0.1:${port}/health`);
+  assert.equal(res.status, 200);
 });

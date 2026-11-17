@@ -23,7 +23,9 @@ certificate check, the game is served on 8443). Nothing else on the host is touc
 Live: `wss://134-122-60-131.sslip.io:8443`, health at `https://134-122-60-131.sslip.io:8443/health`.
 
 Environment: `PORT` (8080), `MAX_ROOMS` (2), `MAX_PLAYERS` (16 a room), `PER_IP` (6 connections),
-`ROOM_IDLE_MS` (60000), `ORIGINS` (pages allowed to connect, comma-separated).
+`ROOM_IDLE_MS` (60000), `AFK_MS` (120000: a player who sends no controls this long is disconnected),
+`ORIGINS` (pages allowed to connect, comma-separated). `ROOMS_PER_IP` (1): rooms one address may have open at a time; `/health`
+shows counts only, never room codes (a code is the key to join a room).
 
 ## MQTT relay
 
