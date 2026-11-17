@@ -1,0 +1,14 @@
+# TLS in front of the game server: browsers on the https game page may only open wss://.
+# Port 80 answers the certificate check; the game is served on 8443 (443 belongs to another service on the host).
+{
+	http_port 80
+	https_port 8443
+}
+{$DOMAIN}:8443 {
+	tls {
+		issuer acme {
+			disable_tlsalpn_challenge
+		}
+	}
+	reverse_proxy game:8080
+}

@@ -5523,8 +5523,16 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // a pilot flown from outside, like a player on the authoritative server: a bot whose stick, aim and triggers
   // come from b.input instead of the AI, judged by exactly the same rules (see server/sim)
   //   input: { mx, my: the stick (-1..1), aim: radians, fire, boost: booleans, dash: a counter, +1 per dash }
+  // A full arena makes room by retiring an AI bot; with only players left there is no room (null).
   function addPilot(name) {
+    if (bots.length >= MAX_BOTS) {
+      const ai = bots.findLast(b => !b.input);
+      if (!ai) return null;
+      removePilot(ai.id);
+    }
+    const before = bots.length;
     addBots(1, "hard");
+    if (bots.length === before) return null;
     const b = bots[bots.length - 1];
     b.name = String(name || "Pilot").slice(0, 14); b.input = { mx: 0, my: 0, aim: b.a, fire: false, boost: false, dash: 0 }; b.dashDone = 0;
     return b;

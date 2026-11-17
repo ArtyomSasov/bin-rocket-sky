@@ -1,0 +1,5 @@
+# The server image needs only the game code and the server (see server/Dockerfile)
+*
+!src/js
+!server
+server/node_modules

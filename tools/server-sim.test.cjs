@@ -8,10 +8,11 @@ const ready = fs.existsSync(path.join(__dirname, '../server/node_modules/@napi-r
 const skip = ready ? false : 'server dependencies are not installed (cd server && npm ci)';
 const sim = () => import('../server/sim/sim.mjs');
 const STEP = 1 / 30;
+// the server's loop: a step every 1/30 s and a snapshot every second step (which also shows pilots to each other)
+let clock = 1e6;
 function run(m, seconds, each) {
-  let now = 1e6;
-  for (let i = 0; i < seconds * 30; i++) { now += STEP * 1000; if (each) each(now); m.step(STEP, now); }
-  return now;
+  for (let i = 0; i < seconds * 30; i++) { clock += STEP * 1000; if (each) each(clock); m.step(STEP, clock); if (i % 2) m.packet(clock); }
+  return clock;
 }
 
 test('every map builds solid terrain on the server; the Foundry station keeps its 52 walls', { skip }, async () => {
@@ -72,4 +73,34 @@ test('player input is clamped to what a stick, an angle and buttons can send', {
   assert.ok(Math.abs(i.aim - (7 - 2 * Math.PI)) < 1e-12, 'an angle is wrapped');
   assert.deepEqual({ fire: i.fire, boost: i.boost, dash: i.dash }, { fire: false, boost: true, dash: 0 });
   assert.deepEqual(cleanInput({ mx: NaN, aim: Infinity, dash: 2.5 }), { mx: 0, my: 0, aim: 0, fire: false, boost: false, dash: 0 });
+});
+
+test('a player joining a full arena takes an AI bot’s place; a server of players only has no room left', { skip }, async () => {
+  const { createMatch } = await sim();
+  const m = createMatch({ code: 'm1d0o', bots: 24 });
+  try {
+    const id = m.addPilot('Late');
+    assert.ok(id);
+    const all = m.pilots;
+    assert.equal(all.length, 24);
+    assert.equal(all.filter(p => p.human).length, 1);
+    for (let i = 0; i < 23; i++) assert.ok(m.addPilot('P' + i));
+    assert.equal(m.pilots.every(p => p.human), true);
+    assert.equal(m.addPilot('One too many'), null);
+  } finally { m.dispose(); }
+});
+
+test('a snapshot carries the round clock and every pilot in the form a lobby host sends', { skip }, async () => {
+  const { createMatch } = await sim();
+  const m = createMatch({ code: 'm1d0c', bots: 3 });
+  try {
+    const id = m.addPilot('Me');
+    run(m, 1);
+    const p = m.packet(clock);
+    assert.ok(Number.isSafeInteger(p.q) && Array.isArray(p.mc) && p.mc.length === 3);
+    assert.equal(p.bots.length, 4);
+    const mine = p.bots.find(([bid]) => bid === id);
+    assert.ok(mine && Number.isFinite(mine[1].x) && Number.isFinite(mine[1].y));
+    assert.ok(JSON.stringify(p).length < 6000, 'fits a packet budget');
+  } finally { m.dispose(); }
 });

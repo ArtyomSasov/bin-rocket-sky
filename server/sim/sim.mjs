@@ -10,6 +10,7 @@ const BRIDGE = `
     announce = audioCue = sfx = packPlay = packLoop = blip = boomSound = choir = feedPush = () => false;
   const pilotView = b => ({ id: b.id, name: b.name, human: !!b.input, x: b.x, y: b.y, vx: b.vx, vy: b.vy, a: b.a, dead: b.dead, lives: b.lives,
     weapon: botWeapon(b), kills: b.st.kills, deaths: b.st.deaths, shots: b.st.shots });
+  let serverSeq = 0;
   globalThis.__simBot = id => botById.get(id);   // the live pilot object, for tests and tools
   globalThis.__simDet = () => det.map(b => b.cells.join(""));   // every body's solid cells, to compare with a browser
   globalThis.__sim = {
@@ -20,17 +21,27 @@ const BRIDGE = `
       addBots(n, level);
       for (const b of bots) Object.assign(b, spawnPoint(b.tm));
     },
-    addPilot(name) { const b = addPilot(name); Object.assign(b, spawnPoint(b.tm)); return b.id; },
+    addPilot(name) { const b = addPilot(name); if (!b) return null; Object.assign(b, spawnPoint(b.tm)); return b.id; },
     removePilot(id) { removePilot(id); },
     input(id, i) { const b = botById.get(id); if (b && b.input) Object.assign(b.input, i); },
-    // one fixed step: the shared-clock world, the simulation, then every pilot published to the others it sees
+    // one fixed step: the shared-clock world and the simulation
     step(dt, now) {
       worldTick(now);
       update(dt, now);
-      botStates(now);
       // what only the screen keeps: dropped here, since no frame ever draws it
       parts.length = 0; impacts.length = 0; rings.length = 0; floaters.length = 0; arcs.length = 0; beams.length = 0; lasers.length = 0;
       hulks.length = 0; frags.length = 0; debris.length = 0;
+    },
+    // what everyone receives, in the form a lobby host's state has always had (src/js/12-network.js reads it): the
+    // round clock, every pilot with its shots, hits and kills, and what changed in the world. Building it also
+    // shows the pilots to each other (bots aim at what they see), so it is built at the send rate even unwatched
+    packet(now) {
+      return { q: ++serverSeq, rd: stats.round, ts: Date.now(), mc: matchReady ? [matchRound, matchStart, matchEnd] : undefined,
+        bots: botStates(now), g: myGrabs.slice(),
+        cv: myCarves.filter(e => performance.now() - e.at < 4000).slice(-128).map(e => e.d),
+        terrain: nextTerrain() || undefined, rk: nextRockMotion(),
+        dr: myDrops.filter(d => Date.now() - d[4] < DROP_LIFE).slice(-3).map(d => d.slice(0, 4)),
+        wd: myGunDrops.filter(d => Date.now() - d[5] < GUN_DROP_LIFE).slice(-3).map(d => d.slice(0, 5)) };
     },
     pilot: id => botById.has(id) ? pilotView(botById.get(id)) : null,
     get pilots() { return bots.map(pilotView); },
@@ -57,6 +68,7 @@ export function createMatch({ code = "m1d0c", bots = 0, level = "normal" } = {})
   sim.start(code, bots, level);
   return {
     step: (dt, now = performance.now()) => { game.__setNow(now); sim.step(dt, now); },
+    packet: (now = performance.now()) => { game.__setNow(now); return sim.packet(now); },
     addPilot: name => sim.addPilot(name),
     removePilot: id => sim.removePilot(id),
     input: (id, i) => sim.input(id, cleanInput(i)),
