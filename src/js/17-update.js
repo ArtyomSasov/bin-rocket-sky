@@ -13,11 +13,11 @@
     let ix = 0, iy = 0;
     const shiftHeld = keys.has("ShiftLeft") || keys.has("ShiftRight");
     let boost = (shiftHeld || boostBtnDown) && boostDownAt >= 0 && now - boostDownAt > BOOST_HOLD * 1000 && !keys.has("KeyX");
-    if (me.dead && now >= me.respawnAt) respawn(now);
+    if (me.dead && now >= me.respawnAt && !serverRun) respawn(now);   // the server respawns my pilot where it chooses
     fireCd -= dt; shake = Math.max(0, shake - dt);
     const aimM = mouseAim();
     const held = firing || FIRE_KEYS.some(k => keys.has(k)) || (aimM && ptr.down);   // with mouse aim the left button fires
-    const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided;
+    const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided && !serverRun;   // on the server my trigger only goes into my controls
     const altW = WEAPONS[me.weapon].alt, altHeld = altFiring || keys.has("KeyC");
     rocketLoadTick(dt, now, altHeld, ready);
     if (altW && altW.charge) {   // rail alt: hold to widen the cutter, release to open a short breach
@@ -57,6 +57,7 @@
     me.boostFx = now - me.dashAt < 350 ? 2 : boost ? 1 : 0;
     if (boost) { energy = Math.max(0, energy - 20 * dt); energyRegenAt = now + 700; }   // a full bar is ~5 s of boost
     else if (now > energyRegenAt) energy = Math.min(100, energy + 22 * dt);   // perk: faster energy from Lv 2
+    me.ctl = { mx: ix, my: iy, fire: held, boost };   // the raw controls, for the authoritative server
     return { im, boost };
   }
   // the flight model every pilot flies by, me and the bots alike (sx, sy: the stick, eased; k: a bot's speed factor).
@@ -509,7 +510,7 @@
   // sparks, spilled stars, medkits and shields, Overdrive and weapon crates
   const magnet = () => 0;   // perk: pick-ups from further away from Lv 5
   function updatePickups(dt, now) {
-    if (!roundLive) return;
+    if (!roundLive || serverRun) return;   // on the server, what I pick up is its call (the snapshot's taken keys)
     // sparks
     if (playing && !me.dead) {
       for (let i = 0; i < SLOTS; i++) {
@@ -739,7 +740,7 @@
   function netSend(dt, now) {
     const elapsed = Math.max(dt, Math.min(0.25, (now - lastNetTick) / 1000)); lastNetTick = now;
     sendAcc += elapsed; slowAcc += elapsed;
-    if (playing && sendAcc >= 1 / net.hz) {
+    if (playing && !serverRun && sendAcc >= 1 / net.hz) {   // on the server only my controls go out (12c-server.js)
       sendAcc %= 1 / net.hz;   // keep the remainder: frames don't divide the interval evenly, and dropping it sent 7.5 a second for 8
       const msg = {
         q: ++sendSeq, mc: matchReady ? [matchRound, matchStart, matchEnd] : undefined, rd: stats.round, hb: hitBy, ko: koBy, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),

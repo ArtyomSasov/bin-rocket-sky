@@ -108,7 +108,9 @@
     goBtn.disabled = !codeOk();
     goBtn.textContent = joining ? (codeOk() ? "Join " + lobbyInput.value.toUpperCase() : "Type your friend's code") : "Take off";
     document.getElementById("joinLine").textContent = codeOk() ? describe(lobbyCode()) : "The code brings its own mode and map.";
-    if (!joining) document.getElementById("codeLine").innerHTML = localRun
+    if (!joining) document.getElementById("codeLine").innerHTML = serverRun
+      ? `${describe(newGameCode)} · on the game server: it judges every hit · code <b>${newGameCode.toUpperCase()}</b>`
+      : localRun
       ? `${describe(newGameCode)} · local room: you host, players nearby join with your QR code`
       : offlineRun
       ? `${describe(newGameCode)} · offline: just you and ${botChoice.n} bots in this browser`
@@ -139,17 +141,18 @@
     // online lobby or offline against the bots (remembered; forced offline when the network is out)
     const whereEl = document.getElementById("wherePick");
     const pickWhere = v => {
-      offlineRun = v === "off"; localRun = v === "lan";
+      offlineRun = v === "off"; localRun = v === "lan"; serverRun = v === "srv";
       for (const o of whereEl.children) o.setAttribute("aria-pressed", String(o.dataset.v === v));
       document.getElementById("lanStartBox").hidden = !localRun;
       syncGo();
     };
-    segButtons(whereEl, [["on", "Online lobby"], ["lan", "Local room"], ["off", "Offline with bots"]], offlineRun ? "off" : "on", v => { if (!offlineOnly) store.set("binrocket.where", v); pickWhere(v); });
-    [...whereEl.children].forEach((b, i) => b.dataset.v = ["on", "lan", "off"][i]);
-    if (!offlineOnly && ["off", "lan"].includes(store.get("binrocket.where"))) pickWhere(store.get("binrocket.where"));
+    segButtons(whereEl, [["on", "Online lobby"], ["srv", "Game server (beta)"], ["lan", "Local room"], ["off", "Offline with bots"]], offlineRun ? "off" : "on", v => { if (!offlineOnly) store.set("binrocket.where", v); pickWhere(v); });
+    [...whereEl.children].forEach((b, i) => b.dataset.v = ["on", "srv", "lan", "off"][i]);
+    if (!SERVER_URL) whereEl.children[1].disabled = true;
+    if (!offlineOnly && ["off", "lan", "srv"].includes(store.get("binrocket.where"))) pickWhere(store.get("binrocket.where"));
     noNetwork = msg => {
       if (!localRun) pickWhere("off");
-      whereEl.children[0].disabled = true; whereEl.children[0].title = "No connection to the multiplayer servers";
+      whereEl.children[0].disabled = true; whereEl.children[1].disabled = true; whereEl.children[0].title = "No connection to the multiplayer servers";
       setTab(false); document.getElementById("tabJoin").disabled = true;
       setStatus(false, msg);
     };
@@ -208,11 +211,12 @@
     e.preventDefault();
     if (lan.guest) { joining = false; offlineRun = false; localRun = true; }   // a guest in a local room plays the host's game
     else if (standalone && !codeOk()) { lobbyInput.focus(); return; }
-    if (joining) { offlineRun = false; localRun = false; }   // a friend's code is always online
+    if (joining) { offlineRun = false; localRun = false; }   // a friend's code is always online (on the game server, if that is picked)
     // bots: in a lobby only its host adds them (everyone else sees the host's); in the Claude room they stay local anyway;
     // offline there is nobody else, so there are always some
     const host = !lan.guest && (!standalone || !joining || hosted().includes(lobbyCode()));
-    if (offlineRun && !bots.length) addBots(botChoice.n, botChoice.level);
+    if (serverRun) {}   // the server brings the bots (asked for when this browser opens the room)
+    else if (offlineRun && !bots.length) addBots(botChoice.n, botChoice.level);
     else if (host && !bots.length && botChoice.n > 0) addBots(botChoice.n, botChoice.level);
     if (standalone) chooseLobby(lan.guest ? lan.code : lobbyCode());
     me.name = nameInput.value.trim().slice(0, 14) || "Bin";

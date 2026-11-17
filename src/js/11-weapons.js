@@ -44,7 +44,7 @@
   // THE rule for whether a shot may hurt someone (id: their key, "me" for me): alive, not the shooter, not on the
   // shooter's team; my own shots never hurt me. Every hit, splash, blast, homing and chain asks this.
   // the shooter's own shot: it only hurts them through a blast (blast = true: rockets, plasma, mines, nukes, combos)
-  const ownShot = (s, o, id) => (o === me && s.mine) || id === s.owner;
+  const ownShot = (s, o, id) => (o === me && (s.mine || mySrvShot(s))) || id === s.owner;
   const SELF_DMG = 0.3;   // rocket jumps, as in Quake: your own blast hurts you little and throws you hard (see splash)
   const canHurt = (s, o, id, blast = false) => ownShot(s, o, id) ? blast && !o.dead && (o !== me || playing)
     : !o.dead && !friendly(s, o.tm) && (o !== me || (playing && !s.mine));
@@ -680,6 +680,7 @@
   // gives three jumps; the gun in your hands stays where it is
   let teleCdUntil = 0;
   function useTele(now) {
+    if (serverRun) return;   // not flown by the server yet
     if (!playing || me.dead || guided || now < teleCdUntil) return;
     if (myBeacon()) { teleport(now); teleCdUntil = now + 350; return; }
     if (!(me.teleN > 0)) return;
@@ -768,6 +769,7 @@
     me.dashTimes = (me.dashTimes || []).filter(t => now - t < 450);
     if (!playing || me.dead || energy < 25 || now < dashReadyAt || me.dashTimes.length >= 1) return;
     me.dashTimes.push(now);
+    if (serverRun) srv.dashN++;   // the server dashes my pilot too; here the dash is predicted
     energy -= 25; dashReadyAt = now + 150; energyRegenAt = now + 700;
     me.dashAt = now;
     const sm = Math.hypot(steer.x, steer.y);
@@ -985,7 +987,7 @@
   }
   let shieldHitAt = -1e9;
   function hurt(now, dmg = 1, force = false, kind = -1, ang = 0) {   // kind, ang: the shot that hit (picks how the bin dies)
-    if (!roundLive) return false;
+    if (!roundLive || serverRun) return false;   // on the authoritative server only its snapshots change my health
     if (me.dead || (!force && now < me.inv)) return false;
     // armour soaks part of the hit first (black hole and the nuke's core ignore it)
     if (!force && me.shield > 0) {

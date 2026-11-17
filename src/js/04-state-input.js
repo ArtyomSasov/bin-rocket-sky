@@ -4,7 +4,7 @@
     thrust: 0, score: 0, name: "", hue: Math.floor(Math.random() * 360), ck: [0, 0, 0, 0, 0],
     lives: LIVES, dead: false, respawnAt: 0, inv: 0, xp: 0, lv: 1, weapon: "fire", arsenal: { fire: Infinity }, ampUntil: 0, carry: 0, ds: 0, shield: 0, boostFx: 0, dashAt: -1e9, bank: 0, boostOn: false
   };
-  const myTag = Math.random().toString(36).slice(2, 7);
+  let myTag = Math.random().toString(36).slice(2, 7);   // on the authoritative server, the tag it gives my pilot
   let shotSeq = 0, fireCd = 0, firing = false, altFiring = false, shake = 0, hurtFlash = 0;
   const camKick = { x: 0, y: 0 };
   const shots = [];            // live fireballs: {id, x, y, vx, vy, life, mine}

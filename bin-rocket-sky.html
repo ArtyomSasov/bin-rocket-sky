@@ -1406,7 +1406,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     thrust: 0, score: 0, name: "", hue: Math.floor(Math.random() * 360), ck: [0, 0, 0, 0, 0],
     lives: LIVES, dead: false, respawnAt: 0, inv: 0, xp: 0, lv: 1, weapon: "fire", arsenal: { fire: Infinity }, ampUntil: 0, carry: 0, ds: 0, shield: 0, boostFx: 0, dashAt: -1e9, bank: 0, boostOn: false
   };
-  const myTag = Math.random().toString(36).slice(2, 7);
+  let myTag = Math.random().toString(36).slice(2, 7);   // on the authoritative server, the tag it gives my pilot
   let shotSeq = 0, fireCd = 0, firing = false, altFiring = false, shake = 0, hurtFlash = 0;
   const camKick = { x: 0, y: 0 };
   const shots = [];            // live fireballs: {id, x, y, vx, vy, life, mine}
@@ -3637,7 +3637,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // THE rule for whether a shot may hurt someone (id: their key, "me" for me): alive, not the shooter, not on the
   // shooter's team; my own shots never hurt me. Every hit, splash, blast, homing and chain asks this.
   // the shooter's own shot: it only hurts them through a blast (blast = true: rockets, plasma, mines, nukes, combos)
-  const ownShot = (s, o, id) => (o === me && s.mine) || id === s.owner;
+  const ownShot = (s, o, id) => (o === me && (s.mine || mySrvShot(s))) || id === s.owner;
   const SELF_DMG = 0.3;   // rocket jumps, as in Quake: your own blast hurts you little and throws you hard (see splash)
   const canHurt = (s, o, id, blast = false) => ownShot(s, o, id) ? blast && !o.dead && (o !== me || playing)
     : !o.dead && !friendly(s, o.tm) && (o !== me || (playing && !s.mine));
@@ -4273,6 +4273,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // gives three jumps; the gun in your hands stays where it is
   let teleCdUntil = 0;
   function useTele(now) {
+    if (serverRun) return;   // not flown by the server yet
     if (!playing || me.dead || guided || now < teleCdUntil) return;
     if (myBeacon()) { teleport(now); teleCdUntil = now + 350; return; }
     if (!(me.teleN > 0)) return;
@@ -4361,6 +4362,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     me.dashTimes = (me.dashTimes || []).filter(t => now - t < 450);
     if (!playing || me.dead || energy < 25 || now < dashReadyAt || me.dashTimes.length >= 1) return;
     me.dashTimes.push(now);
+    if (serverRun) srv.dashN++;   // the server dashes my pilot too; here the dash is predicted
     energy -= 25; dashReadyAt = now + 150; energyRegenAt = now + 700;
     me.dashAt = now;
     const sm = Math.hypot(steer.x, steer.y);
@@ -4578,7 +4580,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   }
   let shieldHitAt = -1e9;
   function hurt(now, dmg = 1, force = false, kind = -1, ang = 0) {   // kind, ang: the shot that hit (picks how the bin dies)
-    if (!roundLive) return false;
+    if (!roundLive || serverRun) return false;   // on the authoritative server only its snapshots change my health
     if (me.dead || (!force && now < me.inv)) return false;
     // armour soaks part of the hit first (black hole and the nuke's core ignore it)
     if (!force && me.shield > 0) {
@@ -4854,8 +4856,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const leadFor = r => clamp(((myPing || 90) + (r.ping || myPing || 90)) / 4000 + 0.03, 0.05, 0.3);
   function addRemoteShot(owner, f, sentAt = Date.now()) {
     if (!Array.isArray(f) || typeof f[0] !== "string" || f[0].length > 20 || seenShots.has(f[0])) return;
-    if (!remotes.has(owner) || seenShots.size >= MAX_SEEN_SHOTS) return;
-    const peer = remotes.get(owner);
+    // my own pilot on the server is no remote, but its shots come back the same way
+    const peer = remotes.get(owner) || (owner && owner === srv.id ? srv : null);
+    if (!peer || seenShots.size >= MAX_SEEN_SHOTS) return;
     if (!Number.isInteger(f[5]) || f[5] < 0 || f[5] >= SHOTS.length || !f.slice(1, 5).every(Number.isFinite) || f.length < 6) return;
     if (peer.tag && !f[0].startsWith(peer.tag + ".")) return;
     if (!Number.isFinite(f[9]) || !Number.isFinite(sentAt)) return;
@@ -4946,15 +4949,25 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (Number.isFinite(p.s)) r.score = Math.max(0, Math.floor(p.s));
     r.lv = 1;
     if (Array.isArray(p.st) && p.st.length === 6 && p.st.every(Number.isInteger)) r.st = p.st;   // [round, kills, deaths, shots, hits, best]
-    if (Array.isArray(p.cv)) applyRemoteCarves(id, p.cv);
     if (Number.isInteger(p.wp)) r.weapon = WEAPON_KEYS[p.wp] || "fire";
     if (Number.isFinite(p.sh)) r.shield = clamp(p.sh, 0, MAX_SHIELD);
     if (Number.isFinite(p.pg)) r.ping = clamp(p.pg, 0, 5000);
     if ("am" in p) r.amp = p.am === 1;
     if (Number.isFinite(p.l)) r.lives = clamp(p.l, 0, LIVES * 1.99);
-    if (p.rd === stats.round && Array.isArray(p.g)) for (const k of p.g.slice(0, 48)) if (typeof k === "string" && /^[a-zA-Z][a-z0-9.:]{1,20}$/.test(k) && (grabbed.has(k) || grabbed.size < 16384)) grabbed.add(k);   // only pick-up keys
     if (p.rd === stats.round && Array.isArray(p.f)) for (const f of p.f.slice(0, 24)) addRemoteShot(id, f, p.ts);
     if (Array.isArray(p.gw) && p.gw.length === 6 && typeof p.gw[0] === "string" && p.gw.slice(1).every(Number.isFinite)) guideRemote(id, p.gw);
+    applyWorld(id, p);
+    // Event IDs belong to one round; old reports must not survive a round reset.
+    if (p.rd !== stats.round) { showScore(); return true; }
+    applyCombatReports(id, p, r);
+    showScore();
+    return true;
+  }
+  // what a pilot's state says about the world rather than the pilot: pick-ups taken, craters dug, stars and trophies
+  // dropped, terrain and rock motion. A lobby host and the authoritative server send these the same way
+  function applyWorld(id, p) {
+    if (Array.isArray(p.cv)) applyRemoteCarves(id, p.cv);
+    if (p.rd === stats.round && Array.isArray(p.g)) for (const k of p.g.slice(0, 48)) if (typeof k === "string" && /^[a-zA-Z][a-z0-9.:]{1,20}$/.test(k) && (grabbed.has(k) || grabbed.size < 16384)) grabbed.add(k);   // only pick-up keys
     if (p.rd === stats.round && Array.isArray(p.dr)) for (const d of p.dr.slice(0, 3)) {
       if (drops.size >= MAX_DROPS) break;
       if (!Array.isArray(d) || typeof d[0] !== "string" || d[0].length > 10 || drops.has(d[0])) continue;
@@ -4969,12 +4982,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       gunDrops.set(d[0], { x: clamp(num(d[1], 0), 0, W), y: clamp(num(d[2], 0), 0, H), type, ammo: clamp(Math.floor(num(d[4], 1)), 1, 999), born: performance.now() });
     }
     if (Array.isArray(p.terrain)) applyTerrain(p.terrain);
-    // Event IDs belong to one round; old reports must not survive a round reset.
-    if (p.rd !== stats.round) { showScore(); return true; }
-    if (Array.isArray(p.rk)) applyRockMotion(p.rk);
-    applyCombatReports(id, p, r);
-    showScore();
-    return true;
+    if (p.rd === stats.round && Array.isArray(p.rk)) applyRockMotion(p.rk);
   }
   // Combat events are monotonic within a round, even when movement arrives out of order.
   function applyCombatReports(id, p, r) {
@@ -5098,10 +5106,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     buildPlanets(code);
     setMode(modeOf(code));
     setMatch(code);
-    if (offlineRun || !online || ((!joining || hosted().includes(code)) && !lan.guest)) startMatch(clockNow());
+    if (!serverRun && (offlineRun || !online || ((!joining || hosted().includes(code)) && !lan.guest))) startMatch(clockNow());   // the server keeps its own clock
     Object.assign(me, spawnPoint(me.tm));
     for (const b of bots) Object.assign(b, spawnPoint(b.tm));
     const shown = code.toUpperCase();
+    if (serverRun) { serverStart(code); return; }   // the authoritative server (12c-server.js)
     if (localRun) { lanStart(code); return; }   // the local room (12b-lan.js): WebRTC to the devices nearby
     if (offlineRun || !online) {
       // nobody else is here: the bots fly in this browser, nothing is sent and the lobby is not announced. Rounds run
@@ -5407,6 +5416,107 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   lanPaste.addEventListener("input", () => { const t = lanPaste.value.trim(); if (t.startsWith(LAN_TAG + "|") && t.split("|").length >= 7) takeCode(t); });
   document.getElementById("lanClose").addEventListener("click", () => { lanEl.hidden = true; stopCam(); lanFlow = null; cv.focus(); });
   document.getElementById("lanJoin").addEventListener("click", () => lanDialog("guest"));
+  // ---------- the authoritative server (server/ in the repository) ----------
+  // In this mode the browser only flies and shows: it sends its controls, moves its own bin at once (prediction)
+  // and eases it toward where the server says it is; everyone else, their shots, the pick-ups taken and the craters
+  // come from the server's snapshots, read by the same code as a lobby host's state. Hits, damage, deaths,
+  // respawns and pick-ups are the server's word; this browser never decides them.
+  //   ?server=wss://host:port picks another server than the default one
+  const SERVER_URL = (() => {
+    const m = /[?&]server=([^&#]+)/.exec(location.search || ""), u = m ? decodeURIComponent(m[1]) : window.BRS_SERVER || "wss://134-122-60-131.sslip.io:8443";
+    return /^wss:\/\/[a-z0-9.-]+(:\d+)?\/?$/i.test(u) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/i.test(u) ? u : "";
+  })();
+  let serverRun = false;
+  const srv = { ws: null, id: "", tag: "", sendHz: 15, dashN: 0, lastIn: "", lastInAt: 0, deadSeen: false, joined: false, err: "" };
+  // the pilot the server flies for me: its own shots are mine, never a threat to me
+  const mySrvShot = s => serverRun && !!srv.id && s.owner === srv.id;
+  function serverStart(code) {
+    net.send = () => {}; net.shot = () => {};   // nothing of mine goes anywhere but my controls
+    document.getElementById("boardTitle").textContent = "Server · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
+    setStatus(false, "Server · connecting…");
+    if (!SERVER_URL) { setStatus(false, "Server · no valid address"); return; }
+    const ws = new WebSocket(SERVER_URL);
+    srv.ws = ws;
+    ws.onopen = () => ws.send(JSON.stringify({ t: "join", code, name: me.name, bots: botChoice.n, level: botChoice.level }));
+    ws.onmessage = e => {
+      if (typeof e.data !== "string" || e.data.length > 262144) return;
+      let m; try { m = JSON.parse(e.data); } catch { return; }
+      if (!m || typeof m !== "object") return;
+      if (m.t === "snap") receiveServer(m);
+      else if (m.t === "pong") { if (Number.isFinite(m.c)) gotPing(performance.now() - m.c); }
+      else if (m.t === "welcome" && typeof m.id === "string") {
+        srv.id = m.id; srv.joined = true; srv.sendHz = clamp(num(m.sendHz, 15), 1, 60);
+        setStatus(true, "Server · " + code.toUpperCase() + " · online");
+      } else if (m.t === "error") { srv.err = String(m.reason || "").slice(0, 40); announce("SERVER", srv.err, "#ff8a8a", 2, true); }
+    };
+    ws.onclose = () => { srv.joined = false; setStatus(false, "Server · disconnected" + (srv.err ? " · " + srv.err : "")); };
+    setInterval(() => { if (ws.readyState === 1) ws.send(JSON.stringify({ t: "ping", c: performance.now() })); }, 2000);
+    setInterval(sendControls, 1000 / 30);
+  }
+  // my controls, as they are now: sent when they change, and at least four times a second
+  function sendControls() {
+    const ws = srv.ws;
+    if (!ws || ws.readyState !== 1 || !srv.joined) return;
+    const c = me.ctl || {}, i = { t: "in", mx: +num(c.mx, 0).toFixed(3), my: +num(c.my, 0).toFixed(3), aim: +me.a.toFixed(3),
+      fire: !!c.fire && !me.dead && playing, boost: !!c.boost, dash: srv.dashN };
+    const sig = JSON.stringify(i), t = performance.now();
+    if (sig === srv.lastIn && t - srv.lastInAt < 250) return;
+    srv.lastIn = sig; srv.lastInAt = t;
+    ws.send(sig);
+  }
+  // a snapshot: the round clock, every pilot (mine among them) and the world
+  function receiveServer(p) {
+    if (p.mc) receiveMatchClock(p.mc);
+    const seen = new Set();
+    for (const e of Array.isArray(p.bots) ? p.bots.slice(0, MAX_BOTS) : []) {
+      if (!Array.isArray(e) || typeof e[0] !== "string" || !/^pb[a-z0-9]{1,10}$/.test(e[0]) || !e[1] || typeof e[1] !== "object") continue;
+      const m = { rd: p.rd, ts: p.ts, ...e[1] };
+      if (e[0] === srv.id) { serverSelf(m); continue; }
+      seen.add(e[0]);
+      applyRemote(e[0], m);
+      const r = remotes.get(e[0]); if (r) r.host = "server";
+    }
+    for (const [id, r] of remotes) if (r.host === "server" && !seen.has(id)) remotes.delete(id);   // they left
+    if (p.rd === stats.round) applyWorld("server", p);
+    showScore();
+  }
+  // what the server says about me: corrections to my predicted flight, and everything I may not decide myself
+  function serverSelf(m) {
+    const now = performance.now();
+    if (typeof m.tg === "string" && /^[a-z0-9]{1,8}$/.test(m.tg)) { srv.tag = m.tg; myTag = m.tg; }   // my shots' ids: kills reported on them are mine
+    if (Number.isFinite(m.ts)) { const o = clamp(m.ts - Date.now(), -120000, 120000); srv.off = Number.isFinite(srv.off) ? srv.off + (o - srv.off) * 0.1 : o; srv.lastTs = Math.max(srv.lastTs || m.ts, m.ts); }
+    srv.ping = myPing;
+    if (m.rd === stats.round && Array.isArray(m.f)) for (const f of m.f.slice(0, 24)) addRemoteShot(srv.id, f, m.ts);   // my shots, as fired on the server
+    if ("tm" in m) me.tm = m.tm === 0 || m.tm === 1 ? m.tm : undefined;
+    if ("fc" in m) me.fc = m.fc === 0 || m.fc === 1 ? m.fc : -1;
+    if (Number.isFinite(m.sh) && m.sh !== me.shield) { me.shield = clamp(m.sh, 0, MAX_SHIELD); renderShield(); }
+    if (Number.isFinite(m.l) && m.l !== me.lives) { const hit = m.l < me.lives; me.lives = clamp(m.l, 0, LIVES * 1.99); renderHearts(hit); if (hit && !me.dead) { me.hitAt = now; hurtFlash = Math.min(1, hurtFlash + 0.4); } }
+    if (Number.isInteger(m.wp)) {
+      const w = WEAPON_KEYS[m.wp];
+      if (w && WEAPONS[w] && w !== me.weapon) { me.arsenal = { fire: Infinity, gauntlet: Infinity }; if (w !== "fire") me.arsenal[w] = Infinity; me.weapon = w; renderWeapon(); }
+    }
+    if (m.d === 1 && !me.dead) {   // the server's verdict: I died
+      me.dead = true; me.respawnAt = now + 3000; me.vx = me.vy = 0;
+      me.ds = clamp(Math.floor(num(m.ds, 2)), 0, 4); me.dk = clamp(Math.floor(num(m.dk, 0)), 0, DEATH_KINDS); me.da = num(m.da, 0);
+      deathFx(me, me.ds, me.dk, me.da);
+      stats.deaths++; stats.streak = 0;
+      const k = Array.isArray(m.ko) ? m.ko.at(-1) : "", tag = typeof k === "string" ? k.split(".")[0] : "";
+      const by = [...remotes.values()].find(r => r.tag === tag);
+      killer = by ? by.name : "";
+      packPlay("p_death", 0.7);
+    } else if (m.d === 0 && me.dead) {   // ...and back, where the server put me
+      me.dead = false; me.inv = now + 2000; me.vx = me.vy = 0;
+      if (Number.isFinite(m.x)) { me.x = m.x; me.y = m.y; }
+      audioCue("respawn"); renderHearts(false);
+    }
+    if (me.dead || !Number.isFinite(m.x) || !Number.isFinite(m.y)) return;
+    // my flight is predicted here; the server's position is about half a round trip old, so compare it carried
+    // forward that far, and close the gap gently (a large one, like a hit's shove or a teleport, at once)
+    const lead = clamp((myPing || 60) / 2000, 0, 0.2), tx = clamp(m.x + num(m.vx, 0) * lead, 0, W), ty = clamp(m.y + num(m.vy, 0) * lead, 0, H);
+    const ex = tx - me.x, ey = ty - me.y, err = Math.hypot(ex, ey);
+    if (err > 260) { me.x = tx; me.y = ty; me.vx = num(m.vx, me.vx); me.vy = num(m.vy, me.vy); }
+    else { me.x += ex * 0.2; me.y += ey * 0.2; me.vx += (num(m.vx, me.vx) - me.vx) * 0.1; me.vy += (num(m.vy, me.vy) - me.vy) * 0.1; }
+  }
   // ---------- weapon crates, supplies, Overdrive and the big bombs: fixed spots on the arena ----------
   // Each spot always holds the same thing (see 01b-arenas.js) and keeps it until someone takes it: nothing expires.
   // A taken one comes back at the start of its spot's next cycle on the shared clock, so every screen agrees
@@ -5441,7 +5551,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     for (const b of bots) if (b.fc >= 0 && flagCarrier[b.fc] && flagCarrier[b.fc].id !== b.tag) b.fc = -1;
     // grabbing and scoring, for me and my bots
     const actors = [];
-    if (roundLive && playing && !me.dead && onTeam(me)) actors.push([me, myTag]);
+    if (roundLive && playing && !me.dead && onTeam(me) && !serverRun) actors.push([me, myTag]);   // the server carries my flags itself
     if (roundLive) for (const b of bots) if (!b.dead && onTeam(b)) actors.push([b, b.tag]);
     for (const [o, tag] of actors) {
       const ef = 1 - o.tm, reach = 70 + 26 * sizeOf(o.lv || 1);
@@ -5927,11 +6037,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     let ix = 0, iy = 0;
     const shiftHeld = keys.has("ShiftLeft") || keys.has("ShiftRight");
     let boost = (shiftHeld || boostBtnDown) && boostDownAt >= 0 && now - boostDownAt > BOOST_HOLD * 1000 && !keys.has("KeyX");
-    if (me.dead && now >= me.respawnAt) respawn(now);
+    if (me.dead && now >= me.respawnAt && !serverRun) respawn(now);   // the server respawns my pilot where it chooses
     fireCd -= dt; shake = Math.max(0, shake - dt);
     const aimM = mouseAim();
     const held = firing || FIRE_KEYS.some(k => keys.has(k)) || (aimM && ptr.down);   // with mouse aim the left button fires
-    const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided;
+    const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided && !serverRun;   // on the server my trigger only goes into my controls
     const altW = WEAPONS[me.weapon].alt, altHeld = altFiring || keys.has("KeyC");
     rocketLoadTick(dt, now, altHeld, ready);
     if (altW && altW.charge) {   // rail alt: hold to widen the cutter, release to open a short breach
@@ -5971,6 +6081,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     me.boostFx = now - me.dashAt < 350 ? 2 : boost ? 1 : 0;
     if (boost) { energy = Math.max(0, energy - 20 * dt); energyRegenAt = now + 700; }   // a full bar is ~5 s of boost
     else if (now > energyRegenAt) energy = Math.min(100, energy + 22 * dt);   // perk: faster energy from Lv 2
+    me.ctl = { mx: ix, my: iy, fire: held, boost };   // the raw controls, for the authoritative server
     return { im, boost };
   }
   // the flight model every pilot flies by, me and the bots alike (sx, sy: the stick, eased; k: a bot's speed factor).
@@ -6423,7 +6534,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // sparks, spilled stars, medkits and shields, Overdrive and weapon crates
   const magnet = () => 0;   // perk: pick-ups from further away from Lv 5
   function updatePickups(dt, now) {
-    if (!roundLive) return;
+    if (!roundLive || serverRun) return;   // on the server, what I pick up is its call (the snapshot's taken keys)
     // sparks
     if (playing && !me.dead) {
       for (let i = 0; i < SLOTS; i++) {
@@ -6653,7 +6764,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   function netSend(dt, now) {
     const elapsed = Math.max(dt, Math.min(0.25, (now - lastNetTick) / 1000)); lastNetTick = now;
     sendAcc += elapsed; slowAcc += elapsed;
-    if (playing && sendAcc >= 1 / net.hz) {
+    if (playing && !serverRun && sendAcc >= 1 / net.hz) {   // on the server only my controls go out (12c-server.js)
       sendAcc %= 1 / net.hz;   // keep the remainder: frames don't divide the interval evenly, and dropping it sent 7.5 a second for 8
       const msg = {
         q: ++sendSeq, mc: matchReady ? [matchRound, matchStart, matchEnd] : undefined, rd: stats.round, hb: hitBy, ko: koBy, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),
@@ -9109,7 +9220,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     goBtn.disabled = !codeOk();
     goBtn.textContent = joining ? (codeOk() ? "Join " + lobbyInput.value.toUpperCase() : "Type your friend's code") : "Take off";
     document.getElementById("joinLine").textContent = codeOk() ? describe(lobbyCode()) : "The code brings its own mode and map.";
-    if (!joining) document.getElementById("codeLine").innerHTML = localRun
+    if (!joining) document.getElementById("codeLine").innerHTML = serverRun
+      ? `${describe(newGameCode)} · on the game server: it judges every hit · code <b>${newGameCode.toUpperCase()}</b>`
+      : localRun
       ? `${describe(newGameCode)} · local room: you host, players nearby join with your QR code`
       : offlineRun
       ? `${describe(newGameCode)} · offline: just you and ${botChoice.n} bots in this browser`
@@ -9140,17 +9253,18 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     // online lobby or offline against the bots (remembered; forced offline when the network is out)
     const whereEl = document.getElementById("wherePick");
     const pickWhere = v => {
-      offlineRun = v === "off"; localRun = v === "lan";
+      offlineRun = v === "off"; localRun = v === "lan"; serverRun = v === "srv";
       for (const o of whereEl.children) o.setAttribute("aria-pressed", String(o.dataset.v === v));
       document.getElementById("lanStartBox").hidden = !localRun;
       syncGo();
     };
-    segButtons(whereEl, [["on", "Online lobby"], ["lan", "Local room"], ["off", "Offline with bots"]], offlineRun ? "off" : "on", v => { if (!offlineOnly) store.set("binrocket.where", v); pickWhere(v); });
-    [...whereEl.children].forEach((b, i) => b.dataset.v = ["on", "lan", "off"][i]);
-    if (!offlineOnly && ["off", "lan"].includes(store.get("binrocket.where"))) pickWhere(store.get("binrocket.where"));
+    segButtons(whereEl, [["on", "Online lobby"], ["srv", "Game server (beta)"], ["lan", "Local room"], ["off", "Offline with bots"]], offlineRun ? "off" : "on", v => { if (!offlineOnly) store.set("binrocket.where", v); pickWhere(v); });
+    [...whereEl.children].forEach((b, i) => b.dataset.v = ["on", "srv", "lan", "off"][i]);
+    if (!SERVER_URL) whereEl.children[1].disabled = true;
+    if (!offlineOnly && ["off", "lan", "srv"].includes(store.get("binrocket.where"))) pickWhere(store.get("binrocket.where"));
     noNetwork = msg => {
       if (!localRun) pickWhere("off");
-      whereEl.children[0].disabled = true; whereEl.children[0].title = "No connection to the multiplayer servers";
+      whereEl.children[0].disabled = true; whereEl.children[1].disabled = true; whereEl.children[0].title = "No connection to the multiplayer servers";
       setTab(false); document.getElementById("tabJoin").disabled = true;
       setStatus(false, msg);
     };
@@ -9209,11 +9323,12 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     e.preventDefault();
     if (lan.guest) { joining = false; offlineRun = false; localRun = true; }   // a guest in a local room plays the host's game
     else if (standalone && !codeOk()) { lobbyInput.focus(); return; }
-    if (joining) { offlineRun = false; localRun = false; }   // a friend's code is always online
+    if (joining) { offlineRun = false; localRun = false; }   // a friend's code is always online (on the game server, if that is picked)
     // bots: in a lobby only its host adds them (everyone else sees the host's); in the Claude room they stay local anyway;
     // offline there is nobody else, so there are always some
     const host = !lan.guest && (!standalone || !joining || hosted().includes(lobbyCode()));
-    if (offlineRun && !bots.length) addBots(botChoice.n, botChoice.level);
+    if (serverRun) {}   // the server brings the bots (asked for when this browser opens the room)
+    else if (offlineRun && !bots.length) addBots(botChoice.n, botChoice.level);
     else if (host && !bots.length && botChoice.n > 0) addBots(botChoice.n, botChoice.level);
     if (standalone) chooseLobby(lan.guest ? lan.code : lobbyCode());
     me.name = nameInput.value.trim().slice(0, 14) || "Bin";

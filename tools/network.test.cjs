@@ -26,7 +26,7 @@ function setup() {
     stats: { round: 1, hits: 0, kills: 0, deaths: 0, streak: 0, best: 0 }, me: { score: 0 }, floaters: [],
     pruneRockMotion() {}, setMatch() {}, clockNow: () => now, showScore() {}, reportKill() {}, myKillAnnounce() {}, blip() {}, settleTeam() {}, applyTerrain() {},
     mapOf: () => 'm', modeOf: () => 'd', mapThemeOf: () => 'c', setMapSize() {}, buildPlanets() {}, setMode() {}, spawnPoint: () => ({}),
-    MODES: { d: { label: 'DM' } }, MODE: 'd', MAPS: { c: { label: 'Classic' } }, playing: true,
+    MODES: { d: { label: 'DM' } }, MODE: 'd', MAPS: { c: { label: 'Classic' } }, playing: true, serverRun: false, srv: { id: '' }, serverStart() {},
     sizeOf: () => 1, clockTarget: 0, clockOff: 0, clockBase: 0, lerpAng: () => 0, vw: 1, vh: 1, wrapD: x => x,
     confirmShotHit() {}, gainXp() {}, killXp: () => 10, announce() {}, killStyle() {}, gunDrops: new Map(), DEATH_KINDS: 6, WEAPON_KEYS: ['fire', 'rail', 'tele'],
   };

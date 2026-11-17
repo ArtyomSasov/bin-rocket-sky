@@ -66,8 +66,9 @@
   const leadFor = r => clamp(((myPing || 90) + (r.ping || myPing || 90)) / 4000 + 0.03, 0.05, 0.3);
   function addRemoteShot(owner, f, sentAt = Date.now()) {
     if (!Array.isArray(f) || typeof f[0] !== "string" || f[0].length > 20 || seenShots.has(f[0])) return;
-    if (!remotes.has(owner) || seenShots.size >= MAX_SEEN_SHOTS) return;
-    const peer = remotes.get(owner);
+    // my own pilot on the server is no remote, but its shots come back the same way
+    const peer = remotes.get(owner) || (owner && owner === srv.id ? srv : null);
+    if (!peer || seenShots.size >= MAX_SEEN_SHOTS) return;
     if (!Number.isInteger(f[5]) || f[5] < 0 || f[5] >= SHOTS.length || !f.slice(1, 5).every(Number.isFinite) || f.length < 6) return;
     if (peer.tag && !f[0].startsWith(peer.tag + ".")) return;
     if (!Number.isFinite(f[9]) || !Number.isFinite(sentAt)) return;
@@ -158,15 +159,25 @@
     if (Number.isFinite(p.s)) r.score = Math.max(0, Math.floor(p.s));
     r.lv = 1;
     if (Array.isArray(p.st) && p.st.length === 6 && p.st.every(Number.isInteger)) r.st = p.st;   // [round, kills, deaths, shots, hits, best]
-    if (Array.isArray(p.cv)) applyRemoteCarves(id, p.cv);
     if (Number.isInteger(p.wp)) r.weapon = WEAPON_KEYS[p.wp] || "fire";
     if (Number.isFinite(p.sh)) r.shield = clamp(p.sh, 0, MAX_SHIELD);
     if (Number.isFinite(p.pg)) r.ping = clamp(p.pg, 0, 5000);
     if ("am" in p) r.amp = p.am === 1;
     if (Number.isFinite(p.l)) r.lives = clamp(p.l, 0, LIVES * 1.99);
-    if (p.rd === stats.round && Array.isArray(p.g)) for (const k of p.g.slice(0, 48)) if (typeof k === "string" && /^[a-zA-Z][a-z0-9.:]{1,20}$/.test(k) && (grabbed.has(k) || grabbed.size < 16384)) grabbed.add(k);   // only pick-up keys
     if (p.rd === stats.round && Array.isArray(p.f)) for (const f of p.f.slice(0, 24)) addRemoteShot(id, f, p.ts);
     if (Array.isArray(p.gw) && p.gw.length === 6 && typeof p.gw[0] === "string" && p.gw.slice(1).every(Number.isFinite)) guideRemote(id, p.gw);
+    applyWorld(id, p);
+    // Event IDs belong to one round; old reports must not survive a round reset.
+    if (p.rd !== stats.round) { showScore(); return true; }
+    applyCombatReports(id, p, r);
+    showScore();
+    return true;
+  }
+  // what a pilot's state says about the world rather than the pilot: pick-ups taken, craters dug, stars and trophies
+  // dropped, terrain and rock motion. A lobby host and the authoritative server send these the same way
+  function applyWorld(id, p) {
+    if (Array.isArray(p.cv)) applyRemoteCarves(id, p.cv);
+    if (p.rd === stats.round && Array.isArray(p.g)) for (const k of p.g.slice(0, 48)) if (typeof k === "string" && /^[a-zA-Z][a-z0-9.:]{1,20}$/.test(k) && (grabbed.has(k) || grabbed.size < 16384)) grabbed.add(k);   // only pick-up keys
     if (p.rd === stats.round && Array.isArray(p.dr)) for (const d of p.dr.slice(0, 3)) {
       if (drops.size >= MAX_DROPS) break;
       if (!Array.isArray(d) || typeof d[0] !== "string" || d[0].length > 10 || drops.has(d[0])) continue;
@@ -181,12 +192,7 @@
       gunDrops.set(d[0], { x: clamp(num(d[1], 0), 0, W), y: clamp(num(d[2], 0), 0, H), type, ammo: clamp(Math.floor(num(d[4], 1)), 1, 999), born: performance.now() });
     }
     if (Array.isArray(p.terrain)) applyTerrain(p.terrain);
-    // Event IDs belong to one round; old reports must not survive a round reset.
-    if (p.rd !== stats.round) { showScore(); return true; }
-    if (Array.isArray(p.rk)) applyRockMotion(p.rk);
-    applyCombatReports(id, p, r);
-    showScore();
-    return true;
+    if (p.rd === stats.round && Array.isArray(p.rk)) applyRockMotion(p.rk);
   }
   // Combat events are monotonic within a round, even when movement arrives out of order.
   function applyCombatReports(id, p, r) {
@@ -310,10 +316,11 @@
     buildPlanets(code);
     setMode(modeOf(code));
     setMatch(code);
-    if (offlineRun || !online || ((!joining || hosted().includes(code)) && !lan.guest)) startMatch(clockNow());
+    if (!serverRun && (offlineRun || !online || ((!joining || hosted().includes(code)) && !lan.guest))) startMatch(clockNow());   // the server keeps its own clock
     Object.assign(me, spawnPoint(me.tm));
     for (const b of bots) Object.assign(b, spawnPoint(b.tm));
     const shown = code.toUpperCase();
+    if (serverRun) { serverStart(code); return; }   // the authoritative server (12c-server.js)
     if (localRun) { lanStart(code); return; }   // the local room (12b-lan.js): WebRTC to the devices nearby
     if (offlineRun || !online) {
       // nobody else is here: the bots fly in this browser, nothing is sent and the lobby is not announced. Rounds run

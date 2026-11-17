@@ -47,7 +47,9 @@ test('a player flies by their stick and aim, and their shots kill by the same ru
     const shooter = m.addPilot('Shooter'), target = m.addPilot('Target');
     const p = id => m.pilot(id);
     run(m, 0.1);   // the first step opens the round, which puts everyone on a spawn point
-    // fly: a second of full stick to the right carries the pilot a few hundred units
+    // fly: a second of full stick to the right carries the pilot a few hundred units (from open space near the top,
+    // so a random spawn by a pillar or the fence can't stop it)
+    Object.assign(m.game.__simBot(shooter), { x: 600, y: 300, vx: 0, vy: 0 });
     const x0 = p(shooter).x;
     run(m, 1, () => m.input(shooter, { mx: 1, my: 0, aim: 0 }));
     assert.ok(p(shooter).x - x0 > 250, `moved ${p(shooter).x - x0}`);
