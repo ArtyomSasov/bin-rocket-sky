@@ -14,22 +14,9 @@
     while (myGunDrops.length && Date.now() - myGunDrops[0][5] > GUN_DROP_LIFE) myGunDrops.shift();
     for (const [id, d] of gunDrops) if (t - d.born > GUN_DROP_LIFE) gunDrops.delete(id);
   }, 1000);
-  let resCheckAt = 0;
-  function frame(now) {
-    requestAnimationFrame(frame);
-    const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
-    if (raw < 0.25) {   // ignore pauses (tab switch)
-      frameAvg += (raw - frameAvg) * 0.05;
-      if (settings.fx === "low") lowQ = true;               // the player asked for light effects
-      else if (!lowQ && frameAvg > 1 / 42) lowQ = true;     // under ~42 fps: lighten the load
-      else if (lowQ && frameAvg < 1 / 56) lowQ = false;     // back above ~56 fps: full effects
-      // dynamic resolution: below ~50 fps draw fewer pixels (down to 55%), and climb back once it runs smoothly
-      if (settings.res === "auto" && now - resCheckAt > 1500) {
-        resCheckAt = now;
-        if (frameAvg > 1 / 50 && resScale > 0.55) { resScale = Math.max(0.55, resScale - 0.15); resize(); }
-        else if (frameAvg < 1 / 58 && resScale < 1) { resScale = Math.min(1, resScale + 0.15); resize(); }
-      }
-    }
+  // the shared-clock world at this instant (sparks, junk, pick-ups and the round), the same on every screen and on
+  // the server, which steps it without a frame or a page (see server/sim)
+  function worldTick(now) {
     const wt = clockNow();
     for (let i = 0; i < SLOTS; i++) world.sparks[i] = spark(i, wt);
     for (let i = 0; i < ROCKS; i++) world.rocks[i] = rock(i, wt);
@@ -50,6 +37,24 @@
         const ev = eventAt(wt); if (ev.type === "blackhole") swallowFx(o.x, o.y, blackHole(ev), o.type ? (WEAPONS[o.type] || SUPPLIES[o.type] || {}).col || "#c38bff" : "#ffffff");
       }
     }
+  }
+  let resCheckAt = 0;
+  function frame(now) {
+    requestAnimationFrame(frame);
+    const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
+    if (raw < 0.25) {   // ignore pauses (tab switch)
+      frameAvg += (raw - frameAvg) * 0.05;
+      if (settings.fx === "low") lowQ = true;               // the player asked for light effects
+      else if (!lowQ && frameAvg > 1 / 42) lowQ = true;     // under ~42 fps: lighten the load
+      else if (lowQ && frameAvg < 1 / 56) lowQ = false;     // back above ~56 fps: full effects
+      // dynamic resolution: below ~50 fps draw fewer pixels (down to 55%), and climb back once it runs smoothly
+      if (settings.res === "auto" && now - resCheckAt > 1500) {
+        resCheckAt = now;
+        if (frameAvg > 1 / 50 && resScale > 0.55) { resScale = Math.max(0.55, resScale - 0.15); resize(); }
+        else if (frameAvg < 1 / 58 && resScale < 1) { resScale = Math.min(1, resScale + 0.15); resize(); }
+      }
+    }
+    worldTick(now);
     update(now < hitStopUntil ? 0 : dt, now); draw(now);
     if (!playing) drawPreview(now);
     else { drawMinimap(now); renderEnergy(); }

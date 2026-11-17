@@ -17,6 +17,20 @@
       bots.push(b); botById.set(id, b);
     }
   }
+  // a pilot flown from outside, like a player on the authoritative server: a bot whose stick, aim and triggers
+  // come from b.input instead of the AI, judged by exactly the same rules (see server/sim)
+  //   input: { mx, my: the stick (-1..1), aim: radians, fire, boost: booleans, dash: a counter, +1 per dash }
+  function addPilot(name) {
+    addBots(1, "hard");
+    const b = bots[bots.length - 1];
+    b.name = String(name || "Pilot").slice(0, 14); b.input = { mx: 0, my: 0, aim: b.a, fire: false, boost: false, dash: 0 }; b.dashDone = 0;
+    return b;
+  }
+  function removePilot(id) {
+    const i = bots.findIndex(b => b.id === id);
+    if (i >= 0) bots.splice(i, 1);
+    botById.delete(id); remotes.delete(id);
+  }
   function creditBots(list, ko, victim = "me") {
     for (const k of list) {
       if (typeof k !== "string") continue;
@@ -73,6 +87,7 @@
         clearArmor(b);
         Object.assign(b, { dead: false, lives: maxLivesOf(b.lv), inv: now + 2000, ...spawnPoint(b.tm), vx: 0, vy: 0 });
       }
+      const human = b.input;   // flown by a player: the AI below only steers the others
       // nearest living target: me or anyone else in the lobby (other bots included)
       let tgt = null, td = 1700;
       if (playing && !me.dead && !mates(b, me)) { const d = Math.hypot(me.x - b.x, me.y - b.y); if (d < td) { td = d; tgt = me; } }
@@ -85,7 +100,8 @@
       // where it faces. So it makes attack runs at its target (aiming ahead of it), breaks off when it gets too
       // close, loops round and comes back; it boosts to close a long gap and dashes aside when it gets hit
       let dx = 0, dy = 0, aimA = null, wantBoost = false, routeGoal = tgt;
-      if (tgt) {
+      if (human) { dx = human.mx; dy = human.my; wantBoost = human.boost; }
+      else if (tgt) {
         const fly = td / 1000 * 0.8, px = tgt.x + (tgt.vx || 0) * fly - (b.vx || 0) * fly * 0.6, py = tgt.y + (tgt.vy || 0) * fly - (b.vy || 0) * fly * 0.6;
         aimA = Math.atan2(py - b.y, px - b.x);
         if (now < (b.breakUntil || 0)) { dx = Math.cos(b.breakA); dy = Math.sin(b.breakA); }   // breaking off, then looping back
@@ -99,7 +115,7 @@
       } else {
         b.wander += (Math.random() - 0.5) * dt * 1.5; dx = Math.cos(b.wander) * 0.7; dy = Math.sin(b.wander) * 0.7;
       }
-      if (bases && onTeam(b)) {
+      if (bases && onTeam(b) && !human) {
         const ef = 1 - b.tm, home = bases[b.tm], thief = flagCarrier[b.tm];
         let goal = null, w = 1.6;
         if (b.fc === ef) { goal = home; w = 3; }                                  // bring it home
@@ -133,23 +149,25 @@
           if (dd < 64) { grabbed.add("W" + gid); pushCapped(myGrabs, "W" + gid, 40); b.weapon = d.type; b.ammo = d.ammo; sfx("weapon_get", 0.5, 1, d.x, d.y); best = null; break; }
           if (dd < bd) { bd = dd; best = d; }
         }
-        if (best) { routeGoal = best; const gx = best.x - b.x, gy = best.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * 1.4; dy += gy / gd * 1.4; }
+        if (best && !human) { routeGoal = best; const gx = best.x - b.x, gy = best.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * 1.4; dy += gy / gd * 1.4; }
       }
       const m = 260;   // keep off the fence
-      if (b.x < m) dx += (m - b.x) / m * 2.5; if (b.x > W - m) dx -= (b.x - W + m) / m * 2.5;
-      if (b.y < m) dy += (m - b.y) / m * 2.5; if (b.y > H - m) dy -= (b.y - H + m) / m * 2.5;
-      for (const p of bodies) {   // and around planets and moons
-        if (p.fixed) continue;
-        const hx = b.x - p.x, hy = b.y - p.y, hd = Math.hypot(hx, hy) || 1, gap = hd - p.rr;
-        if (gap < 280) { dx += hx / hd * 3 * (1 - gap / 280); dy += hy / hd * 3 * (1 - gap / 280); }
+      if (!human) {
+        if (b.x < m) dx += (m - b.x) / m * 2.5; if (b.x > W - m) dx -= (b.x - W + m) / m * 2.5;
+        if (b.y < m) dy += (m - b.y) / m * 2.5; if (b.y > H - m) dy -= (b.y - H + m) / m * 2.5;
+        for (const p of bodies) {   // and around planets and moons
+          if (p.fixed) continue;
+          const hx = b.x - p.x, hy = b.y - p.y, hd = Math.hypot(hx, hy) || 1, gap = hd - p.rr;
+          if (gap < 280) { dx += hx / hd * 3 * (1 - gap / 280); dy += hy / hd * 3 * (1 - gap / 280); }
+        }
       }
       if (bh) {   // and away from a black hole
         const hx = b.x - bh.x, hy = b.y - bh.y, hd = Math.hypot(hx, hy) || 1;
-        if (hd < 900) { dx += hx / hd * 3 * (1 - hd / 900) * 2; dy += hy / hd * 3 * (1 - hd / 900) * 2; }
+        if (hd < 900 && !human) { dx += hx / hd * 3 * (1 - hd / 900) * 2; dy += hy / hd * 3 * (1 - hd / 900) * 2; }
         if (hd < 1500) { const acc = bh.k * 9e7 / (hd * hd + 1.5e4); b.vx -= hx / hd * acc * dt; b.vy -= hy / hd * acc * dt; }
         if (hd < 60 * bh.k) botHurt(b, 99, "x", now, true);
       }
-      if (stationMap()) {
+      if (stationMap() && !human) {
         if (!routeGoal) {
           if (!b.patrol || Math.hypot(b.x - b.patrol.x, b.y - b.patrol.y) < 140) b.patrol = spawnPoint();
           routeGoal = b.patrol;
@@ -158,19 +176,30 @@
         if (b.nav) { const nx = b.nav.x - b.x, ny = b.nav.y - b.y, nd = Math.hypot(nx, ny) || 1; dx = nx / nd; dy = ny / nd; wantBoost = false; }
       }
       // the stick, eased in like a thumb on a joystick, then the same thrust and turning as the player
-      const dm = Math.hypot(dx, dy), ux = dm > 1 ? dx / dm : dx, uy = dm > 1 ? dy / dm : dy, ease = 1 - Math.exp(-(6 + 4 * b.L.speed) * dt);
+      const dm = Math.hypot(dx, dy), ux = dm > 1 ? dx / dm : dx, uy = dm > 1 ? dy / dm : dy, ease = 1 - Math.exp(-(human ? 13 : 6 + 4 * b.L.speed) * dt);
       const st = b.stick || (b.stick = { x: 0, y: 0 });
       st.x += (ux - st.x) * ease; st.y += (uy - st.y) * ease;
       b.energy = Math.min(100, (b.energy ?? 100) + (b.boosting ? -20 : 22) * dt);
-      b.boosting = wantBoost && b.energy > (b.boosting ? 0 : 40) && b.L.speed >= 0.9;
+      b.boosting = human ? wantBoost && b.energy > 0 && Math.hypot(st.x, st.y) > 0.1 : wantBoost && b.energy > (b.boosting ? 0 : 40) && b.L.speed >= 0.9;
+      if (human) {   // a player's dash: toward where they steer (or ahead), like dash() for the local pilot
+        b.dashReq = false;
+        if (human.dash > b.dashDone) {
+          b.dashDone = human.dash;
+          if (b.energy >= 25 && now - (b.dashAt || 0) > 150) {
+            const a = Math.hypot(st.x, st.y) > 0.2 ? Math.atan2(st.y, st.x) : b.a;
+            b.vx += Math.cos(a) * 900; b.vy += Math.sin(a) * 900; b.energy -= 25; b.dashAt = now; b.inv = Math.max(b.inv, now + 280);
+          }
+        }
+      }
       if (b.dashReq && b.energy >= 25 && now - (b.dashAt || 0) > 900) {   // hit: a quick dodge to one side
         const a = Math.atan2(st.y, st.x) + (Math.random() < 0.5 ? 1.4 : -1.4);
         b.vx += Math.cos(a) * 900; b.vy += Math.sin(a) * 900; b.energy -= 25; b.dashAt = now; b.inv = Math.max(b.inv, now + 280);
       }
       b.dashReq = false;
-      thrustPilot(b, st.x, st.y, b.boosting, false, dt, b.L.speed * (now < (b.pinnedUntil || 0) ? 0.6 : 1));
+      thrustPilot(b, st.x, st.y, b.boosting, false, dt, (human ? 1 : b.L.speed) * (now < (b.pinnedUntil || 0) ? 0.6 : 1));
       slingshot(b, dt); padsFor(b, now);
-      if (Math.hypot(st.x, st.y) > 0.15) b.a = lerpAng(b.a, Math.atan2(st.y, st.x), 1 - Math.exp(-13 * dt));
+      if (human) b.a = lerpAng(b.a, human.aim, 1 - Math.exp(-30 * dt));   // the nose follows the player's aim, as with mouse aim
+      else if (Math.hypot(st.x, st.y) > 0.15) b.a = lerpAng(b.a, Math.atan2(st.y, st.x), 1 - Math.exp(-13 * dt));
       gravityOn(b, dt);
       b.x += b.vx * dt; b.y += b.vy * dt;
       const pc = bounceOff(b, 40, 0.6);
@@ -185,7 +214,7 @@
       b.fireCd -= dt;
       // shock combo: once its orb hangs near the target, a bot shoots the orb with the beam (harder bots do it more)
       if (b.orb && (b.orb.life <= 0 || !shots.includes(b.orb))) b.orb = null;
-      if (b.orb && tgt && botWeapon(b) === "orb" && SHOTS[K.ORB].life - b.orb.life > 0.5 && Math.hypot(tgt.x - b.orb.x, tgt.y - b.orb.y) < 260
+      if (!human && b.orb && tgt && botWeapon(b) === "orb" && SHOTS[K.ORB].life - b.orb.life > 0.5 && Math.hypot(tgt.x - b.orb.x, tgt.y - b.orb.y) < 260
           && Math.abs(angD(Math.atan2(b.orb.y - b.y, b.orb.x - b.x) - b.a)) < 0.45) {   // like a player, only when it faces the orb
         const o = b.orb; b.orb = null;
         if (Math.random() < ({ easy: 0.25, normal: 0.6, hard: 0.95 })[b.level]) {
@@ -195,7 +224,8 @@
           b.fireCd = Math.max(b.fireCd, 0.6);
         }
       }
-      if (tgt && roundLive && td < 950 && Math.abs(angD(aimA - b.a)) < 0.22 + b.L.aim && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
+      if (human) { if (human.fire && roundLive && b.fireCd <= 0) b.fireCd = botFire(b, now); }
+      else if (tgt && roundLive && td < 950 && Math.abs(angD(aimA - b.a)) < 0.22 + b.L.aim && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
         const md = MODES[MODE];
         b.fireCd = (md.botCd ? b.L.cd * md.botCd : cd < 0.15 ? cd * 2 : Math.max(b.L.cd, cd * 1.3)) * (0.7 + Math.random() * 0.6); }
       // another pilot ramming my bot on boost (the bot is the victim, so its owner decides)

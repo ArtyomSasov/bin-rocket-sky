@@ -22,7 +22,7 @@
   const fired = {};
   const solo = { n: "nuke", r: "rail" }[T.mode];
   for (const w of solo ? [solo] : ["fire", "triple", "laser", "rocket", "scatter", "rail", "mine", "orb", "bolt", "shard", "nuke"]) {
-    await wait(1300);
+    await wait(2000);   // longer than the slowest reload (Railgun, 1.8 s), so the next gun is ready
     while (m.dead) await wait(40);
     m.inv = 1e15; m.arsenal[w] = 30; m.weapon = w;
     const before = new Set(T.myShotLog.map(e => e.d[0]));

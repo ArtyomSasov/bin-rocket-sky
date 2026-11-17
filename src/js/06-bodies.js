@@ -16,8 +16,11 @@
   const BODY_RES = matchMedia("(pointer: coarse)").matches ? 0.6 : 1;   // art baked at lower resolution on phones
   let planets = [], moons = [], wrecks = [], det = [], rubble = [], bodies = [], worldCode = "lobby", mapKey = "m", rubbleSeq = 0;
 
+  // what is solid is read back from the painted art, so the server (see server/sim) paints bodies on real canvases
+  // of its own while the rest of its page stays inert
+  const bodyCanvas = () => window.BRS_BODY_CANVAS ? window.BRS_BODY_CANVAS() : document.createElement("canvas");
   function newBody(id, kind, w, h, cs) {
-    const gw = Math.max(1, Math.ceil(w / cs)), gh = Math.max(1, Math.ceil(h / cs)), c = document.createElement("canvas");
+    const gw = Math.max(1, Math.ceil(w / cs)), gh = Math.max(1, Math.ceil(h / cs)), c = bodyCanvas();
     c.width = Math.max(1, Math.ceil(gw * cs * BODY_RES)); c.height = Math.max(1, Math.ceil(gh * cs * BODY_RES));
     const q = c.getContext("2d", { willReadFrequently: true });   // read back after every crater
     q.scale(BODY_RES, BODY_RES);

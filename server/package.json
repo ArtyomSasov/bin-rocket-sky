@@ -1,0 +1,12 @@
+{
+  "name": "bin-rocket-sky-server",
+  "private": true,
+  "description": "Authoritative Bin Rocket Sky server: runs the game's own simulation in Node",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "1.1.0"
+  }
+}
