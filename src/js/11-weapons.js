@@ -111,7 +111,7 @@
     while (h.length > 48 || (h.length > 1 && now - h[0].at > 600)) h.shift();
   }
   function hitPose(s, o) {
-    if (!s.hitTime || !HITSCAN[s.kind] || s.mine || botById.has(s.owner)) return o;
+    if (!s.hitTime || !HITSCAN[s.kind] || s.mine || (botById.has(s.owner) && !botById.get(s.owner).input)) return o;   // a bot's aim is now; a player's, their screen's
     const h = o.hitHistory;
     if (!h || !h.length || s.hitTime < h[0].at) return o;
     for (let i = h.length - 1; i >= 0; i--) if (h[i].at <= s.hitTime) {
@@ -392,6 +392,7 @@
       s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * (speed + fwd) + (speed > 0 ? 0 : p.vx * ride), vy: by * (speed + fwd) + (speed > 0 ? 0 : p.vy * ride),
             life: SHOTS[kind].life, cut: pat.cut || 0, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: false };   // pc: pierces (fireballs from Lv 7)
       metricShot(s, p, pat);
+      pilotLag(s, p, now);
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else if (kind === K.NAIL) nailSpray(s); else shots.push(s);
       if (kind === K.RAIL || kind === K.GAUSS) railBeam(s);
       if (kind === K.GAUSS && mine) { myRails.set(id, { x: s.x, y: s.y, charged: true, cut: !!s.cut }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value); }
@@ -680,7 +681,10 @@
   // gives three jumps; the gun in your hands stays where it is
   let teleCdUntil = 0;
   function useTele(now) {
-    if (serverRun) return;   // not flown by the server yet
+    if (serverRun) {   // the server throws the beacon and makes the jump; my controls carry the press
+      if (playing && !me.dead && now >= teleCdUntil && (me.teleN > 0 || shots.some(s => mySrvShot(s) && s.kind === K.BEACON && s.life > 0))) { srv.teleN++; teleCdUntil = now + 350; }
+      return;
+    }
     if (!playing || me.dead || guided || now < teleCdUntil) return;
     if (myBeacon()) { teleport(now); teleCdUntil = now + 350; return; }
     if (!(me.teleN > 0)) return;

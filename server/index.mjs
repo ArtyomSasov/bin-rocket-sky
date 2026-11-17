@@ -5,7 +5,7 @@
 //   PORT=8080 MAX_ROOMS=2 node index.mjs
 //
 // client -> server   { t: "join", code, name, bots, level }   first message; joins or creates the room
-//                    { t: "in", mx, my, aim, fire, boost, dash }   the player's controls, sent as they change
+//                    { t: "in", mx, my, aim, fire, alt, boost, dash, tele, w }   the player's controls, sent as they change
 //                    { t: "ping", c }
 // server -> client   { t: "welcome", id, code, tickHz, sendHz, serverTime }
 //                    { t: "snap", ...a lobby host's state (see sim.mjs packet) }
@@ -86,7 +86,16 @@ wss.on("connection", (ws, req) => {
   const addr = ip(req);
   perIp.set(addr, (perIp.get(addr) || 0) + 1);
   let room = null, id = null, tokens = 60, refill = performance.now();
-  ws.alive = true; ws.on("pong", () => { ws.alive = true; });
+  // the round trip, timed on WebSocket pings (a browser answers them by itself): it sets how far back the
+  // player's shots are judged
+  ws.alive = true; ws.rtt = 0; ws.pingAt = 0;
+  ws.on("pong", () => {
+    ws.alive = true;
+    if (!ws.pingAt) return;
+    const ms = performance.now() - ws.pingAt; ws.pingAt = 0;
+    ws.rtt = ws.rtt ? ws.rtt + (ms - ws.rtt) * 0.3 : ms;
+    if (room && id) room.match.rtt(id, ws.rtt);
+  });
   ws.lastInput = performance.now();
   // a broken connection must end only itself: an unhandled socket error would stop the whole server
   ws.on("error", e => { log("socket error", addr, e.message); ws.terminate(); });
@@ -131,9 +140,10 @@ setInterval(() => {
   for (const ws of wss.clients) {
     if (!ws.alive) { ws.terminate(); continue; }
     if (now - ws.lastInput > AFK_MS) { send(ws, { t: "error", reason: "idle" }); ws.close(4000, "idle"); continue; }
-    ws.alive = false; ws.ping();
+    ws.alive = false; ws.pingAt = performance.now(); ws.ping();
   }
 }, Math.min(15000, AFK_MS / 2)).unref();
+setInterval(() => { for (const ws of wss.clients) if (ws.readyState === 1 && !ws.pingAt) { ws.pingAt = performance.now(); ws.ping(); } }, 2000).unref();
 // a last line of defence: one bad moment is logged, the other rooms keep running
 process.on("uncaughtException", e => log("uncaught", e.stack));
 process.on("unhandledRejection", e => log("unhandled rejection", e && e.stack || e));

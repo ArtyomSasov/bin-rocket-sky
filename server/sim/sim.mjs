@@ -12,6 +12,7 @@ const BRIDGE = `
     weapon: botWeapon(b), kills: b.st.kills, deaths: b.st.deaths, shots: b.st.shots });
   let serverSeq = 0;
   globalThis.__simBot = id => botById.get(id);   // the live pilot object, for tests and tools
+  globalThis.__simConst = { WEAPON_KEYS, K };   // protocol numbers, for tests and tools
   globalThis.__simDet = () => det.map(b => b.cells.join(""));   // every body's solid cells, to compare with a browser
   globalThis.__sim = {
     start(code, n, level) {
@@ -24,6 +25,7 @@ const BRIDGE = `
     addPilot(name) { const b = addPilot(name); if (!b) return null; Object.assign(b, spawnPoint(b.tm)); return b.id; },
     removePilot(id) { removePilot(id); },
     input(id, i) { const b = botById.get(id); if (b && b.input) Object.assign(b.input, i); },
+    rtt(id, ms) { const b = botById.get(id); if (b && b.input) b.rtt = ms; },
     // one fixed step: the shared-clock world and the simulation
     step(dt, now) {
       worldTick(now);
@@ -58,8 +60,9 @@ const unit = v => Math.max(-1, Math.min(1, Number.isFinite(v) ? v : 0));
 export function cleanInput(i = {}) {
   let mx = unit(i.mx), my = unit(i.my);
   const m = Math.hypot(mx, my); if (m > 1) { mx /= m; my /= m; }
-  return { mx, my, aim: Number.isFinite(i.aim) ? Math.atan2(Math.sin(i.aim), Math.cos(i.aim)) : 0, fire: i.fire === true, boost: i.boost === true,
-    dash: Number.isSafeInteger(i.dash) && i.dash >= 0 ? i.dash : 0 };
+  const count = n => Number.isSafeInteger(n) && n >= 0 ? n : 0;
+  return { mx, my, aim: Number.isFinite(i.aim) ? Math.atan2(Math.sin(i.aim), Math.cos(i.aim)) : 0, fire: i.fire === true, alt: i.alt === true,
+    boost: i.boost === true, dash: count(i.dash), tele: count(i.tele), w: Number.isInteger(i.w) && i.w >= 0 && i.w < 64 ? i.w : -1 };
 }
 
 export function createMatch({ code = "m1d0c", bots = 0, level = "normal" } = {}) {
@@ -72,6 +75,8 @@ export function createMatch({ code = "m1d0c", bots = 0, level = "normal" } = {})
     addPilot: name => sim.addPilot(name),
     removePilot: id => sim.removePilot(id),
     input: (id, i) => sim.input(id, cleanInput(i)),
+    // the player's round trip (ms), measured by the server: how far back their shots are judged (at most 250 ms)
+    rtt: (id, ms) => sim.rtt(id, Math.max(0, Math.min(1000, Number(ms) || 0))),
     pilot: id => sim.pilot(id),
     get pilots() { return sim.pilots; },
     get info() { return sim.info; },

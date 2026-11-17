@@ -74,7 +74,7 @@ test('player input is clamped to what a stick, an angle and buttons can send', {
   assert.ok(Math.abs(i.mx - Math.SQRT1_2) < 1e-12 && Math.abs(i.my - Math.SQRT1_2) < 1e-12, 'a stick never goes past its rim');
   assert.ok(Math.abs(i.aim - (7 - 2 * Math.PI)) < 1e-12, 'an angle is wrapped');
   assert.deepEqual({ fire: i.fire, boost: i.boost, dash: i.dash }, { fire: false, boost: true, dash: 0 });
-  assert.deepEqual(cleanInput({ mx: NaN, aim: Infinity, dash: 2.5 }), { mx: 0, my: 0, aim: 0, fire: false, boost: false, dash: 0 });
+  assert.deepEqual(cleanInput({ mx: NaN, aim: Infinity, dash: 2.5, tele: -1, w: 99, alt: 1 }), { mx: 0, my: 0, aim: 0, fire: false, alt: false, boost: false, dash: 0, tele: 0, w: -1 });
 });
 
 test('a player joining a full arena takes an AI bot’s place; a server of players only has no room left', { skip }, async () => {
@@ -104,5 +104,82 @@ test('a snapshot carries the round clock and every pilot in the form a lobby hos
     const mine = p.bots.find(([bid]) => bid === id);
     assert.ok(mine && Number.isFinite(mine[1].x) && Number.isFinite(mine[1].y));
     assert.ok(JSON.stringify(p).length < 6000, 'fits a packet budget');
+  } finally { m.dispose(); }
+});
+
+// a pilot held still at (x, y), facing aim
+const hold = (m, id, x, y, a) => Object.assign(m.game.__simBot(id), { x, y, vx: 0, vy: 0, a, inv: 0 });
+
+test('a player’s shot is judged where the target was on their screen (half their round trip ago)', { skip }, async () => {
+  const { createMatch } = await sim();
+  const lands = async rtt => {
+    const m = createMatch({ code: 'm1d0o' });
+    try {
+      const shooter = m.addPilot('Shooter'), target = m.addPilot('Target');
+      run(m, 0.1);
+      if (rtt) m.rtt(shooter, rtt);
+      // the target crosses the line of fire at 1000 px/s; the shooter fires at where it was 100 ms before
+      let t = 0, aim = 0;
+      const y = () => 400 + t * 1000;
+      run(m, 0.5, () => { t += STEP; hold(m, shooter, 1500, 700, aim); hold(m, target, 1900, y(), 0); m.game.__simBot(target).vy = 1000; });
+      aim = Math.atan2(y() - 100 + 33 - 700, 400);   // (the target flies one more step, 33 px, before the shot is judged)
+      const before = m.game.__simBot(target).lives;
+      m.input(shooter, { aim, fire: true });
+      run(m, 1 / 30 * 1.01, () => { t += STEP; hold(m, shooter, 1500, 700, aim); hold(m, target, 1900, y(), 0); m.game.__simBot(target).vy = 1000; });
+      m.input(shooter, { aim, fire: false });
+      run(m, 0.2, () => { t += STEP; hold(m, shooter, 1500, 700, aim); hold(m, target, 1900, y(), 0); });
+      return m.game.__simBot(target).lives < before;
+    } finally { m.dispose(); }
+  };
+  assert.equal(await lands(200), true, 'with a 200 ms round trip the shot lands');
+  assert.equal(await lands(0), false, 'judged at the server’s present it misses');
+});
+
+test('a player carries an arsenal: picks a gun, loads a rocket salvo with alt and fires it on release', { skip }, async () => {
+  const { createMatch } = await sim();
+  const m = createMatch({ code: 'm1d0o' });
+  try {
+    const { WEAPON_KEYS, K } = m.game.__simConst;
+    const id = m.addPilot('Gunner');
+    run(m, 0.1);
+    const b = m.game.__simBot(id);
+    b.arsenal.rocket = 10;
+    const w = WEAPON_KEYS.indexOf('rocket');
+    m.input(id, { w, aim: 0 });
+    run(m, 0.2, () => hold(m, id, 900, 300, 0));
+    assert.equal(m.pilot(id).weapon, 'rocket', 'switched to the rocket launcher');
+    m.input(id, { w, aim: 0, alt: true });
+    run(m, 1.5, () => hold(m, id, 900, 300, 0));
+    assert.equal(b.rocketLoad, 3, 'three rockets loaded');
+    m.input(id, { w, aim: 0, alt: false });
+    const fired = new Set();
+    run(m, 0.3, () => hold(m, id, 900, 300, 0));
+    for (const e of m.packet(clock).bots.find(([bid]) => bid === id)[1].f || []) if (e[5] === K.ROCKET) fired.add(e[0]);
+    assert.equal(fired.size, 3, 'a salvo of three');
+    assert.equal(b.arsenal.rocket, 7);
+    const mine = m.packet(clock).bots.find(([bid]) => bid === id)[1];
+    assert.ok(mine.ar.some(([k, n]) => k === w && n === 7), 'the snapshot tells the player their ammo');
+    // a gun the pilot does not carry cannot be picked
+    m.input(id, { w: WEAPON_KEYS.indexOf('rail'), aim: 0 });
+    run(m, 0.1, () => hold(m, id, 900, 300, 0));
+    assert.equal(m.pilot(id).weapon, 'rocket');
+  } finally { m.dispose(); }
+});
+
+test('a player’s teleporter throws a beacon and jumps onto it', { skip }, async () => {
+  const { createMatch } = await sim();
+  const m = createMatch({ code: 'm1d0o' });
+  try {
+    const id = m.addPilot('Jumper');
+    run(m, 0.1);
+    const b = m.game.__simBot(id);
+    b.teleN = 3;
+    hold(m, id, 600, 300, 0);
+    m.input(id, { aim: 0, tele: 1 });
+    run(m, 0.6, () => { b.vx = b.vy = 0; b.x = 600; b.y = 300; });
+    m.input(id, { aim: 0, tele: 2 });
+    run(m, 0.1);
+    assert.ok(b.x > 800, `jumped to the beacon: x ${b.x}`);
+    assert.equal(b.teleN, 2);
   } finally { m.dispose(); }
 });

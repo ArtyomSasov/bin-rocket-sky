@@ -64,7 +64,8 @@
   }
   // how far ahead (s) to place a flyer from its last report: about the one-way delay from them to me
   const leadFor = r => clamp(((myPing || 90) + (r.ping || myPing || 90)) / 4000 + 0.03, 0.05, 0.3);
-  function addRemoteShot(owner, f, sentAt = Date.now()) {
+  // fresh: a shot fired on this screen this instant (my own, predicted on the authoritative server): no delay to make up
+  function addRemoteShot(owner, f, sentAt = Date.now(), fresh = false) {
     if (!Array.isArray(f) || typeof f[0] !== "string" || f[0].length > 20 || seenShots.has(f[0])) return;
     // my own pilot on the server is no remote, but its shots come back the same way
     const peer = remotes.get(owner) || (owner && owner === srv.id ? srv : null);
@@ -76,14 +77,14 @@
     if (queued < -100 || queued > 1200) return; // don't resurrect expired shots from a journal
     const link = ((myPing || 90) + (peer.ping || myPing || 90)) / 2;
     const jitter = Number.isFinite(peer.off) ? Math.max(0, Date.now() - sentAt + peer.off) : 0;
-    const age = Math.max(0, queued) + Math.max(link, jitter);
+    const age = fresh ? 0 : Math.max(0, queued) + Math.max(link, jitter);
     if (age > 1200) return;
     const lag = clamp(age, 0, REWIND_MS);
     // m: Quad damage (x4) and the crown (x1.25), or the charge cannon's charge (0.25..1); anything else is ignored
     const kind = f[5], m = kind === K.GAUSS && Number.isFinite(f[6]) ? clamp(f[6], 0.25, 5) : [QUAD, 1.25, QUAD * 1.25].includes(f[6]) ? f[6] : 1;
     const x = clamp(num(f[1], 0), 0, W), y = clamp(num(f[2], 0), 0, H);
     // Keep an age bound relative to the newest state as well as to this packet.
-    if (Number.isFinite(peer.lastTs) && peer.lastTs - f[9] > 1200) return;
+    if (!fresh && Number.isFinite(peer.lastTs) && peer.lastTs - f[9] > 1200) return;
     const sh = {
       id: f[0], kind, x, y, px: x, py: y, ox: x, oy: y, m,
       vx: clamp(f[3], -6800, 6800), vy: clamp(f[4], -6800, 6800),

@@ -2,7 +2,7 @@
   const WEAPON_SLOTS = ["fire", "gauntlet", "minigun", "scatter", "rocket", "gren", "laser", "orb", "rail", "nail", "shard", "saw", "mine", "gamma", "nuke", "holy"];
   const weaponKey = k => { const i = WEAPON_SLOTS.indexOf(k); return i < 0 ? "Q/E" : (i >= 10 ? "Alt+" : "") + ((i % 10 + 1) % 10); };
   const controlledKind = k => ({ gamma: K.GAMMA, mine: K.MINE })[k];
-  const controlledShots = k => shots.filter(s => s.mine && s.life > 0 && !s.boom && s.kind === controlledKind(k));
+  const controlledShots = k => shots.filter(s => (s.mine || mySrvShot(s)) && s.life > 0 && !s.boom && s.kind === controlledKind(k));
   const hasWeapon = k => !WEAPONS[k]?.disabled && (!!me.arsenal[k] || controlledShots(k).length > 0);
   let rejectAt = -Infinity, lastWeaponStatus = "", wasLungeReady = true;
   function rejectFire(reason, now) {

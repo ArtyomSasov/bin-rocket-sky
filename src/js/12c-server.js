@@ -14,7 +14,7 @@
     return /^wss:\/\/[a-z0-9.-]+(:\d+)?\/?$/i.test(u) ? u : "";
   })();
   let serverRun = false;
-  const srv = { ws: null, id: "", tag: "", sendHz: 15, dashN: 0, lastIn: "", lastInAt: 0, deadSeen: false, joined: false, err: "" };
+  const srv = { ws: null, id: "", tag: "", sendHz: 15, dashN: 0, teleN: 0, lastIn: "", lastInAt: 0, deadSeen: false, joined: false, err: "", pred: [], pseq: 0 };
   // the pilot the server flies for me: its own shots are mine, never a threat to me
   const mySrvShot = s => serverRun && !!srv.id && s.owner === srv.id;
   function serverStart(code) {
@@ -45,7 +45,8 @@
     const ws = srv.ws;
     if (!ws || ws.readyState !== 1 || !srv.joined) return;
     const c = me.ctl || {}, i = { t: "in", mx: +num(c.mx, 0).toFixed(3), my: +num(c.my, 0).toFixed(3), aim: +me.a.toFixed(3),
-      fire: !!c.fire && !me.dead && playing, boost: !!c.boost, dash: srv.dashN };
+      fire: !!c.fire && !me.dead && playing, alt: !!c.alt && !me.dead && playing, boost: !!c.boost, dash: srv.dashN, tele: srv.teleN,
+      w: WEAPON_KEYS.indexOf(me.weapon) };
     const sig = JSON.stringify(i), t = performance.now();
     if (sig === srv.lastIn && t - srv.lastInAt < 250) return;
     srv.lastIn = sig; srv.lastInAt = t;
@@ -73,15 +74,17 @@
     if (typeof m.tg === "string" && /^[a-z0-9]{1,8}$/.test(m.tg)) { srv.tag = m.tg; myTag = m.tg; }   // my shots' ids: kills reported on them are mine
     if (Number.isFinite(m.ts)) { const o = clamp(m.ts - Date.now(), -120000, 120000); srv.off = Number.isFinite(srv.off) ? srv.off + (o - srv.off) * 0.1 : o; srv.lastTs = Math.max(srv.lastTs || m.ts, m.ts); }
     srv.ping = myPing;
-    if (m.rd === stats.round && Array.isArray(m.f)) for (const f of m.f.slice(0, 24)) addRemoteShot(srv.id, f, m.ts);   // my shots, as fired on the server
+    // my shots, as fired on the server: the ones this screen already showed (predictFire) are not shown twice
+    if (m.rd === stats.round && Array.isArray(m.f)) for (const f of m.f.slice(0, 24)) {
+      if (Array.isArray(f) && typeof f[0] === "string" && !seenShots.has(f[0]) && claimPrediction(f[5], now)) { seenShots.set(f[0], performance.now()); continue; }
+      addRemoteShot(srv.id, f, m.ts);
+    }
+    if (Array.isArray(m.ar)) serverArsenal(m.ar, m.wp);
+    if (Number.isInteger(m.tn) && m.tn !== me.teleN) { me.teleN = clamp(m.tn, 0, 6); renderTele(); }
     if ("tm" in m) me.tm = m.tm === 0 || m.tm === 1 ? m.tm : undefined;
     if ("fc" in m) me.fc = m.fc === 0 || m.fc === 1 ? m.fc : -1;
     if (Number.isFinite(m.sh) && m.sh !== me.shield) { me.shield = clamp(m.sh, 0, MAX_SHIELD); renderShield(); }
     if (Number.isFinite(m.l) && m.l !== me.lives) { const hit = m.l < me.lives; me.lives = clamp(m.l, 0, LIVES * 1.99); renderHearts(hit); if (hit && !me.dead) { me.hitAt = now; hurtFlash = Math.min(1, hurtFlash + 0.4); } }
-    if (Number.isInteger(m.wp)) {
-      const w = WEAPON_KEYS[m.wp];
-      if (w && WEAPONS[w] && w !== me.weapon) { me.arsenal = { fire: Infinity, gauntlet: Infinity }; if (w !== "fire") me.arsenal[w] = Infinity; me.weapon = w; renderWeapon(); }
-    }
     if (m.d === 1 && !me.dead) {   // the server's verdict: I died
       me.dead = true; me.respawnAt = now + 3000; me.vx = me.vy = 0;
       me.ds = clamp(Math.floor(num(m.ds, 2)), 0, 4); me.dk = clamp(Math.floor(num(m.dk, 0)), 0, DEATH_KINDS); me.da = num(m.da, 0);
@@ -103,4 +106,57 @@
     const ex = tx - me.x, ey = ty - me.y, err = Math.hypot(ex, ey);
     if (err > 260) { me.x = tx; me.y = ty; me.vx = num(m.vx, me.vx); me.vy = num(m.vy, me.vy); }
     else { me.x += ex * 0.2; me.y += ey * 0.2; me.vx += (num(m.vx, me.vx) - me.vx) * 0.1; me.vy += (num(m.vy, me.vy) - me.vy) * 0.1; }
+  }
+  // the guns the server says I carry. The one in my hands is my choice (it goes out with my controls), unless
+  // the server no longer has it for me (out of ammo, or I died): then it is the server's
+  function serverArsenal(list, wp) {
+    const ar = {};
+    for (const e of list.slice(0, 32)) {
+      const k = Array.isArray(e) ? WEAPON_KEYS[e[0]] : null;
+      if (k && WEAPONS[k]) ar[k] = e[1] === -1 ? Infinity : clamp(num(e[1], 0), 0, 9999);
+    }
+    const keys = Object.keys(ar).join(), was = Object.keys(me.arsenal).join();
+    me.arsenal = ar;
+    if (!(me.weapon in ar)) { const w = WEAPON_KEYS[wp]; me.weapon = w in ar ? w : Object.keys(ar)[0] || "fire"; }
+    else if (keys === was) { renderAmmo(me.weapon); return; }
+    renderWeapon();
+  }
+  // Shot prediction: a plain shot is shown the moment I fire, from my muzzle, instead of a round trip later when
+  // the server's copy comes back (that copy is then not shown again). It is only a picture: what it hits is still
+  // the server's word. Guns whose shots depend on more than the trigger (spin-up, charging, lock-on, melee, the
+  // specials of alt fire) are left to the server.
+  function predictFire(now, held, altHeld) {
+    if (!playing || !roundLive || me.dead || fireCd > 0 || !srv.joined || guided) return;
+    const k = MODES[MODE].only || me.weapon, w = WEAPONS[k];
+    if (!w || k === "bolt" || k === "gamma" || k === "tele") return;
+    const a = w.alt, useAlt = altHeld && a && !(a.load || a.charge || a.recall || a.lunge || a.minedet || a.detonate || a.heat || a.guided) && !(k === "laser");
+    const pat = useAlt ? a : held && !altHeld && !w.charge && !w.melee ? w : null;
+    if (!pat || !pat.shot) return;
+    const ammo = me.arsenal[k] || 0;
+    if (useAlt ? ammo < pat.cost : !(ammo > 0)) return;
+    const cdMul = MODES[MODE].cdMul || 1;
+    fireCd = useAlt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.cd * cdMul;
+    // the same muzzle, direction and speed the server's volley() gives a pilot
+    const [kind, speed] = pat.shot, ride = kind === K.GREN || kind === K.HOLY || kind === K.MINE ? .6 : 0, sz = sizeOf(me.lv || 1);
+    let muzzle = null;
+    for (const da of pat.spread || [0]) {
+      const ja = pat.jitter ? (Math.random() - 0.5) * 2 * pat.jitter : 0, bx = Math.cos(me.a + da + ja), by = Math.sin(me.a + da + ja);
+      const ox = me.x + bx * 42 * sz, oy = me.y + by * 42 * sz, fwd = speed > 0 ? Math.max(0, me.vx * bx + me.vy * by) * ride : 0;
+      const vx = bx * (speed + fwd) + (speed > 0 ? 0 : me.vx * ride), vy = by * (speed + fwd) + (speed > 0 ? 0 : me.vy * ride);
+      addRemoteShot(srv.id, [srv.tag + ".p" + (srv.pseq++).toString(36), Math.round(ox), Math.round(oy), Math.round(vx), Math.round(vy), kind, 1, 0, pat.cut || 0, Date.now()], Date.now(), true);
+      srv.pred.push({ kind, at: now }); if (srv.pred.length > 48) srv.pred.shift();
+      muzzle = muzzle || { x: ox, y: oy };
+      stats.shots++;
+    }
+    if (useAlt && pat.fx) MUZZLE_FX[pat.fx](muzzle);
+    shotFeel(k, muzzle, pat.kick, ...pat.feel);   // recoil too: the server gives my pilot the same kick (ammo is its count)
+  }
+  // a shot of mine from the server that this screen already showed: the oldest shown one of its kind, if recent
+  function claimPrediction(kind, now) {
+    const keep = 600 + (myPing || 100) * 2;
+    while (srv.pred.length && now - srv.pred[0].at > keep) srv.pred.shift();
+    const i = srv.pred.findIndex(p => p.kind === kind);
+    if (i < 0) return false;
+    srv.pred.splice(i, 1);
+    return true;
   }
