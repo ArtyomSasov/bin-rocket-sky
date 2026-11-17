@@ -2530,6 +2530,7 @@ body:not(.playing) .match-hud { display: none; }
     const n = carveLocal(b, lx, ly, r, true, shared ? carveRnd(lx, ly, r, sq) : Math.random);
     if (!n) return 0;
     rubbleFx(b, x, y, rad, n);
+    b.blast = { x, y, rad, at: performance.now() };   // what a piece cut off by this crater is flung away from
     if (own) b.lastOwn = true;
     if (shared) {
       myCarves.push({ at: performance.now(), d: [stats.round, det.indexOf(b), lx, ly, r, sq] });
@@ -2672,7 +2673,7 @@ body:not(.playing) .match-hud { display: none; }
       rebuildBodies();
     }
   }
-  function setFree(b, vx, vy) { b.free = true; b.planet = false; b.vx = vx; b.vy = vy; b.va = (Math.random() - 0.5) * 0.3; rubble.push(b); }
+  function setFree(b, vx, vy, va = 0) { b.free = true; b.planet = false; b.vx = vx; b.vy = vy; b.va = va; b.hotUntil = 0; rubble.push(b); }
   function breakAway(b, list) {
     const { gw, cs } = b;
     let i0 = 1e9, i1 = -1, j0 = 1e9, j1 = -1;
@@ -2688,9 +2689,20 @@ body:not(.playing) .match-hud { display: none; }
       }
       sweepOrphans(f, 0, f.gw - 1, 0, f.gh - 1);   // drop the parent's art that isn't part of this piece
       f.mass = f.mass0 = list.length; f.x = x; f.y = y; f.a = b.a; f.rr = Math.max(f.hw, f.hh);
-      const ox = x - b.x, oy = y - b.y, od = Math.hypot(ox, oy) || 1, v = 30 + Math.random() * 70;
-      setFree(f, (b.vx || 0) + ox / od * v, (b.vy || 0) + oy / od * v);
-      f.va = (Math.random() - 0.5) * 0.9;
+      // Flung away from the crater that cut it loose (or from the parent's middle), harder by a bigger blast and
+      // for a lighter piece; a push off its centre sets it spinning. Seeded by the piece's own cells, so every
+      // screen and the server see the same piece fly the same way.
+      const rnd = carveRnd(list[0], list.length, det.indexOf(b) + 1, 1), bl = b.blast && performance.now() - b.blast.at < 600 ? b.blast : null;
+      const from = bl || b, ox = x - from.x, oy = y - from.y, od = Math.hypot(ox, oy) || 1;
+      const v = (bl ? 40 + Math.min(320, bl.rad * 9 / Math.sqrt(Math.max(1, list.length / 12))) : 30) + rnd() * 60;
+      const ux = ox / od, uy = oy / od, cx = x - b.x, cy = y - b.y;
+      const spin = clamp((cx * uy - cy * ux) / Math.max(40, f.rr) * v / 300, -2.5, 2.5) + (rnd() - 0.5) * 0.6;
+      setFree(f, (b.vx || 0) + ux * v, (b.vy || 0) + uy * v, spin);
+      if (bl) {   // the torn faces glow where the blast tore them
+        f.hotUntil = performance.now() + 1400;
+        const [lx, ly] = toLocal(b, x, y);
+        (b.heat ||= []).push({ lx, ly, r: Math.max(f.hw, f.hh) * 0.7, t: performance.now() }); if (b.heat.length > 10) b.heat.shift();
+      }
       for (let k = 0; k < (lowQ ? 3 : 8); k++) { const a = Math.random() * 6.28, v = 20 + Math.random() * 70; puff(x + (Math.random() - 0.5) * f.hw, y + (Math.random() - 0.5) * f.hh, Math.cos(a) * v + f.vx, Math.sin(a) * v + f.vy, 1.2 + Math.random(), 7 + Math.random() * 8, k % 2 ? bodyCol(b) : "rgb(90,80,100)", 2); }
       for (let k = 0; k < Math.min(5, list.length >> 3); k++) { const a = Math.random() * 6.28, v = 40 + Math.random() * 110; addDebris(x, y, Math.cos(a) * v + f.vx, Math.sin(a) * v + f.vy, 3 + Math.random() * 5, bodyCol(b), 6 + Math.random() * 4); }
       sfx("chunk", Math.min(0.9, 0.3 + list.length / 120), 0.7 + Math.random() * 0.3, x, y);
@@ -2727,12 +2739,57 @@ body:not(.playing) .match-hud { display: none; }
     const drag = Math.exp(-0.02 * dt);
     for (const b of rubble) {
       if (b.dead) continue;
-      b.x += b.vx * dt; b.y += b.vy * dt; b.a += b.va * dt; b.vx *= drag; b.vy *= drag;
+      gravityOn(b, dt);   // planets pull their own rubble back
+      b.x += b.vx * dt; b.y += b.vy * dt; b.a += b.va * dt; b.vx *= drag; b.vy *= drag; b.va *= Math.exp(-0.05 * dt);
       if (b.x < 0 || b.x > W) { b.vx = -b.vx * 0.6; b.x = clamp(b.x, 0, W); }
       if (b.y < 0 || b.y > H) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 0, H); }
+      rubbleCollide(b, now);
+      if (b.hotUntil > now && Math.random() < dt * 30) {   // a freshly torn piece trails smoke and embers for a moment
+        const k = (b.hotUntil - now) / 1400;
+        puff(b.x + (Math.random() - 0.5) * b.hw, b.y + (Math.random() - 0.5) * b.hh, b.vx * 0.3, b.vy * 0.3, 0.8 + Math.random() * 0.6, 4 + Math.random() * 6 * k, Math.random() < k * 0.6 ? "#ff8a3c" : "rgb(90,80,100)", 2);
+      }
     }
     for (const b of bodies) if (b.dirty && now - b.lastSplit > 120) splitBody(b, now);
     if (bodies.some(b => b.dead || b.mass <= 0)) { for (const b of bodies) if (b.mass <= 0) b.dead = true; rubble = rubble.filter(b => !b.dead); rebuildBodies(); }
+  }
+  // A free piece of rubble against the fixed world (planets, moons, wrecks, station walls): pushed out along the
+  // surface normal, bounced with little restitution, its slide turned partly into spin; a hard knock chips it and
+  // throws dust, and a small piece hitting very hard crumbles to grit. Rubble-on-rubble is left out (cheap, and
+  // the pieces are few). Only the rubble itself is changed: shared terrain is cut by shots alone.
+  function rubbleCollide(r, now) {
+    const rad = Math.max(r.cs * 1.5, Math.sqrt(r.mass) * r.cs * 0.5);
+    for (const o of bodies) {
+      if (o === r || o.free || o.dead) continue;
+      const dx = r.x - o.x, dy = r.y - o.y;
+      if (dx * dx + dy * dy > (o.r + rad) ** 2) continue;
+      let nx = 0, ny = 0, hits = 0;
+      for (let k = 0; k < 12; k++) { const a = k / 12 * 6.283; if (solidAt(o, r.x + Math.cos(a) * rad, r.y + Math.sin(a) * rad)) { nx -= Math.cos(a); ny -= Math.sin(a); hits++; } }
+      if (!hits) continue;
+      let nl = Math.hypot(nx, ny);
+      if (nl < 0.01) { nx = dx; ny = dy; nl = Math.hypot(nx, ny) || 1; }
+      nx /= nl; ny /= nl;
+      for (let it = 0; it < 8 && solidAt(o, r.x - nx * rad * 0.7, r.y - ny * rad * 0.7); it++) { r.x += nx * Math.max(2, rad * 0.15); r.y += ny * Math.max(2, rad * 0.15); }
+      const vn = (r.vx - (o.vx || 0)) * nx + (r.vy - (o.vy || 0)) * ny;
+      if (vn >= 0) continue;
+      const vt = (r.vx - (o.vx || 0)) * -ny + (r.vy - (o.vy || 0)) * nx;
+      r.vx -= 1.35 * vn * nx; r.vy -= 1.35 * vn * ny;          // restitution 0.35
+      r.vx -= vt * 0.25 * -ny; r.vy -= vt * 0.25 * nx;          // friction takes a quarter of the slide...
+      r.va += vt * 0.25 / Math.max(20, rad);                   // ...and turns it into a roll
+      const speed = -vn;
+      if (speed > 90 && now - (r.knockAt || 0) > 150) {
+        r.knockAt = now;
+        const px = r.x - nx * rad, py = r.y - ny * rad;
+        for (let k = 0; k < (lowQ ? 2 : 5); k++) { const a = Math.atan2(ny, nx) + (Math.random() - 0.5) * 2.4, v = 40 + Math.random() * speed * 0.6; puff(px, py, Math.cos(a) * v, Math.sin(a) * v, 0.7 + Math.random() * 0.8, 4 + Math.random() * 5, k % 2 ? bodyCol(o) : "rgb(90,80,100)", 2); }
+        if (o.fixed || WRECK_PAL[o.kind]) impact(px, py, "#ffd36b", Math.min(1.2, speed / 300));
+        sfx("chunk", Math.min(0.8, speed / 400), 0.6 + Math.random() * 0.3, px, py);
+        if (r.mass < 40 && speed > 260) {   // crumbles
+          for (let k = 0; k < Math.min(8, 2 + (r.mass >> 3)); k++) { const a = Math.random() * 6.28, v = 30 + Math.random() * 120; addDebris(r.x, r.y, Math.cos(a) * v + r.vx * 0.3, Math.sin(a) * v + r.vy * 0.3, 2.5 + Math.random() * 4, bodyCol(r), 4 + Math.random() * 4); }
+          r.dead = true; return;
+        }
+        if (speed > 160) { const [lx, ly] = toLocal(r, px + nx * 4, py + ny * 4); carveLocal(r, lx, ly, Math.min(14, 4 + speed / 40), false); }   // a corner breaks off
+      }
+      return;
+    }
   }
   function spawnPoint(tm) {
     if (stationMap()) {
@@ -3311,6 +3368,14 @@ body:not(.playing) .match-hud { display: none; }
     });
   }
   function shove(x, y, r, power) {
+    for (const b of rubble) {   // loose rock too: a lighter piece flies further, a push off its centre spins it
+      if (b.dead) continue;
+      const dx = b.x - x, dy = b.y - y, d = Math.hypot(dx, dy);
+      if (d < 1 || d > r + b.rr) continue;
+      const f = power * Math.max(0, 1 - Math.max(0, d - b.rr * 0.5) / r) * Math.min(1.2, 6 / Math.sqrt(Math.max(1, b.mass)));
+      b.vx += dx / d * f; b.vy += dy / d * f; b.va += (hash(Math.round(b.x), Math.round(b.y), 3) - 0.5) * f / 150;
+      b.hotUntil = Math.max(b.hotUntil || 0, performance.now() + 500);
+    }
     for (const list of [hulks, frags, debris]) for (const o of list) {
       const dx = o.x - x, dy = o.y - y, d = Math.hypot(dx, dy);
       if (d < 1 || d > r) continue;

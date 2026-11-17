@@ -13,6 +13,7 @@ const BRIDGE = `
   let serverSeq = 0;
   globalThis.__simBot = id => botById.get(id);   // the live pilot object, for tests and tools
   globalThis.__simConst = { WEAPON_KEYS, K };   // protocol numbers, for tests and tools
+  globalThis.__simTerrain = { rubble: () => rubble, det: () => det, carveAt, shove };   // for tests and tools
   globalThis.__simDet = () => det.map(b => b.cells.join(""));   // every body's solid cells, to compare with a browser
   globalThis.__sim = {
     start(code, n, level) {

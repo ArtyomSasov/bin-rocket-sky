@@ -261,6 +261,14 @@
     });
   }
   function shove(x, y, r, power) {
+    for (const b of rubble) {   // loose rock too: a lighter piece flies further, a push off its centre spins it
+      if (b.dead) continue;
+      const dx = b.x - x, dy = b.y - y, d = Math.hypot(dx, dy);
+      if (d < 1 || d > r + b.rr) continue;
+      const f = power * Math.max(0, 1 - Math.max(0, d - b.rr * 0.5) / r) * Math.min(1.2, 6 / Math.sqrt(Math.max(1, b.mass)));
+      b.vx += dx / d * f; b.vy += dy / d * f; b.va += (hash(Math.round(b.x), Math.round(b.y), 3) - 0.5) * f / 150;
+      b.hotUntil = Math.max(b.hotUntil || 0, performance.now() + 500);
+    }
     for (const list of [hulks, frags, debris]) for (const o of list) {
       const dx = o.x - x, dy = o.y - y, d = Math.hypot(dx, dy);
       if (d < 1 || d > r) continue;

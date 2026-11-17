@@ -25,6 +25,7 @@ const AFK_MS = +env("AFK_MS", 120000);            // a player who sends no contr
 const ORIGINS = env("ORIGINS", "https://artyomsasov.github.io,http://localhost:8000,http://127.0.0.1:8000").split(",").filter(Boolean);
 const TICK_HZ = 30, SEND_EVERY = 2, STEP = 1 / TICK_HZ;   // 30 steps and 15 snapshots a second
 const CODE = /^[a-z0-9]{4,16}$/;
+const RTT_CAP = 300;   // ms: a player's shots are judged at most 150 ms back
 
 const rooms = new Map();   // code -> room
 const log = (...a) => console.log(new Date().toISOString(), ...a);
@@ -88,13 +89,15 @@ wss.on("connection", (ws, req) => {
   let room = null, id = null, tokens = 60, refill = performance.now();
   // the round trip, timed on WebSocket pings (a browser answers them by itself): it sets how far back the
   // player's shots are judged
-  ws.alive = true; ws.rtt = 0; ws.pingAt = 0;
+  // A client can answer late on purpose to look laggier and be judged further back, so the shortest of its
+  // recent round trips counts (a late answer can only lengthen one), and the rewind is capped (RTT_CAP / 2)
+  ws.alive = true; ws.rtts = []; ws.pingAt = 0;
   ws.on("pong", () => {
     ws.alive = true;
     if (!ws.pingAt) return;
     const ms = performance.now() - ws.pingAt; ws.pingAt = 0;
-    ws.rtt = ws.rtt ? ws.rtt + (ms - ws.rtt) * 0.3 : ms;
-    if (room && id) room.match.rtt(id, ws.rtt);
+    ws.rtts.push(ms); if (ws.rtts.length > 8) ws.rtts.shift();
+    if (room && id) room.match.rtt(id, Math.min(RTT_CAP, ...ws.rtts));
   });
   ws.lastInput = performance.now();
   // a broken connection must end only itself: an unhandled socket error would stop the whole server
