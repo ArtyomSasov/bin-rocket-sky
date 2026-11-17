@@ -123,6 +123,23 @@ function runWeaponAuditChecks() {
     ok(killNoticeEl.textContent.includes('Alpha')&&killNoticeEl.textContent.includes('Beta'),'both names visible');
     killNotices.length=0;renderKillNotices();
   });
+  check('minigun and pellets create short travelling visual rounds clipped to the hit, not full beams', () => {
+    for(const weapon of ['minigun','scatter']) {
+      reset();beams.length=0;me.weapon=weapon;me.arsenal[weapon]=20;
+      bodies=[{fixed:true,x:450,y:500,hw:20,hh:200,r:201}];shoot(now,false);updateShots(.016,now+16);
+      const visible=beams.filter(b=>b.round!==undefined);
+      ok(visible.length===(weapon==='scatter'?11:1),'visible round per pellet');
+      ok(visible.every(b=>!b.pistol&&b.x2<=434&&b.duration<=.45),'short-lived visual stops at cover');
+    }
+  });
+  check('Demonic has one controllable orb, a visible bounded zone, and a last-ammo remote blast', () => {
+    reset();me.weapon='gamma';me.arsenal.gamma=2;shoot(now,false);
+    const orb=shots.find(s=>s.kind===K.GAMMA),n=shots.length;shoot(now+2000,false);
+    ok(shots.length===n&&me.arsenal.gamma===1,'second orb refused without spending ammo');
+    ok(GAMMA_ZAP.r===280&&Math.hypot(orb.vx,orb.vy)===340,'slow bounded control zone');
+    me.arsenal.gamma=0;shoot(now+2100,true);updateShots(.016,now+2116);
+    ok(!shots.some(s=>s.kind===K.GAMMA&&s.life>0),'last-ammo manual explosion');
+  });
   reset();renderWeapon();return passed;
 }
 

@@ -140,9 +140,9 @@ players (they face where they steer, so they make attack runs, break off and loo
 - **Pulse Gun:** rapid green plasma bolts; alternate fire holds a short green beam that stops at cover. One ammo per bolt or beam tick.
 - **Flak Cannon:** eight ricocheting fragments; alternate fires a lofted shell that explodes for up to 70 HP and releases five fragments on impact or landing. Both modes cost one ammo; ricochets lose damage.
 - **Ripper:** straight discs ricochet off walls; alternate discs explode on contact. No automatic return or Recall.
-- **Shock orb:** ball travels continuously; alternate beam detonates an orb for a combo; separate supplied firing, beam and combo recordings.
+- **Shock orb:** ball travels continuously at a slower 650 px/s for easier combos; alternate beam detonates an orb for a combo; separate supplied firing, beam and combo recordings.
 - **Quake weapons:** Grenade launcher (bouncing grenades; alt three-grenade volley), Gauntlet (melee; alt Lunge). Nailgun has been removed from play; its old number key remains reserved.
-- **Railgun:** primary cuts a continuous tunnel; hold alternate fire up to 1.1 seconds for a wider, shorter breach at fixed damage and two ammo.
+- **Railgun:** 80 HP per primary shot, 1.8-second recovery; no alternate fire. Instagib mode keeps its one-hit rule.
 - **Remote commands:** mines and Demonic Orb retain their command slots after the last shot until their projectiles expire.
 - **Trophies:** the gun a pilot dies with drops where it died, with its ammo, for 15 s; anyone can take it.
 - **Teleporter:** T throws the beacon, T again jumps onto it (a pick-up gives three jumps).
@@ -177,7 +177,7 @@ This is still peer-to-peer, with health owned by the victim (bots by their host)
 server. Compensation helps hitscan and fast linear rounds under ordinary latency; it cannot remove long outages or make
 all projectile and moving-terrain simulations identical between clients.
 
-The wire protocol uses `binrocket-sky/v17/` topics. Players must reload to this version to join each other;
+The wire protocol uses `binrocket-sky/v18/` topics. Players must reload to this version to join each other;
 older pages are isolated (v2–v14 use older maps, clocks or gameplay; v1 events do not identify the round). Taken terrain cells are sent in a
 rolling snapshot (one shared body per state), so late joins and reconnects recover holes after a full pass
 through the map. Detached rubble is still simulated locally.
@@ -310,3 +310,7 @@ Damage is measured for this player's targets simulated here and hosted bots; rem
 estimated from nominal weapon values. Do not add peer confirmations to validated hit events.
 Bots still do not reproduce most alt-fire, player shielding or both minigun modes; their results are
 stability/coverage evidence, not an equal PvP balance study. See `WEAPON-IMPLEMENTATION.md`.
+
+The minigun and Scatter Gun use short glowing travelling tracers while their hit detection stays instantaneous.
+Demonic Orb controls a visible 280 px zone: one active orb, 6 HP pulses every 0.45 s, and manual detonation up to 80 HP.
+Armor pickups have distinct vest / pads / belt shapes; Foundry has extra mirrored vests, and older maps have extra pads.

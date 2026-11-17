@@ -381,7 +381,22 @@
       g.restore();
       return;
     }
-    if (s.kind === K.GAMMA) {   // a molten demonic orb with a spectral wake
+    if (s.kind === K.GAMMA) {   // a slow area-control orb: show the actual unobstructed zap boundary
+      g.save();
+      const phase = (now % (GAMMA_ZAP.every * 1000)) / (GAMMA_ZAP.every * 1000);
+      g.strokeStyle = "rgba(100,255,135,.22)"; g.lineWidth = 1.5;
+      for (let i = 0; i < 48; i++) {
+        const a = i / 48 * Math.PI * 2, mid = a + .045;
+        if (fixedCover(s.x, s.y, s.x + Math.cos(mid) * GAMMA_ZAP.r, s.y + Math.sin(mid) * GAMMA_ZAP.r)) continue;
+        g.beginPath(); g.arc(x, y, GAMMA_ZAP.r, a, a + .085); g.stroke();
+      }
+      g.strokeStyle = `rgba(100,255,135,${.3 * (1 - phase)})`;
+      g.beginPath(); g.arc(x, y, 38 + phase * 24, 0, 6.29); g.stroke();
+      if (s.mine && me.weapon === "gamma" && s.life > 0) {
+        g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.textAlign = "center"; g.fillStyle = "#b9ffbe";
+        g.fillText("ALT · DETONATE · " + s.life.toFixed(1) + "s", x, y - 52);
+      }
+      g.restore();
       const speed = Math.hypot(s.vx, s.vy) || 1;
       for (let i = 3; i > 0; i--) {
         const trail = 22 + i * 7; g.save(); g.globalAlpha = 0.14 / i;
@@ -402,12 +417,17 @@
       g.strokeStyle = `rgba(200,250,255,${1 - k})`; g.lineWidth = 6; g.beginPath(); g.arc(x, y, 20 + k * 70, 0, 6.29); g.stroke();
       return;
     }
-    if (s.kind === K.BULLET || s.kind === K.BULLET_ALT) {   // a minigun tracer
+    if (s.kind === K.BULLET || s.kind === K.BULLET_ALT) {
+      const heavy = s.kind === K.BULLET_ALT, L = heavy ? 46 : 30;
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
-      g.strokeStyle = s.kind === K.BULLET_ALT ? "#a5d4ff" : "rgba(255,224,138,0.9)"; g.lineWidth = s.kind === K.BULLET_ALT ? 9 : 2.5; g.lineCap = "round";
-      g.beginPath(); g.moveTo(-30, 0); g.lineTo(0, 0); g.stroke();
-      g.restore();
-      return;
+      const tail = g.createLinearGradient(-L, 0, 3, 0);
+      tail.addColorStop(0, heavy ? "#4593ff00" : "#ff9c2400");
+      tail.addColorStop(1, heavy ? "#a5dcff" : "#ffe08a");
+      g.strokeStyle = tail; g.lineWidth = heavy ? 7 : 2.5; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
+      g.fillStyle = heavy ? "#ecfaff" : "#fff5ce";
+      g.beginPath(); g.ellipse(0, 0, heavy ? 8 : 3, heavy ? 4 : 1.6, 0, 0, 6.29); g.fill();
+      g.restore(); return;
     }
     if (s.kind === K.GAUSS) {   // a blue slug of light, thicker the more it was charged
       const w = 3 + 9 * Math.min(1, s.m), L = 160 + 160 * Math.min(1, s.m);
@@ -581,12 +601,23 @@
       g.fillStyle = "#f6f0ff"; rrect(-16, -16, 32, 32, 7); g.fill();
       g.strokeStyle = sp.col; g.lineWidth = 2.5; g.stroke();
       g.fillStyle = sp.col; g.save(); g.translate(-10, -10); g.scale(20 / 24, 20 / 24); g.fill(ICON_PATHS.cross); g.restore();
-    } else {         // glowing shield emblem
+    } else if (c.type === "shield") {
+      g.fillStyle = "#203e43"; g.strokeStyle = sp.col; g.lineWidth = 3;
+      g.beginPath(); g.moveTo(-9,-20);g.lineTo(-20,-13);g.lineTo(-16,5);g.lineTo(-13,21);g.lineTo(13,21);g.lineTo(16,5);g.lineTo(20,-13);g.lineTo(9,-20);g.lineTo(6,-11);g.lineTo(-6,-11);g.closePath();g.fill();g.stroke();
+      g.fillStyle = sp.col;g.fillRect(-10,-3,20,5);g.fillRect(-8,8,16,4);
+    } else if (c.type === "pads") {
+      g.fillStyle = "#25364e";g.strokeStyle = sp.col;g.lineWidth = 3;
+      for (const px of [-17,3]) {rrect(px,-15,14,30,5);g.fill();g.stroke();}
+    } else if (c.type === "mega") {
+      g.fillStyle = "#594021";g.strokeStyle = sp.col;g.lineWidth = 3;
+      rrect(-23,-9,46,18,5);g.fill();g.stroke();g.fillStyle=sp.col;rrect(-9,-14,18,28,4);g.fill();
+      g.fillStyle="#fff8b8";g.fillRect(-3,-7,6,14);
+    } else {
       g.fillStyle = sp.col; g.save(); g.translate(-17, -17); g.scale(34 / 24, 34 / 24); g.fill(ICON_PATHS.shield); g.restore();
       g.fillStyle = "rgba(255,255,255,0.35)"; g.save(); g.translate(-9, -11); g.scale(18 / 24, 18 / 24); g.fill(ICON_PATHS.shield); g.restore();
     }
     g.restore();
-    if (Math.hypot(c.x - me.x, c.y - me.y) < 260) {
+    if (sp.armor || Math.hypot(c.x - me.x, c.y - me.y) < 260) {
       g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.textAlign = "center"; g.fillStyle = sp.col;
       g.fillText(sp.name, x, y + 38 * big);
     }

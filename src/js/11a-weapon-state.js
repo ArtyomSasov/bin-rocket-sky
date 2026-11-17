@@ -52,8 +52,8 @@
     nail: "Spike: a fast, precise round that passes through multiple bins; 2 ammo. Walls still stop it.",
     saw: "Ripper: primary discs ricochet; alternate discs explode on contact; 1 ammo.",
     mine: "Detonate works with zero ammo while your mines are active.",
-    gamma: "Detonate works with zero ammo while your Demonic Orb is active.",
+    gamma: "One slow orb controls a 280 px zone: green pulses drain nearby enemies. ALT detonates for up to 80 HP, including after the last ammo. Walls block damage.",
     laser: "Pulse Gun: rapid green plasma bolts; hold alternate fire for a short green beam, 1 ammo per tick. Cover blocks both modes.",
-    rail: "Hold alternate fire to widen Breach cutter, release to fire. Cost: 2 ammo. Switching weapons cancels the charge."
+    rail: "Precision shot: 80 HP, 1.8 s between shots. Primary fire only. Armor absorbs damage; permanent walls block the beam."
   };
   const weaponHint = k => WEAPONS[k].name + " · " + weaponKey(k) + ". " + (ALT_HINTS[k] || "Q/E cycles carried weapons. Right click or C uses alternate fire when available.");

@@ -55,7 +55,7 @@
     const spot = (type, x, y, P = GUN_PERIOD[type] || GUN_PERIOD_BASE) => ({ type, ...foundryPoint(x, y), P, off: 0 });
     const gunLayout = [["scatter", 3, 9], ["minigun", 3, 12], ["rocket", 7, 3], ["rail", 10, 2], ["laser", 7, 7], ["orb", 8, 10], ["shard", 7, 17], ["mine", 3, 5], ["tele", 3, 15], ["gren", 7, 13]];
     const guns = gunLayout.flatMap(([type, x, y]) => [spot(type, x, y), spot(type, 20 - x, 20 - y)]);
-    arena = { guns, supplies: [["med", 3, 7], ["shield", 7, 10], ["bigmed", 13, 16], ["vial", 3, 8], ["vial", 3, 10], ["pads", 3, 16]].flatMap(([t, x, y]) => [spot(t, x, y, SUPPLIES[t].period), spot(t, 20 - x, 20 - y, SUPPLIES[t].period)]),
+    arena = { guns, supplies: [["med", 3, 7], ["shield", 7, 10], ["shield", 3, 11], ["bigmed", 13, 16], ["vial", 3, 8], ["vial", 3, 10], ["pads", 3, 16]].flatMap(([t, x, y]) => [spot(t, x, y, SUPPLIES[t].period), spot(t, 20 - x, 20 - y, SUPPLIES[t].period)]),
       amp: spot("amp", 10, 10, AMP_PERIOD), nuke: null, holy: null,
       pads: [ { ...foundryPoint(5, 3), a: 0 }, { ...foundryPoint(15, 17), a: Math.PI } ] };
     arena.supplies.push(spot("mega", 10, 3, SUPPLIES.mega.period));

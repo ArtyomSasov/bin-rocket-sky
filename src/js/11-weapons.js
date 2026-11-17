@@ -120,8 +120,11 @@
     }
     return o;
   }
+  // A flying round sweeps against the target's recorded motion during its step. A hitscan round (now also bullets,
+  // pellets and the Enforcer) is one instant: its whole line meets the target where it was when it was fired.
+  const sweeps = s => !HITSCAN[s.kind] && straightShot(s.kind) && Number.isFinite(s.stepFrom) && s.stepTo > s.stepFrom;
   function targetHit(s, o) {
-    if (straightShot(s.kind) && Number.isFinite(s.stepFrom) && s.stepTo > s.stepFrom) return projectileContact(s, o) <= 1;
+    if (sweeps(s)) return projectileContact(s, o) <= 1;
     const p = hitPose(s, o);
     if (p.dead || (HITSCAN[s.kind] && s.hitTime && p.inv > s.hitTime)) return false;
     if (p === o && shielded(o)) return false;
@@ -170,7 +173,7 @@
     let first = range, found = false;
     const test = (o, id) => {
       if (!canHurt(s, o, id) || shielded(o)) return;
-      if (straightShot(s.kind) && Number.isFinite(s.stepFrom) && s.stepTo > s.stepFrom) {
+      if (sweeps(s)) {
         const hit = projectileContact(s, o);
         if (hit * range < first) { first = hit * range; found = true; }
         return;
@@ -554,7 +557,8 @@
   function shoot(now, alt, mul = 1, loadedRockets = 0) {
     const k = me.weapon, w = WEAPONS[k];
     let pat = alt ? w.alt : w;
-    if (alt && !pat) return;
+    if (alt && !pat) { rejectFire("PRIMARY FIRE ONLY", now); return; }
+    if (!alt && k === "gamma" && controlledShots("gamma").length) { rejectFire("ALT · DETONATE ACTIVE ORB", now); return; }
     if (alt && pat.load) {
       if (!loadedRockets) return;
       const count = Math.min(3, loadedRockets, me.arsenal.rocket || 0);

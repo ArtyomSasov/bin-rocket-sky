@@ -93,7 +93,7 @@ test('new announcer filenames map to first blood and flawless victory',()=>{
 test('a fast round hits a target crossing between frames, but not a near miss',()=>{
   const c=setup(),o={x:100,y:80,lv:1,inv:0};
   c.recordHitPose(o,900);o.y=-80;c.recordHitPose(o,1000);
-  const s={kind:c.K.BULLET,px:0,py:0,x:200,y:0,stepFrom:900,stepTo:1000};
+  const s={kind:c.K.BULLET_ALT,px:0,py:0,x:200,y:0,stepFrom:900,stepTo:1000};   // a flying round (bullets are hitscan now)
   assert.equal(c.targetHit(s,o),true);
   s.py=s.y=150;assert.equal(c.targetHit(s,o),false);
 });
@@ -105,7 +105,7 @@ test('projectile catch-up respects a change of direction in the target history',
 test('projectile history never sweeps through a teleport or an invulnerability interval',()=>{
   const c=setup(),o={x:100,y:-200,lv:1,inv:0};
   c.recordHitPose(o,900);o.y=200;c.recordHitPose(o,1000);
-  const s={kind:c.K.BULLET,px:0,py:0,x:200,y:0,stepFrom:900,stepTo:1000};
+  const s={kind:c.K.BULLET_ALT,px:0,py:0,x:200,y:0,stepFrom:900,stepTo:1000};   // a flying round (bullets are hitscan now)
   assert.equal(c.targetHit(s,o),false);
   o.x=100;o.y=80;o.inv=2000;o.hitHistory=[];c.recordHitPose(o,900);o.y=-80;c.recordHitPose(o,1000);
   assert.equal(c.targetHit(s,o),false);
@@ -138,4 +138,16 @@ test('a shot far from a bin skips its recorded path, and one that crosses it sti
   const s={kind:K.BULLET,px:0,py:0,x:900,y:0,vx:2600,vy:0,stepFrom:750,stepTo:1000};
   assert.equal(c.projectileContact(s,far),Infinity);
   assert.ok(Math.abs(c.projectileContact(s,near)*900-460)<1e-6);
+});
+test('a delayed hitscan bullet is judged against where the victim was when it was fired, along the whole beam',()=>{
+  const c=setup(), K=c.K;
+  // the victim sat on the line until 760 ms, then moved 300 px off it by 1000 ms (now)
+  const history=[];for(let t=600;t<=1000;t+=10)history.push({at:t,x:1800,y:t<=760?0:(t-760)/240*300,lv:1,inv:false,dead:false});
+  const victim={x:1800,y:300,lv:1,hitHistory:history};c.remotes.set('pvictim',victim);
+  for(const kind of [K.BULLET,K.PELLET]){
+    // a remote round fired 250 ms ago, traced this frame across 2000 px (catch-up makes its step start then)
+    const s={kind,px:0,py:0,x:2000,y:0,vx:6000,vy:0,owner:'pother',hitTime:750,stepFrom:734,stepTo:1000};
+    assert.equal(c.targetHit(s,victim),true,'rewound to fire time: '+kind);
+    assert.ok(Math.abs(c.firstBinAlong(s,2000)-(1800-40+0.5))<1e-6,'the beam stops on the rewound victim');
+  }
 });

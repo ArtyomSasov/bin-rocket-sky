@@ -21,7 +21,7 @@
   // window.BRS_BROKER set before the game loads (see server/ in the repo)
   const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
   const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
-  const LOBBY_TOPIC = "binrocket-sky/v17/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  const LOBBY_TOPIC = "binrocket-sky/v18/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
   let lobbyRenderPending = false;
   function renderLobbies() {
@@ -214,12 +214,14 @@
   // a pilot's state, from whichever transport (MQTT or the local room): the pilot, then the bots it flies
   function receiveState(id, p) {
     if (p && p.mc) receiveMatchClock(p.mc);
+    // a bot's state leaves out the clock and the round: they are its host's (see botWire)
+    const own = m => m && typeof m === "object" && !Array.isArray(m) ? { rd: p.rd, ts: p.ts, ...m } : m;
     const fresh = applyRemote(id, p);
     if (!fresh) {
       if (p && p.rd === stats.round && Array.isArray(p.bots)) for (const e of p.bots.slice(0, MAX_BOTS)) {
         if (!Array.isArray(e)) continue;
         const r = remotes.get(e[0]);
-        if (r?.host === id && !botById.has(e[0])) applyRemote(e[0], e[1]);
+        if (r?.host === id && !botById.has(e[0])) applyRemote(e[0], own(e[1]));
       }
       return;
     }
@@ -229,7 +231,7 @@
         if (!Array.isArray(e) || typeof e[0] !== "string" || !/^pb[a-z0-9]{1,10}$/.test(e[0]) || botById.has(e[0])) continue;
         const old = remotes.get(e[0]);
         if (old && old.host !== id) continue;   // another host's bot (or a real player) cannot be claimed
-        if (applyRemote(e[0], e[1])) { remotes.get(e[0]).host = id; ids.push(e[0]); }
+        if (applyRemote(e[0], own(e[1]))) { remotes.get(e[0]).host = id; ids.push(e[0]); }
         else if (old) ids.push(e[0]);
       }
       botsOf.set(id, ids);
@@ -337,7 +339,7 @@
     const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
     if (ownBroker()) net.hz = 15;   // a broker of your own has no such budget: nearly twice the updates, so flyers move smoother
     const myId = "p" + Math.random().toString(36).slice(2, 10);
-    const base = "binrocket-sky/v17/" + code + "/";
+    const base = "binrocket-sky/v18/" + code + "/";
     const clients = BROKERS.map(url => {
       const c = mqtt.connect(url, {
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),

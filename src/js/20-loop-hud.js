@@ -5,7 +5,7 @@
   // once a second, also in a background tab: the network keeps adding effects and ids there while no frame runs
   setInterval(() => {
     const t = performance.now(), cap = (list, n) => { if (list.length > n) list.splice(0, list.length - n); };
-    cap(parts, MAX_PARTS); cap(impacts, 120); cap(rings, 80); cap(floaters, 60); cap(arcs, 40); cap(beams, 12);
+    cap(parts, MAX_PARTS); cap(impacts, 120); cap(rings, 80); cap(floaters, 60); cap(arcs, 40); cap(beams, 256);
     for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k);
     grabbed.prune(120000);
     pruneNetwork(t);

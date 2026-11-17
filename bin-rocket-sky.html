@@ -706,9 +706,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
                alt: { name: "Guided", cost: 1, cd: 1.0, shot: [K.NUKE, 420], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.5], guided: true } },
     scatter: { name: "Scatter gun", ammo: 16, cd: 0.7, col: "#ffd27a", shot: [K.PELLET, 1250], kick: 260, feel: [22, 0.3, 90], sfx: ["scatter", 1, 0.85], fx: "blast",
                alt: { name: "Slug", cost: 2, cd: 0.95, shot: [K.SLUG, 1900], kick: 340, feel: [24, 0.3, 108], sfx: ["scatter", 1, 0.65], fx: "slug" } },
-    // alt: charge the width of a short-range cutter, then release; fixed damage, a traversable tunnel (2 ammo)
-    rail:    { name: "Railgun", ammo: 6, cd: 1.15, col: "#d9a8ff", shot: [K.RAIL, 4200], kick: 320, feel: [26, 0.35, 90], sfx: ["rail", 0.9], fx: "rail",
-               alt: { name: "Breach cutter", cutter: true, charge: 1.1, cost: 2, cd: 1.3, shot: [K.GAUSS, 4200], kick: 460, feel: [34, 0.5, 130], sfx: ["rail", 1, 0.75], fx: "rail" } },
+    // Precision single-shot weapon, with no alternate mode.
+    rail: { name: "Railgun", ammo: 6, cd: 1.8, col: "#d9a8ff", shot: [K.RAIL, 4200], kick: 320, feel: [26, 0.35, 90], sfx: ["rail", .9], fx: "rail" },
     // the prox launcher (Quake Team Arena): a mine flies like a grenade, sticks to the first rock or wall it meets,
     // arms, and goes off a beat after an enemy comes near; alt sets off all your mines at once
     mine:    { name: "Prox mines", ammo: 8, cd: 0.7, col: "#ff6b3c", shot: [K.MINE, 760], kick: 60, feel: [6, 0.08, 60], sfx: ["mine_drop", 0.8],
@@ -751,8 +750,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   balanceShot(K.LASER, { dmg: HP(72 * .24) }); // UT99 beam: 72 HP per second
   balanceShot(K.SHARD, { dmg: HP(16), life: 1.15 });
   balanceShot(K.FLAK, { dmg: HP(70), life: .8 });
-  balanceShot(K.ORB, { dmg: HP(55), life: 3, r: 16 });
+  balanceShot(K.ORB, { dmg: HP(55), life: 4, r: 16 });
   balanceShot(K.SHOCK, { dmg: HP(40) });
+  balanceShot(K.GAMMA, { life: 4.8 });
+  WEAPONS.gamma.shot = [K.GAMMA, 340];
   balanceShot(K.SAW, { dmg: HP(30) });
   balanceShot(K.SAW_ALT, { dmg: HP(34) });
   balanceShot(K.BULLET, { dmg: HP(14), life: .5 });
@@ -766,21 +767,22 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   Object.assign(WEAPONS.laser.alt, { cd: .24 });
   Object.assign(WEAPONS.laser, { cd: .18, shot: [K.PULSE_BOLT, 2030] });
   Object.assign(WEAPONS.rocket, { shot: [K.ROCKET, 1260] }); WEAPONS.rocket.alt.shot = [K.ROCKET, 1260];
-  Object.assign(WEAPONS.orb, { shot: [K.ORB, 1400] });
-  Object.assign(WEAPONS.shard, { shot: [K.SHARD, 3500] }); WEAPONS.shard.alt.shot = [K.FLAK, 1680];
+  Object.assign(WEAPONS.orb, { shot: [K.ORB, 650] });
+  Object.assign(WEAPONS.shard, { shot: [K.SHARD, 3500] }); WEAPONS.shard.alt.shot = [K.FLAK, 1050];
   Object.assign(WEAPONS.saw, { shot: [K.SAW, 1680] }); WEAPONS.saw.alt.shot = [K.SAW_ALT, 1680];
   Object.assign(WEAPONS.minigun, { cd: .1, jitter: .03375, shot: [K.BULLET, 6000] });
   Object.assign(WEAPONS.minigun.alt, { name: "Heavy shards", cost: 2, cd: .28, jitter: .01, shot: [K.BULLET_ALT, 2500] });
   Object.assign(WEAPONS.scatter, { cd: 1, shot: [K.PELLET, 2000] });
-  WEAPONS.rail.cd = 1.5; WEAPONS.gren.shot = [K.GREN, 1225];
+  balanceShot(K.RAIL, { dmg: HP(80) });
+  WEAPONS.rail.cd = 1.8; WEAPONS.gren.shot = [K.GREN, 1225];
   WEAPONS.gauntlet.cd = .4; WEAPONS.mine.cd = .8;
   WEAPONS.nuke.shot = [K.NUKE, 840]; WEAPONS.nuke.alt.shot = [K.NUKE, 840];
   WEAPONS.nail.disabled = true; // keep wire IDs and other weapons' number keys stable
   let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
-  const SPLASH = { [K.FLAK]: [210, HP(70), 0, 400], [K.SAW_ALT]: [252, HP(34), 0, 350], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [260, HP(50), 0, 600] };
-  const GAMMA_ZAP = { r: 480, every: 0.3, dmg: 0.15 };   // the gamma orb zaps every enemy this close as it flies
+  const SPLASH = { [K.FLAK]: [210, HP(70), 0, 400], [K.SAW_ALT]: [252, HP(34), 0, 350], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [280, HP(80), 0, 600] };
+  const GAMMA_ZAP = { r: 280, every: 0.45, dmg: HP(6) };   // the gamma orb zaps every enemy this close as it flies
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
   const AMP_PERIOD = 95, AMP_TIME = 20000, QUAD = 4;         // Quad damage: a rare pick-up, four times the damage for 20 s                        // mines go off when a bin comes this close, after arming
   // UT99 pickups: ordinary health caps at 100; super health at 199.
@@ -1034,6 +1036,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       supplies: [["med", 0.33, 0.3], ["shield", 0.67, 0.3]],
       amp: [0.5, 0.5], nuke: [0.5, 0.06], holy: [0.5, 0.94], pads: [[0.2, 0.36, 0]] }
   };
+  for (const [map, x, y] of [["c", .14, .42], ["a", .15, .38], ["y", .12, .27], ["r", .18, .38], ["s", .12, .43], ["w", .13, .29], ["o", .22, .3]]) ARENAS[map].supplies.push(["pads", x, y]);
   // an entry and its mirror through the centre (one entry when it sits on the centre)
   const mirrored = list => list.flatMap(e => {
     const [k, x, y, ...rest] = e;
@@ -1097,7 +1100,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const spot = (type, x, y, P = GUN_PERIOD[type] || GUN_PERIOD_BASE) => ({ type, ...foundryPoint(x, y), P, off: 0 });
     const gunLayout = [["scatter", 3, 9], ["minigun", 3, 12], ["rocket", 7, 3], ["rail", 10, 2], ["laser", 7, 7], ["orb", 8, 10], ["shard", 7, 17], ["mine", 3, 5], ["tele", 3, 15], ["gren", 7, 13]];
     const guns = gunLayout.flatMap(([type, x, y]) => [spot(type, x, y), spot(type, 20 - x, 20 - y)]);
-    arena = { guns, supplies: [["med", 3, 7], ["shield", 7, 10], ["bigmed", 13, 16], ["vial", 3, 8], ["vial", 3, 10], ["pads", 3, 16]].flatMap(([t, x, y]) => [spot(t, x, y, SUPPLIES[t].period), spot(t, 20 - x, 20 - y, SUPPLIES[t].period)]),
+    arena = { guns, supplies: [["med", 3, 7], ["shield", 7, 10], ["shield", 3, 11], ["bigmed", 13, 16], ["vial", 3, 8], ["vial", 3, 10], ["pads", 3, 16]].flatMap(([t, x, y]) => [spot(t, x, y, SUPPLIES[t].period), spot(t, 20 - x, 20 - y, SUPPLIES[t].period)]),
       amp: spot("amp", 10, 10, AMP_PERIOD), nuke: null, holy: null,
       pads: [ { ...foundryPoint(5, 3), a: 0 }, { ...foundryPoint(15, 17), a: Math.PI } ] };
     arena.supplies.push(spot("mega", 10, 3, SUPPLIES.mega.period));
@@ -3707,8 +3710,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     return o;
   }
+  // A flying round sweeps against the target's recorded motion during its step. A hitscan round (now also bullets,
+  // pellets and the Enforcer) is one instant: its whole line meets the target where it was when it was fired.
+  const sweeps = s => !HITSCAN[s.kind] && straightShot(s.kind) && Number.isFinite(s.stepFrom) && s.stepTo > s.stepFrom;
   function targetHit(s, o) {
-    if (straightShot(s.kind) && Number.isFinite(s.stepFrom) && s.stepTo > s.stepFrom) return projectileContact(s, o) <= 1;
+    if (sweeps(s)) return projectileContact(s, o) <= 1;
     const p = hitPose(s, o);
     if (p.dead || (HITSCAN[s.kind] && s.hitTime && p.inv > s.hitTime)) return false;
     if (p === o && shielded(o)) return false;
@@ -3757,7 +3763,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     let first = range, found = false;
     const test = (o, id) => {
       if (!canHurt(s, o, id) || shielded(o)) return;
-      if (straightShot(s.kind) && Number.isFinite(s.stepFrom) && s.stepTo > s.stepFrom) {
+      if (sweeps(s)) {
         const hit = projectileContact(s, o);
         if (hit * range < first) { first = hit * range; found = true; }
         return;
@@ -4141,7 +4147,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   function shoot(now, alt, mul = 1, loadedRockets = 0) {
     const k = me.weapon, w = WEAPONS[k];
     let pat = alt ? w.alt : w;
-    if (alt && !pat) return;
+    if (alt && !pat) { rejectFire("PRIMARY FIRE ONLY", now); return; }
+    if (!alt && k === "gamma" && controlledShots("gamma").length) { rejectFire("ALT · DETONATE ACTIVE ORB", now); return; }
     if (alt && pat.load) {
       if (!loadedRockets) return;
       const count = Math.min(3, loadedRockets, me.arsenal.rocket || 0);
@@ -4687,9 +4694,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     nail: "Spike: a fast, precise round that passes through multiple bins; 2 ammo. Walls still stop it.",
     saw: "Ripper: primary discs ricochet; alternate discs explode on contact; 1 ammo.",
     mine: "Detonate works with zero ammo while your mines are active.",
-    gamma: "Detonate works with zero ammo while your Demonic Orb is active.",
+    gamma: "One slow orb controls a 280 px zone: green pulses drain nearby enemies. ALT detonates for up to 80 HP, including after the last ammo. Walls block damage.",
     laser: "Pulse Gun: rapid green plasma bolts; hold alternate fire for a short green beam, 1 ammo per tick. Cover blocks both modes.",
-    rail: "Hold alternate fire to widen Breach cutter, release to fire. Cost: 2 ammo. Switching weapons cancels the charge."
+    rail: "Precision shot: 80 HP, 1.8 s between shots. Primary fire only. Armor absorbs damage; permanent walls block the beam."
   };
   const weaponHint = k => WEAPONS[k].name + " · " + weaponKey(k) + ". " + (ALT_HINTS[k] || "Q/E cycles carried weapons. Right click or C uses alternate fire when available.");
   // Local, bounded measurements. Never sent to an analytics service. Damage can
@@ -4799,7 +4806,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // window.BRS_BROKER set before the game loads (see server/ in the repo)
   const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
   const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
-  const LOBBY_TOPIC = "binrocket-sky/v17/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  const LOBBY_TOPIC = "binrocket-sky/v18/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
   let lobbyRenderPending = false;
   function renderLobbies() {
@@ -4992,12 +4999,14 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // a pilot's state, from whichever transport (MQTT or the local room): the pilot, then the bots it flies
   function receiveState(id, p) {
     if (p && p.mc) receiveMatchClock(p.mc);
+    // a bot's state leaves out the clock and the round: they are its host's (see botWire)
+    const own = m => m && typeof m === "object" && !Array.isArray(m) ? { rd: p.rd, ts: p.ts, ...m } : m;
     const fresh = applyRemote(id, p);
     if (!fresh) {
       if (p && p.rd === stats.round && Array.isArray(p.bots)) for (const e of p.bots.slice(0, MAX_BOTS)) {
         if (!Array.isArray(e)) continue;
         const r = remotes.get(e[0]);
-        if (r?.host === id && !botById.has(e[0])) applyRemote(e[0], e[1]);
+        if (r?.host === id && !botById.has(e[0])) applyRemote(e[0], own(e[1]));
       }
       return;
     }
@@ -5007,7 +5016,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         if (!Array.isArray(e) || typeof e[0] !== "string" || !/^pb[a-z0-9]{1,10}$/.test(e[0]) || botById.has(e[0])) continue;
         const old = remotes.get(e[0]);
         if (old && old.host !== id) continue;   // another host's bot (or a real player) cannot be claimed
-        if (applyRemote(e[0], e[1])) { remotes.get(e[0]).host = id; ids.push(e[0]); }
+        if (applyRemote(e[0], own(e[1]))) { remotes.get(e[0]).host = id; ids.push(e[0]); }
         else if (old) ids.push(e[0]);
       }
       botsOf.set(id, ids);
@@ -5115,7 +5124,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
     if (ownBroker()) net.hz = 15;   // a broker of your own has no such budget: nearly twice the updates, so flyers move smoother
     const myId = "p" + Math.random().toString(36).slice(2, 10);
-    const base = "binrocket-sky/v17/" + code + "/";
+    const base = "binrocket-sky/v18/" + code + "/";
     const clients = BROKERS.map(url => {
       const c = mqtt.connect(url, {
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),
@@ -5185,7 +5194,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // codes (host -> guest, then guest -> host) or copied as text, so no server is involved at all. Only the
   // candidates on the local network are used. The host relays every pilot's state to the others, like the broker does.
   const lan = { host: false, guest: false, code: "", myId: "p" + Math.random().toString(36).slice(2, 10), peers: [] };
-  const LAN_TAG = "BRS17";
+  const LAN_TAG = "BRS18";
   const QR_LIB = "vendor/qrcode.min.js";
   const JSQR_LIB = "vendor/jsQR.min.js";
   const scriptLoads = new Map();
@@ -5544,6 +5553,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // fires once; returns the gun's reload time
   function botFire(b, now) {
     const w = botWeapon(b), pat = WEAPONS[w];
+    if (w === "gamma" && shots.some(s => s.owner === b.id && s.kind === K.GAMMA && s.life > 0 && !s.boom)) return .3;
     const s = volley(b, now, pat, null, w === "bolt" ? boltLock(b, null) : undefined);
     if (w === "orb") b.orb = s;   // a bot can set its orb off with the beam (see updateBots)
     shotSound(pat.shot[0], b.x, b.y, b.id);
@@ -5726,6 +5736,19 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // all bots travel inside my own state message (one publish per tick, whatever the bot count):
   // brokers rate-limit per client, and six bots sending separately would blow past that
   let botTick = 0;
+  // what of a bot's state goes on the wire. With 24 bots the host's packet was ~8 KB, eight times a second, and a
+  // fifth of it repeated what never changes: the clock and round (the receiver takes the host's), the tag, team,
+  // flag and captures (sent when they change and on every full tick), a living bot's death pose, empty lists
+  function botWire(b, m, full) {
+    const w = { ...m };
+    delete w.rd; delete w.ts;
+    if (!m.d) { delete w.ds; delete w.dk; delete w.da; }
+    for (const k of ["f", "hb", "ko"]) if (!w[k].length) delete w[k];
+    const sticky = [m.tg, m.tm, m.fc, m.cp[1], m.sh].join("|");
+    if (!full && sticky === b.wireSticky) { delete w.tg; delete w.tm; delete w.fc; delete w.cp; delete w.sh; }
+    b.wireSticky = sticky;
+    return w;
+  }
   function botStates(now) {
     const out = [];
     const full = botTick++ % 10 === 0;   // names/looks/scores every 10th tick; motion, hits and shots every tick
@@ -5740,7 +5763,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, lv: 1, wp: WEAPON_KEYS.indexOf(botWeapon(b)), tg: b.tag,
         st: [stats.round, b.st.kills, b.st.deaths, b.st.shots, b.st.hits, b.st.best] });
       applyRemote(b.id, m);   // show it here
-      out.push([b.id, m]);
+      out.push([b.id, botWire(b, m, full)]);
     }
     return out;
   }
@@ -6083,7 +6106,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (own || stop.b.free) carveAt(stop.b, stop.x, stop.y, SHOTS[s.kind].carve, own);
       impact(stop.x, stop.y, SHOTS[s.kind].col, 0.8);
     }
-    if (s.kind === K.PISTOL || s.kind === K.BULLET || s.kind === K.PELLET) beams.push({ x1: s.px, y1: s.py, x2: s.x, y2: s.y, t: 0, pistol: true });
+    if (s.kind === K.PISTOL) beams.push({ x1: s.px, y1: s.py, x2: s.x, y2: s.y, t: 0, pistol: true });
+    if (s.kind === K.BULLET || s.kind === K.PELLET) {
+      const speed = s.kind === K.BULLET ? 2600 : 1500;
+      const distance = Math.hypot(s.x - s.px, s.y - s.py);
+      beams.push({ x1: s.px, y1: s.py, x2: s.x, y2: s.y, t: 0, round: s.kind, speed, duration: Math.min(.45, distance / speed + .035) });
+      if (beams.length > 256) beams.splice(0, beams.length - 256);
+    }
     s.beamHit = stop ? "body" : max < reach ? "bin" : null;
     if (s.kind === K.LASER || s.kind === K.SHOCK) laserBeam(s, s.owner);
     s.life = Math.min(s.life, 1e-4);   // one frame of hits, then gone
@@ -6570,7 +6599,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if ((now - d.born) / 1000 < 3 && Math.random() < (lowQ ? 1 : 3) * dt) puff(d.x, d.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 1.2, 2 + Math.random() * 2, "rgb(80,72,98)", 2);
     }
     for (let i = impacts.length - 1; i >= 0; i--) { impacts[i].t += dt; if (impacts[i].t > 0.22) impacts.splice(i, 1); }
-    for (let i = beams.length - 1; i >= 0; i--) { beams[i].t += dt; if (beams[i].t > (beams[i].pistol ? .12 : BEAM_T)) beams.splice(i, 1); }
+    for (let i = beams.length - 1; i >= 0; i--) { beams[i].t += dt; if (beams[i].t > (beams[i].duration || (beams[i].pistol ? .12 : BEAM_T))) beams.splice(i, 1); }
     for (let i = lasers.length - 1; i >= 0; i--) { lasers[i].t += dt; if (lasers[i].t > (lasers[i].shock ? 0.35 : LASER_T)) lasers.splice(i, 1); }
     for (let i = arcs.length - 1; i >= 0; i--) { arcs[i].t += dt; if (arcs[i].t > 0.3) arcs.splice(i, 1); }
     for (let i = rings.length - 1; i >= 0; i--) { rings[i].t += dt; if (rings[i].t > (rings[i].dur || 0.6)) rings.splice(i, 1); }
@@ -7179,7 +7208,22 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       g.restore();
       return;
     }
-    if (s.kind === K.GAMMA) {   // a molten demonic orb with a spectral wake
+    if (s.kind === K.GAMMA) {   // a slow area-control orb: show the actual unobstructed zap boundary
+      g.save();
+      const phase = (now % (GAMMA_ZAP.every * 1000)) / (GAMMA_ZAP.every * 1000);
+      g.strokeStyle = "rgba(100,255,135,.22)"; g.lineWidth = 1.5;
+      for (let i = 0; i < 48; i++) {
+        const a = i / 48 * Math.PI * 2, mid = a + .045;
+        if (fixedCover(s.x, s.y, s.x + Math.cos(mid) * GAMMA_ZAP.r, s.y + Math.sin(mid) * GAMMA_ZAP.r)) continue;
+        g.beginPath(); g.arc(x, y, GAMMA_ZAP.r, a, a + .085); g.stroke();
+      }
+      g.strokeStyle = `rgba(100,255,135,${.3 * (1 - phase)})`;
+      g.beginPath(); g.arc(x, y, 38 + phase * 24, 0, 6.29); g.stroke();
+      if (s.mine && me.weapon === "gamma" && s.life > 0) {
+        g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.textAlign = "center"; g.fillStyle = "#b9ffbe";
+        g.fillText("ALT · DETONATE · " + s.life.toFixed(1) + "s", x, y - 52);
+      }
+      g.restore();
       const speed = Math.hypot(s.vx, s.vy) || 1;
       for (let i = 3; i > 0; i--) {
         const trail = 22 + i * 7; g.save(); g.globalAlpha = 0.14 / i;
@@ -7200,12 +7244,17 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       g.strokeStyle = `rgba(200,250,255,${1 - k})`; g.lineWidth = 6; g.beginPath(); g.arc(x, y, 20 + k * 70, 0, 6.29); g.stroke();
       return;
     }
-    if (s.kind === K.BULLET || s.kind === K.BULLET_ALT) {   // a minigun tracer
+    if (s.kind === K.BULLET || s.kind === K.BULLET_ALT) {
+      const heavy = s.kind === K.BULLET_ALT, L = heavy ? 46 : 30;
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
-      g.strokeStyle = s.kind === K.BULLET_ALT ? "#a5d4ff" : "rgba(255,224,138,0.9)"; g.lineWidth = s.kind === K.BULLET_ALT ? 9 : 2.5; g.lineCap = "round";
-      g.beginPath(); g.moveTo(-30, 0); g.lineTo(0, 0); g.stroke();
-      g.restore();
-      return;
+      const tail = g.createLinearGradient(-L, 0, 3, 0);
+      tail.addColorStop(0, heavy ? "#4593ff00" : "#ff9c2400");
+      tail.addColorStop(1, heavy ? "#a5dcff" : "#ffe08a");
+      g.strokeStyle = tail; g.lineWidth = heavy ? 7 : 2.5; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
+      g.fillStyle = heavy ? "#ecfaff" : "#fff5ce";
+      g.beginPath(); g.ellipse(0, 0, heavy ? 8 : 3, heavy ? 4 : 1.6, 0, 0, 6.29); g.fill();
+      g.restore(); return;
     }
     if (s.kind === K.GAUSS) {   // a blue slug of light, thicker the more it was charged
       const w = 3 + 9 * Math.min(1, s.m), L = 160 + 160 * Math.min(1, s.m);
@@ -7379,12 +7428,23 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       g.fillStyle = "#f6f0ff"; rrect(-16, -16, 32, 32, 7); g.fill();
       g.strokeStyle = sp.col; g.lineWidth = 2.5; g.stroke();
       g.fillStyle = sp.col; g.save(); g.translate(-10, -10); g.scale(20 / 24, 20 / 24); g.fill(ICON_PATHS.cross); g.restore();
-    } else {         // glowing shield emblem
+    } else if (c.type === "shield") {
+      g.fillStyle = "#203e43"; g.strokeStyle = sp.col; g.lineWidth = 3;
+      g.beginPath(); g.moveTo(-9,-20);g.lineTo(-20,-13);g.lineTo(-16,5);g.lineTo(-13,21);g.lineTo(13,21);g.lineTo(16,5);g.lineTo(20,-13);g.lineTo(9,-20);g.lineTo(6,-11);g.lineTo(-6,-11);g.closePath();g.fill();g.stroke();
+      g.fillStyle = sp.col;g.fillRect(-10,-3,20,5);g.fillRect(-8,8,16,4);
+    } else if (c.type === "pads") {
+      g.fillStyle = "#25364e";g.strokeStyle = sp.col;g.lineWidth = 3;
+      for (const px of [-17,3]) {rrect(px,-15,14,30,5);g.fill();g.stroke();}
+    } else if (c.type === "mega") {
+      g.fillStyle = "#594021";g.strokeStyle = sp.col;g.lineWidth = 3;
+      rrect(-23,-9,46,18,5);g.fill();g.stroke();g.fillStyle=sp.col;rrect(-9,-14,18,28,4);g.fill();
+      g.fillStyle="#fff8b8";g.fillRect(-3,-7,6,14);
+    } else {
       g.fillStyle = sp.col; g.save(); g.translate(-17, -17); g.scale(34 / 24, 34 / 24); g.fill(ICON_PATHS.shield); g.restore();
       g.fillStyle = "rgba(255,255,255,0.35)"; g.save(); g.translate(-9, -11); g.scale(18 / 24, 18 / 24); g.fill(ICON_PATHS.shield); g.restore();
     }
     g.restore();
-    if (Math.hypot(c.x - me.x, c.y - me.y) < 260) {
+    if (sp.armor || Math.hypot(c.x - me.x, c.y - me.y) < 260) {
       g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.textAlign = "center"; g.fillStyle = sp.col;
       g.fillText(sp.name, x, y + 38 * big);
     }
@@ -8474,7 +8534,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     g.globalAlpha = 1;
     for (const s of shots) {
       const x = sx(s.x), y = sy(s.y);
-      if (onScreen(x, y, 60)) drawShot(s, x, y, now);
+      if (!(s.traced && (s.kind === K.BULLET || s.kind === K.PELLET)) && onScreen(x, y, s.kind === K.GAMMA ? GAMMA_ZAP.r : 60)) drawShot(s, x, y, now);
     }
     g.globalCompositeOperation = "source-over";
   }
@@ -8518,6 +8578,16 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     g.globalAlpha = 1;
     for (const b of beams) {
+      if (b.round !== undefined) {
+        const dx = b.x2 - b.x1, dy = b.y2 - b.y1, distance = Math.hypot(dx, dy);
+        const t = distance > 0 ? Math.min(1, b.t * b.speed / distance) : 1;
+        const x = sx(b.x1 + dx * t), y = sy(b.y1 + dy * t);
+        if (onScreen(x, y, 60)) {
+          g.save(); g.globalAlpha = Math.min(1, Math.max(0, (b.duration - b.t) / .06));
+          drawShot({kind: b.round, vx: dx, vy: dy, m: 1}, x, y, now); g.restore();
+        }
+        continue;
+      }
       if (b.pistol) {
         const fade = Math.max(0, 1 - b.t / .12);
         if (fade > 0) { g.save(); g.globalAlpha = fade; g.strokeStyle = "#ffe8ad"; g.lineWidth = 1.8; g.beginPath(); g.moveTo(sx(b.x1), sy(b.y1)); g.lineTo(sx(b.x2), sy(b.y2)); g.stroke(); g.restore(); }
@@ -8753,7 +8823,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // once a second, also in a background tab: the network keeps adding effects and ids there while no frame runs
   setInterval(() => {
     const t = performance.now(), cap = (list, n) => { if (list.length > n) list.splice(0, list.length - n); };
-    cap(parts, MAX_PARTS); cap(impacts, 120); cap(rings, 80); cap(floaters, 60); cap(arcs, 40); cap(beams, 12);
+    cap(parts, MAX_PARTS); cap(impacts, 120); cap(rings, 80); cap(floaters, 60); cap(arcs, 40); cap(beams, 256);
     for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k);
     grabbed.prune(120000);
     pruneNetwork(t);
@@ -8893,7 +8963,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     ["Dash", `tap ${KEY(shift)} — a quick dodge forward`],
     ["Boost", `hold ${KEY(shift)} — uses the blue energy bar`],
     ["Weapon", `fixed ${KEY("1")}–${KEY("9")} / ${KEY("0")}; ${KEY("Alt")}+${KEY("1")}–${KEY("6")} for extras; ${KEY("Q")} / ${KEY("E")} or click a gun`],
-    ["Alt fire", `right mouse button or ${KEY("C")}: available per weapon — Pulse beam, rail breach cutter (hold/release), Flak shell, Shock beam, Demonic detonation, loaded rockets (hold/release), Stinger shards, slug, mine detonation, explosive Ripper disc`],
+    ["Alt fire", `right mouse button or ${KEY("C")}: available per weapon — Pulse beam, Flak shell, Shock beam, Demonic zone / manual detonation, loaded rockets (hold/release), Stinger shards, slug, mine detonation, explosive Ripper disc`],
     ["Teleporter", `${KEY("T")} throws the beacon, ${KEY("T")} again jumps onto it (land on someone: telefrag)`],
     ["Brake / drift", `hold ${KEY("X")} to brake; ${KEY("X")} + a direction drifts: you slide on while the nose swings round (shoot back)`],
     ["Health & armor", "100 HP on spawn; Health Pack +20 (cap 100), Vial +5 and Big Keg +100 (cap 199). Body Armor absorbs 75%; Shield Belt absorbs all damage until depleted. No levels or XP bonuses."]] });

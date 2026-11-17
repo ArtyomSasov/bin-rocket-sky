@@ -35,7 +35,7 @@ function setup() {
   return { c, clients, timers, advance: n => { now += n; }, async start() { const p = c.api.initNet(); c.api.chooseLobby('test'); await p; } };
 }
 const state = (q, extra = {}) => ({ x: 10, y: 10, q, rd: 1, ...extra });
-const deliver = (client, id, p) => client.emit('message', 'binrocket-sky/v17/test/s/' + id, Buffer.from(JSON.stringify(p)));
+const deliver = (client, id, p) => client.emit('message', 'binrocket-sky/v18/test/s/' + id, Buffer.from(JSON.stringify(p)));
 
 test('malformed JSON values do not break the message callback; next state still arrives', async () => {
   const { c, clients, start } = setup(); await start();
@@ -163,7 +163,7 @@ test('instant shots are published before a state and their repeated journals nev
   const f=['other.1',10,10,6400,0,c.K.SHOCK,1,0,0,Date.now()];
   c.api.net.shot(f);assert.ok(clients[1].sent[0].topic.includes('/f/'));assert.deepEqual(clients[1].sent[0],clients[2].sent[0]);
   const packet={rd:1,ts:Date.now(),f:[f]};
-  for(const client of clients.slice(1))client.emit('message','binrocket-sky/v17/test/f/pother',Buffer.from(JSON.stringify(packet)));
+  for(const client of clients.slice(1))client.emit('message','binrocket-sky/v18/test/f/pother',Buffer.from(JSON.stringify(packet)));
   deliver(clients[1],'pother',state(2,packet));
   assert.equal(c.shots.length,1);assert.equal(c.shots[0].vx,6400,'shock velocity must not be clamped to 4500');
 });
@@ -221,4 +221,13 @@ test('a fireball and a rocket start caught up with the delay; a grenade keeps it
   assert.equal(c.shots.length,3);
   assert.ok(c.shots[0].catchup>=0.1&&c.shots[0].catchup<=0.25);assert.ok(c.shots[1].catchup>=0.1&&c.shots[1].catchup<=0.25);
   assert.equal(c.shots[2].catchup,0);
+});
+test('a bot entry without its own clock and round takes its host packet’s, shots included',async()=>{
+  const {c,clients,start}=setup();enableShots(c);await start();const ts=Date.now();
+  deliver(clients[1],'phost',state(1,{ts,bots:[['pbbot',{q:1,x:10,y:10,tg:'bbot',f:[['bbot.1',10,10,1000,0,c.K.FIRE,1,0,0,ts-50]]}]]}));
+  const r=c.remotes.get('pbbot');
+  assert.ok(r,'the bot appears');assert.equal(r.host,'phost');assert.equal(r.lastTs,ts);
+  assert.equal(c.shots.length,1,'its shot is accepted in the host’s round');
+  deliver(clients[1],'phost',state(2,{ts,rd:0,bots:[['pbbot',{q:2,x:20,y:10,f:[['bbot.2',10,10,1000,0,c.K.FIRE,1,0,0,ts]]}]]}));
+  assert.equal(c.shots.length,1,'a stale round from the host still filters the bot’s shots');
 });

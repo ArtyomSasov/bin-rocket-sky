@@ -53,6 +53,7 @@
   // fires once; returns the gun's reload time
   function botFire(b, now) {
     const w = botWeapon(b), pat = WEAPONS[w];
+    if (w === "gamma" && shots.some(s => s.owner === b.id && s.kind === K.GAMMA && s.life > 0 && !s.boom)) return .3;
     const s = volley(b, now, pat, null, w === "bolt" ? boltLock(b, null) : undefined);
     if (w === "orb") b.orb = s;   // a bot can set its orb off with the beam (see updateBots)
     shotSound(pat.shot[0], b.x, b.y, b.id);
@@ -235,6 +236,19 @@
   // all bots travel inside my own state message (one publish per tick, whatever the bot count):
   // brokers rate-limit per client, and six bots sending separately would blow past that
   let botTick = 0;
+  // what of a bot's state goes on the wire. With 24 bots the host's packet was ~8 KB, eight times a second, and a
+  // fifth of it repeated what never changes: the clock and round (the receiver takes the host's), the tag, team,
+  // flag and captures (sent when they change and on every full tick), a living bot's death pose, empty lists
+  function botWire(b, m, full) {
+    const w = { ...m };
+    delete w.rd; delete w.ts;
+    if (!m.d) { delete w.ds; delete w.dk; delete w.da; }
+    for (const k of ["f", "hb", "ko"]) if (!w[k].length) delete w[k];
+    const sticky = [m.tg, m.tm, m.fc, m.cp[1], m.sh].join("|");
+    if (!full && sticky === b.wireSticky) { delete w.tg; delete w.tm; delete w.fc; delete w.cp; delete w.sh; }
+    b.wireSticky = sticky;
+    return w;
+  }
   function botStates(now) {
     const out = [];
     const full = botTick++ % 10 === 0;   // names/looks/scores every 10th tick; motion, hits and shots every tick
@@ -249,7 +263,7 @@
       if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, lv: 1, wp: WEAPON_KEYS.indexOf(botWeapon(b)), tg: b.tag,
         st: [stats.round, b.st.kills, b.st.deaths, b.st.shots, b.st.hits, b.st.best] });
       applyRemote(b.id, m);   // show it here
-      out.push([b.id, m]);
+      out.push([b.id, botWire(b, m, full)]);
     }
     return out;
   }

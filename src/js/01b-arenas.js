@@ -68,6 +68,7 @@
       supplies: [["med", 0.33, 0.3], ["shield", 0.67, 0.3]],
       amp: [0.5, 0.5], nuke: [0.5, 0.06], holy: [0.5, 0.94], pads: [[0.2, 0.36, 0]] }
   };
+  for (const [map, x, y] of [["c", .14, .42], ["a", .15, .38], ["y", .12, .27], ["r", .18, .38], ["s", .12, .43], ["w", .13, .29], ["o", .22, .3]]) ARENAS[map].supplies.push(["pads", x, y]);
   // an entry and its mirror through the centre (one entry when it sits on the centre)
   const mirrored = list => list.flatMap(e => {
     const [k, x, y, ...rest] = e;

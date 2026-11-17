@@ -15,7 +15,7 @@ execFileSync(process.execPath, ['tools/build-audio-preview.mjs'], { cwd: root })
 const gameplayChecks = await readFile(join(root, "tools/gameplay-checks.js"), "utf8");
 const audioChecks = await readFile(join(root, "tools/audio-render-checks.js"), "utf8");
 const weaponChecks = await readFile(join(root, "tools/weapon-audit-checks.js"), "utf8");
-const hook = gameplayChecks + audioChecks + weaponChecks + `window.__t = {runWeaponAuditChecks, checkContinuousAudio, metricsReport, checkAudioRender, keys, update, runGameplayChecks, renderDemonicPreview, WEAPONS, renderVfxPreview, renderWeapon, renderTele, renderShield, ampHud, settings, packHas, packBuf, engineHum, packLoops, K, SHOTS, hitPose, targetHit, recordHitPose, updateShots, volley, net, netSend, gotPing,
+const hook = gameplayChecks + audioChecks + weaponChecks + `window.__t = {get activeBlasts(){return blastVoices}, renderArsenalPreview, runWeaponAuditChecks, checkContinuousAudio, metricsReport, checkAudioRender, keys, update, runGameplayChecks, renderDemonicPreview, WEAPONS, renderVfxPreview, renderWeapon, renderTele, renderShield, ampHud, settings, packHas, packBuf, engineHum, packLoops, K, SHOTS, hitPose, targetHit, recordHitPose, updateShots, volley, net, netSend, gotPing,
  checkDemonicAudio(){const original=audio.createBufferSource;let heard=0;audio.createBufferSource=function(){const src=original.call(audio),start=src.start.bind(src);src.start=(...args)=>{if(src.buffer===packBuf.p_user_demonic_explosion[0])heard++;return start(...args);};return src;};
  try {bodies=[];det=[];shots.length=0;me.x=100;me.y=100;me.inv=1e15;
  const far=volley(me,performance.now(),WEAPONS.gamma,{x:1700,y:100});far.life=0;updateShots(0.016,performance.now());
@@ -190,6 +190,7 @@ try {
   await until(combat, '["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine","a_firstblood","v_flawless","p_loop_minigun","p_start_minigun","p_stop_minigun","p_stop_laser","p_fire_laser","p_loop_laser","p_ship_engine","p_warp","p_ut_mini_fire","p_ut_mini_alt","p_ut_mini_stop","p_ut_fire","p_ut_flak_fire","p_ut_rocket_load","p_ut_pulse_fire","p_ut_pulse_bolt","p_ut_pulse_down","p_ut_pulse_explode","p_burst_minigun","p_user_engine","p_user_fire","p_user_demonic","p_user_demonic_explosion","p_user_cannon","p_user_autocannon","p_user_explosion","p_user_massive"].every(__t.packHas) && !!__t.sfxBuf.hit && !!__t.sfxBuf.boom_low',10000);
   console.log('PASS weapon audit scenarios', await evaluate(combat,'__t.runWeaponAuditChecks()'));
   console.log('PASS continuous audio', await evaluate(combat,'__t.checkContinuousAudio()'));
+  await until(combat,'__t.activeBlasts===0',10000);
   assert.equal(await evaluate(combat,'__t.checkDemonicAudio()'),2,'the supplied explosion starts on distant expiry and manual detonation');
   const decoded = await evaluate(combat, 'Object.fromEntries(["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine"].map(k=>[k,+__t.packBuf[k][0].duration.toFixed(2)]))');
   await evaluate(combat, '__t.settings.engine="on";__t.engineHum(500,1,1,performance.now())');
@@ -228,6 +229,10 @@ try {
     if(process.env.BRS_HUD_PREVIEW && width===1440){const shot=await send('Page.captureScreenshot',{format:'png'},combat);await writeFile(process.env.BRS_HUD_PREVIEW,Buffer.from(shot.data,'base64'));}
   }
   console.log('PASS clock, full weapon/teleport/power-up HUD and settings do not overlap at 320–1920px');
+  if(process.env.BRS_ARSENAL_PREVIEW) {
+    const png=await evaluate(combat,'__t.renderArsenalPreview()');
+    await writeFile(process.env.BRS_ARSENAL_PREVIEW,Buffer.from(png.split(',')[1],'base64'));
+  }
   if(process.env.BRS_VFX_PREVIEW) {
     const png=await evaluate(combat,'__t.renderVfxPreview()');
     await writeFile(process.env.BRS_VFX_PREVIEW,Buffer.from(png.split(',')[1],'base64'));
@@ -253,10 +258,10 @@ try {
   await until(lagB, `__t.seenShots.has(${JSON.stringify(lagShot)})`,3000);
   const lagDebug = await evaluate(lagB, '({now:performance.now(),shot:__t.shots[0],history:__t.me.hitHistory,pose:__t.hitPose(__t.shots[0],__t.me),round:__t.roundLive,remotes:[...__t.remotes.values()].map(r=>({tag:r.tag,ping:r.ping,off:r.off,tm:r.tm}))})');
   const lagHealth = await evaluate(lagB, '__t.updateShots(0.016,performance.now());__t.me.lives');
-  if(lagHealth!==7) console.log('LAG DEBUG',JSON.stringify(lagDebug));
-  assert.equal(lagHealth,7,'delayed rail hits historical position exactly once');
+  if(lagHealth!==7.6) console.log('LAG DEBUG',JSON.stringify(lagDebug));
+  assert.equal(lagHealth,7.6,'delayed rail hits historical position exactly once');
   dropStates=false;await evaluate(lagA,'__t.netSend(1,performance.now())');await wait(350);
-  assert.equal(await evaluate(lagB,'__t.updateShots(0.016,performance.now());__t.me.lives'),7,'journal and second broker cannot repeat damage');
+  assert.equal(await evaluate(lagB,'__t.updateShots(0.016,performance.now());__t.me.lives'),7.6,'journal and second broker cannot repeat damage');
   // Lose the immediate channel; the repeated state journal must still deliver the shot.
   dropFire=true;
   const recovered = await evaluate(lagA, "__t.volley(__t.me,performance.now(),{shot:[__t.K.NAIL,1500]},{x:100,y:600}).id");

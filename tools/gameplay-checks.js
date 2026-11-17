@@ -16,12 +16,11 @@ function runGameplayChecks() {
     }
     ok(myCarves.slice(-2).every(e=>e.d.length===8),'compact line events');
   });
-  check('charge widens the cutter without raising damage; two ammo per cut',()=>{
+  check('rail has no alt fire, spends no ammo on ALT and deals 80 HP on primary',()=>{
     bodies=[];det=[];shots.length=0;me.weapon='rail';me.arsenal.rail=8;
-    railCharge=0;shoot(performance.now(),true);const a=shots.at(-1);
-    railCharge=1;shoot(performance.now(),true);const b=shots.at(-1);
-    ok(a.cut===24&&b.cut===72,'charge width');ok(shotDmg(a)===shotDmg(b),'fixed damage');ok(me.arsenal.rail===4,'ammo cost');
-    traceBeam(b);ok(Math.abs(Math.hypot(b.x-b.px,b.y-b.py)-1100)<1,'cutter range');railCharge=0;
+    shoot(performance.now(),true);ok(shots.length===0&&me.arsenal.rail===8,'no alternate shot or ammo spend');
+    ok(!WEAPONS.rail.alt,'no alternate mode');shoot(performance.now(),false);
+    ok(Math.abs(shotDmg(shots.at(-1))-2.4)<1e-6&&fireCd===1.8,'80 HP and slower recovery');
   });
   check('laser stops at the nearest bin and draws exactly its damage endpoint',()=>{
     shots.length=0;remotes.set('far',{x:900,y:600,lv:1,dead:false});remotes.set('near',{x:500,y:600,lv:1,dead:false});
@@ -116,4 +115,25 @@ function renderVfxPreview() {
     g.fillStyle='#b8c5df';g.font='16px sans-serif';g.fillText('COOLING FIRE & SPARKS',110,660);g.fillText('EXPANDING SMOKE',480,660);g.fillText('ELECTRICAL DISCHARGE',840,660);
     return c.toDataURL('image/png');
   } finally {g=old.g;vw=old.vw;vh=old.vh;cam.x=old.cx;cam.y=old.cy;lowQ=old.lowQ;}
+}
+
+function renderArsenalPreview() {
+  const c=document.createElement('canvas');c.width=1100;c.height=650;
+  const old={g,vw,vh,cx:cam.x,cy:cam.y};
+  try {
+    g=c.getContext('2d');vw=1100;vh=650;cam.x=550;cam.y=325;
+    g.fillStyle='#0a1721';g.fillRect(0,0,1100,650);
+    const label=(txt,x,y)=>{g.fillStyle='#daebff';g.font='18px sans-serif';g.textAlign='left';g.fillText(txt,x,y);};
+    label('MINIGUN · SHORT TRACERS',40,40);
+    for(let i=0;i<6;i++)drawShot({kind:K.BULLET,vx:1,vy:0,m:1},80+i*70,90,1000);
+    label('SCATTER · HOT PELLETS',40,170);
+    for(let i=0;i<11;i++){const a=(i-5)*.066;drawShot({kind:K.PELLET,vx:Math.cos(a),vy:Math.sin(a),m:1},100+Math.cos(a)*270,235+Math.sin(a)*270,1000);}
+    label('STINGER · HEAVY SHARDS',40,370);
+    for(let i=0;i<3;i++)drawShot({kind:K.BULLET_ALT,vx:1,vy:0,m:1},100+i*130,415,1000);
+    label('ARMOR PICKUPS',40,505);
+    for(const [type,x] of [['pads',100],['shield',260],['mega',420]])drawSupply({type,x,y:560,age:1},x,560,1000);
+    label('DEMONIC · VISIBLE DRAIN ZONE',610,40);
+    drawShot({kind:K.GAMMA,x:800,y:325,vx:340,vy:0,m:1,life:3},800,325,1000);
+    return c.toDataURL('image/png');
+  }finally{g=old.g;vw=old.vw;vh=old.vh;cam.x=old.cx;cam.y=old.cy;}
 }

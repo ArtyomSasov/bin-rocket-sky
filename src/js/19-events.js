@@ -574,7 +574,7 @@
     g.globalAlpha = 1;
     for (const s of shots) {
       const x = sx(s.x), y = sy(s.y);
-      if (onScreen(x, y, 60)) drawShot(s, x, y, now);
+      if (!(s.traced && (s.kind === K.BULLET || s.kind === K.PELLET)) && onScreen(x, y, s.kind === K.GAMMA ? GAMMA_ZAP.r : 60)) drawShot(s, x, y, now);
     }
     g.globalCompositeOperation = "source-over";
   }
@@ -618,6 +618,16 @@
     }
     g.globalAlpha = 1;
     for (const b of beams) {
+      if (b.round !== undefined) {
+        const dx = b.x2 - b.x1, dy = b.y2 - b.y1, distance = Math.hypot(dx, dy);
+        const t = distance > 0 ? Math.min(1, b.t * b.speed / distance) : 1;
+        const x = sx(b.x1 + dx * t), y = sy(b.y1 + dy * t);
+        if (onScreen(x, y, 60)) {
+          g.save(); g.globalAlpha = Math.min(1, Math.max(0, (b.duration - b.t) / .06));
+          drawShot({kind: b.round, vx: dx, vy: dy, m: 1}, x, y, now); g.restore();
+        }
+        continue;
+      }
       if (b.pistol) {
         const fade = Math.max(0, 1 - b.t / .12);
         if (fade > 0) { g.save(); g.globalAlpha = fade; g.strokeStyle = "#ffe8ad"; g.lineWidth = 1.8; g.beginPath(); g.moveTo(sx(b.x1), sy(b.y1)); g.lineTo(sx(b.x2), sy(b.y2)); g.stroke(); g.restore(); }
