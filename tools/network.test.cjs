@@ -231,3 +231,13 @@ test('a bot entry without its own clock and round takes its host packet’s, sho
   deliver(clients[1],'phost',state(2,{ts,rd:0,bots:[['pbbot',{q:2,x:20,y:10,f:[['bbot.2',10,10,1000,0,c.K.FIRE,1,0,0,ts]]}]]}));
   assert.equal(c.shots.length,1,'a stale round from the host still filters the bot’s shots');
 });
+test('a link cannot send players to another game server; only a local one is accepted, for development', () => {
+  const src = section('12c-server.js', '  const DEFAULT_SERVER', '  let serverRun');
+  const url = (search, BRS_SERVER) => { const c = { location: { search }, window: { BRS_SERVER } }; vm.createContext(c); return vm.runInContext(src + '\nSERVER_URL', c); };
+  assert.equal(url(''), 'wss://134-122-60-131.sslip.io:8443');
+  assert.equal(url('?server=wss://evil.example:8443'), 'wss://134-122-60-131.sslip.io:8443');
+  assert.equal(url('?server=' + encodeURIComponent('wss://localhost.evil.example')), 'wss://134-122-60-131.sslip.io:8443');
+  assert.equal(url('?offline&server=ws://127.0.0.1:8790'), 'ws://127.0.0.1:8790');
+  assert.equal(url('', 'wss://game.example.org'), 'wss://game.example.org', 'a page hosting the game elsewhere names its own');
+  assert.equal(url('', 'javascript:alert(1)'), '');
+});

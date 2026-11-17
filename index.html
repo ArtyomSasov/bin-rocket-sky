@@ -5407,10 +5407,15 @@ body:not(.playing) .match-hud { display: none; }
   // and eases it toward where the server says it is; everyone else, their shots, the pick-ups taken and the craters
   // come from the server's snapshots, read by the same code as a lobby host's state. Hits, damage, deaths,
   // respawns and pick-ups are the server's word; this browser never decides them.
-  //   ?server=wss://host:port picks another server than the default one
+  // Only our own server: a link must not be able to send players to someone else's (who would learn their names and
+  // addresses and decide what they see). ?server= is honoured only for a server on this machine, for development;
+  // a page that hosts the game elsewhere names its server in window.BRS_SERVER.
+  const DEFAULT_SERVER = "wss://134-122-60-131.sslip.io:8443";
   const SERVER_URL = (() => {
-    const m = /[?&]server=([^&#]+)/.exec(location.search || ""), u = m ? decodeURIComponent(m[1]) : window.BRS_SERVER || "wss://134-122-60-131.sslip.io:8443";
-    return /^wss:\/\/[a-z0-9.-]+(:\d+)?\/?$/i.test(u) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/i.test(u) ? u : "";
+    const m = /[?&]server=([^&#]+)/.exec(location.search || ""), local = m ? decodeURIComponent(m[1]) : "";
+    if (/^wss?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/i.test(local)) return local;
+    const u = window.BRS_SERVER || DEFAULT_SERVER;
+    return /^wss:\/\/[a-z0-9.-]+(:\d+)?\/?$/i.test(u) ? u : "";
   })();
   let serverRun = false;
   const srv = { ws: null, id: "", tag: "", sendHz: 15, dashN: 0, lastIn: "", lastInAt: 0, deadSeen: false, joined: false, err: "" };
