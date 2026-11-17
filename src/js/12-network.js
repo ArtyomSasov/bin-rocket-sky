@@ -33,9 +33,14 @@
     el.replaceChildren(...list.map(([c, l]) => {
       const row = document.createElement("button"); row.type = "button"; row.className = "lobby";
       const t = document.createElement("b"); t.textContent = MODES[modeOf(c)].label + " · " + MAPS[mapThemeOf(c)].label + " · " + MAP_SIZES[mapOf(c)][1] + " · " + TIME_OPTS[timeOf(c)] + " min" + (scoreLimit(c) ? " · to " + scoreLimit(c) : "");
-      const s = document.createElement("small"); s.textContent = l.n + (l.n === 1 ? " pilot" : " pilots") + (l.b ? " + " + l.b + " bots" : "") + " · " + c.toUpperCase();
+      const s = document.createElement("small"); s.textContent = (l.s ? "Game server · " : "") + l.n + (l.n === 1 ? " pilot" : " pilots") + (l.b ? " + " + l.b + " bots" : "") + " · " + c.toUpperCase();
       row.append(t, s);
-      row.addEventListener("click", () => { lobbyInput.value = c.toUpperCase(); lobbyInput.dispatchEvent(new Event("input")); document.getElementById("startForm").requestSubmit(); });
+      if (l.s) row.classList.add("srv");
+      row.addEventListener("click", () => {
+        // a room on the game server is joined there: the where-pick follows the room
+        const where = document.querySelector(`#wherePick [data-v="${l.s ? "srv" : "on"}"]`);
+        if (where && where.getAttribute("aria-pressed") !== "true" && !where.disabled) where.click();
+        lobbyInput.value = c.toUpperCase(); lobbyInput.dispatchEvent(new Event("input")); document.getElementById("startForm").requestSubmit(); });
       return row;
     }));
     if (!list.length) { const p = document.createElement("p"); p.className = "codeline"; p.textContent = "No open games right now: start a new one, or type a friend's code."; el.append(p); }
@@ -101,8 +106,9 @@
     seenShots.set(f[0], performance.now());
     if (kind === K.PELLET) scatterPellets(sh); else if (kind === K.SHARD) shardSpray(sh); else if (kind === K.NAIL) nailSpray(sh); else shots.push(sh);
     if (kind === K.RAIL || kind === K.GAUSS) railBeam(sh);
-    shotSound(kind, x, y, owner);
+    if (!fresh) shotSound(kind, x, y, owner);   // a fresh one is fired here, with its own sound
     if (seenShots.size > 400) { const t = performance.now(); for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k); }
+    return true;
   }
   // Messages are partial: fast ones carry only motion, slow ones add name/look/score/lists.
   function applyRemote(id, p) {

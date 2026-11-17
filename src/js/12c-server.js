@@ -65,7 +65,7 @@
       const r = remotes.get(e[0]); if (r) r.host = "server";
     }
     for (const [id, r] of remotes) if (r.host === "server" && !seen.has(id)) remotes.delete(id);   // they left
-    if (p.rd === stats.round) applyWorld("server", p);
+    if (p.rd === stats.round) { applyWorld("server", p); applyRubble(p.rb, clamp((myPing || 60) / 2000, 0, 0.2)); }
     showScore();
   }
   // what the server says about me: corrections to my predicted flight, and everything I may not decide myself
@@ -74,7 +74,7 @@
     if (typeof m.tg === "string" && /^[a-z0-9]{1,8}$/.test(m.tg)) { srv.tag = m.tg; myTag = m.tg; }   // my shots' ids: kills reported on them are mine
     if (Number.isFinite(m.ts)) { const o = clamp(m.ts - Date.now(), -120000, 120000); srv.off = Number.isFinite(srv.off) ? srv.off + (o - srv.off) * 0.1 : o; srv.lastTs = Math.max(srv.lastTs || m.ts, m.ts); }
     srv.ping = myPing;
-    // my shots, as fired on the server: the ones this screen already showed (predictFire) are not shown twice
+    // my shots, as fired on the server: the ones this screen already showed (predictShot) are not shown twice
     if (m.rd === stats.round && Array.isArray(m.f)) for (const f of m.f.slice(0, 24)) {
       if (Array.isArray(f) && typeof f[0] === "string" && !seenShots.has(f[0]) && claimPrediction(f[5], now)) { seenShots.set(f[0], performance.now()); continue; }
       addRemoteShot(srv.id, f, m.ts);
@@ -115,41 +115,30 @@
       const k = Array.isArray(e) ? WEAPON_KEYS[e[0]] : null;
       if (k && WEAPONS[k]) ar[k] = e[1] === -1 ? Infinity : clamp(num(e[1], 0), 0, 9999);
     }
-    const keys = Object.keys(ar).join(), was = Object.keys(me.arsenal).join();
+    const keys = Object.keys(ar).join(), was = Object.keys(me.arsenal).join(), old = me.arsenal;
+    // a gun the server gave me (a crate or a trophy I flew through): said and heard as when picked up offline
+    if (!me.dead) for (const k in ar) if (Number.isFinite(ar[k]) && ar[k] > (Number.isFinite(old[k]) ? old[k] : 0)) {
+      const had = k in old, key = COARSE ? "" : " · press " + weaponKey(k);
+      floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: had ? "+AMMO " + WEAPONS[k].name.toUpperCase() : WEAPONS[k].name.toUpperCase() + key, gold: true });
+      if (!(k === "nuke" ? packPlay("p_ut_nuke_pick", .9) : sfx("weapon_get", 0.8))) blip(660, 0.1, "square");
+    }
     me.arsenal = ar;
     if (!(me.weapon in ar)) { const w = WEAPON_KEYS[wp]; me.weapon = w in ar ? w : Object.keys(ar)[0] || "fire"; }
     else if (keys === was) { renderAmmo(me.weapon); return; }
     renderWeapon();
   }
-  // Shot prediction: a plain shot is shown the moment I fire, from my muzzle, instead of a round trip later when
-  // the server's copy comes back (that copy is then not shown again). It is only a picture: what it hits is still
-  // the server's word. Guns whose shots depend on more than the trigger (spin-up, charging, lock-on, melee, the
-  // specials of alt fire) are left to the server.
-  function predictFire(now, held, altHeld) {
-    if (!playing || !roundLive || me.dead || fireCd > 0 || !srv.joined || guided) return;
-    const k = MODES[MODE].only || me.weapon, w = WEAPONS[k];
-    if (!w || k === "bolt" || k === "gamma" || k === "tele") return;
-    const a = w.alt, useAlt = altHeld && a && !(a.load || a.charge || a.recall || a.lunge || a.minedet || a.detonate || a.heat || a.guided) && !(k === "laser");
-    const pat = useAlt ? a : held && !altHeld && !w.charge && !w.melee ? w : null;
-    if (!pat || !pat.shot) return;
-    const ammo = me.arsenal[k] || 0;
-    if (useAlt ? ammo < pat.cost : !(ammo > 0)) return;
-    const cdMul = MODES[MODE].cdMul || 1;
-    fireCd = useAlt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.cd * cdMul;
-    // the same muzzle, direction and speed the server's volley() gives a pilot
-    const [kind, speed] = pat.shot, ride = kind === K.GREN || kind === K.HOLY || kind === K.MINE ? .6 : 0, sz = sizeOf(me.lv || 1);
-    let muzzle = null;
-    for (const da of pat.spread || [0]) {
-      const ja = pat.jitter ? (Math.random() - 0.5) * 2 * pat.jitter : 0, bx = Math.cos(me.a + da + ja), by = Math.sin(me.a + da + ja);
-      const ox = me.x + bx * 42 * sz, oy = me.y + by * 42 * sz, fwd = speed > 0 ? Math.max(0, me.vx * bx + me.vy * by) * ride : 0;
-      const vx = bx * (speed + fwd) + (speed > 0 ? 0 : me.vx * ride), vy = by * (speed + fwd) + (speed > 0 ? 0 : me.vy * ride);
-      addRemoteShot(srv.id, [srv.tag + ".p" + (srv.pseq++).toString(36), Math.round(ox), Math.round(oy), Math.round(vx), Math.round(vy), kind, 1, 0, pat.cut || 0, Date.now()], Date.now(), true);
-      srv.pred.push({ kind, at: now }); if (srv.pred.length > 48) srv.pred.shift();
-      muzzle = muzzle || { x: ox, y: oy };
-      stats.shots++;
-    }
-    if (useAlt && pat.fx) MUZZLE_FX[pat.fx](muzzle);
-    shotFeel(k, muzzle, pat.kick, ...pat.feel);   // recoil too: the server gives my pilot the same kick (ammo is its count)
+  // Shot prediction: my trigger runs the same shoot() as anywhere (every gun, both fires, rockets loaded, the
+  // cutter and the charge cannon released), but each shot volley() makes is only shown here, at once, from my
+  // nose, as the server will fire it from my controls. When the server's copy comes back it is not shown again
+  // (claimPrediction). It is a picture only: what it hits, and the ammo it takes, are the server's word.
+  const myShot = s => s.mine || mySrvShot(s);
+  function predictShot(s) {
+    const d = [srv.tag + ".p" + (srv.pseq++).toString(36), Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), s.kind, +s.m.toFixed(2), 0, s.cut || 0, Date.now()];
+    // lock-on shots (lightning, the plasma beam) aim at the server's view of the targets: shown when it sends them.
+    // A prediction this screen refused (too many shots alive) is not recorded, so the server's copy still shows.
+    if (s.kind !== K.BOLT && s.kind !== K.LASER && addRemoteShot(srv.id, d, Date.now(), true) === true) srv.pred.push({ kind: s.kind, at: performance.now() }); if (srv.pred.length > 48) srv.pred.shift();
+    stats.shots++;
+    return { ...s, mine: false, owner: srv.id };   // for the caller: where it left from (and whose it is, for a saw recall)
   }
   // a shot of mine from the server that this screen already showed: the oldest shown one of its kind, if recent
   function claimPrediction(kind, now) {
@@ -160,3 +149,18 @@
     srv.pred.splice(i, 1);
     return true;
   }
+  // the game server's open rooms, in the lobby browser next to the online lobbies (while the start screen shows)
+  const ROOMS_URL = SERVER_URL ? SERVER_URL.replace(/^ws/, "http").replace(/\/?$/, "/rooms") : "";
+  async function pollServerRooms() {
+    if (!ROOMS_URL || playing || offlineOnly || document.hidden) return;
+    let list;
+    try { const r = await fetch(ROOMS_URL, { cache: "no-store" }); if (!r.ok) return; list = await r.json(); } catch { return; }
+    if (!Array.isArray(list)) return;
+    for (const e of list.slice(0, 20)) {
+      if (!e || typeof e.c !== "string" || !/^[a-z0-9]{4,16}$/.test(e.c) || !Number.isInteger(e.n) || e.n < 1 || e.n > 64) continue;
+      if (!openLobbies.has(e.c) && openLobbies.size >= 60) continue;
+      openLobbies.set(e.c, { n: e.n, b: Number.isInteger(e.b) ? clamp(e.b, 0, 64) : 0, s: true, at: Date.now() });
+    }
+    renderLobbies();
+  }
+  if (standalone && ROOMS_URL) { setTimeout(pollServerRooms, 500); setInterval(pollServerRooms, 4000); }

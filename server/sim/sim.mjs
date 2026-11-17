@@ -42,7 +42,7 @@ const BRIDGE = `
       return { q: ++serverSeq, rd: stats.round, ts: Date.now(), mc: matchReady ? [matchRound, matchStart, matchEnd] : undefined,
         bots: botStates(now), g: myGrabs.slice(),
         cv: myCarves.filter(e => performance.now() - e.at < 4000).slice(-128).map(e => e.d),
-        terrain: nextTerrain() || undefined, rk: nextRockMotion(),
+        terrain: nextTerrain() || undefined, rk: nextRockMotion(), rb: rubbleWire() || undefined,
         dr: myDrops.filter(d => Date.now() - d[4] < DROP_LIFE).slice(-3).map(d => d.slice(0, 4)),
         wd: myGunDrops.filter(d => Date.now() - d[5] < GUN_DROP_LIFE).slice(-3).map(d => d.slice(0, 5)) };
     },

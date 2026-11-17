@@ -660,7 +660,9 @@
       rebuildBodies();
     }
   }
-  function setFree(b, vx, vy, va = 0) { b.free = true; b.planet = false; b.vx = vx; b.vy = vy; b.va = va; b.hotUntil = 0; rubble.push(b); }
+  // key: the same name for the same piece on every machine (its parent and its own cells), so the server can say
+  // where each piece is (rubbleWire / applyRubble)
+  function setFree(b, vx, vy, va = 0) { b.free = true; b.planet = false; b.vx = vx; b.vy = vy; b.va = va; b.hotUntil = 0; b.key ||= "d" + det.indexOf(b); b.freedAt = performance.now(); rubble.push(b); }
   function breakAway(b, list) {
     const { gw, cs } = b;
     let i0 = 1e9, i1 = -1, j0 = 1e9, j1 = -1;
@@ -676,6 +678,7 @@
       }
       sweepOrphans(f, 0, f.gw - 1, 0, f.gh - 1);   // drop the parent's art that isn't part of this piece
       f.mass = f.mass0 = list.length; f.x = x; f.y = y; f.a = b.a; f.rr = Math.max(f.hw, f.hh);
+      f.key = (b.key || "d" + det.indexOf(b)) + "." + list[0].toString(36) + "." + list.length.toString(36);
       // Flung away from the crater that cut it loose (or from the parent's middle), harder by a bigger blast and
       // for a lighter piece; a push off its centre sets it spinning. Seeded by the piece's own cells, so every
       // screen and the server see the same piece fly the same way.
@@ -776,6 +779,42 @@
         if (speed > 160) { const [lx, ly] = toLocal(r, px + nx * 4, py + ny * 4); carveLocal(r, lx, ly, Math.min(14, 4 + speed / 40), false); }   // a corner breaks off
       }
       return;
+    }
+  }
+  // ---- rubble on the authoritative server: its word on where each piece is, so a shot stops on the same rock on
+  // every screen. The server sends the pieces that moved (all of them now and then, which also tells which are
+  // gone); a screen eases its own copy of each piece there. Pieces only one side has stay as they are.
+  let rubbleWireN = 0;
+  function rubbleWire() {
+    const all = rubbleWireN++ % 15 === 0, out = [];
+    for (const b of rubble) {
+      if (b.dead || !b.key) continue;
+      if (!all && b.wx !== undefined && Math.abs(b.x - b.wx) < 1.5 && Math.abs(b.y - b.wy) < 1.5 && Math.abs(b.a - b.wa) < 0.02) continue;
+      b.wx = b.x; b.wy = b.y; b.wa = b.a;
+      out.push([b.key, Math.round(b.x), Math.round(b.y), Math.round(b.a * 100), Math.round(b.vx), Math.round(b.vy), Math.round(b.va * 100)]);
+      if (out.length >= 60) break;
+    }
+    return out.length || all ? { all, list: out } : null;
+  }
+  function applyRubble(w, lead) {
+    if (!w || typeof w !== "object" || !Array.isArray(w.list)) return;
+    const byKey = new Map(); for (const b of rubble) if (!b.dead && b.key) byKey.set(b.key, b);
+    const seen = new Set(), now = performance.now();
+    for (const e of w.list.slice(0, 60)) {
+      if (!Array.isArray(e) || e.length !== 7 || typeof e[0] !== "string" || e[0].length > 80 || !e.slice(1).every(Number.isFinite)) continue;
+      seen.add(e[0]);
+      const b = byKey.get(e[0]);
+      if (!b) continue;
+      const vx = clamp(e[4], -4000, 4000), vy = clamp(e[5], -4000, 4000), x = clamp(e[1] + vx * lead, 0, W), y = clamp(e[2] + vy * lead, 0, H), a = e[3] / 100;
+      const err = Math.hypot(x - b.x, y - b.y);
+      if (err > 160) { b.x = x; b.y = y; b.a = a; }
+      else { b.x += (x - b.x) * 0.35; b.y += (y - b.y) * 0.35; b.a += angD(a - b.a) * 0.35; }
+      b.vx = vx; b.vy = vy; b.va = clamp(e[6] / 100, -10, 10);
+    }
+    // the full list: a piece the server no longer has crumbled there (a moment's grace for one that just broke off here)
+    if (w.all === true) for (const [k, b] of byKey) if (!seen.has(k) && now - (b.freedAt || 0) > 1500) {
+      for (let i = 0; i < Math.min(8, 2 + (b.mass >> 3)); i++) { const an = Math.random() * 6.28, v = 30 + Math.random() * 120; addDebris(b.x, b.y, Math.cos(an) * v, Math.sin(an) * v, 2.5 + Math.random() * 4, bodyCol(b), 4 + Math.random() * 4); }
+      b.dead = true;
     }
   }
   function spawnPoint(tm) {

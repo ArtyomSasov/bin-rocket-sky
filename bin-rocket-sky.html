@@ -214,6 +214,7 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
 .lobby { display: grid; gap: 2px; text-align: left; padding: 9px 12px; border-radius: 10px; background: rgba(255,255,255,.05); border: 1px solid var(--line); box-shadow: none; color: var(--ink); font: 700 13px var(--display); cursor: pointer; }
 .lobby small { font: 600 11px var(--body); color: var(--muted); }
 .lobby:hover { border-color: var(--teal); background: rgba(79,214,200,.12); }
+.lobby.srv { border-left: 3px solid #ffb43c; }
 .codeline b { color: var(--ink); letter-spacing: .06em; }
 .opts { display: grid; gap: 10px; margin-top: 10px; }
 .opt-row { display: grid; gap: 5px; }
@@ -2687,7 +2688,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       rebuildBodies();
     }
   }
-  function setFree(b, vx, vy, va = 0) { b.free = true; b.planet = false; b.vx = vx; b.vy = vy; b.va = va; b.hotUntil = 0; rubble.push(b); }
+  // key: the same name for the same piece on every machine (its parent and its own cells), so the server can say
+  // where each piece is (rubbleWire / applyRubble)
+  function setFree(b, vx, vy, va = 0) { b.free = true; b.planet = false; b.vx = vx; b.vy = vy; b.va = va; b.hotUntil = 0; b.key ||= "d" + det.indexOf(b); b.freedAt = performance.now(); rubble.push(b); }
   function breakAway(b, list) {
     const { gw, cs } = b;
     let i0 = 1e9, i1 = -1, j0 = 1e9, j1 = -1;
@@ -2703,6 +2706,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       }
       sweepOrphans(f, 0, f.gw - 1, 0, f.gh - 1);   // drop the parent's art that isn't part of this piece
       f.mass = f.mass0 = list.length; f.x = x; f.y = y; f.a = b.a; f.rr = Math.max(f.hw, f.hh);
+      f.key = (b.key || "d" + det.indexOf(b)) + "." + list[0].toString(36) + "." + list.length.toString(36);
       // Flung away from the crater that cut it loose (or from the parent's middle), harder by a bigger blast and
       // for a lighter piece; a push off its centre sets it spinning. Seeded by the piece's own cells, so every
       // screen and the server see the same piece fly the same way.
@@ -2803,6 +2807,42 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         if (speed > 160) { const [lx, ly] = toLocal(r, px + nx * 4, py + ny * 4); carveLocal(r, lx, ly, Math.min(14, 4 + speed / 40), false); }   // a corner breaks off
       }
       return;
+    }
+  }
+  // ---- rubble on the authoritative server: its word on where each piece is, so a shot stops on the same rock on
+  // every screen. The server sends the pieces that moved (all of them now and then, which also tells which are
+  // gone); a screen eases its own copy of each piece there. Pieces only one side has stay as they are.
+  let rubbleWireN = 0;
+  function rubbleWire() {
+    const all = rubbleWireN++ % 15 === 0, out = [];
+    for (const b of rubble) {
+      if (b.dead || !b.key) continue;
+      if (!all && b.wx !== undefined && Math.abs(b.x - b.wx) < 1.5 && Math.abs(b.y - b.wy) < 1.5 && Math.abs(b.a - b.wa) < 0.02) continue;
+      b.wx = b.x; b.wy = b.y; b.wa = b.a;
+      out.push([b.key, Math.round(b.x), Math.round(b.y), Math.round(b.a * 100), Math.round(b.vx), Math.round(b.vy), Math.round(b.va * 100)]);
+      if (out.length >= 60) break;
+    }
+    return out.length || all ? { all, list: out } : null;
+  }
+  function applyRubble(w, lead) {
+    if (!w || typeof w !== "object" || !Array.isArray(w.list)) return;
+    const byKey = new Map(); for (const b of rubble) if (!b.dead && b.key) byKey.set(b.key, b);
+    const seen = new Set(), now = performance.now();
+    for (const e of w.list.slice(0, 60)) {
+      if (!Array.isArray(e) || e.length !== 7 || typeof e[0] !== "string" || e[0].length > 80 || !e.slice(1).every(Number.isFinite)) continue;
+      seen.add(e[0]);
+      const b = byKey.get(e[0]);
+      if (!b) continue;
+      const vx = clamp(e[4], -4000, 4000), vy = clamp(e[5], -4000, 4000), x = clamp(e[1] + vx * lead, 0, W), y = clamp(e[2] + vy * lead, 0, H), a = e[3] / 100;
+      const err = Math.hypot(x - b.x, y - b.y);
+      if (err > 160) { b.x = x; b.y = y; b.a = a; }
+      else { b.x += (x - b.x) * 0.35; b.y += (y - b.y) * 0.35; b.a += angD(a - b.a) * 0.35; }
+      b.vx = vx; b.vy = vy; b.va = clamp(e[6] / 100, -10, 10);
+    }
+    // the full list: a piece the server no longer has crumbled there (a moment's grace for one that just broke off here)
+    if (w.all === true) for (const [k, b] of byKey) if (!seen.has(k) && now - (b.freedAt || 0) > 1500) {
+      for (let i = 0; i < Math.min(8, 2 + (b.mass >> 3)); i++) { const an = Math.random() * 6.28, v = 30 + Math.random() * 120; addDebris(b.x, b.y, Math.cos(an) * v, Math.sin(an) * v, 2.5 + Math.random() * 4, bodyCol(b), 4 + Math.random() * 4); }
+      b.dead = true;
     }
   }
   function spawnPoint(tm) {
@@ -2935,12 +2975,24 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     return nearest;
   }
-  // a scratch canvas for masking crater glow, grown as needed
-  let heatC = null;
-  function heatQ(S) {
-    if (!heatC) heatC = document.createElement("canvas").getContext("2d");
-    if (heatC.canvas.width < S) heatC.canvas.width = heatC.canvas.height = Math.min(2048, S);
-    return heatC;
+  // A crater's glow, masked by what is left of the body so only the torn edge burns: painted once per crater (and
+  // again only when the body loses more cells), in two colours, white-hot and dull red. Each frame just fades
+  // from one to the other, instead of building a gradient and masking it anew for every crater, every frame.
+  function heatLayers(b, h) {
+    if (h.layers && h.mass === b.mass) return h.layers;
+    const R1 = h.r * 1.45, S = Math.min(1024, Math.ceil(R1 * 2));
+    h.layers = ["255,240,140", "255,70,20"].map(col => {
+      const c = h.layers ? h.layers.shift() : document.createElement("canvas");
+      c.width = c.height = S;
+      const q = c.getContext("2d"), gr = q.createRadialGradient(R1, R1, h.r * 0.8, R1, R1, R1);
+      gr.addColorStop(0, `rgba(${col},0)`); gr.addColorStop(0.3, `rgba(${col},0.95)`); gr.addColorStop(1, `rgba(${col},0)`);
+      q.fillStyle = gr; q.fillRect(0, 0, S, S);
+      q.globalCompositeOperation = "destination-in";
+      q.drawImage(b.cv, (h.lx - R1) * BODY_RES, (h.ly - R1) * BODY_RES, S * BODY_RES, S * BODY_RES, 0, 0, S, S);
+      return c;
+    });
+    h.mass = b.mass; h.R1 = R1;
+    return h.layers;
   }
   function drawBodies(now) {
     for (const b of bodies) {
@@ -2960,17 +3012,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         for (let i = b.heat.length - 1; i >= 0; i--) {
           const h = b.heat[i], k = 1 - (now - h.t) / 2600;
           if (k <= 0) { b.heat.splice(i, 1); continue; }
-          // the glow is masked by what's left of the body, so only the torn edge itself burns, not the empty hole
-          const R1 = h.r * 1.45, S = Math.ceil(R1 * 2), hq = heatQ(S), hg = hq.createRadialGradient(R1, R1, h.r * 0.8, R1, R1, R1);
-          hg.addColorStop(0, "rgba(255,120,40,0)");
-          hg.addColorStop(0.3, `rgba(255,${(70 + 170 * k) | 0},${(20 + 120 * k * k) | 0},${0.95 * k * k})`);
-          hg.addColorStop(1, "rgba(255,60,20,0)");
-          hq.globalCompositeOperation = "copy"; hq.fillStyle = hg; hq.fillRect(0, 0, S, S);
-          hq.globalCompositeOperation = "destination-in";
-          hq.drawImage(b.cv, (h.lx - R1) * BODY_RES, (h.ly - R1) * BODY_RES, S * BODY_RES, S * BODY_RES, 0, 0, S, S);
-          g.drawImage(hq.canvas, 0, 0, S, S, h.lx - R1 - b.hw, h.ly - R1 - b.hh, S, S);
+          const [hot, cool] = heatLayers(b, h), R1 = h.R1, D = R1 * 2;
+          g.globalAlpha = k * k * k; g.drawImage(hot, h.lx - R1 - b.hw, h.ly - R1 - b.hh, D, D);
+          g.globalAlpha = k * k * (1 - k); g.drawImage(cool, h.lx - R1 - b.hw, h.ly - R1 - b.hh, D, D);
         }
-        g.globalCompositeOperation = "source-over";
+        g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
       }
       g.restore();
       if (ring) g.drawImage(b.ringF, x - b.ringHalf, y - b.ringHalf, b.ringHalf * 2, b.ringHalf * 2);
@@ -4049,6 +4095,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       const fwd = speed > 0 ? Math.max(0, p.vx * bx + p.vy * by) * ride : 0;
       s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * (speed + fwd) + (speed > 0 ? 0 : p.vx * ride), vy: by * (speed + fwd) + (speed > 0 ? 0 : p.vy * ride),
             life: SHOTS[kind].life, cut: pat.cut || 0, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: false };   // pc: pierces (fireballs from Lv 7)
+      if (mine && serverRun) { s = predictShot(s); continue; }   // on the authoritative server my shot is only shown here
       metricShot(s, p, pat);
       pilotLag(s, p, now);
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else if (kind === K.NAIL) nailSpray(s); else shots.push(s);
@@ -4228,7 +4275,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (alt && (me.arsenal[k] || 0) < pat.cost) { rejectFire("NEED " + pat.cost + " AMMO", now); return; }
     if (alt && pat.cutter) pat = { ...pat, cut: Math.round(24 + 48 * railCharge) };
     if (alt && pat.recall) {
-      if (!shots.some(s => s.mine && s.kind === K.SAW && !s.returning && s.life > 0)) { rejectFire(controlledShots("saw").length ? "BLADES ALREADY RETURNING" : "NO ACTIVE BLADES", now); return; }
+      if (!shots.some(s => myShot(s) && s.kind === K.SAW && !s.returning && s.life > 0)) { rejectFire(controlledShots("saw").length ? "BLADES ALREADY RETURNING" : "NO ACTIVE BLADES", now); return; }
       const signal = volley(me, now, pat, { x: me.x, y: me.y }); recallSaws(signal); fireCd = pat.cd; sfx(...pat.sfx); return;
     }
     if (k === "tele" && myBeacon()) { teleport(now); return; }   // the second shot jumps you to the beacon
@@ -4253,13 +4300,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       return;
     }
     if (alt && pat.minedet) {   // set off every mine of mine, on every screen
-      if (!shots.some(s => s.mine && s.kind === K.MINE && s.life > 0)) { rejectFire("NO ACTIVE MINES", now); return; }
+      if (!shots.some(s => myShot(s) && s.kind === K.MINE && s.life > 0)) { rejectFire("NO ACTIVE MINES", now); return; }
       if (!controlledShots("mine").some(s => SHOTS[K.MINE].life - s.life >= MINE_ARM)) { rejectFire("MINES ARMING", now); return; }
       volley(me, now, MINE_DETONATOR, { x: me.x, y: me.y }); fireCd = pat.cd; sfx(...pat.sfx);
       return;
     }
     if (alt && pat.detonate) {   // the gamma orb's alt: a detonator at my orb, which sets it off on every screen
-      const o = shots.filter(s => s.mine && s.kind === K.GAMMA && s.life > 0).pop();
+      const o = shots.filter(s => myShot(s) && s.kind === K.GAMMA && s.life > 0).pop();
       if (!o) { rejectFire("NO ACTIVE DEMONIC ORB", now); return; }
       volley(me, now, DETONATOR, { x: o.x, y: o.y }); fireCd = pat.cd; sfx(...pat.sfx);
       return;
@@ -4271,7 +4318,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     const cdMul = MODES[MODE].cdMul || 1;
     fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
-    const gun = muzzleAt(k);
+    const gun = serverRun ? null : muzzleAt(k);   // the server fires a pilot's gun from the bin's nose
     const muzzle = volley(me, now, pat, gun, (k === "bolt" && !alt || k === "laser" && alt) ? boltLock(me, gun) : undefined, mul);
     const [name, vol, pitch] = pat.sfx;
     const packed = alt && k === "orb" ? audioCue("shockBeam") : k === "minigun" ? continuousFire("me", "minigun", me.x, me.y, now, !!alt)
@@ -4280,8 +4327,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (!packed) sfx(name, vol, w.charge ? pitch * (1.3 - 0.4 * mul) : pitch) || blip(160, 0.1, "sawtooth");   // a fuller charge sounds deeper
     if (pat.fx) MUZZLE_FX[pat.fx](muzzle);
     shotFeel(k, muzzle, pat.kick * (w.charge ? mul : 1), ...pat.feel);
-    if (pat.guided) startGuide(muzzle);
-    if (k !== "tele") spend(k, alt ? pat.cost : 1);   // the teleporter spends a charge on the jump, not on the throw
+    if (pat.guided && !serverRun) startGuide(muzzle);   // the server flies a nuke straight: nobody's screen steers it
+    if (k !== "tele" && !serverRun) spend(k, alt ? pat.cost : 1);   // on the server, ammo is its count   // the teleporter spends a charge on the jump, not on the throw
   }
   // ---- the minigun spins up while the trigger is held; the charge cannon charges while held and fires on release
   let spin = 0, charge = 0, railCharge = 0;   // railCharge: the railgun's alt, held
@@ -4892,9 +4939,14 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     el.replaceChildren(...list.map(([c, l]) => {
       const row = document.createElement("button"); row.type = "button"; row.className = "lobby";
       const t = document.createElement("b"); t.textContent = MODES[modeOf(c)].label + " · " + MAPS[mapThemeOf(c)].label + " · " + MAP_SIZES[mapOf(c)][1] + " · " + TIME_OPTS[timeOf(c)] + " min" + (scoreLimit(c) ? " · to " + scoreLimit(c) : "");
-      const s = document.createElement("small"); s.textContent = l.n + (l.n === 1 ? " pilot" : " pilots") + (l.b ? " + " + l.b + " bots" : "") + " · " + c.toUpperCase();
+      const s = document.createElement("small"); s.textContent = (l.s ? "Game server · " : "") + l.n + (l.n === 1 ? " pilot" : " pilots") + (l.b ? " + " + l.b + " bots" : "") + " · " + c.toUpperCase();
       row.append(t, s);
-      row.addEventListener("click", () => { lobbyInput.value = c.toUpperCase(); lobbyInput.dispatchEvent(new Event("input")); document.getElementById("startForm").requestSubmit(); });
+      if (l.s) row.classList.add("srv");
+      row.addEventListener("click", () => {
+        // a room on the game server is joined there: the where-pick follows the room
+        const where = document.querySelector(`#wherePick [data-v="${l.s ? "srv" : "on"}"]`);
+        if (where && where.getAttribute("aria-pressed") !== "true" && !where.disabled) where.click();
+        lobbyInput.value = c.toUpperCase(); lobbyInput.dispatchEvent(new Event("input")); document.getElementById("startForm").requestSubmit(); });
       return row;
     }));
     if (!list.length) { const p = document.createElement("p"); p.className = "codeline"; p.textContent = "No open games right now: start a new one, or type a friend's code."; el.append(p); }
@@ -4960,8 +5012,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     seenShots.set(f[0], performance.now());
     if (kind === K.PELLET) scatterPellets(sh); else if (kind === K.SHARD) shardSpray(sh); else if (kind === K.NAIL) nailSpray(sh); else shots.push(sh);
     if (kind === K.RAIL || kind === K.GAUSS) railBeam(sh);
-    shotSound(kind, x, y, owner);
+    if (!fresh) shotSound(kind, x, y, owner);   // a fresh one is fired here, with its own sound
     if (seenShots.size > 400) { const t = performance.now(); for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k); }
+    return true;
   }
   // Messages are partial: fast ones carry only motion, slow ones add name/look/score/lists.
   function applyRemote(id, p) {
@@ -5553,7 +5606,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       const r = remotes.get(e[0]); if (r) r.host = "server";
     }
     for (const [id, r] of remotes) if (r.host === "server" && !seen.has(id)) remotes.delete(id);   // they left
-    if (p.rd === stats.round) applyWorld("server", p);
+    if (p.rd === stats.round) { applyWorld("server", p); applyRubble(p.rb, clamp((myPing || 60) / 2000, 0, 0.2)); }
     showScore();
   }
   // what the server says about me: corrections to my predicted flight, and everything I may not decide myself
@@ -5562,7 +5615,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (typeof m.tg === "string" && /^[a-z0-9]{1,8}$/.test(m.tg)) { srv.tag = m.tg; myTag = m.tg; }   // my shots' ids: kills reported on them are mine
     if (Number.isFinite(m.ts)) { const o = clamp(m.ts - Date.now(), -120000, 120000); srv.off = Number.isFinite(srv.off) ? srv.off + (o - srv.off) * 0.1 : o; srv.lastTs = Math.max(srv.lastTs || m.ts, m.ts); }
     srv.ping = myPing;
-    // my shots, as fired on the server: the ones this screen already showed (predictFire) are not shown twice
+    // my shots, as fired on the server: the ones this screen already showed (predictShot) are not shown twice
     if (m.rd === stats.round && Array.isArray(m.f)) for (const f of m.f.slice(0, 24)) {
       if (Array.isArray(f) && typeof f[0] === "string" && !seenShots.has(f[0]) && claimPrediction(f[5], now)) { seenShots.set(f[0], performance.now()); continue; }
       addRemoteShot(srv.id, f, m.ts);
@@ -5603,41 +5656,30 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       const k = Array.isArray(e) ? WEAPON_KEYS[e[0]] : null;
       if (k && WEAPONS[k]) ar[k] = e[1] === -1 ? Infinity : clamp(num(e[1], 0), 0, 9999);
     }
-    const keys = Object.keys(ar).join(), was = Object.keys(me.arsenal).join();
+    const keys = Object.keys(ar).join(), was = Object.keys(me.arsenal).join(), old = me.arsenal;
+    // a gun the server gave me (a crate or a trophy I flew through): said and heard as when picked up offline
+    if (!me.dead) for (const k in ar) if (Number.isFinite(ar[k]) && ar[k] > (Number.isFinite(old[k]) ? old[k] : 0)) {
+      const had = k in old, key = COARSE ? "" : " · press " + weaponKey(k);
+      floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: had ? "+AMMO " + WEAPONS[k].name.toUpperCase() : WEAPONS[k].name.toUpperCase() + key, gold: true });
+      if (!(k === "nuke" ? packPlay("p_ut_nuke_pick", .9) : sfx("weapon_get", 0.8))) blip(660, 0.1, "square");
+    }
     me.arsenal = ar;
     if (!(me.weapon in ar)) { const w = WEAPON_KEYS[wp]; me.weapon = w in ar ? w : Object.keys(ar)[0] || "fire"; }
     else if (keys === was) { renderAmmo(me.weapon); return; }
     renderWeapon();
   }
-  // Shot prediction: a plain shot is shown the moment I fire, from my muzzle, instead of a round trip later when
-  // the server's copy comes back (that copy is then not shown again). It is only a picture: what it hits is still
-  // the server's word. Guns whose shots depend on more than the trigger (spin-up, charging, lock-on, melee, the
-  // specials of alt fire) are left to the server.
-  function predictFire(now, held, altHeld) {
-    if (!playing || !roundLive || me.dead || fireCd > 0 || !srv.joined || guided) return;
-    const k = MODES[MODE].only || me.weapon, w = WEAPONS[k];
-    if (!w || k === "bolt" || k === "gamma" || k === "tele") return;
-    const a = w.alt, useAlt = altHeld && a && !(a.load || a.charge || a.recall || a.lunge || a.minedet || a.detonate || a.heat || a.guided) && !(k === "laser");
-    const pat = useAlt ? a : held && !altHeld && !w.charge && !w.melee ? w : null;
-    if (!pat || !pat.shot) return;
-    const ammo = me.arsenal[k] || 0;
-    if (useAlt ? ammo < pat.cost : !(ammo > 0)) return;
-    const cdMul = MODES[MODE].cdMul || 1;
-    fireCd = useAlt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.cd * cdMul;
-    // the same muzzle, direction and speed the server's volley() gives a pilot
-    const [kind, speed] = pat.shot, ride = kind === K.GREN || kind === K.HOLY || kind === K.MINE ? .6 : 0, sz = sizeOf(me.lv || 1);
-    let muzzle = null;
-    for (const da of pat.spread || [0]) {
-      const ja = pat.jitter ? (Math.random() - 0.5) * 2 * pat.jitter : 0, bx = Math.cos(me.a + da + ja), by = Math.sin(me.a + da + ja);
-      const ox = me.x + bx * 42 * sz, oy = me.y + by * 42 * sz, fwd = speed > 0 ? Math.max(0, me.vx * bx + me.vy * by) * ride : 0;
-      const vx = bx * (speed + fwd) + (speed > 0 ? 0 : me.vx * ride), vy = by * (speed + fwd) + (speed > 0 ? 0 : me.vy * ride);
-      addRemoteShot(srv.id, [srv.tag + ".p" + (srv.pseq++).toString(36), Math.round(ox), Math.round(oy), Math.round(vx), Math.round(vy), kind, 1, 0, pat.cut || 0, Date.now()], Date.now(), true);
-      srv.pred.push({ kind, at: now }); if (srv.pred.length > 48) srv.pred.shift();
-      muzzle = muzzle || { x: ox, y: oy };
-      stats.shots++;
-    }
-    if (useAlt && pat.fx) MUZZLE_FX[pat.fx](muzzle);
-    shotFeel(k, muzzle, pat.kick, ...pat.feel);   // recoil too: the server gives my pilot the same kick (ammo is its count)
+  // Shot prediction: my trigger runs the same shoot() as anywhere (every gun, both fires, rockets loaded, the
+  // cutter and the charge cannon released), but each shot volley() makes is only shown here, at once, from my
+  // nose, as the server will fire it from my controls. When the server's copy comes back it is not shown again
+  // (claimPrediction). It is a picture only: what it hits, and the ammo it takes, are the server's word.
+  const myShot = s => s.mine || mySrvShot(s);
+  function predictShot(s) {
+    const d = [srv.tag + ".p" + (srv.pseq++).toString(36), Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), s.kind, +s.m.toFixed(2), 0, s.cut || 0, Date.now()];
+    // lock-on shots (lightning, the plasma beam) aim at the server's view of the targets: shown when it sends them.
+    // A prediction this screen refused (too many shots alive) is not recorded, so the server's copy still shows.
+    if (s.kind !== K.BOLT && s.kind !== K.LASER && addRemoteShot(srv.id, d, Date.now(), true) === true) srv.pred.push({ kind: s.kind, at: performance.now() }); if (srv.pred.length > 48) srv.pred.shift();
+    stats.shots++;
+    return { ...s, mine: false, owner: srv.id };   // for the caller: where it left from (and whose it is, for a saw recall)
   }
   // a shot of mine from the server that this screen already showed: the oldest shown one of its kind, if recent
   function claimPrediction(kind, now) {
@@ -5648,6 +5690,21 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     srv.pred.splice(i, 1);
     return true;
   }
+  // the game server's open rooms, in the lobby browser next to the online lobbies (while the start screen shows)
+  const ROOMS_URL = SERVER_URL ? SERVER_URL.replace(/^ws/, "http").replace(/\/?$/, "/rooms") : "";
+  async function pollServerRooms() {
+    if (!ROOMS_URL || playing || offlineOnly || document.hidden) return;
+    let list;
+    try { const r = await fetch(ROOMS_URL, { cache: "no-store" }); if (!r.ok) return; list = await r.json(); } catch { return; }
+    if (!Array.isArray(list)) return;
+    for (const e of list.slice(0, 20)) {
+      if (!e || typeof e.c !== "string" || !/^[a-z0-9]{4,16}$/.test(e.c) || !Number.isInteger(e.n) || e.n < 1 || e.n > 64) continue;
+      if (!openLobbies.has(e.c) && openLobbies.size >= 60) continue;
+      openLobbies.set(e.c, { n: e.n, b: Number.isInteger(e.b) ? clamp(e.b, 0, 64) : 0, s: true, at: Date.now() });
+    }
+    renderLobbies();
+  }
+  if (standalone && ROOMS_URL) { setTimeout(pollServerRooms, 500); setInterval(pollServerRooms, 4000); }
   // ---------- weapon crates, supplies, Overdrive and the big bombs: fixed spots on the arena ----------
   // Each spot always holds the same thing (see 01b-arenas.js) and keeps it until someone takes it: nothing expires.
   // A taken one comes back at the start of its spot's next cycle on the shared clock, so every screen agrees
@@ -6306,7 +6363,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     fireCd -= dt; shake = Math.max(0, shake - dt);
     const aimM = mouseAim();
     const held = firing || FIRE_KEYS.some(k => keys.has(k)) || (aimM && ptr.down);   // with mouse aim the left button fires
-    const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided && !serverRun;   // on the server my trigger only goes into my controls
+    const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided && (!serverRun || srv.joined);   // on the server my shots are only shown (12c-server.js)
     const altW = WEAPONS[me.weapon].alt, altHeld = altFiring || keys.has("KeyC");
     rocketLoadTick(dt, now, altHeld, ready);
     if (altW && altW.charge) {   // rail alt: hold to widen the cutter, release to open a short breach
@@ -6347,7 +6404,6 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (boost) { energy = Math.max(0, energy - 20 * dt); energyRegenAt = now + 700; }   // a full bar is ~5 s of boost
     else if (now > energyRegenAt) energy = Math.min(100, energy + 22 * dt);   // perk: faster energy from Lv 2
     me.ctl = { mx: ix, my: iy, fire: held, alt: altHeld, boost };   // the raw controls, for the authoritative server
-    if (serverRun) predictFire(now, held, altHeld);   // ...where my shots show at once (12c-server.js)
     return { im, boost };
   }
   // the flight model every pilot flies by, me and the bots alike (sx, sy: the stick, eased; k: a bot's speed factor).

@@ -17,7 +17,7 @@
     fireCd -= dt; shake = Math.max(0, shake - dt);
     const aimM = mouseAim();
     const held = firing || FIRE_KEYS.some(k => keys.has(k)) || (aimM && ptr.down);   // with mouse aim the left button fires
-    const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided && !serverRun;   // on the server my trigger only goes into my controls
+    const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided && (!serverRun || srv.joined);   // on the server my shots are only shown (12c-server.js)
     const altW = WEAPONS[me.weapon].alt, altHeld = altFiring || keys.has("KeyC");
     rocketLoadTick(dt, now, altHeld, ready);
     if (altW && altW.charge) {   // rail alt: hold to widen the cutter, release to open a short breach
@@ -58,7 +58,6 @@
     if (boost) { energy = Math.max(0, energy - 20 * dt); energyRegenAt = now + 700; }   // a full bar is ~5 s of boost
     else if (now > energyRegenAt) energy = Math.min(100, energy + 22 * dt);   // perk: faster energy from Lv 2
     me.ctl = { mx: ix, my: iy, fire: held, alt: altHeld, boost };   // the raw controls, for the authoritative server
-    if (serverRun) predictFire(now, held, altHeld);   // ...where my shots show at once (12c-server.js)
     return { im, boost };
   }
   // the flight model every pilot flies by, me and the bots alike (sx, sy: the stick, eased; k: a bot's speed factor).

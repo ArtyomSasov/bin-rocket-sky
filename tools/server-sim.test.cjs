@@ -118,11 +118,11 @@ test('a player’s shot is judged where the target was on their screen (half the
       const shooter = m.addPilot('Shooter'), target = m.addPilot('Target');
       run(m, 0.1);
       if (rtt) m.rtt(shooter, rtt);
-      // the target crosses the line of fire at 1000 px/s; the shooter fires at where it was 100 ms before
+      // the target crosses the line of fire at 1000 px/s; the shooter fires behind it, where its screen showed it
       let t = 0, aim = 0;
       const y = () => 400 + t * 1000;
       run(m, 0.5, () => { t += STEP; hold(m, shooter, 1500, 700, aim); hold(m, target, 1900, y(), 0); m.game.__simBot(target).vy = 1000; });
-      aim = Math.atan2(y() - 100 + 33 - 700, 400);   // (the target flies one more step, 33 px, before the shot is judged)
+      aim = Math.atan2(y() - 50 - 700, 400);   // 100 ms back, less the step (33 px) the target flies before the shot is judged: the middle of the hit zone
       const before = m.game.__simBot(target).lives;
       m.input(shooter, { aim, fire: true });
       run(m, 1 / 30 * 1.01, () => { t += STEP; hold(m, shooter, 1500, 700, aim); hold(m, target, 1900, y(), 0); m.game.__simBot(target).vy = 1000; });
@@ -182,4 +182,29 @@ test('a player’s teleporter throws a beacon and jumps onto it', { skip }, asyn
     assert.ok(b.x > 800, `jumped to the beacon: x ${b.x}`);
     assert.equal(b.teleN, 2);
   } finally { m.dispose(); }
+});
+
+test('a broken-off piece has the same name everywhere the same craters were cut, and the snapshot says where it is', { skip }, async () => {
+  const { createMatch } = await sim();
+  const cutCap = m => {
+    const T = m.game.__simTerrain, p = T.det().filter(b => b.planet && !b.fixed).sort((a, b) => b.rr - a.rr)[0];
+    for (let k = -6; k <= 6; k++) T.carveAt(p, p.x + p.rr * 0.55, p.y + k * p.rr * 0.12, 26, true);
+    T.carveAt(p, p.x + p.rr * 0.6, p.y, 60, true);
+    return { T, p };
+  };
+  const a = createMatch({ code: 'm1d0crub1' }), b = createMatch({ code: 'm1d0crub1' });
+  try {
+    run(a, 0.1); run(b, 0.1);
+    const A = cutCap(a), B = cutCap(b);
+    run(a, 0.3); run(b, 0.3);
+    const ka = A.T.rubble().map(r => r.key), kb = B.T.rubble().map(r => r.key);
+    assert.ok(ka.length >= 1, 'a piece broke off');
+    assert.equal(JSON.stringify(ka), JSON.stringify(kb), 'the same names on both');
+    const ra = A.T.rubble()[0], rb = B.T.rubble()[0];
+    // (the two test matches started at different moments, so their moons pull a little differently)
+    assert.ok((ra.vx * rb.vx + ra.vy * rb.vy) / Math.hypot(ra.vx, ra.vy) / Math.hypot(rb.vx, rb.vy) > 0.95, 'flung the same way');
+    assert.ok((ra.x - A.p.x) * ra.vx > 0, 'away from the planet it broke from');
+    const wire = a.packet(clock).rb;
+    assert.ok(wire && wire.list.some(e => e[0] === ra.key), JSON.stringify(wire));
+  } finally { a.dispose(); b.dispose(); }
 });

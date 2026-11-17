@@ -93,3 +93,17 @@ test('a socket error ends that connection only; the server keeps serving', { ski
   const res = await fetch(`http://127.0.0.1:${port}/health`);
   assert.equal(res.status, 200);
 });
+
+test('the room list shows rooms with players in them, readable by the game’s own page only', { skip }, async () => {
+  const ws = client(); await ws.opened;
+  ws.sendJ({ t: 'join', code: 'm1d0otest', name: 'Lister' }); await ws.next(m => m.t === 'welcome');   // the first test's room (with its two bots): one address may not open more
+  await new Promise(r => setTimeout(r, 1100));   // past the list's one-second cache
+  const res = await fetch(`http://127.0.0.1:${port}/rooms`, { headers: { Origin: 'https://artyomsasov.github.io' } });
+  assert.equal(res.headers.get('access-control-allow-origin'), 'https://artyomsasov.github.io');
+  const list = await res.json();
+  const row = list.find(r => r.c === 'm1d0otest');
+  assert.ok(row, JSON.stringify(list)); assert.equal(row.n, 1); assert.equal(row.b, 2);
+  const other = await fetch(`http://127.0.0.1:${port}/rooms`, { headers: { Origin: 'https://evil.example' } });
+  assert.equal(other.headers.get('access-control-allow-origin'), null, 'another site’s page can’t read it');
+  ws.close();
+});

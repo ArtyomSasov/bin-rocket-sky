@@ -73,8 +73,30 @@ const server = http.createServer((req, res) => {
       slowTicks: [...rooms.values()].reduce((n, r) => n + r.slowTicks, 0) }));
     return;
   }
+  if (req.url === "/rooms") {
+    // the open rooms, for the game's lobby browser: like the online lobbies, which every host announces on the
+    // public broker, a room on this server is open to anyone who sees it. Only the game's own pages may read it
+    const origin = req.headers.origin;
+    const headers = { "Content-Type": "application/json", "Cache-Control": "no-store", Vary: "Origin" };
+    if (origin && ORIGINS.includes(origin)) headers["Access-Control-Allow-Origin"] = origin;
+    res.writeHead(200, headers);
+    res.end(JSON.stringify(roomList()));
+    return;
+  }
   res.writeHead(404).end();
 });
+// [{ c: code, n: players, b: bots }], the fullest first, refreshed at most once a second
+let roomsCache = null, roomsAt = 0;
+function roomList() {
+  const now = performance.now();
+  if (roomsCache && now - roomsAt < 1000) return roomsCache;
+  roomsAt = now;
+  roomsCache = [...rooms.values()].filter(r => r.clients.size > 0).map(r => {
+    const pilots = r.match.pilots;
+    return { c: r.code, n: r.clients.size, b: pilots.filter(p => !p.human).length, m: MAX_PLAYERS };
+  }).sort((a, b) => b.n - a.n).slice(0, 20);
+  return roomsCache;
+}
 const perIp = new Map();
 const wss = new WebSocketServer({ server, maxPayload: 2048, perMessageDeflate: false,
   // a browser page from elsewhere may not open a game here; non-browser clients send no Origin

@@ -71,12 +71,24 @@
     }
     return nearest;
   }
-  // a scratch canvas for masking crater glow, grown as needed
-  let heatC = null;
-  function heatQ(S) {
-    if (!heatC) heatC = document.createElement("canvas").getContext("2d");
-    if (heatC.canvas.width < S) heatC.canvas.width = heatC.canvas.height = Math.min(2048, S);
-    return heatC;
+  // A crater's glow, masked by what is left of the body so only the torn edge burns: painted once per crater (and
+  // again only when the body loses more cells), in two colours, white-hot and dull red. Each frame just fades
+  // from one to the other, instead of building a gradient and masking it anew for every crater, every frame.
+  function heatLayers(b, h) {
+    if (h.layers && h.mass === b.mass) return h.layers;
+    const R1 = h.r * 1.45, S = Math.min(1024, Math.ceil(R1 * 2));
+    h.layers = ["255,240,140", "255,70,20"].map(col => {
+      const c = h.layers ? h.layers.shift() : document.createElement("canvas");
+      c.width = c.height = S;
+      const q = c.getContext("2d"), gr = q.createRadialGradient(R1, R1, h.r * 0.8, R1, R1, R1);
+      gr.addColorStop(0, `rgba(${col},0)`); gr.addColorStop(0.3, `rgba(${col},0.95)`); gr.addColorStop(1, `rgba(${col},0)`);
+      q.fillStyle = gr; q.fillRect(0, 0, S, S);
+      q.globalCompositeOperation = "destination-in";
+      q.drawImage(b.cv, (h.lx - R1) * BODY_RES, (h.ly - R1) * BODY_RES, S * BODY_RES, S * BODY_RES, 0, 0, S, S);
+      return c;
+    });
+    h.mass = b.mass; h.R1 = R1;
+    return h.layers;
   }
   function drawBodies(now) {
     for (const b of bodies) {
@@ -96,17 +108,11 @@
         for (let i = b.heat.length - 1; i >= 0; i--) {
           const h = b.heat[i], k = 1 - (now - h.t) / 2600;
           if (k <= 0) { b.heat.splice(i, 1); continue; }
-          // the glow is masked by what's left of the body, so only the torn edge itself burns, not the empty hole
-          const R1 = h.r * 1.45, S = Math.ceil(R1 * 2), hq = heatQ(S), hg = hq.createRadialGradient(R1, R1, h.r * 0.8, R1, R1, R1);
-          hg.addColorStop(0, "rgba(255,120,40,0)");
-          hg.addColorStop(0.3, `rgba(255,${(70 + 170 * k) | 0},${(20 + 120 * k * k) | 0},${0.95 * k * k})`);
-          hg.addColorStop(1, "rgba(255,60,20,0)");
-          hq.globalCompositeOperation = "copy"; hq.fillStyle = hg; hq.fillRect(0, 0, S, S);
-          hq.globalCompositeOperation = "destination-in";
-          hq.drawImage(b.cv, (h.lx - R1) * BODY_RES, (h.ly - R1) * BODY_RES, S * BODY_RES, S * BODY_RES, 0, 0, S, S);
-          g.drawImage(hq.canvas, 0, 0, S, S, h.lx - R1 - b.hw, h.ly - R1 - b.hh, S, S);
+          const [hot, cool] = heatLayers(b, h), R1 = h.R1, D = R1 * 2;
+          g.globalAlpha = k * k * k; g.drawImage(hot, h.lx - R1 - b.hw, h.ly - R1 - b.hh, D, D);
+          g.globalAlpha = k * k * (1 - k); g.drawImage(cool, h.lx - R1 - b.hw, h.ly - R1 - b.hh, D, D);
         }
-        g.globalCompositeOperation = "source-over";
+        g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
       }
       g.restore();
       if (ring) g.drawImage(b.ringF, x - b.ringHalf, y - b.ringHalf, b.ringHalf * 2, b.ringHalf * 2);

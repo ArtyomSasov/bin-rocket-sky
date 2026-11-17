@@ -391,6 +391,7 @@
       const fwd = speed > 0 ? Math.max(0, p.vx * bx + p.vy * by) * ride : 0;
       s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * (speed + fwd) + (speed > 0 ? 0 : p.vx * ride), vy: by * (speed + fwd) + (speed > 0 ? 0 : p.vy * ride),
             life: SHOTS[kind].life, cut: pat.cut || 0, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: false };   // pc: pierces (fireballs from Lv 7)
+      if (mine && serverRun) { s = predictShot(s); continue; }   // on the authoritative server my shot is only shown here
       metricShot(s, p, pat);
       pilotLag(s, p, now);
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else if (kind === K.NAIL) nailSpray(s); else shots.push(s);
@@ -570,7 +571,7 @@
     if (alt && (me.arsenal[k] || 0) < pat.cost) { rejectFire("NEED " + pat.cost + " AMMO", now); return; }
     if (alt && pat.cutter) pat = { ...pat, cut: Math.round(24 + 48 * railCharge) };
     if (alt && pat.recall) {
-      if (!shots.some(s => s.mine && s.kind === K.SAW && !s.returning && s.life > 0)) { rejectFire(controlledShots("saw").length ? "BLADES ALREADY RETURNING" : "NO ACTIVE BLADES", now); return; }
+      if (!shots.some(s => myShot(s) && s.kind === K.SAW && !s.returning && s.life > 0)) { rejectFire(controlledShots("saw").length ? "BLADES ALREADY RETURNING" : "NO ACTIVE BLADES", now); return; }
       const signal = volley(me, now, pat, { x: me.x, y: me.y }); recallSaws(signal); fireCd = pat.cd; sfx(...pat.sfx); return;
     }
     if (k === "tele" && myBeacon()) { teleport(now); return; }   // the second shot jumps you to the beacon
@@ -595,13 +596,13 @@
       return;
     }
     if (alt && pat.minedet) {   // set off every mine of mine, on every screen
-      if (!shots.some(s => s.mine && s.kind === K.MINE && s.life > 0)) { rejectFire("NO ACTIVE MINES", now); return; }
+      if (!shots.some(s => myShot(s) && s.kind === K.MINE && s.life > 0)) { rejectFire("NO ACTIVE MINES", now); return; }
       if (!controlledShots("mine").some(s => SHOTS[K.MINE].life - s.life >= MINE_ARM)) { rejectFire("MINES ARMING", now); return; }
       volley(me, now, MINE_DETONATOR, { x: me.x, y: me.y }); fireCd = pat.cd; sfx(...pat.sfx);
       return;
     }
     if (alt && pat.detonate) {   // the gamma orb's alt: a detonator at my orb, which sets it off on every screen
-      const o = shots.filter(s => s.mine && s.kind === K.GAMMA && s.life > 0).pop();
+      const o = shots.filter(s => myShot(s) && s.kind === K.GAMMA && s.life > 0).pop();
       if (!o) { rejectFire("NO ACTIVE DEMONIC ORB", now); return; }
       volley(me, now, DETONATOR, { x: o.x, y: o.y }); fireCd = pat.cd; sfx(...pat.sfx);
       return;
@@ -613,7 +614,7 @@
     }
     const cdMul = MODES[MODE].cdMul || 1;
     fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
-    const gun = muzzleAt(k);
+    const gun = serverRun ? null : muzzleAt(k);   // the server fires a pilot's gun from the bin's nose
     const muzzle = volley(me, now, pat, gun, (k === "bolt" && !alt || k === "laser" && alt) ? boltLock(me, gun) : undefined, mul);
     const [name, vol, pitch] = pat.sfx;
     const packed = alt && k === "orb" ? audioCue("shockBeam") : k === "minigun" ? continuousFire("me", "minigun", me.x, me.y, now, !!alt)
@@ -622,8 +623,8 @@
     if (!packed) sfx(name, vol, w.charge ? pitch * (1.3 - 0.4 * mul) : pitch) || blip(160, 0.1, "sawtooth");   // a fuller charge sounds deeper
     if (pat.fx) MUZZLE_FX[pat.fx](muzzle);
     shotFeel(k, muzzle, pat.kick * (w.charge ? mul : 1), ...pat.feel);
-    if (pat.guided) startGuide(muzzle);
-    if (k !== "tele") spend(k, alt ? pat.cost : 1);   // the teleporter spends a charge on the jump, not on the throw
+    if (pat.guided && !serverRun) startGuide(muzzle);   // the server flies a nuke straight: nobody's screen steers it
+    if (k !== "tele" && !serverRun) spend(k, alt ? pat.cost : 1);   // on the server, ammo is its count   // the teleporter spends a charge on the jump, not on the throw
   }
   // ---- the minigun spins up while the trigger is held; the charge cannon charges while held and fires on release
   let spin = 0, charge = 0, railCharge = 0;   // railCharge: the railgun's alt, held
