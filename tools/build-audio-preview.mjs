@@ -10,7 +10,7 @@ const files = {
   shard: 'ut/shard-cannon-fire.wav', demonic: 'user/demonic-shot.wav',
   enforcer: 'ut/default-weapon-fire.wav', rocket: 'ut/rocket-launcher-fire.wav', fight: 'voice/fight.mp3',
   p_ut_mini_fire: 'ut/minigun-regfire.wav', p_ut_mini_alt: 'ut/minigun-altfire.wav', p_ut_mini_stop: 'ut/minigun-winddown.wav',
-  p_ut_pulse_fire: 'ut/pulse-gun-fire.wav', p_loop_laser: 'ut/pulse-gun-bolt.wav', p_stop_laser: 'ut/pulse-gun-down.wav' 
+  p_ut_pulse_fire: 'ut/pulse-gun-fire.wav', p_loop_laser: 'ut/pulse-gun-bolt.wav', p_stop_laser: 'ut/pulse-gun-down.wav'
 };
 const data = Object.fromEntries(Object.entries(files).map(([k, p]) => [k, 'data:' + (p.endsWith('.mp3') ? 'audio/mpeg' : 'audio/wav') + ';base64,' + readFileSync('sfx/pack/' + p).toString('base64')]));
 writeFileSync('audio-preview.html', `<!doctype html><html lang="ru"><meta charset="utf-8">
