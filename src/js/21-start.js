@@ -7,8 +7,8 @@
     ["Fire", `the left mouse button or ${KEY("Space")} (also ${KEY("F")} ${KEY("J")} ${KEY(enter)})`],
     ["Dash", `tap ${KEY(shift)} — a quick dodge forward`],
     ["Boost", `hold ${KEY(shift)} — uses the blue energy bar`],
-    ["Weapon", `${KEY("1")}–${KEY("8")}, ${KEY("Q")} / ${KEY("E")}, or click a gun in the bar`],
-    ["Alt fire", `right mouse button or ${KEY("C")}: available per weapon — laser pulse, rail breach cutter (hold for width, release), flak, shock beam, demonic orb detonate, rocket salvo, slug, thrown mine, saw recall (bring blades back through enemies)`],
+    ["Weapon", `fixed ${KEY("1")}–${KEY("9")} / ${KEY("0")}; ${KEY("Alt")}+${KEY("1")}–${KEY("6")} for extras; ${KEY("Q")} / ${KEY("E")} or click a gun`],
+    ["Alt fire", `right mouse button or ${KEY("C")}: available per weapon — laser pulse, rail breach cutter (hold for width, release), flak, shock beam, demonic orb detonate, rocket salvo, slug, mine detonation, saw recall (bring blades back through enemies)`],
     ["Teleporter", `${KEY("T")} throws the beacon, ${KEY("T")} again jumps onto it (land on someone: telefrag)`],
     ["Brake / drift", `hold ${KEY("X")} to brake; ${KEY("X")} + a direction drifts: you slide on while the nose swings round (shoot back)`],
     ["Levels", "kills, sparks and planets give XP; every level adds a perk (Lv 4 twin fireballs, Lv 7 piercing, Lv 10 the crown); dying costs 2 levels"]] });

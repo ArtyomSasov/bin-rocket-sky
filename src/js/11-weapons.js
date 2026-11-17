@@ -797,7 +797,7 @@
     el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICONS[me.weapon]}"/></svg>`;
     el.append(chipText());
     el.style.color = w.col || "";
-    // the weapon bar: every gun you carry, tap/click or 1-8 / Q / E to switch
+    // the weapon bar: every gun you carry, tap/click, fixed numeric slots or Q/E to switch
     const list = owned();
     arsenalEl.hidden = !playing || list.length < 2;
     arsenalEl.innerHTML = list.map((k, i) => {
