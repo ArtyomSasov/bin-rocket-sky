@@ -94,15 +94,22 @@ test('a socket error ends that connection only; the server keeps serving', { ski
   assert.equal(res.status, 200);
 });
 
-test('the room list shows rooms with players in them, readable by the game’s own page only', { skip }, async () => {
+test('the room list shows public rooms with players in them, never a room opened by code alone', { skip }, async () => {
+  // the first test's room was opened without pub: it is not listed even with a player in it
   const ws = client(); await ws.opened;
-  ws.sendJ({ t: 'join', code: 'm1d0otest', name: 'Lister' }); await ws.next(m => m.t === 'welcome');   // the first test's room (with its two bots): one address may not open more
+  ws.sendJ({ t: 'join', code: 'm1d0otest', name: 'Hidden' }); await ws.next(m => m.t === 'welcome');
   await new Promise(r => setTimeout(r, 1100));   // past the list's one-second cache
   const res = await fetch(`http://127.0.0.1:${port}/rooms`, { headers: { Origin: 'https://artyomsasov.github.io' } });
   assert.equal(res.headers.get('access-control-allow-origin'), 'https://artyomsasov.github.io');
-  const list = await res.json();
-  const row = list.find(r => r.c === 'm1d0otest');
-  assert.ok(row, JSON.stringify(list)); assert.equal(row.n, 1); assert.equal(row.b, 2);
+  const listed = await res.json();
+  assert.ok(!listed.some(r => r.c === 'm1d0otest'), 'a private room stays off the list');
+  // a new game (pub) is listed, with its players and bots
+  const pub = client({ 'X-Forwarded-For': '10.9.9.9' }); await pub.opened;
+  pub.sendJ({ t: 'join', code: 'm1d0opub', name: 'Host', bots: 3, pub: true }); await pub.next(m => m.t === 'welcome');
+  await new Promise(r => setTimeout(r, 1100));
+  const row = (await (await fetch(`http://127.0.0.1:${port}/rooms`)).json()).find(r => r.c === 'm1d0opub');
+  assert.ok(row && row.n === 1 && row.b === 3, JSON.stringify(row));
+  pub.close();
   const other = await fetch(`http://127.0.0.1:${port}/rooms`, { headers: { Origin: 'https://evil.example' } });
   assert.equal(other.headers.get('access-control-allow-origin'), null, 'another site’s page can’t read it');
   ws.close();

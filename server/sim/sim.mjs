@@ -47,6 +47,7 @@ const BRIDGE = `
         wd: myGunDrops.filter(d => Date.now() - d[5] < GUN_DROP_LIFE).slice(-3).map(d => d.slice(0, 5)) };
     },
     pilot: id => botById.has(id) ? pilotView(botById.get(id)) : null,
+    get bots() { let n = 0; for (const b of bots) if (!b.input) n++; return n; },
     get pilots() { return bots.map(pilotView); },
     get info() {
       return { map: MAPS[mapThemeOf(worldCode)].name, mode: MODE, round: stats.round, live: roundLive, bodies: bodies.length,
@@ -80,6 +81,7 @@ export function createMatch({ code = "m1d0c", bots = 0, level = "normal" } = {})
     rtt: (id, ms) => sim.rtt(id, Math.max(0, Math.min(1000, Number(ms) || 0))),
     pilot: id => sim.pilot(id),
     get pilots() { return sim.pilots; },
+    get bots() { return sim.bots; },   // how many AI bots fly (a count, cheap)
     get info() { return sim.info; },
     dispose: () => game.__dispose(),   // stops the match's timers so it can be freed
     game

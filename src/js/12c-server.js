@@ -24,7 +24,7 @@
     if (!SERVER_URL) { setStatus(false, "Server · no valid address"); return; }
     const ws = new WebSocket(SERVER_URL);
     srv.ws = ws;
-    ws.onopen = () => ws.send(JSON.stringify({ t: "join", code, name: me.name, bots: botChoice.n, level: botChoice.level }));
+    ws.onopen = () => ws.send(JSON.stringify({ t: "join", code, name: me.name, bots: botChoice.n, level: botChoice.level, pub: !joining }));   // a new game is listed, as online lobbies are; a room opened by typing a code is not
     ws.onmessage = e => {
       if (typeof e.data !== "string" || e.data.length > 262144) return;
       let m; try { m = JSON.parse(e.data); } catch { return; }
@@ -156,11 +156,7 @@
     let list;
     try { const r = await fetch(ROOMS_URL, { cache: "no-store" }); if (!r.ok) return; list = await r.json(); } catch { return; }
     if (!Array.isArray(list)) return;
-    for (const e of list.slice(0, 20)) {
-      if (!e || typeof e.c !== "string" || !/^[a-z0-9]{4,16}$/.test(e.c) || !Number.isInteger(e.n) || e.n < 1 || e.n > 64) continue;
-      if (!openLobbies.has(e.c) && openLobbies.size >= 60) continue;
-      openLobbies.set(e.c, { n: e.n, b: Number.isInteger(e.b) ? clamp(e.b, 0, 64) : 0, s: true, at: Date.now() });
-    }
+    for (const e of list.slice(0, 20)) if (e) noteLobby(e.c, e.n, e.b, true);
     renderLobbies();
   }
   if (standalone && ROOMS_URL) { setTimeout(pollServerRooms, 500); setInterval(pollServerRooms, 4000); }

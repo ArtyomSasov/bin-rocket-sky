@@ -148,6 +148,7 @@
     };
     segButtons(whereEl, [["on", "Online lobby"], ["srv", "Game server (beta)"], ["lan", "Local room"], ["off", "Offline with bots"]], offlineRun ? "off" : "on", v => { if (!offlineOnly) store.set("binrocket.where", v); pickWhere(v); });
     [...whereEl.children].forEach((b, i) => b.dataset.v = ["on", "srv", "lan", "off"][i]);
+    chooseWhere = v => { const b = whereEl.querySelector(`[data-v="${v}"]`); if (!b || b.disabled) return false; pickWhere(v); return true; };
     if (!SERVER_URL) whereEl.children[1].disabled = true;
     if (!offlineOnly && ["off", "lan", "srv"].includes(store.get("binrocket.where"))) pickWhere(store.get("binrocket.where"));
     noNetwork = msg => {

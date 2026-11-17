@@ -588,7 +588,8 @@
 
   // Repair missed craters and late joins with a rolling snapshot of removed cells. Removal is
   // monotonic within a round, so duplicates and snapshots from different peers cannot fill a hole.
-  // Only shared terrain is synchronized; detached rubble remains a local visual/physics effect.
+  // Only shared terrain is synchronized here. Detached rubble flies by each machine's own physics (the same for
+  // the same pieces); on the authoritative server, the server also says where it is (rubbleWire / applyRubble).
   let terrainCursor = 0;
   function nextTerrain() {
     if (!det.length) return null;
@@ -746,6 +747,11 @@
   // surface normal, bounced with little restitution, its slide turned partly into spin; a hard knock chips it and
   // throws dust, and a small piece hitting very hard crumbles to grit. Rubble-on-rubble is left out (cheap, and
   // the pieces are few). Only the rubble itself is changed: shared terrain is cut by shots alone.
+  // a piece of rubble falls apart into grit
+  function crumble(r) {
+    for (let k = 0; k < Math.min(8, 2 + (r.mass >> 3)); k++) { const a = Math.random() * 6.28, v = 30 + Math.random() * 120; addDebris(r.x, r.y, Math.cos(a) * v + r.vx * 0.3, Math.sin(a) * v + r.vy * 0.3, 2.5 + Math.random() * 4, bodyCol(r), 4 + Math.random() * 4); }
+    r.dead = true;
+  }
   function rubbleCollide(r, now) {
     const rad = Math.max(r.cs * 1.5, Math.sqrt(r.mass) * r.cs * 0.5);
     for (const o of bodies) {
@@ -772,10 +778,7 @@
         for (let k = 0; k < (lowQ ? 2 : 5); k++) { const a = Math.atan2(ny, nx) + (Math.random() - 0.5) * 2.4, v = 40 + Math.random() * speed * 0.6; puff(px, py, Math.cos(a) * v, Math.sin(a) * v, 0.7 + Math.random() * 0.8, 4 + Math.random() * 5, k % 2 ? bodyCol(o) : "rgb(90,80,100)", 2); }
         if (o.fixed || WRECK_PAL[o.kind]) impact(px, py, "#ffd36b", Math.min(1.2, speed / 300));
         sfx("chunk", Math.min(0.8, speed / 400), 0.6 + Math.random() * 0.3, px, py);
-        if (r.mass < 40 && speed > 260) {   // crumbles
-          for (let k = 0; k < Math.min(8, 2 + (r.mass >> 3)); k++) { const a = Math.random() * 6.28, v = 30 + Math.random() * 120; addDebris(r.x, r.y, Math.cos(a) * v + r.vx * 0.3, Math.sin(a) * v + r.vy * 0.3, 2.5 + Math.random() * 4, bodyCol(r), 4 + Math.random() * 4); }
-          r.dead = true; return;
-        }
+        if (r.mass < 40 && speed > 260) { crumble(r); return; }
         if (speed > 160) { const [lx, ly] = toLocal(r, px + nx * 4, py + ny * 4); carveLocal(r, lx, ly, Math.min(14, 4 + speed / 40), false); }   // a corner breaks off
       }
       return;
@@ -812,10 +815,7 @@
       b.vx = vx; b.vy = vy; b.va = clamp(e[6] / 100, -10, 10);
     }
     // the full list: a piece the server no longer has crumbled there (a moment's grace for one that just broke off here)
-    if (w.all === true) for (const [k, b] of byKey) if (!seen.has(k) && now - (b.freedAt || 0) > 1500) {
-      for (let i = 0; i < Math.min(8, 2 + (b.mass >> 3)); i++) { const an = Math.random() * 6.28, v = 30 + Math.random() * 120; addDebris(b.x, b.y, Math.cos(an) * v, Math.sin(an) * v, 2.5 + Math.random() * 4, bodyCol(b), 4 + Math.random() * 4); }
-      b.dead = true;
-    }
+    if (w.all === true) for (const [k, b] of byKey) if (!seen.has(k) && now - (b.freedAt || 0) > 1500) crumble(b);
   }
   function spawnPoint(tm) {
     if (stationMap()) {

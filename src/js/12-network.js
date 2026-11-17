@@ -22,24 +22,36 @@
   const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
   const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
   const LOBBY_TOPIC = "binrocket-sky/v18/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
-  const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
+  // "code" (online lobbies) or "s:code" (game-server rooms) -> { c: code, n: pilots, b: bots, s: on the server, at: when last heard }
+  const openLobbies = new Map();
   let lobbyRenderPending = false;
+  // one rule for what the lobby list takes in, from the public broker or from the game server
+  function noteLobby(c, n, b, onServer) {
+    if (typeof c !== "string" || !/^[a-z0-9]{4,16}$/.test(c) || !Number.isInteger(n) || n < 1 || n > 64) return false;
+    const key = (onServer ? "s:" : "") + c;
+    if (!openLobbies.has(key) && openLobbies.size >= 60) return false;   // both sources are public: keep the list bounded
+    openLobbies.set(key, { c, n, b: Number.isInteger(b) ? clamp(b, 0, 64) : 0, s: !!onServer, at: Date.now() });
+    return true;
+  }
+  // set by the start screen: switches online / game server for a listed game (false if that choice is unavailable)
+  let chooseWhere = () => false;
   function renderLobbies() {
     const el = document.getElementById("lobbyList"), now = Date.now();
     for (const [c, l] of openLobbies) if (now - l.at > LOBBY_TTL) openLobbies.delete(c);
     const list = [...openLobbies].sort((a, b) => b[1].n - a[1].n).slice(0, 20);
     document.getElementById("tabJoin").textContent = list.length ? `Join a game (${list.length})` : "Join a friend";
     if (!el) return;
-    el.replaceChildren(...list.map(([c, l]) => {
+    el.replaceChildren(...list.map(([, l]) => {
+      const c = l.c;
       const row = document.createElement("button"); row.type = "button"; row.className = "lobby";
       const t = document.createElement("b"); t.textContent = MODES[modeOf(c)].label + " · " + MAPS[mapThemeOf(c)].label + " · " + MAP_SIZES[mapOf(c)][1] + " · " + TIME_OPTS[timeOf(c)] + " min" + (scoreLimit(c) ? " · to " + scoreLimit(c) : "");
       const s = document.createElement("small"); s.textContent = (l.s ? "Game server · " : "") + l.n + (l.n === 1 ? " pilot" : " pilots") + (l.b ? " + " + l.b + " bots" : "") + " · " + c.toUpperCase();
       row.append(t, s);
       if (l.s) row.classList.add("srv");
       row.addEventListener("click", () => {
-        // a room on the game server is joined there: the where-pick follows the room
-        const where = document.querySelector(`#wherePick [data-v="${l.s ? "srv" : "on"}"]`);
-        if (where && where.getAttribute("aria-pressed") !== "true" && !where.disabled) where.click();
+        // a room on the game server is joined there, an online lobby online (for this game only: the saved
+        // default stays the player's own choice); with that way in unavailable, the click does nothing
+        if (!chooseWhere(l.s ? "srv" : "on")) return;
         lobbyInput.value = c.toUpperCase(); lobbyInput.dispatchEvent(new Event("input")); document.getElementById("startForm").requestSubmit(); });
       return row;
     }));
@@ -310,9 +322,7 @@
     browse.on("message", (topic, payload) => {
       if (payload.length > 300) return;
       let p; try { p = JSON.parse(payload.toString()); } catch { return; }
-      if (!p || typeof p.c !== "string" || !/^[a-z0-9]{4,16}$/.test(p.c) || !Number.isInteger(p.n) || p.n < 1 || p.n > 64) return;
-      if (!openLobbies.has(p.c) && openLobbies.size >= 60) return;   // the topic is public: keep the list bounded
-      openLobbies.set(p.c, { n: p.n, b: Number.isInteger(p.b) ? clamp(p.b, 0, 64) : 0, at: Date.now() });
+      if (!p || !noteLobby(p.c, p.n, p.b, false)) return;
       if (!lobbyRenderPending) { lobbyRenderPending = true; setTimeout(() => { lobbyRenderPending = false; renderLobbies(); }, 500); }
     });
     }

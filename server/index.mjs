@@ -5,6 +5,7 @@
 //   PORT=8080 MAX_ROOMS=2 node index.mjs
 //
 // client -> server   { t: "join", code, name, bots, level }   first message; joins or creates the room
+//                    (join's pub: true lists the room in /rooms, for the lobby browser)
 //                    { t: "in", mx, my, aim, fire, alt, boost, dash, tele, w }   the player's controls, sent as they change
 //                    { t: "ping", c }
 // server -> client   { t: "welcome", id, code, tickHz, sendHz, serverTime }
@@ -74,8 +75,9 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (req.url === "/rooms") {
-    // the open rooms, for the game's lobby browser: like the online lobbies, which every host announces on the
-    // public broker, a room on this server is open to anyone who sees it. Only the game's own pages may read it
+    // the listed rooms, for the game's lobby browser: like the online lobbies, which every host announces on the
+    // public broker, a new game's room is listed for anyone (scripts too; the CORS header only keeps other sites'
+    // pages from reading it). A room opened by typing a code (pub not set) stays known only to whoever has the code
     const origin = req.headers.origin;
     const headers = { "Content-Type": "application/json", "Cache-Control": "no-store", Vary: "Origin" };
     if (origin && ORIGINS.includes(origin)) headers["Access-Control-Allow-Origin"] = origin;
@@ -91,10 +93,8 @@ function roomList() {
   const now = performance.now();
   if (roomsCache && now - roomsAt < 1000) return roomsCache;
   roomsAt = now;
-  roomsCache = [...rooms.values()].filter(r => r.clients.size > 0).map(r => {
-    const pilots = r.match.pilots;
-    return { c: r.code, n: r.clients.size, b: pilots.filter(p => !p.human).length, m: MAX_PLAYERS };
-  }).sort((a, b) => b.n - a.n).slice(0, 20);
+  roomsCache = [...rooms.values()].filter(r => r.pub && r.clients.size > 0)
+    .map(r => ({ c: r.code, n: r.clients.size, b: r.match.bots, m: MAX_PLAYERS })).sort((a, b) => b.n - a.n).slice(0, 20);
   return roomsCache;
 }
 const perIp = new Map();
@@ -140,7 +140,7 @@ wss.on("connection", (ws, req) => {
         if (rooms.size >= MAX_ROOMS) { send(ws, { t: "error", reason: "server full" }); ws.close(1013); return; }
         // one address opens few rooms at a time, so nobody can take every room for themselves
         if ([...rooms.values()].filter(o => o.opener === addr).length >= ROOMS_PER_IP) { send(ws, { t: "error", reason: "you already have a room" }); ws.close(1013); return; }
-        r = openRoom(code, m.bots, m.level); r.opener = addr;
+        r = openRoom(code, m.bots, m.level); r.opener = addr; r.pub = m.pub === true;
       }
       if (r.clients.size >= MAX_PLAYERS) { send(ws, { t: "error", reason: "room full" }); ws.close(1013); return; }
       const pid = r.match.addPilot(cleanName(m.name));

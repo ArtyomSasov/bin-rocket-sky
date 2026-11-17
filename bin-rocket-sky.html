@@ -2616,7 +2616,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
 
   // Repair missed craters and late joins with a rolling snapshot of removed cells. Removal is
   // monotonic within a round, so duplicates and snapshots from different peers cannot fill a hole.
-  // Only shared terrain is synchronized; detached rubble remains a local visual/physics effect.
+  // Only shared terrain is synchronized here. Detached rubble flies by each machine's own physics (the same for
+  // the same pieces); on the authoritative server, the server also says where it is (rubbleWire / applyRubble).
   let terrainCursor = 0;
   function nextTerrain() {
     if (!det.length) return null;
@@ -2774,6 +2775,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // surface normal, bounced with little restitution, its slide turned partly into spin; a hard knock chips it and
   // throws dust, and a small piece hitting very hard crumbles to grit. Rubble-on-rubble is left out (cheap, and
   // the pieces are few). Only the rubble itself is changed: shared terrain is cut by shots alone.
+  // a piece of rubble falls apart into grit
+  function crumble(r) {
+    for (let k = 0; k < Math.min(8, 2 + (r.mass >> 3)); k++) { const a = Math.random() * 6.28, v = 30 + Math.random() * 120; addDebris(r.x, r.y, Math.cos(a) * v + r.vx * 0.3, Math.sin(a) * v + r.vy * 0.3, 2.5 + Math.random() * 4, bodyCol(r), 4 + Math.random() * 4); }
+    r.dead = true;
+  }
   function rubbleCollide(r, now) {
     const rad = Math.max(r.cs * 1.5, Math.sqrt(r.mass) * r.cs * 0.5);
     for (const o of bodies) {
@@ -2800,10 +2806,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         for (let k = 0; k < (lowQ ? 2 : 5); k++) { const a = Math.atan2(ny, nx) + (Math.random() - 0.5) * 2.4, v = 40 + Math.random() * speed * 0.6; puff(px, py, Math.cos(a) * v, Math.sin(a) * v, 0.7 + Math.random() * 0.8, 4 + Math.random() * 5, k % 2 ? bodyCol(o) : "rgb(90,80,100)", 2); }
         if (o.fixed || WRECK_PAL[o.kind]) impact(px, py, "#ffd36b", Math.min(1.2, speed / 300));
         sfx("chunk", Math.min(0.8, speed / 400), 0.6 + Math.random() * 0.3, px, py);
-        if (r.mass < 40 && speed > 260) {   // crumbles
-          for (let k = 0; k < Math.min(8, 2 + (r.mass >> 3)); k++) { const a = Math.random() * 6.28, v = 30 + Math.random() * 120; addDebris(r.x, r.y, Math.cos(a) * v + r.vx * 0.3, Math.sin(a) * v + r.vy * 0.3, 2.5 + Math.random() * 4, bodyCol(r), 4 + Math.random() * 4); }
-          r.dead = true; return;
-        }
+        if (r.mass < 40 && speed > 260) { crumble(r); return; }
         if (speed > 160) { const [lx, ly] = toLocal(r, px + nx * 4, py + ny * 4); carveLocal(r, lx, ly, Math.min(14, 4 + speed / 40), false); }   // a corner breaks off
       }
       return;
@@ -2840,10 +2843,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       b.vx = vx; b.vy = vy; b.va = clamp(e[6] / 100, -10, 10);
     }
     // the full list: a piece the server no longer has crumbled there (a moment's grace for one that just broke off here)
-    if (w.all === true) for (const [k, b] of byKey) if (!seen.has(k) && now - (b.freedAt || 0) > 1500) {
-      for (let i = 0; i < Math.min(8, 2 + (b.mass >> 3)); i++) { const an = Math.random() * 6.28, v = 30 + Math.random() * 120; addDebris(b.x, b.y, Math.cos(an) * v, Math.sin(an) * v, 2.5 + Math.random() * 4, bodyCol(b), 4 + Math.random() * 4); }
-      b.dead = true;
-    }
+    if (w.all === true) for (const [k, b] of byKey) if (!seen.has(k) && now - (b.freedAt || 0) > 1500) crumble(b);
   }
   function spawnPoint(tm) {
     if (stationMap()) {
@@ -2975,16 +2975,23 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     return nearest;
   }
-  // A crater's glow, masked by what is left of the body so only the torn edge burns: painted once per crater (and
-  // again only when the body loses more cells), in two colours, white-hot and dull red. Each frame just fades
-  // from one to the other, instead of building a gradient and masking it anew for every crater, every frame.
+  // A crater's glow, masked by what is left of the body so only the torn edge burns: painted once per crater, in
+  // two colours, white-hot and dull red; each frame just fades from one to the other. When the body loses more
+  // cells a glow is repainted to match, but only a few a frame (heatBudget): under a stream of hot hits the rest
+  // keep their last mask a moment longer. Canvases of faded glows are kept for the next ones (heatPool).
+  const heatPool = [];
+  let heatBudget = 0;
   function heatLayers(b, h) {
-    if (h.layers && h.mass === b.mass) return h.layers;
+    if (h.layers && (h.mass === b.mass || heatBudget <= 0)) return h.layers;
+    heatBudget--;
     const R1 = h.r * 1.45, S = Math.min(1024, Math.ceil(R1 * 2));
-    h.layers = ["255,240,140", "255,70,20"].map(col => {
-      const c = h.layers ? h.layers.shift() : document.createElement("canvas");
-      c.width = c.height = S;
-      const q = c.getContext("2d"), gr = q.createRadialGradient(R1, R1, h.r * 0.8, R1, R1, R1);
+    const reuse = h.layers || [heatPool.pop(), heatPool.pop()];
+    h.layers = ["255,240,140", "255,70,20"].map((col, n) => {
+      const c = reuse[n] || document.createElement("canvas");
+      if (c.width !== S) c.width = c.height = S;
+      const q = c.getContext("2d");
+      q.globalCompositeOperation = "copy";
+      const gr = q.createRadialGradient(R1, R1, h.r * 0.8, R1, R1, R1);
       gr.addColorStop(0, `rgba(${col},0)`); gr.addColorStop(0.3, `rgba(${col},0.95)`); gr.addColorStop(1, `rgba(${col},0)`);
       q.fillStyle = gr; q.fillRect(0, 0, S, S);
       q.globalCompositeOperation = "destination-in";
@@ -2995,6 +3002,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     return h.layers;
   }
   function drawBodies(now) {
+    heatBudget = 4;
     for (const b of bodies) {
       const x = sx(b.x), y = sy(b.y), ring = b.ringB && !b.free;
       if (!onScreen(x, y, ring ? b.ringHalf : b.star ? b.rr * 2.4 : b.r)) continue;
@@ -3011,7 +3019,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         g.globalCompositeOperation = "lighter";
         for (let i = b.heat.length - 1; i >= 0; i--) {
           const h = b.heat[i], k = 1 - (now - h.t) / 2600;
-          if (k <= 0) { b.heat.splice(i, 1); continue; }
+          if (k <= 0) { const [h0] = b.heat.splice(i, 1); if (h0.layers && heatPool.length < 24) heatPool.push(...h0.layers); continue; }
           const [hot, cool] = heatLayers(b, h), R1 = h.R1, D = R1 * 2;
           g.globalAlpha = k * k * k; g.drawImage(hot, h.lx - R1 - b.hw, h.ly - R1 - b.hh, D, D);
           g.globalAlpha = k * k * (1 - k); g.drawImage(cool, h.lx - R1 - b.hw, h.ly - R1 - b.hh, D, D);
@@ -4928,24 +4936,36 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
   const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
   const LOBBY_TOPIC = "binrocket-sky/v18/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
-  const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
+  // "code" (online lobbies) or "s:code" (game-server rooms) -> { c: code, n: pilots, b: bots, s: on the server, at: when last heard }
+  const openLobbies = new Map();
   let lobbyRenderPending = false;
+  // one rule for what the lobby list takes in, from the public broker or from the game server
+  function noteLobby(c, n, b, onServer) {
+    if (typeof c !== "string" || !/^[a-z0-9]{4,16}$/.test(c) || !Number.isInteger(n) || n < 1 || n > 64) return false;
+    const key = (onServer ? "s:" : "") + c;
+    if (!openLobbies.has(key) && openLobbies.size >= 60) return false;   // both sources are public: keep the list bounded
+    openLobbies.set(key, { c, n, b: Number.isInteger(b) ? clamp(b, 0, 64) : 0, s: !!onServer, at: Date.now() });
+    return true;
+  }
+  // set by the start screen: switches online / game server for a listed game (false if that choice is unavailable)
+  let chooseWhere = () => false;
   function renderLobbies() {
     const el = document.getElementById("lobbyList"), now = Date.now();
     for (const [c, l] of openLobbies) if (now - l.at > LOBBY_TTL) openLobbies.delete(c);
     const list = [...openLobbies].sort((a, b) => b[1].n - a[1].n).slice(0, 20);
     document.getElementById("tabJoin").textContent = list.length ? `Join a game (${list.length})` : "Join a friend";
     if (!el) return;
-    el.replaceChildren(...list.map(([c, l]) => {
+    el.replaceChildren(...list.map(([, l]) => {
+      const c = l.c;
       const row = document.createElement("button"); row.type = "button"; row.className = "lobby";
       const t = document.createElement("b"); t.textContent = MODES[modeOf(c)].label + " · " + MAPS[mapThemeOf(c)].label + " · " + MAP_SIZES[mapOf(c)][1] + " · " + TIME_OPTS[timeOf(c)] + " min" + (scoreLimit(c) ? " · to " + scoreLimit(c) : "");
       const s = document.createElement("small"); s.textContent = (l.s ? "Game server · " : "") + l.n + (l.n === 1 ? " pilot" : " pilots") + (l.b ? " + " + l.b + " bots" : "") + " · " + c.toUpperCase();
       row.append(t, s);
       if (l.s) row.classList.add("srv");
       row.addEventListener("click", () => {
-        // a room on the game server is joined there: the where-pick follows the room
-        const where = document.querySelector(`#wherePick [data-v="${l.s ? "srv" : "on"}"]`);
-        if (where && where.getAttribute("aria-pressed") !== "true" && !where.disabled) where.click();
+        // a room on the game server is joined there, an online lobby online (for this game only: the saved
+        // default stays the player's own choice); with that way in unavailable, the click does nothing
+        if (!chooseWhere(l.s ? "srv" : "on")) return;
         lobbyInput.value = c.toUpperCase(); lobbyInput.dispatchEvent(new Event("input")); document.getElementById("startForm").requestSubmit(); });
       return row;
     }));
@@ -5216,9 +5236,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     browse.on("message", (topic, payload) => {
       if (payload.length > 300) return;
       let p; try { p = JSON.parse(payload.toString()); } catch { return; }
-      if (!p || typeof p.c !== "string" || !/^[a-z0-9]{4,16}$/.test(p.c) || !Number.isInteger(p.n) || p.n < 1 || p.n > 64) return;
-      if (!openLobbies.has(p.c) && openLobbies.size >= 60) return;   // the topic is public: keep the list bounded
-      openLobbies.set(p.c, { n: p.n, b: Number.isInteger(p.b) ? clamp(p.b, 0, 64) : 0, at: Date.now() });
+      if (!p || !noteLobby(p.c, p.n, p.b, false)) return;
       if (!lobbyRenderPending) { lobbyRenderPending = true; setTimeout(() => { lobbyRenderPending = false; renderLobbies(); }, 500); }
     });
     }
@@ -5565,7 +5583,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (!SERVER_URL) { setStatus(false, "Server · no valid address"); return; }
     const ws = new WebSocket(SERVER_URL);
     srv.ws = ws;
-    ws.onopen = () => ws.send(JSON.stringify({ t: "join", code, name: me.name, bots: botChoice.n, level: botChoice.level }));
+    ws.onopen = () => ws.send(JSON.stringify({ t: "join", code, name: me.name, bots: botChoice.n, level: botChoice.level, pub: !joining }));   // a new game is listed, as online lobbies are; a room opened by typing a code is not
     ws.onmessage = e => {
       if (typeof e.data !== "string" || e.data.length > 262144) return;
       let m; try { m = JSON.parse(e.data); } catch { return; }
@@ -5697,11 +5715,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     let list;
     try { const r = await fetch(ROOMS_URL, { cache: "no-store" }); if (!r.ok) return; list = await r.json(); } catch { return; }
     if (!Array.isArray(list)) return;
-    for (const e of list.slice(0, 20)) {
-      if (!e || typeof e.c !== "string" || !/^[a-z0-9]{4,16}$/.test(e.c) || !Number.isInteger(e.n) || e.n < 1 || e.n > 64) continue;
-      if (!openLobbies.has(e.c) && openLobbies.size >= 60) continue;
-      openLobbies.set(e.c, { n: e.n, b: Number.isInteger(e.b) ? clamp(e.b, 0, 64) : 0, s: true, at: Date.now() });
-    }
+    for (const e of list.slice(0, 20)) if (e) noteLobby(e.c, e.n, e.b, true);
     renderLobbies();
   }
   if (standalone && ROOMS_URL) { setTimeout(pollServerRooms, 500); setInterval(pollServerRooms, 4000); }
@@ -9583,6 +9597,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     };
     segButtons(whereEl, [["on", "Online lobby"], ["srv", "Game server (beta)"], ["lan", "Local room"], ["off", "Offline with bots"]], offlineRun ? "off" : "on", v => { if (!offlineOnly) store.set("binrocket.where", v); pickWhere(v); });
     [...whereEl.children].forEach((b, i) => b.dataset.v = ["on", "srv", "lan", "off"][i]);
+    chooseWhere = v => { const b = whereEl.querySelector(`[data-v="${v}"]`); if (!b || b.disabled) return false; pickWhere(v); return true; };
     if (!SERVER_URL) whereEl.children[1].disabled = true;
     if (!offlineOnly && ["off", "lan", "srv"].includes(store.get("binrocket.where"))) pickWhere(store.get("binrocket.where"));
     noNetwork = msg => {
