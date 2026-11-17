@@ -19,24 +19,24 @@
     "v_fight", "v_prepare", "v_multikill", "v_flawless", "v_win", "v_lose", "v_levelup", "v_powerup"];   // v_*: Kenney's CC0 voice-over packs
   const SFX_MP3 = new Set(["rail"]);   // rail.mp3: made by the game's author
   const sfxBuf = {};
-  let sfxBus = null, heavyBus = null, mixBus = null, voiceBus = null, engineBus = null, userBus = null, priorityBus = null, priorityVoices = 0, sfxVoices = 0, blastVoices = 0, hall = null;
+  let sfxBus = null, heavyBus = null, mixBus = null, voiceBus = null, engineBus = null, userBus = null, priorityBus = null, priorityVoices = 0, sfxVoices = 0, tailVoices = 0, blastVoices = 0, hall = null;
   function createSoundMix(ctx) {
     const effects = ctx.createGain(), mix = ctx.createGain(), voice = ctx.createGain(), engine = ctx.createGain(), priority = ctx.createGain();
-    effects.gain.value = 0.7; voice.gain.value = 0.9; engine.gain.value = 0.65;
-    // Web Audio's defaults compress almost everything above -24 dB at 12:1.
-    // Leave room for shot attacks; only dense combat needs sustained compression.
-    const combat = ctx.createDynamicsCompressor();
-    combat.threshold.value = -10; combat.knee.value = 6; combat.ratio.value = 4;
-    combat.attack.value = 0.012; combat.release.value = 0.14;
-    const output = ctx.createDynamicsCompressor();
-    output.threshold.value = -3; output.knee.value = 0; output.ratio.value = 20;
-    output.attack.value = 0.001; output.release.value = 0.08;
-    const presence = ctx.createBiquadFilter();
-    presence.type = "highshelf"; presence.frequency.value = 2200; presence.gain.value = 3;
-    presence.connect(effects); effects.connect(mix); mix.connect(combat).connect(output);
-    // Thrust keeps its level during gunfire and announcer ducking.
-    engine.connect(output); priority.connect(output); voice.connect(output); const headroom = ctx.createGain(); headroom.gain.value = 0.9; output.connect(headroom).connect(ctx.destination);
-    return { effects, mix, voice, engine, priority, presence, output };
+    effects.gain.value = 0.85; voice.gain.value = 0.75; engine.gain.value = 0.8;
+    // Unity response below 0.8: no compressor makeup gain, EQ or transient pumping.
+    // Scale into a +/-4 range so the peak guard can handle overlapping explosions.
+    const input = ctx.createGain(), guard = ctx.createWaveShaper(), output = ctx.createGain();
+    input.gain.value = 0.25; output.gain.value = 4 * 0.95;
+    const curve = new Float32Array(65537);
+    for (let i = 0; i < curve.length; i++) {
+      const x = (i / (curve.length - 1) * 2 - 1) * 4, a = Math.abs(x);
+      curve[i] = Math.sign(x) * (a <= 0.8 ? a : 0.8 + 0.18 * (1 - Math.exp(-(a - 0.8) / 0.18))) / 4;
+    }
+    guard.curve = curve;
+    effects.connect(mix).connect(input);
+    engine.connect(input); priority.connect(input); voice.connect(input);
+    input.connect(guard).connect(output).connect(ctx.destination);
+    return { effects, mix, voice, engine, priority, presence: effects, output };
   }
   // a big room's echo, shared by the announcer sting and the guns
   function getHall() {
@@ -93,12 +93,42 @@
   // a sound it plays instead of the built-in or synthesized one. sfx/pack/index.json (written by the build) lists them;
   // the one-file game carries them inside (window.BRS_PACK)
   const PACK_PATHS = {
+    p_ut_pulse_fire: ["ut/pulse-gun-fire.wav"],
+    p_ut_pulse_bolt: ["ut/pulse-gun-bolt.wav"],
+    p_ut_pulse_down: ["ut/pulse-gun-down.wav"],
+    p_ut_pulse_explode: ["ut/pulse-gun-explode.wav"],
+
+    v_fight: ["voice/fight.mp3"],
+    p_ut_fire: ["ut/default-weapon-fire.wav"],
+    p_ut_rocket_fire: ["ut/rocket-launcher-fire.wav"],
+    p_ut_rocket_load: ["ut/rocket-launcher-load.wav"],
+    p_ut_rocket_boom: ["ut/rocket_explode.wav"],
+    p_ut_rocket_fly: ["ut/rocket_fly.wav"],
+    p_ut_saw_travel: ["ut/saw-blade-travel.wav"],
+    p_ut_saw_ric: ["ut/saw-blade-ric.wav"],
+    p_ut_saw_alt: ["ut/saw-alt-fire.wav"],
+    p_ut_saw_fire: ["ut/saw-fire.wav"],
+    p_ut_nuke_boom: ["ut/nuke-explode.wav"],
+    p_ut_nuke_fly: ["ut/fly-nuke.wav"],
+    p_ut_nuke_pick: ["ut/pick-nuke.wav"],
+    p_ut_nuke_fire: ["ut/nuke-shot.wav"],
+    p_ut_mini_alt: ["ut/minigun-altfire.wav"],
+    p_ut_mini_fire: ["ut/minigun-regfire.wav"],
+    p_ut_mini_stop: ["ut/minigun-winddown.wav"],
+    p_ut_flak_boom: ["ut/shard-canon-alt-explode.wav"],
+    p_ut_flak_alt: ["ut/shard-cannon-alt-fire.wav"],
+    p_ut_flak_fire: ["ut/shard-cannon-fire.wav"],
+    p_ut_draw: ["ut/draw-all-weapon-sound.wav"],
+    p_ut_shock_combo: ["ut/shock-orb-combo-explode.wav"],
+    p_ut_shock_alt: ["ut/shock-orb-alt-fire.wav"],
+    p_ut_shock_fire: ["ut/shock-orb-fire.wav"],
+
     p_start_minigun: ["derived/minigun-start.wav"], p_loop_minigun: ["derived/minigun-loop.wav"],
     p_stop_minigun: ["derived/minigun-stop.wav"], p_stop_laser: ["derived/laser-stop.wav"],
     p_user_demonic: ["user/demonic-shot.wav"], p_user_fire: ["user/demonic-shot-short.wav"],
     p_user_cannon: ["user/explosive-canon.wav"], p_user_autocannon: ["user/autocannon.wav"],
     p_user_explosion: ["user/explosion-rumb.wav"], p_user_massive: ["user/massive-explosion.wav", "user/explosive-nuke-or-holybomb.wav"],
-    p_user_engine: ["user/engine-working.wav"], p_ship_engine: ["engine/spaceship-thrust.wav"], p_user_demonic_explosion: ["user/demonic-explosions.wav"],
+    p_user_engine: ["user/engine-working.wav"], p_ship_engine: ["engine/jet-thrust.wav"], p_warp: ["engine/warp-dash.wav"], p_user_demonic_explosion: ["user/demonic-explosions.wav"],
     p_metal: ["physical/metal_1.wav", "physical/metal_10.wav", "physical/metal_20.wav"],
     p_blast: ["physical/bang_04.ogg", "physical/bang_05.ogg"],
     p_blast_heavy: ["physical/cannon_01.ogg", "physical/cannon_02.ogg"],
@@ -114,11 +144,11 @@
     p_charge: ["supplemental/terminal_02.ogg"], p_sting: ["supplemental/teleport_01.ogg"],
     p_death: ["supplemental/explosion_02.ogg"], p_engine: ["supplemental/loop_machine_01.ogg"],
     p_fire_minigun: ["machinegun/fire1.wav", "machinegun/fire2.wav", "machinegun/fire3.wav", "machinegun/fire4.wav"],
-    p_burst_minigun: ["chaingun/f1b.wav", "chaingun/f2b.wav", "chaingun/f3b.wav", "chaingun/f4b.wav", "chaingun/fire.wav"],
-    p_spin_minigun: ["chaingun/wind.wav"], p_hit_bullet: ["chaingun/impd.wav", "chaingun/impl.wav", "chaingun/impm.wav"],
+    p_burst_minigun: ["chaingun/f1b.wav", "chaingun/f2b.wav", "chaingun/f3b.wav", "chaingun/f4b.wav"],
+    p_legacy_minigun: ["chaingun/fire.wav"], p_spin_minigun: ["chaingun/wind.wav"], p_hit_bullet: ["chaingun/impd.wav", "chaingun/impl.wav", "chaingun/impm.wav"],
     p_ric: ["machinegun/ric1.wav", "machinegun/ric2.wav", "machinegun/ric3.wav"], p_whiz: ["machinegun/buletby1.wav"],
     p_fire_scatter: ["shotgun/sshotf1b.wav"],
-    p_fire_rocket: ["rocket/rocklf1a.wav"], p_boom_rocket: ["rocket/rocklx1a.wav"], p_fly_rocket: ["rocket/rockfly.wav"],
+    p_fire_rocket: ["rocket/rocklf1a.wav"], p_quake_grenade_boom: ["rocket/rocklx1a.wav"], p_fly_rocket: ["rocket/rockfly.wav"],
     p_fire_orb: ["plasma/hyprbf1a.wav"], p_boom_orb: ["plasma/plasmx1a.wav"], p_fly_orb: ["plasma/lasfly.wav"],
     p_fire_rail: ["railgun/railgf1a.wav"], p_hum_rail: ["railgun/rg_hum.wav"],
     p_fire_laser: ["lightning/lg_fire_start.wav"], p_loop_laser: ["lightning/lg_fire_loop.wav"], p_hum_laser: ["lightning/lg_hum.wav"],
@@ -150,7 +180,8 @@
       if (ev) fetch(src).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)).then(b => audio.decodeAudioData(b)).then(b => { (packBuf[ev] = packBuf[ev] || []).push(b); }).catch(() => {});
     };
     if (window.BRS_PACK) { for (const [p, d] of Object.entries(window.BRS_PACK)) add(p, d); return; }
-    fetch("sfx/pack/index.json").then(r => r.json()).then(list => { for (const p of list) add(p, "sfx/pack/" + p.split("/").map(encodeURIComponent).join("/")); }).catch(() => {});
+    const manifest = window.BRS_PACK_FILES ? Promise.resolve(window.BRS_PACK_FILES) : fetch("sfx/pack/index.json").then(r => r.json());
+    manifest.then(list => { for (const p of list) add(p, "sfx/pack/" + p.split("/").map(encodeURIComponent).join("/")); }).catch(() => {});
   }
   const packHas = ev => !!(packBuf[SOUND_OVERRIDE[ev]]?.length || packBuf[ev]?.length);
   function packPlay(ev, vol = 1, x, y) { return ev && packHas(ev) ? sfx(ev, vol, 1, x, y) : false; }
@@ -160,23 +191,28 @@
     if (document.hidden) ev = null;
     const cur = packLoops[slot];
     if (cur && cur.ev === ev) return;
-    if (cur) { try { cur.g.gain.setTargetAtTime(0, audio.currentTime, 0.04); cur.src.stop(audio.currentTime + 0.25); } catch {} packLoops[slot] = null; }
+    if (cur) { try { cur.g.gain.setTargetAtTime(0, audio.currentTime, 0.04); cur.src.stop(audio.currentTime + 0.25); } catch {} delete packLoops[slot]; }
     if (!ev || !audio || !sfxBus || !packHas(ev)) return;
     const src = audio.createBufferSource(), g = audio.createGain();
-    src.buffer = packBuf[ev][0]; src.loop = true; g.gain.value = vol; src.connect(g);
-    const pan = slot.startsWith("fire:") && audio.createStereoPanner ? audio.createStereoPanner() : null;
+    src.buffer = (packBuf[SOUND_OVERRIDE[ev]] || packBuf[ev])[0]; src.loop = true; g.gain.value = vol; src.connect(g);
+    const pan = (slot.startsWith("fire:") || slot.startsWith("flight:")) && audio.createStereoPanner ? audio.createStereoPanner() : null;
     (pan ? g.connect(pan) : g).connect(slot === "engine" ? engineBus : sfxBus); src.start();
     packLoops[slot] = { ev, src, g, pan };
   }
   document.addEventListener("visibilitychange", () => { if (document.hidden) { for (const slot of Object.keys(packLoops)) packLoop(slot, null); } });
   // x, y: where it happens (quieter with distance, silent past ~2200); rate: pitch, with a little random spread
-  const SOUND_OVERRIDE = { fire: "p_user_fire", triple: "p_user_fire", crash: "p_metal", ram: "p_metal", dash: "p_boost",
-    p_fire_gamma: "p_user_demonic", p_fire_minigun: "p_burst_minigun",
-    p_fire_shard: "p_user_autocannon", p_boom_shard: "p_user_cannon", p_boom_nuke: "p_user_massive", p_boom_holy: "p_user_massive",
+  const SOUND_OVERRIDE = { fire: "p_ut_fire", p_fire_fire: "p_ut_fire", triple: "p_user_fire", crash: "p_metal", ram: "p_metal", dash: "p_warp",
+    p_fire_gamma: "p_user_demonic", p_fire_minigun: "p_ut_mini_fire",
+    p_fire_rocket: "p_ut_rocket_fire", p_boom_rocket: "p_ut_rocket_boom", p_fly_rocket: "p_ut_rocket_fly", p_change: "p_ut_draw",
+    p_fire_laser: "p_ut_pulse_fire", p_loop_laser: "p_ut_pulse_bolt", p_stop_laser: "p_ut_pulse_down",
+    p_fire_saw: "p_ut_saw_fire", p_saw: "p_ut_saw_travel", p_fire_orb: "p_ut_shock_fire", p_fire_nuke: "p_ut_nuke_fire",
+    p_fire_shard: "p_ut_flak_fire", p_boom_shard: "p_ut_flak_boom", p_boom_nuke: "p_ut_nuke_boom", p_boom_holy: "p_user_massive",
     p_boom_gamma: "p_user_demonic_explosion",
     p_death: "p_user_explosion", boom_small: "p_blast", boom_bin: "p_user_explosion", boom_big: "p_blast_heavy", chunk: "p_metal" };
   const USER_SOUND_GAIN = { p_user_fire: 0.9, p_user_demonic: 0.85, p_user_autocannon: 0.95, p_user_cannon: 0.75, p_user_explosion: 0.7, p_user_massive: 0.85, p_user_demonic_explosion: 1.15 };
   const prioritySounds = new Set(["hit", "shield_hit", "p_kill", "p_warning", "p_noammo", "p_ready"]);
+  const priorityActive = [];
+  const soundPriority = name => name === "hit" || name === "shield_hit" || name === "p_kill" ? 3 : name === "p_warning" ? 2 : 1;
   const impactTimes = new Map();
   let collisionSoundAt = -Infinity;
   function sfx(name, vol = 1, rate = 1, x, y) {
@@ -203,9 +239,16 @@
       if (d > reach) return true;
       vol *= majorBlast ? Math.sqrt(1 - d / reach) : 1 - d / reach;
     }
-    if (priority ? priorityVoices >= 8 : majorBlast ? blastVoices >= 4 : sfxVoices > 28) return true;   // reserve blast voices so automatic fire cannot swallow them
-    const src = audio.createBufferSource(), v = audio.createGain(), out = priority ? priorityBus : tune ? heavyBus : userSound ? userBus : sfxBus;
-    src.buffer = b; src.playbackRate.value = rate * (tune ? tune[0] : 1) * (majorBlast || userSound ? 1 : 0.94 + Math.random() * 0.12);
+    const tail = name === "p_ut_mini_stop" || name === "p_stop_laser";
+    if (priority && priorityVoices >= 8) {
+      const oldest = priorityActive.slice().sort((a,b)=>soundPriority(a.name)-soundPriority(b.name))[0];
+      if (!oldest || soundPriority(oldest.name) > soundPriority(name)) return true;
+      oldest.retired = true; priorityActive.splice(priorityActive.indexOf(oldest),1); priorityVoices--;
+      oldest.g.gain.setTargetAtTime(0,audio.currentTime,.005); oldest.src.stop(audio.currentTime+.025);
+    }
+    if (tail ? tailVoices >= 8 : priority ? priorityVoices >= 8 : majorBlast ? blastVoices >= 4 : sfxVoices > 28) return true;   // reserve blast voices so automatic fire cannot swallow them
+    const src = audio.createBufferSource(), v = audio.createGain(), out = priority ? priorityBus : name === "p_warp" || name === "dash" ? engineBus : tune ? heavyBus : userSound ? userBus : sfxBus;
+    src.buffer = b; src.playbackRate.value = rate * (tune ? tune[0] : 1) * (majorBlast || userSound || name.startsWith("p_ut_") || replacement?.startsWith("p_ut_") || name === "dash" || name === "p_warp" ? 1 : 0.94 + Math.random() * 0.12);
     v.gain.value = vol;
     src.connect(v);
     if (x !== undefined && audio.createStereoPanner) {
@@ -223,8 +266,14 @@
       sfx("boom_low", vol * 0.24, 0.75, x, y);
       setTimeout(() => { if (!document.hidden) sfx("p_metal", vol * 0.22, 0.65, x, y); }, 65);
     }
-    if (priority) priorityVoices++; else if (majorBlast) blastVoices++; else sfxVoices++;
-    src.onended = () => { if (priority) priorityVoices--; else if (majorBlast) blastVoices--; else sfxVoices--; };
+    if (tail) tailVoices++; else if (priority) priorityVoices++; else if (majorBlast) blastVoices++; else sfxVoices++;
+    const reserved = priority ? { name, src, g: v, retired: false } : null;
+    if (reserved) priorityActive.push(reserved);
+    src.onended = () => {
+      if (tail) tailVoices--;
+      else if (priority) { if (!reserved.retired) { priorityVoices--; priorityActive.splice(priorityActive.indexOf(reserved),1); } }
+      else if (majorBlast) blastVoices--; else sfxVoices--;
+    };
     src.start();
     if (["p_hit_bullet", "p_hit_nail", "p_hit_laser"].includes(name)) {
       v.gain.setValueAtTime(vol, audio.currentTime + 0.12);

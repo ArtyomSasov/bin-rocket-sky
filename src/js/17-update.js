@@ -19,6 +19,7 @@
     const held = firing || FIRE_KEYS.some(k => keys.has(k)) || (aimM && ptr.down);   // with mouse aim the left button fires
     const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided;
     const altW = WEAPONS[me.weapon].alt, altHeld = altFiring || keys.has("KeyC");
+    rocketLoadTick(dt, now, altHeld, ready);
     if (altW && altW.charge) {   // rail alt: hold to widen the cutter, release to open a short breach
       if (altHeld && ready && me.arsenal[me.weapon] >= altW.cost) {
         const was = railCharge; railCharge = Math.min(1, railCharge + dt / altW.charge);
@@ -30,8 +31,8 @@
       }
     } else railCharge = 0;
     me.heat = Math.max(0, (me.heat || 0) - 0.45 * dt); if (me.overheat && me.heat < 0.3) { me.overheat = false; renderAmmo(me.weapon); audioCue("ready"); }
-    if (ready && altHeld && altW && !altW.charge) shoot(now, true);
-    else if (triggerTick(dt, now, ready && fireCd <= 0 && !(altHeld && altW?.charge) && railCharge === 0, held) || (ready && me.weapon === "gauntlet" && now < (me.lungeUntil || 0))) shoot(now);   // a lunge lands blows too
+    if (ready && altHeld && altW && !altW.charge && !altW.load) { triggerTick(dt, now, false, held); shoot(now, true); }
+    else if (triggerTick(dt, now, ready && fireCd <= 0 && !(altHeld && (altW?.charge || altW?.load)) && railCharge === 0, held) || (ready && me.weapon === "gauntlet" && now < (me.lungeUntil || 0))) shoot(now);   // a lunge lands blows too
     if (playing && !me.dead) {
       if (keys.has("KeyA") || keys.has("ArrowLeft")) ix -= 1;
       if (keys.has("KeyD") || keys.has("ArrowRight")) ix += 1;
@@ -212,7 +213,7 @@
   // damage lands with the beam you see, not when a fast slug would have got there. The rail bores through every body
   // to the fence (each bin on the line is hit once); the others stop at the first rock. The shot then spans that line
   // (px,py -> x,y) for one frame, so the usual hit checks (me, the others, my bots, orbs for a combo) see all of it.
-  const HITSCAN = { [K.RAIL]: 1, [K.LASER]: 1, [K.SHOCK]: 1, [K.BOLT]: 1, [K.GAUSS]: 1 };
+  const HITSCAN = { [K.PISTOL]: 1, [K.RAIL]: 1, [K.LASER]: 1, [K.SHOCK]: 1, [K.BOLT]: 1, [K.GAUSS]: 1 };
   function traceBeam(s) {
     s.traced = true; s.expireAfterStep = true;
     const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v, pierce = pierces(s);
@@ -236,6 +237,7 @@
       if (own || stop.b.free) carveAt(stop.b, stop.x, stop.y, SHOTS[s.kind].carve, own);
       impact(stop.x, stop.y, SHOTS[s.kind].col, 0.8);
     }
+    if (s.kind === K.PISTOL) beams.push({ x1: s.px, y1: s.py, x2: s.x, y2: s.y, t: 0, pistol: true });
     s.beamHit = stop ? "body" : max < reach ? "bin" : null;
     if (s.kind === K.LASER || s.kind === K.SHOCK) laserBeam(s, s.owner);
     s.life = Math.min(s.life, 1e-4);   // one frame of hits, then gone
@@ -256,7 +258,7 @@
         s.life = Math.max(1e-4, left);
       }
       if (s.kind === K.RECALL) { recallSaws(s); shots.splice(i, 1); continue; }
-      if (s.kind === K.SAW) steerSaw(s, stepDt);
+      // Ripper discs retain their ricochet direction; no automatic recall.
       if (s.kind === K.DET) { detonateOrb(s); if (s.life <= 0) shots.splice(i, 1); continue; }   // inert: it only sets off its orb
       if (HITSCAN[s.kind] && !s.traced && s.life > 0) traceBeam(s);   // rail, laser, beams: the whole line, this very frame
       if (s.kind === K.MDET) { detonateMines(s); if (s.life <= 0) shots.splice(i, 1); continue; }   // ...and this one its pilot's mines
@@ -305,7 +307,7 @@
         let hit = false;
         if (s.x < 0 || s.x > W) { s.vx = -s.vx; s.x = clamp(s.x, 0, W); hit = true; }
         if (s.y < 0 || s.y > H) { s.vy = -s.vy; s.y = clamp(s.y, 0, H); hit = true; }
-        if (hit) { if (s.kind === K.SAW) { returnSaw(s); s.ricTime = 0.12; } s.bn++; s.vx *= s.kind === K.GREN ? 0.6 : 0.85; s.vy *= s.kind === K.GREN ? 0.6 : 0.85; s.px = s.x; s.py = s.y; impact(s.x, s.y, SHOTS[s.kind].col, 0.5); if (s.kind === K.SHARD) shardRicochet(s); if (s.kind === K.GREN) grenBounce(s); }
+        if (hit) { if (s.kind === K.SAW) packPlay("p_ut_saw_ric", .7, s.x, s.y); s.bn++; s.vx *= s.kind === K.GREN ? 0.6 : 0.85; s.vy *= s.kind === K.GREN ? 0.6 : 0.85; s.px = s.x; s.py = s.y; impact(s.x, s.y, SHOTS[s.kind].col, 0.5); if (s.kind === K.SHARD) shardRicochet(s); if (s.kind === K.GREN) grenBounce(s); }
       }
       if ((s.kind === K.RAIL || s.kind === K.SHOCK) && s.life > 0) for (const o of shots) {
         if (o.kind === K.ORB && o.life > 0 && !o.combo && segHit(s, o.x, o.y, 45)) { comboBlast(o, s, now); if (s.kind === K.SHOCK) { s.life = 0; break; } }
@@ -322,7 +324,7 @@
         } else if (bounce && s.bn < bounce) {   // shards and saws chip and ricochet; grenades just bounce
           if (dig && s.kind !== K.GREN) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);
           const [nx, ny] = normalAt(hb.b, hb.x, hb.y), vn = s.vx * nx + s.vy * ny, keep = s.kind === K.GREN ? 0.6 : 0.85;
-          if (s.kind === K.SAW) { returnSaw(s); s.ricTime = 0.12; }
+          if (s.kind === K.SAW) packPlay("p_ut_saw_ric", .7, s.x, s.y);
           if (vn < 0) { s.vx = (s.vx - 2 * vn * nx) * keep; s.vy = (s.vy - 2 * vn * ny) * keep; }
           if (s.kind === K.GREN) grenBounce(s);
           s.x = hb.x + nx * 4; s.y = hb.y + ny * 4; s.px = s.x; s.py = s.y; s.bn++;
@@ -339,7 +341,8 @@
             continue;
           }
           s.x = hb.x; s.y = hb.y;
-          if (s.kind === K.SHARD) packPlay("p_boom_shard", 0.65, s.x, s.y);
+          if (s.kind === K.PULSE_BOLT) shotBurst(s);
+          if (s.kind === K.SHARD) packPlay("p_ric", .25, s.x, s.y);
           if (s.kind === K.FLAK) { const [nx, ny] = normalAt(hb.b, hb.x, hb.y); s.x += nx * 12; s.y += ny * 12; flakBurst(s); }   // bursts just off the surface
           if (SPLASH[s.kind]) splash(s, now);
           impact(hb.x, hb.y, SHOTS[s.kind].col, s.kind === K.MINE ? 1.6 : 0.8);
@@ -372,7 +375,7 @@
       if (!s.mine && !s.whiz && playing && !me.dead && (s.kind === K.BULLET || s.kind === K.PELLET || s.kind === K.SHARD || s.kind === K.RAIL || s.kind === K.NAIL || s.kind === K.SPIKE) && now - whizAt > 120
           && segHit(s, me.x, me.y, binR(me.lv) + 140) && !segHit(s, me.x, me.y, binR(me.lv))) { s.whiz = true; whizAt = now; packPlay(s.kind === K.NAIL || s.kind === K.SPIKE ? "p_whiz_nail" : "p_whiz", 0.7, s.x, s.y); }
       // a rocket or an orb flying past roars by (yours too, once, as it leaves)
-      if (!s.flyby && (s.kind === K.ROCKET || s.kind === K.HROCKET || s.kind === K.ORB) && playing && !me.dead && Math.hypot(s.x - me.x, s.y - me.y) < (s.mine ? 200 : 380)) {
+      if (!s.flyby && s.kind === K.ORB && playing && !me.dead && Math.hypot(s.x - me.x, s.y - me.y) < (s.mine ? 200 : 380)) {
         s.flyby = true; packPlay(s.kind === K.ORB ? "p_fly_orb" : "p_fly_rocket", s.mine ? 0.35 : 0.7, s.x, s.y);
       }
 
@@ -553,7 +556,7 @@
       renderWeapon();
       floaters.push({ x: d.x, y: d.y - 20, t: 0, txt: "TROPHY · " + w.name.toUpperCase(), gold: true });
       for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 220; puff(d.x, d.y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, k % 2 ? "#ffd36b" : w.col); }
-      sfx("weapon_get", 0.9, 0.85);
+      if (d.type === "nuke") packPlay("p_ut_nuke_pick", .9); else sfx("weapon_get", 0.9, 0.85);
     }
     // medkits and shields (left on the ground when they would do nothing, like in Doom)
     if (playing && !me.dead) {
@@ -607,7 +610,7 @@
           const key = COARSE ? "" : " · press " + weaponKey(c.type);
           floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: had ? "+AMMO " + w.name.toUpperCase() : w.name.toUpperCase() + key, gold: true });
           for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 220; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, w.col); }
-          if (!sfx("weapon_get", 0.8)) [440, 660, 880].forEach((f, j) => setTimeout(() => blip(f, 0.1, "square"), j * 60));
+          if (!(c.type === "nuke" ? packPlay("p_ut_nuke_pick", .9) : sfx("weapon_get", 0.8))) [440, 660, 880].forEach((f, j) => setTimeout(() => blip(f, 0.1, "square"), j * 60));
         }
       }
     }
@@ -724,7 +727,7 @@
       if ((now - d.born) / 1000 < 3 && Math.random() < (lowQ ? 1 : 3) * dt) puff(d.x, d.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 1.2, 2 + Math.random() * 2, "rgb(80,72,98)", 2);
     }
     for (let i = impacts.length - 1; i >= 0; i--) { impacts[i].t += dt; if (impacts[i].t > 0.22) impacts.splice(i, 1); }
-    for (let i = beams.length - 1; i >= 0; i--) { beams[i].t += dt; if (beams[i].t > BEAM_T) beams.splice(i, 1); }
+    for (let i = beams.length - 1; i >= 0; i--) { beams[i].t += dt; if (beams[i].t > (beams[i].pistol ? .12 : BEAM_T)) beams.splice(i, 1); }
     for (let i = lasers.length - 1; i >= 0; i--) { lasers[i].t += dt; if (lasers[i].t > (lasers[i].shock ? 0.35 : LASER_T)) lasers.splice(i, 1); }
     for (let i = arcs.length - 1; i >= 0; i--) { arcs[i].t += dt; if (arcs[i].t > 0.3) arcs.splice(i, 1); }
     for (let i = rings.length - 1; i >= 0; i--) { rings[i].t += dt; if (rings[i].t > (rings[i].dur || 0.6)) rings.splice(i, 1); }
@@ -876,7 +879,7 @@
         sfx("v_fight", 1);
       }
       for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, lv: 1, xp: 0, vx: 0, vy: 0, ammo: 0, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0, weapon: "fire" });
-      me.fc = -1; me.caps = 0; me.heat = 0; me.overheat = false; railCharge = 0; charge = 0;
+      me.fc = -1; me.caps = 0; me.heat = 0; me.overheat = false; railCharge = 0; charge = 0; cancelRocketLoad();
       energy = 100; energyRegenAt = 0; dashReadyAt = 0; lungeReady = 0;
       flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
       grabbed.clear(); myGrabs.length = 0; drops.clear(); gunDrops.clear(); myDrops.length = 0; myGunDrops.length = 0;

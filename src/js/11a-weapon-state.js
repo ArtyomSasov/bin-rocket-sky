@@ -1,7 +1,7 @@
   // Stable controls are independent of inventory and mode; protocol IDs stay in WEAPON_KEYS.
   const WEAPON_SLOTS = ["fire", "gauntlet", "minigun", "scatter", "rocket", "gren", "laser", "orb", "rail", "nail", "shard", "saw", "mine", "gamma", "nuke", "holy"];
   const weaponKey = k => { const i = WEAPON_SLOTS.indexOf(k); return i < 0 ? "Q/E" : (i >= 10 ? "Alt+" : "") + ((i % 10 + 1) % 10); };
-  const controlledKind = k => ({ gamma: K.GAMMA, mine: K.MINE, saw: K.SAW })[k];
+  const controlledKind = k => ({ gamma: K.GAMMA, mine: K.MINE })[k];
   const controlledShots = k => shots.filter(s => s.mine && s.life > 0 && !s.boom && s.kind === controlledKind(k));
   const hasWeapon = k => !!me.arsenal[k] || controlledShots(k).length > 0;
   let rejectAt = -Infinity, lastWeaponStatus = "", wasLungeReady = true;
@@ -12,7 +12,7 @@
   }
   function reconcileWeapons(now) {
     let changed = false;
-    for (const k of ["gamma", "mine", "saw"]) if (me.arsenal[k] === 0 && !controlledShots(k).length) { delete me.arsenal[k]; changed = true; }
+    for (const k of ["gamma", "mine"]) if (me.arsenal[k] === 0 && !controlledShots(k).length) { delete me.arsenal[k]; changed = true; }
     if (!hasWeapon(me.weapon)) { me.weapon = "fire"; changed = true; }
     if (changed) renderWeapon();
     const status = chipText();
@@ -42,15 +42,18 @@
   }
 
   const ALT_HINTS = {
+    fire: "Enforcer: instant accurate shots; alternate fire is faster with wider spread. Unlimited starting ammo.",
+    rocket: "Hold alternate fire to load one rocket every 0.45 s, up to three. Release for a straight salvo; ammo cost equals rockets loaded.",
+    minigun: "Primary: accurate stream. Alternate: faster fire with wider spread; 1 ammo per round.",
     scatter: "Slug: longer range and a stronger push than the close-range pellet fan; 2 ammo.",
-    shard: "Flak: bursts into eight radial shards. Aim into a room or behind cover; 2 ammo.",
+    shard: "Flak shell: a lofted shell bursts into eight shards on impact or landing; 1 ammo.",
     gren: "Volley: three bouncing grenades to cover several routes; 3 ammo.",
     gauntlet: "Lunge: free, forward-only melee approach; 1.2 s recharge and 0.2 s protection. Dash uses movement direction and costs energy.",
     nail: "Spike: a fast, precise round that passes through multiple bins; 2 ammo. Walls still stop it.",
-    saw: "Recall sends active blades back for one more hit per target. Catching a blade does not return ammo.",
+    saw: "Ripper: primary discs ricochet; alternate discs explode on contact; 1 ammo.",
     mine: "Detonate works with zero ammo while your mines are active.",
     gamma: "Detonate works with zero ammo while your Demonic Orb is active.",
-    laser: "Aim near a visible enemy within beam range. Pulse pushes enemies away; 12 ammo. The beam does not chain.",
+    laser: "Pulse Gun: rapid green plasma bolts; hold alternate fire for a short green beam, 1 ammo per tick. Cover blocks both modes.",
     rail: "Hold alternate fire to widen Breach cutter, release to fire. Cost: 2 ammo. Switching weapons cancels the charge."
   };
   const weaponHint = k => WEAPONS[k].name + " · " + weaponKey(k) + ". " + (ALT_HINTS[k] || "Q/E cycles carried weapons. Right click or C uses alternate fire when available.");

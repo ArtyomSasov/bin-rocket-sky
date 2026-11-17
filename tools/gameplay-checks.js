@@ -46,10 +46,10 @@ function runGameplayChecks() {
     updateShots(0.016,now);ok(me.lives===10,'wall blocks catch-up');
     shots.length=0;bodies=[];me.x=100;me.y=600;me.hitHistory=[];
   });
-  check('saws bounce from a head-on wall and return instead of sticking',()=>{
+  check('Ripper discs ricochet without automatic recall',()=>{
     shots.length=0;const s=shot(K.SAW,W-3,600,1500);shots.push(s);updateShots(0.016,performance.now());
-    ok(s.returning&&!s.stuck&&s.vx<0,'wall ricochet returns');
-    const h=new Set(['victim']);s.hits=h;returnSaw(s);ok(s.hits===h,'recall cannot grant repeated return hits');shots.length=0;
+    ok(!s.returning&&!s.stuck&&s.vx<0,'wall ricochet keeps disc outbound');
+    updateShots(.3,performance.now()+300);ok(!s.returning,'disc does not home back');shots.length=0;
   });
   check('all weapon deaths dispatch and burning/electric bodies burn away',()=>{
     hulks.length=0;frags.length=0;melts.length=0;

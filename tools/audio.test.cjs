@@ -48,17 +48,17 @@ test('primary fire, boost, collisions and large blasts select the replacement re
   const c = { audio: { currentTime: 1,
     createBufferSource() { const s = { playbackRate: {}, connect() { return this; }, start() { played.push(this.buffer); } }; return s; },
     createGain() { return { gain: {}, connect() { return this; } }; }
-  }, packBuf: Object.fromEntries(['p_user_fire', 'p_user_demonic', 'p_user_demonic_explosion', 'p_user_cannon', 'p_user_autocannon', 'p_user_explosion', 'p_user_massive', 'p_burst_minigun', 'p_fire_rocket', 'p_fire_gren', 'p_boom_rocket', 'p_boom_mine', 'p_boost', 'p_metal'].map(k => [k, [k]])),
-    sfxBuf: { boom_low: 'low' }, SFX_TUNE: {}, sfxBus: {}, userBus: {}, priorityBus:{}, priorityVoices:0, heavyBus: {}, sfxVoices: 0, blastVoices: 0, me:{x:0,y:0},
+  }, packBuf: Object.fromEntries(['p_ut_fire', 'p_ut_rocket_fire', 'p_ut_rocket_boom', 'p_ut_nuke_boom', 'p_ut_mini_fire', 'p_ut_flak_fire', 'p_ut_flak_boom', 'p_user_demonic', 'p_user_demonic_explosion', 'p_user_cannon', 'p_user_autocannon', 'p_user_explosion', 'p_user_massive', 'p_burst_minigun', 'p_fire_rocket', 'p_fire_gren', 'p_boom_rocket', 'p_boom_mine', 'p_warp', 'p_metal'].map(k => [k, [k]])),
+    sfxBuf: { boom_low: 'low' }, SFX_TUNE: {}, sfxBus: {}, userBus: {}, engineBus: {}, priorityBus:{}, priorityVoices:0, heavyBus: {}, sfxVoices: 0, blastVoices: 0, me:{x:0,y:0},
     document: { hidden: false }, setTimeout: f => later.push(f), queueVoice() {} };
   const source = read('05-sound.js'); vm.createContext(c);
   vm.runInContext(source.slice(source.indexOf('  const SOUND_OVERRIDE'), source.indexOf('  // the holy bomb')), c);
   c.sfx('fire'); c.sfx('dash'); c.sfx('crash'); c.sfx('crash');
-  assert.deepEqual(played, ['p_user_fire', 'p_boost', 'p_metal']);
+  assert.deepEqual(played, ['p_ut_fire', 'p_warp', 'p_metal']);
   for (const event of ['p_death', 'p_boom_nuke', 'p_boom_holy', 'p_fire_gamma', 'p_boom_gamma', 'p_fire_minigun', 'p_fire_rocket', 'p_fire_gren', 'p_fire_shard', 'p_boom_shard', 'p_boom_rocket', 'p_boom_mine']) c.sfx(event);
-  assert.deepEqual(played.slice(3), ['p_user_explosion', 'p_user_massive', 'p_user_massive', 'p_user_demonic', 'p_user_demonic_explosion', 'p_burst_minigun', 'p_fire_rocket', 'p_fire_gren', 'p_user_autocannon', 'p_user_cannon', 'p_boom_rocket', 'p_boom_mine']);
+  assert.deepEqual(played.slice(3), ['p_user_explosion', 'p_ut_nuke_boom', 'p_user_massive', 'p_user_demonic', 'p_user_demonic_explosion', 'p_ut_mini_fire', 'p_ut_rocket_fire', 'p_fire_gren', 'p_ut_flak_fire', 'p_ut_flak_boom', 'p_ut_rocket_boom', 'p_boom_mine']);
   assert.equal(later.length, 0, 'custom explosion tails are not covered with the old extra layers');
-  c.packBuf.p_fire_rocket = ['original rocket']; c.sfx('p_fire_rocket');
+  delete c.packBuf.p_ut_rocket_fire;c.packBuf.p_fire_rocket = ['original rocket']; c.sfx('p_fire_rocket');
   assert.equal(played.at(-1), 'original rocket', 'retain the supplied old pack while the replacement loads');
   c.sfxVoices=29;c.blastVoices=0;
   c.sfx('p_boom_gamma',1,1,1700,0);
@@ -66,7 +66,7 @@ test('primary fire, boost, collisions and large blasts select the replacement re
   const count=played.length;c.blastVoices=4;c.sfx('p_boom_gamma');assert.equal(played.length,count,'reserved voices stay bounded');
 });
 
-test('rocket and grenade impacts keep Quake while the demonic orb plays its own explosion once', () => {
+test('rocket uses UT and grenade keeps Quake while the demonic orb plays its own explosion once', () => {
   const events = [];
   const c = { K:{MINE:6,ORB:7,GAMMA:13,ROCKET:1,GREN:23}, me:{x:0,y:0}, lowQ:true, shake:0,
     impacts:[],rings:[],arcs:[], explode(){},puff(){},smoke(){},
@@ -74,7 +74,7 @@ test('rocket and grenade impacts keep Quake while the demonic orb plays its own 
   vm.createContext(c); const source=read('11-weapons.js');
   vm.runInContext(source.slice(source.indexOf('  function blastFx'),source.indexOf('  let hitTickAt')),c);
   for(const kind of [1,23,13]) {const shot={kind,x:kind===13?1700:20,y:20};c.blastFx(shot);c.blastFx(shot);}
-  assert.deepEqual(events,['p_boom_rocket','p_boom_rocket','p_boom_gamma']);
+  assert.deepEqual(events,['p_boom_rocket','p_quake_grenade_boom','p_boom_gamma']);
 });
 
 test('spaceship engine responds to thrust, boost and wall contact; stops when inactive', () => {
@@ -95,4 +95,27 @@ test('spaceship engine responds to thrust, boost and wall contact; stops when in
     c.document.hidden=reason==='hidden';c.settings.engine=reason==='off'?'off':'on';available=reason!=='unloaded';
     c.engineHum(800,1,1,0,reason!=='inactive');assert.equal(c.packLoops.engine,null,reason);
   }
+});
+
+test('Fight waits for the supplied Q3 recording even when the old fallback decoded first', () => {
+  const { c, started, timers } = setup();
+  c.sfxBuf.v_fight = { name: 'old fallback' };
+  c.queueVoice('v_fight'); assert.equal(started.length, 0);
+  c.packBuf.v_fight = [{ name: 'Q3 fight' }]; timers.pop()();
+  assert.equal(started.length, 1); assert.equal(started[0].buffer.name, 'Q3 fight');
+  assert.equal(started[0].playbackRate.value, 1);
+});
+
+test('audio loads the page manifest without consulting a stale cached pack index', async () => {
+  const requested = [], loaded = {};
+  const c = { window: { BRS_PACK_FILES: ['ut/default-weapon-fire.wav', 'engine/jet-thrust.wav'] },
+    packBuf: loaded, packEventFor: p => p,
+    fetch: async url => { requested.push(url); return { ok: true, arrayBuffer: async () => url }; },
+    audio: { decodeAudioData: async value => value } };
+  vm.createContext(c);
+  const source = read('05-sound.js');
+  vm.runInContext(source.slice(source.indexOf('  function loadPack()'), source.indexOf('  const packHas')), c);
+  c.loadPack(); await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(requested, ['sfx/pack/ut/default-weapon-fire.wav', 'sfx/pack/engine/jet-thrust.wav']);
+  assert.equal(Object.keys(loaded).length, 2);
 });

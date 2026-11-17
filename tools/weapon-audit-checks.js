@@ -2,8 +2,43 @@ function runWeaponAuditChecks() {
   const passed = [], ok = (v, why) => { if (!v) throw Error(why); }, check = (name, f) => { f(); passed.push(name); };
   const reset = () => { bodies=[];det=[];shots.length=0;remotes.clear();keys.clear();me.x=100;me.y=500;me.a=0;me.vx=me.vy=0;me.inv=0;me.shield=0;me.dead=false;me.lives=20;me.lv=1;me.ampUntil=0;fireCd=0;baseArsenal(); };
   const now = performance.now();reset();
+  check('UT rocket loading releases only loaded rockets and cancels without spending ammo', () => {
+    for (const ammo of [1,2,5]) {
+      reset();cancelRocketLoad();me.weapon='rocket';me.arsenal.rocket=ammo;
+      rocketLoadTick(.44,now,true,true);ok(rocketLoad===0&&shots.length===0,'no instant salvo');
+      rocketLoadTick(.01,now+10,true,true);ok(rocketLoad===1&&shots.length===0,'first loaded rocket');
+      rocketLoadTick(.9,now+910,true,true);const count=Math.min(3,ammo);
+      ok(rocketLoad===count&&me.arsenal.rocket===ammo,'loading respects ammo without spending');
+      rocketLoadTick(0,now+911,false,true);
+      ok(shots.length===count&&shots.every(s=>s.kind===K.ROCKET),'straight loaded salvo');
+      ok((me.arsenal.rocket||0)===ammo-count&&rocketLoad===0,'exact cost on release');
+      const before=shots.length;rocketLoadTick(0,now+912,false,true);ok(shots.length===before,'one volley per release');
+    }
+    reset();me.weapon='rocket';me.arsenal.rocket=5;rocketLoadTick(.9,now,true,true);
+    selectWeapon('fire');rocketLoadTick(0,now+1,false,true);ok(shots.length===0&&me.arsenal.rocket===5&&rocketLoad===0,'switch cancels');
+    me.weapon='rocket';rocketLoadTick(.9,now,true,true);rocketLoadTick(0,now,false,false);ok(rocketLoad===0&&shots.length===0,'death/round end cancels');
+  });
+  check('Enforcer is hitscan; Ripper has explosive alternate discs; Flak has a broad ricochet fan', () => {
+    reset();shoot(now,false);const pistol=shots.at(-1);ok(pistol.kind===K.PISTOL,'pistol replaces fireball');
+    bodies=[{fixed:true,x:600,y:pistol.y,hw:20,hh:200,r:201}];updateShots(.016,now+16);
+    ok(pistol.traced&&pistol.x<=580.01,'instant pistol respects cover');
+    ok(WEAPONS.fire.alt.cd<WEAPONS.fire.cd&&WEAPONS.fire.alt.jitter>WEAPONS.fire.jitter,'pistol alt trades precision for rate');
+    reset();me.weapon='saw';me.arsenal.saw=2;shoot(now,true);const disc=shots.at(-1);
+    ok(disc.kind===K.SAW_ALT&&!SHOTS[disc.kind].bounce&&SPLASH[disc.kind],'explosive disc');
+    ok(me.arsenal.saw===1,'one ammo per disc');shoot(now,false);ok(!hasWeapon('saw'),'no unreachable recall slot after last disc');
+    reset();me.weapon='shard';me.arsenal.shard=3;shoot(now,false);
+    ok(shots.length===8&&shots.every(s=>s.kind===K.SHARD),'eight flak fragments');
+    const s=shots[0],damage=shotDmg(s);s.bn=1;ok(shotDmg(s)<damage,'ricochets lose energy');
+    shoot(now,true);const shell=shots.at(-1);shell.life=SHOTS[K.FLAK].life/2;
+    ok(flakHeight(shell)>40,'visible ballistic loft');
+    ok(WEAPONS.minigun.alt.cd<WEAPONS.minigun.cd&&WEAPONS.minigun.alt.jitter>WEAPONS.minigun.jitter,'two minigun modes');
+    reset();me.weapon='laser';me.arsenal.laser=20;shoot(now,false);
+    ok(shots.at(-1).kind===K.PULSE_BOLT&&!HITSCAN[K.PULSE_BOLT],'Pulse primary is moving plasma');
+    shoot(now,true);ok(shots.at(-1).kind===K.LASER&&HITSCAN[K.LASER],'Pulse alternate is short hitscan beam');
+    ok(me.arsenal.laser===18,'one ammo per pulse or beam tick');
+  });
   check('last ammo retains commands, blocks primary and removes slot after expiry', () => {
-    for (const k of ['gamma','mine','saw']) {
+    for (const k of ['gamma','mine']) {
       reset();me.weapon=k;me.arsenal[k]=1;shoot(now,false);
       ok(me.arsenal[k]===0&&me.weapon===k&&owned().includes(k),'last '+k);
       const n=shots.length;shoot(now+10,false);ok(shots.length===n,'empty primary '+k);
@@ -28,8 +63,8 @@ function runWeaponAuditChecks() {
     reset();me.arsenal.rail=3;me.arsenal.gamma=1;
     dispatchEvent(new KeyboardEvent('keydown',{code:'Digit9'}));ok(me.weapon==='rail','fixed rail key');
     dispatchEvent(new KeyboardEvent('keydown',{code:'Digit4',altKey:true}));ok(me.weapon==='gamma','fixed extended key');
-    me.weapon='rocket';me.arsenal.rocket=2;rejectAt=-Infinity;shoot(now,true);
-    ok(floaters.at(-1).txt==='NEED 3 AMMO','alt reason');ok(me.arsenal.rocket===2,'rejected alt is free');
+    me.weapon='gren';me.arsenal.gren=2;rejectAt=-Infinity;shoot(now,true);
+    ok(floaters.at(-1).txt==='NEED 3 AMMO','alt reason');ok(me.arsenal.gren===2,'rejected alt is free');
     keys.clear();
   });
   check('laser assist rejects cover; Laser does not chain beyond its first victim', () => {
@@ -43,7 +78,7 @@ function runWeaponAuditChecks() {
     ok(me.arsenal.nail===8,'two ammo per spike');s.px=100;s.py=500;s.x=1000;s.y=500;ok(pierces(s)&&targetHit(s,remotes.get('a'))&&targetHit(s,remotes.get('b')),'spike piercing');
     ok(WEAPONS.scatter.alt.shot[1]*SHOTS[K.SLUG].life>WEAPONS.scatter.shot[1]*SHOTS[K.PELLET].life,'slug range');
     reset();me.weapon='shard';me.arsenal.shard=10;shoot(now,true);const shell=shots.at(-1);flakBurst(shell);
-    ok(shots.filter(s=>s.kind===K.SHARD).length===8&&me.arsenal.shard===8,'radial flak');
+    ok(shots.filter(s=>s.kind===K.SHARD).length===8&&me.arsenal.shard===9,'radial flak');
     reset();me.weapon='gren';me.arsenal.gren=10;shoot(now,true);ok(shots.filter(s=>s.kind===K.GREN).length===3&&me.arsenal.gren===7,'grenade volley');
   });
   check('lunge has a cooldown, is facing-bound and cannot be repeated by holding alt', () => {
@@ -69,13 +104,16 @@ async function checkContinuousAudio() {
   try {
     const oldWeapon=me.weapon;me.weapon='minigun';
     for(let i=0;i<20;i++)continuousFire('me','minigun',me.x,me.y,now+i*45);
-    ok(started.filter(b=>b===packBuf.p_loop_minigun[0]).length===1,'one minigun loop, not twenty overlapping bursts');
-    stopContinuous('me');ok(!packLoops['fire:me'],'minigun stop');me.weapon=oldWeapon;
+    ok(started.filter(b=>packBuf.p_ut_mini_fire.includes(b)).length===1,'one authored UT loop per shooter');
+    ok(!started.includes(packBuf.p_loop_minigun[0]),'no buzzing minigun loop');
+    continuousFire('me','minigun',me.x,me.y,now+1000,true);ok(started.includes(packBuf.p_ut_mini_alt[0]),'alternate minigun sound');
+    stopContinuous('me');ok(started.includes(packBuf.p_ut_mini_stop[0]),'minigun winddown');ok(!packLoops['fire:me'],'minigun stop');me.weapon=oldWeapon;
     for(const id of ['laserA','laserB']) {remotes.set(id,{x:me.x+100,y:me.y,weapon:'laser'});shotSound(K.LASER,me.x+100,me.y,id);}
     ok(firingSounds.has('laserA')&&firingSounds.has('laserB'),'independent remote laser starts');
+    ok(packLoops['fire:laserA'].src.buffer===packBuf.p_ut_pulse_bolt[0],'remote Pulse beam uses supplied loop');
     continuousAudioTick(now+2000);ok(!firingSounds.size,'stale remote beams stop');
     const saved=sfxVoices;sfxVoices=29;const count=started.length;sfx('hit',1);sfx('p_kill',0.5);sfx('p_warning',0.5);sfxVoices=saved;
-    ok(started.length===count+3,'damage, kill and warning survive weapon voice exhaustion');
-    return ['one loop per minigun', 'independent remote lasers and timeout', 'reserved damage/kill/warning voices'];
+    ok([sfxBuf.hit,packBuf.p_kill[0],packBuf.p_warning[0]].every(b=>b&&started.slice(count).includes(b)),'damage, kill and warning survive weapon voice exhaustion');
+    return ['authored UT minigun loops and winddown', 'independent remote lasers and timeout', 'reserved damage/kill/warning voices'];
   } finally {audio.createBufferSource=original;remotes.delete('laserA');remotes.delete('laserB');for(const id of firingSounds.keys())stopContinuous(id);}
 }

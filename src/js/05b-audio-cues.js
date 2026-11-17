@@ -1,6 +1,6 @@
   // Recorded feedback. A short cooldown makes a cluster of pickups or impacts one readable cue.
   const CUES = {
-    boost: ["p_boost", 0.4, 0.85, 650], brake: ["p_boost", 0.16, 1.5, 700],
+    boost: ["p_warp", 0.65, 1, 650], brake: ["p_boost", 0.16, 1.5, 700],
     teleport: ["p_teleport", 0.75, 0.85, 250], respawn: ["p_teleport", 0.45, 1.2, 800],
     ready: ["p_ready", 0.4, 0.9, 800], warning: ["p_warning", 0.5, 0.8, 1800],
     shieldBreak: ["shield_hit", 0.95, 0.55, 600], shieldReady: ["shield_get", 0.45, 0.8, 1500],
@@ -10,7 +10,7 @@
     refuse: ["p_noammo", 0.65, 1, 700], lowAmmo: ["p_warning", 0.35, 1.4, 1000],
     nailWall: ["p_hit_nail", 0.5, 1, 70], chargeFull: ["p_ready", 0.65, 1.4, 500],
     chargeCancel: ["p_powerdown", 0.35, 1.2, 200],
-    shockCombo: ["p_boom_orb", 1, 0.65, 120], shockBeam: ["p_fire_rail", 0.5, 1.7, 100],
+    shockCombo: ["p_ut_shock_combo", 1, 1, 120], shockBeam: ["p_ut_shock_alt", 0.9, 1, 100],
     laserPulse: ["p_boom_orb", 0.75, 1.4, 150], demonicZap: ["p_hit_laser", 0.4, 0.6, 100],
     pickup: ["p_pickup", 0.4, 1, 80]
   };
@@ -32,7 +32,7 @@
     if (voiceActive?.name === name || voiceQueue.some(v => v.name === name)) return true;
     const priority = /^(v_win|v_lose|v_flawless|v_fight|v_prepare)$/.test(name) ? 3 : /flag/.test(name) ? 2 : 1;
     if (priority === 3) voiceQueue.length = 0;
-    voiceQueue.push({ name, volume, priority, expires: performance.now() + 6000 });
+    voiceQueue.push({ name, volume, priority, expires: performance.now() + (name === "v_fight" ? 30000 : 6000) });
     voiceQueue.sort((a, b) => b.priority - a.priority);
     if (voiceQueue.length > 4) voiceQueue.length = 4;
     pumpVoice(); return true;
@@ -42,7 +42,7 @@
     if (voiceActive || !audio || !voiceBus || document.hidden) return;
     while (voiceQueue.length && voiceQueue[0].expires < performance.now()) voiceQueue.shift();
     if (!voiceQueue.length) return;
-    const item = voiceQueue[0], buffer = packBuf[item.name]?.[0] || sfxBuf[item.name];
+    const item = voiceQueue[0], buffer = packBuf[item.name]?.[0] || (item.name === "v_fight" ? null : sfxBuf[item.name]);
     if (!buffer) { voiceTimer = setTimeout(pumpVoice, 100); return; }
     voiceQueue.shift();
     const src = audio.createBufferSource(), gain = audio.createGain(); src.buffer = buffer;
@@ -68,11 +68,20 @@
   let eventAudioKey = "", lastShield = 0, lowHealthWarned = false, lastPower = false, lastBraking = false;
   function audioTick(now) {
     const active = playing && !me.dead && roundLive && !document.hidden;
-    if (!active) { packLoop("atmosphere", null); packLoop("saw", null); return; }
+    if (!active) { packLoop("atmosphere", null); for (const slot of Object.keys(packLoops)) if (slot.startsWith("flight:")) packLoop(slot, null); return; }
     const ev = stationMap() ? { cyc: 0, active: false, warn: false } : eventAt(clockNow()), key = ev.cyc + ":" + (ev.warn ? "warn" : ev.active ? "active" : "quiet");
     if (key !== eventAudioKey) { if (ev.warn) audioCue("warning"); else if (ev.active) audioCue("event"); eventAudioKey = key; }
     packLoop("atmosphere", ev.active && ev.type === "blackhole" ? "p_blackhole" : "p_ambient", ev.active && ev.type === "blackhole" ? 0.12 : 0.025);
-    packLoop("saw", shots.some(s => s.kind === K.SAW && s.life > 0 && Math.hypot(s.x - me.x, s.y - me.y) < 900) ? "p_saw" : null, 0.09);
+    const nearby = shots.filter(s => s.life > 0 && !s.boom && [K.SAW,K.SAW_ALT,K.NUKE,K.ROCKET,K.HROCKET].includes(s.kind))
+      .map(s => ({ s, d: Math.hypot(s.x-me.x,s.y-me.y) })).filter(o => o.d < 1200).sort((a,b)=>a.d-b.d).slice(0,6);
+    const wanted = new Set();
+    for (const {s,d} of nearby) {
+      const slot = "flight:" + s.id; wanted.add(slot);
+      packLoop(slot, s.kind === K.NUKE ? "p_ut_nuke_fly" : s.kind === K.SAW || s.kind === K.SAW_ALT ? "p_ut_saw_travel" : "p_fly_rocket", 0);
+      const loop = packLoops[slot];
+      if (loop) { loop.g.gain.setTargetAtTime((s.kind === K.NUKE ? .22 : .12) * (1-d/1200), audio.currentTime, .04); if(loop.pan)loop.pan.pan.value=clamp((s.x-me.x)/1000,-.85,.85); }
+    }
+    for (const slot of Object.keys(packLoops)) if (slot.startsWith("flight:") && !wanted.has(slot)) packLoop(slot,null);
     if (lastShield > 0 && me.shield === 0) audioCue("shieldBreak");
     if (lastShield < 0.6 && me.shield >= 0.6) audioCue("shieldReady");
     lastShield = me.shield;

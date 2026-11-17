@@ -61,12 +61,12 @@
   // fires once; returns the gun's reload time
   function botFire(b, now) {
     const w = botWeapon(b), pat = WEAPONS[w];
-    const s = volley(b, now, pat, null, w === "bolt" || w === "laser" ? boltLock(b, null) : undefined);
+    const s = volley(b, now, pat, null, w === "bolt" ? boltLock(b, null) : undefined);
     if (w === "orb") b.orb = s;   // a bot can set its orb off with the beam (see updateBots)
     shotSound(pat.shot[0], b.x, b.y, b.id);
     b.vx -= Math.cos(b.a) * 25; b.vy -= Math.sin(b.a) * 25;
     if (!MODES[MODE].only && w !== "fire" && --b.ammo <= 0) b.weapon = "fire";
-    return w === "fire" && (b.lv || 1) >= 4 ? pat.cd * 1.4 : pat.cd;   // twin fireballs reload a little slower
+    return w === "fire" && (b.lv || 1) >= 4 ? pat.cd * .8 : pat.cd;   // twin fireballs reload a little slower
   }
   function updateBots(dt, now) {
     if (!bots.length) return;

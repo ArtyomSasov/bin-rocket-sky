@@ -56,7 +56,7 @@ if (args[0] === "--debug") {
   const files = ["./", "index.html", "bin-rocket-sky.html", ...assets];
   const page = "<!doctype html>\n" +
     '<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>\n' +
-    body + "</body></html>\n";
+    body.replace("<script>\n(() => {", () => "<script>window.BRS_PACK_FILES = " + JSON.stringify(packFiles) + ";</script>\n<script>\n(() => {") + "</body></html>\n";
   writeFileSync(join(root, "index.html"), page);
   // the one-file game: the same page with its sounds, sprite and QR libraries inside, to download and pass on
   // (Nearby Share, AirDrop, Bluetooth): it opens from the file with no internet, offline or in a local room

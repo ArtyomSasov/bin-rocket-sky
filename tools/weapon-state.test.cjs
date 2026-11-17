@@ -15,8 +15,8 @@ function setup() {
   vm.runInContext(part(read('11-weapons.js'),'  function spend(', '  // quick dodge:'),c);
   c.cues=cues;return c;
 }
-test('last gamma, mine and saw ammo keeps its command slot until the live projectile disappears',()=>{
-  for(const [weapon,kind] of [['gamma',13],['mine',6],['saw',12]]) {
+test('last gamma and mine ammo keeps its command slot until the live projectile disappears',()=>{
+  for(const [weapon,kind] of [['gamma',13],['mine',6]]) {
     const c=setup();c.me.weapon=weapon;c.me.arsenal[weapon]=1;c.shots=[{mine:true,life:2,kind}];
     c.spend(weapon,1);assert.equal(c.me.weapon,weapon);assert.equal(c.me.arsenal[weapon],0);
     assert.equal(c.hasWeapon(weapon),true);c.shots[0].life=0;assert.equal(c.hasWeapon(weapon),false);

@@ -8,7 +8,7 @@ async function checkAudioRender() {
     return { peak, rms: Math.sqrt(sum / data.length) };
   };
   async function render({ legacy = false, engine = false, duck = false, events = [] }) {
-    const ctx = new OfflineAudioContext(1, 48000 * 4, 48000);
+    const ctx = new OfflineAudioContext(2, 48000 * 4, 48000);
     let bus;
     if (legacy) {
       const effects = ctx.createGain(), mix = ctx.createGain(), comp = ctx.createDynamicsCompressor();
@@ -29,11 +29,20 @@ async function checkAudioRender() {
   const shots = [];
   for (const name of ['p_user_fire', 'p_user_demonic', 'p_user_autocannon']) {
     const events = [[name, 0.2]];
-    shots.push({ name, current: measure(await render({ events }), 0.2, 0.4), legacy: measure(await render({ events, legacy: true }), 0.2, 0.4) });
+    shots.push({ name, channels: packBuf[name][0].numberOfChannels, current: measure(await render({ events }), 0.2, 0.4), legacy: measure(await render({ events, legacy: true }), 0.2, 0.4) });
   }
   const events = Array.from({ length: 24 }, (_, i) => ['p_burst_minigun', 0.1 + i * 0.1, 0.7]);
   for (let i = 0; i < 4; i++) events.push(['p_user_massive', 0.3 + i * 0.15], ['p_user_autocannon', 0.2 + i * 0.3], ['p_user_demonic_explosion', 0.25 + i * 0.2]);
+  // A low-level impulse/alternating waveform must retain both channels and
+  // every sample, including its attack; this catches EQ and compressor regressions.
+  const ctx = new OfflineAudioContext(2, 4800, 48000), bus = createSoundMix(ctx);
+  const signal = ctx.createBuffer(2, 4800, 48000);
+  for (let c = 0; c < 2; c++) for (let i = 0; i < 4800; i++) signal.getChannelData(c)[i] = (i % (c + 2) ? -1 : 1) * 0.25;
+  const src = ctx.createBufferSource(); src.buffer = signal; src.connect(bus.effects); src.start();
+  const clean = await ctx.startRendering(); let fidelityError = 0;
+  for (let c = 0; c < 2; c++) for (let i = 0; i < 4800; i++) fidelityError = Math.max(fidelityError, Math.abs(clean.getChannelData(c)[i] - signal.getChannelData(c)[i] * .85 * .95));
   return {
+    fidelityError,
     engine: measure(await render({ engine: true }), 0.3, 3.5),
     duckedEngine: measure(await render({ engine: true, duck: true }), 0.3, 3.5),
     shots, battle: measure(await render({ engine: true, events }))

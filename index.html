@@ -464,7 +464,7 @@ body:not(.playing) .match-hud { display: none; }
 <div class="match-clock chip" id="roundInfo" role="timer" aria-label="Round timer">Round 1 · 5:00</div>
 <div class="hud-tools"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><button type="button" id="scoreBtn" aria-controls="scoreboard" aria-expanded="false">Scores <span>Tab</span></button></div>
 </div>
-<div class="score chip"><b id="score">0</b><span>points</span><span class="lv"><b id="lvNum">Lv 1</b><span class="xpbar"><i id="xpFill"></i></span><span class="xpbar nrg" title="Boost energy"><i id="nrgFill"></i></span></span><span class="hp" id="hearts" role="img" aria-label="Health 100%"><span class="hpbar"><i id="hpFill"></i></span><b id="hpNum">100%</b></span><span class="shieldchip" id="shieldChip" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z"/></svg><b id="shieldNum">0</b></span><span class="ampchip" id="ampChip" hidden></span><span class="telechip" id="teleChip" hidden></span><span class="wpn" id="wpn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg>Fireball</span></div>
+<div class="score chip"><b id="score">0</b><span>points</span><span class="lv"><b id="lvNum">Lv 1</b><span class="xpbar"><i id="xpFill"></i></span><span class="xpbar nrg" title="Boost energy"><i id="nrgFill"></i></span></span><span class="hp" id="hearts" role="img" aria-label="Health 100%"><span class="hpbar"><i id="hpFill"></i></span><b id="hpNum">100%</b></span><span class="shieldchip" id="shieldChip" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z"/></svg><b id="shieldNum">0</b></span><span class="ampchip" id="ampChip" hidden></span><span class="telechip" id="teleChip" hidden></span><span class="wpn" id="wpn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg>Enforcer</span></div>
 </div>
 <div class="board chip" id="scoreboard" hidden><h2 id="boardTitle">Flyers</h2><div class="ping" id="pingInfo"></div><div class="bhead"><span>Pilot</span><span>Kills / Deaths · Points</span></div><ol id="board"></ol></div>
 <div class="feed" id="feed" aria-live="off"></div>
@@ -570,10 +570,11 @@ body:not(.playing) .match-hud { display: none; }
       <span id="ctrlTitle">Controls</span>
       <dl class="clist" id="clist"></dl>
     </section>
-    <details class="audio-credits"><summary>Audio credits</summary><p>Spaceship engine: <a href="https://opengameart.org/content/sci-fi-sound-effects-library" target="_blank" rel="noopener">Little Robot Sound Factory</a>, <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a> (loop crossfade and level adjusted). Additional effects: Kenney, rubberduck, zer0sol and bart (CC0). Additional recorded announcer: <a href="https://opengameart.org/content/warlord-video-game-announcer" target="_blank" rel="noopener">Warlord</a> and <a href="https://opengameart.org/content/dragon-announcer-audio-pack" target="_blank" rel="noopener">Dragon</a> by VoiceBosch, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>; source recordings unchanged. Existing weapon and announcer pack supplied by the game's author. Railgun recording by the game's author.</p></details>
+    <details class="audio-credits"><summary>Audio credits</summary><p>Spaceship engine: <a href="https://opengameart.org/content/rocket-engine" target="_blank" rel="noopener">theMinesAreShakin</a> (CC0) and <a href="https://opengameart.org/content/jet-engine-takeoff" target="_blank" rel="noopener">dklon</a> (<a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>; layered and looped). Warp dash: <a href="https://opengameart.org/content/sci-fi-sound-effects-library" target="_blank" rel="noopener">Little Robot Sound Factory</a>, CC BY 3.0 (trimmed and faded). Additional effects: Kenney, rubberduck, zer0sol and bart (CC0). Additional recorded announcer: <a href="https://opengameart.org/content/warlord-video-game-announcer" target="_blank" rel="noopener">Warlord</a> and <a href="https://opengameart.org/content/dragon-announcer-audio-pack" target="_blank" rel="noopener">Dragon</a> by VoiceBosch, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>; source recordings unchanged. Existing weapon and announcer pack supplied by the game's author. Railgun recording by the game's author.</p></details>
   </form>
 </div>
 
+<script>window.BRS_PACK_FILES = ["derived/laser-stop.wav","derived/minigun-loop.wav","derived/minigun-start.wav","derived/minigun-stop.wav","engine/jet-thrust.wav","engine/warp-dash.wav","physical/bang_04.ogg","physical/bang_05.ogg","physical/cannon_01.ogg","physical/cannon_02.ogg","physical/metal_1.wav","physical/metal_10.wav","physical/metal_20.wav","supplemental/beep_01.ogg","supplemental/beep_03.ogg","supplemental/explosion_01.ogg","supplemental/explosion_02.ogg","supplemental/loop_ambient_01.ogg","supplemental/loop_ambient_weird.ogg","supplemental/loop_machine_01.ogg","supplemental/loop_machine_02.ogg","supplemental/rocket_01.ogg","supplemental/teleport_01.ogg","supplemental/teleport_02.ogg","supplemental/terminal_01.ogg","supplemental/terminal_02.ogg","supplemental/terminal_03.ogg","supplemental/terminal_05.ogg","supplemental/terminal_06.ogg","user/autocannon.wav","user/demonic-explosions.wav","user/demonic-shot-short.wav","user/demonic-shot.wav","user/engine-working.wav","user/explosion-rumb.wav","user/explosive-canon.wav","user/explosive-nuke-or-holybomb.wav","user/massive-explosion.wav","ut/default-weapon-fire.wav","ut/draw-all-weapon-sound.wav","ut/fly-nuke.wav","ut/minigun-altfire.wav","ut/minigun-regfire.wav","ut/minigun-winddown.wav","ut/nuke-explode.wav","ut/nuke-shot.wav","ut/pick-nuke.wav","ut/pulse-gun-bolt.wav","ut/pulse-gun-down.wav","ut/pulse-gun-explode.wav","ut/pulse-gun-fire.wav","ut/rocket-launcher-fire.wav","ut/rocket-launcher-load.wav","ut/rocket_explode.wav","ut/rocket_fly.wav","ut/saw-alt-fire.wav","ut/saw-blade-ric.wav","ut/saw-blade-travel.wav","ut/saw-fire.wav","ut/shard-cannon-alt-fire.wav","ut/shard-cannon-fire.wav","ut/shard-canon-alt-explode.wav","ut/shock-orb-alt-fire.wav","ut/shock-orb-combo-explode.wav","ut/shock-orb-fire.wav","voice/announcer_1stblood_01.mp3","voice/combowhore-quake.mp3","voice/dominating-quake.mp3","voice/dominating_sxXRFmU.mp3","voice/fight.mp3","voice/flagcap.mp3","voice/flagtaken_yourteam_2.mp3","voice/flawless-victory-mk-x.mp3","voice/godlike-quake.mp3","voice/headshot-quake.mp3","voice/holyshit.mp3","voice/humiliation.mp3","voice/impressive-quake-iii-arena-announcer.mp3","voice/impressive-quake.mp3","voice/killingspree-quake.mp3","voice/ludicrouskill-quake.mp3","voice/monsterkill-quake.mp3","voice/multikill-quake.mp3","voice/prepare-quake.mp3","voice/quake-doublekill.mp3","voice/quake3quad_ysa9nit5.mp3","voice/rampage-quake.mp3","voice/triplekill-quake.mp3","voice/ultrakill-quake.mp3","voice/warlord/capture_the_flag.wav","voice/warlord/deathmatch.wav","voice/warlord/mission_failed.wav","voice/warlord/round_winner.wav","voice/warlord/team_deathmatch.wav","voice/warlord/unstoppable.wav","voice/wickedsick-quake.mp3","weapons/bfg/bfg_fire.wav","weapons/bfg/bfg_hum.wav","weapons/chaingun/f1b.wav","weapons/chaingun/f2b.wav","weapons/chaingun/f3b.wav","weapons/chaingun/f4b.wav","weapons/chaingun/fire.wav","weapons/chaingun/impd.wav","weapons/chaingun/impl.wav","weapons/chaingun/impm.wav","weapons/chaingun/wind.wav","weapons/change.wav","weapons/grenade/grenlf1a.wav","weapons/grenade/hgrenb1a.wav","weapons/grenade/hgrenb2a.wav","weapons/holy/holy-bomb.mp3","weapons/lightning/lg_fire_loop.wav","weapons/lightning/lg_fire_start.wav","weapons/lightning/lg_hit.wav","weapons/lightning/lg_hit2.wav","weapons/lightning/lg_hit3.wav","weapons/lightning/lg_hum.wav","weapons/machinegun/buletby1.wav","weapons/machinegun/fire1.wav","weapons/machinegun/fire2.wav","weapons/machinegun/fire3.wav","weapons/machinegun/fire4.wav","weapons/machinegun/ric1.wav","weapons/machinegun/ric2.wav","weapons/machinegun/ric3.wav","weapons/melee/fstatck.wav","weapons/melee/fstrun.wav","weapons/nailgun/wnalfire.wav","weapons/nailgun/wnalflit.wav","weapons/nailgun/wnalimpd.wav","weapons/nailgun/wnalimpl.wav","weapons/nailgun/wnalimpm.wav","weapons/noammo.wav","weapons/plasma/hyprbf1a.wav","weapons/plasma/lasfly.wav","weapons/plasma/plasmx1a.wav","weapons/proxmine/actv.wav","weapons/proxmine/expl.wav","weapons/proxmine/fire.wav","weapons/proxmine/impd.wav","weapons/proxmine/impl.wav","weapons/proxmine/impm.wav","weapons/proxmine/tick.wav","weapons/railgun/railgf1a.wav","weapons/railgun/rg_hum.wav","weapons/rocket/rockfly.wav","weapons/rocket/rocklf1a.wav","weapons/rocket/rocklx1a.wav","weapons/shotgun/sshotf1b.wav","weapons/weapon_hover.wav"];</script>
 <script>
 (() => {
   "use strict";
@@ -618,8 +619,8 @@ body:not(.playing) .match-hud { display: none; }
   const maxLivesOf = lv => LIVES + Math.floor((lv - 1) / 4);      // 3 lives at Lv 1-4, 4 at 5-8, 5 at 9-10
   // levels: XP comes from kills (10, more for a higher-level victim), sparks and stars, planets and flags. Every
   // level adds a perk (they stack); dying costs two levels. The same rules for players and bots
-  const PERKS = { 2: "faster energy", 3: "double dash", 4: "twin fireballs", 5: "magnet: pick-ups from afar", 6: "shield regenerates",
-    7: "fireballs pierce", 8: "a teleport jump on every respawn", 9: "more health", 10: "THE CROWN: +25% damage, everyone sees you" };
+  const PERKS = { 2: "faster energy", 3: "double dash", 4: "faster Enforcer", 5: "magnet: pick-ups from afar", 6: "shield regenerates",
+    7: "Enforcer damage +15%", 8: "a teleport jump on every respawn", 9: "more health", 10: "THE CROWN: +25% damage, everyone sees you" };
   const killXp = (myLv, victimLv) => 10 + Math.max(0, victimLv - myLv) * 3 + (victimLv >= MAX_LV ? 20 : 0);
   const levelAfterDeath = lv => Math.max(1, lv - 2);
   const TIERS = [
@@ -630,7 +631,7 @@ body:not(.playing) .match-hud { display: none; }
   ];
   const tierOf = lv => TIERS.filter(t => lv >= t.from).pop();
   // shot kinds: what flies. The number is what goes over the network; everything per kind lives in SHOTS
-  const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10, HOLY: 11, SAW: 12, GAMMA: 13, BEACON: 14, TFRAG: 15, BULLET: 16, GAUSS: 17, SHOCK: 18, PULSE: 19, FLAK: 20, DET: 21, NAIL: 22, GREN: 23, MELEE: 24, SPIKE: 25, MDET: 26, HROCKET: 27, RECALL: 28 };
+  const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10, HOLY: 11, SAW: 12, GAMMA: 13, BEACON: 14, TFRAG: 15, BULLET: 16, GAUSS: 17, SHOCK: 18, PULSE: 19, FLAK: 20, DET: 21, NAIL: 22, GREN: 23, MELEE: 24, SPIKE: 25, MDET: 26, HROCKET: 27, RECALL: 28, PISTOL: 29, SAW_ALT: 30, BULLET_ALT: 31, PULSE_BOLT: 32 };
   const MINE_R = 55, MINE_ARM = 0.7;   // mines go off when a bin comes this close, after arming
   // life: seconds; dmg: in lives (Lv 1 has 3 = 100%; pellets use pelletDmg, the nuke deals its damage in detonate);
   // r: extra hit radius; col: colour; carve: crater radius; shove: push on the bin it hits; sfx: [sound, volume, pitch] of someone else's shot;
@@ -646,10 +647,10 @@ body:not(.playing) .match-hud { display: none; }
     { name: "mine",      life: 30,   dmg: 1.7,  r: MINE_R, col: "#ff6b3c", carve: 50, shove: 0,   sfx: ["mine_drop", 0.6, 1] },
     { name: "plasma",    life: 4.2,  dmg: 1.4,  r: 30,     col: "#6fd8ff", carve: 60, shove: 300, sfx: ["shield_get", 0.6, 1.1] },
     { name: "lightning", life: 0.15, dmg: 0.22, r: 0,      col: "#bfefff", carve: 6,  shove: 0,   sfx: ["laser", 0.2, 1.7] },
-    { name: "shard",     life: 1.1,  dmg: 0.4,  r: 4,      col: "#ff9a3c", carve: 14, shove: 220, sfx: ["scatter", 0.9, 0.75], bounce: 4 },
+    { name: "shard",     life: 0.85, dmg: 0.26,  r: 4,      col: "#ff9a3c", carve: 14, shove: 220, sfx: ["scatter", 0.9, 0.75], bounce: 2 },
     { name: "slug",      life: 0.6,  dmg: 1,    r: 4,      col: "#ffe7a0", carve: 20, shove: 450, sfx: ["scatter", 0.6, 1] },
     { name: "holy bomb", life: 3.6,  dmg: 0,    r: 0,      col: "#fff3b0", carve: 0,  shove: 0,   sfx: ["mine_drop", 0.8, 0.6], inert: true },
-    { name: "saw blade", life: 3.2,  dmg: 0.85,  r: 8,      col: "#d6dde8", carve: 12, shove: 180, sfx: ["scatter", 0.5, 1.7], pierce: true, bounce: 6 },
+    { name: "saw blade", life: 3.2,  dmg: 0.85,  r: 8,      col: "#d6dde8", carve: 12, shove: 180, sfx: ["p_ut_saw_fire", 0.8, 1], bounce: 6 },
     { name: "demonic orb", life: 4,    dmg: 1.35, r: 34,     col: "#7dff8a", carve: 90, shove: 500, sfx: ["shield_get", 0.8, 0.55] },
     { name: "beacon",    life: 15,   dmg: 0,    r: 0,      col: "#8ff0ff", carve: 0,  shove: 0,   sfx: ["mine_drop", 0.5, 1.5], inert: true },
     { name: "telefrag",  life: 0.12, dmg: 99,   r: 40,     col: "#8ff0ff", carve: 0,  shove: 900, sfx: ["rail", 0.6, 1.6] },
@@ -657,7 +658,7 @@ body:not(.playing) .match-hud { display: none; }
     { name: "gauss slug", life: 0.6, dmg: 3,    r: 4,      col: "#7fb8ff", carve: 26, shove: 700, sfx: ["rail", 0.7, 0.8], pierce: true },
     { name: "shock beam", life: 0.25, dmg: 0.75, r: 0,      col: "#c9a4ff", carve: 10, shove: 220, sfx: ["laser", 0.6, 0.55] },
     { name: "laser pulse", life: 0.12, dmg: 0.45, r: 60,    col: "#7df9ff", carve: 12, shove: 950, sfx: ["laser", 0.9, 0.5], pierce: true },
-    { name: "flak shell", life: 0.42, dmg: 0.6,  r: 6,      col: "#ff9a3c", carve: 22, shove: 200, sfx: ["scatter", 0.9, 0.6] },
+    { name: "flak shell", life: 0.75, dmg: 0.6,  r: 6,      col: "#ff9a3c", carve: 22, shove: 200, sfx: ["scatter", 0.9, 0.6] },
     { name: "detonator",  life: 0.05, dmg: 0,    r: 0,      col: "#7dff8a", carve: 0,  shove: 0,   sfx: ["hit", 0.5, 0.6], inert: true },
     { name: "nail",       life: 1.1,  dmg: 0.13, r: 0,      col: "#cfd6e2", carve: 0,  shove: 60,  sfx: ["fire", 0.4, 2.2] },
     { name: "grenade",    life: 2.5,  dmg: 0.9,  r: 10,     col: "#8fd06a", carve: 46, shove: 300, sfx: ["mine_drop", 0.8, 0.7], bounce: 99 },
@@ -667,6 +668,13 @@ body:not(.playing) .match-hud { display: none; }
     { name: "homing rocket", life: 3.6, dmg: 1.0,  r: 12,     col: "#ffb43c", carve: 52, shove: 0,   sfx: ["rocket", 0.6, 1] },
     { name: "saw recall", life: 0.05, dmg: 0, r: 0, col: "#6fffe0", carve: 0, shove: 0, sfx: ["dash", 0.5, 1.4], inert: true }
   ];
+  // New protocol kinds are appended; existing IDs stay stable.
+  SHOTS.push(
+    { name: "pistol round", life: 0.3, dmg: 0.3, r: 0, col: "#ffe8a8", carve: 4, shove: 20, sfx: ["p_ut_fire", .7, 1] },
+    { name: "explosive disc", life: 1.5, dmg: .75, r: 8, col: "#ff9c50", carve: 30, shove: 250, sfx: ["p_ut_saw_alt", .8, 1] },
+    { ...SHOTS[K.BULLET], name: "rapid minigun round", dmg: .08 },
+    { name: "pulse plasma", life: 1.05, dmg: .22, r: 7, col: "#a8ff55", carve: 9, shove: 45, sfx: ["p_ut_pulse_fire", .65, 1] }
+  );
   // weapons: pick-ups swap the fireball for a while. Each gun is described here, and the player and the bots fire it
   // the same way (see volley):
   //   shot: [shot kind, speed]; spread: angles of the shots in one volley; back: fired behind the bin
@@ -675,16 +683,16 @@ body:not(.playing) .match-hud { display: none; }
   //   guided (alt): you steer the shot; spin: [slowest reload, fastest, seconds to spin up] while the trigger is held;
   //   jitter: random spread (rad); charge: seconds to charge fully while held, it fires on release
   const WEAPONS = {
-    fire:    { name: "Fireball", ammo: Infinity, cd: 0.22, shot: [K.FIRE, 1000], kick: 25, feel: [5, 0.05, 40], sfx: ["fire", 0.55] },
+    fire:    { name: "Enforcer", ammo: Infinity, cd: 0.28, shot: [K.PISTOL, 6000], jitter: 0.01, kick: 25, feel: [5, 0.05, 40], sfx: ["p_ut_fire", 0.8, 1],
+               alt: { name: "Rapid fire", cost: 0, cd: 0.16, shot: [K.PISTOL, 6000], jitter: 0.085, kick: 35, feel: [6, 0.06, 45], sfx: ["p_ut_fire", 0.8, 1] } },
     triple:  { name: "Triple shot", ammo: 24, cd: 0.3, col: "#ffb43c", shot: [K.FIRE, 1000], spread: [-0.2, 0, 0.2], kick: 25, feel: [7, 0.07, 50], sfx: ["triple", 0.7],
                alt: { name: "Focus", cost: 1, cd: 0.3, shot: [K.FIRE, 1050], spread: [-0.035, 0, 0.035], kick: 60, feel: [10, 0.13, 80], sfx: ["triple", 0.8, 0.9] } },
-    // the laser: a beam of 700 px with a narrow lock cone, only for visible enemies; no chain damage
-    // alt: a wide pulse that shoves everything in front of you away (12 charges)
-    laser:   { name: "Laser", ammo: 120, cd: 0.08, col: "#7df9ff", shot: [K.LASER, 5600], kick: 6, feel: [2, 0.02, 30], sfx: ["laser", 0.4],
-               alt: { name: "Pulse", cost: 12, cd: 1.0, shot: [K.PULSE, 3000], kick: 160, feel: [14, 0.22, 90], sfx: ["laser", 1, 0.5], fx: "pulse" } },
+    // Pulse Gun: fast plasma spheres; alternate short beam respects cover.
+    laser:   { name: "Pulse Gun", ammo: 120, cd: 0.12, col: "#a8ff55", shot: [K.PULSE_BOLT, 1500], kick: 6, feel: [3, 0.03, 30], sfx: ["p_ut_pulse_fire", .75, 1],
+               alt: { name: "Plasma beam", cost: 1, cd: 0.08, shot: [K.LASER, 5600], kick: 6, feel: [2, 0.02, 28], sfx: ["p_ut_pulse_bolt", .6, 1] } },
     // rockets as in Quake: straight and fast (about 2.4x a bin's speed), dodgeable by reading them; alt three slow homing ones
     rocket:  { name: "Rocket launcher", ammo: 10, cd: 0.8, col: "#ff5a6e", shot: [K.ROCKET, 1350], kick: 120, feel: [12, 0.16, 70], sfx: ["rocket", 0.8],
-               alt: { name: "Homing salvo", cost: 3, cd: 1.6, shot: [K.HROCKET, 520], spread: [-0.3, 0, 0.3], kick: 200, feel: [18, 0.23, 96], sfx: ["rocket", 1, 0.8] } },
+               alt: { name: "Load rockets", load: true, cost: 1, cd: 0.9, shot: [K.ROCKET, 1350], kick: 200, feel: [18, 0.23, 96], sfx: ["rocket", 1, 0.8] } },
     nuke:    { name: "Nuke", ammo: 1, cd: 1.0, col: "#ffe14d", shot: [K.NUKE, 360], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.6],
                alt: { name: "Guided", cost: 1, cd: 1.0, shot: [K.NUKE, 420], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.5], guided: true } },
     scatter: { name: "Scatter gun", ammo: 16, cd: 0.7, col: "#ffd27a", shot: [K.PELLET, 1250], kick: 260, feel: [22, 0.3, 90], sfx: ["scatter", 1, 0.85], fx: "blast",
@@ -701,16 +709,17 @@ body:not(.playing) .match-hud { display: none; }
                alt: { name: "Beam", cost: 1, cd: 0.6, shot: [K.SHOCK, 6400], kick: 70, feel: [8, 0.08, 60], sfx: ["laser", 0.8, 0.55], fx: "shock" } },
     bolt:    { name: "Lightning", ammo: 90, cd: 0.11, col: "#bfefff", shot: [K.BOLT, 5600], kick: 4, feel: [2, 0.03, 35], sfx: ["laser", 0.22, 1.7] },
     holy:    { name: "Holy bomb", ammo: 1, cd: 1.2, col: "#fff3b0", shot: [K.HOLY, 700], kick: 120, feel: [20, 0.3, 110], sfx: ["mine_drop", 1, 0.6] },
-    saw:     { name: "Buzzsaw", ammo: 20, cd: 0.42, col: "#d6dde8", shot: [K.SAW, 1500], kick: 60, feel: [8, 0.08, 50], sfx: ["scatter", 0.55, 1.7],
-               alt: { name: "Recall blades", recall: true, cost: 0, cd: 0.3, shot: [K.RECALL, 0], sfx: ["dash", 0.6, 1.4] } },
+    saw:     { name: "Ripper", ammo: 20, cd: 0.42, col: "#d6dde8", shot: [K.SAW, 1500], kick: 60, feel: [8, 0.08, 50], sfx: ["scatter", 0.55, 1.7],
+               alt: { name: "Explosive disc", cost: 1, cd: 0.65, shot: [K.SAW_ALT, 1300], kick: 90, feel: [12, 0.12, 65], sfx: ["p_ut_saw_alt", .9, 1] } },
     // alt: set your gamma orb off where it is now
     gamma:   { name: "Demonic Orb", ammo: 3, cd: 1.6, col: "#7dff8a", shot: [K.GAMMA, 420], kick: 220, feel: [24, 0.35, 130], sfx: ["shield_get", 1, 0.5], fx: "gamma",
                alt: { name: "Detonate", detonate: true, cost: 0, cd: 0.3, sfx: ["hit", 0.6, 0.6] } },
     tele:    { name: "Teleporter", ammo: 3, cd: 0.35, col: "#8ff0ff", shot: [K.BEACON, 1250], kick: 0, feel: [3, 0.02, 30], sfx: ["mine_drop", 0.7, 1.5] },
-    // One primary mode with spin-up; its sound is the original Quake chaingun burst.
-    minigun: { name: "Minigun", ammo: 160, cd: 0.09, spin: [0.16, 0.045, 1.2], jitter: 0.05, col: "#ffe08a", shot: [K.BULLET, 2600], kick: 10, feel: [2, 0.03, 30], sfx: ["fire", 0.35, 1.8] },
+    // UT-style accurate primary and faster, less accurate alternative.
+    minigun: { name: "Minigun", ammo: 160, cd: 0.09, jitter: 0.025, col: "#ffe08a", shot: [K.BULLET, 2600], kick: 10, feel: [2, 0.03, 30], sfx: ["p_ut_mini_fire", 0.65, 1],
+               alt: { name: "Rapid stream", cost: 1, cd: 0.045, jitter: 0.09, shot: [K.BULLET_ALT, 2600], kick: 10, feel: [2, 0.03, 30], sfx: ["p_ut_mini_alt", .65, 1] } },
     gauss:   { name: "Charge cannon", ammo: 8, cd: 1.4, charge: 1.1, col: "#7fb8ff", shot: [K.GAUSS, 3600], kick: 300, feel: [24, 0.35, 100], sfx: ["rail", 0.9, 0.75], fx: "rail" },
-    // the shard cannon: four heavy shards that ricochet four times, each bounce making them hit harder
+    // Flak Cannon: eight fragments lose energy after each ricochet.
     // alt: a flak shell that bursts into eight shards all round after a short flight (or on impact)
     // Quake's three: a nailgun (a fan of nails that fly far, alt a piercing spike), a grenade launcher (grenades
     // bounce off rock and go off after 2.5 s or on a bin, alt three at once), and the gauntlet everyone carries
@@ -721,13 +730,13 @@ body:not(.playing) .match-hud { display: none; }
                alt: { name: "Volley", cost: 3, cd: 1.5, shot: [K.GREN, 850], spread: [-0.25, 0, 0.25], kick: 260, feel: [20, 0.28, 100], sfx: ["mine_drop", 1, 0.6] } },
     gauntlet: { name: "Gauntlet", ammo: Infinity, cd: 0.4, col: "#ffcf5a", shot: [K.MELEE, 0], melee: true, kick: 0, feel: [6, 0.1, 0], sfx: ["hit", 0.7, 0.7],
                alt: { name: "Lunge", cost: 0, cd: 0, lunge: true, sfx: ["dash", 0.8] } },
-    shard:   { name: "Shard cannon", ammo: 14, cd: 0.8, col: "#ff9a3c", shot: [K.SHARD, 1500], kick: 340, feel: [28, 0.42, 130], sfx: ["scatter", 1, 0.7], fx: "shard",
-               alt: { name: "Flak", cost: 2, cd: 0.95, shot: [K.FLAK, 1100], kick: 220, feel: [20, 0.28, 110], sfx: ["scatter", 1, 0.55], fx: "shard" } }
+    shard:   { name: "Flak Cannon", ammo: 14, cd: 0.8, col: "#ff9a3c", shot: [K.SHARD, 1500], kick: 340, feel: [28, 0.42, 130], sfx: ["scatter", 1, 0.7], fx: "shard",
+               alt: { name: "Flak shell", cost: 1, cd: 0.95, shot: [K.FLAK, 1100], kick: 220, feel: [20, 0.28, 110], sfx: ["scatter", 1, 0.55], fx: "shard" } }
   };
   let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
-  const SPLASH = { [K.MINE]: [170, 1.2, 0.3, 450], [K.HROCKET]: [170, 0.6, 0.15, 320], [K.GREN]: [190, 0.9, 0.2, 420], [K.ROCKET]: [170, 0.6, 0.15, 320], [K.ORB]: [160, 0.6, 0.2, 380], [K.GAMMA]: [260, 1, 0.3, 600] };
+  const SPLASH = { [K.SAW_ALT]: [160, .7, .2, 350], [K.MINE]: [170, 1.2, 0.3, 450], [K.HROCKET]: [170, 0.6, 0.15, 320], [K.GREN]: [190, 0.9, 0.2, 420], [K.ROCKET]: [170, 0.6, 0.15, 320], [K.ORB]: [160, 0.6, 0.2, 380], [K.GAMMA]: [260, 1, 0.3, 600] };
   const GAMMA_ZAP = { r: 480, every: 0.3, dmg: 0.15 };   // the gamma orb zaps every enemy this close as it flies
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
   const AMP_PERIOD = 95, AMP_TIME = 20000, QUAD = 4;         // Quad damage: a rare pick-up, four times the damage for 20 s                        // mines go off when a bin comes this close, after arming
@@ -807,7 +816,7 @@ body:not(.playing) .match-hud { display: none; }
   const bombDmg = (bm, d) => d < bm.kill ? 99 : 1.5 + 2.5 * (1 - (d - bm.kill) / (bm.R - bm.kill));
   // weapon icons (24x24 SVG path data, even-odd fill): used on crates (canvas) and in the HUD (SVG)
   const ICONS = {
-    fire: "M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z",
+    fire: "M2 6h19v6h-9v3H9l-2 6H2l3-9H2ZM13 12v2h-2v-2Z",
     triple: "M3 17a3 3 0 1 0 6 0a3 3 0 1 0-6 0ZM8.6 7.5a3.4 3.4 0 1 0 6.8 0a3.4 3.4 0 1 0-6.8 0ZM15 17a3 3 0 1 0 6 0a3 3 0 1 0-6 0ZM5.2 13.6L9.6 10.4L10.4 11.2L6.4 14.6ZM18.8 13.6L14.4 10.4L13.6 11.2L17.6 14.6Z",
     laser: "M2 10h9v6H2ZM5 16h3v4H5ZM11 9h6v2.5h-6ZM11 13.5h6v2.5h-6ZM18 9.5l4 3-4 3 1-3Z",
     rocket: "M2 9h15v6H2ZM6 15h3v4H6ZM8 7h4v2H8ZM17 9.5h2l3 2.5-3 2.5h-2Z",
@@ -1522,24 +1531,24 @@ body:not(.playing) .match-hud { display: none; }
     "v_fight", "v_prepare", "v_multikill", "v_flawless", "v_win", "v_lose", "v_levelup", "v_powerup"];   // v_*: Kenney's CC0 voice-over packs
   const SFX_MP3 = new Set(["rail"]);   // rail.mp3: made by the game's author
   const sfxBuf = {};
-  let sfxBus = null, heavyBus = null, mixBus = null, voiceBus = null, engineBus = null, userBus = null, priorityBus = null, priorityVoices = 0, sfxVoices = 0, blastVoices = 0, hall = null;
+  let sfxBus = null, heavyBus = null, mixBus = null, voiceBus = null, engineBus = null, userBus = null, priorityBus = null, priorityVoices = 0, sfxVoices = 0, tailVoices = 0, blastVoices = 0, hall = null;
   function createSoundMix(ctx) {
     const effects = ctx.createGain(), mix = ctx.createGain(), voice = ctx.createGain(), engine = ctx.createGain(), priority = ctx.createGain();
-    effects.gain.value = 0.7; voice.gain.value = 0.9; engine.gain.value = 0.65;
-    // Web Audio's defaults compress almost everything above -24 dB at 12:1.
-    // Leave room for shot attacks; only dense combat needs sustained compression.
-    const combat = ctx.createDynamicsCompressor();
-    combat.threshold.value = -10; combat.knee.value = 6; combat.ratio.value = 4;
-    combat.attack.value = 0.012; combat.release.value = 0.14;
-    const output = ctx.createDynamicsCompressor();
-    output.threshold.value = -3; output.knee.value = 0; output.ratio.value = 20;
-    output.attack.value = 0.001; output.release.value = 0.08;
-    const presence = ctx.createBiquadFilter();
-    presence.type = "highshelf"; presence.frequency.value = 2200; presence.gain.value = 3;
-    presence.connect(effects); effects.connect(mix); mix.connect(combat).connect(output);
-    // Thrust keeps its level during gunfire and announcer ducking.
-    engine.connect(output); priority.connect(output); voice.connect(output); const headroom = ctx.createGain(); headroom.gain.value = 0.9; output.connect(headroom).connect(ctx.destination);
-    return { effects, mix, voice, engine, priority, presence, output };
+    effects.gain.value = 0.85; voice.gain.value = 0.75; engine.gain.value = 0.8;
+    // Unity response below 0.8: no compressor makeup gain, EQ or transient pumping.
+    // Scale into a +/-4 range so the peak guard can handle overlapping explosions.
+    const input = ctx.createGain(), guard = ctx.createWaveShaper(), output = ctx.createGain();
+    input.gain.value = 0.25; output.gain.value = 4 * 0.95;
+    const curve = new Float32Array(65537);
+    for (let i = 0; i < curve.length; i++) {
+      const x = (i / (curve.length - 1) * 2 - 1) * 4, a = Math.abs(x);
+      curve[i] = Math.sign(x) * (a <= 0.8 ? a : 0.8 + 0.18 * (1 - Math.exp(-(a - 0.8) / 0.18))) / 4;
+    }
+    guard.curve = curve;
+    effects.connect(mix).connect(input);
+    engine.connect(input); priority.connect(input); voice.connect(input);
+    input.connect(guard).connect(output).connect(ctx.destination);
+    return { effects, mix, voice, engine, priority, presence: effects, output };
   }
   // a big room's echo, shared by the announcer sting and the guns
   function getHall() {
@@ -1596,12 +1605,42 @@ body:not(.playing) .match-hud { display: none; }
   // a sound it plays instead of the built-in or synthesized one. sfx/pack/index.json (written by the build) lists them;
   // the one-file game carries them inside (window.BRS_PACK)
   const PACK_PATHS = {
+    p_ut_pulse_fire: ["ut/pulse-gun-fire.wav"],
+    p_ut_pulse_bolt: ["ut/pulse-gun-bolt.wav"],
+    p_ut_pulse_down: ["ut/pulse-gun-down.wav"],
+    p_ut_pulse_explode: ["ut/pulse-gun-explode.wav"],
+
+    v_fight: ["voice/fight.mp3"],
+    p_ut_fire: ["ut/default-weapon-fire.wav"],
+    p_ut_rocket_fire: ["ut/rocket-launcher-fire.wav"],
+    p_ut_rocket_load: ["ut/rocket-launcher-load.wav"],
+    p_ut_rocket_boom: ["ut/rocket_explode.wav"],
+    p_ut_rocket_fly: ["ut/rocket_fly.wav"],
+    p_ut_saw_travel: ["ut/saw-blade-travel.wav"],
+    p_ut_saw_ric: ["ut/saw-blade-ric.wav"],
+    p_ut_saw_alt: ["ut/saw-alt-fire.wav"],
+    p_ut_saw_fire: ["ut/saw-fire.wav"],
+    p_ut_nuke_boom: ["ut/nuke-explode.wav"],
+    p_ut_nuke_fly: ["ut/fly-nuke.wav"],
+    p_ut_nuke_pick: ["ut/pick-nuke.wav"],
+    p_ut_nuke_fire: ["ut/nuke-shot.wav"],
+    p_ut_mini_alt: ["ut/minigun-altfire.wav"],
+    p_ut_mini_fire: ["ut/minigun-regfire.wav"],
+    p_ut_mini_stop: ["ut/minigun-winddown.wav"],
+    p_ut_flak_boom: ["ut/shard-canon-alt-explode.wav"],
+    p_ut_flak_alt: ["ut/shard-cannon-alt-fire.wav"],
+    p_ut_flak_fire: ["ut/shard-cannon-fire.wav"],
+    p_ut_draw: ["ut/draw-all-weapon-sound.wav"],
+    p_ut_shock_combo: ["ut/shock-orb-combo-explode.wav"],
+    p_ut_shock_alt: ["ut/shock-orb-alt-fire.wav"],
+    p_ut_shock_fire: ["ut/shock-orb-fire.wav"],
+
     p_start_minigun: ["derived/minigun-start.wav"], p_loop_minigun: ["derived/minigun-loop.wav"],
     p_stop_minigun: ["derived/minigun-stop.wav"], p_stop_laser: ["derived/laser-stop.wav"],
     p_user_demonic: ["user/demonic-shot.wav"], p_user_fire: ["user/demonic-shot-short.wav"],
     p_user_cannon: ["user/explosive-canon.wav"], p_user_autocannon: ["user/autocannon.wav"],
     p_user_explosion: ["user/explosion-rumb.wav"], p_user_massive: ["user/massive-explosion.wav", "user/explosive-nuke-or-holybomb.wav"],
-    p_user_engine: ["user/engine-working.wav"], p_ship_engine: ["engine/spaceship-thrust.wav"], p_user_demonic_explosion: ["user/demonic-explosions.wav"],
+    p_user_engine: ["user/engine-working.wav"], p_ship_engine: ["engine/jet-thrust.wav"], p_warp: ["engine/warp-dash.wav"], p_user_demonic_explosion: ["user/demonic-explosions.wav"],
     p_metal: ["physical/metal_1.wav", "physical/metal_10.wav", "physical/metal_20.wav"],
     p_blast: ["physical/bang_04.ogg", "physical/bang_05.ogg"],
     p_blast_heavy: ["physical/cannon_01.ogg", "physical/cannon_02.ogg"],
@@ -1617,11 +1656,11 @@ body:not(.playing) .match-hud { display: none; }
     p_charge: ["supplemental/terminal_02.ogg"], p_sting: ["supplemental/teleport_01.ogg"],
     p_death: ["supplemental/explosion_02.ogg"], p_engine: ["supplemental/loop_machine_01.ogg"],
     p_fire_minigun: ["machinegun/fire1.wav", "machinegun/fire2.wav", "machinegun/fire3.wav", "machinegun/fire4.wav"],
-    p_burst_minigun: ["chaingun/f1b.wav", "chaingun/f2b.wav", "chaingun/f3b.wav", "chaingun/f4b.wav", "chaingun/fire.wav"],
-    p_spin_minigun: ["chaingun/wind.wav"], p_hit_bullet: ["chaingun/impd.wav", "chaingun/impl.wav", "chaingun/impm.wav"],
+    p_burst_minigun: ["chaingun/f1b.wav", "chaingun/f2b.wav", "chaingun/f3b.wav", "chaingun/f4b.wav"],
+    p_legacy_minigun: ["chaingun/fire.wav"], p_spin_minigun: ["chaingun/wind.wav"], p_hit_bullet: ["chaingun/impd.wav", "chaingun/impl.wav", "chaingun/impm.wav"],
     p_ric: ["machinegun/ric1.wav", "machinegun/ric2.wav", "machinegun/ric3.wav"], p_whiz: ["machinegun/buletby1.wav"],
     p_fire_scatter: ["shotgun/sshotf1b.wav"],
-    p_fire_rocket: ["rocket/rocklf1a.wav"], p_boom_rocket: ["rocket/rocklx1a.wav"], p_fly_rocket: ["rocket/rockfly.wav"],
+    p_fire_rocket: ["rocket/rocklf1a.wav"], p_quake_grenade_boom: ["rocket/rocklx1a.wav"], p_fly_rocket: ["rocket/rockfly.wav"],
     p_fire_orb: ["plasma/hyprbf1a.wav"], p_boom_orb: ["plasma/plasmx1a.wav"], p_fly_orb: ["plasma/lasfly.wav"],
     p_fire_rail: ["railgun/railgf1a.wav"], p_hum_rail: ["railgun/rg_hum.wav"],
     p_fire_laser: ["lightning/lg_fire_start.wav"], p_loop_laser: ["lightning/lg_fire_loop.wav"], p_hum_laser: ["lightning/lg_hum.wav"],
@@ -1653,7 +1692,8 @@ body:not(.playing) .match-hud { display: none; }
       if (ev) fetch(src).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)).then(b => audio.decodeAudioData(b)).then(b => { (packBuf[ev] = packBuf[ev] || []).push(b); }).catch(() => {});
     };
     if (window.BRS_PACK) { for (const [p, d] of Object.entries(window.BRS_PACK)) add(p, d); return; }
-    fetch("sfx/pack/index.json").then(r => r.json()).then(list => { for (const p of list) add(p, "sfx/pack/" + p.split("/").map(encodeURIComponent).join("/")); }).catch(() => {});
+    const manifest = window.BRS_PACK_FILES ? Promise.resolve(window.BRS_PACK_FILES) : fetch("sfx/pack/index.json").then(r => r.json());
+    manifest.then(list => { for (const p of list) add(p, "sfx/pack/" + p.split("/").map(encodeURIComponent).join("/")); }).catch(() => {});
   }
   const packHas = ev => !!(packBuf[SOUND_OVERRIDE[ev]]?.length || packBuf[ev]?.length);
   function packPlay(ev, vol = 1, x, y) { return ev && packHas(ev) ? sfx(ev, vol, 1, x, y) : false; }
@@ -1663,23 +1703,28 @@ body:not(.playing) .match-hud { display: none; }
     if (document.hidden) ev = null;
     const cur = packLoops[slot];
     if (cur && cur.ev === ev) return;
-    if (cur) { try { cur.g.gain.setTargetAtTime(0, audio.currentTime, 0.04); cur.src.stop(audio.currentTime + 0.25); } catch {} packLoops[slot] = null; }
+    if (cur) { try { cur.g.gain.setTargetAtTime(0, audio.currentTime, 0.04); cur.src.stop(audio.currentTime + 0.25); } catch {} delete packLoops[slot]; }
     if (!ev || !audio || !sfxBus || !packHas(ev)) return;
     const src = audio.createBufferSource(), g = audio.createGain();
-    src.buffer = packBuf[ev][0]; src.loop = true; g.gain.value = vol; src.connect(g);
-    const pan = slot.startsWith("fire:") && audio.createStereoPanner ? audio.createStereoPanner() : null;
+    src.buffer = (packBuf[SOUND_OVERRIDE[ev]] || packBuf[ev])[0]; src.loop = true; g.gain.value = vol; src.connect(g);
+    const pan = (slot.startsWith("fire:") || slot.startsWith("flight:")) && audio.createStereoPanner ? audio.createStereoPanner() : null;
     (pan ? g.connect(pan) : g).connect(slot === "engine" ? engineBus : sfxBus); src.start();
     packLoops[slot] = { ev, src, g, pan };
   }
   document.addEventListener("visibilitychange", () => { if (document.hidden) { for (const slot of Object.keys(packLoops)) packLoop(slot, null); } });
   // x, y: where it happens (quieter with distance, silent past ~2200); rate: pitch, with a little random spread
-  const SOUND_OVERRIDE = { fire: "p_user_fire", triple: "p_user_fire", crash: "p_metal", ram: "p_metal", dash: "p_boost",
-    p_fire_gamma: "p_user_demonic", p_fire_minigun: "p_burst_minigun",
-    p_fire_shard: "p_user_autocannon", p_boom_shard: "p_user_cannon", p_boom_nuke: "p_user_massive", p_boom_holy: "p_user_massive",
+  const SOUND_OVERRIDE = { fire: "p_ut_fire", p_fire_fire: "p_ut_fire", triple: "p_user_fire", crash: "p_metal", ram: "p_metal", dash: "p_warp",
+    p_fire_gamma: "p_user_demonic", p_fire_minigun: "p_ut_mini_fire",
+    p_fire_rocket: "p_ut_rocket_fire", p_boom_rocket: "p_ut_rocket_boom", p_fly_rocket: "p_ut_rocket_fly", p_change: "p_ut_draw",
+    p_fire_laser: "p_ut_pulse_fire", p_loop_laser: "p_ut_pulse_bolt", p_stop_laser: "p_ut_pulse_down",
+    p_fire_saw: "p_ut_saw_fire", p_saw: "p_ut_saw_travel", p_fire_orb: "p_ut_shock_fire", p_fire_nuke: "p_ut_nuke_fire",
+    p_fire_shard: "p_ut_flak_fire", p_boom_shard: "p_ut_flak_boom", p_boom_nuke: "p_ut_nuke_boom", p_boom_holy: "p_user_massive",
     p_boom_gamma: "p_user_demonic_explosion",
     p_death: "p_user_explosion", boom_small: "p_blast", boom_bin: "p_user_explosion", boom_big: "p_blast_heavy", chunk: "p_metal" };
   const USER_SOUND_GAIN = { p_user_fire: 0.9, p_user_demonic: 0.85, p_user_autocannon: 0.95, p_user_cannon: 0.75, p_user_explosion: 0.7, p_user_massive: 0.85, p_user_demonic_explosion: 1.15 };
   const prioritySounds = new Set(["hit", "shield_hit", "p_kill", "p_warning", "p_noammo", "p_ready"]);
+  const priorityActive = [];
+  const soundPriority = name => name === "hit" || name === "shield_hit" || name === "p_kill" ? 3 : name === "p_warning" ? 2 : 1;
   const impactTimes = new Map();
   let collisionSoundAt = -Infinity;
   function sfx(name, vol = 1, rate = 1, x, y) {
@@ -1706,9 +1751,16 @@ body:not(.playing) .match-hud { display: none; }
       if (d > reach) return true;
       vol *= majorBlast ? Math.sqrt(1 - d / reach) : 1 - d / reach;
     }
-    if (priority ? priorityVoices >= 8 : majorBlast ? blastVoices >= 4 : sfxVoices > 28) return true;   // reserve blast voices so automatic fire cannot swallow them
-    const src = audio.createBufferSource(), v = audio.createGain(), out = priority ? priorityBus : tune ? heavyBus : userSound ? userBus : sfxBus;
-    src.buffer = b; src.playbackRate.value = rate * (tune ? tune[0] : 1) * (majorBlast || userSound ? 1 : 0.94 + Math.random() * 0.12);
+    const tail = name === "p_ut_mini_stop" || name === "p_stop_laser";
+    if (priority && priorityVoices >= 8) {
+      const oldest = priorityActive.slice().sort((a,b)=>soundPriority(a.name)-soundPriority(b.name))[0];
+      if (!oldest || soundPriority(oldest.name) > soundPriority(name)) return true;
+      oldest.retired = true; priorityActive.splice(priorityActive.indexOf(oldest),1); priorityVoices--;
+      oldest.g.gain.setTargetAtTime(0,audio.currentTime,.005); oldest.src.stop(audio.currentTime+.025);
+    }
+    if (tail ? tailVoices >= 8 : priority ? priorityVoices >= 8 : majorBlast ? blastVoices >= 4 : sfxVoices > 28) return true;   // reserve blast voices so automatic fire cannot swallow them
+    const src = audio.createBufferSource(), v = audio.createGain(), out = priority ? priorityBus : name === "p_warp" || name === "dash" ? engineBus : tune ? heavyBus : userSound ? userBus : sfxBus;
+    src.buffer = b; src.playbackRate.value = rate * (tune ? tune[0] : 1) * (majorBlast || userSound || name.startsWith("p_ut_") || replacement?.startsWith("p_ut_") || name === "dash" || name === "p_warp" ? 1 : 0.94 + Math.random() * 0.12);
     v.gain.value = vol;
     src.connect(v);
     if (x !== undefined && audio.createStereoPanner) {
@@ -1726,8 +1778,14 @@ body:not(.playing) .match-hud { display: none; }
       sfx("boom_low", vol * 0.24, 0.75, x, y);
       setTimeout(() => { if (!document.hidden) sfx("p_metal", vol * 0.22, 0.65, x, y); }, 65);
     }
-    if (priority) priorityVoices++; else if (majorBlast) blastVoices++; else sfxVoices++;
-    src.onended = () => { if (priority) priorityVoices--; else if (majorBlast) blastVoices--; else sfxVoices--; };
+    if (tail) tailVoices++; else if (priority) priorityVoices++; else if (majorBlast) blastVoices++; else sfxVoices++;
+    const reserved = priority ? { name, src, g: v, retired: false } : null;
+    if (reserved) priorityActive.push(reserved);
+    src.onended = () => {
+      if (tail) tailVoices--;
+      else if (priority) { if (!reserved.retired) { priorityVoices--; priorityActive.splice(priorityActive.indexOf(reserved),1); } }
+      else if (majorBlast) blastVoices--; else sfxVoices--;
+    };
     src.start();
     if (["p_hit_bullet", "p_hit_nail", "p_hit_laser"].includes(name)) {
       v.gain.setValueAtTime(vol, audio.currentTime + 0.12);
@@ -1778,7 +1836,7 @@ body:not(.playing) .match-hud { display: none; }
 
   // Recorded feedback. A short cooldown makes a cluster of pickups or impacts one readable cue.
   const CUES = {
-    boost: ["p_boost", 0.4, 0.85, 650], brake: ["p_boost", 0.16, 1.5, 700],
+    boost: ["p_warp", 0.65, 1, 650], brake: ["p_boost", 0.16, 1.5, 700],
     teleport: ["p_teleport", 0.75, 0.85, 250], respawn: ["p_teleport", 0.45, 1.2, 800],
     ready: ["p_ready", 0.4, 0.9, 800], warning: ["p_warning", 0.5, 0.8, 1800],
     shieldBreak: ["shield_hit", 0.95, 0.55, 600], shieldReady: ["shield_get", 0.45, 0.8, 1500],
@@ -1788,7 +1846,7 @@ body:not(.playing) .match-hud { display: none; }
     refuse: ["p_noammo", 0.65, 1, 700], lowAmmo: ["p_warning", 0.35, 1.4, 1000],
     nailWall: ["p_hit_nail", 0.5, 1, 70], chargeFull: ["p_ready", 0.65, 1.4, 500],
     chargeCancel: ["p_powerdown", 0.35, 1.2, 200],
-    shockCombo: ["p_boom_orb", 1, 0.65, 120], shockBeam: ["p_fire_rail", 0.5, 1.7, 100],
+    shockCombo: ["p_ut_shock_combo", 1, 1, 120], shockBeam: ["p_ut_shock_alt", 0.9, 1, 100],
     laserPulse: ["p_boom_orb", 0.75, 1.4, 150], demonicZap: ["p_hit_laser", 0.4, 0.6, 100],
     pickup: ["p_pickup", 0.4, 1, 80]
   };
@@ -1810,7 +1868,7 @@ body:not(.playing) .match-hud { display: none; }
     if (voiceActive?.name === name || voiceQueue.some(v => v.name === name)) return true;
     const priority = /^(v_win|v_lose|v_flawless|v_fight|v_prepare)$/.test(name) ? 3 : /flag/.test(name) ? 2 : 1;
     if (priority === 3) voiceQueue.length = 0;
-    voiceQueue.push({ name, volume, priority, expires: performance.now() + 6000 });
+    voiceQueue.push({ name, volume, priority, expires: performance.now() + (name === "v_fight" ? 30000 : 6000) });
     voiceQueue.sort((a, b) => b.priority - a.priority);
     if (voiceQueue.length > 4) voiceQueue.length = 4;
     pumpVoice(); return true;
@@ -1820,7 +1878,7 @@ body:not(.playing) .match-hud { display: none; }
     if (voiceActive || !audio || !voiceBus || document.hidden) return;
     while (voiceQueue.length && voiceQueue[0].expires < performance.now()) voiceQueue.shift();
     if (!voiceQueue.length) return;
-    const item = voiceQueue[0], buffer = packBuf[item.name]?.[0] || sfxBuf[item.name];
+    const item = voiceQueue[0], buffer = packBuf[item.name]?.[0] || (item.name === "v_fight" ? null : sfxBuf[item.name]);
     if (!buffer) { voiceTimer = setTimeout(pumpVoice, 100); return; }
     voiceQueue.shift();
     const src = audio.createBufferSource(), gain = audio.createGain(); src.buffer = buffer;
@@ -1846,11 +1904,20 @@ body:not(.playing) .match-hud { display: none; }
   let eventAudioKey = "", lastShield = 0, lowHealthWarned = false, lastPower = false, lastBraking = false;
   function audioTick(now) {
     const active = playing && !me.dead && roundLive && !document.hidden;
-    if (!active) { packLoop("atmosphere", null); packLoop("saw", null); return; }
+    if (!active) { packLoop("atmosphere", null); for (const slot of Object.keys(packLoops)) if (slot.startsWith("flight:")) packLoop(slot, null); return; }
     const ev = stationMap() ? { cyc: 0, active: false, warn: false } : eventAt(clockNow()), key = ev.cyc + ":" + (ev.warn ? "warn" : ev.active ? "active" : "quiet");
     if (key !== eventAudioKey) { if (ev.warn) audioCue("warning"); else if (ev.active) audioCue("event"); eventAudioKey = key; }
     packLoop("atmosphere", ev.active && ev.type === "blackhole" ? "p_blackhole" : "p_ambient", ev.active && ev.type === "blackhole" ? 0.12 : 0.025);
-    packLoop("saw", shots.some(s => s.kind === K.SAW && s.life > 0 && Math.hypot(s.x - me.x, s.y - me.y) < 900) ? "p_saw" : null, 0.09);
+    const nearby = shots.filter(s => s.life > 0 && !s.boom && [K.SAW,K.SAW_ALT,K.NUKE,K.ROCKET,K.HROCKET].includes(s.kind))
+      .map(s => ({ s, d: Math.hypot(s.x-me.x,s.y-me.y) })).filter(o => o.d < 1200).sort((a,b)=>a.d-b.d).slice(0,6);
+    const wanted = new Set();
+    for (const {s,d} of nearby) {
+      const slot = "flight:" + s.id; wanted.add(slot);
+      packLoop(slot, s.kind === K.NUKE ? "p_ut_nuke_fly" : s.kind === K.SAW || s.kind === K.SAW_ALT ? "p_ut_saw_travel" : "p_fly_rocket", 0);
+      const loop = packLoops[slot];
+      if (loop) { loop.g.gain.setTargetAtTime((s.kind === K.NUKE ? .22 : .12) * (1-d/1200), audio.currentTime, .04); if(loop.pan)loop.pan.pan.value=clamp((s.x-me.x)/1000,-.85,.85); }
+    }
+    for (const slot of Object.keys(packLoops)) if (slot.startsWith("flight:") && !wanted.has(slot)) packLoop(slot,null);
     if (lastShield > 0 && me.shield === 0) audioCue("shieldBreak");
     if (lastShield < 0.6 && me.shield >= 0.6) audioCue("shieldReady");
     lastShield = me.shield;
@@ -1864,35 +1931,38 @@ body:not(.playing) .match-hud { display: none; }
     if (braking && !lastBraking) audioCue("brake");
     lastBraking = braking;
   }
-  // One bounded voice per shooter, refreshed by actual shots. Network stalls,
-  // death, switching weapons and hidden tabs cannot leave a loop running forever.
+  // Authored UT loops: one per shooter, including separate minigun modes.
+  // Shot refreshes bound network stalls; release, death and switching stop them.
   const firingSounds = new Map();
-  function continuousFire(owner, weapon, x, y, now = performance.now()) {
+  function continuousFire(owner, weapon, x, y, now = performance.now(), alt = false) {
     if (!audio || document.hidden) return false;
-    const event = weapon === "minigun" ? "p_loop_minigun" : "p_loop_laser";
+    const event = weapon === "minigun" ? (alt ? "p_ut_mini_alt" : "p_ut_mini_fire") : (alt ? "p_loop_laser" : "p_ut_pulse_fire");
     if (!packHas(event)) return false;
-    if (Math.hypot(x - me.x, y - me.y) > 1800) return true;
+    const distance = Math.hypot(x - me.x, y - me.y);
+    if (distance > 1800) return true;
     const old = firingSounds.get(owner);
     if (old && old.weapon !== weapon) stopContinuous(owner);
     if (!firingSounds.has(owner)) {
       if (firingSounds.size >= 8) {
         const farthest = [...firingSounds].filter(([id]) => id !== "me").sort((a, b) => b[1].distance - a[1].distance)[0];
-        if (!farthest || (owner !== "me" && farthest[1].distance < Math.hypot(x - me.x, y - me.y))) return true;
+        if (!farthest || (owner !== "me" && farthest[1].distance < distance)) return true;
         stopContinuous(farthest[0]);
       }
-      packPlay(weapon === "minigun" ? "p_start_minigun" : "p_fire_laser", owner === "me" ? 0.7 : 0.4, x, y);
-      packLoop("fire:" + owner, event, 0);
-      if (!packLoops["fire:" + owner]) return false;
-      firingSounds.set(owner, { weapon, last: now, x, y, distance: Math.hypot(x - me.x, y - me.y) });
+      firingSounds.set(owner, { weapon });
     }
-    Object.assign(firingSounds.get(owner), { last: now, x, y });
+    packLoop("fire:" + owner, event, 0);
+    const loop = packLoops["fire:" + owner];
+    if (!loop) { firingSounds.delete(owner); return false; }
+    Object.assign(firingSounds.get(owner), { last: now, x, y, distance, alt });
+    loop.g.gain.setTargetAtTime((owner === "me" ? .4 : .18) * Math.max(0, 1 - distance / 1800), audio.currentTime, .015);
+    if (loop.pan) loop.pan.pan.value = Math.max(-.85, Math.min(.85, (x - me.x) / 1000));
     return true;
   }
   function stopContinuous(owner) {
     const state = firingSounds.get(owner);
     if (!state) return;
     packLoop("fire:" + owner, null); firingSounds.delete(owner);
-    if (!document.hidden) packPlay(state.weapon === "minigun" ? "p_stop_minigun" : "p_stop_laser", owner === "me" ? 0.4 : 0.2, state.x, state.y);
+    if (!document.hidden) packPlay(state.weapon === "minigun" ? "p_ut_mini_stop" : "p_stop_laser", owner === "me" ? .4 : .2, state.x, state.y);
   }
   function continuousAudioTick(now) {
     for (const [id, state] of firingSounds) {
@@ -1901,8 +1971,8 @@ body:not(.playing) .match-hud { display: none; }
       const loop = packLoops["fire:" + id];
       if (!loop) { firingSounds.delete(id); continue; }
       state.x = pilot.x; state.y = pilot.y; state.distance = Math.hypot(pilot.x - me.x, pilot.y - me.y);
-      loop.g.gain.setTargetAtTime((id === "me" ? 0.55 : 0.23) * Math.max(0, 1 - state.distance / 1800), audio.currentTime, 0.035);
-      if (loop.pan) loop.pan.pan.value = Math.max(-0.85, Math.min(0.85, (pilot.x - me.x) / 1000));
+      loop.g.gain.setTargetAtTime((id === "me" ? .4 : .18) * Math.max(0, 1 - state.distance / 1800), audio.currentTime, .035);
+      if (loop.pan) loop.pan.pan.value = Math.max(-.85, Math.min(.85, (pilot.x - me.x) / 1000));
     }
   }
   document.addEventListener("visibilitychange", () => { if (document.hidden) for (const id of firingSounds.keys()) stopContinuous(id); });
@@ -3446,8 +3516,8 @@ body:not(.playing) .match-hud { display: none; }
 
   // ---------- fire & damage ----------
   // shots leave from the tip of the gun drawn on the wing (left and right in turn), not from the middle of the bin
-  const mountsOf = w => w === "laser" || w === "gauntlet" ? [[160, 96]] : ["nuke", "holy", "bolt", "gamma", "tele", "gauss", "gauntlet"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
-  const BARREL = { laser: 60, rocket: 50, triple: 42, nuke: 96, holy: 30, saw: 40, gamma: 44, tele: 28, minigun: 58, gauss: 80, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48, nail: 54, gren: 44, gauntlet: 34 };   // tip, in mount units
+  const mountsOf = w => w === "fire" ? [[256, 150]] : w === "laser" || w === "gauntlet" ? [[160, 96]] : ["nuke", "holy", "bolt", "gamma", "tele", "gauss", "gauntlet"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
+  const BARREL = { fire: 44, laser: 60, rocket: 50, triple: 42, nuke: 96, holy: 30, saw: 40, gamma: 44, tele: 28, minigun: 58, gauss: 80, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48, nail: 54, gren: 44, gauntlet: 34 };   // tip, in mount units
   let gunSide = 0;
   function muzzleAt(weapon) {
     const ms = mountsOf(weapon), [mx, my] = ms[gunSide++ % ms.length];
@@ -3468,19 +3538,20 @@ body:not(.playing) .match-hud { display: none; }
   const pelletDmg = s => { const d = Math.hypot(s.x - s.ox, s.y - s.oy); return d < 300 ? 0.27 : d < 550 ? 0.18 : 0.09; };
   // how someone else's shot sounds here (quieter with distance)
   // which gun a shot kind comes from, for a sound pack's gun sounds
-  const KIND_GUN = { [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
+  const KIND_GUN = { [K.PULSE_BOLT]: "laser", [K.PISTOL]: "fire", [K.SAW]: "saw", [K.SAW_ALT]: "saw", [K.NUKE]: "nuke", [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
     [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.NAIL]: "nail", [K.SPIKE]: "nail", [K.GREN]: "gren", [K.HROCKET]: "rocket", [K.GAUSS]: "rail", [K.SHARD]: "shard", [K.FLAK]: "shard" };
   const shotSound = (kind, x, y, owner = "unknown") => {
-    if (kind === K.LASER || kind === K.BULLET) { if (continuousFire(owner, kind === K.LASER ? "laser" : "minigun", x, y)) return; }
-    if (kind !== K.LASER && kind !== K.BULLET) stopContinuous(owner);
+    if (kind === K.PULSE_BOLT || kind === K.LASER || kind === K.BULLET || kind === K.BULLET_ALT) { if (continuousFire(owner, kind === K.LASER || kind === K.PULSE_BOLT ? "laser" : "minigun", x, y, performance.now(), kind === K.BULLET_ALT || kind === K.LASER)) return; }
+    if (kind !== K.PULSE_BOLT && kind !== K.LASER && kind !== K.BULLET && kind !== K.BULLET_ALT) stopContinuous(owner);
+    if (kind === K.SAW_ALT || kind === K.FLAK) { packPlay(kind === K.SAW_ALT ? "p_ut_saw_alt" : "p_ut_flak_alt", .8, x, y); return; }
     if (kind === K.SHOCK) { audioCue("shockBeam", x, y); return; }
     if (kind === K.PULSE) { audioCue("laserPulse", x, y); return; }
     if (kind === K.MELEE && packPlay("p_melee_hit", 0.9, x, y)) return;
     if (KIND_GUN[kind] && packPlay("p_fire_" + KIND_GUN[kind], 0.75, x, y)) return;
     const [name, vol, pitch] = SHOTS[kind].sfx; sfx(name, vol, pitch, x, y);
   };
-  // a shard hits 30% harder after every ricochet
-  const shotDmg = s => MODES[MODE].instagib && s.kind === K.RAIL ? 99 : (s.kind === K.PELLET ? pelletDmg(s) : SHOTS[s.kind].dmg * (s.kind === K.SHARD ? 1 + 0.3 * (s.bn || 0) : 1)) * (s.m || 1);
+  // Flak fragments lose energy on each ricochet.
+  const shotDmg = s => MODES[MODE].instagib && s.kind === K.RAIL ? 99 : (s.kind === K.PELLET ? pelletDmg(s) : SHOTS[s.kind].dmg * (s.kind === K.SHARD ? Math.pow(.8, s.bn || 0) : 1)) * (s.m || 1);
   // team modes: whose side a shot is on (no friendly fire)
   const teamOfShot = s => s.mine ? me.tm : botById.has(s.owner) ? botById.get(s.owner).tm : remotes.has(s.owner) ? remotes.get(s.owner).tm : undefined;
   // in team modes a shot whose shooter's team hasn't come in yet hurts nobody (it would be friendly fire half the time)
@@ -3503,10 +3574,10 @@ body:not(.playing) .match-hud { display: none; }
     return true;
   }
   const selfMul = (s, id) => id === s.owner ? SELF_DMG : 1;
-  // shard cannon: one record becomes six hot shards that bounce off walls and planets
+  // Flak Cannon: one network record becomes eight deterministic fragments.
   function shardSpray(s) {
-    for (let k = 0; k < 4; k++) {
-      const da = (k - 1.5) * 0.085, f = 0.92 + ((k * 3) % 4) * 0.04, c = Math.cos(da), sn = Math.sin(da);
+    for (let k = 0; k < 8; k++) {
+      const da = (k - 3.5) * 0.075, f = 0.82 + ((k * 3) % 8) * 0.035, c = Math.cos(da), sn = Math.sin(da);
       metricChild(s.id, s.id + "s" + k);
       shots.push({ ...s, id: s.id + "s" + k, vx: (s.vx * c - s.vy * sn) * f, vy: (s.vx * sn + s.vy * c) * f, bn: 0 });
     }
@@ -3543,7 +3614,7 @@ body:not(.playing) .match-hud { display: none; }
   // segment: without it a fireball or a rocket arrives on the victim's screen 150-250 px behind where its shooter
   // saw it. Homing, bouncing and sticking shots keep their own flight and start late instead.
   const straightShot = kind => STRAIGHT.has(kind);
-  const STRAIGHT = new Set([K.BULLET, K.NAIL, K.SPIKE, K.PELLET, K.SLUG, K.FIRE, K.ROCKET, K.FLAK, K.ORB, K.GAMMA]);
+  const STRAIGHT = new Set([K.BULLET_ALT, K.PULSE_BOLT, K.SAW_ALT, K.BULLET, K.NAIL, K.SPIKE, K.PELLET, K.SLUG, K.FIRE, K.ROCKET, K.FLAK, K.ORB, K.GAMMA]);
   // dash, respawn and lunge protection: a protected bin is not there for a shot, which flies on through it instead
   // of stopping on it (my bots and I keep the time it ends, the others send a flag)
   const shielded = o => typeof o.inv === "number" ? performance.now() < o.inv : !!o.inv;
@@ -3778,7 +3849,7 @@ body:not(.playing) .match-hud { display: none; }
       impacts.push({ x, y, t: 0, r: 140, col: "#fff2c0" });
       rings.push({ x, y, t: 0, r: 240, col: "255,200,140", warp: true, dur: 0.5, w: 14 });
       smoke(x, y, lowQ ? 5 : 12, 90, 2);
-      if (near) { packPlay("p_boom_rocket", 1, x, y) || sfx("boom_small", 1, 0.95, x, y); shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
+      if (near) { packPlay(s.kind === K.GREN ? "p_quake_grenade_boom" : "p_boom_rocket", 1, x, y) || sfx("boom_small", 1, 0.95, x, y); shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
     }
   }
   let hitTickAt = 0;
@@ -3821,9 +3892,9 @@ body:not(.playing) .match-hud { display: none; }
   function volley(p, now, pat, from, aim, mul = 1) {
     metricVolley(p, pat);
     const plv = p.lv || 1;
-    if (pat === WEAPONS.fire && plv >= 4) pat = FIRE_TWIN;   // perks: twin fireballs from Lv 4
+    if (pat.shot?.[0] === K.PISTOL && plv >= 7) mul *= 1.15;   // perks: twin fireballs from Lv 4
     if (plv >= MAX_LV) mul *= 1.25;                          // the crown: +25% damage
-    const mine = p === me, [kind, speed] = pat.shot, amp = (mine && me.ampUntil > now ? QUAD : 1) * mul, ride = kind === K.BOLT || kind === K.LASER || kind === K.SHOCK ? 0 : 0.6;
+    const mine = p === me, [kind, speed] = pat.shot, amp = (mine && me.ampUntil > now ? QUAD : 1) * mul, ride = kind === K.BOLT || kind === K.LASER || kind === K.SHOCK || kind === K.PISTOL ? 0 : 0.6;
     const base = (aim ?? p.a) + (pat.back ? Math.PI : 0), sz = sizeOf(p.lv || 1);
     let s;
     for (const da of pat.spread || [0]) {
@@ -3840,7 +3911,7 @@ body:not(.playing) .match-hud { display: none; }
       if (kind === K.RAIL || kind === K.GAUSS) railBeam(s);
       if (kind === K.GAUSS && mine) { myRails.set(id, { x: s.x, y: s.y, charged: true, cut: !!s.cut }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value); }
       if (kind === K.MELEE && mine) myMelee.add(id);   // for Humiliation
-      if (kind === K.BULLET && onScreen(sx(p.x), sy(p.y), 200) && Math.random() < 0.7) {   // a spent casing spins off the side
+      if ((kind === K.BULLET || kind === K.BULLET_ALT || kind === K.PISTOL) && onScreen(sx(p.x), sy(p.y), 200) && Math.random() < 0.7) {   // a spent casing spins off the side
         const sd = Math.random() < 0.5 ? 1 : -1, cx = -by * sd, cy = bx * sd, v = 140 + Math.random() * 120;
         puff(ox, oy, cx * v - bx * 60 + p.vx * 0.8, cy * v - by * 60 + p.vy * 0.8, 0.5 + Math.random() * 0.3, 1.8, "#e8c060");
       }
@@ -3944,9 +4015,11 @@ body:not(.playing) .match-hud { display: none; }
   }
   // what every client shows where a shot lands on a bin
   function shotBurst(s) {
+    if (s.kind === K.PULSE_BOLT) { if (!s.impactSound) { s.impactSound = true; packPlay("p_ut_pulse_explode", .6, s.x, s.y); } return; }
+    if (s.kind === K.FLAK) { flakBurst(s); return; }
     if (s.kind === K.MINE) { blastFx(s); return; }
     if (SPLASH[s.kind]) blastFx(s);
-    else packPlay(s.kind === K.SHARD ? "p_boom_shard" : s.kind === K.BULLET ? "p_hit_bullet" : s.kind === K.LASER || s.kind === K.BOLT ? "p_hit_laser" : s.kind === K.NAIL || s.kind === K.SPIKE ? "p_hit_nail" : s.kind === K.RAIL ? "p_boom_orb" : "", 0.6, s.x, s.y) || sfx("hit", 0.55, 1.1, s.x, s.y);
+    else packPlay(s.kind === K.SHARD ? "p_ric" : s.kind === K.BULLET ? "p_hit_bullet" : s.kind === K.LASER || s.kind === K.BOLT ? "p_hit_laser" : s.kind === K.NAIL || s.kind === K.SPIKE ? "p_hit_nail" : s.kind === K.RAIL ? "p_boom_orb" : "", 0.6, s.x, s.y) || sfx("hit", 0.55, 1.1, s.x, s.y);
     if (s.kind === K.RAIL) sparkShower(s.x, s.y, s.vx / 4200, s.vy / 4200, 1.2);
     if (s.kind === K.PELLET) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
     if (s.kind === K.SLUG) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
@@ -3992,13 +4065,19 @@ body:not(.playing) .match-hud { display: none; }
   const DETONATOR = { shot: [K.DET, 0] }, MINE_DETONATOR = { shot: [K.MDET, 0] };
   let lungeReady = 0;
   // the pack's sound for each alt fire (the rest keep their own)
-  const ALT_SOUND = { mine: "p_fire_mine", scatter: "p_fire_scatter", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_fire_laser", gren: "p_fire_gren", nail: "p_fire_nail", rail: "p_fire_rail", shard: "p_fire_shard" };
+  const ALT_SOUND = { fire: "p_ut_fire", saw: "p_ut_saw_alt", nuke: "p_ut_nuke_fire", mine: "p_fire_mine", scatter: "p_fire_scatter", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_fire_laser", gren: "p_fire_gren", nail: "p_fire_nail", rail: "p_fire_rail", shard: "p_ut_flak_alt" };
   // fire the gun in hand (alt: its alternate fire, which needs its full ammo cost)
   // mul: the charge cannon's charge (0.25..1)
-  function shoot(now, alt, mul = 1) {
+  function shoot(now, alt, mul = 1, loadedRockets = 0) {
     const k = me.weapon, w = WEAPONS[k];
     let pat = alt ? w.alt : w;
     if (alt && !pat) return;
+    if (alt && pat.load) {
+      if (!loadedRockets) return;
+      const count = Math.min(3, loadedRockets, me.arsenal.rocket || 0);
+      if (!count) return;
+      pat = { ...pat, cost: count, spread: Array.from({ length: count }, (_, i) => (i - (count - 1) / 2) * .14) };
+    }
     if (!alt && !(me.arsenal[k] > 0)) { rejectFire("NO AMMO · use alternate command", now); return; }
     if (alt && (me.arsenal[k] || 0) < pat.cost) { rejectFire("NEED " + pat.cost + " AMMO", now); return; }
     if (alt && pat.cutter) pat = { ...pat, cut: Math.round(24 + 48 * railCharge) };
@@ -4045,11 +4124,12 @@ body:not(.playing) .match-hud { display: none; }
       if (me.heat >= 1) { me.overheat = true; floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: "OVERHEAT", gold: false }); sfx("shield_hit", 0.7, 0.6); }
     }
     const cdMul = MODES[MODE].cdMul || 1;
-    fireCd = alt ? pat.cd : k === "fire" && me.lv >= 4 ? w.cd * 1.4 * cdMul : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
-    const gun = k === "fire" ? null : muzzleAt(k);
-    const muzzle = volley(me, now, pat, gun, (k === "bolt" || k === "laser") && !alt ? boltLock(me, gun) : undefined, mul);
+    fireCd = alt ? pat.cd : k === "fire" && me.lv >= 4 ? w.cd * .8 * cdMul : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
+    const gun = muzzleAt(k);
+    const muzzle = volley(me, now, pat, gun, (k === "bolt" && !alt || k === "laser" && alt) ? boltLock(me, gun) : undefined, mul);
     const [name, vol, pitch] = pat.sfx;
-    const packed = alt && (k === "orb" || k === "laser") ? audioCue(k === "orb" ? "shockBeam" : "laserPulse") : k === "minigun" ? continuousFire("me", "minigun", me.x, me.y, now) : k === "laser" && !alt ? packHas("p_loop_laser") || packHas("p_fire_laser")   // the laser's beam sound runs while the trigger is held
+    const packed = alt && k === "orb" ? audioCue("shockBeam") : k === "minigun" ? continuousFire("me", "minigun", me.x, me.y, now, !!alt)
+      : k === "laser" ? continuousFire("me", "laser", me.x, me.y, now, !!alt)
       : packPlay(alt ? ALT_SOUND[k] || "" : k === "holy" ? "p_fire_gren" : "p_fire_" + k, 0.9);
     if (!packed) sfx(name, vol, w.charge ? pitch * (1.3 - 0.4 * mul) : pitch) || blip(160, 0.1, "sawtooth");   // a fuller charge sounds deeper
     if (pat.fx) MUZZLE_FX[pat.fx](muzzle);
@@ -4065,10 +4145,11 @@ body:not(.playing) .match-hud { display: none; }
     spin = w.spin && held && playing && !me.dead ? Math.min(1, spin + dt / w.spin[2]) : Math.max(0, spin - dt * 1.5);
     // a sound pack's loops: the hum of the gun in your hands, and the laser's beam while the trigger is held
     const alive = playing && !me.dead;
-    packLoop("hum", alive ? { rail: "p_hum_rail", laser: "p_hum_laser", gamma: "p_hum_gamma" }[me.weapon] || null : null, 0.22);
-    const beam = alive && held && roundLive && me.weapon === "laser" && me.arsenal.laser > 0;
-    if (beam) continuousFire("me", "laser", me.x, me.y, now);
-    if ((!held || !alive || !roundLive) && firingSounds.has("me")) stopContinuous("me");
+    const altAutomatic = (me.weapon === "minigun" || me.weapon === "laser") && (altFiring || keys.has("KeyC"));
+    packLoop("hum", alive ? { rail: "p_hum_rail", gamma: "p_hum_gamma" }[me.weapon] || null : null, 0.22);
+    const beam = alive && (held || altAutomatic) && roundLive && me.weapon === "laser" && me.arsenal.laser > 0;
+    if (!beam && me.weapon === "laser" && firingSounds.has("me")) stopContinuous("me");
+    if (((!held && !altAutomatic) || !alive || !roundLive) && firingSounds.has("me")) stopContinuous("me");
     me.gauntOn = alive && me.weapon === "gauntlet" && (held || now < (me.lungeUntil || 0));
     if (me.gauntOn) {   // the blade grinds whatever rock it touches: sparks fly and it bites in
       const nx = me.x + Math.cos(me.a) * (binR(me.lv) + 14), ny = me.y + Math.sin(me.a) * (binR(me.lv) + 14), b = solidAny(nx, ny);
@@ -4226,8 +4307,8 @@ body:not(.playing) .match-hud { display: none; }
     return WEAPONS[me.weapon].name + (Number.isFinite(n) ? " · " + n : "") + (me.overheat && alt && alt.heat ? " · OVERHEATED" : "") + (count ? " · ACTIVE " + count : "") + (me.weapon === "mine" && count ? " · ARMED " + armed : "")
       + (Number.isFinite(n) && n <= Math.max(1, Math.ceil(WEAPONS[me.weapon].ammo * 0.15)) ? " · LOW AMMO" : "")
       + (me.weapon === "gauntlet" ? (performance.now() >= lungeReady ? " · LUNGE READY" : " · LUNGE " + Math.ceil((lungeReady - performance.now()) / 100) / 10 + "s") : "")
-      + (alt ? " · " + (COARSE ? "ALT: " : "right click: ") + alt.name + " [" + alt.cost + " ammo]" : "")
-      + (me.weapon === "saw" ? " · catch does not refund ammo" : ""); };
+      + (alt ? " · " + (COARSE ? "ALT: " : "right click: ") + alt.name + " [" + (alt.load ? "1–3" : alt.cost) + " ammo]" : "")
+      + (me.weapon === "rocket" ? " · LOADED " + rocketLoad + "/3 · release ALT to fire" : ""); };
   // after a shot: just the numbers of that gun
   function renderAmmo(k) {
     const n = me.arsenal[k], slot = arsenalEl.querySelector(`[data-w="${k}"]`);
@@ -4254,11 +4335,12 @@ body:not(.playing) .match-hud { display: none; }
     }).join("");
     const alt = WEAPONS[me.weapon].alt;
     document.getElementById("altBtn").hidden = !playing || !COARSE || !alt;
-    if (alt) document.getElementById("altName").textContent = (alt.name + " · " + alt.cost + " AMMO").toUpperCase();
+    if (alt) document.getElementById("altName").textContent = (alt.name + " · " + (alt.load ? "1–3" : alt.cost) + " AMMO").toUpperCase();
   }
   function selectWeapon(k) {
     if (!hasWeapon(k) || k === me.weapon) return;
     if (railCharge > 0) { railCharge = 0; audioCue("chargeCancel"); }
+    cancelRocketLoad(); stopContinuous("me");
     me.weapon = k; fireCd = Math.max(fireCd, 0.15);
     packPlay("p_change", 0.6) || blip(520, 0.05, "square");
     renderWeapon();
@@ -4506,7 +4588,7 @@ body:not(.playing) .match-hud { display: none; }
   // Stable controls are independent of inventory and mode; protocol IDs stay in WEAPON_KEYS.
   const WEAPON_SLOTS = ["fire", "gauntlet", "minigun", "scatter", "rocket", "gren", "laser", "orb", "rail", "nail", "shard", "saw", "mine", "gamma", "nuke", "holy"];
   const weaponKey = k => { const i = WEAPON_SLOTS.indexOf(k); return i < 0 ? "Q/E" : (i >= 10 ? "Alt+" : "") + ((i % 10 + 1) % 10); };
-  const controlledKind = k => ({ gamma: K.GAMMA, mine: K.MINE, saw: K.SAW })[k];
+  const controlledKind = k => ({ gamma: K.GAMMA, mine: K.MINE })[k];
   const controlledShots = k => shots.filter(s => s.mine && s.life > 0 && !s.boom && s.kind === controlledKind(k));
   const hasWeapon = k => !!me.arsenal[k] || controlledShots(k).length > 0;
   let rejectAt = -Infinity, lastWeaponStatus = "", wasLungeReady = true;
@@ -4517,7 +4599,7 @@ body:not(.playing) .match-hud { display: none; }
   }
   function reconcileWeapons(now) {
     let changed = false;
-    for (const k of ["gamma", "mine", "saw"]) if (me.arsenal[k] === 0 && !controlledShots(k).length) { delete me.arsenal[k]; changed = true; }
+    for (const k of ["gamma", "mine"]) if (me.arsenal[k] === 0 && !controlledShots(k).length) { delete me.arsenal[k]; changed = true; }
     if (!hasWeapon(me.weapon)) { me.weapon = "fire"; changed = true; }
     if (changed) renderWeapon();
     const status = chipText();
@@ -4547,15 +4629,18 @@ body:not(.playing) .match-hud { display: none; }
   }
 
   const ALT_HINTS = {
+    fire: "Enforcer: instant accurate shots; alternate fire is faster with wider spread. Unlimited starting ammo.",
+    rocket: "Hold alternate fire to load one rocket every 0.45 s, up to three. Release for a straight salvo; ammo cost equals rockets loaded.",
+    minigun: "Primary: accurate stream. Alternate: faster fire with wider spread; 1 ammo per round.",
     scatter: "Slug: longer range and a stronger push than the close-range pellet fan; 2 ammo.",
-    shard: "Flak: bursts into eight radial shards. Aim into a room or behind cover; 2 ammo.",
+    shard: "Flak shell: a lofted shell bursts into eight shards on impact or landing; 1 ammo.",
     gren: "Volley: three bouncing grenades to cover several routes; 3 ammo.",
     gauntlet: "Lunge: free, forward-only melee approach; 1.2 s recharge and 0.2 s protection. Dash uses movement direction and costs energy.",
     nail: "Spike: a fast, precise round that passes through multiple bins; 2 ammo. Walls still stop it.",
-    saw: "Recall sends active blades back for one more hit per target. Catching a blade does not return ammo.",
+    saw: "Ripper: primary discs ricochet; alternate discs explode on contact; 1 ammo.",
     mine: "Detonate works with zero ammo while your mines are active.",
     gamma: "Detonate works with zero ammo while your Demonic Orb is active.",
-    laser: "Aim near a visible enemy within beam range. Pulse pushes enemies away; 12 ammo. The beam does not chain.",
+    laser: "Pulse Gun: rapid green plasma bolts; hold alternate fire for a short green beam, 1 ammo per tick. Cover blocks both modes.",
     rail: "Hold alternate fire to widen Breach cutter, release to fire. Cost: 2 ammo. Switching weapons cancels the charge."
   };
   const weaponHint = k => WEAPONS[k].name + " · " + weaponKey(k) + ". " + (ALT_HINTS[k] || "Q/E cycles carried weapons. Right click or C uses alternate fire when available.");
@@ -4583,7 +4668,7 @@ body:not(.playing) .match-hud { display: none; }
   }
   function metricVolley(pilot, pattern) {
     const weapon = pilot === me ? me.weapon : botWeapon(pilot), alt = pattern !== WEAPONS[weapon] && pattern !== FIRE_TWIN;
-    const row = metricRow(weapon, pilot, alt); row.volleys++; row.ammoCost += alt ? WEAPONS[weapon].alt?.cost || 0 : weapon === "fire" || weapon === "gauntlet" ? 0 : 1;
+    const row = metricRow(weapon, pilot, alt); row.volleys++; row.ammoCost += alt ? pattern.cost || 0 : weapon === "fire" || weapon === "gauntlet" ? 0 : 1;
   }
   function metricForShot(id) {
     if (typeof id !== "string") return null;
@@ -4617,6 +4702,32 @@ body:not(.playing) .match-hud { display: none; }
     const url = URL.createObjectURL(blob), a = document.createElement("a");
     a.href = url; a.download = "bin-rocket-weapon-metrics.json"; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
+  // Loading reserves no ammo: only the released volley spends it. Cancelling
+  // on death, switching, round end or a hidden tab cannot emit a delayed volley.
+  let rocketLoad = 0, rocketLoadTime = 0;
+  function cancelRocketLoad() { rocketLoad = 0; rocketLoadTime = 0; }
+  function rocketLoadTick(dt, now, held, ready) {
+    if (me.weapon !== "rocket" || !ready || document.hidden) { cancelRocketLoad(); return; }
+    const available = Math.min(3, me.arsenal.rocket || 0);
+    if (held) {
+      if (!available) { rejectFire("NO ROCKETS", now); cancelRocketLoad(); return; }
+      rocketLoadTime += Math.max(0, dt);
+      const count = Math.min(available, Math.floor((rocketLoadTime + 1e-8) / 0.45));
+      if (count > rocketLoad) {
+        // At most one load click per frame after a stall; the HUD still catches up.
+        rocketLoad = count; packPlay("p_ut_rocket_load", .7); renderAmmo("rocket");
+      }
+    } else {
+      const count = Math.min(rocketLoad, available);
+      cancelRocketLoad();
+      if (count) shoot(now, true, 1, count);
+    }
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) cancelRocketLoad(); });
+
+  // The top-down Flak shell has a visible loft and falls after a short flight.
+  // Walls still intercept its path; it never shoots through Foundry cover.
+  const flakHeight = s => 46 * Math.sin(Math.PI * Math.max(0, Math.min(1, 1 - s.life / SHOTS[K.FLAK].life)));
   // ---------- networking ----------
   // State and recent shots travel together; every connected broker receives the same sequence.
   const net = { send() {}, shot() {}, shotsInState: true, hz: 8 };
@@ -4640,7 +4751,7 @@ body:not(.playing) .match-hud { display: none; }
   // window.BRS_BROKER set before the game loads (see server/ in the repo)
   const ownBroker = () => { const m = /[?&]broker=([^&#]+)/.exec(location.search || ""), b = m ? decodeURIComponent(m[1]) : window.BRS_BROKER || ""; return /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(b) || /^ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[\w./-]*)?$/i.test(b) ? b : ""; };   // plain ws only for a broker on this machine (testing); read when connecting
   const lobbyBroker = () => ownBroker() || "wss://broker.hivemq.com:8884/mqtt";
-  const LOBBY_TOPIC = "binrocket-sky/v15/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
+  const LOBBY_TOPIC = "binrocket-sky/v16/lobbies", LOBBY_EVERY = 4000, LOBBY_TTL = 13000;
   const openLobbies = new Map();   // code -> { n: pilots, b: bots, at: when last heard }
   let lobbyRenderPending = false;
   function renderLobbies() {
@@ -4957,7 +5068,7 @@ body:not(.playing) .match-hud { display: none; }
     const BROKERS = ownBroker() ? [ownBroker()] : [lobbyBroker(), "wss://broker.emqx.io:8084/mqtt"];
     if (ownBroker()) net.hz = 15;   // a broker of your own has no such budget: nearly twice the updates, so flyers move smoother
     const myId = "p" + Math.random().toString(36).slice(2, 10);
-    const base = "binrocket-sky/v15/" + code + "/";
+    const base = "binrocket-sky/v16/" + code + "/";
     const clients = BROKERS.map(url => {
       const c = mqtt.connect(url, {
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),
@@ -5027,7 +5138,7 @@ body:not(.playing) .match-hud { display: none; }
   // codes (host -> guest, then guest -> host) or copied as text, so no server is involved at all. Only the
   // candidates on the local network are used. The host relays every pilot's state to the others, like the broker does.
   const lan = { host: false, guest: false, code: "", myId: "p" + Math.random().toString(36).slice(2, 10), peers: [] };
-  const LAN_TAG = "BRS15";
+  const LAN_TAG = "BRS16";
   const QR_LIB = "vendor/qrcode.min.js";
   const JSQR_LIB = "vendor/jsQR.min.js";
   const scriptLoads = new Map();
@@ -5394,12 +5505,12 @@ body:not(.playing) .match-hud { display: none; }
   // fires once; returns the gun's reload time
   function botFire(b, now) {
     const w = botWeapon(b), pat = WEAPONS[w];
-    const s = volley(b, now, pat, null, w === "bolt" || w === "laser" ? boltLock(b, null) : undefined);
+    const s = volley(b, now, pat, null, w === "bolt" ? boltLock(b, null) : undefined);
     if (w === "orb") b.orb = s;   // a bot can set its orb off with the beam (see updateBots)
     shotSound(pat.shot[0], b.x, b.y, b.id);
     b.vx -= Math.cos(b.a) * 25; b.vy -= Math.sin(b.a) * 25;
     if (!MODES[MODE].only && w !== "fire" && --b.ammo <= 0) b.weapon = "fire";
-    return w === "fire" && (b.lv || 1) >= 4 ? pat.cd * 1.4 : pat.cd;   // twin fireballs reload a little slower
+    return w === "fire" && (b.lv || 1) >= 4 ? pat.cd * .8 : pat.cd;   // twin fireballs reload a little slower
   }
   function updateBots(dt, now) {
     if (!bots.length) return;
@@ -5694,6 +5805,7 @@ body:not(.playing) .match-hud { display: none; }
     const held = firing || FIRE_KEYS.some(k => keys.has(k)) || (aimM && ptr.down);   // with mouse aim the left button fires
     const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided;
     const altW = WEAPONS[me.weapon].alt, altHeld = altFiring || keys.has("KeyC");
+    rocketLoadTick(dt, now, altHeld, ready);
     if (altW && altW.charge) {   // rail alt: hold to widen the cutter, release to open a short breach
       if (altHeld && ready && me.arsenal[me.weapon] >= altW.cost) {
         const was = railCharge; railCharge = Math.min(1, railCharge + dt / altW.charge);
@@ -5705,8 +5817,8 @@ body:not(.playing) .match-hud { display: none; }
       }
     } else railCharge = 0;
     me.heat = Math.max(0, (me.heat || 0) - 0.45 * dt); if (me.overheat && me.heat < 0.3) { me.overheat = false; renderAmmo(me.weapon); audioCue("ready"); }
-    if (ready && altHeld && altW && !altW.charge) shoot(now, true);
-    else if (triggerTick(dt, now, ready && fireCd <= 0 && !(altHeld && altW?.charge) && railCharge === 0, held) || (ready && me.weapon === "gauntlet" && now < (me.lungeUntil || 0))) shoot(now);   // a lunge lands blows too
+    if (ready && altHeld && altW && !altW.charge && !altW.load) { triggerTick(dt, now, false, held); shoot(now, true); }
+    else if (triggerTick(dt, now, ready && fireCd <= 0 && !(altHeld && (altW?.charge || altW?.load)) && railCharge === 0, held) || (ready && me.weapon === "gauntlet" && now < (me.lungeUntil || 0))) shoot(now);   // a lunge lands blows too
     if (playing && !me.dead) {
       if (keys.has("KeyA") || keys.has("ArrowLeft")) ix -= 1;
       if (keys.has("KeyD") || keys.has("ArrowRight")) ix += 1;
@@ -5887,7 +5999,7 @@ body:not(.playing) .match-hud { display: none; }
   // damage lands with the beam you see, not when a fast slug would have got there. The rail bores through every body
   // to the fence (each bin on the line is hit once); the others stop at the first rock. The shot then spans that line
   // (px,py -> x,y) for one frame, so the usual hit checks (me, the others, my bots, orbs for a combo) see all of it.
-  const HITSCAN = { [K.RAIL]: 1, [K.LASER]: 1, [K.SHOCK]: 1, [K.BOLT]: 1, [K.GAUSS]: 1 };
+  const HITSCAN = { [K.PISTOL]: 1, [K.RAIL]: 1, [K.LASER]: 1, [K.SHOCK]: 1, [K.BOLT]: 1, [K.GAUSS]: 1 };
   function traceBeam(s) {
     s.traced = true; s.expireAfterStep = true;
     const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v, pierce = pierces(s);
@@ -5911,6 +6023,7 @@ body:not(.playing) .match-hud { display: none; }
       if (own || stop.b.free) carveAt(stop.b, stop.x, stop.y, SHOTS[s.kind].carve, own);
       impact(stop.x, stop.y, SHOTS[s.kind].col, 0.8);
     }
+    if (s.kind === K.PISTOL) beams.push({ x1: s.px, y1: s.py, x2: s.x, y2: s.y, t: 0, pistol: true });
     s.beamHit = stop ? "body" : max < reach ? "bin" : null;
     if (s.kind === K.LASER || s.kind === K.SHOCK) laserBeam(s, s.owner);
     s.life = Math.min(s.life, 1e-4);   // one frame of hits, then gone
@@ -5931,7 +6044,7 @@ body:not(.playing) .match-hud { display: none; }
         s.life = Math.max(1e-4, left);
       }
       if (s.kind === K.RECALL) { recallSaws(s); shots.splice(i, 1); continue; }
-      if (s.kind === K.SAW) steerSaw(s, stepDt);
+      // Ripper discs retain their ricochet direction; no automatic recall.
       if (s.kind === K.DET) { detonateOrb(s); if (s.life <= 0) shots.splice(i, 1); continue; }   // inert: it only sets off its orb
       if (HITSCAN[s.kind] && !s.traced && s.life > 0) traceBeam(s);   // rail, laser, beams: the whole line, this very frame
       if (s.kind === K.MDET) { detonateMines(s); if (s.life <= 0) shots.splice(i, 1); continue; }   // ...and this one its pilot's mines
@@ -5980,7 +6093,7 @@ body:not(.playing) .match-hud { display: none; }
         let hit = false;
         if (s.x < 0 || s.x > W) { s.vx = -s.vx; s.x = clamp(s.x, 0, W); hit = true; }
         if (s.y < 0 || s.y > H) { s.vy = -s.vy; s.y = clamp(s.y, 0, H); hit = true; }
-        if (hit) { if (s.kind === K.SAW) { returnSaw(s); s.ricTime = 0.12; } s.bn++; s.vx *= s.kind === K.GREN ? 0.6 : 0.85; s.vy *= s.kind === K.GREN ? 0.6 : 0.85; s.px = s.x; s.py = s.y; impact(s.x, s.y, SHOTS[s.kind].col, 0.5); if (s.kind === K.SHARD) shardRicochet(s); if (s.kind === K.GREN) grenBounce(s); }
+        if (hit) { if (s.kind === K.SAW) packPlay("p_ut_saw_ric", .7, s.x, s.y); s.bn++; s.vx *= s.kind === K.GREN ? 0.6 : 0.85; s.vy *= s.kind === K.GREN ? 0.6 : 0.85; s.px = s.x; s.py = s.y; impact(s.x, s.y, SHOTS[s.kind].col, 0.5); if (s.kind === K.SHARD) shardRicochet(s); if (s.kind === K.GREN) grenBounce(s); }
       }
       if ((s.kind === K.RAIL || s.kind === K.SHOCK) && s.life > 0) for (const o of shots) {
         if (o.kind === K.ORB && o.life > 0 && !o.combo && segHit(s, o.x, o.y, 45)) { comboBlast(o, s, now); if (s.kind === K.SHOCK) { s.life = 0; break; } }
@@ -5997,7 +6110,7 @@ body:not(.playing) .match-hud { display: none; }
         } else if (bounce && s.bn < bounce) {   // shards and saws chip and ricochet; grenades just bounce
           if (dig && s.kind !== K.GREN) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);
           const [nx, ny] = normalAt(hb.b, hb.x, hb.y), vn = s.vx * nx + s.vy * ny, keep = s.kind === K.GREN ? 0.6 : 0.85;
-          if (s.kind === K.SAW) { returnSaw(s); s.ricTime = 0.12; }
+          if (s.kind === K.SAW) packPlay("p_ut_saw_ric", .7, s.x, s.y);
           if (vn < 0) { s.vx = (s.vx - 2 * vn * nx) * keep; s.vy = (s.vy - 2 * vn * ny) * keep; }
           if (s.kind === K.GREN) grenBounce(s);
           s.x = hb.x + nx * 4; s.y = hb.y + ny * 4; s.px = s.x; s.py = s.y; s.bn++;
@@ -6014,7 +6127,8 @@ body:not(.playing) .match-hud { display: none; }
             continue;
           }
           s.x = hb.x; s.y = hb.y;
-          if (s.kind === K.SHARD) packPlay("p_boom_shard", 0.65, s.x, s.y);
+          if (s.kind === K.PULSE_BOLT) shotBurst(s);
+          if (s.kind === K.SHARD) packPlay("p_ric", .25, s.x, s.y);
           if (s.kind === K.FLAK) { const [nx, ny] = normalAt(hb.b, hb.x, hb.y); s.x += nx * 12; s.y += ny * 12; flakBurst(s); }   // bursts just off the surface
           if (SPLASH[s.kind]) splash(s, now);
           impact(hb.x, hb.y, SHOTS[s.kind].col, s.kind === K.MINE ? 1.6 : 0.8);
@@ -6047,7 +6161,7 @@ body:not(.playing) .match-hud { display: none; }
       if (!s.mine && !s.whiz && playing && !me.dead && (s.kind === K.BULLET || s.kind === K.PELLET || s.kind === K.SHARD || s.kind === K.RAIL || s.kind === K.NAIL || s.kind === K.SPIKE) && now - whizAt > 120
           && segHit(s, me.x, me.y, binR(me.lv) + 140) && !segHit(s, me.x, me.y, binR(me.lv))) { s.whiz = true; whizAt = now; packPlay(s.kind === K.NAIL || s.kind === K.SPIKE ? "p_whiz_nail" : "p_whiz", 0.7, s.x, s.y); }
       // a rocket or an orb flying past roars by (yours too, once, as it leaves)
-      if (!s.flyby && (s.kind === K.ROCKET || s.kind === K.HROCKET || s.kind === K.ORB) && playing && !me.dead && Math.hypot(s.x - me.x, s.y - me.y) < (s.mine ? 200 : 380)) {
+      if (!s.flyby && s.kind === K.ORB && playing && !me.dead && Math.hypot(s.x - me.x, s.y - me.y) < (s.mine ? 200 : 380)) {
         s.flyby = true; packPlay(s.kind === K.ORB ? "p_fly_orb" : "p_fly_rocket", s.mine ? 0.35 : 0.7, s.x, s.y);
       }
 
@@ -6228,7 +6342,7 @@ body:not(.playing) .match-hud { display: none; }
       renderWeapon();
       floaters.push({ x: d.x, y: d.y - 20, t: 0, txt: "TROPHY · " + w.name.toUpperCase(), gold: true });
       for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 220; puff(d.x, d.y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, k % 2 ? "#ffd36b" : w.col); }
-      sfx("weapon_get", 0.9, 0.85);
+      if (d.type === "nuke") packPlay("p_ut_nuke_pick", .9); else sfx("weapon_get", 0.9, 0.85);
     }
     // medkits and shields (left on the ground when they would do nothing, like in Doom)
     if (playing && !me.dead) {
@@ -6282,7 +6396,7 @@ body:not(.playing) .match-hud { display: none; }
           const key = COARSE ? "" : " · press " + weaponKey(c.type);
           floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: had ? "+AMMO " + w.name.toUpperCase() : w.name.toUpperCase() + key, gold: true });
           for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 220; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, w.col); }
-          if (!sfx("weapon_get", 0.8)) [440, 660, 880].forEach((f, j) => setTimeout(() => blip(f, 0.1, "square"), j * 60));
+          if (!(c.type === "nuke" ? packPlay("p_ut_nuke_pick", .9) : sfx("weapon_get", 0.8))) [440, 660, 880].forEach((f, j) => setTimeout(() => blip(f, 0.1, "square"), j * 60));
         }
       }
     }
@@ -6399,7 +6513,7 @@ body:not(.playing) .match-hud { display: none; }
       if ((now - d.born) / 1000 < 3 && Math.random() < (lowQ ? 1 : 3) * dt) puff(d.x, d.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 1.2, 2 + Math.random() * 2, "rgb(80,72,98)", 2);
     }
     for (let i = impacts.length - 1; i >= 0; i--) { impacts[i].t += dt; if (impacts[i].t > 0.22) impacts.splice(i, 1); }
-    for (let i = beams.length - 1; i >= 0; i--) { beams[i].t += dt; if (beams[i].t > BEAM_T) beams.splice(i, 1); }
+    for (let i = beams.length - 1; i >= 0; i--) { beams[i].t += dt; if (beams[i].t > (beams[i].pistol ? .12 : BEAM_T)) beams.splice(i, 1); }
     for (let i = lasers.length - 1; i >= 0; i--) { lasers[i].t += dt; if (lasers[i].t > (lasers[i].shock ? 0.35 : LASER_T)) lasers.splice(i, 1); }
     for (let i = arcs.length - 1; i >= 0; i--) { arcs[i].t += dt; if (arcs[i].t > 0.3) arcs.splice(i, 1); }
     for (let i = rings.length - 1; i >= 0; i--) { rings[i].t += dt; if (rings[i].t > (rings[i].dur || 0.6)) rings.splice(i, 1); }
@@ -6551,7 +6665,7 @@ body:not(.playing) .match-hud { display: none; }
         sfx("v_fight", 1);
       }
       for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, lv: 1, xp: 0, vx: 0, vy: 0, ammo: 0, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0, weapon: "fire" });
-      me.fc = -1; me.caps = 0; me.heat = 0; me.overheat = false; railCharge = 0; charge = 0;
+      me.fc = -1; me.caps = 0; me.heat = 0; me.overheat = false; railCharge = 0; charge = 0; cancelRocketLoad();
       energy = 100; energyRegenAt = 0; dashReadyAt = 0; lungeReady = 0;
       flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
       grabbed.clear(); myGrabs.length = 0; drops.clear(); gunDrops.clear(); myDrops.length = 0; myGunDrops.length = 0;
@@ -6825,6 +6939,12 @@ body:not(.playing) .match-hud { display: none; }
       hg.addColorStop(0, "rgba(195,139,255,0.55)"); hg.addColorStop(1, "rgba(195,139,255,0)");
       g.fillStyle = hg; g.beginPath(); g.arc(x, y, 26, 0, 6.29); g.fill();
     }
+    if (s.kind === K.PULSE_BOLT) {
+      g.save(); g.translate(x,y); g.rotate(Math.atan2(s.vy,s.vx));
+      g.globalCompositeOperation = "lighter"; g.drawImage(dotSprite("#80ff30"),-24,-17,48,34);
+      g.fillStyle="#d7ff9a"; g.beginPath(); g.ellipse(0,0,11,5,0,0,Math.PI*2); g.fill();
+      g.fillStyle="#ffffff"; g.fillRect(-5,-1.5,10,3); g.restore(); return;
+    }
     if (s.kind === K.ORB) {   // plasma orb: a big crackling ball, a wide glow, spinning rings and arcs licking out
       const r = 25 + Math.sin(now / 60 + s.x) * 2.5;
       g.globalAlpha = 0.5; g.drawImage(dotSprite("#3aa8ff"), x - r * 3.4, y - r * 3.4, r * 6.8, r * 6.8); g.globalAlpha = 1;
@@ -6871,7 +6991,7 @@ body:not(.playing) .match-hud { display: none; }
       }
       return;
     }
-    if (s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.DET) return;   // beams are drawn as beams; a detonator isn't seen
+    if (s.kind === K.PISTOL || s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.DET) return;   // beams are drawn as beams; a detonator isn't seen
     if (s.kind === K.MELEE) return;   // a gauntlet blow: the blade on the bin is what you see
     if (s.kind === K.NAIL || s.kind === K.SPIKE) {   // a nail: a silver shaft with a dark head (a spike is longer and glows)
       const sp = s.kind === K.SPIKE, L = sp ? 34 : 16;
@@ -6907,8 +7027,10 @@ body:not(.playing) .match-hud { display: none; }
       g.restore();
       return;
     }
-    if (s.kind === K.FLAK) {   // the flak shell: a hot spiked ball, spinning
-      g.save(); g.translate(x, y); g.rotate(performance.now() / 80);
+    if (s.kind === K.FLAK) {   // shell shadow and loft make its falling trajectory readable
+      const height = flakHeight(s);
+      g.fillStyle = "rgba(0,0,0,.4)"; g.beginPath(); g.ellipse(x, y + 8, 12 + height*.08, 5, 0, 0, Math.PI*2); g.fill();
+      g.save(); g.translate(x, y - height); g.rotate(performance.now() / 80);
       g.globalAlpha = 0.6; g.drawImage(dotSprite("#ff9a3c"), -30, -30, 60, 60); g.globalAlpha = 1;
       g.fillStyle = "#ffd27a"; g.beginPath();
       for (let k = 0; k < 16; k++) { const r = k % 2 ? 6 : 13, a = k / 16 * 6.283; k ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(r, 0); }
@@ -6990,10 +7112,10 @@ body:not(.playing) .match-hud { display: none; }
       g.restore();
       return;
     }
-    if (s.kind === K.SAW) {   // a spinning toothed blade
+    if (s.kind === K.SAW || s.kind === K.SAW_ALT) {   // a spinning toothed blade
       g.save(); g.translate(x, y); g.rotate(now / 25 + s.x * 0.01);
       g.fillStyle = s.returning ? "rgba(70,255,210,0.4)" : "rgba(214,221,232,0.25)"; g.beginPath(); g.arc(0, 0, 22, 0, 6.29); g.fill();
-      g.fillStyle = "#d6dde8"; g.beginPath();
+      g.fillStyle = s.kind === K.SAW_ALT ? "#ffae63" : "#d6dde8"; g.beginPath();
       for (let k = 0; k < 24; k++) { const a = k / 24 * 6.283, r = k % 2 ? 11 : 16; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
       g.closePath(); g.fill();
       g.fillStyle = s.returning ? "#6fffe0" : "#5a6684"; g.beginPath(); g.arc(0, 0, 4, 0, 6.29); g.fill();
@@ -7021,7 +7143,7 @@ body:not(.playing) .match-hud { display: none; }
       g.strokeStyle = `rgba(200,250,255,${1 - k})`; g.lineWidth = 6; g.beginPath(); g.arc(x, y, 20 + k * 70, 0, 6.29); g.stroke();
       return;
     }
-    if (s.kind === K.BULLET) {   // a minigun tracer
+    if (s.kind === K.BULLET || s.kind === K.BULLET_ALT) {   // a minigun tracer
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
       g.strokeStyle = "rgba(255,224,138,0.9)"; g.lineWidth = 2.5; g.lineCap = "round";
       g.beginPath(); g.moveTo(-30, 0); g.lineTo(0, 0); g.stroke();
@@ -7421,19 +7543,25 @@ body:not(.playing) .match-hud { display: none; }
   // Drawn in art pixels; -y points the way the bin flies.
   let gauntSpinFast = false, mountHeat = 0;   // my gauntlet whirls while it's on; my minigun's heat
   function drawMounts(weapon, s, now) {
-    if (!weapon || weapon === "fire") return;
+    if (!weapon) return;
     const u = s / 320, mounts = mountsOf(weapon);
     for (const [mx, my] of mounts) {
       g.save();
       g.translate((mx / 320 - 0.5) * s, (my / 320 - 0.5) * s);
       g.rotate(SPRITE_TILT); g.scale(u * 1.35, u * 1.35);
-      if (weapon === "laser") {
+      if (weapon === "fire") {
+        g.fillStyle = "#252c35"; rrect(-8, -9, 16, 23, 3); g.fill();
+        const slide = g.createLinearGradient(-9, 0, 9, 0); slide.addColorStop(0, "#626d79"); slide.addColorStop(.5, "#dce4e9"); slide.addColorStop(1, "#687481");
+        g.fillStyle = slide; rrect(-9, -43, 18, 38, 3); g.fill();
+        g.fillStyle = "#111820"; g.fillRect(-5, -45, 10, 6);
+        g.fillStyle = "#e9b45d"; g.fillRect(-2, -38, 4, 8);
+      } else if (weapon === "laser") {
         const bg = g.createLinearGradient(-6, 0, 6, 0); bg.addColorStop(0, "#5a6684"); bg.addColorStop(0.5, "#dfe7f5"); bg.addColorStop(1, "#5a6684");
         g.fillStyle = bg; rrect(-6, -58, 12, 66, 5); g.fill();
         g.fillStyle = "#2a3550"; g.fillRect(-8, -10, 16, 12);
         const pulse = 0.6 + 0.4 * Math.sin(now / 120);
         const tg = g.createRadialGradient(0, -60, 0, 0, -60, 16);
-        tg.addColorStop(0, `rgba(230,255,255,${pulse})`); tg.addColorStop(0.4, `rgba(125,249,255,${0.8 * pulse})`); tg.addColorStop(1, "rgba(125,249,255,0)");
+        tg.addColorStop(0, `rgba(230,255,185,${pulse})`); tg.addColorStop(0.4, `rgba(145,255,75,${0.8 * pulse})`); tg.addColorStop(1, "rgba(145,255,75,0)");
         g.fillStyle = tg; g.beginPath(); g.arc(0, -60, 16, 0, 6.29); g.fill();
       } else if (weapon === "rocket") {
         g.fillStyle = "#3b2d5c"; rrect(-15, -26, 30, 40, 6); g.fill();
@@ -8328,7 +8456,12 @@ body:not(.playing) .match-hud { display: none; }
       g.globalAlpha = 1 - k; g.fillStyle = fg; g.beginPath(); g.arc(x, y, r, 0, 6.29); g.fill();
     }
     g.globalAlpha = 1;
-    for (const b of beams) {   // rail trails: a white-hot core in a violet glow that goes quickly, and a double spiral that lingers and unwinds
+    for (const b of beams) {
+      if (b.pistol) {
+        const fade = Math.max(0, 1 - b.t / .12);
+        if (fade > 0) { g.save(); g.globalAlpha = fade; g.strokeStyle = "#ffe8ad"; g.lineWidth = 1.8; g.beginPath(); g.moveTo(sx(b.x1), sy(b.y1)); g.lineTo(sx(b.x2), sy(b.y2)); g.stroke(); g.restore(); }
+        continue;
+      }   // rail trails: a white-hot core in a violet glow that goes quickly, and a double spiral that lingers and unwinds
       const k = 1 - b.t / BEAM_T, kc = Math.max(0, 1 - b.t / 0.4), x1 = sx(b.x1), y1 = sy(b.y1), x2 = sx(b.x2), y2 = sy(b.y2);
       g.lineCap = "round"; g.lineJoin = "round";
       if (kc > 0) {
@@ -8368,7 +8501,7 @@ body:not(.playing) .match-hud { display: none; }
       const x1 = sx(b.x1), y1 = sy(b.y1), x2 = sx(b.x2), y2 = sy(b.y2), L = Math.hypot(x2 - x1, y2 - y1) || 1;
       if (!onScreen((x1 + x2) / 2, (y1 + y2) / 2, L / 2 + 60)) continue;
       const now = performance.now(), k = Math.max(0, 1 - b.t / ((b.shock ? 0.35 : LASER_T) * 1.4)), nx = (x2 - x1) / L, ny = (y2 - y1) / L;
-      const [glow, body, arc] = b.shock ? ["150,100,255", "201,164,255", "235,220,255"] : ["40,170,255", "110,235,255", "200,250,255"];
+      const [glow, body, arc] = b.shock ? ["150,100,255", "201,164,255", "235,220,255"] : ["65,220,25", "155,255,80", "220,255,160"];
       g.lineCap = "round"; g.lineJoin = "round";
       const line = (w, c) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
       const flick = 0.85 + 0.15 * Math.sin(now / 23 + b.seed);
@@ -8911,7 +9044,7 @@ body:not(.playing) .match-hud { display: none; }
     wakeAudio();
     loadSfx();
     // The lobby mode is selected asynchronously by initNet; let it finish before the spoken introduction.
-    setTimeout(() => queueVoice(({ d: "a_deathmatch", t: "a_teamdeathmatch", c: "a_capturetheflag" })[MODE] || "v_fight"), 100);
+    setTimeout(() => queueVoice("v_fight"), 100);
     document.getElementById("start").hidden = true;
     document.body.classList.add("playing");   // the compact phone HUD applies from here on
     fireBtn.hidden = false; boostBtn.hidden = false; mm.hidden = false; joyEl.hidden = false;

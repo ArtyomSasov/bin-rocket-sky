@@ -220,7 +220,7 @@
     wakeAudio();
     loadSfx();
     // The lobby mode is selected asynchronously by initNet; let it finish before the spoken introduction.
-    setTimeout(() => queueVoice(({ d: "a_deathmatch", t: "a_teamdeathmatch", c: "a_capturetheflag" })[MODE] || "v_fight"), 100);
+    setTimeout(() => queueVoice("v_fight"), 100);
     document.getElementById("start").hidden = true;
     document.body.classList.add("playing");   // the compact phone HUD applies from here on
     fireBtn.hidden = false; boostBtn.hidden = false; mm.hidden = false; joyEl.hidden = false;

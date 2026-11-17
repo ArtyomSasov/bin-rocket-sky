@@ -22,7 +22,7 @@
   }
   function metricVolley(pilot, pattern) {
     const weapon = pilot === me ? me.weapon : botWeapon(pilot), alt = pattern !== WEAPONS[weapon] && pattern !== FIRE_TWIN;
-    const row = metricRow(weapon, pilot, alt); row.volleys++; row.ammoCost += alt ? WEAPONS[weapon].alt?.cost || 0 : weapon === "fire" || weapon === "gauntlet" ? 0 : 1;
+    const row = metricRow(weapon, pilot, alt); row.volleys++; row.ammoCost += alt ? pattern.cost || 0 : weapon === "fire" || weapon === "gauntlet" ? 0 : 1;
   }
   function metricForShot(id) {
     if (typeof id !== "string") return null;

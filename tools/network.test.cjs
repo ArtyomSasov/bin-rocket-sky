@@ -35,7 +35,7 @@ function setup() {
   return { c, clients, timers, advance: n => { now += n; }, async start() { const p = c.api.initNet(); c.api.chooseLobby('test'); await p; } };
 }
 const state = (q, extra = {}) => ({ x: 10, y: 10, q, rd: 1, ...extra });
-const deliver = (client, id, p) => client.emit('message', 'binrocket-sky/v15/test/s/' + id, Buffer.from(JSON.stringify(p)));
+const deliver = (client, id, p) => client.emit('message', 'binrocket-sky/v16/test/s/' + id, Buffer.from(JSON.stringify(p)));
 
 test('malformed JSON values do not break the message callback; next state still arrives', async () => {
   const { c, clients, start } = setup(); await start();
@@ -163,7 +163,7 @@ test('instant shots are published before a state and their repeated journals nev
   const f=['other.1',10,10,6400,0,c.K.SHOCK,1,0,0,Date.now()];
   c.api.net.shot(f);assert.ok(clients[1].sent[0].topic.includes('/f/'));assert.deepEqual(clients[1].sent[0],clients[2].sent[0]);
   const packet={rd:1,ts:Date.now(),f:[f]};
-  for(const client of clients.slice(1))client.emit('message','binrocket-sky/v15/test/f/pother',Buffer.from(JSON.stringify(packet)));
+  for(const client of clients.slice(1))client.emit('message','binrocket-sky/v16/test/f/pother',Buffer.from(JSON.stringify(packet)));
   deliver(clients[1],'pother',state(2,packet));
   assert.equal(c.shots.length,1);assert.equal(c.shots[0].vx,6400,'shock velocity must not be clamped to 4500');
 });

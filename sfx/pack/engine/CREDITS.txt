@@ -1,10 +1,26 @@
-SpaceShip_Engine_Medium_Loop_00.wav by Little Robot Sound Factory
-Sci-Fi Sound Effects Library
-https://opengameart.org/content/sci-fi-sound-effects-library
-https://www.littlerobotsoundfactory.com
-License: Creative Commons Attribution 3.0 Unported
-https://creativecommons.org/licenses/by/3.0/
-Downloaded 2026-11-16. Original WAV SHA-256: 761e8e9ddee4bf0d01829d90026142d3479c0f3b1b65a93c9391e91b03ff0f2e
-Derivative spaceship-thrust.wav: mono 48 kHz / 16-bit, 25 ms loop crossfade,
-peak normalized to 0.88. Designed sci-fi engine effect; not asserted to be a
-field recording of a real turbine. No procedural oscillators used in playback.
+Flight effects updated 2026-11-17. Designed effects, not claimed as field recordings.
+
+jet-thrust.wav (stereo PCM 48 kHz / 16 bit):
+- Rocket Engine by theMinesAreShakin, CC0.
+  https://opengameart.org/content/rocket-engine
+  https://opengameart.org/sites/default/files/rocket_engine.001.wav
+- Jet Engine Takeoff by dklon, CC BY 3.0.
+  https://opengameart.org/content/jet-engine-takeoff
+  https://opengameart.org/sites/default/files/engine_takeoff.wav
+  https://creativecommons.org/licenses/by/3.0/
+  Rocket gain .85, jet gain .65; jet 0.4–1.8s, 120ms loop crossfade.
+  Jet linearly resampled to 48 kHz, combined stereo loop crossfade 50ms.
+  Peak ceiling .9, no pitch shift or compression.
+
+warp-dash.wav:
+- WarpDrive_02.wav by Little Robot Sound Factory, CC BY 3.0.
+  https://opengameart.org/content/sci-fi-sound-effects-library
+  https://www.littlerobotsoundfactory.com
+  https://creativecommons.org/licenses/by/3.0/
+  First 1.9s, 1ms attack / 100ms tail fade, peak ceiling .9, 16-bit PCM.
+
+Reproduce with tools/prepare-flight-audio.py and these three originals.
+Original file SHA-256:
+dc82ef86d6af2278d6592d20372737c32620f1c1957290c79f6643af5381f277  brs-rocket-engine.wav
+c7aa06c63a4fc5a638cab2b9f292a34ca03b3f3a1016d01e3b69cfd65f328e87  brs-jet-takeoff.wav
+19b8eb88b81926fb30ccc5f63a2d59422b16e1dcb8f97b113556abc5c51d55c7  WarpDrive_02.wav

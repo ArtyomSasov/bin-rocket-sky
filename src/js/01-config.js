@@ -40,8 +40,8 @@
   const maxLivesOf = lv => LIVES + Math.floor((lv - 1) / 4);      // 3 lives at Lv 1-4, 4 at 5-8, 5 at 9-10
   // levels: XP comes from kills (10, more for a higher-level victim), sparks and stars, planets and flags. Every
   // level adds a perk (they stack); dying costs two levels. The same rules for players and bots
-  const PERKS = { 2: "faster energy", 3: "double dash", 4: "twin fireballs", 5: "magnet: pick-ups from afar", 6: "shield regenerates",
-    7: "fireballs pierce", 8: "a teleport jump on every respawn", 9: "more health", 10: "THE CROWN: +25% damage, everyone sees you" };
+  const PERKS = { 2: "faster energy", 3: "double dash", 4: "faster Enforcer", 5: "magnet: pick-ups from afar", 6: "shield regenerates",
+    7: "Enforcer damage +15%", 8: "a teleport jump on every respawn", 9: "more health", 10: "THE CROWN: +25% damage, everyone sees you" };
   const killXp = (myLv, victimLv) => 10 + Math.max(0, victimLv - myLv) * 3 + (victimLv >= MAX_LV ? 20 : 0);
   const levelAfterDeath = lv => Math.max(1, lv - 2);
   const TIERS = [
@@ -52,7 +52,7 @@
   ];
   const tierOf = lv => TIERS.filter(t => lv >= t.from).pop();
   // shot kinds: what flies. The number is what goes over the network; everything per kind lives in SHOTS
-  const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10, HOLY: 11, SAW: 12, GAMMA: 13, BEACON: 14, TFRAG: 15, BULLET: 16, GAUSS: 17, SHOCK: 18, PULSE: 19, FLAK: 20, DET: 21, NAIL: 22, GREN: 23, MELEE: 24, SPIKE: 25, MDET: 26, HROCKET: 27, RECALL: 28 };
+  const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10, HOLY: 11, SAW: 12, GAMMA: 13, BEACON: 14, TFRAG: 15, BULLET: 16, GAUSS: 17, SHOCK: 18, PULSE: 19, FLAK: 20, DET: 21, NAIL: 22, GREN: 23, MELEE: 24, SPIKE: 25, MDET: 26, HROCKET: 27, RECALL: 28, PISTOL: 29, SAW_ALT: 30, BULLET_ALT: 31, PULSE_BOLT: 32 };
   const MINE_R = 55, MINE_ARM = 0.7;   // mines go off when a bin comes this close, after arming
   // life: seconds; dmg: in lives (Lv 1 has 3 = 100%; pellets use pelletDmg, the nuke deals its damage in detonate);
   // r: extra hit radius; col: colour; carve: crater radius; shove: push on the bin it hits; sfx: [sound, volume, pitch] of someone else's shot;
@@ -68,10 +68,10 @@
     { name: "mine",      life: 30,   dmg: 1.7,  r: MINE_R, col: "#ff6b3c", carve: 50, shove: 0,   sfx: ["mine_drop", 0.6, 1] },
     { name: "plasma",    life: 4.2,  dmg: 1.4,  r: 30,     col: "#6fd8ff", carve: 60, shove: 300, sfx: ["shield_get", 0.6, 1.1] },
     { name: "lightning", life: 0.15, dmg: 0.22, r: 0,      col: "#bfefff", carve: 6,  shove: 0,   sfx: ["laser", 0.2, 1.7] },
-    { name: "shard",     life: 1.1,  dmg: 0.4,  r: 4,      col: "#ff9a3c", carve: 14, shove: 220, sfx: ["scatter", 0.9, 0.75], bounce: 4 },
+    { name: "shard",     life: 0.85, dmg: 0.26,  r: 4,      col: "#ff9a3c", carve: 14, shove: 220, sfx: ["scatter", 0.9, 0.75], bounce: 2 },
     { name: "slug",      life: 0.6,  dmg: 1,    r: 4,      col: "#ffe7a0", carve: 20, shove: 450, sfx: ["scatter", 0.6, 1] },
     { name: "holy bomb", life: 3.6,  dmg: 0,    r: 0,      col: "#fff3b0", carve: 0,  shove: 0,   sfx: ["mine_drop", 0.8, 0.6], inert: true },
-    { name: "saw blade", life: 3.2,  dmg: 0.85,  r: 8,      col: "#d6dde8", carve: 12, shove: 180, sfx: ["scatter", 0.5, 1.7], pierce: true, bounce: 6 },
+    { name: "saw blade", life: 3.2,  dmg: 0.85,  r: 8,      col: "#d6dde8", carve: 12, shove: 180, sfx: ["p_ut_saw_fire", 0.8, 1], bounce: 6 },
     { name: "demonic orb", life: 4,    dmg: 1.35, r: 34,     col: "#7dff8a", carve: 90, shove: 500, sfx: ["shield_get", 0.8, 0.55] },
     { name: "beacon",    life: 15,   dmg: 0,    r: 0,      col: "#8ff0ff", carve: 0,  shove: 0,   sfx: ["mine_drop", 0.5, 1.5], inert: true },
     { name: "telefrag",  life: 0.12, dmg: 99,   r: 40,     col: "#8ff0ff", carve: 0,  shove: 900, sfx: ["rail", 0.6, 1.6] },
@@ -79,7 +79,7 @@
     { name: "gauss slug", life: 0.6, dmg: 3,    r: 4,      col: "#7fb8ff", carve: 26, shove: 700, sfx: ["rail", 0.7, 0.8], pierce: true },
     { name: "shock beam", life: 0.25, dmg: 0.75, r: 0,      col: "#c9a4ff", carve: 10, shove: 220, sfx: ["laser", 0.6, 0.55] },
     { name: "laser pulse", life: 0.12, dmg: 0.45, r: 60,    col: "#7df9ff", carve: 12, shove: 950, sfx: ["laser", 0.9, 0.5], pierce: true },
-    { name: "flak shell", life: 0.42, dmg: 0.6,  r: 6,      col: "#ff9a3c", carve: 22, shove: 200, sfx: ["scatter", 0.9, 0.6] },
+    { name: "flak shell", life: 0.75, dmg: 0.6,  r: 6,      col: "#ff9a3c", carve: 22, shove: 200, sfx: ["scatter", 0.9, 0.6] },
     { name: "detonator",  life: 0.05, dmg: 0,    r: 0,      col: "#7dff8a", carve: 0,  shove: 0,   sfx: ["hit", 0.5, 0.6], inert: true },
     { name: "nail",       life: 1.1,  dmg: 0.13, r: 0,      col: "#cfd6e2", carve: 0,  shove: 60,  sfx: ["fire", 0.4, 2.2] },
     { name: "grenade",    life: 2.5,  dmg: 0.9,  r: 10,     col: "#8fd06a", carve: 46, shove: 300, sfx: ["mine_drop", 0.8, 0.7], bounce: 99 },
@@ -89,6 +89,13 @@
     { name: "homing rocket", life: 3.6, dmg: 1.0,  r: 12,     col: "#ffb43c", carve: 52, shove: 0,   sfx: ["rocket", 0.6, 1] },
     { name: "saw recall", life: 0.05, dmg: 0, r: 0, col: "#6fffe0", carve: 0, shove: 0, sfx: ["dash", 0.5, 1.4], inert: true }
   ];
+  // New protocol kinds are appended; existing IDs stay stable.
+  SHOTS.push(
+    { name: "pistol round", life: 0.3, dmg: 0.3, r: 0, col: "#ffe8a8", carve: 4, shove: 20, sfx: ["p_ut_fire", .7, 1] },
+    { name: "explosive disc", life: 1.5, dmg: .75, r: 8, col: "#ff9c50", carve: 30, shove: 250, sfx: ["p_ut_saw_alt", .8, 1] },
+    { ...SHOTS[K.BULLET], name: "rapid minigun round", dmg: .08 },
+    { name: "pulse plasma", life: 1.05, dmg: .22, r: 7, col: "#a8ff55", carve: 9, shove: 45, sfx: ["p_ut_pulse_fire", .65, 1] }
+  );
   // weapons: pick-ups swap the fireball for a while. Each gun is described here, and the player and the bots fire it
   // the same way (see volley):
   //   shot: [shot kind, speed]; spread: angles of the shots in one volley; back: fired behind the bin
@@ -97,16 +104,16 @@
   //   guided (alt): you steer the shot; spin: [slowest reload, fastest, seconds to spin up] while the trigger is held;
   //   jitter: random spread (rad); charge: seconds to charge fully while held, it fires on release
   const WEAPONS = {
-    fire:    { name: "Fireball", ammo: Infinity, cd: 0.22, shot: [K.FIRE, 1000], kick: 25, feel: [5, 0.05, 40], sfx: ["fire", 0.55] },
+    fire:    { name: "Enforcer", ammo: Infinity, cd: 0.28, shot: [K.PISTOL, 6000], jitter: 0.01, kick: 25, feel: [5, 0.05, 40], sfx: ["p_ut_fire", 0.8, 1],
+               alt: { name: "Rapid fire", cost: 0, cd: 0.16, shot: [K.PISTOL, 6000], jitter: 0.085, kick: 35, feel: [6, 0.06, 45], sfx: ["p_ut_fire", 0.8, 1] } },
     triple:  { name: "Triple shot", ammo: 24, cd: 0.3, col: "#ffb43c", shot: [K.FIRE, 1000], spread: [-0.2, 0, 0.2], kick: 25, feel: [7, 0.07, 50], sfx: ["triple", 0.7],
                alt: { name: "Focus", cost: 1, cd: 0.3, shot: [K.FIRE, 1050], spread: [-0.035, 0, 0.035], kick: 60, feel: [10, 0.13, 80], sfx: ["triple", 0.8, 0.9] } },
-    // the laser: a beam of 700 px with a narrow lock cone, only for visible enemies; no chain damage
-    // alt: a wide pulse that shoves everything in front of you away (12 charges)
-    laser:   { name: "Laser", ammo: 120, cd: 0.08, col: "#7df9ff", shot: [K.LASER, 5600], kick: 6, feel: [2, 0.02, 30], sfx: ["laser", 0.4],
-               alt: { name: "Pulse", cost: 12, cd: 1.0, shot: [K.PULSE, 3000], kick: 160, feel: [14, 0.22, 90], sfx: ["laser", 1, 0.5], fx: "pulse" } },
+    // Pulse Gun: fast plasma spheres; alternate short beam respects cover.
+    laser:   { name: "Pulse Gun", ammo: 120, cd: 0.12, col: "#a8ff55", shot: [K.PULSE_BOLT, 1500], kick: 6, feel: [3, 0.03, 30], sfx: ["p_ut_pulse_fire", .75, 1],
+               alt: { name: "Plasma beam", cost: 1, cd: 0.08, shot: [K.LASER, 5600], kick: 6, feel: [2, 0.02, 28], sfx: ["p_ut_pulse_bolt", .6, 1] } },
     // rockets as in Quake: straight and fast (about 2.4x a bin's speed), dodgeable by reading them; alt three slow homing ones
     rocket:  { name: "Rocket launcher", ammo: 10, cd: 0.8, col: "#ff5a6e", shot: [K.ROCKET, 1350], kick: 120, feel: [12, 0.16, 70], sfx: ["rocket", 0.8],
-               alt: { name: "Homing salvo", cost: 3, cd: 1.6, shot: [K.HROCKET, 520], spread: [-0.3, 0, 0.3], kick: 200, feel: [18, 0.23, 96], sfx: ["rocket", 1, 0.8] } },
+               alt: { name: "Load rockets", load: true, cost: 1, cd: 0.9, shot: [K.ROCKET, 1350], kick: 200, feel: [18, 0.23, 96], sfx: ["rocket", 1, 0.8] } },
     nuke:    { name: "Nuke", ammo: 1, cd: 1.0, col: "#ffe14d", shot: [K.NUKE, 360], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.6],
                alt: { name: "Guided", cost: 1, cd: 1.0, shot: [K.NUKE, 420], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.5], guided: true } },
     scatter: { name: "Scatter gun", ammo: 16, cd: 0.7, col: "#ffd27a", shot: [K.PELLET, 1250], kick: 260, feel: [22, 0.3, 90], sfx: ["scatter", 1, 0.85], fx: "blast",
@@ -123,16 +130,17 @@
                alt: { name: "Beam", cost: 1, cd: 0.6, shot: [K.SHOCK, 6400], kick: 70, feel: [8, 0.08, 60], sfx: ["laser", 0.8, 0.55], fx: "shock" } },
     bolt:    { name: "Lightning", ammo: 90, cd: 0.11, col: "#bfefff", shot: [K.BOLT, 5600], kick: 4, feel: [2, 0.03, 35], sfx: ["laser", 0.22, 1.7] },
     holy:    { name: "Holy bomb", ammo: 1, cd: 1.2, col: "#fff3b0", shot: [K.HOLY, 700], kick: 120, feel: [20, 0.3, 110], sfx: ["mine_drop", 1, 0.6] },
-    saw:     { name: "Buzzsaw", ammo: 20, cd: 0.42, col: "#d6dde8", shot: [K.SAW, 1500], kick: 60, feel: [8, 0.08, 50], sfx: ["scatter", 0.55, 1.7],
-               alt: { name: "Recall blades", recall: true, cost: 0, cd: 0.3, shot: [K.RECALL, 0], sfx: ["dash", 0.6, 1.4] } },
+    saw:     { name: "Ripper", ammo: 20, cd: 0.42, col: "#d6dde8", shot: [K.SAW, 1500], kick: 60, feel: [8, 0.08, 50], sfx: ["scatter", 0.55, 1.7],
+               alt: { name: "Explosive disc", cost: 1, cd: 0.65, shot: [K.SAW_ALT, 1300], kick: 90, feel: [12, 0.12, 65], sfx: ["p_ut_saw_alt", .9, 1] } },
     // alt: set your gamma orb off where it is now
     gamma:   { name: "Demonic Orb", ammo: 3, cd: 1.6, col: "#7dff8a", shot: [K.GAMMA, 420], kick: 220, feel: [24, 0.35, 130], sfx: ["shield_get", 1, 0.5], fx: "gamma",
                alt: { name: "Detonate", detonate: true, cost: 0, cd: 0.3, sfx: ["hit", 0.6, 0.6] } },
     tele:    { name: "Teleporter", ammo: 3, cd: 0.35, col: "#8ff0ff", shot: [K.BEACON, 1250], kick: 0, feel: [3, 0.02, 30], sfx: ["mine_drop", 0.7, 1.5] },
-    // One primary mode with spin-up; its sound is the original Quake chaingun burst.
-    minigun: { name: "Minigun", ammo: 160, cd: 0.09, spin: [0.16, 0.045, 1.2], jitter: 0.05, col: "#ffe08a", shot: [K.BULLET, 2600], kick: 10, feel: [2, 0.03, 30], sfx: ["fire", 0.35, 1.8] },
+    // UT-style accurate primary and faster, less accurate alternative.
+    minigun: { name: "Minigun", ammo: 160, cd: 0.09, jitter: 0.025, col: "#ffe08a", shot: [K.BULLET, 2600], kick: 10, feel: [2, 0.03, 30], sfx: ["p_ut_mini_fire", 0.65, 1],
+               alt: { name: "Rapid stream", cost: 1, cd: 0.045, jitter: 0.09, shot: [K.BULLET_ALT, 2600], kick: 10, feel: [2, 0.03, 30], sfx: ["p_ut_mini_alt", .65, 1] } },
     gauss:   { name: "Charge cannon", ammo: 8, cd: 1.4, charge: 1.1, col: "#7fb8ff", shot: [K.GAUSS, 3600], kick: 300, feel: [24, 0.35, 100], sfx: ["rail", 0.9, 0.75], fx: "rail" },
-    // the shard cannon: four heavy shards that ricochet four times, each bounce making them hit harder
+    // Flak Cannon: eight fragments lose energy after each ricochet.
     // alt: a flak shell that bursts into eight shards all round after a short flight (or on impact)
     // Quake's three: a nailgun (a fan of nails that fly far, alt a piercing spike), a grenade launcher (grenades
     // bounce off rock and go off after 2.5 s or on a bin, alt three at once), and the gauntlet everyone carries
@@ -143,13 +151,13 @@
                alt: { name: "Volley", cost: 3, cd: 1.5, shot: [K.GREN, 850], spread: [-0.25, 0, 0.25], kick: 260, feel: [20, 0.28, 100], sfx: ["mine_drop", 1, 0.6] } },
     gauntlet: { name: "Gauntlet", ammo: Infinity, cd: 0.4, col: "#ffcf5a", shot: [K.MELEE, 0], melee: true, kick: 0, feel: [6, 0.1, 0], sfx: ["hit", 0.7, 0.7],
                alt: { name: "Lunge", cost: 0, cd: 0, lunge: true, sfx: ["dash", 0.8] } },
-    shard:   { name: "Shard cannon", ammo: 14, cd: 0.8, col: "#ff9a3c", shot: [K.SHARD, 1500], kick: 340, feel: [28, 0.42, 130], sfx: ["scatter", 1, 0.7], fx: "shard",
-               alt: { name: "Flak", cost: 2, cd: 0.95, shot: [K.FLAK, 1100], kick: 220, feel: [20, 0.28, 110], sfx: ["scatter", 1, 0.55], fx: "shard" } }
+    shard:   { name: "Flak Cannon", ammo: 14, cd: 0.8, col: "#ff9a3c", shot: [K.SHARD, 1500], kick: 340, feel: [28, 0.42, 130], sfx: ["scatter", 1, 0.7], fx: "shard",
+               alt: { name: "Flak shell", cost: 1, cd: 0.95, shot: [K.FLAK, 1100], kick: 220, feel: [20, 0.28, 110], sfx: ["scatter", 1, 0.55], fx: "shard" } }
   };
   let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
-  const SPLASH = { [K.MINE]: [170, 1.2, 0.3, 450], [K.HROCKET]: [170, 0.6, 0.15, 320], [K.GREN]: [190, 0.9, 0.2, 420], [K.ROCKET]: [170, 0.6, 0.15, 320], [K.ORB]: [160, 0.6, 0.2, 380], [K.GAMMA]: [260, 1, 0.3, 600] };
+  const SPLASH = { [K.SAW_ALT]: [160, .7, .2, 350], [K.MINE]: [170, 1.2, 0.3, 450], [K.HROCKET]: [170, 0.6, 0.15, 320], [K.GREN]: [190, 0.9, 0.2, 420], [K.ROCKET]: [170, 0.6, 0.15, 320], [K.ORB]: [160, 0.6, 0.2, 380], [K.GAMMA]: [260, 1, 0.3, 600] };
   const GAMMA_ZAP = { r: 480, every: 0.3, dmg: 0.15 };   // the gamma orb zaps every enemy this close as it flies
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
   const AMP_PERIOD = 95, AMP_TIME = 20000, QUAD = 4;         // Quad damage: a rare pick-up, four times the damage for 20 s                        // mines go off when a bin comes this close, after arming
@@ -229,7 +237,7 @@
   const bombDmg = (bm, d) => d < bm.kill ? 99 : 1.5 + 2.5 * (1 - (d - bm.kill) / (bm.R - bm.kill));
   // weapon icons (24x24 SVG path data, even-odd fill): used on crates (canvas) and in the HUD (SVG)
   const ICONS = {
-    fire: "M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z",
+    fire: "M2 6h19v6h-9v3H9l-2 6H2l3-9H2ZM13 12v2h-2v-2Z",
     triple: "M3 17a3 3 0 1 0 6 0a3 3 0 1 0-6 0ZM8.6 7.5a3.4 3.4 0 1 0 6.8 0a3.4 3.4 0 1 0-6.8 0ZM15 17a3 3 0 1 0 6 0a3 3 0 1 0-6 0ZM5.2 13.6L9.6 10.4L10.4 11.2L6.4 14.6ZM18.8 13.6L14.4 10.4L13.6 11.2L17.6 14.6Z",
     laser: "M2 10h9v6H2ZM5 16h3v4H5ZM11 9h6v2.5h-6ZM11 13.5h6v2.5h-6ZM18 9.5l4 3-4 3 1-3Z",
     rocket: "M2 9h15v6H2ZM6 15h3v4H6ZM8 7h4v2H8ZM17 9.5h2l3 2.5-3 2.5h-2Z",

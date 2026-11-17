@@ -11,6 +11,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const chromePath = process.env.BROWSER_PATH;
 assert.ok(chromePath, 'Set BROWSER_PATH to a Chrome/Chromium executable');
 execFileSync(process.execPath, ['tools/build.mjs'], { cwd: root });
+execFileSync(process.execPath, ['tools/build-audio-preview.mjs'], { cwd: root });
 const gameplayChecks = await readFile(join(root, "tools/gameplay-checks.js"), "utf8");
 const audioChecks = await readFile(join(root, "tools/audio-render-checks.js"), "utf8");
 const weaponChecks = await readFile(join(root, "tools/weapon-audit-checks.js"), "utf8");
@@ -184,9 +185,9 @@ try {
     const before=t.shots.length;t.shoot(performance.now(),true);
     const altShots=t.shots.length-before,altAmmo=t.me.arsenal.minigun;t.shoot(performance.now(),false);
     return {altDefined:!!t.WEAPONS.minigun.alt,altShots,altAmmo,primaryShots:t.shots.length-before,ammo:t.me.arsenal.minigun};})()`);
-  assert.deepEqual(minigun,{altDefined:false,altShots:0,altAmmo:100,primaryShots:1,ammo:99});
+  assert.deepEqual(minigun,{altDefined:true,altShots:1,altAmmo:99,primaryShots:2,ammo:98});
   if(process.env.BRS_DEMONIC_PREVIEW) {const png=await evaluate(combat,'__t.renderDemonicPreview()');await writeFile(process.env.BRS_DEMONIC_PREVIEW,Buffer.from(png.split(',')[1],'base64'));}
-  await until(combat, '["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine","a_firstblood","v_flawless","p_loop_minigun","p_start_minigun","p_stop_minigun","p_stop_laser","p_fire_laser","p_loop_laser","p_ship_engine","p_user_engine","p_user_fire","p_user_demonic","p_user_demonic_explosion","p_user_cannon","p_user_autocannon","p_user_explosion","p_user_massive"].every(__t.packHas)',10000);
+  await until(combat, '["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine","a_firstblood","v_flawless","p_loop_minigun","p_start_minigun","p_stop_minigun","p_stop_laser","p_fire_laser","p_loop_laser","p_ship_engine","p_warp","p_ut_mini_fire","p_ut_mini_alt","p_ut_mini_stop","p_ut_fire","p_ut_flak_fire","p_ut_rocket_load","p_ut_pulse_fire","p_ut_pulse_bolt","p_ut_pulse_down","p_ut_pulse_explode","p_burst_minigun","p_user_engine","p_user_fire","p_user_demonic","p_user_demonic_explosion","p_user_cannon","p_user_autocannon","p_user_explosion","p_user_massive"].every(__t.packHas) && !!__t.sfxBuf.hit && !!__t.sfxBuf.boom_low',10000);
   console.log('PASS weapon audit scenarios', await evaluate(combat,'__t.runWeaponAuditChecks()'));
   console.log('PASS continuous audio', await evaluate(combat,'__t.checkContinuousAudio()'));
   assert.equal(await evaluate(combat,'__t.checkDemonicAudio()'),2,'the supplied explosion starts on distant expiry and manual detonation');
@@ -207,7 +208,8 @@ try {
   console.log('Audio render measurements',JSON.stringify(rendered));
   assert.ok(rendered.engine.rms > 0.04, 'engine has a measurable output level, not just a loaded buffer');
   assert.ok(Math.abs(rendered.engine.rms-rendered.duckedEngine.rms)<0.0001,'announcer ducking does not silence thrust');
-  for(const shot of rendered.shots) assert.ok(shot.current.peak > shot.legacy.peak*1.25,'retain attack: '+shot.name);
+  assert.ok(rendered.fidelityError < 0.00001, 'mixer preserves quiet transients, timbre and stereo sample for sample');
+  for(const shot of rendered.shots) assert.equal(shot.channels, 2, 'preserve source stereo: '+shot.name);
   assert.ok(rendered.battle.peak < 1, 'dense weapon mix stays below full scale');
   await evaluate(combat, '__t.isolate();__t.me.dead=false;__t.me.vx=__t.me.vy=__t.me.thrust=0;__t.keys.add("KeyW");for(let i=0;i<30;i++)__t.update(1/60,performance.now()+i*16.67)');
   assert.equal(await evaluate(combat,'__t.packLoops.engine?.ev'),'p_ship_engine','movement input starts the new engine through the real game update');
@@ -281,7 +283,7 @@ try {
   console.log('PASS delayed hitscan and bullet damage, confirmed hit, duplicate suppression and dropped-shot recovery');
   // The free command after the last round must reach the other browser too.
   dropFire=false;relayDelay=0;
-  for(const [weapon,kind] of [['gamma',13],['mine',6],['saw',12]]) {
+  for(const [weapon,kind] of [['gamma',13],['mine',6]]) {
     for(const p of [lagA,lagB]) await evaluate(p,'__t.isolate();__t.me.dead=false;__t.me.inv=1e15;__t.me.x=100;__t.me.y=100;__t.me.vx=__t.me.vy=0');
     const id=await evaluate(lagA,`__t.me.weapon=${JSON.stringify(weapon)};__t.me.arsenal[${JSON.stringify(weapon)}]=1;__t.shoot(performance.now(),false);__t.netSend(1,performance.now());__t.myShotLog.at(-1).d[0]`);
     await until(lagB,`__t.shots.some(s=>s.id===${JSON.stringify(id)})`);
@@ -295,7 +297,13 @@ try {
     if(weapon==='mine') {await wait(750);await evaluate(lagB,'__t.updateShots(0.016,performance.now())');}
     assert.equal(await evaluate(lagB,`(()=>{const s=__t.shots.find(s=>s.id===${JSON.stringify(id)});return ${weapon==='saw'?'!!s?.returning':'!s || s.life<=0 || !!s.boom'};})()`),true,'remote '+weapon+' command');
   }
-  console.log('PASS last gamma/mine/saw commands reach the other browser');
+  console.log('PASS last gamma/mine commands reach the other browser');
+  for (const [weapon, alt, kind] of [['fire',false,29],['minigun',true,31],['saw',true,30],['laser',false,32],['laser',true,2]]) {
+    for(const p of [lagA,lagB]) await evaluate(p,'__t.isolate();__t.me.dead=false;__t.me.inv=1e15');
+    const id=await evaluate(lagA,`__t.me.weapon=${JSON.stringify(weapon)};__t.me.arsenal[${JSON.stringify(weapon)}]=20;__t.shoot(performance.now(),${alt});__t.netSend(1,performance.now());__t.myShotLog.at(-1).d[0]`);
+    await until(lagB,`__t.shots.some(s=>s.id===${JSON.stringify(id)}&&s.kind===${kind})`);
+  }
+  console.log('PASS new UT projectile kinds and modes reach the other browser');
 
   // Max-sized crater history plus six busy bots must still fit the receiver's byte limit.
   if (smoke) {
@@ -373,6 +381,17 @@ try {
   assert.equal(await evaluate(foundry,'__t.me.caps'),0);
   assert.equal(await evaluate(foundry,'__t.bots.every(b=>b.lv===1&&b.xp===0&&b.st.kills===0)'),true);
   console.log('PASS score-limit finish, guest clock and full round reset');
+  const preview=await page();
+  await send('Page.navigate',{url:url+'/audio-preview.html'},preview);
+  await until(preview,'!!document.querySelector("[data-play=engine]")');
+  for(const mode of ['engine','minigun','minigun-alt','pulse','pulse-alt','fight']) {
+    await evaluate(preview,`document.querySelector('[data-play="${mode}"]').click()`);
+    await until(preview,'document.querySelector("#status").textContent!=="Загрузка…"');
+    assert.equal(await evaluate(preview,'document.querySelector("#status").textContent.startsWith("Не удалось")'),false,'preview '+mode);
+    if(mode.includes('minigun')||mode.includes('pulse')) assert.equal(await evaluate(preview,'!!packLoops["fire:me"]'),true,'preview loop '+mode);
+    await evaluate(preview,'document.querySelector("#stop").click()');
+  }
+  console.log('PASS standalone sound preview and playback controls');
   assert.deepEqual(errors, []);
   const max = Math.max(...traffic.map(p=>p.bytes));
   assert.ok(max <= 65536, 'All state packets fit receiver limit: ' + max);

@@ -617,7 +617,12 @@
       g.globalAlpha = 1 - k; g.fillStyle = fg; g.beginPath(); g.arc(x, y, r, 0, 6.29); g.fill();
     }
     g.globalAlpha = 1;
-    for (const b of beams) {   // rail trails: a white-hot core in a violet glow that goes quickly, and a double spiral that lingers and unwinds
+    for (const b of beams) {
+      if (b.pistol) {
+        const fade = Math.max(0, 1 - b.t / .12);
+        if (fade > 0) { g.save(); g.globalAlpha = fade; g.strokeStyle = "#ffe8ad"; g.lineWidth = 1.8; g.beginPath(); g.moveTo(sx(b.x1), sy(b.y1)); g.lineTo(sx(b.x2), sy(b.y2)); g.stroke(); g.restore(); }
+        continue;
+      }   // rail trails: a white-hot core in a violet glow that goes quickly, and a double spiral that lingers and unwinds
       const k = 1 - b.t / BEAM_T, kc = Math.max(0, 1 - b.t / 0.4), x1 = sx(b.x1), y1 = sy(b.y1), x2 = sx(b.x2), y2 = sy(b.y2);
       g.lineCap = "round"; g.lineJoin = "round";
       if (kc > 0) {
@@ -657,7 +662,7 @@
       const x1 = sx(b.x1), y1 = sy(b.y1), x2 = sx(b.x2), y2 = sy(b.y2), L = Math.hypot(x2 - x1, y2 - y1) || 1;
       if (!onScreen((x1 + x2) / 2, (y1 + y2) / 2, L / 2 + 60)) continue;
       const now = performance.now(), k = Math.max(0, 1 - b.t / ((b.shock ? 0.35 : LASER_T) * 1.4)), nx = (x2 - x1) / L, ny = (y2 - y1) / L;
-      const [glow, body, arc] = b.shock ? ["150,100,255", "201,164,255", "235,220,255"] : ["40,170,255", "110,235,255", "200,250,255"];
+      const [glow, body, arc] = b.shock ? ["150,100,255", "201,164,255", "235,220,255"] : ["65,220,25", "155,255,80", "220,255,160"];
       g.lineCap = "round"; g.lineJoin = "round";
       const line = (w, c) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
       const flick = 0.85 + 0.15 * Math.sin(now / 23 + b.seed);

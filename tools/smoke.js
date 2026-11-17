@@ -41,7 +41,7 @@
       await wait(1800);
       while (m.dead) await wait(40);
       m.inv = 1e15; m.arsenal[w] = 30; m.weapon = w;
-      const a0 = m.arsenal[w]; key("KeyC", 1); await wait(80); key("KeyC", 0); await wait(30); alt[w] = a0 - m.arsenal[w];
+      const a0 = m.arsenal[w]; key("KeyC", 1); await wait(w === "rocket" ? 1600 : 80); key("KeyC", 0); await wait(30); alt[w] = a0 - m.arsenal[w];
     }
     out.altCost = alt;
   }

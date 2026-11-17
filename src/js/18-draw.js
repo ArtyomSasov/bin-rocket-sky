@@ -198,6 +198,12 @@
       hg.addColorStop(0, "rgba(195,139,255,0.55)"); hg.addColorStop(1, "rgba(195,139,255,0)");
       g.fillStyle = hg; g.beginPath(); g.arc(x, y, 26, 0, 6.29); g.fill();
     }
+    if (s.kind === K.PULSE_BOLT) {
+      g.save(); g.translate(x,y); g.rotate(Math.atan2(s.vy,s.vx));
+      g.globalCompositeOperation = "lighter"; g.drawImage(dotSprite("#80ff30"),-24,-17,48,34);
+      g.fillStyle="#d7ff9a"; g.beginPath(); g.ellipse(0,0,11,5,0,0,Math.PI*2); g.fill();
+      g.fillStyle="#ffffff"; g.fillRect(-5,-1.5,10,3); g.restore(); return;
+    }
     if (s.kind === K.ORB) {   // plasma orb: a big crackling ball, a wide glow, spinning rings and arcs licking out
       const r = 25 + Math.sin(now / 60 + s.x) * 2.5;
       g.globalAlpha = 0.5; g.drawImage(dotSprite("#3aa8ff"), x - r * 3.4, y - r * 3.4, r * 6.8, r * 6.8); g.globalAlpha = 1;
@@ -244,7 +250,7 @@
       }
       return;
     }
-    if (s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.DET) return;   // beams are drawn as beams; a detonator isn't seen
+    if (s.kind === K.PISTOL || s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.DET) return;   // beams are drawn as beams; a detonator isn't seen
     if (s.kind === K.MELEE) return;   // a gauntlet blow: the blade on the bin is what you see
     if (s.kind === K.NAIL || s.kind === K.SPIKE) {   // a nail: a silver shaft with a dark head (a spike is longer and glows)
       const sp = s.kind === K.SPIKE, L = sp ? 34 : 16;
@@ -280,8 +286,10 @@
       g.restore();
       return;
     }
-    if (s.kind === K.FLAK) {   // the flak shell: a hot spiked ball, spinning
-      g.save(); g.translate(x, y); g.rotate(performance.now() / 80);
+    if (s.kind === K.FLAK) {   // shell shadow and loft make its falling trajectory readable
+      const height = flakHeight(s);
+      g.fillStyle = "rgba(0,0,0,.4)"; g.beginPath(); g.ellipse(x, y + 8, 12 + height*.08, 5, 0, 0, Math.PI*2); g.fill();
+      g.save(); g.translate(x, y - height); g.rotate(performance.now() / 80);
       g.globalAlpha = 0.6; g.drawImage(dotSprite("#ff9a3c"), -30, -30, 60, 60); g.globalAlpha = 1;
       g.fillStyle = "#ffd27a"; g.beginPath();
       for (let k = 0; k < 16; k++) { const r = k % 2 ? 6 : 13, a = k / 16 * 6.283; k ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(r, 0); }
@@ -363,10 +371,10 @@
       g.restore();
       return;
     }
-    if (s.kind === K.SAW) {   // a spinning toothed blade
+    if (s.kind === K.SAW || s.kind === K.SAW_ALT) {   // a spinning toothed blade
       g.save(); g.translate(x, y); g.rotate(now / 25 + s.x * 0.01);
       g.fillStyle = s.returning ? "rgba(70,255,210,0.4)" : "rgba(214,221,232,0.25)"; g.beginPath(); g.arc(0, 0, 22, 0, 6.29); g.fill();
-      g.fillStyle = "#d6dde8"; g.beginPath();
+      g.fillStyle = s.kind === K.SAW_ALT ? "#ffae63" : "#d6dde8"; g.beginPath();
       for (let k = 0; k < 24; k++) { const a = k / 24 * 6.283, r = k % 2 ? 11 : 16; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
       g.closePath(); g.fill();
       g.fillStyle = s.returning ? "#6fffe0" : "#5a6684"; g.beginPath(); g.arc(0, 0, 4, 0, 6.29); g.fill();
@@ -394,7 +402,7 @@
       g.strokeStyle = `rgba(200,250,255,${1 - k})`; g.lineWidth = 6; g.beginPath(); g.arc(x, y, 20 + k * 70, 0, 6.29); g.stroke();
       return;
     }
-    if (s.kind === K.BULLET) {   // a minigun tracer
+    if (s.kind === K.BULLET || s.kind === K.BULLET_ALT) {   // a minigun tracer
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
       g.strokeStyle = "rgba(255,224,138,0.9)"; g.lineWidth = 2.5; g.lineCap = "round";
       g.beginPath(); g.moveTo(-30, 0); g.lineTo(0, 0); g.stroke();
@@ -794,19 +802,25 @@
   // Drawn in art pixels; -y points the way the bin flies.
   let gauntSpinFast = false, mountHeat = 0;   // my gauntlet whirls while it's on; my minigun's heat
   function drawMounts(weapon, s, now) {
-    if (!weapon || weapon === "fire") return;
+    if (!weapon) return;
     const u = s / 320, mounts = mountsOf(weapon);
     for (const [mx, my] of mounts) {
       g.save();
       g.translate((mx / 320 - 0.5) * s, (my / 320 - 0.5) * s);
       g.rotate(SPRITE_TILT); g.scale(u * 1.35, u * 1.35);
-      if (weapon === "laser") {
+      if (weapon === "fire") {
+        g.fillStyle = "#252c35"; rrect(-8, -9, 16, 23, 3); g.fill();
+        const slide = g.createLinearGradient(-9, 0, 9, 0); slide.addColorStop(0, "#626d79"); slide.addColorStop(.5, "#dce4e9"); slide.addColorStop(1, "#687481");
+        g.fillStyle = slide; rrect(-9, -43, 18, 38, 3); g.fill();
+        g.fillStyle = "#111820"; g.fillRect(-5, -45, 10, 6);
+        g.fillStyle = "#e9b45d"; g.fillRect(-2, -38, 4, 8);
+      } else if (weapon === "laser") {
         const bg = g.createLinearGradient(-6, 0, 6, 0); bg.addColorStop(0, "#5a6684"); bg.addColorStop(0.5, "#dfe7f5"); bg.addColorStop(1, "#5a6684");
         g.fillStyle = bg; rrect(-6, -58, 12, 66, 5); g.fill();
         g.fillStyle = "#2a3550"; g.fillRect(-8, -10, 16, 12);
         const pulse = 0.6 + 0.4 * Math.sin(now / 120);
         const tg = g.createRadialGradient(0, -60, 0, 0, -60, 16);
-        tg.addColorStop(0, `rgba(230,255,255,${pulse})`); tg.addColorStop(0.4, `rgba(125,249,255,${0.8 * pulse})`); tg.addColorStop(1, "rgba(125,249,255,0)");
+        tg.addColorStop(0, `rgba(230,255,185,${pulse})`); tg.addColorStop(0.4, `rgba(145,255,75,${0.8 * pulse})`); tg.addColorStop(1, "rgba(145,255,75,0)");
         g.fillStyle = tg; g.beginPath(); g.arc(0, -60, 16, 0, 6.29); g.fill();
       } else if (weapon === "rocket") {
         g.fillStyle = "#3b2d5c"; rrect(-15, -26, 30, 40, 6); g.fill();

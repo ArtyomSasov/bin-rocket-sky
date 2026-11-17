@@ -90,6 +90,9 @@ test('offline build includes local QR libraries and invalidates cache when asset
       return readFileSync(join(fixture, 'sw.js'), 'utf8');
     };
     let previous = build();
+    const html = readFileSync(join(fixture, 'index.html'), 'utf8');
+    const embedded = JSON.parse(html.match(/window\.BRS_PACK_FILES = (\[[^\n]*?\]);<\/script>/)[1]);
+    assert.deepEqual(embedded, JSON.parse(readFileSync(join(fixture, 'sfx/pack/index.json'), 'utf8')));
     assert.match(previous, /"vendor\/qrcode.min.js"/);
     assert.match(previous, /"vendor\/jsQR.min.js"/);
     assert.equal(build(), previous, 'unchanged builds are reproducible');
