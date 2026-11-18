@@ -37,8 +37,9 @@ test('a player joins a room, gets snapshots, and flies by the input it sends', {
   // hold the stick right for a second: the server moves the pilot
   const timer = setInterval(() => ws.sendJ({ t: 'in', mx: 1, my: 0, aim: 0 }), 33);
   await new Promise(r => setTimeout(r, 1200)); clearInterval(timer);
-  const later = ws.got.filter(m => m.t === 'snap' && me(m)?.x !== undefined).at(-1);
-  assert.ok(me(later).x - me(first).x > 200, `moved ${me(later).x - me(first).x}`);
+  // (it may meet a moon or the fence on the way, so its top speed to the right is what shows the stick worked)
+  const fastest = Math.max(...ws.got.filter(m => m.t === 'snap' && me(m)?.vx !== undefined).map(m => me(m).vx));
+  assert.ok(fastest > 300, `flew right at up to ${fastest} px/s`);
   ws.sendJ({ t: 'ping', c: 42 });
   const pong = await ws.next(m => m.t === 'pong');
   assert.equal(pong.c, 42); assert.ok(Math.abs(pong.s - Date.now()) < 1000);

@@ -2,21 +2,24 @@ function runWeaponAuditChecks() {
   const passed = [], ok = (v, why) => { if (!v) throw Error(why); }, check = (name, f) => { f(); passed.push(name); };
   const reset = () => { bodies=[];det=[];shots.length=0;remotes.clear();keys.clear();me.x=100;me.y=500;me.a=0;me.vx=me.vy=0;me.inv=0;clearArmor(me);me.dead=false;me.lives=20;me.lv=1;me.ampUntil=0;fireCd=0;baseArsenal(); };
   const now = performance.now();reset();
-  check('UT rocket loading releases only loaded rockets and cancels without spending ammo', () => {
+  check('UT rocket loading: the press loads one, full goes by itself, release fires what is loaded; cancels spend nothing', () => {
     for (const ammo of [1,2,5]) {
       reset();cancelRocketLoad();me.weapon='rocket';me.arsenal.rocket=ammo;
-      rocketLoadTick(.44,now,true,true);ok(rocketLoad===0&&shots.length===0,'no instant salvo');
-      rocketLoadTick(.01,now+10,true,true);ok(rocketLoad===1&&shots.length===0,'first loaded rocket');
-      rocketLoadTick(.9,now+910,true,true);const count=Math.min(3,ammo);
-      ok(rocketLoad===count&&me.arsenal.rocket===ammo,'loading respects ammo without spending');
-      rocketLoadTick(0,now+911,false,true);
-      ok(shots.length===count&&shots.every(s=>s.kind===K.ROCKET),'straight loaded salvo');
-      ok((me.arsenal.rocket||0)===ammo-count&&rocketLoad===0,'exact cost on release');
-      const before=shots.length;rocketLoadTick(0,now+912,false,true);ok(shots.length===before,'one volley per release');
+      const full=Math.min(3,ammo);
+      rocketLoadTick(.016,now,true,true);
+      if(full===1){ok(shots.length===1&&(me.arsenal.rocket||0)===0&&rocketLoad===0,'one rocket carried: the press fires it');continue;}
+      ok(rocketLoad===1&&shots.length===0&&me.arsenal.rocket===ammo,'the press loads the first rocket, spending nothing');
+      for(let k=0;k<full-1;k++)rocketLoadTick(ROCKET_LOAD,now+(k+1)*700,true,true);
+      ok(shots.length===full&&shots.every(s=>s.kind===K.ROCKET)&&rocketLoad===0,'full: the salvo goes by itself');
+      ok((me.arsenal.rocket||0)===ammo-full,'exact cost');
+      const before=shots.length;rocketLoadTick(0,now+3000,false,true);ok(shots.length===before,'letting go after the salvo fires nothing more');
     }
-    reset();me.weapon='rocket';me.arsenal.rocket=5;rocketLoadTick(.9,now,true,true);
+    reset();cancelRocketLoad();me.weapon='rocket';me.arsenal.rocket=5;
+    rocketLoadTick(.016,now,true,true);rocketLoadTick(ROCKET_LOAD,now+700,true,true);ok(rocketLoad===2&&shots.length===0,'two loaded');
+    rocketLoadTick(0,now+710,false,true);ok(shots.length===2&&me.arsenal.rocket===3&&rocketLoad===0,'release fires the two loaded');
+    reset();cancelRocketLoad();me.weapon='rocket';me.arsenal.rocket=5;rocketLoadTick(.016,now,true,true);
     selectWeapon('fire');rocketLoadTick(0,now+1,false,true);ok(shots.length===0&&me.arsenal.rocket===5&&rocketLoad===0,'switch cancels');
-    me.weapon='rocket';rocketLoadTick(.9,now,true,true);rocketLoadTick(0,now,false,false);ok(rocketLoad===0&&shots.length===0,'death/round end cancels');
+    me.weapon='rocket';rocketLoadTick(.016,now,true,true);rocketLoadTick(0,now,false,false);ok(rocketLoad===0&&shots.length===0,'death/round end cancels');
   });
   check('Enforcer is hitscan; Ripper has explosive alternate discs; Flak has a broad ricochet fan', () => {
     reset();shoot(now,false);const pistol=shots.at(-1);ok(pistol.kind===K.PISTOL,'pistol replaces fireball');

@@ -96,8 +96,9 @@
   //   guided (alt): you steer the shot; spin: [slowest reload, fastest, seconds to spin up] while the trigger is held;
   //   jitter: random spread (rad); charge: seconds to charge fully while held, it fires on release
   const WEAPONS = {
-    fire:    { name: "Enforcer", ammo: Infinity, cd: 0.28, shot: [K.PISTOL, 6000], jitter: 0.01, kick: 25, feel: [5, 0.05, 40], sfx: ["p_ut_fire", 0.8, 1],
-               alt: { name: "Rapid fire", cost: 0, cd: 0.16, shot: [K.PISTOL, 6000], jitter: 0.085, kick: 35, feel: [6, 0.06, 45], sfx: ["p_ut_fire", 0.8, 1] } },
+    // the starting gun: a laser pistol (the Enforcer's damage and pace, a red beam and the pulse gun's sound, pitched up)
+    fire:    { name: "Laser pistol", ammo: Infinity, cd: 0.28, col: "#ff3b4e", shot: [K.PISTOL, 6000], jitter: 0.01, kick: 25, feel: [5, 0.05, 40], sfx: ["p_ut_pulse_fire", 0.7, 1.25],
+               alt: { name: "Rapid fire", cost: 0, cd: 0.16, shot: [K.PISTOL, 6000], jitter: 0.085, kick: 35, feel: [6, 0.06, 45], sfx: ["p_ut_pulse_fire", 0.7, 1.4] } },
     triple:  { name: "Triple shot", ammo: 24, cd: 0.3, col: "#ffb43c", shot: [K.FIRE, 1000], spread: [-0.2, 0, 0.2], kick: 25, feel: [7, 0.07, 50], sfx: ["triple", 0.7],
                alt: { name: "Focus", cost: 1, cd: 0.3, shot: [K.FIRE, 1050], spread: [-0.035, 0, 0.035], kick: 60, feel: [10, 0.13, 80], sfx: ["triple", 0.8, 0.9] } },
     // Pulse Gun: fast plasma spheres; alternate short beam respects cover.
@@ -128,8 +129,9 @@
                alt: { name: "Detonate", detonate: true, cost: 0, cd: 0.3, sfx: ["hit", 0.6, 0.6] } },
     tele:    { name: "Teleporter", ammo: 3, cd: 0.35, col: "#8ff0ff", shot: [K.BEACON, 1250], kick: 0, feel: [3, 0.02, 30], sfx: ["mine_drop", 0.7, 1.5] },
     // UT-style accurate primary and faster, less accurate alternative.
-    minigun: { name: "Minigun", ammo: 160, cd: 0.09, jitter: 0.025, col: "#ffe08a", shot: [K.BULLET, 2600], kick: 10, feel: [2, 0.03, 30], sfx: ["p_ut_mini_fire", 0.65, 1],
-               alt: { name: "Rapid stream", cost: 1, cd: 0.045, jitter: 0.09, shot: [K.BULLET_ALT, 2600], kick: 10, feel: [2, 0.03, 30], sfx: ["p_ut_mini_alt", .65, 1] } },
+    // spin: [time between shots at a standstill, at full speed, seconds to spin up]: it winds up while the trigger is held
+    minigun: { name: "Minigun", ammo: 160, cd: 0.09, spin: [0.17, 0.065, 0.85], jitter: 0.025, col: "#ffe08a", shot: [K.BULLET, 2600], kick: 22, feel: [4, 0.05, 42], sfx: ["p_ut_mini_fire", 0.65, 1], fx: "mini",
+               alt: { name: "Rapid stream", cost: 1, cd: 0.045, jitter: 0.09, shot: [K.BULLET_ALT, 2600], kick: 16, feel: [3, 0.04, 36], sfx: ["p_ut_mini_alt", .65, 1], fx: "mini" } },
     gauss:   { name: "Charge cannon", ammo: 8, cd: 1.4, charge: 1.1, col: "#7fb8ff", shot: [K.GAUSS, 3600], kick: 300, feel: [24, 0.35, 100], sfx: ["rail", 0.9, 0.75], fx: "rail" },
     // Flak Cannon: eight fragments lose energy after each ricochet.
     // alt: a flak shell that bursts into eight shards all round after a short flight (or on impact)
@@ -148,7 +150,11 @@
   // Source-based baseline; 100 HP = 3 internal lives. See WEAPON-BALANCE.md.
   const HP = n => n * .03;
   const balanceShot = (kind, props) => Object.assign(SHOTS[kind], props);
-  balanceShot(K.PISTOL, { dmg: HP(17) });
+  // the rocket launcher's alt, as in UT: the first rocket loads the moment you press, another every ROCKET_LOAD
+  // seconds; at three the salvo goes by itself, and letting go fires what is loaded
+  const ROCKET_LOAD = 0.7, ROCKET_MAX = 3;
+  const rocketsLoaded = (t, carried) => Math.min(ROCKET_MAX, carried, 1 + Math.floor((t + 1e-8) / ROCKET_LOAD));
+  balanceShot(K.PISTOL, { dmg: HP(17), col: "#ff3b4e" });   // the laser pistol: red sparks where it lands
   balanceShot(K.ROCKET, { dmg: HP(75) });
   balanceShot(K.PULSE_BOLT, { dmg: HP(20) });
   balanceShot(K.LASER, { dmg: HP(72 * .24) }); // UT99 beam: 72 HP per second
@@ -174,7 +180,7 @@
   Object.assign(WEAPONS.orb, { shot: [K.ORB, 650] });
   Object.assign(WEAPONS.shard, { shot: [K.SHARD, 3500] }); WEAPONS.shard.alt.shot = [K.FLAK, 1050];
   Object.assign(WEAPONS.saw, { shot: [K.SAW, 1680] }); WEAPONS.saw.alt.shot = [K.SAW_ALT, 1680];
-  Object.assign(WEAPONS.minigun, { cd: .1, jitter: .03375, shot: [K.BULLET, 6000] });
+  Object.assign(WEAPONS.minigun, { cd: .1, jitter: .03375, shot: [K.BULLET, 6000] });   // (its pace is set by spin)
   Object.assign(WEAPONS.minigun.alt, { name: "Heavy shards", cost: 2, cd: .28, jitter: .01, shot: [K.BULLET_ALT, 2500] });
   Object.assign(WEAPONS.scatter, { cd: 1, shot: [K.PELLET, 1500] });
   balanceShot(K.RAIL, { dmg: HP(80) });

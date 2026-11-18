@@ -628,9 +628,17 @@
         }
         continue;
       }
-      if (b.pistol) {
-        const fade = Math.max(0, 1 - b.t / .12);
-        if (fade > 0) { g.save(); g.globalAlpha = fade; g.strokeStyle = "#ffe8ad"; g.lineWidth = 1.8; g.beginPath(); g.moveTo(sx(b.x1), sy(b.y1)); g.lineTo(sx(b.x2), sy(b.y2)); g.stroke(); g.restore(); }
+      if (b.pistol) {   // the laser pistol: a red beam with a soft glow and a white-hot core, gone in a blink
+        const fade = Math.max(0, 1 - b.t / .16);
+        if (fade > 0) {
+          const x1 = sx(b.x1), y1 = sy(b.y1), x2 = sx(b.x2), y2 = sy(b.y2);
+          g.save(); g.lineCap = "round"; g.globalCompositeOperation = "lighter";
+          g.strokeStyle = `rgba(255,40,70,${0.28 * fade})`; g.lineWidth = 9 * fade + 2; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+          g.strokeStyle = `rgba(255,70,90,${0.8 * fade})`; g.lineWidth = 3.2; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+          g.strokeStyle = `rgba(255,225,230,${fade})`; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+          if (!lowQ) { g.fillStyle = `rgba(255,90,110,${0.6 * fade})`; g.beginPath(); g.arc(x2, y2, 7 * fade + 2, 0, 6.29); g.fill(); }   // where it lands
+          g.restore();
+        }
         continue;
       }   // rail trails: a white-hot core in a violet glow that goes quickly, and a double spiral that lingers and unwinds
       const k = 1 - b.t / BEAM_T, kc = Math.max(0, 1 - b.t / 0.4), x1 = sx(b.x1), y1 = sy(b.y1), x2 = sx(b.x2), y2 = sy(b.y2);

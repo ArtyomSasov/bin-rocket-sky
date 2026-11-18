@@ -693,8 +693,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   //   guided (alt): you steer the shot; spin: [slowest reload, fastest, seconds to spin up] while the trigger is held;
   //   jitter: random spread (rad); charge: seconds to charge fully while held, it fires on release
   const WEAPONS = {
-    fire:    { name: "Enforcer", ammo: Infinity, cd: 0.28, shot: [K.PISTOL, 6000], jitter: 0.01, kick: 25, feel: [5, 0.05, 40], sfx: ["p_ut_fire", 0.8, 1],
-               alt: { name: "Rapid fire", cost: 0, cd: 0.16, shot: [K.PISTOL, 6000], jitter: 0.085, kick: 35, feel: [6, 0.06, 45], sfx: ["p_ut_fire", 0.8, 1] } },
+    // the starting gun: a laser pistol (the Enforcer's damage and pace, a red beam and the pulse gun's sound, pitched up)
+    fire:    { name: "Laser pistol", ammo: Infinity, cd: 0.28, col: "#ff3b4e", shot: [K.PISTOL, 6000], jitter: 0.01, kick: 25, feel: [5, 0.05, 40], sfx: ["p_ut_pulse_fire", 0.7, 1.25],
+               alt: { name: "Rapid fire", cost: 0, cd: 0.16, shot: [K.PISTOL, 6000], jitter: 0.085, kick: 35, feel: [6, 0.06, 45], sfx: ["p_ut_pulse_fire", 0.7, 1.4] } },
     triple:  { name: "Triple shot", ammo: 24, cd: 0.3, col: "#ffb43c", shot: [K.FIRE, 1000], spread: [-0.2, 0, 0.2], kick: 25, feel: [7, 0.07, 50], sfx: ["triple", 0.7],
                alt: { name: "Focus", cost: 1, cd: 0.3, shot: [K.FIRE, 1050], spread: [-0.035, 0, 0.035], kick: 60, feel: [10, 0.13, 80], sfx: ["triple", 0.8, 0.9] } },
     // Pulse Gun: fast plasma spheres; alternate short beam respects cover.
@@ -725,8 +726,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
                alt: { name: "Detonate", detonate: true, cost: 0, cd: 0.3, sfx: ["hit", 0.6, 0.6] } },
     tele:    { name: "Teleporter", ammo: 3, cd: 0.35, col: "#8ff0ff", shot: [K.BEACON, 1250], kick: 0, feel: [3, 0.02, 30], sfx: ["mine_drop", 0.7, 1.5] },
     // UT-style accurate primary and faster, less accurate alternative.
-    minigun: { name: "Minigun", ammo: 160, cd: 0.09, jitter: 0.025, col: "#ffe08a", shot: [K.BULLET, 2600], kick: 10, feel: [2, 0.03, 30], sfx: ["p_ut_mini_fire", 0.65, 1],
-               alt: { name: "Rapid stream", cost: 1, cd: 0.045, jitter: 0.09, shot: [K.BULLET_ALT, 2600], kick: 10, feel: [2, 0.03, 30], sfx: ["p_ut_mini_alt", .65, 1] } },
+    // spin: [time between shots at a standstill, at full speed, seconds to spin up]: it winds up while the trigger is held
+    minigun: { name: "Minigun", ammo: 160, cd: 0.09, spin: [0.17, 0.065, 0.85], jitter: 0.025, col: "#ffe08a", shot: [K.BULLET, 2600], kick: 22, feel: [4, 0.05, 42], sfx: ["p_ut_mini_fire", 0.65, 1], fx: "mini",
+               alt: { name: "Rapid stream", cost: 1, cd: 0.045, jitter: 0.09, shot: [K.BULLET_ALT, 2600], kick: 16, feel: [3, 0.04, 36], sfx: ["p_ut_mini_alt", .65, 1], fx: "mini" } },
     gauss:   { name: "Charge cannon", ammo: 8, cd: 1.4, charge: 1.1, col: "#7fb8ff", shot: [K.GAUSS, 3600], kick: 300, feel: [24, 0.35, 100], sfx: ["rail", 0.9, 0.75], fx: "rail" },
     // Flak Cannon: eight fragments lose energy after each ricochet.
     // alt: a flak shell that bursts into eight shards all round after a short flight (or on impact)
@@ -745,7 +747,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // Source-based baseline; 100 HP = 3 internal lives. See WEAPON-BALANCE.md.
   const HP = n => n * .03;
   const balanceShot = (kind, props) => Object.assign(SHOTS[kind], props);
-  balanceShot(K.PISTOL, { dmg: HP(17) });
+  // the rocket launcher's alt, as in UT: the first rocket loads the moment you press, another every ROCKET_LOAD
+  // seconds; at three the salvo goes by itself, and letting go fires what is loaded
+  const ROCKET_LOAD = 0.7, ROCKET_MAX = 3;
+  const rocketsLoaded = (t, carried) => Math.min(ROCKET_MAX, carried, 1 + Math.floor((t + 1e-8) / ROCKET_LOAD));
+  balanceShot(K.PISTOL, { dmg: HP(17), col: "#ff3b4e" });   // the laser pistol: red sparks where it lands
   balanceShot(K.ROCKET, { dmg: HP(75) });
   balanceShot(K.PULSE_BOLT, { dmg: HP(20) });
   balanceShot(K.LASER, { dmg: HP(72 * .24) }); // UT99 beam: 72 HP per second
@@ -771,7 +777,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   Object.assign(WEAPONS.orb, { shot: [K.ORB, 650] });
   Object.assign(WEAPONS.shard, { shot: [K.SHARD, 3500] }); WEAPONS.shard.alt.shot = [K.FLAK, 1050];
   Object.assign(WEAPONS.saw, { shot: [K.SAW, 1680] }); WEAPONS.saw.alt.shot = [K.SAW_ALT, 1680];
-  Object.assign(WEAPONS.minigun, { cd: .1, jitter: .03375, shot: [K.BULLET, 6000] });
+  Object.assign(WEAPONS.minigun, { cd: .1, jitter: .03375, shot: [K.BULLET, 6000] });   // (its pace is set by spin)
   Object.assign(WEAPONS.minigun.alt, { name: "Heavy shards", cost: 2, cd: .28, jitter: .01, shot: [K.BULLET_ALT, 2500] });
   Object.assign(WEAPONS.scatter, { cd: 1, shot: [K.PELLET, 1500] });
   balanceShot(K.RAIL, { dmg: HP(80) });
@@ -1764,7 +1770,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   }
   document.addEventListener("visibilitychange", () => { if (document.hidden) { for (const slot of Object.keys(packLoops)) packLoop(slot, null); } });
   // x, y: where it happens (quieter with distance, silent past ~2200); rate: pitch, with a little random spread
-  const SOUND_OVERRIDE = { fire: "p_ut_fire", p_fire_fire: "p_ut_fire", triple: "p_user_fire", crash: "p_metal", ram: "p_metal", dash: "p_warp",
+  const SOUND_OVERRIDE = { fire: "p_ut_fire", p_fire_fire: "p_ut_pulse_fire", triple: "p_user_fire", crash: "p_metal", ram: "p_metal", dash: "p_warp",
     p_fire_gamma: "p_user_demonic", p_fire_minigun: "p_ut_mini_fire",
     p_fire_rocket: "p_ut_rocket_fire", p_boom_rocket: "p_ut_rocket_boom", p_fly_rocket: "p_ut_rocket_fly", p_change: "p_ut_draw",
     p_fire_laser: "p_ut_pulse_fire", p_loop_laser: "p_ut_pulse_bolt", p_stop_laser: "p_ut_pulse_down",
@@ -3842,7 +3848,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     return o;
   }
   // A flying round sweeps against the target's recorded motion during its step. A hitscan round (now also bullets,
-  // pellets and the Enforcer) is one instant: its whole line meets the target where it was when it was fired.
+  // and the laser pistol) is one instant: its whole line meets the target where it was when it was fired.
   const sweeps = s => !HITSCAN[s.kind] && straightShot(s.kind) && Number.isFinite(s.stepFrom) && s.stepTo > s.stepFrom;
   function targetHit(s, o) {
     if (sweeps(s)) return projectileContact(s, o) <= 1;
@@ -4237,6 +4243,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   }
   // extra muzzle effects some guns have, on top of the flash and recoil every gun gets
   const MUZZLE_FX = {
+    mini(m) {   // the minigun: a tongue of flame from the barrels with each round, and now and then a spark
+      const a = me.a, ca = Math.cos(a), sa = Math.sin(a);
+      impacts.push({ x: m.x + ca * 6, y: m.y + sa * 6, t: 0, r: 12 + Math.random() * 9, col: Math.random() < 0.5 ? "#ffcf6a" : "#ff9a3c" });
+      for (let k = 0; k < (lowQ ? 2 : 4); k++) { const b = a + (Math.random() - 0.5) * 0.5, v = 300 + Math.random() * 380; puff(m.x, m.y, Math.cos(b) * v + me.vx, Math.sin(b) * v + me.vy, 0.06 + Math.random() * 0.08, 3 + Math.random() * 3, k % 2 ? "#ffd27a" : "#ff8a2a", 0); }
+      if (Math.random() < 0.25) sparkShower(m.x, m.y, ca, sa, 0.4);
+      miniHeat = Math.min(1, miniHeat + 0.05);
+    },
     blast(m) {   // scatter gun: flash, a cone of fire and smoke, then the pump racking
       setTimeout(() => { if (!sfx("pump", 0.6)) { blip(420, 0.05, "square"); setTimeout(() => blip(300, 0.06, "square"), 90); } }, 260);
       impacts.push({ x: m.x, y: m.y, t: 0, r: 70, col: "#ffd27a" });
@@ -4274,7 +4287,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const DETONATOR = { shot: [K.DET, 0] }, MINE_DETONATOR = { shot: [K.MDET, 0] };
   let lungeReady = 0;
   // the pack's sound for each alt fire (the rest keep their own)
-  const ALT_SOUND = { fire: "p_ut_fire", saw: "p_ut_saw_alt", nuke: "p_ut_nuke_fire", mine: "p_fire_mine", scatter: "p_fire_scatter", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_fire_laser", gren: "p_fire_gren", nail: "p_fire_nail", rail: "p_fire_rail", shard: "p_ut_flak_alt" };
+  const ALT_SOUND = { fire: "p_ut_pulse_fire", saw: "p_ut_saw_alt", nuke: "p_ut_nuke_fire", mine: "p_fire_mine", scatter: "p_fire_scatter", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_fire_laser", gren: "p_fire_gren", nail: "p_fire_nail", rail: "p_fire_rail", shard: "p_ut_flak_alt" };
   // fire the gun in hand (alt: its alternate fire, which needs its full ammo cost)
   // mul: the charge cannon's charge (0.25..1)
   function shoot(now, alt, mul = 1, loadedRockets = 0) {
@@ -4349,8 +4362,18 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   }
   // ---- the minigun spins up while the trigger is held; the charge cannon charges while held and fires on release
   let spin = 0, charge = 0, railCharge = 0;   // railCharge: the railgun's alt, held
+  let miniHeat = 0;   // how hot the minigun's barrels are: they smoke for a while after it stops
+  const MINI_SMOKE = ["rgb(150,152,165)", "rgb(170,170,182)", "rgb(130,132,148)"];
   function triggerTick(dt, now, ready, held) {
     const w = WEAPONS[me.weapon];
+    if (miniHeat > 0) {   // hot barrels smoke once the firing stops, thinning as they cool
+      const firing = held && me.weapon === "minigun" && playing && !me.dead;
+      if (!firing && me.weapon === "minigun" && !me.dead && Math.random() < miniHeat * dt * (lowQ ? 20 : 55)) {
+        const R = 46 * sizeOf(me.lv), nx = me.x + Math.cos(me.a) * R, ny = me.y + Math.sin(me.a) * R;
+        puff(nx, ny, me.vx * 0.8 + (Math.random() - 0.5) * 30, me.vy * 0.8 - 25 - Math.random() * 30, 1.1 + Math.random() * 0.9, 7 + Math.random() * 7, MINI_SMOKE[Math.random() * 3 | 0], 2);
+      }
+      miniHeat = Math.max(0, miniHeat - dt * (firing ? 0 : 0.3));
+    }
     if (w.spin && held && spin === 0 && playing && !me.dead) packPlay("p_spin_minigun", 0.7);   // the barrels wind up
     spin = w.spin && held && playing && !me.dead ? Math.min(1, spin + dt / w.spin[2]) : Math.max(0, spin - dt * 1.5);
     // a sound pack's loops: the hum of the gun in your hands, and the laser's beam while the trigger is held
@@ -4812,7 +4835,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   }
 
   const ALT_HINTS = {
-    fire: "Enforcer: instant accurate shots; alternate fire is faster with wider spread. Unlimited starting ammo.",
+    fire: "Laser pistol: instant accurate red beams; alternate fire is faster with wider spread. Unlimited starting ammo.",
     rocket: "Hold alternate fire to load one rocket every 0.45 s, up to three. Release for a straight salvo; ammo cost equals rockets loaded.",
     minigun: "Primary: 14 HP hitscan bullets, 10/s. Alternate: large 38 HP Stinger shards, one every 0.28 s; primary costs 1 ammo, alternate costs 2.",
     scatter: "Slug: longer range and a stronger push than the close-range pellet fan; 2 ammo.",
@@ -4889,18 +4912,22 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // on death, switching, round end or a hidden tab cannot emit a delayed volley.
   let rocketLoad = 0, rocketLoadTime = 0;
   function cancelRocketLoad() { rocketLoad = 0; rocketLoadTime = 0; }
+  let rocketWasHeld = false;
   function rocketLoadTick(dt, now, held, ready) {
-    if (me.weapon !== "rocket" || !ready || document.hidden) { cancelRocketLoad(); return; }
-    const available = Math.min(3, me.arsenal.rocket || 0);
+    if (me.weapon !== "rocket" || !ready || document.hidden) { cancelRocketLoad(); rocketWasHeld = held; return; }
+    const available = Math.min(ROCKET_MAX, me.arsenal.rocket || 0);
     if (held) {
-      if (!available) { rejectFire("NO ROCKETS", now); cancelRocketLoad(); return; }
-      rocketLoadTime += Math.max(0, dt);
-      const count = Math.min(available, Math.floor((rocketLoadTime + 1e-8) / 0.45));
+      if (!available) { if (!rocketWasHeld) rejectFire("NO ROCKETS", now); cancelRocketLoad(); rocketWasHeld = true; return; }
+      if (rocketWasHeld || rocketLoad) rocketLoadTime += Math.max(0, dt);   // (the press itself loads the first one)
+      rocketWasHeld = true;
+      const count = rocketsLoaded(rocketLoadTime, available);
       if (count > rocketLoad) {
         // At most one load click per frame after a stall; the HUD still catches up.
         rocketLoad = count; packPlay("p_ut_rocket_load", .7); renderAmmo("rocket");
       }
+      if (rocketLoad >= available) { const n = rocketLoad; cancelRocketLoad(); shoot(now, true, 1, n); }   // full: the salvo goes by itself
     } else {
+      rocketWasHeld = false;
       const count = Math.min(rocketLoad, available);
       cancelRocketLoad();
       if (count) shoot(now, true, 1, count);
@@ -6350,10 +6377,15 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const k = only || b.weapon, w = WEAPONS[k], alt = w.alt, live = roundLive && !b.dead, ready = live && b.fireCd <= 0;
     b.heat = Math.max(0, b.heat - 0.45 * dt); if (b.overheat && b.heat < 0.3) b.overheat = false;
     b.spin = w.spin && i.fire && live ? Math.min(1, b.spin + dt / w.spin[2]) : Math.max(0, b.spin - dt * 1.5);
-    // rockets: alt held loads one every 0.45 s (up to three, and what is carried); letting go fires them together
+    // rockets, as rocketLoadTick has them: the press loads one, holding loads another every ROCKET_LOAD seconds; when
+    // full (three, or what is carried) the salvo goes by itself, and letting go fires what is loaded
     if (alt && alt.load) {
-      if (i.alt && ready) { b.loadFor += dt; b.rocketLoad = Math.min(3, b.arsenal[k] || 0, Math.floor((b.loadFor + 1e-8) / 0.45)); }
-      else { const n = b.rocketLoad; b.rocketLoad = b.loadFor = 0; if (n && ready) pilotShoot(b, now, k, true, 1, n); }
+      const carried = Math.min(ROCKET_MAX, b.arsenal[k] || 0);
+      if (i.alt && ready && carried) {
+        if (b.rocketLoad) b.loadFor += dt;
+        b.rocketLoad = rocketsLoaded(b.loadFor, carried);
+        if (b.rocketLoad >= carried) { const n = b.rocketLoad; b.rocketLoad = b.loadFor = 0; pilotShoot(b, now, k, true, 1, n); }
+      } else { const n = b.rocketLoad; b.rocketLoad = b.loadFor = 0; if (n && ready) pilotShoot(b, now, k, true, 1, n); }
     }
     // the rail's cutter: alt held widens it, letting go fires it
     if (alt && alt.charge) {
@@ -7916,15 +7948,17 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       return;
     }
     if (s.kind === K.BULLET || s.kind === K.BULLET_ALT) {
-      const heavy = s.kind === K.BULLET_ALT, L = heavy ? 46 : 30;
-      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
+      const heavy = s.kind === K.BULLET_ALT, L = heavy ? 64 : 56;   // a long hot tracer with a glow round it
+      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx)); g.globalCompositeOperation = "lighter";
       const tail = g.createLinearGradient(-L, 0, 3, 0);
-      tail.addColorStop(0, heavy ? "#4593ff00" : "#ff9c2400");
+      tail.addColorStop(0, heavy ? "#4593ff00" : "#ff6a1000");
+      tail.addColorStop(0.6, heavy ? "#6fb4ff88" : "#ffa03a99");
       tail.addColorStop(1, heavy ? "#a5dcff" : "#ffe08a");
-      g.strokeStyle = tail; g.lineWidth = heavy ? 7 : 2.5; g.lineCap = "round";
+      if (!lowQ) { g.strokeStyle = heavy ? "rgba(90,160,255,0.25)" : "rgba(255,150,50,0.28)"; g.lineWidth = heavy ? 16 : 11; g.lineCap = "round"; g.beginPath(); g.moveTo(-L * 0.7, 0); g.lineTo(2, 0); g.stroke(); }
+      g.strokeStyle = tail; g.lineWidth = heavy ? 7 : 4.5; g.lineCap = "round";
       g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
-      g.fillStyle = heavy ? "#ecfaff" : "#fff5ce";
-      g.beginPath(); g.ellipse(0, 0, heavy ? 8 : 3, heavy ? 4 : 1.6, 0, 0, 6.29); g.fill();
+      g.fillStyle = heavy ? "#ecfaff" : "#fff8dc";
+      g.beginPath(); g.ellipse(0, 0, heavy ? 9 : 6, heavy ? 4.5 : 2.6, 0, 0, 6.29); g.fill();
       g.restore(); return;
     }
     if (s.kind === K.GAUSS) {   // a blue slug of light, thicker the more it was charged
@@ -8501,6 +8535,23 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       g.beginPath(); g.arc(x0, y0, R, -Math.PI / 2, -Math.PI / 2 + railCharge * 6.283); g.stroke();
       g.strokeStyle = `rgba(127,184,255,${0.15 + 0.4 * railCharge})`; g.lineWidth = 2 * (24 + 48 * railCharge); g.globalAlpha = 0.22; g.setLineDash([16, 10]); g.lineDashOffset = -now / 15;
       g.beginPath(); g.moveTo(x0 + ca * R, y0 + sa * R); g.lineTo(x0 + ca * 1100, y0 + sa * 1100); g.stroke();
+      g.restore();
+    }
+    if (rocketLoad > 0 && playing && !me.dead) {   // rockets loading: three segments round the bin, the next one filling, and a rocket for each loaded one
+      const x = sx(me.x), y = sy(me.y), R = 70 * sizeOf(me.lv), avail = Math.min(ROCKET_MAX, me.arsenal.rocket || 0);
+      const part = Math.min(1, (rocketLoadTime % ROCKET_LOAD) / ROCKET_LOAD), seg = 6.283 / ROCKET_MAX, gap = 0.18;
+      g.save(); g.lineCap = "round";
+      for (let i = 0; i < ROCKET_MAX; i++) {
+        const a0 = -Math.PI / 2 + i * seg + gap / 2, a1 = a0 + seg - gap;
+        g.strokeStyle = i < avail ? "rgba(255,90,110,0.22)" : "rgba(120,120,140,0.15)"; g.lineWidth = 7; g.beginPath(); g.arc(x, y, R, a0, a1); g.stroke();
+        const f = i < rocketLoad ? 1 : i === rocketLoad && i < avail ? part : 0;
+        if (f > 0) { g.strokeStyle = f >= 1 ? "#ff5a6e" : "rgba(255,170,120,0.9)"; g.lineWidth = 7; g.beginPath(); g.arc(x, y, R, a0, a0 + (a1 - a0) * f); g.stroke(); }
+      }
+      for (let i = 0; i < rocketLoad; i++) {   // the loaded rockets, side by side over the bin
+        const rx = x + (i - (rocketLoad - 1) / 2) * 16, ry = y - R - 18;
+        g.fillStyle = "#ff5a6e"; g.fillRect(rx - 3, ry - 8, 6, 14);
+        g.fillStyle = "#ffe0a0"; g.beginPath(); g.moveTo(rx - 3, ry - 8); g.lineTo(rx, ry - 13); g.lineTo(rx + 3, ry - 8); g.fill();
+      }
       g.restore();
     }
     if ((settings.aim === "off" && !aimLocked()) || !playing || me.dead || guided) return;
@@ -9259,9 +9310,17 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         }
         continue;
       }
-      if (b.pistol) {
-        const fade = Math.max(0, 1 - b.t / .12);
-        if (fade > 0) { g.save(); g.globalAlpha = fade; g.strokeStyle = "#ffe8ad"; g.lineWidth = 1.8; g.beginPath(); g.moveTo(sx(b.x1), sy(b.y1)); g.lineTo(sx(b.x2), sy(b.y2)); g.stroke(); g.restore(); }
+      if (b.pistol) {   // the laser pistol: a red beam with a soft glow and a white-hot core, gone in a blink
+        const fade = Math.max(0, 1 - b.t / .16);
+        if (fade > 0) {
+          const x1 = sx(b.x1), y1 = sy(b.y1), x2 = sx(b.x2), y2 = sy(b.y2);
+          g.save(); g.lineCap = "round"; g.globalCompositeOperation = "lighter";
+          g.strokeStyle = `rgba(255,40,70,${0.28 * fade})`; g.lineWidth = 9 * fade + 2; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+          g.strokeStyle = `rgba(255,70,90,${0.8 * fade})`; g.lineWidth = 3.2; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+          g.strokeStyle = `rgba(255,225,230,${fade})`; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+          if (!lowQ) { g.fillStyle = `rgba(255,90,110,${0.6 * fade})`; g.beginPath(); g.arc(x2, y2, 7 * fade + 2, 0, 6.29); g.fill(); }   // where it lands
+          g.restore();
+        }
         continue;
       }   // rail trails: a white-hot core in a violet glow that goes quickly, and a double spiral that lingers and unwinds
       const k = 1 - b.t / BEAM_T, kc = Math.max(0, 1 - b.t / 0.4), x1 = sx(b.x1), y1 = sy(b.y1), x2 = sx(b.x2), y2 = sy(b.y2);

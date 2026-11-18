@@ -56,10 +56,15 @@
     const k = only || b.weapon, w = WEAPONS[k], alt = w.alt, live = roundLive && !b.dead, ready = live && b.fireCd <= 0;
     b.heat = Math.max(0, b.heat - 0.45 * dt); if (b.overheat && b.heat < 0.3) b.overheat = false;
     b.spin = w.spin && i.fire && live ? Math.min(1, b.spin + dt / w.spin[2]) : Math.max(0, b.spin - dt * 1.5);
-    // rockets: alt held loads one every 0.45 s (up to three, and what is carried); letting go fires them together
+    // rockets, as rocketLoadTick has them: the press loads one, holding loads another every ROCKET_LOAD seconds; when
+    // full (three, or what is carried) the salvo goes by itself, and letting go fires what is loaded
     if (alt && alt.load) {
-      if (i.alt && ready) { b.loadFor += dt; b.rocketLoad = Math.min(3, b.arsenal[k] || 0, Math.floor((b.loadFor + 1e-8) / 0.45)); }
-      else { const n = b.rocketLoad; b.rocketLoad = b.loadFor = 0; if (n && ready) pilotShoot(b, now, k, true, 1, n); }
+      const carried = Math.min(ROCKET_MAX, b.arsenal[k] || 0);
+      if (i.alt && ready && carried) {
+        if (b.rocketLoad) b.loadFor += dt;
+        b.rocketLoad = rocketsLoaded(b.loadFor, carried);
+        if (b.rocketLoad >= carried) { const n = b.rocketLoad; b.rocketLoad = b.loadFor = 0; pilotShoot(b, now, k, true, 1, n); }
+      } else { const n = b.rocketLoad; b.rocketLoad = b.loadFor = 0; if (n && ready) pilotShoot(b, now, k, true, 1, n); }
     }
     // the rail's cutter: alt held widens it, letting go fires it
     if (alt && alt.charge) {

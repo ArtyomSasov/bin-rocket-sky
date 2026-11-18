@@ -2,18 +2,22 @@
   // on death, switching, round end or a hidden tab cannot emit a delayed volley.
   let rocketLoad = 0, rocketLoadTime = 0;
   function cancelRocketLoad() { rocketLoad = 0; rocketLoadTime = 0; }
+  let rocketWasHeld = false;
   function rocketLoadTick(dt, now, held, ready) {
-    if (me.weapon !== "rocket" || !ready || document.hidden) { cancelRocketLoad(); return; }
-    const available = Math.min(3, me.arsenal.rocket || 0);
+    if (me.weapon !== "rocket" || !ready || document.hidden) { cancelRocketLoad(); rocketWasHeld = held; return; }
+    const available = Math.min(ROCKET_MAX, me.arsenal.rocket || 0);
     if (held) {
-      if (!available) { rejectFire("NO ROCKETS", now); cancelRocketLoad(); return; }
-      rocketLoadTime += Math.max(0, dt);
-      const count = Math.min(available, Math.floor((rocketLoadTime + 1e-8) / 0.45));
+      if (!available) { if (!rocketWasHeld) rejectFire("NO ROCKETS", now); cancelRocketLoad(); rocketWasHeld = true; return; }
+      if (rocketWasHeld || rocketLoad) rocketLoadTime += Math.max(0, dt);   // (the press itself loads the first one)
+      rocketWasHeld = true;
+      const count = rocketsLoaded(rocketLoadTime, available);
       if (count > rocketLoad) {
         // At most one load click per frame after a stall; the HUD still catches up.
         rocketLoad = count; packPlay("p_ut_rocket_load", .7); renderAmmo("rocket");
       }
+      if (rocketLoad >= available) { const n = rocketLoad; cancelRocketLoad(); shoot(now, true, 1, n); }   // full: the salvo goes by itself
     } else {
+      rocketWasHeld = false;
       const count = Math.min(rocketLoad, available);
       cancelRocketLoad();
       if (count) shoot(now, true, 1, count);

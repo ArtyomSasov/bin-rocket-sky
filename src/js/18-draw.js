@@ -418,15 +418,17 @@
       return;
     }
     if (s.kind === K.BULLET || s.kind === K.BULLET_ALT) {
-      const heavy = s.kind === K.BULLET_ALT, L = heavy ? 46 : 30;
-      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
+      const heavy = s.kind === K.BULLET_ALT, L = heavy ? 64 : 56;   // a long hot tracer with a glow round it
+      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx)); g.globalCompositeOperation = "lighter";
       const tail = g.createLinearGradient(-L, 0, 3, 0);
-      tail.addColorStop(0, heavy ? "#4593ff00" : "#ff9c2400");
+      tail.addColorStop(0, heavy ? "#4593ff00" : "#ff6a1000");
+      tail.addColorStop(0.6, heavy ? "#6fb4ff88" : "#ffa03a99");
       tail.addColorStop(1, heavy ? "#a5dcff" : "#ffe08a");
-      g.strokeStyle = tail; g.lineWidth = heavy ? 7 : 2.5; g.lineCap = "round";
+      if (!lowQ) { g.strokeStyle = heavy ? "rgba(90,160,255,0.25)" : "rgba(255,150,50,0.28)"; g.lineWidth = heavy ? 16 : 11; g.lineCap = "round"; g.beginPath(); g.moveTo(-L * 0.7, 0); g.lineTo(2, 0); g.stroke(); }
+      g.strokeStyle = tail; g.lineWidth = heavy ? 7 : 4.5; g.lineCap = "round";
       g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
-      g.fillStyle = heavy ? "#ecfaff" : "#fff5ce";
-      g.beginPath(); g.ellipse(0, 0, heavy ? 8 : 3, heavy ? 4 : 1.6, 0, 0, 6.29); g.fill();
+      g.fillStyle = heavy ? "#ecfaff" : "#fff8dc";
+      g.beginPath(); g.ellipse(0, 0, heavy ? 9 : 6, heavy ? 4.5 : 2.6, 0, 0, 6.29); g.fill();
       g.restore(); return;
     }
     if (s.kind === K.GAUSS) {   // a blue slug of light, thicker the more it was charged
@@ -1003,6 +1005,23 @@
       g.beginPath(); g.arc(x0, y0, R, -Math.PI / 2, -Math.PI / 2 + railCharge * 6.283); g.stroke();
       g.strokeStyle = `rgba(127,184,255,${0.15 + 0.4 * railCharge})`; g.lineWidth = 2 * (24 + 48 * railCharge); g.globalAlpha = 0.22; g.setLineDash([16, 10]); g.lineDashOffset = -now / 15;
       g.beginPath(); g.moveTo(x0 + ca * R, y0 + sa * R); g.lineTo(x0 + ca * 1100, y0 + sa * 1100); g.stroke();
+      g.restore();
+    }
+    if (rocketLoad > 0 && playing && !me.dead) {   // rockets loading: three segments round the bin, the next one filling, and a rocket for each loaded one
+      const x = sx(me.x), y = sy(me.y), R = 70 * sizeOf(me.lv), avail = Math.min(ROCKET_MAX, me.arsenal.rocket || 0);
+      const part = Math.min(1, (rocketLoadTime % ROCKET_LOAD) / ROCKET_LOAD), seg = 6.283 / ROCKET_MAX, gap = 0.18;
+      g.save(); g.lineCap = "round";
+      for (let i = 0; i < ROCKET_MAX; i++) {
+        const a0 = -Math.PI / 2 + i * seg + gap / 2, a1 = a0 + seg - gap;
+        g.strokeStyle = i < avail ? "rgba(255,90,110,0.22)" : "rgba(120,120,140,0.15)"; g.lineWidth = 7; g.beginPath(); g.arc(x, y, R, a0, a1); g.stroke();
+        const f = i < rocketLoad ? 1 : i === rocketLoad && i < avail ? part : 0;
+        if (f > 0) { g.strokeStyle = f >= 1 ? "#ff5a6e" : "rgba(255,170,120,0.9)"; g.lineWidth = 7; g.beginPath(); g.arc(x, y, R, a0, a0 + (a1 - a0) * f); g.stroke(); }
+      }
+      for (let i = 0; i < rocketLoad; i++) {   // the loaded rockets, side by side over the bin
+        const rx = x + (i - (rocketLoad - 1) / 2) * 16, ry = y - R - 18;
+        g.fillStyle = "#ff5a6e"; g.fillRect(rx - 3, ry - 8, 6, 14);
+        g.fillStyle = "#ffe0a0"; g.beginPath(); g.moveTo(rx - 3, ry - 8); g.lineTo(rx, ry - 13); g.lineTo(rx + 3, ry - 8); g.fill();
+      }
       g.restore();
     }
     if ((settings.aim === "off" && !aimLocked()) || !playing || me.dead || guided) return;

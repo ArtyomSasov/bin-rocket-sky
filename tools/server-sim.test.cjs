@@ -137,33 +137,45 @@ test('a player’s shot is judged where the target was on their screen (half the
   assert.equal(await lands(0), false, 'judged at the server’s present it misses');
 });
 
-test('a player carries an arsenal: picks a gun, loads a rocket salvo with alt and fires it on release', { skip }, async () => {
+test('a player carries an arsenal: picks a gun; the rocket alt loads one at the press, fires what is loaded on release, and goes by itself at three', { skip }, async () => {
   const { createMatch } = await sim();
   const m = createMatch({ code: 'm1d0o' });
   try {
     const { WEAPON_KEYS, K } = m.game.__simConst;
     const id = m.addPilot('Gunner');
     run(m, 0.1);
+    m.game.__simTerrain.empty();
     const b = m.game.__simBot(id);
     b.arsenal.rocket = 10;
-    const w = WEAPON_KEYS.indexOf('rocket');
+    const w = WEAPON_KEYS.indexOf('rocket'), keep = () => hold(m, id, 900, 300, 0);
     m.input(id, { w, aim: 0 });
-    run(m, 0.2, () => hold(m, id, 900, 300, 0));
+    run(m, 0.2, keep);
     assert.equal(m.pilot(id).weapon, 'rocket', 'switched to the rocket launcher');
-    m.input(id, { w, aim: 0, alt: true });
-    run(m, 1.5, () => hold(m, id, 900, 300, 0));
-    assert.equal(b.rocketLoad, 3, 'three rockets loaded');
-    m.input(id, { w, aim: 0, alt: false });
-    const fired = new Set();
-    run(m, 0.3, () => hold(m, id, 900, 300, 0));
-    for (const e of m.packet(clock).bots.find(([bid]) => bid === id)[1].f || []) if (e[5] === K.ROCKET) fired.add(e[0]);
-    assert.equal(fired.size, 3, 'a salvo of three');
-    assert.equal(b.arsenal.rocket, 7);
+    const fired = () => { const ids = new Set(); for (const e of m.packet(clock).bots.find(([bid]) => bid === id)[1].f || []) if (e[5] === K.ROCKET) ids.add(e[0]); return ids; };
+    // a tap: one rocket
+    m.input(id, { w, aim: 0, alt: true }); run(m, 0.1, keep);
+    assert.equal(b.rocketLoad, 1, 'the press loads the first rocket');
+    m.input(id, { w, aim: 0, alt: false }); run(m, 0.1, keep);
+    assert.equal(b.arsenal.rocket, 9, 'a tap fires one');
+    run(m, 1, keep);
+    // held a second: two loaded, fired on release
+    m.input(id, { w, aim: 0, alt: true }); run(m, 1, keep);
+    assert.equal(b.rocketLoad, 2, 'two after a second');
+    m.input(id, { w, aim: 0, alt: false }); run(m, 0.1, keep);
+    assert.equal(b.arsenal.rocket, 7, 'release fires the two loaded');
+    run(m, 1, keep);
+    // held on: at three the salvo goes by itself
+    const before = fired();
+    m.input(id, { w, aim: 0, alt: true }); run(m, 1.5, keep);
+    const salvo = [...fired()].filter(x => !before.has(x));
+    assert.equal(salvo.length, 3, 'a salvo of three, without letting go');
+    assert.equal(b.arsenal.rocket, 4);
+    m.input(id, { w, aim: 0, alt: false }); run(m, 0.1, keep);
     const mine = m.packet(clock).bots.find(([bid]) => bid === id)[1];
-    assert.ok(mine.ar.some(([k, n]) => k === w && n === 7), 'the snapshot tells the player their ammo');
+    assert.ok(mine.ar.some(([k, n]) => k === w && n === 4), 'the snapshot tells the player their ammo');
     // a gun the pilot does not carry cannot be picked
     m.input(id, { w: WEAPON_KEYS.indexOf('rail'), aim: 0 });
-    run(m, 0.1, () => hold(m, id, 900, 300, 0));
+    run(m, 0.1, keep);
     assert.equal(m.pilot(id).weapon, 'rocket');
   } finally { m.dispose(); }
 });

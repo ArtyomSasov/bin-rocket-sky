@@ -129,7 +129,7 @@
     return o;
   }
   // A flying round sweeps against the target's recorded motion during its step. A hitscan round (now also bullets,
-  // pellets and the Enforcer) is one instant: its whole line meets the target where it was when it was fired.
+  // and the laser pistol) is one instant: its whole line meets the target where it was when it was fired.
   const sweeps = s => !HITSCAN[s.kind] && straightShot(s.kind) && Number.isFinite(s.stepFrom) && s.stepTo > s.stepFrom;
   function targetHit(s, o) {
     if (sweeps(s)) return projectileContact(s, o) <= 1;
@@ -524,6 +524,13 @@
   }
   // extra muzzle effects some guns have, on top of the flash and recoil every gun gets
   const MUZZLE_FX = {
+    mini(m) {   // the minigun: a tongue of flame from the barrels with each round, and now and then a spark
+      const a = me.a, ca = Math.cos(a), sa = Math.sin(a);
+      impacts.push({ x: m.x + ca * 6, y: m.y + sa * 6, t: 0, r: 12 + Math.random() * 9, col: Math.random() < 0.5 ? "#ffcf6a" : "#ff9a3c" });
+      for (let k = 0; k < (lowQ ? 2 : 4); k++) { const b = a + (Math.random() - 0.5) * 0.5, v = 300 + Math.random() * 380; puff(m.x, m.y, Math.cos(b) * v + me.vx, Math.sin(b) * v + me.vy, 0.06 + Math.random() * 0.08, 3 + Math.random() * 3, k % 2 ? "#ffd27a" : "#ff8a2a", 0); }
+      if (Math.random() < 0.25) sparkShower(m.x, m.y, ca, sa, 0.4);
+      miniHeat = Math.min(1, miniHeat + 0.05);
+    },
     blast(m) {   // scatter gun: flash, a cone of fire and smoke, then the pump racking
       setTimeout(() => { if (!sfx("pump", 0.6)) { blip(420, 0.05, "square"); setTimeout(() => blip(300, 0.06, "square"), 90); } }, 260);
       impacts.push({ x: m.x, y: m.y, t: 0, r: 70, col: "#ffd27a" });
@@ -561,7 +568,7 @@
   const DETONATOR = { shot: [K.DET, 0] }, MINE_DETONATOR = { shot: [K.MDET, 0] };
   let lungeReady = 0;
   // the pack's sound for each alt fire (the rest keep their own)
-  const ALT_SOUND = { fire: "p_ut_fire", saw: "p_ut_saw_alt", nuke: "p_ut_nuke_fire", mine: "p_fire_mine", scatter: "p_fire_scatter", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_fire_laser", gren: "p_fire_gren", nail: "p_fire_nail", rail: "p_fire_rail", shard: "p_ut_flak_alt" };
+  const ALT_SOUND = { fire: "p_ut_pulse_fire", saw: "p_ut_saw_alt", nuke: "p_ut_nuke_fire", mine: "p_fire_mine", scatter: "p_fire_scatter", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_fire_laser", gren: "p_fire_gren", nail: "p_fire_nail", rail: "p_fire_rail", shard: "p_ut_flak_alt" };
   // fire the gun in hand (alt: its alternate fire, which needs its full ammo cost)
   // mul: the charge cannon's charge (0.25..1)
   function shoot(now, alt, mul = 1, loadedRockets = 0) {
@@ -636,8 +643,18 @@
   }
   // ---- the minigun spins up while the trigger is held; the charge cannon charges while held and fires on release
   let spin = 0, charge = 0, railCharge = 0;   // railCharge: the railgun's alt, held
+  let miniHeat = 0;   // how hot the minigun's barrels are: they smoke for a while after it stops
+  const MINI_SMOKE = ["rgb(150,152,165)", "rgb(170,170,182)", "rgb(130,132,148)"];
   function triggerTick(dt, now, ready, held) {
     const w = WEAPONS[me.weapon];
+    if (miniHeat > 0) {   // hot barrels smoke once the firing stops, thinning as they cool
+      const firing = held && me.weapon === "minigun" && playing && !me.dead;
+      if (!firing && me.weapon === "minigun" && !me.dead && Math.random() < miniHeat * dt * (lowQ ? 20 : 55)) {
+        const R = 46 * sizeOf(me.lv), nx = me.x + Math.cos(me.a) * R, ny = me.y + Math.sin(me.a) * R;
+        puff(nx, ny, me.vx * 0.8 + (Math.random() - 0.5) * 30, me.vy * 0.8 - 25 - Math.random() * 30, 1.1 + Math.random() * 0.9, 7 + Math.random() * 7, MINI_SMOKE[Math.random() * 3 | 0], 2);
+      }
+      miniHeat = Math.max(0, miniHeat - dt * (firing ? 0 : 0.3));
+    }
     if (w.spin && held && spin === 0 && playing && !me.dead) packPlay("p_spin_minigun", 0.7);   // the barrels wind up
     spin = w.spin && held && playing && !me.dead ? Math.min(1, spin + dt / w.spin[2]) : Math.max(0, spin - dt * 1.5);
     // a sound pack's loops: the hum of the gun in your hands, and the laser's beam while the trigger is held
