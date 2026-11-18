@@ -181,7 +181,7 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
   background: var(--panel);
 }
 #preview { width: 150px; height: 150px; }
-#startForm { width: min(980px, 100%); }
+#startForm { width: min(640px, 100%); }
 .cols { width: 100%; display: grid; gap: 14px; grid-template-columns: 1fr; align-items: start; }
 .side { display: grid; gap: 14px; align-content: start; min-width: 0; }
 @media (min-width: 1000px) { .cols { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: 18px; } }
@@ -428,7 +428,7 @@ body:not(.playing) .match-clock, body:not(.playing) .hud-tools { display: none; 
 .hud-tools .gear svg { width: 20px; height: 20px; }
 @media (max-width: 1100px) { body.playing .score { top: 55px; } .event { top: 100px; } }
 @media (max-width: 600px) { .match-clock { top: 12px; left: 12px; transform: none; } .event { top: 92px; } }
-.audio-credits { margin-top: 14px; font-size: 11px; color: #9eb5c3; }
+.audio-credits { font-size: 11px; color: #9eb5c3; text-align: left; }
 .audio-credits summary { cursor: pointer; }
 .audio-credits a { color: #8edce4; }
 
@@ -452,3 +452,32 @@ body:not(.playing) .match-hud { display: none; }
 
 #killNotice { position: fixed; z-index: 32; top: max(24%, calc(var(--hud-bottom, 100px) + 48px)); left: 50%; transform: translateX(-50%); width: min(90vw, 460px); text-align: center; pointer-events: none; color: #ffe19a; font: 800 clamp(15px, 2vw, 22px)/1.45 system-ui, sans-serif; text-shadow: 0 2px 5px #000, 0 0 12px #000; }
 #killNotice > div { margin: 4px 0; padding: 4px 12px; background: linear-gradient(90deg, transparent, #15121ddd 20%, #15121ddd 80%, transparent); overflow-wrap: anywhere; }
+
+/* the start card as steps: mode, map, bots, play */
+.stepper { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; counter-reset: st; }
+.stepper li { counter-increment: st; }
+.stepper button { width: 100%; padding: 7px 4px; border-radius: 9px; background: transparent; color: var(--muted); border: 1px solid var(--line); box-shadow: none; font: 700 12px var(--display); }
+.stepper button::before { content: counter(st) " · "; opacity: .7; }
+.stepper button.done { color: var(--ink); border-color: rgba(79,214,200,.45); }
+.stepper button[aria-current="step"] { background: rgba(79,214,200,.22); color: var(--ink); border-color: var(--teal); }
+.step { display: grid; gap: 12px; }
+.step[hidden], .bot-more[hidden], #stepNav > [hidden] { display: none; }
+.step h2 { margin: 2px 0 0; font: 700 20px var(--display); color: var(--ink); }
+.step .cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.step .cards button { padding: 11px 12px; }
+.more summary, details.controls summary { cursor: pointer; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.more[open] { display: grid; gap: 10px; }
+.bot-more { display: grid; gap: 10px; margin-top: 4px; }
+#botsOn button { font-size: 14px; padding: 9px 16px; }
+.stepnav { width: 100%; display: flex; gap: 8px; }
+.stepnav .ghost { flex: 0 0 auto; padding-inline: 18px; }
+.stepnav .go { flex: 1; }
+details.controls { width: 100%; text-align: left; display: grid; gap: 8px; }
+details.controls[open] .clist { margin-top: 8px; }
+.where .segs button { flex: 1 1 auto; }
+.step #botsPick > span { display: none; }
+.step .pilot { grid-template-columns: 120px 1fr; }
+.step .pilot #preview { width: 120px; height: 134px; }
+.look[open] { display: block; }
+@media (max-width: 480px) { .step .pilot { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .card-gear span { display: none; } .card-gear { top: 10px; right: 10px; padding: 6px; } #startForm h1 { font-size: 30px; padding-inline: 36px; } }

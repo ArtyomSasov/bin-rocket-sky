@@ -40,6 +40,7 @@
     <div class="pick"><span>Crosshair</span><div class="segs" id="setAim" role="group" aria-label="Crosshair"></div>
       <div class="segs" id="setAimCol" role="group" aria-label="Crosshair colour"></div></div>
     <details><summary>Weapon controls</summary><p id="weaponHint"></p><small>Fixed slots: 1–9, 0; Alt+1–6 for additional weapons. Q/E cycles carried weapons. Hold Tab: scores.</small></details>
+    <details class="audio-credits"><summary>Audio credits</summary><p>Spaceship engine: <a href="https://opengameart.org/content/rocket-engine" target="_blank" rel="noopener">theMinesAreShakin</a> (CC0) and <a href="https://opengameart.org/content/jet-engine-takeoff" target="_blank" rel="noopener">dklon</a> (<a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>; layered and looped). Warp dash: <a href="https://opengameart.org/content/sci-fi-sound-effects-library" target="_blank" rel="noopener">Little Robot Sound Factory</a>, CC BY 3.0 (trimmed and faded). Additional effects: Kenney, rubberduck, zer0sol and bart (CC0). Additional recorded announcer: <a href="https://opengameart.org/content/warlord-video-game-announcer" target="_blank" rel="noopener">Warlord</a> and <a href="https://opengameart.org/content/dragon-announcer-audio-pack" target="_blank" rel="noopener">Dragon</a> by VoiceBosch, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>; source recordings unchanged. Existing weapon and announcer pack supplied by the game's author. Railgun recording by the game's author.</p></details>
     <button type="button" class="ghost" id="exportWeapons">Export weapon match stats</button>
     <button type="button" class="go" id="setDone">Back to the game</button>
     <button type="button" class="ghost menu-only" id="setLeave">Leave to the start screen</button>
@@ -76,58 +77,62 @@
     <h1>Bin Rocket <em>Sky</em></h1>
     <p class="tag">Space battles of flying bins: shoot, smash planets apart, win the round.</p>
 
-    <div class="cols">
-    <section class="pilot" aria-label="Your pilot">
+    <section class="play" id="lobbyBox" hidden>
+      <div class="pick where"><span>Where to play</span><div class="segs" id="wherePick" role="group" aria-label="Online, local or offline"></div></div>
+      <div class="lan-start" id="lanStartBox" hidden><button type="button" class="ghost" id="lanJoin">Join a room nearby (scan the host's code)</button>
+        <small>Same Wi-Fi, no internet needed (a phone hotspot works). To host: pick the game and take off.</small></div>
+      <div class="tabs" role="tablist" aria-label="Game">
+        <button type="button" role="tab" id="tabNew" aria-selected="true">New game</button>
+        <button type="button" role="tab" id="tabJoin" aria-selected="false">Join a friend</button>
+      </div>
+      <div class="pane" id="paneNew">
+        <ol class="stepper" id="stepper" aria-label="Steps">
+          <li><button type="button" data-step="0">Mode</button></li><li><button type="button" data-step="1">Map</button></li>
+          <li><button type="button" data-step="2">Bots</button></li><li><button type="button" data-step="3">Play</button></li>
+        </ol>
+        <div class="step" data-step="0"><h2>Choose a mode</h2><div class="cards" id="modePick" role="group" aria-label="Game mode"></div></div>
+        <div class="step" data-step="1" hidden><h2>Choose a map</h2><div class="cards" id="themePick" role="group" aria-label="Map"></div>
+          <div class="pick"><span>Size</span><div class="segs" id="mapSize" role="group" aria-label="Map size"></div></div>
+          <details class="more"><summary>Round options</summary>
+            <div class="pick"><span>Round length</span><div class="segs" id="timePick" role="group" aria-label="Round length"></div></div>
+            <div class="pick"><span>Score limit <small>(ends the round early)</small></span><div class="segs" id="scorePick" role="group" aria-label="Score limit"></div></div>
+          </details></div>
+        <div class="step" data-step="2" id="botsStep" hidden><h2>Bots</h2></div>
+        <div class="step" data-step="3" id="playStep" hidden><h2>Ready</h2><p class="codeline" id="codeLine"></p></div>
+      </div>
+      <div class="pane" id="paneJoin" hidden>
+        <input id="lobbyInput" class="code" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Friend's code, e.g. K7M2Q" aria-label="Lobby code">
+        <p class="codeline" id="joinLine">The code brings its own mode and map.</p>
+        <div class="pick"><span>Open games</span><div class="lobbies" id="lobbyList"></div></div>
+      </div>
+    </section>
+
+    <div class="pick" id="botsPick"><span>Bots</span>
+      <div class="segs" id="botsOn" role="group" aria-label="Play with bots"></div>
+      <div class="bot-more" id="botMore">
+        <label class="bot-slider" for="botCount"><span>How many</span><output id="botCountValue" for="botCount">No bots</output><input type="range" id="botCount" min="0" max="24" step="1" value="0" aria-label="Number of bots"></label>
+        <div class="pick"><span>How good</span><div class="segs" id="botLevel" role="group" aria-label="Bot difficulty"></div></div>
+      </div>
+    </div>
+
+    <section class="pilot" id="pilotBox" aria-label="Your pilot">
       <div class="pilot-preview">
         <canvas id="preview" width="220" height="246" aria-label="How your bin will look"></canvas>
         <button type="button" class="ghost" id="randomLook">Random look</button>
       </div>
       <div class="pilot-side">
         <input id="nameInput" maxlength="14" autocomplete="off" placeholder="Pilot name" aria-label="Pilot name">
-        <div class="opts" id="customOpts"></div>
+        <details class="more look"><summary>Change the look</summary><div class="opts" id="customOpts"></div></details>
       </div>
     </section>
 
-    <div class="side">
-    <section class="play" id="lobbyBox" hidden>
-      <div class="tabs" role="tablist" aria-label="Game">
-        <button type="button" role="tab" id="tabNew" aria-selected="true">New game</button>
-        <button type="button" role="tab" id="tabJoin" aria-selected="false">Join a friend</button>
-      </div>
-      <div class="pane" id="paneNew">
-        <div class="pick"><span>Play</span><div class="segs" id="wherePick" role="group" aria-label="Online, local or offline"></div></div>
-        <div class="lan-start" id="lanStartBox" hidden><button type="button" class="ghost" id="lanJoin">Join a room nearby (scan the host's code)</button>
-          <small>Same Wi-Fi, no internet needed (a phone hotspot works). To host: pick the game below and take off.</small></div>
-        <div class="pick"><span>Mode</span><div class="cards" id="modePick" role="group" aria-label="Game mode"></div></div>
-        <div class="pick"><span>Map</span><div class="cards" id="themePick" role="group" aria-label="Map"></div></div>
-        <div class="pick"><span>Size</span><div class="segs" id="mapSize" role="group" aria-label="Map size"></div></div>
-        <div class="pick"><span>Round length</span><div class="segs" id="timePick" role="group" aria-label="Round length"></div></div>
-        <div class="pick"><span>Score limit <small>(ends the round early)</small></span><div class="segs" id="scorePick" role="group" aria-label="Score limit"></div></div>
-        <p class="codeline" id="codeLine"></p>
-      </div>
-      <div class="pane" id="paneJoin" hidden>
-        <input id="lobbyInput" class="code" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Friend's code, e.g. K7M2Q" aria-label="Lobby code">
-        <p class="codeline" id="joinLine">The code brings its own mode and map.</p>
-        <p class="codeline">Bots and settings come from whoever made the lobby.</p>
-        <div class="pick"><span>Open games</span><div class="lobbies" id="lobbyList"></div></div>
-      </div>
-    </section>
-
-    <div class="pick" id="botsPick"><span>Bots</span>
-      <label class="bot-slider" for="botCount"><span>Bot count</span><output id="botCountValue" for="botCount">No bots</output><input type="range" id="botCount" min="0" max="24" step="1" value="0" aria-label="Number of bots"></label>
-      <div class="segs" id="botLevel" role="group" aria-label="Bot difficulty"></div>
+    <div class="stepnav" id="stepNav">
+      <button type="button" class="ghost" id="stepBack">Back</button>
+      <button type="button" class="go" id="stepNext">Next</button>
+      <button type="submit" class="go" id="goBtn">Take off</button>
     </div>
-
-    <button type="submit" class="go" id="goBtn">Take off</button>
-    <a class="dl" id="dlGame" href="bin-rocket-sky.html" download="bin-rocket-sky.html">Download the game as one file: it plays with no internet, and you can send it to friends nearby (Nearby Share, AirDrop, Bluetooth)</a>
-    </div>
-    </div>
-
-    <section class="controls" aria-labelledby="ctrlTitle">
-      <span id="ctrlTitle">Controls</span>
-      <dl class="clist" id="clist"></dl>
-    </section>
-    <details class="audio-credits"><summary>Audio credits</summary><p>Spaceship engine: <a href="https://opengameart.org/content/rocket-engine" target="_blank" rel="noopener">theMinesAreShakin</a> (CC0) and <a href="https://opengameart.org/content/jet-engine-takeoff" target="_blank" rel="noopener">dklon</a> (<a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>; layered and looped). Warp dash: <a href="https://opengameart.org/content/sci-fi-sound-effects-library" target="_blank" rel="noopener">Little Robot Sound Factory</a>, CC BY 3.0 (trimmed and faded). Additional effects: Kenney, rubberduck, zer0sol and bart (CC0). Additional recorded announcer: <a href="https://opengameart.org/content/warlord-video-game-announcer" target="_blank" rel="noopener">Warlord</a> and <a href="https://opengameart.org/content/dragon-announcer-audio-pack" target="_blank" rel="noopener">Dragon</a> by VoiceBosch, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>; source recordings unchanged. Existing weapon and announcer pack supplied by the game's author. Railgun recording by the game's author.</p></details>
+    <details class="controls"><summary id="ctrlTitle">Controls</summary><dl class="clist" id="clist"></dl></details>
+    <a class="dl" id="dlGame" href="bin-rocket-sky.html" download="bin-rocket-sky.html">Download the game as one file (plays with no internet)</a>
   </form>
 </div>
 

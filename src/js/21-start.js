@@ -113,7 +113,7 @@
       : localRun
       ? `${describe(newGameCode)} · local room: you host, players nearby join with your QR code`
       : offlineRun
-      ? `${describe(newGameCode)} · offline: just you and ${botChoice.n} bots in this browser`
+      ? `${describe(newGameCode)} · offline: ${botChoice.n ? "you and " + botChoice.n + " " + botChoice.level + " bots" : "just you"} in this browser`
       : `${describe(newGameCode)} · code <b>${newGameCode.toUpperCase()}</b> (share it to play together)`;
   };
   const setTab = join => {
@@ -122,8 +122,42 @@
     document.getElementById("tabJoin").setAttribute("aria-selected", String(join));
     document.getElementById("paneNew").hidden = join; document.getElementById("paneJoin").hidden = !join;
     document.getElementById("botsPick").hidden = join && !hosted().includes(normCode(lobbyInput.value));   // a guest doesn't bring bots
+    showStep(step);
     syncGo();
   };
+  // a new game is set up in steps: mode, then map, then bots, then the pilot and take off. Joining a friend is one
+  // page (the code brings the rest). The bots and the pilot panels move to whichever page is showing.
+  const stepEls = [...document.querySelectorAll("#paneNew .step")], stepBtns = [...document.querySelectorAll("#stepper button")];
+  const STEP_NAMES = ["Mode", "Map", "Bots", "Play"];
+  let step = 0;
+  function showStep(n) {
+    step = Math.max(0, Math.min(stepEls.length - 1, n));
+    const solo = !standalone;   // the Claude room: no lobby, just the pilot, the bots and take off
+    stepEls.forEach((el, i) => el.hidden = i !== step);
+    stepBtns.forEach((b, i) => { b.setAttribute("aria-current", i === step ? "step" : "false"); b.classList.toggle("done", i < step); });
+    const home = joining || solo ? document.getElementById(solo ? "startForm" : "paneJoin") : null;
+    const botsEl = document.getElementById("botsPick"), pilotEl = document.getElementById("pilotBox"), nav = document.getElementById("stepNav");
+    if (home) { if (pilotEl.parentNode !== home || botsEl.parentNode !== home) { home.insertBefore(botsEl, solo ? nav : null); home.insertBefore(pilotEl, solo ? nav : null); } }
+    else { document.getElementById("botsStep").appendChild(botsEl); document.getElementById("playStep").appendChild(pilotEl); }
+    const wizard = !joining && !solo;
+    document.getElementById("stepBack").hidden = !wizard || step === 0;
+    document.getElementById("stepNext").hidden = !wizard || step === stepEls.length - 1;
+    document.getElementById("stepNext").textContent = wizard && step < stepEls.length - 1 ? "Next: " + STEP_NAMES[step + 1] : "Next";
+    goBtn.hidden = wizard && step < stepEls.length - 1;
+  }
+  stepBtns.forEach((b, i) => b.addEventListener("click", () => showStep(i)));
+  document.getElementById("stepBack").addEventListener("click", () => showStep(step - 1));
+  document.getElementById("stepNext").addEventListener("click", () => showStep(step + 1));
+  // bots: none, or some (how many and how good)
+  const botsOnEl = document.getElementById("botsOn"), botMore = document.getElementById("botMore");
+  const setBotsOn = on => {
+    botMore.hidden = !on; botSlider.min = on ? 1 : 0;
+    if (on !== botChoice.n > 0) { botChoice.n = on ? 4 : 0; botSlider.value = botChoice.n; showBotCount(); store.set("binrocket.bots", JSON.stringify(botChoice)); }
+    syncGo();
+  };
+  segButtons(botsOnEl, [[false, "No bots"], [true, "With bots"]], botChoice.n > 0, setBotsOn);
+  botMore.hidden = !(botChoice.n > 0); botSlider.min = botChoice.n > 0 ? 1 : 0;
+  botSlider.addEventListener("input", () => { if (botChoice.n > 0 && botsOnEl.children[1].getAttribute("aria-pressed") !== "true") for (const [i, o] of [...botsOnEl.children].entries()) o.setAttribute("aria-pressed", String(i === 1)); botMore.hidden = false; });
   if (standalone) {
     document.getElementById("lobbyBox").hidden = false;
     let mapPick = MAP_SIZES[store.get("binrocket.map")] ? store.get("binrocket.map") : "m";
@@ -171,9 +205,11 @@
     document.getElementById("tabJoin").addEventListener("click", () => { setTab(true); lobbyInput.focus(); });
     lobbyInput.addEventListener("input", () => { lobbyInput.value = lobbyInput.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); setTab(true); });
     newCode();
+    showStep(store.get("binrocket.mode") ? stepEls.length - 1 : 0);   // back again: straight to take off, the picks remembered
     const fromLink = normCode((location.hash.match(/^#([A-Za-z0-9]{1,16})$/) || [])[1] || "");
     if (fromLink.length >= 4) { lobbyInput.value = fromLink.toUpperCase(); setTab(true); }   // an invite link opens on Join
   }
+  showStep(step);
   syncGo();
   const hud = document.querySelector(".match-hud");
   const measureHud = () => document.documentElement.style.setProperty("--hud-bottom", Math.ceil(hud.getBoundingClientRect().bottom) + "px");
