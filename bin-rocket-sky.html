@@ -5958,8 +5958,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const sig = JSON.stringify(i), t = performance.now(), fresh = srv.cs > srv.sentCs;   // fresh: flight commands not sent yet
     if (!fresh && (sig === srv.lastIn ? t - srv.lastInAt < 250 : t - srv.lastInAt < 14)) return;   // at most one a frame (the server allows 90 a second)
     srv.lastIn = sig; srv.lastInAt = t;
-    // the newest four flight commands: each goes out four times, so a lost message loses none of them
-    if (srv.cmds.length) { i.c = srv.cmds.slice(-4).map(c => [c.s, Math.round(c.mx * 1000), Math.round(c.my * 1000), Math.round(c.aim * 1000), (c.boost ? 1 : 0) | (c.brake ? 2 : 0), c.dash]); srv.sentCs = srv.cs; }
+    // every flight command not sent yet (a long frame makes several) and the three before it again, so a lost
+    // message loses none of them
+    if (srv.cmds.length) { const from = srv.cmds.findIndex(c => c.s > srv.sentCs); i.c = srv.cmds.slice(Math.max(0, (from < 0 ? srv.cmds.length : from) - 3)).slice(-16).map(c => [c.s, Math.round(c.mx * 1000), Math.round(c.my * 1000), Math.round(c.aim * 1000), (c.boost ? 1 : 0) | (c.brake ? 2 : 0), c.dash]); srv.sentCs = srv.cs; }
     i.s = ++srv.seq; srv.sent.set(i.s, t); i.sa = srv.snapQ;   // sa: the newest snapshot I hold (the next delta builds on it)
     if (srv.sent.size > 240) for (const [k, at] of srv.sent) { if (t - at < 3000) break; srv.sent.delete(k); }
     toServer(i);

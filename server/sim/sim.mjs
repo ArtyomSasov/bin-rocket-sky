@@ -103,7 +103,7 @@ export function cleanInput(i = {}) {
     s: count(i.s),   // s: the controls' number, counted up by the player's screen with each message
     // c: the newest flight commands, [number, stick x, stick y (thousandths), facing (thousandths of a radian),
     // boost 1 + brake 2, dash count] (pilotMove in src/js/17-update.js); a few repeat in each message, for losses
-    ...(Array.isArray(i.c) ? { c: i.c.slice(-8).filter(e => Array.isArray(e) && e.length === 6 && e.every(Number.isSafeInteger) && e[0] > 0).map(e => ({
+    ...(Array.isArray(i.c) ? { c: i.c.slice(-16).filter(e => Array.isArray(e) && e.length === 6 && e.every(Number.isSafeInteger) && e[0] > 0).map(e => ({
       s: e[0], mx: unit(e[1] / 1000), my: unit(e[2] / 1000), aim: Math.max(-4, Math.min(4, e[3] / 1000)), boost: !!(e[4] & 1), brake: !!(e[4] & 2), dash: Math.max(0, e[5]) })) } : {}),
     ld: Number.isFinite(i.ld) ? Math.max(0, Math.min(150, Math.round(i.ld))) : -1 };   // ld: how far back their screen shows the others (ms; -1: not said)
 }
