@@ -632,8 +632,9 @@
       }
       if (p.life <= 0) { parts[i] = parts[parts.length - 1]; parts.pop(); continue; }
       p.x += p.vx * dt; p.y += p.vy * dt;
-      const damp = Math.pow(p.k === 2 ? 0.93 : 0.97, dt * 60);
+      const damp = Math.pow(p.drag || (p.k === 2 ? 0.93 : 0.97), dt * 60);
       p.vx *= damp; p.vy *= damp;
+      if (p.curl) { const c = Math.cos(p.curl * dt), s = Math.sin(p.curl * dt), vx = p.vx; p.vx = vx * c - p.vy * s; p.vy = vx * s + p.vy * c; }   // an arc
     }
     const partCap = lowQ ? MAX_PARTS / 3 : MAX_PARTS;
     if (parts.length > partCap) parts.splice(0, parts.length - partCap);
@@ -731,7 +732,7 @@
       if (playing && !me.dead && dd < 34 * sizeOf(me.lv) && dd > 0.01) { const pv = Math.max(120, Math.hypot(me.vx, me.vy)); d.vx = ddx / dd * pv; d.vy = ddy / dd * pv; d.vr += (Math.random() - 0.5) * 4; }
       if ((now - d.born) / 1000 < 3 && Math.random() < (lowQ ? 1 : 3) * dt) puff(d.x, d.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 1.2, 2 + Math.random() * 2, "rgb(80,72,98)", 2);
     }
-    for (let i = impacts.length - 1; i >= 0; i--) { impacts[i].t += dt; if (impacts[i].t > 0.22) impacts.splice(i, 1); }
+    for (let i = impacts.length - 1; i >= 0; i--) { impacts[i].t += dt; if (impacts[i].t > (impacts[i].dur || 0.22)) impacts.splice(i, 1); }
     for (let i = beams.length - 1; i >= 0; i--) { beams[i].t += dt; if (beams[i].t > (beams[i].duration || (beams[i].pistol ? .12 : BEAM_T))) beams.splice(i, 1); }
     for (let i = lasers.length - 1; i >= 0; i--) { lasers[i].t += dt; if (lasers[i].t > (lasers[i].shock ? 0.35 : LASER_T)) lasers.splice(i, 1); }
     for (let i = arcs.length - 1; i >= 0; i--) { arcs[i].t += dt; if (arcs[i].t > 0.3) arcs.splice(i, 1); }

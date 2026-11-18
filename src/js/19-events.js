@@ -557,11 +557,15 @@
     g.globalCompositeOperation = "lighter";
     g.lineCap = "round";
     for (const p of parts) {
-      if (p.k === 2) continue;
+      if (p.k === 2 || p.k === 4) continue;   // smoke and fire clouds go over the bins (drawBlastFx)
       const x = sx(p.x), y = sy(p.y);
       if (!onScreen(x, y, 30)) continue;
       g.globalAlpha = Math.max(0, p.life / p.max) * 0.9;
-      if (p.k === 1) {
+      if (p.k === 5) {   // an ember: a tiny hot point that flickers and cools from yellow to dull red
+        const f = p.life / p.max, d = p.size * 3.4;
+        g.globalAlpha = Math.min(1, f * 2.5) * (0.7 + 0.3 * Math.sin(now / 37 + p.rot * 9));
+        g.drawImage(dotSprite(FIRE_RAMP[Math.min(7, 2 + ((1 - f) * 5.5) | 0)]), x - d / 2, y - d / 2, d, d);
+      } else if (p.k === 1) {
         g.strokeStyle = p.col; g.lineWidth = p.size;
         g.beginPath(); g.moveTo(x, y); g.lineTo(x - p.vx * p.len, y - p.vy * p.len); g.stroke();
       } else {
@@ -597,23 +601,54 @@
   // smoke over the bins, impact flashes, rail trails, chain lightning, shock rings, nuke blasts
   function drawBlastFx(now) {
     // smoke on top of the bins, so a damaged bin visibly smokes
+    let hot = 0, fire = 0;
     for (const p of parts) {
+      if (p.k === 4) { fire++; continue; }
       if (p.k !== 2) continue;
       const x = sx(p.x), y = sy(p.y), f = Math.max(0, p.life / p.max);
-      if (!onScreen(x, y, 40)) continue;
-      g.globalAlpha = Math.min(1, (1 - f) * 12) * f * 0.65;
+      if (!onScreen(x, y, 40 + p.size * 8)) continue;
+      if (p.glow) hot++;
+      g.globalAlpha = Math.min(1, (1 - f) * 12) * (p.glow ? Math.min(1, Math.sqrt(f) * 1.3) * 0.8 : f * 0.65);   // blast smoke stays thick, then thins
       const d = p.size * (3 + (1 - f) * 5);
       g.save(); g.translate(x, y); g.rotate(p.rot + (1 - f) * p.vr * 0.08);
       g.drawImage(smokeSprite(p.col), -d / 2, -d / 2, d, d); g.restore();
     }
-    g.globalAlpha = 1;
     g.globalCompositeOperation = "lighter";
+    // smoke still lit from inside by the fire, the glow dying away over its first half second or so
+    if (hot) for (const p of parts) {
+      if (p.k !== 2 || !p.glow) continue;
+      const f = Math.max(0, p.life / p.max), age = (p.max - p.life), lit = p.glow * Math.max(0, 1 - age / (0.35 + p.max * 0.15));
+      if (lit <= 0) continue;
+      const x = sx(p.x), y = sy(p.y), d = p.size * (3 + (1 - f) * 5) * 0.8;
+      if (!onScreen(x, y, d)) continue;
+      g.globalAlpha = lit * lit * 0.75;
+      g.drawImage(smokeSprite("#ff7a2a"), x - d / 2, y - d / 2, d, d);
+    }
+    // the fireball's clouds: swelling, cooling white to red, fading
+    if (fire) for (const p of parts) {
+      if (p.k !== 4) continue;
+      const a = 1 - Math.max(0, p.life / p.max), d = p.size * 2 * (1 + 1.7 * (1 - (1 - a) * (1 - a)));
+      const x = sx(p.x), y = sy(p.y);
+      if (!onScreen(x, y, d)) continue;
+      g.globalAlpha = Math.min(1, a / 0.06) * Math.pow(1 - a, 0.7) * 0.9;
+      const i = Math.min(7, ((a * 0.95 + p.glow) * 8) | 0);
+      g.save(); g.translate(x, y); g.rotate(p.rot + a * p.vr * 0.05);
+      g.drawImage(fireSprite(i), -d / 2, -d / 2, d, d); g.restore();
+    }
+    g.globalAlpha = 1;
     for (const m of impacts) {
       if (m.t < 0) continue;   // delayed flash
-      const x = sx(m.x), y = sy(m.y), k = m.t / 0.22, r = m.r * (0.5 + k);
+      const k = m.t / (m.dur || 0.22), x = sx(m.x), y = sy(m.y);
+      if (m.soft) {   // light thrown round a blast: a wide soft pool, gone in a moment
+        const r = m.r * (0.8 + 0.4 * k);
+        if (!onScreen(x, y, r)) continue;
+        g.globalAlpha = m.soft * (1 - k) * (1 - k); g.drawImage(lightSprite(m.col), x - r, y - r, r * 2, r * 2);
+        continue;
+      }
+      const r = m.r * (0.5 + k);
       if (!onScreen(x, y, r)) continue;
       const fg = g.createRadialGradient(x, y, 0, x, y, r);
-      fg.addColorStop(0, `rgba(255,255,240,${0.95 * (1 - k)})`); fg.addColorStop(0.35, m.col); fg.addColorStop(1, "rgba(255,120,40,0)");
+      fg.addColorStop(0, "rgba(255,255,240,1)"); fg.addColorStop(0.35, m.col); fg.addColorStop(1, "rgba(255,120,40,0)");
       g.globalAlpha = 1 - k; g.fillStyle = fg; g.beginPath(); g.arc(x, y, r, 0, 6.29); g.fill();
     }
     g.globalAlpha = 1;

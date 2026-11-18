@@ -3,6 +3,7 @@
 // fires its primary and its alt at them. The report says, per gun and mode: shots fired, damage dealt, the sounds
 // heard and whether the page threw; a screenshot is taken mid-fire and just after.
 //   BROWSER_PATH=/path/to/chrome node tools/lab.mjs [gun,gun,...]        (OUT=dir for the screenshots; W/H: viewport)
+// FX=1 node tools/lab.mjs [rocket,gren,mine,flak,bin,hits,spark,nuke,holy]: each blast photographed as it unfolds, then a stress test
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { spawn, execFileSync } from 'node:child_process';
@@ -33,6 +34,9 @@ window.__lab = {
 // every sound the game asks for is noted (name only), so a gun's report says what it played
 // no world events in the lab (no black hole pulling the dummies about)
 eventAt = () => ({ cyc: 0, ph: 0, et: 0, type: "meteors", active: false, warn: false });
+// the time each frame spends updating and drawing (the frame rate itself is held to the display's by vsync)
+__lab.work = []; { const u0 = update, d0 = draw; update = (...a) => { const t = performance.now(); u0(...a); __lab.w = performance.now() - t; };
+  draw = (...a) => { const t = performance.now(); d0(...a); __lab.work.push(__lab.w + performance.now() - t); if (__lab.work.length > 600) __lab.work.shift(); }; }
 for (const f of ['sfx', 'packPlay', 'audioCue']) { const o = eval(f); eval(f + ' = (...a) => { __lab.sounds.push(String(a[0])); return o(...a); }'); }
 `;
 const server = createServer(async (req, res) => {
@@ -72,8 +76,63 @@ try {
   await ev('__e("bots.length || addBots(3, \\"easy\\")")');   // the test range brings no bots: three dummies
   // keep the field empty and the dummies parked, every frame
   await ev(`(() => { const E = __e; E('__lab.clear()'); E('me.x = 1200; me.y = 1200; me.inv = 1e15'); setInterval(() => { E('__lab.clear()'); E('me.vx = me.vy = 0; me.a = 0; me.inv = 1e15'); E('__lab.park(' + (window.__dist || 520) + ')'); }, 16); })()`);
-  const guns = process.argv[2] ? process.argv[2].split(',') : await ev('__e("SANDBOX_GUNS")');
   const report = [];
+  if (process.env.FX) {   // FX=1: each blast set off once in front of me, photographed as it unfolds; then a stress test
+    const at = (x = 330, y = 0) => `me.x + ${x}, me.y + ${y}`;
+    const FX = {
+      rocket: `blastFx({ kind: K.ROCKET, x: me.x + 330, y: me.y })`,
+      gren: `blastFx({ kind: K.GREN, x: me.x + 330, y: me.y })`,
+      mine: `blastFx({ kind: K.MINE, x: me.x + 330, y: me.y })`,
+      flak: `flakBurst({ kind: K.FLAK, id: 'fx' + Math.random(), owner: 'nobody', x: me.x + 330, y: me.y, vx: 0, vy: 0, life: 1, m: 1 })`,
+      bin: `deathFx({ ...bots[0], x: me.x + 330, y: me.y, vx: 0, vy: 0, dead: false }, 3, 0, 0)`,
+      hits: `for (let k = 0; k < 4; k++) impact(${at(250)} + (k - 1.5) * 90, SHOTS[[K.BULLET, K.PELLET, K.RAIL, K.ROCKET][k]].col, k < 2 ? 1 : 2)`,
+      hitsfrozen: `for (let k = 0; k < 4; k++) impact(${at(250)} + (k - 1.5) * 90, SHOTS[[K.BULLET, K.PELLET, K.RAIL, K.ROCKET][k]].col, k < 2 ? 1 : 2); update(0.03, performance.now()); hitStopUntil = performance.now() + 600`,
+      spark: `sparkShower(${at(330)}, -1, 0, 1)`,
+      nuke: `{ const h = hurtMe; hurtMe = () => {}; try { detonate({ kind: K.NUKE, x: me.x + 250, y: me.y, mine: false }, performance.now()); } finally { hurtMe = h; } }`,
+      holy: `{ const h = hurtMe; hurtMe = () => {}; try { detonate({ kind: K.HOLY, x: me.x + 250, y: me.y, mine: false }, performance.now()); } finally { hurtMe = h; } }`,
+    };
+    const pick = process.argv[2] ? process.argv[2].split(',') : Object.keys(FX);
+    await ev('window.__dist = 4000');
+    for (const name of pick) {
+      await ev(`__e('parts.length = impacts.length = rings.length = booms.length = waves.length = debris.length = frags.length = hulks.length = 0')`);
+      await wait(300);
+      const t0 = Date.now(), times = name === 'nuke' || name === 'holy' ? [80, 400, 1000, 2000, 3500] : [40, 150, 400, 900, 1800, 2800];
+      await ev(`__e(${JSON.stringify(FX[name])})`);
+      let peak = 0;
+      const big = name === 'nuke' || name === 'holy', cx = await ev(`__e("sx(me.x + ${big ? 250 : 330}) * innerWidth / vw")`), cy = await ev(`__e("sy(me.y) * innerWidth / vw")`), frames = [];
+      for (const t of times) {
+        await wait(Math.max(0, t - (Date.now() - t0)));
+        peak = Math.max(peak, await ev('__e("parts.length")'));
+        frames.push((await send('Page.captureScreenshot', { format: 'png' }, sessionId)).data);
+      }
+      // one contact sheet per blast: the frames cropped round it, in time order, labelled
+      const png = await ev(`(async () => {
+        const fr = ${JSON.stringify(frames)}, ts = ${JSON.stringify(times)}, cw = ${big ? 1280 : 520}, ch = ${big ? 640 : 400}, sc = ${big ? 0.28 : 0.7}, w = cw * sc, h = ch * sc;
+        const c = document.createElement('canvas'); c.width = w * 3; c.height = h * Math.ceil(fr.length / 3); const q = c.getContext('2d');
+        q.fillStyle = '#000'; q.fillRect(0, 0, c.width, c.height); q.font = '14px sans-serif'; q.fillStyle = '#fff';
+        for (let i = 0; i < fr.length; i++) {
+          const im = new Image(); im.src = 'data:image/png;base64,' + fr[i]; await im.decode();
+          const dpr = im.width / innerWidth, X = (i % 3) * w, Y = Math.floor(i / 3) * h;
+          q.drawImage(im, (${cx} - cw / 2) * dpr, (${cy} - ch / 2) * dpr, cw * dpr, ch * dpr, X, Y, w, h);
+          q.strokeStyle = '#444'; q.strokeRect(X, Y, w, h); q.fillText(ts[i] + ' ms', X + 6, Y + 18);
+        }
+        return c.toDataURL('image/png').split(',')[1]; })()`);
+      await writeFile(join(OUT, `fx-${name}.png`), Buffer.from(png, 'base64'));
+      report.push({ fx: name, peakParts: peak, lowQ: await ev('__e("lowQ")') });
+    }
+    // stress: eight rocket blasts at once, then one every 100 ms for 2 s; the frame time is the game's own average
+    await ev(`__e('parts.length = impacts.length = rings.length = booms.length = waves.length = debris.length = 0')`);
+    await wait(1500);
+    await ev('__lab.work.length = 0'); await wait(1000);
+    const f0 = await ev('__lab.work.reduce((a, b) => a + b, 0) / __lab.work.length'); await ev('__lab.work.length = 0');
+    await ev(`(() => { for (let k = 0; k < 8; k++) __e('blastFx({ kind: K.ROCKET, x: me.x + 400 * Math.cos(' + k + '), y: me.y + 250 * Math.sin(' + k + ') })');
+      let n = 0; const id = setInterval(() => { __e('blastFx({ kind: K.ROCKET, x: me.x + (Math.random() - 0.5) * 900, y: me.y + (Math.random() - 0.5) * 500 })'); if (++n >= 20) clearInterval(id); }, 100); })()`);
+    let worst = 0, peak = 0;
+    for (let i = 0; i < 25; i++) { await wait(100); peak = Math.max(peak, await ev('__e("parts.length")')); }
+    const mean = await ev('__lab.work.reduce((a, b) => a + b, 0) / __lab.work.length'); worst = await ev('Math.max(...__lab.work)');
+    report.push({ fx: 'stress', peakParts: peak, workMsIdle: +f0.toFixed(2), workMsMean: +mean.toFixed(2), workMsWorst: +worst.toFixed(1), lowQ: await ev('__e("lowQ")') });
+  }
+  const guns = process.env.FX ? [] : process.argv[2] ? process.argv[2].split(',') : await ev('__e("SANDBOX_GUNS")');
   for (const g of guns) for (const [mode, key] of [['primary', 'KeyF'], ['alt', 'KeyC']]) {
     const dist = g === 'gauntlet' ? 95 : g === 'nuke' || g === 'holy' ? 900 : 520;
     await ev(`(() => { const E = __e; window.__dist = ${dist}; E('keys').clear(); E('__lab.heal()'); E('shots.length = 0'); E('me.weapon = ${JSON.stringify(g)}'); E('renderWeapon()'); E('fireCd = 0'); })()`);

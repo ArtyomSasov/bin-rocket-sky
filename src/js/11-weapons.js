@@ -319,7 +319,7 @@
     s.fxDone = true; s.boom = true;
     const x = s.x, y = s.y, near = Math.hypot(x - me.x, y - me.y) < 1400;
     if (s.kind === K.MINE) {   // a mine: a hard orange blast and a shock ring
-      explode(x, y, lowQ ? 30 : 60, 340); rings.push({ x, y, t: 0, r: 170, col: "255,140,80", dur: 0.45, w: 10 });
+      explode(x, y, 60, 340); rings.push({ x, y, t: 0, r: 170, col: "255,140,80", warp: true, dur: 0.4, w: 4 });
       if (near) { packPlay("p_boom_mine", 1, x, y) || sfx("boom_small", 1, 0.9, x, y); shake = Math.max(shake, 0.28 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
       return;
     }
@@ -341,10 +341,8 @@
       if (near && !packPlay("p_boom_orb", 1, x, y)) { sfx("boom_small", 0.9, 1.35, x, y); sfx("shield_hit", 0.8, 0.6, x, y); }
       if (near) { shake = Math.max(shake, 0.25 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
     } else {   // rocket: a fat fireball with a warping shock ring and smoke
-      explode(x, y, lowQ ? 40 : 80, 420);
-      impacts.push({ x, y, t: 0, r: 140, col: "#fff2c0" });
-      rings.push({ x, y, t: 0, r: 240, col: "255,200,140", warp: true, dur: 0.5, w: 14 });
-      smoke(x, y, lowQ ? 5 : 12, 90, 2);
+      explode(x, y, 80, 420);
+      rings.push({ x, y, t: 0, r: 240, col: "255,200,140", warp: true, dur: 0.5, w: 4 });
       if (near) { packPlay(s.kind === K.GREN ? "p_quake_grenade_boom" : "p_boom_rocket", 1, x, y) || sfx("boom_small", 1, 0.95, x, y); shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
     }
   }
@@ -473,8 +471,7 @@
       shots.push({ ...s, id: s.id + "f" + k, kind: K.SHARD, ox: s.x, oy: s.y, px: s.x, py: s.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: SHOTS[K.SHARD].life * 0.6, bn: 0, burst: false, boom: false, hits: undefined, expireAfterStep: false, traced: false, catchup: 0, direct: undefined, splashed: false, fxDone: false, impactSound: false });
     }
     if (onScreen(sx(s.x), sy(s.y), 300)) {
-      explode(s.x, s.y, lowQ ? 20 : 45, 380); impacts.push({ x: s.x, y: s.y, t: 0, r: 110, col: "#ffb060" });
-      rings.push({ x: s.x, y: s.y, t: 0, r: 160, col: "255,170,90", dur: 0.35, w: 8 });
+      explode(s.x, s.y, 45, 380);
     }
     packPlay("p_boom_shard", 0.8, s.x, s.y) || sfx("boom_small", 0.8, 1.3, s.x, s.y);
   }
