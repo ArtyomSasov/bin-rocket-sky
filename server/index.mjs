@@ -105,8 +105,9 @@ function roomList() {
 }
 const perIp = new Map();
 // the waiting (not yet joined) connections: per address, per network (/24 for IPv4, /48 for IPv6) and in all.
-// When the waiting room is full a newcomer is still let in: the oldest waiting connection of the network holding
-// the most places makes room, so whoever fills it only pushes out their own
+// When the waiting room is full a newcomer is still let in if a network holds more than one place: the oldest
+// waiting connection of the busiest one makes room (at once, so a burst cannot overfill it), so whoever fills the
+// room only pushes out their own; one connection alone never pushes out another one alone
 const waitIp = new Map(), waitNet = new Map(), waitList = new Set();   // waitList: { ws, net, at }
 function netOf(a) {
   a = String(a).toLowerCase();
@@ -118,12 +119,19 @@ function netOf(a) {
   return full.slice(0, 3).map(g => parseInt(g, 16).toString(16)).join(":");   // the /48
 }
 const bump = (map, k, d) => { const n = (map.get(k) || 0) + d; if (n > 0) map.set(k, n); else map.delete(k); };
-const canWait = a => (waitIp.get(a) || 0) < WAIT_PER_IP && (waitNet.get(netOf(a)) || 0) < WAIT_PER_NET;
+// the connection to push out for a newcomer: the oldest of the network holding the most places (two or more)
+function evictable() {
+  let worst = null, most = 1;
+  for (const w of waitList) { const n = waitNet.get(w.net) || 0; if (n > most || (n === most && worst && w.at < worst.at)) { worst = w; most = n; } }
+  return worst;
+}
+const canWait = a => (waitIp.get(a) || 0) < WAIT_PER_IP && (waitNet.get(netOf(a)) || 0) < WAIT_PER_NET && (waitList.size < WAIT_MAX || !!evictable());
 function makeRoom() {
-  if (waitList.size < WAIT_MAX) return;
-  let worst = null, most = 0;
-  for (const w of waitList) { const n = waitNet.get(w.net) || 0; if (!worst || n > most || (n === most && w.at < worst.at)) { worst = w; most = n; } }
-  if (worst) worst.ws.terminate();   // its close handler takes it off the lists
+  if (waitList.size < WAIT_MAX) return true;
+  const w = evictable();
+  if (!w) return false;
+  w.done(); w.ws.terminate();   // off the lists now, not when its close event comes
+  return true;
 }
 // snapshots are JSON that repeats itself from one to the next: compressed (with the context kept between messages)
 // they are a fraction of the size, which a phone on a mobile network feels more than the CPU it costs here.
@@ -140,12 +148,12 @@ const cleanName = n => String(n ?? "").replace(/[\u0000-\u001f\u007f<>]/g, "").t
 
 wss.on("connection", (ws, req) => {
   const addr = ip(req);
+  if (!makeRoom()) { ws.on("error", () => {}); ws.terminate(); return; }   // (filled between the check and now)
   perIp.set(addr, (perIp.get(addr) || 0) + 1);
   let room = null, id = null, tokens = 60, refill = performance.now();
-  makeRoom();
   const entry = { ws, net: netOf(addr), at: performance.now() };
+  const done = entry.done = () => { if (waitList.delete(entry)) { bump(waitIp, addr, -1); bump(waitNet, entry.net, -1); } };
   waitList.add(entry); bump(waitIp, addr, 1); bump(waitNet, entry.net, 1);
-  const done = () => { if (waitList.delete(entry)) { bump(waitIp, addr, -1); bump(waitNet, entry.net, -1); } };
   const joinBy = setTimeout(() => { if (!room) { done(); ws.terminate(); } }, JOIN_MS);   // terminate: the slot is free at once
   ws.on("close", () => { clearTimeout(joinBy); done(); });
   // the round trip, timed on WebSocket pings (a browser answers them by itself): it sets how far back the
