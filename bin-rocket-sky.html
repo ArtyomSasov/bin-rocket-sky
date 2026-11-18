@@ -490,6 +490,23 @@ details.controls[open] .clist { margin-top: 8px; }
 .look[open] { display: block; }
 @media (max-width: 480px) { .step .pilot { grid-template-columns: 1fr; } }
 @media (max-width: 480px) { .card-gear span { display: none; } .card-gear { top: 10px; right: 10px; padding: 6px; } #startForm h1 { font-size: 30px; padding-inline: 36px; } }
+/* a phone in a game: the score and the map on the left, the kill feed a narrow column on the right (one line each),
+   a world event's banner under it, so nothing lies on top of anything else */
+@media (pointer: coarse), (max-width: 700px), (max-height: 500px) {
+  body.playing .match-hud .score { max-width: calc(60vw - 24px); }
+  body.playing .feed { top: calc(56px + env(safe-area-inset-top, 0px)); max-width: calc(40vw - 12px); gap: 3px; }
+  body.playing .fe { font-size: 10px; padding: 2px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: block; }
+  body.playing .fe svg { width: 10px; height: 10px; vertical-align: -1px; }
+  body.playing .event { left: auto; right: max(12px, env(safe-area-inset-right, 0px)); transform: none; top: calc(var(--hud-bottom, 100px) + 70px); max-width: calc(58vw - 12px); text-align: right; white-space: normal; }
+  body.playing .event { border-radius: 12px; }
+  body.playing .score #lvNum { display: none; }
+  body.playing .match-hud .score { flex-wrap: nowrap; align-items: center; }
+  body.playing .score .hp b { font-size: 13px; white-space: nowrap; }
+  body.playing .score .lv { min-width: 0; }
+  body.playing .score .xpbar.nrg { width: 54px; }
+  body.playing .score .hpbar { width: 54px; }
+  body.playing .altbtn { font-size: 10px; }
+}
 </style>
 
 <canvas id="c" tabindex="0" aria-label="Game arena"></canvas>
@@ -3952,7 +3969,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   //  5. a thin bright shock ring;
   //  6. a few hot chips of wreckage.
   function explode(x, y, n, speed) {
-    const s = speed / 420, ss = Math.sqrt(s), nn = n / 80, q = lowQ ? 0.4 : 1;
+    const s = speed / 420, ss = Math.sqrt(s), nn = n / 80, q = lowQ ? 0.4 : COARSE ? 0.65 : 1;   // a phone: fewer pieces
     impacts.push({ x, y, t: 0, r: 34 + 50 * s, col: "#fffbe8", dur: 0.1 });
     impacts.push({ x, y, t: 0, r: 320 * s, col: "255,176,96", dur: 0.4, soft: 0.75 });
     for (let k = 0, m = Math.min(40, Math.round((8 + 10 * nn) * q)); k < m; k++) {   // the fireball
@@ -4848,7 +4865,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }).join("");
     const alt = WEAPONS[me.weapon].alt;
     document.getElementById("altBtn").hidden = !playing || !COARSE || !alt;
-    if (alt) document.getElementById("altName").textContent = (alt.name + " · " + (alt.load ? "1–3" : alt.cost) + " AMMO").toUpperCase();
+    if (alt) document.getElementById("altName").textContent = (COMPACT.matches ? alt.name : alt.name + " · " + (alt.load ? "1–3" : alt.cost) + " AMMO").toUpperCase();   // a phone: just the name
   }
   function selectWeapon(k) {
     if (!hasWeapon(k) || k === me.weapon) return;
@@ -8466,7 +8483,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       g.fillStyle = "rgba(255,255,255,0.35)"; g.save(); g.translate(-9, -11); g.scale(18 / 24, 18 / 24); g.fill(ICON_PATHS.shield); g.restore();
     }
     g.restore();
-    if (sp.armor || Math.hypot(c.x - me.x, c.y - me.y) < 260) {
+    if ((sp.armor && !COMPACT.matches) || Math.hypot(c.x - me.x, c.y - me.y) < 260) {   // on a phone: only the ones next to you
       g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.textAlign = "center"; g.fillStyle = sp.col;
       g.fillText(sp.name, x, y + 38 * big);
     }

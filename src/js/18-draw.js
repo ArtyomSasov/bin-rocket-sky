@@ -619,7 +619,7 @@
       g.fillStyle = "rgba(255,255,255,0.35)"; g.save(); g.translate(-9, -11); g.scale(18 / 24, 18 / 24); g.fill(ICON_PATHS.shield); g.restore();
     }
     g.restore();
-    if (sp.armor || Math.hypot(c.x - me.x, c.y - me.y) < 260) {
+    if ((sp.armor && !COMPACT.matches) || Math.hypot(c.x - me.x, c.y - me.y) < 260) {   // on a phone: only the ones next to you
       g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.textAlign = "center"; g.fillStyle = sp.col;
       g.fillText(sp.name, x, y + 38 * big);
     }

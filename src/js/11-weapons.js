@@ -851,7 +851,7 @@
     }).join("");
     const alt = WEAPONS[me.weapon].alt;
     document.getElementById("altBtn").hidden = !playing || !COARSE || !alt;
-    if (alt) document.getElementById("altName").textContent = (alt.name + " · " + (alt.load ? "1–3" : alt.cost) + " AMMO").toUpperCase();
+    if (alt) document.getElementById("altName").textContent = (COMPACT.matches ? alt.name : alt.name + " · " + (alt.load ? "1–3" : alt.cost) + " AMMO").toUpperCase();   // a phone: just the name
   }
   function selectWeapon(k) {
     if (!hasWeapon(k) || k === me.weapon) return;

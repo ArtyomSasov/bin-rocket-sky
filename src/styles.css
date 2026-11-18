@@ -481,3 +481,20 @@ details.controls[open] .clist { margin-top: 8px; }
 .look[open] { display: block; }
 @media (max-width: 480px) { .step .pilot { grid-template-columns: 1fr; } }
 @media (max-width: 480px) { .card-gear span { display: none; } .card-gear { top: 10px; right: 10px; padding: 6px; } #startForm h1 { font-size: 30px; padding-inline: 36px; } }
+/* a phone in a game: the score and the map on the left, the kill feed a narrow column on the right (one line each),
+   a world event's banner under it, so nothing lies on top of anything else */
+@media (pointer: coarse), (max-width: 700px), (max-height: 500px) {
+  body.playing .match-hud .score { max-width: calc(60vw - 24px); }
+  body.playing .feed { top: calc(56px + env(safe-area-inset-top, 0px)); max-width: calc(40vw - 12px); gap: 3px; }
+  body.playing .fe { font-size: 10px; padding: 2px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: block; }
+  body.playing .fe svg { width: 10px; height: 10px; vertical-align: -1px; }
+  body.playing .event { left: auto; right: max(12px, env(safe-area-inset-right, 0px)); transform: none; top: calc(var(--hud-bottom, 100px) + 70px); max-width: calc(58vw - 12px); text-align: right; white-space: normal; }
+  body.playing .event { border-radius: 12px; }
+  body.playing .score #lvNum { display: none; }
+  body.playing .match-hud .score { flex-wrap: nowrap; align-items: center; }
+  body.playing .score .hp b { font-size: 13px; white-space: nowrap; }
+  body.playing .score .lv { min-width: 0; }
+  body.playing .score .xpbar.nrg { width: 54px; }
+  body.playing .score .hpbar { width: 54px; }
+  body.playing .altbtn { font-size: 10px; }
+}
