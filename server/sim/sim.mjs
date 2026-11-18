@@ -40,9 +40,8 @@ const BRIDGE = `
       // that comes late (the data channel keeps no order) still goes in its place
       if (i.c && i.c.length) {
         b.cq ||= [];
-        const top = Math.max(...i.c.map(c => c.s));
         for (const c of i.c) {
-          if (i.vt) c.vt = i.vt - (top - c.s) * 1000 / 60;   // the view this command was made with (one frame each, back from the newest)
+          c.at = Number.isFinite(at) ? at : 0;   // when it came in (the server's own clock: how long it then waits in the queue is its measure)
           if (c.s <= (b.ackSeq || 0) || b.cq.some(q => q.s === c.s)) continue;
           if (b.cqOwed > 0 && c.s === (b.ackSeq || 0) + 1) { b.cqOwed--; b.ackSeq = c.s; b.lastCmd = c; continue; }   // its time was flown already (the last command, again)
           let k = b.cq.length; while (k > 0 && b.cq[k - 1].s > c.s) k--;
@@ -103,7 +102,7 @@ export function cleanInput(i = {}) {
   return { mx, my, aim: Number.isFinite(i.aim) ? Math.atan2(Math.sin(i.aim), Math.cos(i.aim)) : 0, fire: i.fire === true, alt: i.alt === true,
     boost: i.boost === true, brake: i.brake === true, dash: count(i.dash), tele: count(i.tele), w: Number.isInteger(i.w) && i.w >= 0 && i.w < 64 ? i.w : -1,
     s: count(i.s),   // s: the controls' number, counted up by the player's screen with each message
-    gx: unit(i.gx), gy: unit(i.gy), gb: count(i.gb), vt: Number.isFinite(i.vt) ? i.vt : 0,   // a guided nuke: the stick steering it, and the count of blow-ups
+    gx: unit(i.gx), gy: unit(i.gy), gb: count(i.gb),   // a guided nuke: the stick steering it, and the count of blow-ups
     // c: the newest flight commands, [number, stick x, stick y (thousandths), facing (thousandths of a radian),
     // boost 1 + brake 2, dash count] (pilotMove in src/js/17-update.js); a few repeat in each message, for losses
     ...(Array.isArray(i.c) ? { c: i.c.slice(-16).filter(e => Array.isArray(e) && e.length === 6 && e.every(Number.isSafeInteger) && e[0] > 0).map(e => ({

@@ -242,7 +242,7 @@
             const g = pilotMove(b, c);
             // the trigger as this command held it, aimed as it was aimed: a shot goes out on the same command as on
             // the player's screen (Source and Overwatch fire from the user command the same way)
-            if (c.fire !== undefined) { human.fire = c.fire; human.alt = c.alt; b.cmdVt = c.vt || 0; pilotTriggers(b, CMD_DT, now); b.cmdFired = true; b.cmdVt = 0; }
+            if (c.fire !== undefined) { human.fire = c.fire; human.alt = c.alt; b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; pilotTriggers(b, CMD_DT, now); b.cmdFired = true; b.cmdWait = -1; }
             f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
           }
         }

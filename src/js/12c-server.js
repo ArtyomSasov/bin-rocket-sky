@@ -62,8 +62,7 @@
     const c = me.ctl || {}, i = { t: "in", mx: +num(c.mx, 0).toFixed(3), my: +num(c.my, 0).toFixed(3), aim: +me.a.toFixed(3),
       fire: !!c.fire && !me.dead && playing, alt: !!c.alt && !me.dead && playing, boost: !!c.boost, brake: !!c.brake && !me.dead, dash: srv.dashN, tele: srv.teleN,
       w: WEAPON_KEYS.indexOf(me.weapon), ld: Math.round(srv.interp / 5) * 5,
-      gx: +num(srv.gx, 0).toFixed(3), gy: +num(srv.gy, 0).toFixed(3), gb: srv.gb || 0,   // a guided nuke's stick and blow-ups
-      vt: Math.round(Date.now() + (srv.off || 0) - srv.interp) };   // vt: the moment (server clock) the others are shown at now   // ld: how far in the past I see the others (for lag compensation)
+      gx: +num(srv.gx, 0).toFixed(3), gy: +num(srv.gy, 0).toFixed(3), gb: srv.gb || 0 };   // a guided nuke's stick and blow-ups   // ld: how far in the past I see the others (for lag compensation)
     const sig = JSON.stringify(i), t = performance.now(), fresh = srv.cs > srv.sentCs;   // fresh: flight commands not sent yet
     if (!fresh && (sig === srv.lastIn ? t - srv.lastInAt < 250 : t - srv.lastInAt < 14)) return;   // at most one a frame (the server allows 90 a second)
     srv.lastIn = sig; srv.lastInAt = t;

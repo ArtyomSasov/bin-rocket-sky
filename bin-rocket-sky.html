@@ -6000,8 +6000,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const c = me.ctl || {}, i = { t: "in", mx: +num(c.mx, 0).toFixed(3), my: +num(c.my, 0).toFixed(3), aim: +me.a.toFixed(3),
       fire: !!c.fire && !me.dead && playing, alt: !!c.alt && !me.dead && playing, boost: !!c.boost, brake: !!c.brake && !me.dead, dash: srv.dashN, tele: srv.teleN,
       w: WEAPON_KEYS.indexOf(me.weapon), ld: Math.round(srv.interp / 5) * 5,
-      gx: +num(srv.gx, 0).toFixed(3), gy: +num(srv.gy, 0).toFixed(3), gb: srv.gb || 0,   // a guided nuke's stick and blow-ups
-      vt: Math.round(Date.now() + (srv.off || 0) - srv.interp) };   // vt: the moment (server clock) the others are shown at now   // ld: how far in the past I see the others (for lag compensation)
+      gx: +num(srv.gx, 0).toFixed(3), gy: +num(srv.gy, 0).toFixed(3), gb: srv.gb || 0 };   // a guided nuke's stick and blow-ups   // ld: how far in the past I see the others (for lag compensation)
     const sig = JSON.stringify(i), t = performance.now(), fresh = srv.cs > srv.sentCs;   // fresh: flight commands not sent yet
     if (!fresh && (sig === srv.lastIn ? t - srv.lastInAt < 250 : t - srv.lastInAt < 14)) return;   // at most one a frame (the server allows 90 a second)
     srv.lastIn = sig; srv.lastInAt = t;
@@ -6832,7 +6831,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
             const g = pilotMove(b, c);
             // the trigger as this command held it, aimed as it was aimed: a shot goes out on the same command as on
             // the player's screen (Source and Overwatch fire from the user command the same way)
-            if (c.fire !== undefined) { human.fire = c.fire; human.alt = c.alt; b.cmdVt = c.vt || 0; pilotTriggers(b, CMD_DT, now); b.cmdFired = true; b.cmdVt = 0; }
+            if (c.fire !== undefined) { human.fire = c.fire; human.alt = c.alt; b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; pilotTriggers(b, CMD_DT, now); b.cmdFired = true; b.cmdWait = -1; }
             f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
           }
         }
@@ -7004,13 +7003,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // jitter (LD_MAX); the round trip is the server's own measure (the shortest of the recent ones), and the whole
   // rewind is capped (REWIND_MS)
   const LD_MAX = 100;
-  // A shot from a flight command carries the moment its screen showed the others at (vt, on the server's clock), as
-  // Source's user commands carry their tick: that is the moment the targets are judged at, the wait in the command
-  // queue included. It too is the screen's word: believed no further back than a round trip, LD_MAX and a little
+  // A shot from a flight command also waited in the command queue before it was flown (cmdWait): the server's own
+  // measure, from when the command came in, so its targets are judged that much further back too. Nothing in it is
+  // the screen's word but ld, capped as before
   function pilotLag(s, p, now) {
     if (!p.input || !(p.rtt > 0)) return;
-    const ld = Math.min(p.input.ld, LD_MAX), cap = Math.min(REWIND_MS, p.rtt + LD_MAX + 60);
-    const lag = p.cmdVt > 0 ? clamp(Date.now() - p.cmdVt, 0, cap) : clamp(ld >= 0 ? p.rtt + ld + 1000 / 60 : p.rtt / 2, 0, REWIND_MS);
+    const ld = Math.min(p.input.ld, LD_MAX), wait = p.cmdWait >= 0 ? Math.min(p.cmdWait, 200) : 0;
+    const lag = clamp(ld >= 0 ? p.rtt + ld + 1000 / 60 + wait : p.rtt / 2, 0, REWIND_MS);
     s.hitTime = now - lag;
     if (straightShot(s.kind)) s.catchup = lag / 1000;
   }
