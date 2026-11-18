@@ -9,7 +9,7 @@
     const o = MODES[MODE].only;
     me.arsenal = o ? { [o]: Infinity } : { fire: Infinity, gauntlet: Infinity }; me.weapon = o || "fire";   // everyone carries the gauntlet
     me.teleN = 0;
-    if (MODES[MODE].sandbox) { for (const k of SANDBOX_GUNS) me.arsenal[k] = Infinity; me.teleN = 99; }   // the test range: everything, for ever
+    if (MODES[MODE].sandbox) for (const k of SANDBOX_GUNS) me.arsenal[k] = Infinity;   // the test range: everything, for ever
     if (typeof renderTele === "function") renderTele();
   }
   function findBase(t) {

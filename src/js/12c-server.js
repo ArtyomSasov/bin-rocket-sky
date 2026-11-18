@@ -15,7 +15,8 @@
   })();
   let serverRun = false;
   const srv = { ws: null, id: "", tag: "", sendHz: 30, dashN: 0, teleN: 0, lastIn: "", lastInAt: 0, deadSeen: false, joined: false, err: "", pred: [], pseq: 0,
-    seq: 0, sent: new Map(), hist: [], cx: 0, cy: 0 };   // my numbered controls, my flight as predicted here, and the correction still to ease in
+    seq: 0, sent: new Map(), hist: [], cx: 0, cy: 0,
+    jit: 0, interp: 70, hits: [] };   // arrival jitter and the delay others are shown at (ms); my hits shown before the server's word   // my numbered controls, my flight as predicted here, and the correction still to ease in
   // the pilot the server flies for me: its own shots are mine, never a threat to me
   const mySrvShot = s => serverRun && !!srv.id && s.owner === srv.id;
   function serverStart(code) {
@@ -49,7 +50,7 @@
     if (!ws || ws.readyState !== 1 || !srv.joined) return;
     const c = me.ctl || {}, i = { t: "in", mx: +num(c.mx, 0).toFixed(3), my: +num(c.my, 0).toFixed(3), aim: +me.a.toFixed(3),
       fire: !!c.fire && !me.dead && playing, alt: !!c.alt && !me.dead && playing, boost: !!c.boost, brake: !!c.brake && !me.dead, dash: srv.dashN, tele: srv.teleN,
-      w: WEAPON_KEYS.indexOf(me.weapon) };
+      w: WEAPON_KEYS.indexOf(me.weapon), ld: Math.round(srv.interp / 5) * 5 };   // ld: how far in the past I see the others (for lag compensation)
     const sig = JSON.stringify(i), t = performance.now();
     if (sig === srv.lastIn ? t - srv.lastInAt < 250 : t - srv.lastInAt < 14) return;   // at most one a frame (the server allows 90 a second)
     srv.lastIn = sig; srv.lastInAt = t;
@@ -80,6 +81,7 @@
   // a snapshot: the round clock, every pilot (mine among them) and the world
   function receiveServer(p) {
     if (p.mc) receiveMatchClock(p.mc);
+    serverClock(p.ts);
     const seen = new Set();
     for (const e of Array.isArray(p.bots) ? p.bots.slice(0, MAX_BOTS) : []) {
       if (!Array.isArray(e) || typeof e[0] !== "string" || !/^pb[a-z0-9]{1,10}$/.test(e[0]) || !e[1] || typeof e[1] !== "object") continue;
@@ -90,14 +92,14 @@
       const r = remotes.get(e[0]); if (r) r.host = "server";
     }
     for (const [id, r] of remotes) if (r.host === "server" && !seen.has(id)) remotes.delete(id);   // they left
-    if (p.rd === stats.round) { applyWorld("server", p); applyRubble(p.rb, clamp((myPing || 60) / 2000, 0, 0.2)); }
+    if (p.rd === stats.round) { applyWorld("server", p); applyRubble(p.rb, clamp((myPing || 60) / 2000, 0, 0.2)); settleGrabs(p.g, performance.now()); }
     showScore();
   }
   // what the server says about me: corrections to my predicted flight, and everything I may not decide myself
   function serverSelf(m) {
     const now = performance.now();
     if (typeof m.tg === "string" && /^[a-z0-9]{1,8}$/.test(m.tg)) { srv.tag = m.tg; myTag = m.tg; }   // my shots' ids: kills reported on them are mine
-    if (Number.isFinite(m.ts)) { const o = clamp(m.ts - Date.now(), -120000, 120000); srv.off = Number.isFinite(srv.off) ? srv.off + (o - srv.off) * 0.1 : o; srv.lastTs = Math.max(srv.lastTs || m.ts, m.ts); }
+    if (Number.isFinite(m.ts)) srv.lastTs = Math.max(srv.lastTs || m.ts, m.ts);
     srv.ping = myPing;
     // my shots, as fired on the server: the ones this screen already showed (predictShot) are not shown twice
     if (m.rd === stats.round && Array.isArray(m.f)) for (const f of m.f.slice(0, 24)) {
@@ -163,6 +165,7 @@
     const keys = Object.keys(ar).join(), was = Object.keys(me.arsenal).join(), old = me.arsenal;
     // a gun the server gave me (a crate or a trophy I flew through): said and heard as when picked up offline
     if (!me.dead) for (const k in ar) if (Number.isFinite(ar[k]) && ar[k] > (Number.isFinite(old[k]) ? old[k] : 0)) {
+      if (performance.now() - (gunFx.get(k) ?? -1e9) < 3000) { gunFx.delete(k); continue; }   // shown at once when I flew through it
       const had = k in old, key = COARSE ? "" : " · press " + weaponKey(k);
       floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: had ? "+AMMO " + WEAPONS[k].name.toUpperCase() : WEAPONS[k].name.toUpperCase() + key, gold: true });
       if (!(k === "nuke" ? packPlay("p_ut_nuke_pick", .9) : sfx("weapon_get", 0.8))) blip(660, 0.1, "square");
@@ -193,6 +196,101 @@
     if (i < 0) return false;
     srv.pred.splice(i, 1);
     return true;
+  }
+  // ---------- feel: others shown smoothly, my hits and pick-ups at once ----------
+  // The server's clock, as seen here: srv.off = its time - mine, from the snapshots' stamps. A snapshot that came
+  // quickly says the most about the offset, so it rises fast and sinks slowly (late arrivals are jitter, not drift);
+  // how late they come (srv.jit) sets how far back the others are shown: two snapshot gaps and the jitter, which is
+  // what Source (cl_interp) and Glenn Fiedler's snapshot interpolation do to always have a next snapshot in hand
+  function serverClock(ts) {
+    if (!Number.isFinite(ts)) return;
+    const o = clamp(ts - Date.now(), -120000, 120000);
+    if (!Number.isFinite(srv.off)) srv.off = o;
+    else srv.off += (o - srv.off) * (o > srv.off ? 0.3 : 0.01);
+    srv.jit += (Math.max(0, srv.off - o) - srv.jit) * 0.05;
+    srv.interp = clamp(2000 / srv.sendHz + 2 * srv.jit, 50, 150);
+  }
+  // a pilot of the server's, where it was srv.interp ms ago: between the two snapshots around that moment (a gap
+  // longer than a pilot can fly is a respawn or a teleport, shown as a jump); past the newest one, carried on
+  // briefly along its last motion
+  function serverInterp(r) {
+    const buf = r.buf, t = Date.now() + (srv.off || 0) - srv.interp;
+    while (buf.length > 2 && buf[1].t <= t) buf.shift();
+    const a = buf[0], b = buf[1];
+    let x = a.x, y = a.y, ang = a.a;
+    if (b && Math.hypot(b.x - a.x, b.y - a.y) > 300) { if (t >= b.t) { x = b.x; y = b.y; ang = b.a; } }   // a jump
+    else if (b && t > a.t) {
+      // between the two (f <= 1), or past the newest: carried on along the last motion for at most 100 ms
+      const f = Math.min((t - a.t) / (b.t - a.t || 1), 1 + 100 / (b.t - a.t || 1));
+      x = a.x + (b.x - a.x) * f; y = a.y + (b.y - a.y) * f; ang = a.a + angD(b.a - a.a) * Math.min(f, 1);
+    }
+    r.x = clamp(x, 0, W); r.y = clamp(y, 0, H); r.a = ang; r.tx = r.x; r.ty = r.y;
+  }
+  // my shot reaching someone on my screen: its hit is shown now (spark, number, sound), as Overwatch and CS do; the
+  // damage is still the server's call, which comes a round trip later. Over a long round trip the guess is too often
+  // wrong, so then only the server's word is shown
+  const HIT_GUESS_MS = 220;
+  function serverHitFx(s, rid, r) {
+    if ((myPing || 0) > HIT_GUESS_MS) return;
+    hitConfirm({ ...s, mine: true }, r.lv, r.x, r.y, r);
+    srv.hits.push({ rid, at: performance.now() });
+    if (srv.hits.length > 64) srv.hits.shift();
+  }
+  // the server confirms a hit of mine on rid: true if it was shown already (its effects then stay quiet)
+  function serverHitShown(rid) {
+    const now = performance.now(), keep = 400 + (myPing || 100) * 2;
+    while (srv.hits.length && now - srv.hits[0].at > keep) srv.hits.shift();
+    const i = srv.hits.findIndex(h => h.rid === rid);
+    if (i < 0) return false;
+    srv.hits.splice(i, 1);
+    return true;
+  }
+  // Flying through a crate, a trophy or a medkit takes it here at once: it vanishes with its sound and its words,
+  // and the gun, ammo or health follow with my state. The server's world then lists it as taken (p.g); if it does
+  // not in time (someone was there first, or my flight was a little off) it comes back. My reach is a little short
+  // of the server's, so a near miss is not shown as a catch
+  const predictedGrabs = new Map(), gunFx = new Map();   // key -> { at, gun }; gun -> when its pick-up was shown
+  function burst(x, y, col, n = 30) { for (let k = 0; k < n; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 220; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, k % 2 ? "#ffd36b" : col); } }
+  function serverPickups(now) {
+    if (!playing || me.dead || !srv.joined) return;
+    const near = (x, y, r) => Math.hypot(x - me.x, y - me.y) < r;
+    const take = (key, gun) => { grabbed.add(key); predictedGrabs.set(key, { at: now, gun }); if (gun) gunFx.set(gun, now); };
+    const gunGot = (type, x, y, trophy) => {
+      const w = WEAPONS[type];
+      if (type === "tele") floaters.push({ x, y: y - 20, t: 0, txt: "TELEPORTER" + (COARSE ? "" : " · press T"), gold: true });
+      else floaters.push({ x, y: y - 20, t: 0, txt: trophy ? "TROPHY · " + w.name.toUpperCase() : me.arsenal[type] ? "+AMMO " + w.name.toUpperCase() : w.name.toUpperCase() + (COARSE ? "" : " · press " + weaponKey(type)), gold: true });
+      burst(x, y, w.col);
+      if (!(type === "nuke" ? packPlay("p_ut_nuke_pick", .9) : sfx("weapon_get", 0.8))) blip(660, 0.1, "square");
+    };
+    if (!MODES[MODE].only) {
+      for (const c of world.picks) {
+        if (grabbed.has(c.key) || c.age < 0.05 || WEAPONS[c.type]?.disabled || !near(c.x, c.y, 56)) continue;
+        take(c.key, c.type); gunGot(c.type, c.x, c.y, false);
+      }
+      for (const [id, d] of gunDrops) {
+        const key = "W" + id;
+        if (grabbed.has(key) || WEAPONS[d.type]?.disabled || now - d.born < 650 || !near(d.x, d.y, 56)) continue;
+        take(key, d.type); gunGot(d.type, d.x, d.y, true);
+      }
+    }
+    if (!MODES[MODE].noSupplies) for (const c of world.supplies) {
+      const sp = SUPPLIES[c.type];
+      if (grabbed.has(c.key) || c.age < 0.05 || !near(c.x, c.y, 50)) continue;
+      if (sp.heal ? me.lives >= sp.cap : (me.shield || 0) >= (c.type === "mega" ? sp.armor : Math.min(sp.armor, MAX_SHIELD))) continue;   // it would do nothing: left lying
+      take(c.key, null);
+      floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: sp.name, gold: !!sp.big });
+      burst(c.x, c.y, sp.col, 26); impacts.push({ x: c.x, y: c.y, t: 0, r: 70, col: sp.col });
+      if (!sfx(sp.heal ? "heal" : "shield_get", 0.8)) blip(784, 0.14, "triangle");
+    }
+  }
+  // the server's taken keys: what I took here is confirmed; what it still has not taken after a while comes back
+  function settleGrabs(g, now) {
+    if (!predictedGrabs.size) return;
+    const taken = new Set(Array.isArray(g) ? g : []), wait = 450 + (myPing || 100) * 1.6;
+    for (const [key, e] of predictedGrabs) {
+      if (taken.has(key)) predictedGrabs.delete(key);
+      else if (now - e.at > wait) { predictedGrabs.delete(key); grabbed.delete(key); if (e.gun) gunFx.delete(e.gun); }
+    }
   }
   // the game server's open rooms, in the lobby browser next to the online lobbies (while the start screen shows)
   const ROOMS_URL = SERVER_URL ? SERVER_URL.replace(/^ws/, "http").replace(/\/?$/, "/rooms") : "";

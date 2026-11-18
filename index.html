@@ -487,7 +487,7 @@ body:not(.playing) .match-hud { display: none; }
     <div class="pick"><span>Engine sound</span><div class="segs" id="setEngine" role="group" aria-label="Engine sound"></div></div>
     <div class="pick"><span>Crosshair</span><div class="segs" id="setAim" role="group" aria-label="Crosshair"></div>
       <div class="segs" id="setAimCol" role="group" aria-label="Crosshair colour"></div></div>
-    <details><summary>Weapon controls</summary><p id="weaponHint"></p><small>Fixed slots: 1–9, 0; Alt+1–6 for additional weapons. Q/E cycles carried weapons. T: teleport. Hold Tab: scores.</small></details>
+    <details><summary>Weapon controls</summary><p id="weaponHint"></p><small>Fixed slots: 1–9, 0; Alt+1–6 for additional weapons. Q/E cycles carried weapons. Hold Tab: scores.</small></details>
     <button type="button" class="ghost" id="exportWeapons">Export weapon match stats</button>
     <button type="button" class="go" id="setDone">Back to the game</button>
     <button type="button" class="ghost menu-only" id="setLeave">Leave to the start screen</button>
@@ -765,6 +765,7 @@ body:not(.playing) .match-hud { display: none; }
   WEAPONS.gauntlet.cd = .4; WEAPONS.mine.cd = .8;
   WEAPONS.nuke.shot = [K.NUKE, 840]; WEAPONS.nuke.alt.shot = [K.NUKE, 840];
   WEAPONS.nail.disabled = true; // keep wire IDs and other weapons' number keys stable
+  WEAPONS.tele.disabled = true; // the teleporter is retired (nobody used it); its wire number stays
   let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
@@ -990,7 +991,7 @@ body:not(.playing) .match-hud { display: none; }
     y: { name: "Drydocks",
       planets: [["rock", 0.5, 0.5, 150, 0]],
       wrecks: [["hull", 0.3, 0.2, 0], ["hull", 0.5, 0.2, 0], ["hull", 0.7, 0.2, 0], ["ring", 0.34, 0.5], ["tower", 0.1, 0.1, 0], ["crates", 0.9, 0.1]],
-      guns: [["rail", 0.4, 0.05], ["orb", 0.38, 0.35], ["laser", 0.2, 0.32], ["mine", 0.7, 0.36], ["tele", 0.92, 0.27], ["rocket", 0.6, 0.08]],
+      guns: [["rail", 0.4, 0.05], ["orb", 0.38, 0.35], ["laser", 0.2, 0.32], ["mine", 0.7, 0.36], ["gren", 0.92, 0.27], ["rocket", 0.6, 0.08]],
       supplies: [["med", 0.6, 0.32], ["shield", 0.2, 0.08], ["bigmed", 0.64, 0.4]],
       amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.33], pads: [[0.12, 0.38, 0]] },
     // Downtown: two blocks of towers with a plaza in each, the main street between the bases, a fallen hull in the middle
@@ -1085,7 +1086,7 @@ body:not(.playing) .match-hud { display: none; }
       cellsFromArt(b); wrecks.push(b);
     }
     const spot = (type, x, y, P = GUN_PERIOD[type] || GUN_PERIOD_BASE) => ({ type, ...foundryPoint(x, y), P, off: 0 });
-    const gunLayout = [["scatter", 3, 9], ["minigun", 3, 12], ["rocket", 7, 3], ["rail", 10, 2], ["laser", 7, 7], ["orb", 8, 10], ["shard", 7, 17], ["mine", 3, 5], ["tele", 3, 15], ["gren", 7, 13]];
+    const gunLayout = [["scatter", 3, 9], ["minigun", 3, 12], ["rocket", 7, 3], ["rail", 10, 2], ["laser", 7, 7], ["orb", 8, 10], ["shard", 7, 17], ["mine", 3, 5], ["saw", 3, 15], ["gren", 7, 13]];
     const guns = gunLayout.flatMap(([type, x, y]) => [spot(type, x, y), spot(type, 20 - x, 20 - y)]);
     arena = { guns, supplies: [["med", 3, 7], ["shield", 7, 10], ["shield", 3, 11], ["bigmed", 13, 16], ["vial", 3, 8], ["vial", 3, 10], ["pads", 3, 16]].flatMap(([t, x, y]) => [spot(t, x, y, SUPPLIES[t].period), spot(t, 20 - x, 20 - y, SUPPLIES[t].period)]),
       amp: spot("amp", 10, 10, AMP_PERIOD), nuke: null, holy: null,
@@ -1228,7 +1229,7 @@ body:not(.playing) .match-hud { display: none; }
   }
   // ---------- world event timing (shared clock; used from the first frame, by the bodies too) ----------
   const EV_CYCLE = 45, EV_START = 10, EV_LEN = 25;
-  const EV_TYPES = ["blackhole", "meteors", "aliens", "goldrain"];
+  const EV_TYPES = ["blackhole", "meteors", "aliens"];   // (the gold rain is gone with the stars)
   function eventAt(ms) {
     if (stationMap()) return { cyc: 0, ph: 0, et: 0, type: "blackhole", active: false, warn: false };
     const t = ms / 1000, cyc = Math.floor(t / EV_CYCLE), ph = t - cyc * EV_CYCLE;
@@ -2279,7 +2280,7 @@ body:not(.playing) .match-hud { display: none; }
   function setMapSize(key) {
     const [size] = MAP_SIZES[key], a = Math.min(6, (size / 2600) ** 2);
     W = H = size; mapKey = key;
-    SLOTS = Math.round(44 * a); ROCKS = Math.round(16 * a); GOLD_N = Math.round(70 * a);
+    SLOTS = 0; ROCKS = Math.round(16 * a); GOLD_N = 0;   // no stars to collect (score comes from hits and kills): less clutter
     world.sparks.length = world.rocks.length = world.picks.length = world.supplies.length = 0;
   }
   // a wreck's size: [w, h] at Medium, from its type and its own random numbers
@@ -2853,7 +2854,7 @@ body:not(.playing) .match-hud { display: none; }
     const o = MODES[MODE].only;
     me.arsenal = o ? { [o]: Infinity } : { fire: Infinity, gauntlet: Infinity }; me.weapon = o || "fire";   // everyone carries the gauntlet
     me.teleN = 0;
-    if (MODES[MODE].sandbox) { for (const k of SANDBOX_GUNS) me.arsenal[k] = Infinity; me.teleN = 99; }   // the test range: everything, for ever
+    if (MODES[MODE].sandbox) for (const k of SANDBOX_GUNS) me.arsenal[k] = Infinity;   // the test range: everything, for ever
     if (typeof renderTele === "function") renderTele();
   }
   function findBase(t) {
@@ -4739,17 +4740,7 @@ body:not(.playing) .match-hud { display: none; }
     myGunDrops.push(d); if (myGunDrops.length > 6) myGunDrops.shift();
     gunDrops.set(id, { x: d[1], y: d[2], type, ammo: d[4], born: performance.now() });
   }
-  function spillStars(now) {
-    const n = Math.min(40, Math.floor(me.carry / 2));
-    me.carry = 0;
-    if (n <= 0) return;
-    const id = myTag + (deaths++).toString(36);
-    me.score = Math.max(0, me.score - n);
-    showScore();
-    floaters.push({ x: me.x, y: me.y - 40, t: 0, txt: "-" + n + " stars", gold: false });
-    drops.set(id, { x: me.x, y: me.y, n, born: now });
-    myDrops.push([id, Math.round(me.x), Math.round(me.y), n, Date.now()]);
-  }
+  function spillStars() { me.carry = 0; }   // stars are gone from the game: nothing is spilled
   function dropStar(d, id, j, now) {
     const hs = strHash(id), a = hash(j, hs, 41) * 6.283 + j, r = 50 + hash(j, hs, 42) * 190;
     const k = Math.min(1, (now - d.born) / 600), e = 1 - (1 - k) * (1 - k);
@@ -5058,9 +5049,15 @@ body:not(.playing) .match-hud { display: none; }
     r.q = p.q;
     if (hasPos) {
       r.vx = clamp(num(p.vx, 0), -1200, 1200); r.vy = clamp(num(p.vy, 0), -1200, 1200);
-      const lead = leadFor(r);
-      r.tx = clamp(p.x + r.vx * lead, 0, W); r.ty = clamp(p.y + r.vy * lead, 0, H);
-      if (Math.hypot(r.tx - r.x, r.ty - r.y) > 300) { r.x = r.tx; r.y = r.ty; }   // teleport (respawn, black hole)
+      if (serverRun && Number.isFinite(p.ts)) {   // from the authoritative server: kept, to be shown a little in the past (updateRemotes)
+        const buf = r.buf || (r.buf = []);
+        if (!buf.length || p.ts > buf[buf.length - 1].t) buf.push({ t: p.ts, x: clamp(p.x, 0, W), y: clamp(p.y, 0, H), a: num(p.a, r.ta) });
+        if (buf.length > 24) buf.shift();
+      } else {
+        const lead = leadFor(r);
+        r.tx = clamp(p.x + r.vx * lead, 0, W); r.ty = clamp(p.y + r.vy * lead, 0, H);
+        if (Math.hypot(r.tx - r.x, r.ty - r.y) > 300) { r.x = r.tx; r.y = r.ty; }   // teleport (respawn, black hole)
+      }
       if (Number.isFinite(p.a)) r.ta = p.a;
       r.thrust = p.t ? 1 : 0;
       r.tdir = Number.isFinite(p.td) ? clamp(p.td, -7, 7) : undefined;   // which way they push (r.ta is where they face)
@@ -5129,6 +5126,8 @@ body:not(.playing) .match-hud { display: none; }
     const mine = k => validHit(k) && k.startsWith(myTag + ".") && credited.size < MAX_CREDITS;
     for (const k of Array.isArray(p.hb) ? p.hb.slice(0, 16).filter(validHit) : []) if (mine(k) && !credited.has(id + ":" + k)) {
       credited.add(id + ":" + k); me.score += 1; stats.hits++; floaters.push({ x: r.x, y: r.y - 30, t: 0, txt: "Hit +1", gold: false });
+      // on the server my hit may have been shown already; one it alone saw (a blast's edge) is felt now
+      if (serverRun && !serverHitShown(id)) { r.hitAt = performance.now(); const t = r.hitAt; if (t - hitTickAt > 60) { hitTickAt = t; sfx("hit", 0.4, 1.8); } }
       metricPeer(k, id, false);
       confirmShotHit(id, k, r);
     }
@@ -5568,7 +5567,8 @@ body:not(.playing) .match-hud { display: none; }
   })();
   let serverRun = false;
   const srv = { ws: null, id: "", tag: "", sendHz: 30, dashN: 0, teleN: 0, lastIn: "", lastInAt: 0, deadSeen: false, joined: false, err: "", pred: [], pseq: 0,
-    seq: 0, sent: new Map(), hist: [], cx: 0, cy: 0 };   // my numbered controls, my flight as predicted here, and the correction still to ease in
+    seq: 0, sent: new Map(), hist: [], cx: 0, cy: 0,
+    jit: 0, interp: 70, hits: [] };   // arrival jitter and the delay others are shown at (ms); my hits shown before the server's word   // my numbered controls, my flight as predicted here, and the correction still to ease in
   // the pilot the server flies for me: its own shots are mine, never a threat to me
   const mySrvShot = s => serverRun && !!srv.id && s.owner === srv.id;
   function serverStart(code) {
@@ -5602,7 +5602,7 @@ body:not(.playing) .match-hud { display: none; }
     if (!ws || ws.readyState !== 1 || !srv.joined) return;
     const c = me.ctl || {}, i = { t: "in", mx: +num(c.mx, 0).toFixed(3), my: +num(c.my, 0).toFixed(3), aim: +me.a.toFixed(3),
       fire: !!c.fire && !me.dead && playing, alt: !!c.alt && !me.dead && playing, boost: !!c.boost, brake: !!c.brake && !me.dead, dash: srv.dashN, tele: srv.teleN,
-      w: WEAPON_KEYS.indexOf(me.weapon) };
+      w: WEAPON_KEYS.indexOf(me.weapon), ld: Math.round(srv.interp / 5) * 5 };   // ld: how far in the past I see the others (for lag compensation)
     const sig = JSON.stringify(i), t = performance.now();
     if (sig === srv.lastIn ? t - srv.lastInAt < 250 : t - srv.lastInAt < 14) return;   // at most one a frame (the server allows 90 a second)
     srv.lastIn = sig; srv.lastInAt = t;
@@ -5633,6 +5633,7 @@ body:not(.playing) .match-hud { display: none; }
   // a snapshot: the round clock, every pilot (mine among them) and the world
   function receiveServer(p) {
     if (p.mc) receiveMatchClock(p.mc);
+    serverClock(p.ts);
     const seen = new Set();
     for (const e of Array.isArray(p.bots) ? p.bots.slice(0, MAX_BOTS) : []) {
       if (!Array.isArray(e) || typeof e[0] !== "string" || !/^pb[a-z0-9]{1,10}$/.test(e[0]) || !e[1] || typeof e[1] !== "object") continue;
@@ -5643,14 +5644,14 @@ body:not(.playing) .match-hud { display: none; }
       const r = remotes.get(e[0]); if (r) r.host = "server";
     }
     for (const [id, r] of remotes) if (r.host === "server" && !seen.has(id)) remotes.delete(id);   // they left
-    if (p.rd === stats.round) { applyWorld("server", p); applyRubble(p.rb, clamp((myPing || 60) / 2000, 0, 0.2)); }
+    if (p.rd === stats.round) { applyWorld("server", p); applyRubble(p.rb, clamp((myPing || 60) / 2000, 0, 0.2)); settleGrabs(p.g, performance.now()); }
     showScore();
   }
   // what the server says about me: corrections to my predicted flight, and everything I may not decide myself
   function serverSelf(m) {
     const now = performance.now();
     if (typeof m.tg === "string" && /^[a-z0-9]{1,8}$/.test(m.tg)) { srv.tag = m.tg; myTag = m.tg; }   // my shots' ids: kills reported on them are mine
-    if (Number.isFinite(m.ts)) { const o = clamp(m.ts - Date.now(), -120000, 120000); srv.off = Number.isFinite(srv.off) ? srv.off + (o - srv.off) * 0.1 : o; srv.lastTs = Math.max(srv.lastTs || m.ts, m.ts); }
+    if (Number.isFinite(m.ts)) srv.lastTs = Math.max(srv.lastTs || m.ts, m.ts);
     srv.ping = myPing;
     // my shots, as fired on the server: the ones this screen already showed (predictShot) are not shown twice
     if (m.rd === stats.round && Array.isArray(m.f)) for (const f of m.f.slice(0, 24)) {
@@ -5716,6 +5717,7 @@ body:not(.playing) .match-hud { display: none; }
     const keys = Object.keys(ar).join(), was = Object.keys(me.arsenal).join(), old = me.arsenal;
     // a gun the server gave me (a crate or a trophy I flew through): said and heard as when picked up offline
     if (!me.dead) for (const k in ar) if (Number.isFinite(ar[k]) && ar[k] > (Number.isFinite(old[k]) ? old[k] : 0)) {
+      if (performance.now() - (gunFx.get(k) ?? -1e9) < 3000) { gunFx.delete(k); continue; }   // shown at once when I flew through it
       const had = k in old, key = COARSE ? "" : " · press " + weaponKey(k);
       floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: had ? "+AMMO " + WEAPONS[k].name.toUpperCase() : WEAPONS[k].name.toUpperCase() + key, gold: true });
       if (!(k === "nuke" ? packPlay("p_ut_nuke_pick", .9) : sfx("weapon_get", 0.8))) blip(660, 0.1, "square");
@@ -5746,6 +5748,101 @@ body:not(.playing) .match-hud { display: none; }
     if (i < 0) return false;
     srv.pred.splice(i, 1);
     return true;
+  }
+  // ---------- feel: others shown smoothly, my hits and pick-ups at once ----------
+  // The server's clock, as seen here: srv.off = its time - mine, from the snapshots' stamps. A snapshot that came
+  // quickly says the most about the offset, so it rises fast and sinks slowly (late arrivals are jitter, not drift);
+  // how late they come (srv.jit) sets how far back the others are shown: two snapshot gaps and the jitter, which is
+  // what Source (cl_interp) and Glenn Fiedler's snapshot interpolation do to always have a next snapshot in hand
+  function serverClock(ts) {
+    if (!Number.isFinite(ts)) return;
+    const o = clamp(ts - Date.now(), -120000, 120000);
+    if (!Number.isFinite(srv.off)) srv.off = o;
+    else srv.off += (o - srv.off) * (o > srv.off ? 0.3 : 0.01);
+    srv.jit += (Math.max(0, srv.off - o) - srv.jit) * 0.05;
+    srv.interp = clamp(2000 / srv.sendHz + 2 * srv.jit, 50, 150);
+  }
+  // a pilot of the server's, where it was srv.interp ms ago: between the two snapshots around that moment (a gap
+  // longer than a pilot can fly is a respawn or a teleport, shown as a jump); past the newest one, carried on
+  // briefly along its last motion
+  function serverInterp(r) {
+    const buf = r.buf, t = Date.now() + (srv.off || 0) - srv.interp;
+    while (buf.length > 2 && buf[1].t <= t) buf.shift();
+    const a = buf[0], b = buf[1];
+    let x = a.x, y = a.y, ang = a.a;
+    if (b && Math.hypot(b.x - a.x, b.y - a.y) > 300) { if (t >= b.t) { x = b.x; y = b.y; ang = b.a; } }   // a jump
+    else if (b && t > a.t) {
+      // between the two (f <= 1), or past the newest: carried on along the last motion for at most 100 ms
+      const f = Math.min((t - a.t) / (b.t - a.t || 1), 1 + 100 / (b.t - a.t || 1));
+      x = a.x + (b.x - a.x) * f; y = a.y + (b.y - a.y) * f; ang = a.a + angD(b.a - a.a) * Math.min(f, 1);
+    }
+    r.x = clamp(x, 0, W); r.y = clamp(y, 0, H); r.a = ang; r.tx = r.x; r.ty = r.y;
+  }
+  // my shot reaching someone on my screen: its hit is shown now (spark, number, sound), as Overwatch and CS do; the
+  // damage is still the server's call, which comes a round trip later. Over a long round trip the guess is too often
+  // wrong, so then only the server's word is shown
+  const HIT_GUESS_MS = 220;
+  function serverHitFx(s, rid, r) {
+    if ((myPing || 0) > HIT_GUESS_MS) return;
+    hitConfirm({ ...s, mine: true }, r.lv, r.x, r.y, r);
+    srv.hits.push({ rid, at: performance.now() });
+    if (srv.hits.length > 64) srv.hits.shift();
+  }
+  // the server confirms a hit of mine on rid: true if it was shown already (its effects then stay quiet)
+  function serverHitShown(rid) {
+    const now = performance.now(), keep = 400 + (myPing || 100) * 2;
+    while (srv.hits.length && now - srv.hits[0].at > keep) srv.hits.shift();
+    const i = srv.hits.findIndex(h => h.rid === rid);
+    if (i < 0) return false;
+    srv.hits.splice(i, 1);
+    return true;
+  }
+  // Flying through a crate, a trophy or a medkit takes it here at once: it vanishes with its sound and its words,
+  // and the gun, ammo or health follow with my state. The server's world then lists it as taken (p.g); if it does
+  // not in time (someone was there first, or my flight was a little off) it comes back. My reach is a little short
+  // of the server's, so a near miss is not shown as a catch
+  const predictedGrabs = new Map(), gunFx = new Map();   // key -> { at, gun }; gun -> when its pick-up was shown
+  function burst(x, y, col, n = 30) { for (let k = 0; k < n; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 220; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, k % 2 ? "#ffd36b" : col); } }
+  function serverPickups(now) {
+    if (!playing || me.dead || !srv.joined) return;
+    const near = (x, y, r) => Math.hypot(x - me.x, y - me.y) < r;
+    const take = (key, gun) => { grabbed.add(key); predictedGrabs.set(key, { at: now, gun }); if (gun) gunFx.set(gun, now); };
+    const gunGot = (type, x, y, trophy) => {
+      const w = WEAPONS[type];
+      if (type === "tele") floaters.push({ x, y: y - 20, t: 0, txt: "TELEPORTER" + (COARSE ? "" : " · press T"), gold: true });
+      else floaters.push({ x, y: y - 20, t: 0, txt: trophy ? "TROPHY · " + w.name.toUpperCase() : me.arsenal[type] ? "+AMMO " + w.name.toUpperCase() : w.name.toUpperCase() + (COARSE ? "" : " · press " + weaponKey(type)), gold: true });
+      burst(x, y, w.col);
+      if (!(type === "nuke" ? packPlay("p_ut_nuke_pick", .9) : sfx("weapon_get", 0.8))) blip(660, 0.1, "square");
+    };
+    if (!MODES[MODE].only) {
+      for (const c of world.picks) {
+        if (grabbed.has(c.key) || c.age < 0.05 || WEAPONS[c.type]?.disabled || !near(c.x, c.y, 56)) continue;
+        take(c.key, c.type); gunGot(c.type, c.x, c.y, false);
+      }
+      for (const [id, d] of gunDrops) {
+        const key = "W" + id;
+        if (grabbed.has(key) || WEAPONS[d.type]?.disabled || now - d.born < 650 || !near(d.x, d.y, 56)) continue;
+        take(key, d.type); gunGot(d.type, d.x, d.y, true);
+      }
+    }
+    if (!MODES[MODE].noSupplies) for (const c of world.supplies) {
+      const sp = SUPPLIES[c.type];
+      if (grabbed.has(c.key) || c.age < 0.05 || !near(c.x, c.y, 50)) continue;
+      if (sp.heal ? me.lives >= sp.cap : (me.shield || 0) >= (c.type === "mega" ? sp.armor : Math.min(sp.armor, MAX_SHIELD))) continue;   // it would do nothing: left lying
+      take(c.key, null);
+      floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: sp.name, gold: !!sp.big });
+      burst(c.x, c.y, sp.col, 26); impacts.push({ x: c.x, y: c.y, t: 0, r: 70, col: sp.col });
+      if (!sfx(sp.heal ? "heal" : "shield_get", 0.8)) blip(784, 0.14, "triangle");
+    }
+  }
+  // the server's taken keys: what I took here is confirmed; what it still has not taken after a while comes back
+  function settleGrabs(g, now) {
+    if (!predictedGrabs.size) return;
+    const taken = new Set(Array.isArray(g) ? g : []), wait = 450 + (myPing || 100) * 1.6;
+    for (const [key, e] of predictedGrabs) {
+      if (taken.has(key)) predictedGrabs.delete(key);
+      else if (now - e.at > wait) { predictedGrabs.delete(key); grabbed.delete(key); if (e.gun) gunFx.delete(e.gun); }
+    }
   }
   // the game server's open rooms, in the lobby browser next to the online lobbies (while the start screen shows)
   const ROOMS_URL = SERVER_URL ? SERVER_URL.replace(/^ws/, "http").replace(/\/?$/, "/rooms") : "";
@@ -6191,11 +6288,12 @@ body:not(.playing) .match-hud { display: none; }
     const o = MODES[MODE].only;
     b.arsenal = o ? { [o]: Infinity } : { fire: Infinity, gauntlet: Infinity }; b.weapon = o || "fire";
     Object.assign(b, { teleN: 0, rocketLoad: 0, loadFor: 0, spin: 0, charge: 0, cutCharge: 0, heat: 0, overheat: false });
+    if (MODES[MODE].sandbox) for (const k of SANDBOX_GUNS) b.arsenal[k] = Infinity;   // the test range: everything, for ever (as baseArsenal)
   }
   const pilotShots = (b, kind) => shots.filter(s => s.owner === b.id && s.life > 0 && !s.boom && s.kind === kind);
   // a crate or a trophy: a new gun joins the arsenal, a carried one gets more ammo; the gun in hand stays
   function pilotGive(b, type, ammo) {
-    if (type === "tele") { b.teleN = Math.min(6, (b.teleN || 0) + WEAPONS.tele.ammo); return; }
+    if (type === "tele") return;   // the teleporter is retired
     if (MODES[MODE].only || !WEAPONS[type] || WEAPONS[type].disabled) return;
     b.arsenal[type] = Math.min(WEAPONS[type].ammo * 2, (b.arsenal[type] || 0) + ammo);
   }
@@ -6208,11 +6306,15 @@ body:not(.playing) .match-hud { display: none; }
   }
   // what the snapshot tells the player about their arsenal: [gun index, ammo] (-1: endless)
   const pilotArsenalWire = b => Object.entries(b.arsenal).map(([k, n]) => [WEAPON_KEYS.indexOf(k), Number.isFinite(n) ? Math.ceil(n) : -1]);
-  // A player's shot is judged against where its targets were on the player's screen: half a round trip ago
-  // (a straight round also catches up that far along its line, as a peer's does in 12-network.js)
+  // A player's shot is judged against where its targets were on the player's screen (a straight round also
+  // catches up that far along its line, as a peer's does in 12-network.js). Their screen shows the others between
+  // two snapshots, ld ms behind the newest, which itself left here half a round trip before it arrived; the controls
+  // then take the other half to come back, and wait half a step on average for a step to fly them. So the targets
+  // they saw are a round trip, ld and half a step old: Source's "server time - latency - view interpolation".
+  // (A screen that does not say ld extrapolates the others half a round trip ahead: half a round trip ago.)
   function pilotLag(s, p, now) {
     if (!p.input || !(p.rtt > 0)) return;
-    const lag = clamp(p.rtt / 2, 0, REWIND_MS);
+    const ld = p.input.ld, lag = clamp(ld >= 0 ? p.rtt + ld + 1000 / 60 : p.rtt / 2, 0, REWIND_MS);
     s.hitTime = now - lag;
     if (straightShot(s.kind)) s.catchup = lag / 1000;
   }
@@ -6822,8 +6924,8 @@ body:not(.playing) .match-hud { display: none; }
         if (botById.has(rid)) continue;
         if (r.inv || !canHurt(s, r, rid)) continue;
         if (armed && targetHit(s, r)) {
-          if (pierces(s)) { if (railOnce(s, rid)) { shotBurst(s); if (s.mine) predictHit(s, rid, r); } continue; }
-          s.life = 0; s.direct = rid; shotBurst(s); if (s.mine) predictHit(s, rid, r);
+          if (pierces(s)) { if (railOnce(s, rid)) { shotBurst(s); if (s.mine) predictHit(s, rid, r); else if (mySrvShot(s)) serverHitFx(s, rid, r); } continue; }
+          s.life = 0; s.direct = rid; shotBurst(s); if (s.mine) predictHit(s, rid, r); else if (mySrvShot(s)) serverHitFx(s, rid, r);
           if ((s.kind === K.BOLT || s.kind === K.LASER) && s.mine) boltChain(s, r.x, r.y, rid, now);
           break;
         }
@@ -6895,12 +6997,15 @@ body:not(.playing) .match-hud { display: none; }
     // remotes: extrapolate + ease toward reported spot
     for (const [rid, r] of remotes) {
       if (!botById.has(rid) && now - r.seen > 7000) { removeRemote(rid); continue; }
+      if (serverRun && r.buf?.length) serverInterp(r);   // the server's pilots: between two of its snapshots
+      else {
       const predict = now - r.seen < 250 ? dt : 0; // packet loss must not make a ghost fly through the whole map
       r.tx = clamp(r.tx + r.vx * predict, 0, W); r.ty = clamp(r.ty + r.vy * predict, 0, H);
       const corr = 1 - Math.exp(-12 * dt);
       r.x = clamp(r.x + r.vx * predict + (r.tx - (r.x + r.vx * predict)) * corr, 0, W);
       r.y = clamp(r.y + r.vy * predict + (r.ty - (r.y + r.vy * predict)) * corr, 0, H);
       r.a = lerpAng(r.a, r.ta, 1 - Math.exp(-14 * dt));
+      }
       if (r.dead) continue;
       if (Math.abs(r.x - me.x) < vw / 2 + 300 && Math.abs(r.y - me.y) < vh / 2 + 300) { trailFrom(r, 0.6 + r.thrust * 1.4 + (r.boost || 0) * 1.5, dt); damageFx(r, dt); afterburner(r, r.boost || 0, dt); }
       // boop
@@ -6927,7 +7032,8 @@ body:not(.playing) .match-hud { display: none; }
   // sparks, spilled stars, medkits and shields, Overdrive and weapon crates
   const magnet = () => 0;   // perk: pick-ups from further away from Lv 5
   function updatePickups(dt, now) {
-    if (!roundLive || serverRun) return;   // on the server, what I pick up is its call (the snapshot's taken keys)
+    if (serverRun) { if (roundLive) serverPickups(now); return; }   // on the server, what I pick up is its call: shown at once, confirmed by its snapshots
+    if (!roundLive) return;
     // sparks
     if (playing && !me.dead) {
       for (let i = 0; i < SLOTS; i++) {

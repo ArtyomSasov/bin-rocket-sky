@@ -265,7 +265,7 @@
   function setMapSize(key) {
     const [size] = MAP_SIZES[key], a = Math.min(6, (size / 2600) ** 2);
     W = H = size; mapKey = key;
-    SLOTS = Math.round(44 * a); ROCKS = Math.round(16 * a); GOLD_N = Math.round(70 * a);
+    SLOTS = 0; ROCKS = Math.round(16 * a); GOLD_N = 0;   // no stars to collect (score comes from hits and kills): less clutter
     world.sparks.length = world.rocks.length = world.picks.length = world.supplies.length = 0;
   }
   // a wreck's size: [w, h] at Medium, from its type and its own random numbers

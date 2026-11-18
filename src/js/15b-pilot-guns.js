@@ -8,11 +8,12 @@
     const o = MODES[MODE].only;
     b.arsenal = o ? { [o]: Infinity } : { fire: Infinity, gauntlet: Infinity }; b.weapon = o || "fire";
     Object.assign(b, { teleN: 0, rocketLoad: 0, loadFor: 0, spin: 0, charge: 0, cutCharge: 0, heat: 0, overheat: false });
+    if (MODES[MODE].sandbox) for (const k of SANDBOX_GUNS) b.arsenal[k] = Infinity;   // the test range: everything, for ever (as baseArsenal)
   }
   const pilotShots = (b, kind) => shots.filter(s => s.owner === b.id && s.life > 0 && !s.boom && s.kind === kind);
   // a crate or a trophy: a new gun joins the arsenal, a carried one gets more ammo; the gun in hand stays
   function pilotGive(b, type, ammo) {
-    if (type === "tele") { b.teleN = Math.min(6, (b.teleN || 0) + WEAPONS.tele.ammo); return; }
+    if (type === "tele") return;   // the teleporter is retired
     if (MODES[MODE].only || !WEAPONS[type] || WEAPONS[type].disabled) return;
     b.arsenal[type] = Math.min(WEAPONS[type].ammo * 2, (b.arsenal[type] || 0) + ammo);
   }
@@ -25,11 +26,15 @@
   }
   // what the snapshot tells the player about their arsenal: [gun index, ammo] (-1: endless)
   const pilotArsenalWire = b => Object.entries(b.arsenal).map(([k, n]) => [WEAPON_KEYS.indexOf(k), Number.isFinite(n) ? Math.ceil(n) : -1]);
-  // A player's shot is judged against where its targets were on the player's screen: half a round trip ago
-  // (a straight round also catches up that far along its line, as a peer's does in 12-network.js)
+  // A player's shot is judged against where its targets were on the player's screen (a straight round also
+  // catches up that far along its line, as a peer's does in 12-network.js). Their screen shows the others between
+  // two snapshots, ld ms behind the newest, which itself left here half a round trip before it arrived; the controls
+  // then take the other half to come back, and wait half a step on average for a step to fly them. So the targets
+  // they saw are a round trip, ld and half a step old: Source's "server time - latency - view interpolation".
+  // (A screen that does not say ld extrapolates the others half a round trip ahead: half a round trip ago.)
   function pilotLag(s, p, now) {
     if (!p.input || !(p.rtt > 0)) return;
-    const lag = clamp(p.rtt / 2, 0, REWIND_MS);
+    const ld = p.input.ld, lag = clamp(ld >= 0 ? p.rtt + ld + 1000 / 60 : p.rtt / 2, 0, REWIND_MS);
     s.hitTime = now - lag;
     if (straightShot(s.kind)) s.catchup = lag / 1000;
   }

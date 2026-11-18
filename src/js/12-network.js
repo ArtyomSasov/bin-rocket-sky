@@ -150,9 +150,15 @@
     r.q = p.q;
     if (hasPos) {
       r.vx = clamp(num(p.vx, 0), -1200, 1200); r.vy = clamp(num(p.vy, 0), -1200, 1200);
-      const lead = leadFor(r);
-      r.tx = clamp(p.x + r.vx * lead, 0, W); r.ty = clamp(p.y + r.vy * lead, 0, H);
-      if (Math.hypot(r.tx - r.x, r.ty - r.y) > 300) { r.x = r.tx; r.y = r.ty; }   // teleport (respawn, black hole)
+      if (serverRun && Number.isFinite(p.ts)) {   // from the authoritative server: kept, to be shown a little in the past (updateRemotes)
+        const buf = r.buf || (r.buf = []);
+        if (!buf.length || p.ts > buf[buf.length - 1].t) buf.push({ t: p.ts, x: clamp(p.x, 0, W), y: clamp(p.y, 0, H), a: num(p.a, r.ta) });
+        if (buf.length > 24) buf.shift();
+      } else {
+        const lead = leadFor(r);
+        r.tx = clamp(p.x + r.vx * lead, 0, W); r.ty = clamp(p.y + r.vy * lead, 0, H);
+        if (Math.hypot(r.tx - r.x, r.ty - r.y) > 300) { r.x = r.tx; r.y = r.ty; }   // teleport (respawn, black hole)
+      }
       if (Number.isFinite(p.a)) r.ta = p.a;
       r.thrust = p.t ? 1 : 0;
       r.tdir = Number.isFinite(p.td) ? clamp(p.td, -7, 7) : undefined;   // which way they push (r.ta is where they face)
@@ -221,6 +227,8 @@
     const mine = k => validHit(k) && k.startsWith(myTag + ".") && credited.size < MAX_CREDITS;
     for (const k of Array.isArray(p.hb) ? p.hb.slice(0, 16).filter(validHit) : []) if (mine(k) && !credited.has(id + ":" + k)) {
       credited.add(id + ":" + k); me.score += 1; stats.hits++; floaters.push({ x: r.x, y: r.y - 30, t: 0, txt: "Hit +1", gold: false });
+      // on the server my hit may have been shown already; one it alone saw (a blast's edge) is felt now
+      if (serverRun && !serverHitShown(id)) { r.hitAt = performance.now(); const t = r.hitAt; if (t - hitTickAt > 60) { hitTickAt = t; sfx("hit", 0.4, 1.8); } }
       metricPeer(k, id, false);
       confirmShotHit(id, k, r);
     }

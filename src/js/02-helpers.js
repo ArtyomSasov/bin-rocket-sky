@@ -79,7 +79,7 @@
   }
   // ---------- world event timing (shared clock; used from the first frame, by the bodies too) ----------
   const EV_CYCLE = 45, EV_START = 10, EV_LEN = 25;
-  const EV_TYPES = ["blackhole", "meteors", "aliens", "goldrain"];
+  const EV_TYPES = ["blackhole", "meteors", "aliens"];   // (the gold rain is gone with the stars)
   function eventAt(ms) {
     if (stationMap()) return { cyc: 0, ph: 0, et: 0, type: "blackhole", active: false, warn: false };
     const t = ms / 1000, cyc = Math.floor(t / EV_CYCLE), ph = t - cyc * EV_CYCLE;

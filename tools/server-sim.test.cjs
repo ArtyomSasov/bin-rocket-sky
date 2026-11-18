@@ -74,7 +74,7 @@ test('player input is clamped to what a stick, an angle and buttons can send', {
   assert.ok(Math.abs(i.mx - Math.SQRT1_2) < 1e-12 && Math.abs(i.my - Math.SQRT1_2) < 1e-12, 'a stick never goes past its rim');
   assert.ok(Math.abs(i.aim - (7 - 2 * Math.PI)) < 1e-12, 'an angle is wrapped');
   assert.deepEqual({ fire: i.fire, boost: i.boost, dash: i.dash }, { fire: false, boost: true, dash: 0 });
-  assert.deepEqual(cleanInput({ mx: NaN, aim: Infinity, dash: 2.5, tele: -1, w: 99, alt: 1 }), { mx: 0, my: 0, aim: 0, fire: false, alt: false, boost: false, brake: false, dash: 0, tele: 0, w: -1, s: 0 });
+  assert.deepEqual(cleanInput({ mx: NaN, aim: Infinity, dash: 2.5, tele: -1, w: 99, alt: 1 }), { mx: 0, my: 0, aim: 0, fire: false, alt: false, boost: false, brake: false, dash: 0, tele: 0, w: -1, s: 0, ld: -1 });
 });
 
 test('a player joining a full arena takes an AI bot’s place; a server of players only has no room left', { skip }, async () => {
@@ -166,24 +166,6 @@ test('a player carries an arsenal: picks a gun, loads a rocket salvo with alt an
   } finally { m.dispose(); }
 });
 
-test('a player’s teleporter throws a beacon and jumps onto it', { skip }, async () => {
-  const { createMatch } = await sim();
-  const m = createMatch({ code: 'm1d0o' });
-  try {
-    const id = m.addPilot('Jumper');
-    run(m, 0.1);
-    const b = m.game.__simBot(id);
-    b.teleN = 3;
-    hold(m, id, 600, 300, 0);
-    m.input(id, { aim: 0, tele: 1 });
-    run(m, 0.6, () => { b.vx = b.vy = 0; b.x = 600; b.y = 300; });
-    m.input(id, { aim: 0, tele: 2 });
-    run(m, 0.1);
-    assert.ok(b.x > 800, `jumped to the beacon: x ${b.x}`);
-    assert.equal(b.teleN, 2);
-  } finally { m.dispose(); }
-});
-
 test('a broken-off piece has the same name everywhere the same craters were cut, and the snapshot says where it is', { skip }, async () => {
   const { createMatch } = await sim();
   const cutCap = m => {
@@ -243,5 +225,53 @@ test('a player’s state says which of their numbered controls it holds and for 
     const mine = m.packet(clock).bots.find(([bid]) => bid === id)[1];
     assert.equal(mine.ak, 7);
     assert.ok(mine.ag >= 95 && mine.ag <= 140, `flown ${mine.ag} ms`);
+  } finally { m.dispose(); }
+});
+
+test('a screen that shows the others interpolated (ld ms back) has its shots judged a round trip and ld ago', { skip }, async () => {
+  const { createMatch } = await sim();
+  // as in the test above: the target crosses the line of fire at 1000 px/s, the shooter fires where its screen showed it
+  const lands = async (rtt, ld, back) => {
+    const m = createMatch({ code: 'm1d0o' });
+    try {
+      const shooter = m.addPilot('Shooter'), target = m.addPilot('Target');
+      run(m, 0.1);
+      m.rtt(shooter, rtt);
+      let t = 0, aim = 0;
+      const y = () => 400 + t * 1000, keep = () => { t += STEP; hold(m, shooter, 1500, 700, aim); hold(m, target, 1900, y(), 0); m.game.__simBot(target).vy = 1000; };
+      run(m, 0.5, keep);
+      aim = Math.atan2(y() - back - 700, 400);
+      const before = m.game.__simBot(target).lives;
+      m.input(shooter, { aim, fire: true, ld });
+      run(m, 1 / 30 * 1.01, keep);
+      m.input(shooter, { aim, fire: false, ld });
+      run(m, 0.2, keep);
+      return m.game.__simBot(target).lives < before;
+    } finally { m.dispose(); }
+  };
+  // 100 ms round trip + 80 ms of interpolation + half a step: ~196 ms back, less the step the target flies first
+  assert.equal(await lands(100, 80, 150), true, 'judged where the interpolated screen showed it');
+  assert.equal(await lands(100, -1, 150), false, 'a screen that does not interpolate is judged only half a round trip back');
+});
+
+test('every gun fires for a player on the server, and the test range hands a player the whole arsenal', { skip }, async () => {
+  const { createMatch } = await sim();
+  const m = createMatch({ code: 'm1x0o' });   // the test range
+  try {
+    const { WEAPON_KEYS } = m.game.__simConst;
+    const id = m.addPilot('Gunner');
+    run(m, 0.1);
+    const b = m.game.__simBot(id), guns = Object.keys(b.arsenal);
+    for (const g of ['fire', 'gauntlet', 'minigun', 'scatter', 'shard', 'gren', 'rocket', 'laser', 'orb', 'rail', 'saw', 'mine', 'gamma', 'nuke', 'holy']) assert.ok(guns.includes(g), 'carries ' + g);
+    assert.ok(!guns.includes('tele'), 'no teleporter: it is retired');
+    for (const g of guns) {
+      if (g === 'gauntlet') continue;   // a blow needs a bin within reach
+      const w = WEAPON_KEYS.indexOf(g), shots = b.st.shots;
+      m.input(id, { w, aim: 0 }); run(m, 0.3, () => hold(m, id, 900, 300, 0));
+      m.input(id, { w, aim: 0, fire: true }); run(m, 1.3, () => hold(m, id, 900, 300, 0));   // (the charge cannon fires on release)
+      m.input(id, { w, aim: 0, fire: false }); run(m, 0.2, () => hold(m, id, 900, 300, 0));
+      assert.ok(b.st.shots > shots, g + ' fired');
+      if (b.dead) run(m, 3.5);   // a nuke at close range takes its owner too
+    }
   } finally { m.dispose(); }
 });

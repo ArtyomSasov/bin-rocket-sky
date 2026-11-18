@@ -182,6 +182,7 @@
   WEAPONS.gauntlet.cd = .4; WEAPONS.mine.cd = .8;
   WEAPONS.nuke.shot = [K.NUKE, 840]; WEAPONS.nuke.alt.shot = [K.NUKE, 840];
   WEAPONS.nail.disabled = true; // keep wire IDs and other weapons' number keys stable
+  WEAPONS.tele.disabled = true; // the teleporter is retired (nobody used it); its wire number stays
   let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]

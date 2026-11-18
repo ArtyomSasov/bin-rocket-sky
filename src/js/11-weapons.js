@@ -1041,17 +1041,7 @@
     myGunDrops.push(d); if (myGunDrops.length > 6) myGunDrops.shift();
     gunDrops.set(id, { x: d[1], y: d[2], type, ammo: d[4], born: performance.now() });
   }
-  function spillStars(now) {
-    const n = Math.min(40, Math.floor(me.carry / 2));
-    me.carry = 0;
-    if (n <= 0) return;
-    const id = myTag + (deaths++).toString(36);
-    me.score = Math.max(0, me.score - n);
-    showScore();
-    floaters.push({ x: me.x, y: me.y - 40, t: 0, txt: "-" + n + " stars", gold: false });
-    drops.set(id, { x: me.x, y: me.y, n, born: now });
-    myDrops.push([id, Math.round(me.x), Math.round(me.y), n, Date.now()]);
-  }
+  function spillStars() { me.carry = 0; }   // stars are gone from the game: nothing is spilled
   function dropStar(d, id, j, now) {
     const hs = strHash(id), a = hash(j, hs, 41) * 6.283 + j, r = 50 + hash(j, hs, 42) * 190;
     const k = Math.min(1, (now - d.born) / 600), e = 1 - (1 - k) * (1 - k);

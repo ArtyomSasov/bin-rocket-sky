@@ -406,8 +406,8 @@
         if (botById.has(rid)) continue;
         if (r.inv || !canHurt(s, r, rid)) continue;
         if (armed && targetHit(s, r)) {
-          if (pierces(s)) { if (railOnce(s, rid)) { shotBurst(s); if (s.mine) predictHit(s, rid, r); } continue; }
-          s.life = 0; s.direct = rid; shotBurst(s); if (s.mine) predictHit(s, rid, r);
+          if (pierces(s)) { if (railOnce(s, rid)) { shotBurst(s); if (s.mine) predictHit(s, rid, r); else if (mySrvShot(s)) serverHitFx(s, rid, r); } continue; }
+          s.life = 0; s.direct = rid; shotBurst(s); if (s.mine) predictHit(s, rid, r); else if (mySrvShot(s)) serverHitFx(s, rid, r);
           if ((s.kind === K.BOLT || s.kind === K.LASER) && s.mine) boltChain(s, r.x, r.y, rid, now);
           break;
         }
@@ -479,12 +479,15 @@
     // remotes: extrapolate + ease toward reported spot
     for (const [rid, r] of remotes) {
       if (!botById.has(rid) && now - r.seen > 7000) { removeRemote(rid); continue; }
+      if (serverRun && r.buf?.length) serverInterp(r);   // the server's pilots: between two of its snapshots
+      else {
       const predict = now - r.seen < 250 ? dt : 0; // packet loss must not make a ghost fly through the whole map
       r.tx = clamp(r.tx + r.vx * predict, 0, W); r.ty = clamp(r.ty + r.vy * predict, 0, H);
       const corr = 1 - Math.exp(-12 * dt);
       r.x = clamp(r.x + r.vx * predict + (r.tx - (r.x + r.vx * predict)) * corr, 0, W);
       r.y = clamp(r.y + r.vy * predict + (r.ty - (r.y + r.vy * predict)) * corr, 0, H);
       r.a = lerpAng(r.a, r.ta, 1 - Math.exp(-14 * dt));
+      }
       if (r.dead) continue;
       if (Math.abs(r.x - me.x) < vw / 2 + 300 && Math.abs(r.y - me.y) < vh / 2 + 300) { trailFrom(r, 0.6 + r.thrust * 1.4 + (r.boost || 0) * 1.5, dt); damageFx(r, dt); afterburner(r, r.boost || 0, dt); }
       // boop
@@ -511,7 +514,8 @@
   // sparks, spilled stars, medkits and shields, Overdrive and weapon crates
   const magnet = () => 0;   // perk: pick-ups from further away from Lv 5
   function updatePickups(dt, now) {
-    if (!roundLive || serverRun) return;   // on the server, what I pick up is its call (the snapshot's taken keys)
+    if (serverRun) { if (roundLive) serverPickups(now); return; }   // on the server, what I pick up is its call: shown at once, confirmed by its snapshots
+    if (!roundLive) return;
     // sparks
     if (playing && !me.dead) {
       for (let i = 0; i < SLOTS; i++) {

@@ -32,7 +32,7 @@ const AFK_MS = +env("AFK_MS", 120000);            // a player who sends no contr
 const ORIGINS = env("ORIGINS", "https://artyomsasov.github.io,http://localhost:8000,http://127.0.0.1:8000").split(",").filter(Boolean);
 const TICK_HZ = 30, SEND_EVERY = 1, STEP = 1 / TICK_HZ;   // 30 steps and 30 snapshots a second (compressed: see perMessageDeflate)
 const CODE = /^[a-z0-9]{4,16}$/;
-const RTT_CAP = 300;   // ms: a player's shots are judged at most 150 ms back
+const RTT_CAP = 300;   // ms: the round trip a player is credited with at most (their shots are judged at most REWIND_MS = 250 ms back)
 
 const rooms = new Map();   // code -> room
 const log = (...a) => console.log(new Date().toISOString(), ...a);

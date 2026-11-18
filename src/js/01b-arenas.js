@@ -35,7 +35,7 @@
     y: { name: "Drydocks",
       planets: [["rock", 0.5, 0.5, 150, 0]],
       wrecks: [["hull", 0.3, 0.2, 0], ["hull", 0.5, 0.2, 0], ["hull", 0.7, 0.2, 0], ["ring", 0.34, 0.5], ["tower", 0.1, 0.1, 0], ["crates", 0.9, 0.1]],
-      guns: [["rail", 0.4, 0.05], ["orb", 0.38, 0.35], ["laser", 0.2, 0.32], ["mine", 0.7, 0.36], ["tele", 0.92, 0.27], ["rocket", 0.6, 0.08]],
+      guns: [["rail", 0.4, 0.05], ["orb", 0.38, 0.35], ["laser", 0.2, 0.32], ["mine", 0.7, 0.36], ["gren", 0.92, 0.27], ["rocket", 0.6, 0.08]],
       supplies: [["med", 0.6, 0.32], ["shield", 0.2, 0.08], ["bigmed", 0.64, 0.4]],
       amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.33], pads: [[0.12, 0.38, 0]] },
     // Downtown: two blocks of towers with a plaza in each, the main street between the bases, a fallen hull in the middle

@@ -13,6 +13,7 @@ const BRIDGE = `
   let serverSeq = 0;
   globalThis.__simBot = id => botById.get(id);   // the live pilot object, for tests and tools
   globalThis.__simConst = { WEAPON_KEYS, K };   // protocol numbers, for tests and tools
+  globalThis.__simShots = () => shots;   // the shots in flight, for tests and tools
   globalThis.__simTerrain = { rubble: () => rubble, det: () => det, carveAt, shove };   // for tests and tools
   globalThis.__simDet = () => det.map(b => b.cells.join(""));   // every body's solid cells, to compare with a browser
   globalThis.__sim = {
@@ -67,7 +68,8 @@ export function cleanInput(i = {}) {
   const count = n => Number.isSafeInteger(n) && n >= 0 ? n : 0;
   return { mx, my, aim: Number.isFinite(i.aim) ? Math.atan2(Math.sin(i.aim), Math.cos(i.aim)) : 0, fire: i.fire === true, alt: i.alt === true,
     boost: i.boost === true, brake: i.brake === true, dash: count(i.dash), tele: count(i.tele), w: Number.isInteger(i.w) && i.w >= 0 && i.w < 64 ? i.w : -1,
-    s: count(i.s) };   // s: the controls' number, counted up by the player's screen with each message
+    s: count(i.s),   // s: the controls' number, counted up by the player's screen with each message
+    ld: Number.isFinite(i.ld) ? Math.max(0, Math.min(150, Math.round(i.ld))) : -1 };   // ld: how far back their screen shows the others (ms; -1: not said)
 }
 
 export function createMatch({ code = "m1d0c", bots = 0, level = "normal" } = {}) {
@@ -76,7 +78,9 @@ export function createMatch({ code = "m1d0c", bots = 0, level = "normal" } = {})
   sim.start(code, bots, level);
   return {
     step: (dt, now = performance.now()) => { game.__setNow(now); sim.step(dt, now); },
-    packet: (now = performance.now()) => { game.__setNow(now); return sim.packet(now); },
+    // stamped with the moment the step stands for, not the moment the timer fired: the steps are evenly spaced in
+    // simulated time, so a screen that places them on a timeline (interpolation) sees even motion
+    packet: (now = performance.now()) => { game.__setNow(now); const p = sim.packet(now); p.ts = Math.round(performance.timeOrigin + now); return p; },
     addPilot: name => sim.addPilot(name),
     removePilot: id => sim.removePilot(id),
     input: (id, i) => sim.input(id, cleanInput(i)),
