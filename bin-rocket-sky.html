@@ -6764,7 +6764,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
           // and each command spends CMD_DT of it, so sending them faster than time passes gains nothing (the queue
           // just overflows). A delay of up to 8 commands (~133 ms, the network's jitter) is waited out; past that the
           // last command is flown again, so the pilot never hangs in place, and as many late ones are skipped
-          b.cqBudget = Math.min(CMD_DT * 10, (b.cqBudget || 0) + dt);
+          // (the allowance grows by the clock, not by the step: a server running late drops steps, never a player's time)
+          const real = Number.isFinite(b.cqAt) ? Math.max(0, Math.min(0.5, (now - b.cqAt) / 1000)) : dt; b.cqAt = now;
+          b.cqBudget = Math.min(CMD_DT * 30, (b.cqBudget || 0) + real);
           for (let n = 0; n < 3 && b.cqBudget >= CMD_DT - 1e-9; n++) {
             let c;
             if (cmds.length) { c = cmds.shift(); b.lastCmd = c; b.ackSeq = c.s; }

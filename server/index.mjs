@@ -77,7 +77,8 @@ function broadcast(room, now) {
     try {
       plain ||= JSON.parse(data);
       const bytes = deltaFrame(ws.delta, plain, ws.pid);
-      if (!(ws.rtc?.usable() && ws.rtc.send(bytes))) ws.send(bytes, { binary: true });   // the data channel while it works
+      if (ws.rtc?.usable() && ws.rtc.send(bytes)) ws.rtcUsed = true;   // the data channel while it works
+      else ws.send(bytes, { binary: true });
     }
     catch (e) { log("delta failed", room.code, e.stack); ws.delta = null; ws.send(data); }
   }
@@ -217,7 +218,7 @@ wss.on("connection", (ws, req) => {
       room = r; id = pid; room.clients.add(ws); done();
       ws.pid = pid; if (m.bin === 1) ws.delta = deltaStream();   // a page that rebuilds binary deltas gets them
       // and a page that can, a data channel for them (and its controls) as well
-      if (ws.delta && m.rtc === 1 && rtcReady) ws.rtc = openRtc(pid, sdp => send(ws, { t: "rtc", sdp }), text => handle(text, false), () => { ws.rtc = null; });
+      if (ws.delta && m.rtc === 1 && rtcReady) ws.rtcOffered = true, ws.rtc = openRtc(pid, sdp => send(ws, { t: "rtc", sdp }), text => handle(text, false), () => { ws.rtc = null; });
       send(ws, { t: "welcome", id, code, tickHz: TICK_HZ, sendHz: TICK_HZ / SEND_EVERY, serverTime: Date.now() });
       log("join", code, id, "players", room.clients.size, ws.rtc ? "webrtc offered" : "");
     }
@@ -231,7 +232,7 @@ wss.on("connection", (ws, req) => {
     if (!room.clients.size) room.emptySince = performance.now();
     log("leave", room.code, id, "players", room.clients.size);
     const a = ws.net;   // the player's network, for deciding what to improve: averages over their stay
-    if (a?.n) log("net", id, `${a.n * 10}s`, "ping", Math.round(a.p / a.n), "jitter", Math.round(a.j / a.n), "stalls/min", +(a.s / (a.n / 6)).toFixed(1), "worst gap", Math.round(a.g), "fps", Math.round(a.f / a.n), "cmd repeats", rep, ws.rtc ? "webrtc" : "websocket");
+    if (a?.n) log("net", id, `${a.n * 10}s`, "ping", Math.round(a.p / a.n), "jitter", Math.round(a.j / a.n), "stalls/min", +(a.s / (a.n / 6)).toFixed(1), "worst gap", Math.round(a.g), "fps", Math.round(a.f / a.n), "cmd repeats", rep, ws.rtcUsed ? "webrtc" : "websocket");
   });
 });
 // connections that stopped answering, and players who stopped playing, are dropped (their pilot leaves with them):

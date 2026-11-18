@@ -45,7 +45,7 @@ const BRIDGE = `
           if (b.cqOwed > 0) { b.cqOwed--; b.ackSeq = c.s; b.lastCmd = c; continue; }   // its time was flown already (the last command, again)
           b.cq.push(c);
         }
-        if (b.cq.length > 30) b.cq.splice(0, b.cq.length - 30);
+        if (b.cq.length > 60) b.cq.splice(0, b.cq.length - 60);   // (a second's worth: more is a screen running fast, not lag)
       }
       delete i.c;
       if (i.s && i.s < b.input.s) return;
