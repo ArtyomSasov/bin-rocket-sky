@@ -96,6 +96,7 @@
         if (now < b.respawnAt) continue;
         clearArmor(b);
         Object.assign(b, { dead: false, lives: maxLivesOf(b.lv), inv: now + 2000, ...spawnPoint(b.tm), vx: 0, vy: 0 });
+        resetCmds(b);
       }
       const human = b.input;   // flown by a player: the AI below only steers the others
       // nearest living target: me or anyone else in the lobby (other bots included)
@@ -192,14 +193,13 @@
       const cmds = human && b.cq;   // a player whose screen sends flight commands: flown by them (pilotMove), below
       const split = human && !cmds && b.prevIn && b.split > 1e-4 ? b.split : 0;   // new controls came in part way through this step
       if (!split && !cmds) { st.x += (ux - st.x) * ease; st.y += (uy - st.y) * ease; }
-      if (cmds) {}
-      else if (human) {   // a player's energy works as the local pilot's (steerAndShoot): regen waits 0.7 s after a boost or a dash
+      if (human && !cmds) {   // a player's energy works as the local pilot's (steerAndShoot): regen waits 0.7 s after a boost or a dash
         b.boosting = wantBoost && b.energy > 0 && Math.hypot(st.x, st.y) > 0.1;
         if (b.boosting && !b.boostOn) { b.vx += Math.cos(b.a) * 220; b.vy += Math.sin(b.a) * 220; }   // lighting it shoves forward, as flyStep
         b.boostOn = b.boosting;
         if (b.boosting) { b.energy = Math.max(0, b.energy - 20 * dt); b.regenAt = now + 700; }
         else if (now > (b.regenAt || 0)) b.energy = Math.min(100, b.energy + 22 * dt);
-      } else {
+      } else if (!human) {   // a bot's (a player flown by commands has its energy in pilotMove)
         b.energy = Math.min(100, (b.energy ?? 100) + (b.boosting ? -20 : 22) * dt);
         b.boosting = wantBoost && b.energy > (b.boosting ? 0 : 40) && b.L.speed >= 0.9;
       }
@@ -234,15 +234,17 @@
           for (let n = 0; n < 3 && b.cqBudget >= CMD_DT - 1e-9; n++) {
             let c;
             // the next one is missing but later ones are here (lost or overtaken on the way): a moment's wait for it
-            if (cmds.length && cmds[0].s !== (b.ackSeq || 0) + 1 && b.ackSeq && b.cqBudget < CMD_DT * 8) break;
-            if (cmds.length) { c = cmds.shift(); b.lastCmd = c; b.ackSeq = c.s; }
-            else if (b.cqBudget >= CMD_DT * 8) { c = b.lastCmd || { mx: 0, my: 0, aim: b.a, boost: false, brake: false, dash: b.dashDone || 0 }; b.cqOwed = Math.min(30, (b.cqOwed || 0) + 1); b.cqRepeats = (b.cqRepeats || 0) + 1; }
+            // (cmdAck: the number of the last command flown; it is not the controls messages' number, ackSeq)
+            if (cmds.length && cmds[0].s !== (b.cmdAck || 0) + 1 && b.cmdAck && b.cqBudget < CMD_DT * 8) break;
+            if (cmds.length) { c = cmds.shift(); b.lastCmd = c; b.cmdAck = c.s; }
+            else if (b.cqBudget >= CMD_DT * 8) { c = b.lastCmd || { mx: 0, my: 0, aim: b.a, boost: false, brake: false, fire: false, alt: false, dash: b.dashDone || 0 }; b.cqOwed = Math.min(30, (b.cqOwed || 0) + 1); b.cqRepeats = (b.cqRepeats || 0) + 1; }
             else break;
             b.cqBudget -= CMD_DT;
+            // the trigger as this command held it, aimed as it was aimed, before the command's flight, as the player's
+            // screen fires before it flies its frame (Source and Overwatch fire from the user command the same way)
+            b.a = c.aim; human.fire = !!c.fire; human.alt = !!c.alt;
+            b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; pilotTriggers(b, CMD_DT, now); b.cmdWait = -1;
             const g = pilotMove(b, c);
-            // the trigger as this command held it, aimed as it was aimed: a shot goes out on the same command as on
-            // the player's screen (Source and Overwatch fire from the user command the same way)
-            if (c.fire !== undefined) { human.fire = c.fire; human.alt = c.alt; b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; pilotTriggers(b, CMD_DT, now); b.cmdFired = true; b.cmdWait = -1; }
             f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
           }
         }
@@ -298,7 +300,7 @@
           b.fireCd = Math.max(b.fireCd, 0.6);
         }
       }
-      if (human) { if (!b.cmdFired) pilotTriggers(b, dt, now); b.cmdFired = false; }   // (a pilot whose commands carry the trigger has had it, per command)
+      if (human) { if (!b.cq) pilotTriggers(b, dt, now); }   // (a pilot flown by commands has its trigger with each command, above)
       else if (tgt && roundLive && td < 950 && Math.abs(angD(aimA - b.a)) < 0.22 + b.L.aim && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
         const md = MODES[MODE];
         b.fireCd = (md.botCd ? b.L.cd * md.botCd : cd < 0.15 ? cd * 2 : Math.max(b.L.cd, cd * 1.3)) * (0.7 + Math.random() * 0.6); }
@@ -366,7 +368,7 @@
       m.sh = b.shield || 0;
       // a player's own HUD (the guns they carry), and which of their controls this state already holds:
       // ak, the last one applied; ag, for how long (ms, including this step), so their screen can compare
-      if (b.input) { m.ar = pilotArsenalWire(b); m.tn = b.teleN || 0; m.ak = b.ackSeq || 0; m.ag = Math.round(now - (b.ackAt ?? now)); m.en = Math.round(b.energy);
+      if (b.input) { m.ar = pilotArsenalWire(b); m.tn = b.teleN || 0; m.ak = (b.cq ? b.cmdAck : b.ackSeq) || 0; m.ag = Math.round(now - (b.ackAt ?? now)); m.en = Math.round(b.energy);
         if (b.cq) m.mv = moveState(b);
         m.al = [b.beltArmor || 0, b.bodyArmor || 0, b.padsArmor || 0].map(v => Math.round(v * 1000) / 1000); }   // the armour, layer by layer   // flown by commands: exactly where its last one left it (the screen flies the rest again)
       if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, lv: 1, wp: WEAPON_KEYS.indexOf(botWeapon(b)), tg: b.tag,

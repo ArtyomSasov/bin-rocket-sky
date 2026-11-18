@@ -396,7 +396,7 @@ test('nothing but its commands moves a player\u2019s pilot: crashing about the s
       const a = s / 40, c = [s, Math.round(Math.cos(a) * 1000), Math.round(Math.sin(a * 0.73) * 1000), Math.round(Math.sin(a * 1.3) * 3000), (s % 120 < 40 ? 1 : 0) | (s % 97 > 90 ? 2 : 0), Math.floor(s / 300)];
       const before = M.moveState(b);
       m.input(id, { c: [c] }); step();
-      if (b.ackSeq !== s || b.dead) continue;
+      if (b.cmdAck !== s || b.dead) continue;
       M.setMoveState(shadow, before);
       M.pilotMove(shadow, { s, mx: c[1] / 1000, my: c[2] / 1000, aim: c[3] / 1000, boost: !!(c[4] & 1), brake: !!(c[4] & 2), dash: c[5] });
       assert.ok(Math.hypot(shadow.x - b.x, shadow.y - b.y) < 0.01 && Math.hypot(shadow.vx - b.vx, shadow.vy - b.vy) < 0.01, `command ${s}: the server moved it otherwise (${b.vx.toFixed(1)},${b.vy.toFixed(1)} vs ${shadow.vx.toFixed(1)},${shadow.vy.toFixed(1)})`);

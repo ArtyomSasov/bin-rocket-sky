@@ -149,7 +149,8 @@
   const CMD_DT = 1 / 60;
   let replaying = false;   // flying commands again from the server's word: no effects, nothing else pushed
   function pilotMove(o, c, dt = CMD_DT) {
-    o.mt = (o.mt || 0) + dt;
+    if (!Number.isFinite(o.mt)) { o.mt = 0; o.padAt = -1e9; }   // the command clock starts: a pad's wait from another clock is dropped
+    o.mt += dt;
     const st = o.stick || (o.stick = { x: 0, y: 0 }), m = Math.hypot(c.mx, c.my), e = 1 - Math.exp(-13 * dt);
     st.x += ((m > 1 ? c.mx / m : c.mx) - st.x) * e; st.y += ((m > 1 ? c.my / m : c.my) - st.y) * e;
     o.a = c.aim;
@@ -173,6 +174,9 @@
     f.dashed = dashed; f.lit = lit;
     return f;
   }
+  // a player's command queue starts afresh (a respawn, a new round): nothing old is flown again or owed, and the
+  // allowance does not count the time spent dead
+  function resetCmds(b) { if (!b.cq) return; b.cq.length = 0; b.cqBudget = 0; b.cqAt = undefined; b.cqOwed = 0; b.lastCmd = null; }
   // what a command flight carries from one command to the next (sent by the server for the player's own pilot)
   const MOVE_STATE = ["x", "y", "vx", "vy", "a", "energy", "regenWait", "dashCool", "dashFx", "dashDone", "mt", "padAt"];
   // (exact, not rounded: a bounce off a wall turns on fractions of a pixel, and the replay must bounce the same)
@@ -194,7 +198,9 @@
       srv.acc -= CMD_DT;
       // (rounded as the wire carries them, so both sides fly exactly the same numbers)
       const c = { s: ++srv.cs, mx: r3(c0.mx), my: r3(c0.my), aim: r3(Math.atan2(Math.sin(me.a), Math.cos(me.a))), boost: !!c0.boostReq, brake: braking, dash: srv.dashN,
-        fire: !!c0.fire && roundLive, alt: !!c0.alt && roundLive };   // the trigger too: the server fires on this command, with this aim
+        fire: !!c0.fire && roundLive, alt: !!c0.alt && roundLive,   // the trigger too: the server fires on this command, with this aim
+        kx: srv.kx || 0, ky: srv.ky || 0 };   // the recoil my shots gave before it (the server gives its own; a replay needs mine)
+      srv.kx = srv.ky = 0;
       srv.cmds.push(c); if (srv.cmds.length > 240) srv.cmds.shift();
       const g = pilotMove(me, c);
       f = { crash: g.crash || f.crash, fence: g.fence || f.fence, drift: g.drift, dashed: g.dashed !== false ? g.dashed : f.dashed, lit: g.lit || f.lit };
@@ -975,6 +981,7 @@
         floaters.push({ x: me.x, y: me.y - 90, t: 0, txt: "ROUND " + (rd.idx - (firstRoundIdx ?? rd.idx) + 1) + " · FIGHT!", gold: true });
         sfx("v_fight", 1);
       }
+      for (const b of bots) resetCmds(b);
       for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, shield: 0, beltArmor: 0, bodyArmor: 0, padsArmor: 0, lv: 1, xp: 0, vx: 0, vy: 0, ammo: 0, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0, weapon: "fire" });
       for (const b of bots) if (b.input) pilotArm(b);
       me.fc = -1; me.caps = 0; me.heat = 0; me.overheat = false; railCharge = 0; charge = 0; cancelRocketLoad();

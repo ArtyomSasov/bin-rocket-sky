@@ -17,20 +17,29 @@ const KEEP = 64;            // snapshots each stream remembers (two seconds at 3
 // botWire): in a delta stream it is carried on from the snapshot before, so it costs nothing while it stays
 const STICKY = ["n", "h", "ck", "s", "lv", "wp", "st", "tg", "tm", "fc", "cp", "sh"];
 
-export function deltaStream() { return { sent: new Map(), ack: 0, ter: new Map() }; }
-// the player confirms it holds snapshot q
-export function ackSnapshot(st, q) { if (Number.isSafeInteger(q) && q > st.ack && st.sent.has(q)) st.ack = q; }
+export function deltaStream() { return { sent: new Map(), ack: 0, ter: new Map(), got: new Set(), last: null }; }
+// the player confirms it holds snapshot q (got: the ones it said so of, which certainly reached it)
+export function ackSnapshot(st, q) {
+  if (!Number.isSafeInteger(q) || !st.sent.has(q)) return;
+  st.got.add(q); if (st.got.size > 128) st.got.delete(st.got.values().next().value);
+  if (q > st.ack) st.ack = q;
+}
+// what only a pilot's own player reads (its flight state, armour layers, arsenal, acks, energy, teleporter charges):
+// left out of the others' entries in each player's stream
+const PRIVATE = ["mv", "al", "ar", "ak", "ag", "en", "tn"];
 // the message for one player: plain is the snapshot as JSON would carry it, me the player's pilot id
 export function deltaFrame(st, plain, me) {
   const base = st.ack ? st.sent.get(st.ack) : null;
   let view = plain;
-  const prev = st.sent.size ? [...st.sent.values()].pop() : null;
-  if (prev && Array.isArray(plain.bots) && Array.isArray(prev.bots)) {
-    const was = new Map(prev.bots.map(e => [e[0], e[1]]));
+  const prev = st.last;
+  if (Array.isArray(plain.bots)) {
+    const was = prev && Array.isArray(prev.bots) ? new Map(prev.bots.map(e => [e[0], e[1]])) : new Map();
     view = { ...plain, bots: plain.bots.map(e => {
-      const o = was.get(e[0]); if (!o || !e[1] || typeof e[1] !== "object") return e;
+      if (!e[1] || typeof e[1] !== "object") return e;
+      const o = was.get(e[0]);
       let m = null;
-      for (const k of STICKY) if (!(k in e[1]) && k in o) (m ||= { ...e[1] })[k] = o[k];
+      if (o) for (const k of STICKY) if (!(k in e[1]) && k in o) (m ||= { ...e[1] })[k] = o[k];
+      if (e[0] !== me) for (const k of PRIVATE) if (k in e[1]) { m ||= { ...e[1] }; delete m[k]; }
       return m ? [e[0], m] : e;
     }) };
   }
@@ -48,11 +57,15 @@ export function deltaFrame(st, plain, me) {
   // already confirmed in the very same state is not sent again (it was ~8 KB/s that a delta could not shrink)
   if (Array.isArray(view.terrain)) {
     const t = view.terrain, val = JSON.stringify(t), had = st.ter.get(t[1]);
-    if (had && had.val === val && had.q <= st.ack) { view = { ...view }; delete view.terrain; }
-    else if (!had || had.val !== val) st.ter.set(t[1], { val, q: plain.q });
+    if (had && had.val === val && had.qs.some(q => st.got.has(q))) { view = { ...view }; delete view.terrain; }
+    else {
+      const qs = had && had.val === val ? had.qs : [];
+      qs.push(plain.q); if (qs.length > 8) qs.shift();
+      st.ter.set(t[1], { val, qs });   // (it counts as had once a snapshot carrying it is confirmed)
+    }
   }
   const bytes = SNAP_DELTA.frame(plain.q, base ? st.ack : 0, base ? SNAP_DELTA.diff(base, view) : view);
-  st.sent.set(plain.q, view);
+  st.sent.set(plain.q, view); st.last = view;
   for (const q of st.sent.keys()) { if (q > plain.q - KEEP) break; st.sent.delete(q); if (st.ack === q) st.ack = 0; }
   return bytes;
 }

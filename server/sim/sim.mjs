@@ -42,8 +42,8 @@ const BRIDGE = `
         b.cq ||= [];
         for (const c of i.c) {
           c.at = Number.isFinite(at) ? at : 0;   // when it came in (the server's own clock: how long it then waits in the queue is its measure)
-          if (c.s <= (b.ackSeq || 0) || b.cq.some(q => q.s === c.s)) continue;
-          if (b.cqOwed > 0 && c.s === (b.ackSeq || 0) + 1) { b.cqOwed--; b.ackSeq = c.s; b.lastCmd = c; continue; }   // its time was flown already (the last command, again)
+          if (c.s <= (b.cmdAck || 0) || b.cq.some(q => q.s === c.s)) continue;
+          if (b.cqOwed > 0 && c.s === (b.cmdAck || 0) + 1) { b.cqOwed--; b.cmdAck = c.s; b.lastCmd = c; continue; }   // its time was flown already (the last command, again)
           let k = b.cq.length; while (k > 0 && b.cq[k - 1].s > c.s) k--;
           b.cq.splice(k, 0, c);
         }

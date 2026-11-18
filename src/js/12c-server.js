@@ -98,12 +98,13 @@
   // Reconciliation with commands, as Quake 3 and Overwatch do it: the server says where my pilot is after my command
   // ak; from there my commands it has not flown yet are flown again here, on a copy. Where that ends is where I should
   // be now. Speed, energy and the rest are taken as they are; the place is eased in (serverTrack), never jumped.
+  const validMv = v => Array.isArray(v) && v.length === MOVE_STATE.length + 3 && v.every(Number.isFinite);
   function reconcile(m) {
     const ak = Number.isSafeInteger(m.ak) ? m.ak : 0;
     while (srv.cmds.length && srv.cmds[0].s <= ak) srv.cmds.shift();   // flown on the server: done with
-    const o = { lv: me.lv, inv: 0 }; setMoveState(o, m.mv);
+    const o = { lv: me.lv, inv: 0, pinnedUntil: me.pinnedUntil }; setMoveState(o, m.mv);
     replaying = true;
-    try { for (const c of srv.cmds) pilotMove(o, c); } finally { replaying = false; }
+    try { for (const c of srv.cmds) { o.vx += c.kx || 0; o.vy += c.ky || 0; pilotMove(o, c); } } finally { replaying = false; }   // (recoil first, as it went)
     // the flight takes the corrected state exactly (so the next bounce off a wall is the server's bounce too); only
     // the picture glides there: the gap is drawn as an offset that fades (vox, voy), as Overwatch and Rocket League do
     const ex = o.x - me.x, ey = o.y - me.y;
@@ -209,14 +210,14 @@
     // instead of flying from a spawn point of its own and being thrown across the map a moment later)
     if (!srv.placed) {
       if (m.rd !== stats.round) return;
-      if (Array.isArray(m.mv) && m.mv.length === MOVE_STATE.length + 3 && m.mv.every(Number.isFinite)) setMoveState(me, m.mv);
+      if (validMv(m.mv)) setMoveState(me, m.mv);
       else { me.x = m.x; me.y = m.y; me.vx = num(m.vx, 0); me.vy = num(m.vy, 0); }
       srv.cmds.length = 0; srv.vox = srv.voy = srv.cx = srv.cy = 0; srv.hist.length = 0;
       cam.x = me.x + cam.lx; cam.y = me.y + cam.ly;
       srv.placed = true;
       return;
     }
-    if (Array.isArray(m.mv) && m.mv.length === MOVE_STATE.length + 3 && m.mv.every(Number.isFinite)) { reconcile(m); return; }
+    if (validMv(m.mv)) { reconcile(m); return; }
     if (Number.isFinite(m.en) && Math.abs(m.en - energy) > 15) energy = clamp(m.en, 0, 100);
     // Reconciliation, as Quake and Source do it: the server's state holds my controls up to number ak, flown for ag
     // ms. My own flight had flown the same controls exactly that long at (when I sent ak) + ag: what differs between

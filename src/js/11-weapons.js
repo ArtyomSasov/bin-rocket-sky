@@ -787,6 +787,7 @@
   function shotFeel(k, muzzle, kick, camK, shk, flashR) {
     const bx = Math.cos(me.a), by = Math.sin(me.a);
     me.vx -= bx * kick; me.vy -= by * kick;
+    if (serverRun) { srv.kx = (srv.kx || 0) - bx * kick; srv.ky = (srv.ky || 0) - by * kick; }   // (goes with my next command: a replay of it recoils too)
     camKick.x += bx * camK; camKick.y += by * camK; shake = Math.max(shake, shk);
     if (flashR) impacts.push({ x: muzzle.x, y: muzzle.y, t: 0, r: flashR, col: WEAPONS[k].col || "#ffb43c" });
     for (let j = 0; j < 6; j++) puff(muzzle.x, muzzle.y, bx * 200 + (Math.random() - .5) * 160, by * 200 + (Math.random() - .5) * 160, 0.25, 2.5, k === "laser" ? "#bff9ff" : FIRE_COLS[j % 4]);

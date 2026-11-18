@@ -4848,6 +4848,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   function shotFeel(k, muzzle, kick, camK, shk, flashR) {
     const bx = Math.cos(me.a), by = Math.sin(me.a);
     me.vx -= bx * kick; me.vy -= by * kick;
+    if (serverRun) { srv.kx = (srv.kx || 0) - bx * kick; srv.ky = (srv.ky || 0) - by * kick; }   // (goes with my next command: a replay of it recoils too)
     camKick.x += bx * camK; camKick.y += by * camK; shake = Math.max(shake, shk);
     if (flashR) impacts.push({ x: muzzle.x, y: muzzle.y, t: 0, r: flashR, col: WEAPONS[k].col || "#ffb43c" });
     for (let j = 0; j < 6; j++) puff(muzzle.x, muzzle.y, bx * 200 + (Math.random() - .5) * 160, by * 200 + (Math.random() - .5) * 160, 0.25, 2.5, k === "laser" ? "#bff9ff" : FIRE_COLS[j % 4]);
@@ -6054,12 +6055,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // Reconciliation with commands, as Quake 3 and Overwatch do it: the server says where my pilot is after my command
   // ak; from there my commands it has not flown yet are flown again here, on a copy. Where that ends is where I should
   // be now. Speed, energy and the rest are taken as they are; the place is eased in (serverTrack), never jumped.
+  const validMv = v => Array.isArray(v) && v.length === MOVE_STATE.length + 3 && v.every(Number.isFinite);
   function reconcile(m) {
     const ak = Number.isSafeInteger(m.ak) ? m.ak : 0;
     while (srv.cmds.length && srv.cmds[0].s <= ak) srv.cmds.shift();   // flown on the server: done with
-    const o = { lv: me.lv, inv: 0 }; setMoveState(o, m.mv);
+    const o = { lv: me.lv, inv: 0, pinnedUntil: me.pinnedUntil }; setMoveState(o, m.mv);
     replaying = true;
-    try { for (const c of srv.cmds) pilotMove(o, c); } finally { replaying = false; }
+    try { for (const c of srv.cmds) { o.vx += c.kx || 0; o.vy += c.ky || 0; pilotMove(o, c); } } finally { replaying = false; }   // (recoil first, as it went)
     // the flight takes the corrected state exactly (so the next bounce off a wall is the server's bounce too); only
     // the picture glides there: the gap is drawn as an offset that fades (vox, voy), as Overwatch and Rocket League do
     const ex = o.x - me.x, ey = o.y - me.y;
@@ -6165,14 +6167,14 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     // instead of flying from a spawn point of its own and being thrown across the map a moment later)
     if (!srv.placed) {
       if (m.rd !== stats.round) return;
-      if (Array.isArray(m.mv) && m.mv.length === MOVE_STATE.length + 3 && m.mv.every(Number.isFinite)) setMoveState(me, m.mv);
+      if (validMv(m.mv)) setMoveState(me, m.mv);
       else { me.x = m.x; me.y = m.y; me.vx = num(m.vx, 0); me.vy = num(m.vy, 0); }
       srv.cmds.length = 0; srv.vox = srv.voy = srv.cx = srv.cy = 0; srv.hist.length = 0;
       cam.x = me.x + cam.lx; cam.y = me.y + cam.ly;
       srv.placed = true;
       return;
     }
-    if (Array.isArray(m.mv) && m.mv.length === MOVE_STATE.length + 3 && m.mv.every(Number.isFinite)) { reconcile(m); return; }
+    if (validMv(m.mv)) { reconcile(m); return; }
     if (Number.isFinite(m.en) && Math.abs(m.en - energy) > 15) energy = clamp(m.en, 0, 100);
     // Reconciliation, as Quake and Source do it: the server's state holds my controls up to number ak, flown for ag
     // ms. My own flight had flown the same controls exactly that long at (when I sent ak) + ag: what differs between
@@ -6724,6 +6726,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         if (now < b.respawnAt) continue;
         clearArmor(b);
         Object.assign(b, { dead: false, lives: maxLivesOf(b.lv), inv: now + 2000, ...spawnPoint(b.tm), vx: 0, vy: 0 });
+        resetCmds(b);
       }
       const human = b.input;   // flown by a player: the AI below only steers the others
       // nearest living target: me or anyone else in the lobby (other bots included)
@@ -6820,14 +6823,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       const cmds = human && b.cq;   // a player whose screen sends flight commands: flown by them (pilotMove), below
       const split = human && !cmds && b.prevIn && b.split > 1e-4 ? b.split : 0;   // new controls came in part way through this step
       if (!split && !cmds) { st.x += (ux - st.x) * ease; st.y += (uy - st.y) * ease; }
-      if (cmds) {}
-      else if (human) {   // a player's energy works as the local pilot's (steerAndShoot): regen waits 0.7 s after a boost or a dash
+      if (human && !cmds) {   // a player's energy works as the local pilot's (steerAndShoot): regen waits 0.7 s after a boost or a dash
         b.boosting = wantBoost && b.energy > 0 && Math.hypot(st.x, st.y) > 0.1;
         if (b.boosting && !b.boostOn) { b.vx += Math.cos(b.a) * 220; b.vy += Math.sin(b.a) * 220; }   // lighting it shoves forward, as flyStep
         b.boostOn = b.boosting;
         if (b.boosting) { b.energy = Math.max(0, b.energy - 20 * dt); b.regenAt = now + 700; }
         else if (now > (b.regenAt || 0)) b.energy = Math.min(100, b.energy + 22 * dt);
-      } else {
+      } else if (!human) {   // a bot's (a player flown by commands has its energy in pilotMove)
         b.energy = Math.min(100, (b.energy ?? 100) + (b.boosting ? -20 : 22) * dt);
         b.boosting = wantBoost && b.energy > (b.boosting ? 0 : 40) && b.L.speed >= 0.9;
       }
@@ -6862,15 +6864,17 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
           for (let n = 0; n < 3 && b.cqBudget >= CMD_DT - 1e-9; n++) {
             let c;
             // the next one is missing but later ones are here (lost or overtaken on the way): a moment's wait for it
-            if (cmds.length && cmds[0].s !== (b.ackSeq || 0) + 1 && b.ackSeq && b.cqBudget < CMD_DT * 8) break;
-            if (cmds.length) { c = cmds.shift(); b.lastCmd = c; b.ackSeq = c.s; }
-            else if (b.cqBudget >= CMD_DT * 8) { c = b.lastCmd || { mx: 0, my: 0, aim: b.a, boost: false, brake: false, dash: b.dashDone || 0 }; b.cqOwed = Math.min(30, (b.cqOwed || 0) + 1); b.cqRepeats = (b.cqRepeats || 0) + 1; }
+            // (cmdAck: the number of the last command flown; it is not the controls messages' number, ackSeq)
+            if (cmds.length && cmds[0].s !== (b.cmdAck || 0) + 1 && b.cmdAck && b.cqBudget < CMD_DT * 8) break;
+            if (cmds.length) { c = cmds.shift(); b.lastCmd = c; b.cmdAck = c.s; }
+            else if (b.cqBudget >= CMD_DT * 8) { c = b.lastCmd || { mx: 0, my: 0, aim: b.a, boost: false, brake: false, fire: false, alt: false, dash: b.dashDone || 0 }; b.cqOwed = Math.min(30, (b.cqOwed || 0) + 1); b.cqRepeats = (b.cqRepeats || 0) + 1; }
             else break;
             b.cqBudget -= CMD_DT;
+            // the trigger as this command held it, aimed as it was aimed, before the command's flight, as the player's
+            // screen fires before it flies its frame (Source and Overwatch fire from the user command the same way)
+            b.a = c.aim; human.fire = !!c.fire; human.alt = !!c.alt;
+            b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; pilotTriggers(b, CMD_DT, now); b.cmdWait = -1;
             const g = pilotMove(b, c);
-            // the trigger as this command held it, aimed as it was aimed: a shot goes out on the same command as on
-            // the player's screen (Source and Overwatch fire from the user command the same way)
-            if (c.fire !== undefined) { human.fire = c.fire; human.alt = c.alt; b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; pilotTriggers(b, CMD_DT, now); b.cmdFired = true; b.cmdWait = -1; }
             f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
           }
         }
@@ -6926,7 +6930,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
           b.fireCd = Math.max(b.fireCd, 0.6);
         }
       }
-      if (human) { if (!b.cmdFired) pilotTriggers(b, dt, now); b.cmdFired = false; }   // (a pilot whose commands carry the trigger has had it, per command)
+      if (human) { if (!b.cq) pilotTriggers(b, dt, now); }   // (a pilot flown by commands has its trigger with each command, above)
       else if (tgt && roundLive && td < 950 && Math.abs(angD(aimA - b.a)) < 0.22 + b.L.aim && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
         const md = MODES[MODE];
         b.fireCd = (md.botCd ? b.L.cd * md.botCd : cd < 0.15 ? cd * 2 : Math.max(b.L.cd, cd * 1.3)) * (0.7 + Math.random() * 0.6); }
@@ -6994,7 +6998,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       m.sh = b.shield || 0;
       // a player's own HUD (the guns they carry), and which of their controls this state already holds:
       // ak, the last one applied; ag, for how long (ms, including this step), so their screen can compare
-      if (b.input) { m.ar = pilotArsenalWire(b); m.tn = b.teleN || 0; m.ak = b.ackSeq || 0; m.ag = Math.round(now - (b.ackAt ?? now)); m.en = Math.round(b.energy);
+      if (b.input) { m.ar = pilotArsenalWire(b); m.tn = b.teleN || 0; m.ak = (b.cq ? b.cmdAck : b.ackSeq) || 0; m.ag = Math.round(now - (b.ackAt ?? now)); m.en = Math.round(b.energy);
         if (b.cq) m.mv = moveState(b);
         m.al = [b.beltArmor || 0, b.bodyArmor || 0, b.padsArmor || 0].map(v => Math.round(v * 1000) / 1000); }   // the armour, layer by layer   // flown by commands: exactly where its last one left it (the screen flies the rest again)
       if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, lv: 1, wp: WEAPON_KEYS.indexOf(botWeapon(b)), tg: b.tag,
@@ -7439,7 +7443,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const CMD_DT = 1 / 60;
   let replaying = false;   // flying commands again from the server's word: no effects, nothing else pushed
   function pilotMove(o, c, dt = CMD_DT) {
-    o.mt = (o.mt || 0) + dt;
+    if (!Number.isFinite(o.mt)) { o.mt = 0; o.padAt = -1e9; }   // the command clock starts: a pad's wait from another clock is dropped
+    o.mt += dt;
     const st = o.stick || (o.stick = { x: 0, y: 0 }), m = Math.hypot(c.mx, c.my), e = 1 - Math.exp(-13 * dt);
     st.x += ((m > 1 ? c.mx / m : c.mx) - st.x) * e; st.y += ((m > 1 ? c.my / m : c.my) - st.y) * e;
     o.a = c.aim;
@@ -7463,6 +7468,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     f.dashed = dashed; f.lit = lit;
     return f;
   }
+  // a player's command queue starts afresh (a respawn, a new round): nothing old is flown again or owed, and the
+  // allowance does not count the time spent dead
+  function resetCmds(b) { if (!b.cq) return; b.cq.length = 0; b.cqBudget = 0; b.cqAt = undefined; b.cqOwed = 0; b.lastCmd = null; }
   // what a command flight carries from one command to the next (sent by the server for the player's own pilot)
   const MOVE_STATE = ["x", "y", "vx", "vy", "a", "energy", "regenWait", "dashCool", "dashFx", "dashDone", "mt", "padAt"];
   // (exact, not rounded: a bounce off a wall turns on fractions of a pixel, and the replay must bounce the same)
@@ -7484,7 +7492,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       srv.acc -= CMD_DT;
       // (rounded as the wire carries them, so both sides fly exactly the same numbers)
       const c = { s: ++srv.cs, mx: r3(c0.mx), my: r3(c0.my), aim: r3(Math.atan2(Math.sin(me.a), Math.cos(me.a))), boost: !!c0.boostReq, brake: braking, dash: srv.dashN,
-        fire: !!c0.fire && roundLive, alt: !!c0.alt && roundLive };   // the trigger too: the server fires on this command, with this aim
+        fire: !!c0.fire && roundLive, alt: !!c0.alt && roundLive,   // the trigger too: the server fires on this command, with this aim
+        kx: srv.kx || 0, ky: srv.ky || 0 };   // the recoil my shots gave before it (the server gives its own; a replay needs mine)
+      srv.kx = srv.ky = 0;
       srv.cmds.push(c); if (srv.cmds.length > 240) srv.cmds.shift();
       const g = pilotMove(me, c);
       f = { crash: g.crash || f.crash, fence: g.fence || f.fence, drift: g.drift, dashed: g.dashed !== false ? g.dashed : f.dashed, lit: g.lit || f.lit };
@@ -8265,6 +8275,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         floaters.push({ x: me.x, y: me.y - 90, t: 0, txt: "ROUND " + (rd.idx - (firstRoundIdx ?? rd.idx) + 1) + " · FIGHT!", gold: true });
         sfx("v_fight", 1);
       }
+      for (const b of bots) resetCmds(b);
       for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, shield: 0, beltArmor: 0, bodyArmor: 0, padsArmor: 0, lv: 1, xp: 0, vx: 0, vy: 0, ammo: 0, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0, weapon: "fire" });
       for (const b of bots) if (b.input) pilotArm(b);
       me.fc = -1; me.caps = 0; me.heat = 0; me.overheat = false; railCharge = 0; charge = 0; cancelRocketLoad();
