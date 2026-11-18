@@ -58,6 +58,7 @@ test('a 24-bot match runs on the server: fights end in kills and the station is 
 test('a player flies by their stick and aim, and their shots kill by the same rules as anyone’s', { skip }, async () => {
   const { createMatch } = await sim();
   const m = createMatch({ code: 'm1d0o' });   // Duel: nearly empty
+  m.game.__simTerrain.empty();   // and no junk drifting by on the real clock (a player's pilot bumps off it)
   try {
     const shooter = m.addPilot('Shooter'), target = m.addPilot('Target');
     const p = id => m.pilot(id);

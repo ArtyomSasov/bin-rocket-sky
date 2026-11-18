@@ -36,7 +36,13 @@ export function openRtc(name, offer, onMessage, onClose) {
   dc.onClosed(close);
   setTimeout(() => { if (!dc.isOpen()) close(); }, 10000);   // never opened (UDP blocked on the way): the WebSocket carries on alone
   return {
-    answer(sdp) { if (typeof sdp !== "string" || sdp.length > 16384 || closed) return; try { pc.setRemoteDescription(sdp, "answer"); } catch { close(); } },
+    // the player's answer, without its candidates: otherwise anyone could have the server send its connection
+    // checks to any address (its own loopback, the containers beside it). The player's real address is learned
+    // from its own checks arriving here (a peer-reflexive candidate), since the server's address is in the offer
+    answer(sdp) {
+      if (typeof sdp !== "string" || sdp.length > 16384 || closed) return;
+      try { pc.setRemoteDescription(sdp.split(/\r?\n/).filter(l => !/^a=(candidate|end-of-candidates)\b/.test(l)).join("\r\n"), "answer"); } catch { close(); }
+    },
     // what goes over it while it works: open, not choked, and the player heard from on it in the last second and a half
     usable: () => !closed && dc.isOpen() && performance.now() - heard < 1500 && dc.bufferedAmount() < 256 * 1024,
     send(bytes) { try { return dc.sendMessageBinary(bytes); } catch { return false; } },
