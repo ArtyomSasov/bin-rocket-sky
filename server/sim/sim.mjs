@@ -101,6 +101,7 @@ export function cleanInput(i = {}) {
   return { mx, my, aim: Number.isFinite(i.aim) ? Math.atan2(Math.sin(i.aim), Math.cos(i.aim)) : 0, fire: i.fire === true, alt: i.alt === true,
     boost: i.boost === true, brake: i.brake === true, dash: count(i.dash), tele: count(i.tele), w: Number.isInteger(i.w) && i.w >= 0 && i.w < 64 ? i.w : -1,
     s: count(i.s),   // s: the controls' number, counted up by the player's screen with each message
+    gx: unit(i.gx), gy: unit(i.gy), gb: count(i.gb),   // a guided nuke: the stick steering it, and the count of blow-ups
     // c: the newest flight commands, [number, stick x, stick y (thousandths), facing (thousandths of a radian),
     // boost 1 + brake 2, dash count] (pilotMove in src/js/17-update.js); a few repeat in each message, for losses
     ...(Array.isArray(i.c) ? { c: i.c.slice(-16).filter(e => Array.isArray(e) && e.length === 6 && e.every(Number.isSafeInteger) && e[0] > 0).map(e => ({

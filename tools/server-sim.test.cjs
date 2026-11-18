@@ -90,7 +90,7 @@ test('player input is clamped to what a stick, an angle and buttons can send', {
   assert.ok(Math.abs(i.mx - Math.SQRT1_2) < 1e-12 && Math.abs(i.my - Math.SQRT1_2) < 1e-12, 'a stick never goes past its rim');
   assert.ok(Math.abs(i.aim - (7 - 2 * Math.PI)) < 1e-12, 'an angle is wrapped');
   assert.deepEqual({ fire: i.fire, boost: i.boost, dash: i.dash }, { fire: false, boost: true, dash: 0 });
-  assert.deepEqual(cleanInput({ mx: NaN, aim: Infinity, dash: 2.5, tele: -1, w: 99, alt: 1 }), { mx: 0, my: 0, aim: 0, fire: false, alt: false, boost: false, brake: false, dash: 0, tele: 0, w: -1, s: 0, ld: -1 });
+  assert.deepEqual(cleanInput({ mx: NaN, aim: Infinity, dash: 2.5, tele: -1, w: 99, alt: 1 }), { mx: 0, my: 0, aim: 0, fire: false, alt: false, boost: false, brake: false, dash: 0, tele: 0, w: -1, s: 0, gx: 0, gy: 0, gb: 0, ld: -1 });
 });
 
 test('a player joining a full arena takes an AI bot’s place; a server of players only has no room left', { skip }, async () => {
@@ -403,6 +403,27 @@ test('nothing but its commands moves a player\u2019s pilot: crashing about the s
       flown++;
     }
     assert.ok(flown > 1000, flown + ' commands compared');
+  } finally { m.dispose(); }
+});
+
+test('a player\u2019s guided nuke turns on the server by their stick, and blows when they say', { skip }, async () => {
+  const { createMatch } = await sim();
+  const m = createMatch({ code: 'm1n0o' });   // Nukes: unlimited nukes
+  m.game.__simTerrain.empty();
+  try {
+    const id = m.addPilot('Pilot'), b = m.game.__simBot(id), K = m.game.__simConst.K, W = m.game.__simConst.WEAPON_KEYS;
+    run(m, 0.2);
+    b.arsenal = { ...b.arsenal, nuke: 9 }; b.weapon = 'nuke';
+    Object.assign(b, { x: 1500, y: 2000, vx: 0, vy: 0, a: 0 });
+    run(m, 0.1, () => m.input(id, { mx: 0, my: 0, aim: 0, alt: true, w: W.indexOf('nuke') }));   // the alt: guided
+    m.input(id, { mx: 0, my: 0, aim: 0, alt: false, w: W.indexOf('nuke') });
+    const nuke = m.game.__simShots().find(s => s.owner === id && s.kind === K.NUKE);
+    assert.ok(nuke, 'a nuke flies');
+    assert.ok(Math.abs(Math.atan2(nuke.vy, nuke.vx)) < 0.05, 'it sets off straight ahead');
+    run(m, 1, () => m.input(id, { mx: 0, my: 0, aim: 0, gx: 0, gy: 1, w: W.indexOf('nuke') }));   // stick down: it turns down
+    assert.ok(Math.atan2(nuke.vy, nuke.vx) > 1, 'turned toward the stick: ' + Math.atan2(nuke.vy, nuke.vx).toFixed(2));
+    run(m, 0.1, () => m.input(id, { mx: 0, my: 0, aim: 0, gx: 0, gy: 1, gb: 1, w: W.indexOf('nuke') }));
+    assert.ok(nuke.boom, 'blown when asked');
   } finally { m.dispose(); }
 });
 

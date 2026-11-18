@@ -61,7 +61,8 @@
     if (!ws || ws.readyState !== 1 || !srv.joined) return;
     const c = me.ctl || {}, i = { t: "in", mx: +num(c.mx, 0).toFixed(3), my: +num(c.my, 0).toFixed(3), aim: +me.a.toFixed(3),
       fire: !!c.fire && !me.dead && playing, alt: !!c.alt && !me.dead && playing, boost: !!c.boost, brake: !!c.brake && !me.dead, dash: srv.dashN, tele: srv.teleN,
-      w: WEAPON_KEYS.indexOf(me.weapon), ld: Math.round(srv.interp / 5) * 5 };   // ld: how far in the past I see the others (for lag compensation)
+      w: WEAPON_KEYS.indexOf(me.weapon), ld: Math.round(srv.interp / 5) * 5,
+      gx: +num(srv.gx, 0).toFixed(3), gy: +num(srv.gy, 0).toFixed(3), gb: srv.gb || 0 };   // a guided nuke's stick and blow-ups   // ld: how far in the past I see the others (for lag compensation)
     const sig = JSON.stringify(i), t = performance.now(), fresh = srv.cs > srv.sentCs;   // fresh: flight commands not sent yet
     if (!fresh && (sig === srv.lastIn ? t - srv.lastInAt < 250 : t - srv.lastInAt < 14)) return;   // at most one a frame (the server allows 90 a second)
     srv.lastIn = sig; srv.lastInAt = t;
@@ -258,9 +259,10 @@
   const myShot = s => s.mine || mySrvShot(s);
   function predictShot(s) {
     const d = [srv.tag + ".p" + (srv.pseq++).toString(36), Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), s.kind, +s.m.toFixed(2), 0, s.cut || 0, Date.now()];
-    // lock-on shots (lightning, the plasma beam) aim at the server's view of the targets: shown when it sends them.
+    // lock-on shots (lightning, the plasma beam) are shown at once too, at the target this screen locks on (the server
+    // locks on in its own view of the same moment, so it is nearly always the same one).
     // A prediction this screen refused (too many shots alive) is not recorded, so the server's copy still shows.
-    if (s.kind !== K.BOLT && s.kind !== K.LASER && addRemoteShot(srv.id, d, Date.now(), true) === true) srv.pred.push({ kind: s.kind, at: performance.now(), n: srv.pseq - 1 }); if (srv.pred.length > 48) srv.pred.shift();
+    if (addRemoteShot(srv.id, d, Date.now(), true) === true) srv.pred.push({ kind: s.kind, at: performance.now(), n: srv.pseq - 1 }); if (srv.pred.length > 48) srv.pred.shift();
     stats.shots++;
     return { ...s, mine: false, owner: srv.id };   // for the caller: where it left from (and whose it is, for a saw recall)
   }

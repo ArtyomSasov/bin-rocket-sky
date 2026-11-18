@@ -42,8 +42,23 @@
     s.hitTime = now - lag;
     if (straightShot(s.kind)) s.catchup = lag / 1000;
   }
+  // a player's guided nuke, flown here as their screen flies its copy (guideTick): the same turn toward their stick
+  // (gx, gy) each step, and blown when their count of blow-ups (gb) goes up. While it flies, their trigger is only that
+  function pilotGuide(b, dt, now) {
+    const gd = b.guide, i = b.input;
+    if (!gd) return false;
+    const s = gd.shot;
+    if (!s || s.boom || s.life <= 0 || b.dead || !shots.includes(s)) { b.guide = null; return false; }
+    if ((i.gb || 0) > gd.gb) { b.guide = null; detonate(s, now); return true; }
+    const v = Math.hypot(s.vx, s.vy) || 1;
+    let a = Math.atan2(s.vy, s.vx);
+    if (Math.hypot(i.gx || 0, i.gy || 0) > 0.15) a = lerpAng(a, Math.atan2(i.gy, i.gx), Math.min(1, 3.2 * dt));
+    s.vx = Math.cos(a) * v; s.vy = Math.sin(a) * v;
+    return true;
+  }
   function pilotTriggers(b, dt, now) {
     const i = b.input, only = MODES[MODE].only;
+    if (pilotGuide(b, dt, now)) return;
     // the gun picked: one this pilot carries (the teleporter is a tool, on its own button)
     const pick = WEAPON_KEYS[i.w];
     if (!only && pick && pick !== b.weapon && pick !== "tele" && pick in b.arsenal) {
@@ -120,7 +135,8 @@
     if (alt && pat.cutter) pat = { ...pat, cut: Math.round(24 + 48 * b.cutCharge) };
     const cdMul = MODES[MODE].cdMul || 1;
     b.fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * b.spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
-    volley(b, now, pat, null, (k === "bolt" && !alt) || (k === "laser" && alt) ? boltLock(b, null) : undefined, mul);
+    const shot = volley(b, now, pat, null, (k === "bolt" && !alt) || (k === "laser" && alt) ? boltLock(b, null) : undefined, mul);
+    if (pat.guided && shot) { shot.life = SHOTS[K.NUKE].life; b.guide = { shot, gb: b.input.gb || 0 }; }   // steered by the player from now on
     const kick = (pat.kick || 0) * (w.charge ? mul : 1);
     b.vx -= ax * kick; b.vy -= ay * kick;
     shotSound(pat.shot[0], b.x, b.y, b.id);

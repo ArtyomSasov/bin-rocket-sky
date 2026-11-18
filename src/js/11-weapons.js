@@ -640,7 +640,11 @@
     if (!packed) sfx(name, vol, w.charge ? pitch * (1.3 - 0.4 * mul) : pitch) || blip(160, 0.1, "sawtooth");   // a fuller charge sounds deeper
     if (pat.fx) MUZZLE_FX[pat.fx](muzzle);
     shotFeel(k, muzzle, pat.kick * (w.charge ? mul : 1), ...pat.feel);
-    if (pat.guided && !serverRun) startGuide(muzzle);   // the server flies a nuke straight: nobody's screen steers it
+    if (pat.guided && !serverRun) startGuide(muzzle);
+    else if (pat.guided) {   // on the server: the copy shown here (predictShot) is steered, and the server steers its own alike
+      const g = shots.filter(o => o.owner === srv.id && o.kind === K.NUKE && !o.boom).pop();
+      if (g) startGuide(g);
+    }
     if (k !== "tele" && !serverRun) spend(k, alt ? pat.cost : 1);   // on the server, ammo is its count   // the teleporter spends a charge on the jump, not on the throw
   }
   // ---- the minigun spins up while the trigger is held; the charge cannon charges while held and fires on release
@@ -747,11 +751,13 @@
     if (Math.hypot(ix, iy) > 0.15) a = lerpAng(a, Math.atan2(iy, ix), Math.min(1, 3.2 * dt));
     guided.vx = Math.cos(a) * v; guided.vy = Math.sin(a) * v;
     guideOut = [guided.id, Math.round(guided.x), Math.round(guided.y), Math.round(guided.vx), Math.round(guided.vy), 0];
+    if (serverRun) { srv.gx = ix; srv.gy = iy; }   // (sent with my controls: the server turns its nuke the same way)
     return true;
   }
   function endGuide(now, boom) {
     const s = guided;
     guided = null; camBackUntil = now + 700;
+    if (serverRun) { srv.gx = srv.gy = 0; if (boom) srv.gb = (srv.gb || 0) + 1; }
     guideOut = [s.id, Math.round(s.x), Math.round(s.y), 0, 0, boom || s.boom ? 1 : 0]; guideOutUntil = now + 600;
     if (boom) detonate(s, now);
   }

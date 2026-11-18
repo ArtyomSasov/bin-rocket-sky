@@ -334,7 +334,8 @@
       const s = shots[i];
       // Preserve the final partial step; collision checks (including bots) run before expiry.
       if (s.expireAfterStep) s.life = 0;
-      const extra = s.catchup || 0; s.catchup = 0;
+      let extra = s.catchup || 0; s.catchup = 0;
+      if (s.catchSlow > 0) { const e = Math.min(s.catchSlow, s.catchRate * dt); s.catchSlow -= e; extra += e; }   // made up gradually
       const stepDt = Math.min(Math.max(0, s.life), dt + extra);
       s.stepFrom = now - (dt + extra) * 1000; s.stepTo = s.stepFrom + stepDt * 1000;
       if (s.life > 0) {

@@ -106,7 +106,11 @@
     const sh = {
       id: f[0], kind, x, y, px: x, py: y, ox: x, oy: y, m,
       vx: clamp(f[3], -6800, 6800), vy: clamp(f[4], -6800, 6800),
-      catchup: straightShot(kind) ? lag / 1000 : 0,
+      // how far it has flown since it was fired: on the game server (which judges every hit) it starts at the gun, as
+      // its shooter is shown a moment in the past, and makes that up over its first quarter second, as Overwatch
+      // shows others' projectiles; elsewhere (a peer judges the hits on itself) it jumps there at once
+      catchup: straightShot(kind) && !serverRun ? lag / 1000 : 0,
+      catchSlow: straightShot(kind) && serverRun ? lag / 1000 : 0, catchRate: lag / 1000 / 0.25,
       life: SHOTS[kind].life, hitTime: performance.now() - lag, mine: false, owner, bn: 0,
       cut: kind === K.GAUSS && Number.isFinite(f[8]) && f[8] > 0 ? Math.round(clamp(f[8], 24, 72)) : 0,
       pc: kind === K.FIRE && f[7] === 1

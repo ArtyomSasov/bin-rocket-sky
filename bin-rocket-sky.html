@@ -4686,7 +4686,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (!packed) sfx(name, vol, w.charge ? pitch * (1.3 - 0.4 * mul) : pitch) || blip(160, 0.1, "sawtooth");   // a fuller charge sounds deeper
     if (pat.fx) MUZZLE_FX[pat.fx](muzzle);
     shotFeel(k, muzzle, pat.kick * (w.charge ? mul : 1), ...pat.feel);
-    if (pat.guided && !serverRun) startGuide(muzzle);   // the server flies a nuke straight: nobody's screen steers it
+    if (pat.guided && !serverRun) startGuide(muzzle);
+    else if (pat.guided) {   // on the server: the copy shown here (predictShot) is steered, and the server steers its own alike
+      const g = shots.filter(o => o.owner === srv.id && o.kind === K.NUKE && !o.boom).pop();
+      if (g) startGuide(g);
+    }
     if (k !== "tele" && !serverRun) spend(k, alt ? pat.cost : 1);   // on the server, ammo is its count   // the teleporter spends a charge on the jump, not on the throw
   }
   // ---- the minigun spins up while the trigger is held; the charge cannon charges while held and fires on release
@@ -4793,11 +4797,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (Math.hypot(ix, iy) > 0.15) a = lerpAng(a, Math.atan2(iy, ix), Math.min(1, 3.2 * dt));
     guided.vx = Math.cos(a) * v; guided.vy = Math.sin(a) * v;
     guideOut = [guided.id, Math.round(guided.x), Math.round(guided.y), Math.round(guided.vx), Math.round(guided.vy), 0];
+    if (serverRun) { srv.gx = ix; srv.gy = iy; }   // (sent with my controls: the server turns its nuke the same way)
     return true;
   }
   function endGuide(now, boom) {
     const s = guided;
     guided = null; camBackUntil = now + 700;
+    if (serverRun) { srv.gx = srv.gy = 0; if (boom) srv.gb = (srv.gb || 0) + 1; }
     guideOut = [s.id, Math.round(s.x), Math.round(s.y), 0, 0, boom || s.boom ? 1 : 0]; guideOutUntil = now + 600;
     if (boom) detonate(s, now);
   }
@@ -5376,7 +5382,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const sh = {
       id: f[0], kind, x, y, px: x, py: y, ox: x, oy: y, m,
       vx: clamp(f[3], -6800, 6800), vy: clamp(f[4], -6800, 6800),
-      catchup: straightShot(kind) ? lag / 1000 : 0,
+      // how far it has flown since it was fired: on the game server (which judges every hit) it starts at the gun, as
+      // its shooter is shown a moment in the past, and makes that up over its first quarter second, as Overwatch
+      // shows others' projectiles; elsewhere (a peer judges the hits on itself) it jumps there at once
+      catchup: straightShot(kind) && !serverRun ? lag / 1000 : 0,
+      catchSlow: straightShot(kind) && serverRun ? lag / 1000 : 0, catchRate: lag / 1000 / 0.25,
       life: SHOTS[kind].life, hitTime: performance.now() - lag, mine: false, owner, bn: 0,
       cut: kind === K.GAUSS && Number.isFinite(f[8]) && f[8] > 0 ? Math.round(clamp(f[8], 24, 72)) : 0,
       pc: kind === K.FIRE && f[7] === 1
@@ -5985,7 +5995,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (!ws || ws.readyState !== 1 || !srv.joined) return;
     const c = me.ctl || {}, i = { t: "in", mx: +num(c.mx, 0).toFixed(3), my: +num(c.my, 0).toFixed(3), aim: +me.a.toFixed(3),
       fire: !!c.fire && !me.dead && playing, alt: !!c.alt && !me.dead && playing, boost: !!c.boost, brake: !!c.brake && !me.dead, dash: srv.dashN, tele: srv.teleN,
-      w: WEAPON_KEYS.indexOf(me.weapon), ld: Math.round(srv.interp / 5) * 5 };   // ld: how far in the past I see the others (for lag compensation)
+      w: WEAPON_KEYS.indexOf(me.weapon), ld: Math.round(srv.interp / 5) * 5,
+      gx: +num(srv.gx, 0).toFixed(3), gy: +num(srv.gy, 0).toFixed(3), gb: srv.gb || 0 };   // a guided nuke's stick and blow-ups   // ld: how far in the past I see the others (for lag compensation)
     const sig = JSON.stringify(i), t = performance.now(), fresh = srv.cs > srv.sentCs;   // fresh: flight commands not sent yet
     if (!fresh && (sig === srv.lastIn ? t - srv.lastInAt < 250 : t - srv.lastInAt < 14)) return;   // at most one a frame (the server allows 90 a second)
     srv.lastIn = sig; srv.lastInAt = t;
@@ -6182,9 +6193,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const myShot = s => s.mine || mySrvShot(s);
   function predictShot(s) {
     const d = [srv.tag + ".p" + (srv.pseq++).toString(36), Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), s.kind, +s.m.toFixed(2), 0, s.cut || 0, Date.now()];
-    // lock-on shots (lightning, the plasma beam) aim at the server's view of the targets: shown when it sends them.
+    // lock-on shots (lightning, the plasma beam) are shown at once too, at the target this screen locks on (the server
+    // locks on in its own view of the same moment, so it is nearly always the same one).
     // A prediction this screen refused (too many shots alive) is not recorded, so the server's copy still shows.
-    if (s.kind !== K.BOLT && s.kind !== K.LASER && addRemoteShot(srv.id, d, Date.now(), true) === true) srv.pred.push({ kind: s.kind, at: performance.now(), n: srv.pseq - 1 }); if (srv.pred.length > 48) srv.pred.shift();
+    if (addRemoteShot(srv.id, d, Date.now(), true) === true) srv.pred.push({ kind: s.kind, at: performance.now(), n: srv.pseq - 1 }); if (srv.pred.length > 48) srv.pred.shift();
     stats.shots++;
     return { ...s, mine: false, owner: srv.id };   // for the caller: where it left from (and whose it is, for a saw recall)
   }
@@ -6990,8 +7002,23 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     s.hitTime = now - lag;
     if (straightShot(s.kind)) s.catchup = lag / 1000;
   }
+  // a player's guided nuke, flown here as their screen flies its copy (guideTick): the same turn toward their stick
+  // (gx, gy) each step, and blown when their count of blow-ups (gb) goes up. While it flies, their trigger is only that
+  function pilotGuide(b, dt, now) {
+    const gd = b.guide, i = b.input;
+    if (!gd) return false;
+    const s = gd.shot;
+    if (!s || s.boom || s.life <= 0 || b.dead || !shots.includes(s)) { b.guide = null; return false; }
+    if ((i.gb || 0) > gd.gb) { b.guide = null; detonate(s, now); return true; }
+    const v = Math.hypot(s.vx, s.vy) || 1;
+    let a = Math.atan2(s.vy, s.vx);
+    if (Math.hypot(i.gx || 0, i.gy || 0) > 0.15) a = lerpAng(a, Math.atan2(i.gy, i.gx), Math.min(1, 3.2 * dt));
+    s.vx = Math.cos(a) * v; s.vy = Math.sin(a) * v;
+    return true;
+  }
   function pilotTriggers(b, dt, now) {
     const i = b.input, only = MODES[MODE].only;
+    if (pilotGuide(b, dt, now)) return;
     // the gun picked: one this pilot carries (the teleporter is a tool, on its own button)
     const pick = WEAPON_KEYS[i.w];
     if (!only && pick && pick !== b.weapon && pick !== "tele" && pick in b.arsenal) {
@@ -7068,7 +7095,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (alt && pat.cutter) pat = { ...pat, cut: Math.round(24 + 48 * b.cutCharge) };
     const cdMul = MODES[MODE].cdMul || 1;
     b.fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * b.spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
-    volley(b, now, pat, null, (k === "bolt" && !alt) || (k === "laser" && alt) ? boltLock(b, null) : undefined, mul);
+    const shot = volley(b, now, pat, null, (k === "bolt" && !alt) || (k === "laser" && alt) ? boltLock(b, null) : undefined, mul);
+    if (pat.guided && shot) { shot.life = SHOTS[K.NUKE].life; b.guide = { shot, gb: b.input.gb || 0 }; }   // steered by the player from now on
     const kick = (pat.kick || 0) * (w.charge ? mul : 1);
     b.vx -= ax * kick; b.vy -= ay * kick;
     shotSound(pat.shot[0], b.x, b.y, b.id);
@@ -7544,7 +7572,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       const s = shots[i];
       // Preserve the final partial step; collision checks (including bots) run before expiry.
       if (s.expireAfterStep) s.life = 0;
-      const extra = s.catchup || 0; s.catchup = 0;
+      let extra = s.catchup || 0; s.catchup = 0;
+      if (s.catchSlow > 0) { const e = Math.min(s.catchSlow, s.catchRate * dt); s.catchSlow -= e; extra += e; }   // made up gradually
       const stepDt = Math.min(Math.max(0, s.life), dt + extra);
       s.stepFrom = now - (dt + extra) * 1000; s.stepTo = s.stepFrom + stepDt * 1000;
       if (s.life > 0) {
