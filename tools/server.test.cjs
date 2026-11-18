@@ -6,19 +6,31 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ready = fs.existsSync(path.join(__dirname, '../server/node_modules/ws'));
 const skip = ready ? false : 'server dependencies are not installed (cd server && npm ci)';
-let srv, port, WebSocket;
+let srv, port, WebSocket, D;
 before(async () => {
   if (!ready) return;
   Object.assign(process.env, { PORT: '0', MAX_ROOMS: '4', BRS_NO_SIGNALS: '1', ORIGINS: 'https://artyomsasov.github.io', AFK_MS: '1500', ROOMS_PER_IP: '2', WAIT_MAX: '4' });
   srv = await import('../server/index.mjs'); port = await srv.listening;
   WebSocket = require('../server/node_modules/ws');
+  D = (await import('../server/delta.mjs')).SNAP_DELTA;
 });
 after(async () => { if (srv) await srv.stop(); });
 
 // a client that keeps every message it receives and can wait for one that matches
 function client(headers) {
   const ws = new WebSocket(`ws://127.0.0.1:${port}`, { headers }), got = [], waiters = [];
-  ws.on('message', d => { const m = JSON.parse(d); got.push(m); for (const w of [...waiters]) if (w.f(m)) { waiters.splice(waiters.indexOf(w), 1); w.r(m); } });
+  // a binary snapshot is a delta: rebuilt from the one it builds on, and confirmed back (as the game's page does)
+  const held = new Map(); ws.binaryFrames = 0;
+  ws.on('message', (d, binary) => {
+    let m;
+    if (binary) {
+      const f = D.unframe(new Uint8Array(d));
+      if (f.base && !held.has(f.base)) return;
+      m = f.base ? D.patch(held.get(f.base), f.d) : f.d; held.set(f.q, m); ws.binaryFrames++;
+      ws.send(JSON.stringify({ t: 'sa', q: f.q }));
+    } else m = JSON.parse(d);
+    got.push(m); for (const w of [...waiters]) if (w.f(m)) { waiters.splice(waiters.indexOf(w), 1); w.r(m); }
+  });
   ws.next = (f, ms = 5000) => new Promise((r, j) => { const old = got.find(f); if (old) return r(old); const w = { f, r }; waiters.push(w); setTimeout(() => j(new Error('timeout')), ms); });
   ws.sendJ = m => ws.send(JSON.stringify(m));
   ws.opened = new Promise((r, j) => { ws.on('open', r); ws.on('error', j); ws.on('unexpected-response', (_, res) => j(new Error('HTTP ' + res.statusCode))); });
@@ -43,6 +55,25 @@ test('a player joins a room, gets snapshots, and flies by the input it sends', {
   ws.sendJ({ t: 'ping', c: 42 });
   const pong = await ws.next(m => m.t === 'pong');
   assert.equal(pong.c, 42); assert.ok(Math.abs(pong.s - Date.now()) < 1000);
+  ws.close();
+});
+
+test('a page that asks for binary deltas gets them, rebuilds every snapshot and flies by its input', { skip }, async () => {
+  const ws = client(); await ws.opened;
+  ws.sendJ({ t: 'join', code: 'm1d0otest', name: 'Binary', bots: 2, bin: 1 });
+  const hi = await ws.next(m => m.t === 'welcome');
+  const me = s => s.bots.find(([id]) => id === hi.id)?.[1];
+  const first = await ws.next(m => m.t === 'snap' && me(m)?.x !== undefined);
+  assert.equal(first.bots.length, 3, 'the player and two bots');
+  const timer = setInterval(() => ws.sendJ({ t: 'in', mx: 1, my: 0, aim: 0 }), 33);
+  await new Promise(r => setTimeout(r, 1200)); clearInterval(timer);
+  const snaps = ws.got.filter(m => m.t === 'snap');
+  assert.ok(ws.binaryFrames >= 25 && snaps.length === ws.binaryFrames, `${ws.binaryFrames} binary snapshots, ${snaps.length} rebuilt`);
+  assert.ok(snaps.every((m, i) => !i || m.q > snaps[i - 1].q), 'in order');
+  const fastest = Math.max(...snaps.filter(m => me(m)?.vx !== undefined).map(m => me(m).vx));
+  assert.ok(fastest > 300, `flew right at up to ${fastest} px/s`);
+  const named = snaps.findIndex(m => me(m)?.n === 'Binary');
+  assert.ok(named >= 0 && snaps.slice(named).every(m => me(m)?.n === 'Binary'), 'once sent, the name is carried on in every snapshot');
   ws.close();
 });
 

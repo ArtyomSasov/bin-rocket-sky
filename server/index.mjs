@@ -10,12 +10,14 @@
 //                    { t: "net", p, j, s, g, f }   every 10 s: round trip, jitter, stalls, worst gap (ms), frames a second
 //                    { t: "ping", c }
 // server -> client   { t: "welcome", id, code, tickHz, sendHz, serverTime }
-//                    { t: "snap", ...a lobby host's state (see sim.mjs packet) }
+//                    { t: "snap", ...a lobby host's state (see sim.mjs packet) }, or for a page that joined with
+//                    bin: 1, the same as a binary delta from the snapshot it last confirmed (sa; see delta.mjs)
 //                    { t: "pong", c, s }     { t: "error", reason }
 import http from "node:http";
 import { isIPv6 } from "node:net";
 import { WebSocketServer } from "ws";
 import { createMatch } from "./sim/sim.mjs";
+import { deltaStream, deltaFrame, ackSnapshot } from "./delta.mjs";
 
 const env = (k, d) => (process.env[k] === undefined ? d : process.env[k]);
 const PORT = +env("PORT", 8080);
@@ -67,7 +69,13 @@ function broadcast(room, now) {
   try { packet = room.match.packet(now); } catch (e) { log("packet failed", room.code, e.stack); return; }
   if (!room.clients.size) return;   // built anyway: it is also how the pilots see each other
   const data = JSON.stringify({ t: "snap", ...packet });
-  for (const ws of room.clients) if (ws.readyState === 1 && ws.bufferedAmount < 512 * 1024) ws.send(data);   // a stalled client skips snapshots
+  let plain = null;   // the snapshot as the JSON carries it, for the binary delta streams
+  for (const ws of room.clients) {
+    if (ws.readyState !== 1 || ws.bufferedAmount >= 512 * 1024) continue;   // a stalled client skips snapshots
+    if (!ws.delta) { ws.send(data); continue; }   // an older page: the whole snapshot as JSON
+    try { plain ||= JSON.parse(data); ws.send(deltaFrame(ws.delta, plain, ws.pid), { binary: true }); }
+    catch (e) { log("delta failed", room.code, e.stack); ws.delta = null; ws.send(data); }
+  }
 }
 // rooms nobody has been in for a while are closed
 setInterval(() => { for (const r of rooms.values()) if (!r.clients.size && performance.now() - r.emptySince > ROOM_IDLE_MS) closeRoom(r); }, 5000).unref();
@@ -176,7 +184,8 @@ wss.on("connection", (ws, req) => {
     let m; try { m = JSON.parse(data); } catch { return; }
     if (!m || typeof m !== "object") return;
     if (m.t === "ping") { send(ws, { t: "pong", c: Number.isFinite(m.c) ? m.c : 0, s: Date.now() }); return; }
-    if (m.t === "in") { if (room && id) { room.match.input(id, m); ws.lastInput = now; } return; }
+    if (m.t === "in") { if (room && id) { room.match.input(id, m); ws.lastInput = now; if (ws.delta) ackSnapshot(ws.delta, m.sa); } return; }
+    if (m.t === "sa") { if (ws.delta) ackSnapshot(ws.delta, m.q); return; }   // a snapshot confirmed between controls
     // how the connection is doing on the player's side, every 10 s (numbers only): summed for the log at leave
     if (m.t === "net") {
       const n = (v, max) => Number.isFinite(v) ? Math.max(0, Math.min(max, v)) : 0, a = ws.net || (ws.net = { n: 0, p: 0, j: 0, s: 0, g: 0, f: 0 });
@@ -198,6 +207,7 @@ wss.on("connection", (ws, req) => {
       const pid = r.match.addPilot(cleanName(m.name));
       if (!pid) { send(ws, { t: "error", reason: "room full" }); ws.close(1013); return; }
       room = r; id = pid; room.clients.add(ws); done();
+      ws.pid = pid; if (m.bin === 1) ws.delta = deltaStream();   // a page that rebuilds binary deltas gets them
       send(ws, { t: "welcome", id, code, tickHz: TICK_HZ, sendHz: TICK_HZ / SEND_EVERY, serverTime: Date.now() });
       log("join", code, id, "players", room.clients.size);
     }

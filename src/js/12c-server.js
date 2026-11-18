@@ -27,8 +27,11 @@
     if (!SERVER_URL) { setStatus(false, "Server · no valid address"); return; }
     const ws = new WebSocket(SERVER_URL);
     srv.ws = ws;
-    ws.onopen = () => ws.send(JSON.stringify({ t: "join", code, name: me.name, bots: botChoice.n, level: botChoice.level, pub: !joining }));   // a new game is listed, as online lobbies are; a room opened by typing a code is not
+    ws.binaryType = "arraybuffer";
+    srv.snaps = new Map(); srv.snapQ = 0;
+    ws.onopen = () => ws.send(JSON.stringify({ t: "join", code, name: me.name, bots: botChoice.n, level: botChoice.level, pub: !joining, bin: 1 }));   // a new game is listed, as online lobbies are; a room opened by typing a code is not
     ws.onmessage = e => {
+      if (e.data instanceof ArrayBuffer) { receiveDelta(new Uint8Array(e.data)); return; }
       if (typeof e.data !== "string" || e.data.length > 262144) return;
       let m; try { m = JSON.parse(e.data); } catch { return; }
       if (!m || typeof m !== "object") return;
@@ -61,7 +64,7 @@
     const sig = JSON.stringify(i), t = performance.now();
     if (sig === srv.lastIn ? t - srv.lastInAt < 250 : t - srv.lastInAt < 14) return;   // at most one a frame (the server allows 90 a second)
     srv.lastIn = sig; srv.lastInAt = t;
-    i.s = ++srv.seq; srv.sent.set(i.s, t);
+    i.s = ++srv.seq; srv.sent.set(i.s, t); i.sa = srv.snapQ;   // sa: the newest snapshot I hold (the next delta builds on it)
     if (srv.sent.size > 240) for (const [k, at] of srv.sent) { if (t - at < 3000) break; srv.sent.delete(k); }
     ws.send(JSON.stringify(i));
   }
@@ -86,6 +89,24 @@
     return null;
   }
   // a snapshot: the round clock, every pilot (mine among them) and the world
+  // a binary snapshot: the difference from one I hold, rebuilt into the whole and kept for the next one to build on
+  // (the kept copies are never handed out, so nothing the game does to a snapshot can change them)
+  function receiveDelta(bytes) {
+    if (bytes.length > 262144) return;
+    let f, full;
+    try {
+      f = SNAP_DELTA.unframe(bytes);
+      if (f.base && !srv.snaps.has(f.base)) return;   // built on one I no longer have: the next will be from my newer word
+      full = f.base ? SNAP_DELTA.patch(srv.snaps.get(f.base), f.d) : f.d;
+    } catch { return; }
+    if (!full || typeof full !== "object" || f.q <= srv.snapQ) return;
+    srv.snaps.set(f.q, full);
+    for (const q of srv.snaps.keys()) { if (q > f.q - 64) break; srv.snaps.delete(q); }
+    srv.snapQ = f.q;
+    const ws = srv.ws, t = performance.now();
+    if (ws && ws.readyState === 1 && t - srv.lastInAt > 100 && t - (srv.lastAckAt || 0) > 100) { srv.lastAckAt = t; ws.send(JSON.stringify({ t: "sa", q: f.q })); }   // no controls going out: say so on its own
+    receiveServer(structuredClone(full));
+  }
   function receiveServer(p) {
     if (p.mc) receiveMatchClock(p.mc);
     serverClock(p.ts);
