@@ -89,6 +89,7 @@
     if (!peer || seenShots.size >= MAX_SEEN_SHOTS) return;
     if (!Number.isInteger(f[5]) || f[5] < 0 || f[5] >= SHOTS.length || !f.slice(1, 5).every(Number.isFinite) || f.length < 6) return;
     if (peer.tag && !f[0].startsWith(peer.tag + ".")) return;
+    noteShotKind(f[0], f[5]);
     if (!Number.isFinite(f[9]) || !Number.isFinite(sentAt)) return;
     const queued = sentAt - f[9];
     if (queued < -100 || queued > 1200) return; // don't resurrect expired shots from a journal

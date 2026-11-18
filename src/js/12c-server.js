@@ -15,7 +15,7 @@
   })();
   let serverRun = false;
   const srv = { ws: null, id: "", tag: "", sendHz: 30, dashN: 0, teleN: 0, lastIn: "", lastInAt: 0, deadSeen: false, joined: false, err: "", pred: [], pseq: 0,
-    seq: 0, sent: new Map(), hist: [], cx: 0, cy: 0,
+    seq: 0, sent: new Map(), hist: [], cx: 0, cy: 0, seqOff: 0,   // seqOff: the server's shot numbers less mine (for the spread)
     jit: 0, interp: 70, hits: [],
     lastSnapAt: 0, stalls: [], maxGap: 0, report: { stalls: 0, maxGap: 0 } };   // how the snapshots arrive (the network indicator)   // arrival jitter and the delay others are shown at (ms); my hits shown before the server's word   // my numbered controls, my flight as predicted here, and the correction still to ease in
   // the pilot the server flies for me: its own shots are mine, never a threat to me
@@ -155,7 +155,7 @@
     srv.ping = myPing;
     // my shots, as fired on the server: the ones this screen already showed (predictShot) are not shown twice
     if (m.rd === stats.round && Array.isArray(m.f)) for (const f of m.f.slice(0, 24)) {
-      if (Array.isArray(f) && typeof f[0] === "string" && !seenShots.has(f[0]) && claimPrediction(f[5], now)) { seenShots.set(f[0], performance.now()); continue; }
+      if (Array.isArray(f) && typeof f[0] === "string" && !seenShots.has(f[0]) && claimPrediction(f[5], now, f[0])) { seenShots.set(f[0], performance.now()); noteShotKind(f[0], f[5]); continue; }
       addRemoteShot(srv.id, f, m.ts);
     }
     if (Array.isArray(m.ar)) serverArsenal(m.ar, m.wp);
@@ -236,17 +236,20 @@
     const d = [srv.tag + ".p" + (srv.pseq++).toString(36), Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), s.kind, +s.m.toFixed(2), 0, s.cut || 0, Date.now()];
     // lock-on shots (lightning, the plasma beam) aim at the server's view of the targets: shown when it sends them.
     // A prediction this screen refused (too many shots alive) is not recorded, so the server's copy still shows.
-    if (s.kind !== K.BOLT && s.kind !== K.LASER && addRemoteShot(srv.id, d, Date.now(), true) === true) srv.pred.push({ kind: s.kind, at: performance.now() }); if (srv.pred.length > 48) srv.pred.shift();
+    if (s.kind !== K.BOLT && s.kind !== K.LASER && addRemoteShot(srv.id, d, Date.now(), true) === true) srv.pred.push({ kind: s.kind, at: performance.now(), n: srv.pseq - 1 }); if (srv.pred.length > 48) srv.pred.shift();
     stats.shots++;
     return { ...s, mine: false, owner: srv.id };   // for the caller: where it left from (and whose it is, for a saw recall)
   }
   // a shot of mine from the server that this screen already showed: the oldest shown one of its kind, if recent
-  function claimPrediction(kind, now) {
+  // (id: the server's id for it, which ends in the server's number for the shot: from it, how the numbering of my
+  // predictions and the server's differ, so the next shots get the server's spread)
+  function claimPrediction(kind, now, id) {
     const keep = 600 + (myPing || 100) * 2;
     while (srv.pred.length && now - srv.pred[0].at > keep) srv.pred.shift();
     const i = srv.pred.findIndex(p => p.kind === kind);
     if (i < 0) return false;
-    srv.pred.splice(i, 1);
+    const [p] = srv.pred.splice(i, 1), n = typeof id === "string" ? parseInt(id.slice(id.lastIndexOf(".") + 1), 36) : NaN;
+    if (Number.isSafeInteger(n) && Number.isSafeInteger(p.n)) srv.seqOff = n - p.n;
     return true;
   }
   // ---------- feel: others shown smoothly, my hits and pick-ups at once ----------

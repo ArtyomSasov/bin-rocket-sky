@@ -36,6 +36,17 @@
     return null;
   };
   const RAM_ICON = "M2 11h11l-3-4 2-1 6 6-6 6-2-1 3-4H2zM19 5h3v14h-3z";
+  // what each recent shot was (by its id), so a kill shows the gun it was fired from, not the one in hand now
+  const shotKinds = new Map();
+  function noteShotKind(id, kind) { if (typeof id !== "string" || !Number.isInteger(kind)) return; shotKinds.set(id, kind); if (shotKinds.size > 3000) shotKinds.delete(shotKinds.keys().next().value); }
+  const KIND_WEAPON = (() => {   // the gun a kind of shot comes from (the first that fires it, main fire before alt)
+    const m = new Map();
+    for (const [w, v] of Object.entries(WEAPONS)) for (const p of [v, v.alt]) if (p && p.shot && !m.has(p.shot[0])) m.set(p.shot[0], w);
+    for (const [kind, w] of [[K.SHARD, "shard"], [K.TFRAG, "tele"], [K.PELLET, "scatter"]]) if (WEAPONS[w] && !m.has(kind)) m.set(kind, w);
+    return m;
+  })();
+  // a kill's shot: by its id, or a pellet's, shard's or nail's by the shot it split from (id + letter + index)
+  const killWeapon = shotId => { const kind = shotKinds.get(shotId) ?? shotKinds.get(shotId.replace(/[pnsf]\d+$/, "")); return kind === undefined ? null : KIND_WEAPON.get(kind) || null; };
   const killSeen = new Set(), streaks = new Map();
   let firstBlood = false;
   // Dota-style ladder: kills in a row without dying, one step per kill, then "beyond godlike" every other kill
@@ -51,7 +62,7 @@
     killSeen.add(key);
     const k = tagOwner(shotId.split(".")[0]), killer = k ? k.name : "Someone", ram = shotId.includes(".ram");
     if (k?.me && victimId !== "me") showKillNotice(victim);
-    const icon = ram ? RAM_ICON : ICONS[k ? k.weapon : "fire"];
+    const icon = ram ? RAM_ICON : ICONS[killWeapon(shotId) || (k ? k.weapon : "fire")] || ICONS.fire;
     feedPush(`<span class="k">${esc(killer)}</span><svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="${icon}"/></svg><span class="v">${esc(victim)}</span>`, k && k.me || victim === (me.name || "You"));
     if (!firstBlood) { firstBlood = true; announce("FIRST BLOOD", killer + " drew first blood", "#ff5a6e"); }
     const n = (streaks.get(killer) || 0) + 1;

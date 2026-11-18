@@ -34,7 +34,7 @@ const JOIN_MS = +env("JOIN_MS", 3000);   // a browser sends its join as soon as 
 const WAIT_PER_IP = +env("WAIT_PER_IP", 2), WAIT_PER_NET = +env("WAIT_PER_NET", 6), WAIT_MAX = +env("WAIT_MAX", 24);
 const AFK_MS = +env("AFK_MS", 120000);            // a player who sends no controls this long is let go (rooms are scarce)
 const ORIGINS = env("ORIGINS", "https://artyomsasov.github.io,http://localhost:8000,http://127.0.0.1:8000").split(",").filter(Boolean);
-const TICK_HZ = 30, SEND_EVERY = 1, STEP = 1 / TICK_HZ;   // 30 steps and 30 snapshots a second (compressed: see perMessageDeflate)
+const TICK_HZ = +env("TICK_HZ", 60), SEND_EVERY = Math.max(1, Math.round(TICK_HZ / 30)), STEP = 1 / TICK_HZ;   // 60 steps (as a 60 fps screen flies) and 30 snapshots a second
 const CODE = /^[a-z0-9]{4,16}$/;
 const RTT_CAP = 300;   // ms: the round trip a player is credited with at most (their shots are judged at most REWIND_MS = 250 ms back)
 

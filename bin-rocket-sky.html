@@ -4397,13 +4397,18 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // (muzzle effects start from it). pat: a weapon or its alt (shot, spread, back); from: the gun's muzzle, if known
   // mul: extra damage (the charge cannon's charge), sent along with Overdrive's
   const FIRE_TWIN = { ...WEAPONS.fire, spread: [-0.05, 0.05] };
+  // a gun's random spread follows from whose shot it is and its number, not from Math.random: the server's copy of a
+  // player's shot then flies exactly where that player's screen showed it (12c-server.js learns the server's numbers)
+  const tagSeed = t => { let h = 7; for (let i = 0; i < t.length; i++) h = Math.imul(h, 31) + t.charCodeAt(i) | 0; return h; };
+  const shotJitter = (tag, n, j) => (hash(tagSeed(String(tag || "")), n, 991) - 0.5) * 2 * j;
   function volley(p, now, pat, from, aim, mul = 1) {
     metricVolley(p, pat);
     const mine = p === me, [kind, speed] = pat.shot, amp = (mine && me.ampUntil > now ? QUAD : 1) * mul, ride = kind === K.GREN || kind === K.HOLY || kind === K.MINE ? .6 : 0;
     const base = (aim ?? p.a) + (pat.back ? Math.PI : 0), sz = sizeOf(p.lv || 1);
     let s;
     for (const da of pat.spread || [0]) {
-      const ja = pat.jitter ? (Math.random() - 0.5) * 2 * pat.jitter : 0, bx = Math.cos(base + da + ja), by = Math.sin(base + da + ja);
+      const n = mine ? (serverRun ? srv.pseq + srv.seqOff : shotSeq) : p.seq, tag = mine ? (serverRun ? srv.tag : myTag) : p.tag;
+      const ja = pat.jitter ? shotJitter(tag, n, pat.jitter) : 0, bx = Math.cos(base + da + ja), by = Math.sin(base + da + ja);
       const id = (mine ? myTag : p.tag) + "." + (mine ? shotSeq++ : p.seq++).toString(36);
       const ox = from ? from.x : p.x + bx * 42 * sz, oy = from ? from.y : p.y + by * 42 * sz;
       // a shot keeps only the part of the bin's speed along its own line: it flies exactly where the gun points
@@ -4412,6 +4417,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * (speed + fwd) + (speed > 0 ? 0 : p.vx * ride), vy: by * (speed + fwd) + (speed > 0 ? 0 : p.vy * ride),
             life: SHOTS[kind].life, cut: pat.cut || 0, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: false };   // pc: pierces (fireballs from Lv 7)
       if (mine && serverRun) { s = predictShot(s); continue; }   // on the authoritative server my shot is only shown here
+      noteShotKind(id, kind);
       metricShot(s, p, pat);
       pilotLag(s, p, now);
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else if (kind === K.NAIL) nailSpray(s); else shots.push(s);
@@ -5321,6 +5327,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (!peer || seenShots.size >= MAX_SEEN_SHOTS) return;
     if (!Number.isInteger(f[5]) || f[5] < 0 || f[5] >= SHOTS.length || !f.slice(1, 5).every(Number.isFinite) || f.length < 6) return;
     if (peer.tag && !f[0].startsWith(peer.tag + ".")) return;
+    noteShotKind(f[0], f[5]);
     if (!Number.isFinite(f[9]) || !Number.isFinite(sentAt)) return;
     const queued = sentAt - f[9];
     if (queued < -100 || queued > 1200) return; // don't resurrect expired shots from a journal
@@ -5900,7 +5907,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   })();
   let serverRun = false;
   const srv = { ws: null, id: "", tag: "", sendHz: 30, dashN: 0, teleN: 0, lastIn: "", lastInAt: 0, deadSeen: false, joined: false, err: "", pred: [], pseq: 0,
-    seq: 0, sent: new Map(), hist: [], cx: 0, cy: 0,
+    seq: 0, sent: new Map(), hist: [], cx: 0, cy: 0, seqOff: 0,   // seqOff: the server's shot numbers less mine (for the spread)
     jit: 0, interp: 70, hits: [],
     lastSnapAt: 0, stalls: [], maxGap: 0, report: { stalls: 0, maxGap: 0 } };   // how the snapshots arrive (the network indicator)   // arrival jitter and the delay others are shown at (ms); my hits shown before the server's word   // my numbered controls, my flight as predicted here, and the correction still to ease in
   // the pilot the server flies for me: its own shots are mine, never a threat to me
@@ -6040,7 +6047,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     srv.ping = myPing;
     // my shots, as fired on the server: the ones this screen already showed (predictShot) are not shown twice
     if (m.rd === stats.round && Array.isArray(m.f)) for (const f of m.f.slice(0, 24)) {
-      if (Array.isArray(f) && typeof f[0] === "string" && !seenShots.has(f[0]) && claimPrediction(f[5], now)) { seenShots.set(f[0], performance.now()); continue; }
+      if (Array.isArray(f) && typeof f[0] === "string" && !seenShots.has(f[0]) && claimPrediction(f[5], now, f[0])) { seenShots.set(f[0], performance.now()); noteShotKind(f[0], f[5]); continue; }
       addRemoteShot(srv.id, f, m.ts);
     }
     if (Array.isArray(m.ar)) serverArsenal(m.ar, m.wp);
@@ -6121,17 +6128,20 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const d = [srv.tag + ".p" + (srv.pseq++).toString(36), Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), s.kind, +s.m.toFixed(2), 0, s.cut || 0, Date.now()];
     // lock-on shots (lightning, the plasma beam) aim at the server's view of the targets: shown when it sends them.
     // A prediction this screen refused (too many shots alive) is not recorded, so the server's copy still shows.
-    if (s.kind !== K.BOLT && s.kind !== K.LASER && addRemoteShot(srv.id, d, Date.now(), true) === true) srv.pred.push({ kind: s.kind, at: performance.now() }); if (srv.pred.length > 48) srv.pred.shift();
+    if (s.kind !== K.BOLT && s.kind !== K.LASER && addRemoteShot(srv.id, d, Date.now(), true) === true) srv.pred.push({ kind: s.kind, at: performance.now(), n: srv.pseq - 1 }); if (srv.pred.length > 48) srv.pred.shift();
     stats.shots++;
     return { ...s, mine: false, owner: srv.id };   // for the caller: where it left from (and whose it is, for a saw recall)
   }
   // a shot of mine from the server that this screen already showed: the oldest shown one of its kind, if recent
-  function claimPrediction(kind, now) {
+  // (id: the server's id for it, which ends in the server's number for the shot: from it, how the numbering of my
+  // predictions and the server's differ, so the next shots get the server's spread)
+  function claimPrediction(kind, now, id) {
     const keep = 600 + (myPing || 100) * 2;
     while (srv.pred.length && now - srv.pred[0].at > keep) srv.pred.shift();
     const i = srv.pred.findIndex(p => p.kind === kind);
     if (i < 0) return false;
-    srv.pred.splice(i, 1);
+    const [p] = srv.pred.splice(i, 1), n = typeof id === "string" ? parseInt(id.slice(id.lastIndexOf(".") + 1), 36) : NaN;
+    if (Number.isSafeInteger(n) && Number.isSafeInteger(p.n)) srv.seqOff = n - p.n;
     return true;
   }
   // ---------- feel: others shown smoothly, my hits and pick-ups at once ----------
@@ -7039,6 +7049,17 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     return null;
   };
   const RAM_ICON = "M2 11h11l-3-4 2-1 6 6-6 6-2-1 3-4H2zM19 5h3v14h-3z";
+  // what each recent shot was (by its id), so a kill shows the gun it was fired from, not the one in hand now
+  const shotKinds = new Map();
+  function noteShotKind(id, kind) { if (typeof id !== "string" || !Number.isInteger(kind)) return; shotKinds.set(id, kind); if (shotKinds.size > 3000) shotKinds.delete(shotKinds.keys().next().value); }
+  const KIND_WEAPON = (() => {   // the gun a kind of shot comes from (the first that fires it, main fire before alt)
+    const m = new Map();
+    for (const [w, v] of Object.entries(WEAPONS)) for (const p of [v, v.alt]) if (p && p.shot && !m.has(p.shot[0])) m.set(p.shot[0], w);
+    for (const [kind, w] of [[K.SHARD, "shard"], [K.TFRAG, "tele"], [K.PELLET, "scatter"]]) if (WEAPONS[w] && !m.has(kind)) m.set(kind, w);
+    return m;
+  })();
+  // a kill's shot: by its id, or a pellet's, shard's or nail's by the shot it split from (id + letter + index)
+  const killWeapon = shotId => { const kind = shotKinds.get(shotId) ?? shotKinds.get(shotId.replace(/[pnsf]\d+$/, "")); return kind === undefined ? null : KIND_WEAPON.get(kind) || null; };
   const killSeen = new Set(), streaks = new Map();
   let firstBlood = false;
   // Dota-style ladder: kills in a row without dying, one step per kill, then "beyond godlike" every other kill
@@ -7054,7 +7075,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     killSeen.add(key);
     const k = tagOwner(shotId.split(".")[0]), killer = k ? k.name : "Someone", ram = shotId.includes(".ram");
     if (k?.me && victimId !== "me") showKillNotice(victim);
-    const icon = ram ? RAM_ICON : ICONS[k ? k.weapon : "fire"];
+    const icon = ram ? RAM_ICON : ICONS[killWeapon(shotId) || (k ? k.weapon : "fire")] || ICONS.fire;
     feedPush(`<span class="k">${esc(killer)}</span><svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="${icon}"/></svg><span class="v">${esc(victim)}</span>`, k && k.me || victim === (me.name || "You"));
     if (!firstBlood) { firstBlood = true; announce("FIRST BLOOD", killer + " drew first blood", "#ff5a6e"); }
     const n = (streaks.get(killer) || 0) + 1;

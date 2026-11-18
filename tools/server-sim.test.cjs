@@ -307,3 +307,30 @@ test('every gun fires for a player on the server, and the test range hands a pla
     }
   } finally { m.dispose(); }
 });
+
+test('a gun\u2019s random spread follows from the pilot\u2019s tag and the shot\u2019s number, so a screen can predict it exactly', { skip }, async () => {
+  const { createMatch } = await sim();
+  const m = createMatch({ code: 'm1d0o' });
+  m.game.__simTerrain.empty();
+  try {
+    const id = m.addPilot('Gunner');
+    run(m, 0.1);
+    const b = m.game.__simBot(id);
+    b.arsenal = { ...b.arsenal, minigun: 999 }; b.weapon = 'minigun';
+    const seen = new Map();
+    run(m, 1.5, () => {
+      Object.assign(b, { x: 1200, y: 1200, vx: 0, vy: 0, a: 0 }); m.input(id, { mx: 0, my: 0, aim: 0, fire: true, w: m.game.__simConst.WEAPON_KEYS.indexOf('minigun') });
+      for (const s of m.game.__simShots()) if (s.owner === id && !seen.has(s.id)) seen.set(s.id, s);
+    });
+    // the same numbers the page uses (hash in 02-helpers.js, shotJitter in 11-weapons.js)
+    const hash = (a, b, c) => { let x = (Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263) + Math.imul(c | 0, 1442695041)) | 0; x = Math.imul(x ^ (x >>> 13), 1274126177); x ^= x >>> 16; return (x >>> 0) / 4294967296; };
+    const tagSeed = t => { let h = 7; for (let i = 0; i < t.length; i++) h = Math.imul(h, 31) + t.charCodeAt(i) | 0; return h; };
+    const mine = [...seen.values()].filter(s => s.kind === m.game.__simConst.K.BULLET);
+    assert.ok(mine.length >= 5, mine.length + ' bullets');
+    for (const s of mine) {
+      const n = parseInt(s.id.slice(s.id.lastIndexOf('.') + 1), 36), want = (hash(tagSeed(b.tag), n, 991) - 0.5) * 2 * 0.03375;
+      assert.ok(Math.abs(Math.atan2(s.vy, s.vx) - want) < 1e-9, `shot ${s.id}: ${Math.atan2(s.vy, s.vx)} vs ${want}`);
+    }
+  } finally { m.dispose(); }
+});
+

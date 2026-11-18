@@ -14,7 +14,7 @@ function setup() {
   let now = 0;
   const clients = [], timers = [], els = new Map();
   const element = () => ({ classList: { toggle() {} }, textContent: '', hidden: false });
-  const c = { WEAPONS: {fire:{}, rail:{}, tele:{}, nail:{disabled:true}}, metricPeer(){},
+  const c = { WEAPONS: {fire:{}, rail:{}, tele:{}, nail:{disabled:true}}, metricPeer(){}, noteShotKind(){},
     performance: { now: () => now }, console, Date, Math, Map, Set, Number, Array, JSON, Promise,
     btoa: s => Buffer.from(s, 'binary').toString('base64'), atob: s => Buffer.from(s, 'base64').toString('binary'),
     document: { getElementById(id) { if (!els.has(id)) els.set(id, element()); return els.get(id); }, createElement: element, head: { appendChild(s) { s.onload(); } }, addEventListener() {} },
