@@ -17,7 +17,7 @@ const KEEP = 64;            // snapshots each stream remembers (two seconds at 3
 // botWire): in a delta stream it is carried on from the snapshot before, so it costs nothing while it stays
 const STICKY = ["n", "h", "ck", "s", "lv", "wp", "st", "tg", "tm", "fc", "cp", "sh"];
 
-export function deltaStream() { return { sent: new Map(), ack: 0 }; }
+export function deltaStream() { return { sent: new Map(), ack: 0, ter: new Map() }; }
 // the player confirms it holds snapshot q
 export function ackSnapshot(st, q) { if (Number.isSafeInteger(q) && q > st.ack && st.sent.has(q)) st.ack = q; }
 // the message for one player: plain is the snapshot as JSON would carry it, me the player's pilot id
@@ -43,6 +43,13 @@ export function deltaFrame(st, plain, me) {
       if (m.d !== o.d || m.l !== o.l || m.i !== o.i || m.f || m.hb || m.ko || o.f || o.hb || o.ko) return e;   // something happened to it: now
       return [e[0], o];   // as the player already has it (its own q says it is not new)
     }) };
+  }
+  // the terrain check (one body's carved cells, in turn, for a screen that missed a crater): a body this player has
+  // already confirmed in the very same state is not sent again (it was ~8 KB/s that a delta could not shrink)
+  if (Array.isArray(view.terrain)) {
+    const t = view.terrain, val = JSON.stringify(t), had = st.ter.get(t[1]);
+    if (had && had.val === val && had.q <= st.ack) { view = { ...view }; delete view.terrain; }
+    else if (!had || had.val !== val) st.ter.set(t[1], { val, q: plain.q });
   }
   const bytes = SNAP_DELTA.frame(plain.q, base ? st.ack : 0, base ? SNAP_DELTA.diff(base, view) : view);
   st.sent.set(plain.q, view);

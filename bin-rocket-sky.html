@@ -5507,7 +5507,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const validHit = k => typeof k === "string" && k.length <= 48;
     const mine = k => validHit(k) && k.startsWith(myTag + ".") && credited.size < MAX_CREDITS;
     for (const k of Array.isArray(p.hb) ? p.hb.slice(0, 16).filter(validHit) : []) if (mine(k) && !credited.has(id + ":" + k)) {
-      credited.add(id + ":" + k); me.score += 1; stats.hits++; floaters.push({ x: r.x, y: r.y - 30, t: 0, txt: "Hit +1", gold: false });
+      credited.add(id + ":" + k); me.score += 1; stats.hits++;
+      // hits on one pilot within a moment (a shotgun's pellets) add up in one "Hit +N", not a pile of "+1"s
+      const f0 = floaters.find(f => f.hitOf === id && f.t < 0.3);
+      if (f0) { f0.n++; f0.txt = "Hit +" + f0.n; f0.x = r.x; f0.y = r.y - 30; }
+      else floaters.push({ x: r.x, y: r.y - 30, t: 0, txt: "Hit +1", gold: false, hitOf: id, n: 1 });
       // on the server my hit may have been shown already; one it alone saw (a blast's edge) is felt now
       if (serverRun && !serverHitShown(id)) { r.hitAt = performance.now(); const t = r.hitAt; if (t - hitTickAt > 60) { hitTickAt = t; sfx("hit", 0.4, 1.8); } }
       metricPeer(k, id, false);
