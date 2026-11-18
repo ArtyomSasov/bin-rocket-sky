@@ -193,7 +193,8 @@
     while (srv.acc >= CMD_DT - 1e-9) {
       srv.acc -= CMD_DT;
       // (rounded as the wire carries them, so both sides fly exactly the same numbers)
-      const c = { s: ++srv.cs, mx: r3(c0.mx), my: r3(c0.my), aim: r3(Math.atan2(Math.sin(me.a), Math.cos(me.a))), boost: !!c0.boostReq, brake: braking, dash: srv.dashN };
+      const c = { s: ++srv.cs, mx: r3(c0.mx), my: r3(c0.my), aim: r3(Math.atan2(Math.sin(me.a), Math.cos(me.a))), boost: !!c0.boostReq, brake: braking, dash: srv.dashN,
+        fire: !!c0.fire && roundLive, alt: !!c0.alt && roundLive };   // the trigger too: the server fires on this command, with this aim
       srv.cmds.push(c); if (srv.cmds.length > 240) srv.cmds.shift();
       const g = pilotMove(me, c);
       f = { crash: g.crash || f.crash, fence: g.fence || f.fence, drift: g.drift, dashed: g.dashed !== false ? g.dashed : f.dashed, lit: g.lit || f.lit };
@@ -220,8 +221,9 @@
     const wr = WALL_R * sizeOf(me.lv), a0 = me.a, cmdMode = serverRun && srv.joined && playing && !me.dead;
     if (cmdMode) boost = !!me.boosting;
     if (playing && !me.dead) {
-      if (cmdMode) faceMe(dt, me.drift);   // the facing goes into the commands
+      // (in a command flight the facing turns after: the commands carry the aim this frame's shots went out with)
       const f = cmdMode ? flyCmds(dt, braking) : flyPilot(me, steer.x, steer.y, boost, braking, dt, now, me.boostFx > 0);
+      if (cmdMode) faceMe(dt, me.drift);
       drift = f.drift; lit = !!f.lit;
       if (f.crash && f.crash.hs > 60) {
         const { big, hs, x: cx, y: cy, pc } = f.crash;

@@ -240,6 +240,9 @@
             else break;
             b.cqBudget -= CMD_DT;
             const g = pilotMove(b, c);
+            // the trigger as this command held it, aimed as it was aimed: a shot goes out on the same command as on
+            // the player's screen (Source and Overwatch fire from the user command the same way)
+            if (c.fire !== undefined) { human.fire = c.fire; human.alt = c.alt; b.cmdVt = c.vt || 0; pilotTriggers(b, CMD_DT, now); b.cmdFired = true; b.cmdVt = 0; }
             f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
           }
         }
@@ -295,7 +298,7 @@
           b.fireCd = Math.max(b.fireCd, 0.6);
         }
       }
-      if (human) pilotTriggers(b, dt, now);
+      if (human) { if (!b.cmdFired) pilotTriggers(b, dt, now); b.cmdFired = false; }   // (a pilot whose commands carry the trigger has had it, per command)
       else if (tgt && roundLive && td < 950 && Math.abs(angD(aimA - b.a)) < 0.22 + b.L.aim && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
         const md = MODES[MODE];
         b.fireCd = (md.botCd ? b.L.cd * md.botCd : cd < 0.15 ? cd * 2 : Math.max(b.L.cd, cd * 1.3)) * (0.7 + Math.random() * 0.6); }

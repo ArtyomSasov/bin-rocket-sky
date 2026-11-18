@@ -36,9 +36,13 @@
   // jitter (LD_MAX); the round trip is the server's own measure (the shortest of the recent ones), and the whole
   // rewind is capped (REWIND_MS)
   const LD_MAX = 100;
+  // A shot from a flight command carries the moment its screen showed the others at (vt, on the server's clock), as
+  // Source's user commands carry their tick: that is the moment the targets are judged at, the wait in the command
+  // queue included. It too is the screen's word: believed no further back than a round trip, LD_MAX and a little
   function pilotLag(s, p, now) {
     if (!p.input || !(p.rtt > 0)) return;
-    const ld = Math.min(p.input.ld, LD_MAX), lag = clamp(ld >= 0 ? p.rtt + ld + 1000 / 60 : p.rtt / 2, 0, REWIND_MS);
+    const ld = Math.min(p.input.ld, LD_MAX), cap = Math.min(REWIND_MS, p.rtt + LD_MAX + 60);
+    const lag = p.cmdVt > 0 ? clamp(Date.now() - p.cmdVt, 0, cap) : clamp(ld >= 0 ? p.rtt + ld + 1000 / 60 : p.rtt / 2, 0, REWIND_MS);
     s.hitTime = now - lag;
     if (straightShot(s.kind)) s.catchup = lag / 1000;
   }

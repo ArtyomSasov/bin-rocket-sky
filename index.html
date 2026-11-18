@@ -5986,13 +5986,14 @@ details.controls[open] .clist { margin-top: 8px; }
     const c = me.ctl || {}, i = { t: "in", mx: +num(c.mx, 0).toFixed(3), my: +num(c.my, 0).toFixed(3), aim: +me.a.toFixed(3),
       fire: !!c.fire && !me.dead && playing, alt: !!c.alt && !me.dead && playing, boost: !!c.boost, brake: !!c.brake && !me.dead, dash: srv.dashN, tele: srv.teleN,
       w: WEAPON_KEYS.indexOf(me.weapon), ld: Math.round(srv.interp / 5) * 5,
-      gx: +num(srv.gx, 0).toFixed(3), gy: +num(srv.gy, 0).toFixed(3), gb: srv.gb || 0 };   // a guided nuke's stick and blow-ups   // ld: how far in the past I see the others (for lag compensation)
+      gx: +num(srv.gx, 0).toFixed(3), gy: +num(srv.gy, 0).toFixed(3), gb: srv.gb || 0,   // a guided nuke's stick and blow-ups
+      vt: Math.round(Date.now() + (srv.off || 0) - srv.interp) };   // vt: the moment (server clock) the others are shown at now   // ld: how far in the past I see the others (for lag compensation)
     const sig = JSON.stringify(i), t = performance.now(), fresh = srv.cs > srv.sentCs;   // fresh: flight commands not sent yet
     if (!fresh && (sig === srv.lastIn ? t - srv.lastInAt < 250 : t - srv.lastInAt < 14)) return;   // at most one a frame (the server allows 90 a second)
     srv.lastIn = sig; srv.lastInAt = t;
     // every flight command the server has not confirmed yet (up to 16), as Quake 3 sends them: whatever was lost or
     // came late on the way goes again in the next message (srv.cmds holds only the unconfirmed: reconcile drops the rest)
-    if (srv.cmds.length) { i.c = srv.cmds.slice(-16).map(c => [c.s, Math.round(c.mx * 1000), Math.round(c.my * 1000), Math.round(c.aim * 1000), (c.boost ? 1 : 0) | (c.brake ? 2 : 0), c.dash]); srv.sentCs = srv.cs; }
+    if (srv.cmds.length) { i.c = srv.cmds.slice(-16).map(c => [c.s, Math.round(c.mx * 1000), Math.round(c.my * 1000), Math.round(c.aim * 1000), (c.boost ? 1 : 0) | (c.brake ? 2 : 0) | (c.fire ? 4 : 0) | (c.alt ? 8 : 0), c.dash]); srv.sentCs = srv.cs; }
     i.s = ++srv.seq; srv.sent.set(i.s, t); i.sa = srv.snapQ;   // sa: the newest snapshot I hold (the next delta builds on it)
     if (srv.sent.size > 240) for (const [k, at] of srv.sent) { if (t - at < 3000) break; srv.sent.delete(k); }
     toServer(i);
@@ -6815,6 +6816,9 @@ details.controls[open] .clist { margin-top: 8px; }
             else break;
             b.cqBudget -= CMD_DT;
             const g = pilotMove(b, c);
+            // the trigger as this command held it, aimed as it was aimed: a shot goes out on the same command as on
+            // the player's screen (Source and Overwatch fire from the user command the same way)
+            if (c.fire !== undefined) { human.fire = c.fire; human.alt = c.alt; b.cmdVt = c.vt || 0; pilotTriggers(b, CMD_DT, now); b.cmdFired = true; b.cmdVt = 0; }
             f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
           }
         }
@@ -6870,7 +6874,7 @@ details.controls[open] .clist { margin-top: 8px; }
           b.fireCd = Math.max(b.fireCd, 0.6);
         }
       }
-      if (human) pilotTriggers(b, dt, now);
+      if (human) { if (!b.cmdFired) pilotTriggers(b, dt, now); b.cmdFired = false; }   // (a pilot whose commands carry the trigger has had it, per command)
       else if (tgt && roundLive && td < 950 && Math.abs(angD(aimA - b.a)) < 0.22 + b.L.aim && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
         const md = MODES[MODE];
         b.fireCd = (md.botCd ? b.L.cd * md.botCd : cd < 0.15 ? cd * 2 : Math.max(b.L.cd, cd * 1.3)) * (0.7 + Math.random() * 0.6); }
@@ -6986,9 +6990,13 @@ details.controls[open] .clist { margin-top: 8px; }
   // jitter (LD_MAX); the round trip is the server's own measure (the shortest of the recent ones), and the whole
   // rewind is capped (REWIND_MS)
   const LD_MAX = 100;
+  // A shot from a flight command carries the moment its screen showed the others at (vt, on the server's clock), as
+  // Source's user commands carry their tick: that is the moment the targets are judged at, the wait in the command
+  // queue included. It too is the screen's word: believed no further back than a round trip, LD_MAX and a little
   function pilotLag(s, p, now) {
     if (!p.input || !(p.rtt > 0)) return;
-    const ld = Math.min(p.input.ld, LD_MAX), lag = clamp(ld >= 0 ? p.rtt + ld + 1000 / 60 : p.rtt / 2, 0, REWIND_MS);
+    const ld = Math.min(p.input.ld, LD_MAX), cap = Math.min(REWIND_MS, p.rtt + LD_MAX + 60);
+    const lag = p.cmdVt > 0 ? clamp(Date.now() - p.cmdVt, 0, cap) : clamp(ld >= 0 ? p.rtt + ld + 1000 / 60 : p.rtt / 2, 0, REWIND_MS);
     s.hitTime = now - lag;
     if (straightShot(s.kind)) s.catchup = lag / 1000;
   }
@@ -7421,7 +7429,8 @@ details.controls[open] .clist { margin-top: 8px; }
     while (srv.acc >= CMD_DT - 1e-9) {
       srv.acc -= CMD_DT;
       // (rounded as the wire carries them, so both sides fly exactly the same numbers)
-      const c = { s: ++srv.cs, mx: r3(c0.mx), my: r3(c0.my), aim: r3(Math.atan2(Math.sin(me.a), Math.cos(me.a))), boost: !!c0.boostReq, brake: braking, dash: srv.dashN };
+      const c = { s: ++srv.cs, mx: r3(c0.mx), my: r3(c0.my), aim: r3(Math.atan2(Math.sin(me.a), Math.cos(me.a))), boost: !!c0.boostReq, brake: braking, dash: srv.dashN,
+        fire: !!c0.fire && roundLive, alt: !!c0.alt && roundLive };   // the trigger too: the server fires on this command, with this aim
       srv.cmds.push(c); if (srv.cmds.length > 240) srv.cmds.shift();
       const g = pilotMove(me, c);
       f = { crash: g.crash || f.crash, fence: g.fence || f.fence, drift: g.drift, dashed: g.dashed !== false ? g.dashed : f.dashed, lit: g.lit || f.lit };
@@ -7448,8 +7457,9 @@ details.controls[open] .clist { margin-top: 8px; }
     const wr = WALL_R * sizeOf(me.lv), a0 = me.a, cmdMode = serverRun && srv.joined && playing && !me.dead;
     if (cmdMode) boost = !!me.boosting;
     if (playing && !me.dead) {
-      if (cmdMode) faceMe(dt, me.drift);   // the facing goes into the commands
+      // (in a command flight the facing turns after: the commands carry the aim this frame's shots went out with)
       const f = cmdMode ? flyCmds(dt, braking) : flyPilot(me, steer.x, steer.y, boost, braking, dt, now, me.boostFx > 0);
+      if (cmdMode) faceMe(dt, me.drift);
       drift = f.drift; lit = !!f.lit;
       if (f.crash && f.crash.hs > 60) {
         const { big, hs, x: cx, y: cy, pc } = f.crash;

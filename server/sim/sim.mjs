@@ -40,7 +40,9 @@ const BRIDGE = `
       // that comes late (the data channel keeps no order) still goes in its place
       if (i.c && i.c.length) {
         b.cq ||= [];
+        const top = Math.max(...i.c.map(c => c.s));
         for (const c of i.c) {
+          if (i.vt) c.vt = i.vt - (top - c.s) * 1000 / 60;   // the view this command was made with (one frame each, back from the newest)
           if (c.s <= (b.ackSeq || 0) || b.cq.some(q => q.s === c.s)) continue;
           if (b.cqOwed > 0 && c.s === (b.ackSeq || 0) + 1) { b.cqOwed--; b.ackSeq = c.s; b.lastCmd = c; continue; }   // its time was flown already (the last command, again)
           let k = b.cq.length; while (k > 0 && b.cq[k - 1].s > c.s) k--;
@@ -101,11 +103,11 @@ export function cleanInput(i = {}) {
   return { mx, my, aim: Number.isFinite(i.aim) ? Math.atan2(Math.sin(i.aim), Math.cos(i.aim)) : 0, fire: i.fire === true, alt: i.alt === true,
     boost: i.boost === true, brake: i.brake === true, dash: count(i.dash), tele: count(i.tele), w: Number.isInteger(i.w) && i.w >= 0 && i.w < 64 ? i.w : -1,
     s: count(i.s),   // s: the controls' number, counted up by the player's screen with each message
-    gx: unit(i.gx), gy: unit(i.gy), gb: count(i.gb),   // a guided nuke: the stick steering it, and the count of blow-ups
+    gx: unit(i.gx), gy: unit(i.gy), gb: count(i.gb), vt: Number.isFinite(i.vt) ? i.vt : 0,   // a guided nuke: the stick steering it, and the count of blow-ups
     // c: the newest flight commands, [number, stick x, stick y (thousandths), facing (thousandths of a radian),
     // boost 1 + brake 2, dash count] (pilotMove in src/js/17-update.js); a few repeat in each message, for losses
     ...(Array.isArray(i.c) ? { c: i.c.slice(-16).filter(e => Array.isArray(e) && e.length === 6 && e.every(Number.isSafeInteger) && e[0] > 0).map(e => ({
-      s: e[0], mx: unit(e[1] / 1000), my: unit(e[2] / 1000), aim: Math.max(-4, Math.min(4, e[3] / 1000)), boost: !!(e[4] & 1), brake: !!(e[4] & 2), dash: Math.max(0, e[5]) })) } : {}),
+      s: e[0], mx: unit(e[1] / 1000), my: unit(e[2] / 1000), aim: Math.max(-4, Math.min(4, e[3] / 1000)), boost: !!(e[4] & 1), brake: !!(e[4] & 2), fire: !!(e[4] & 4), alt: !!(e[4] & 8), dash: Math.max(0, e[5]) })) } : {}),
     ld: Number.isFinite(i.ld) ? Math.max(0, Math.min(150, Math.round(i.ld))) : -1 };   // ld: how far back their screen shows the others (ms; -1: not said)
 }
 
