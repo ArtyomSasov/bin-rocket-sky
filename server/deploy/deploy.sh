@@ -9,6 +9,8 @@ KEY=${SSH_KEY:-$HOME/.ssh/bin_rocket_sky_do}
 SSH="ssh -i $KEY -o IdentitiesOnly=yes"
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 DIR=/opt/bin-rocket-sky
+RTC_PORT=${RTC_PORT:-8444}            # UDP for the WebRTC data channel (0: none)
+RTC_IP=${RTC_IP:-${HOST#*@}}          # the address players reach it on (the droplet's public one)
 
 echo "== copy sources"
 $SSH "$HOST" "mkdir -p $DIR/app/server $DIR/app/src $DIR/caddy"
@@ -17,16 +19,17 @@ rsync -az --delete -e "$SSH" --exclude node_modules "$ROOT/server/" "$HOST:$DIR/
 rsync -az -e "$SSH" "$ROOT/server/deploy/Caddyfile" "$HOST:$DIR/caddy/Caddyfile"
 
 echo "== build and restart"
-$SSH "$HOST" DOMAIN="$DOMAIN" DIR="$DIR" bash -s <<'REMOTE'
+$SSH "$HOST" DOMAIN="$DOMAIN" DIR="$DIR" RTC_PORT="$RTC_PORT" RTC_IP="$RTC_IP" bash -s <<'REMOTE'
 set -euo pipefail
 cd "$DIR/app"
 docker build -q -f server/Dockerfile -t bin-rocket-sky-server:latest . >/dev/null
 docker network inspect brs >/dev/null 2>&1 || docker network create brs >/dev/null
 docker volume inspect brs-caddy-data >/dev/null 2>&1 || docker volume create brs-caddy-data >/dev/null
 docker rm -f brs-game >/dev/null 2>&1 || true
+RTC_ARGS=""; [ "$RTC_PORT" != "0" ] && RTC_ARGS="-p $RTC_PORT:$RTC_PORT/udp -e RTC_PORT=$RTC_PORT -e RTC_IP=$RTC_IP"
 docker run -d --name brs-game --network brs --network-alias game --restart unless-stopped \
   --memory 450m --memory-swap 450m --cpus 0.6 --log-opt max-size=10m --log-opt max-file=3 \
-  -e MAX_ROOMS=1 bin-rocket-sky-server:latest >/dev/null
+  -e MAX_ROOMS=1 $RTC_ARGS bin-rocket-sky-server:latest >/dev/null
 if ! docker ps --format '{{.Names}}' | grep -qx brs-caddy; then
   docker rm -f brs-caddy >/dev/null 2>&1 || true
   docker run -d --name brs-caddy --network brs --restart unless-stopped -p 80:80 -p 8443:8443 \

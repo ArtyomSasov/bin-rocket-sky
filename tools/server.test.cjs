@@ -9,7 +9,7 @@ const skip = ready ? false : 'server dependencies are not installed (cd server &
 let srv, port, WebSocket, D;
 before(async () => {
   if (!ready) return;
-  Object.assign(process.env, { PORT: '0', MAX_ROOMS: '4', BRS_NO_SIGNALS: '1', ORIGINS: 'https://artyomsasov.github.io', AFK_MS: '1500', ROOMS_PER_IP: '2', WAIT_MAX: '4' });
+  Object.assign(process.env, { PORT: '0', MAX_ROOMS: '4', BRS_NO_SIGNALS: '1', ORIGINS: 'https://artyomsasov.github.io', RTC_PORT: '18446', AFK_MS: '1500', ROOMS_PER_IP: '2', WAIT_MAX: '4' });
   srv = await import('../server/index.mjs'); port = await srv.listening;
   WebSocket = require('../server/node_modules/ws');
   D = (await import('../server/delta.mjs')).SNAP_DELTA;
@@ -75,6 +75,32 @@ test('a page that asks for binary deltas gets them, rebuilds every snapshot and 
   const named = snaps.findIndex(m => me(m)?.n === 'Binary');
   assert.ok(named >= 0 && snaps.slice(named).every(m => me(m)?.n === 'Binary'), 'once sent, the name is carried on in every snapshot');
   ws.close();
+});
+
+test('a page that can gets a WebRTC data channel: snapshots come by it, and its controls go by it', { skip }, async () => {
+  const nd = require('../server/node_modules/node-datachannel');
+  const ws = client(); await ws.opened;
+  ws.sendJ({ t: 'join', code: 'm1d0otest', name: 'Channel', bin: 1, rtc: 1 });
+  const hi = await ws.next(m => m.t === 'welcome');
+  const offer = await ws.next(m => m.t === 'rtc');
+  const pc = new nd.PeerConnection('test', { iceServers: [] });
+  let dcSnaps = 0, dc = null;
+  globalThis.__rtcKeep = { pc };   // (the native connection closes if it is collected mid-test)
+  // what comes by the channel is rebuilt with the rest (deltas build on snapshots from either way), as on the page
+  pc.onDataChannel(ch => { dc = globalThis.__rtcKeep.dc = ch; ch.onMessage(msg => {
+    dcSnaps++; ws.emit('message', Buffer.from(msg), true);
+    ch.sendMessage(JSON.stringify({ t: 'in', mx: 1, my: 0, aim: 0, s: dcSnaps }));   // controls by the channel
+  }); });
+  pc.onGatheringStateChange(st => { if (st === 'complete') ws.sendJ({ t: 'rtc', sdp: pc.localDescription().sdp }); });
+  pc.setRemoteDescription(offer.sdp, 'offer');
+  await new Promise(r => setTimeout(r, 2000));
+  try {
+    const snaps = ws.got.filter(m => m.t === 'snap');
+    assert.ok(dcSnaps > 20, `${dcSnaps} snapshots by the data channel (${snaps.length} in all)`);
+    // (it may meet the fence on the way: its top speed to the right shows the controls came through)
+    const fastest = Math.max(...snaps.map(m => m.bots.find(([id]) => id === hi.id)?.[1]?.vx).filter(Number.isFinite));
+    assert.ok(fastest > 300, 'flew right by the controls sent on the channel, at up to ' + fastest + ' px/s');
+  } finally { try { dc?.close(); } catch {} pc.close(); ws.close(); delete globalThis.__rtcKeep; }
 });
 
 test('a second player in the same room sees the first one; leaving takes the pilot away', { skip }, async () => {

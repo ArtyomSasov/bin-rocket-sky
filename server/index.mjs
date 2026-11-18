@@ -18,6 +18,7 @@ import { isIPv6 } from "node:net";
 import { WebSocketServer } from "ws";
 import { createMatch } from "./sim/sim.mjs";
 import { deltaStream, deltaFrame, ackSnapshot } from "./delta.mjs";
+import { rtcReady, openRtc, rtcShutdown } from "./rtc.mjs";
 
 const env = (k, d) => (process.env[k] === undefined ? d : process.env[k]);
 const PORT = +env("PORT", 8080);
@@ -73,7 +74,11 @@ function broadcast(room, now) {
   for (const ws of room.clients) {
     if (ws.readyState !== 1 || ws.bufferedAmount >= 512 * 1024) continue;   // a stalled client skips snapshots
     if (!ws.delta) { ws.send(data); continue; }   // an older page: the whole snapshot as JSON
-    try { plain ||= JSON.parse(data); ws.send(deltaFrame(ws.delta, plain, ws.pid), { binary: true }); }
+    try {
+      plain ||= JSON.parse(data);
+      const bytes = deltaFrame(ws.delta, plain, ws.pid);
+      if (!(ws.rtc?.usable() && ws.rtc.send(bytes))) ws.send(bytes, { binary: true });   // the data channel while it works
+    }
     catch (e) { log("delta failed", room.code, e.stack); ws.delta = null; ws.send(data); }
   }
 }
@@ -177,7 +182,9 @@ wss.on("connection", (ws, req) => {
   ws.lastInput = performance.now();
   // a broken connection must end only itself: an unhandled socket error would stop the whole server
   ws.on("error", e => { log("socket error", addr, e.message); ws.terminate(); });
-  ws.on("message", (data, binary) => {
+  ws.on("message", (data, binary) => handle(data, binary));
+  // a message from the player, by the WebSocket or by the data channel
+  function handle(data, binary) {
     // at most ~90 messages a second (input at the display rate, plus pings); the rest are dropped
     const now = performance.now(); tokens = Math.min(90, tokens + (now - refill) * 0.09); refill = now;
     if (binary || tokens < 1) return; tokens--;
@@ -186,6 +193,7 @@ wss.on("connection", (ws, req) => {
     if (m.t === "ping") { send(ws, { t: "pong", c: Number.isFinite(m.c) ? m.c : 0, s: Date.now() }); return; }
     if (m.t === "in") { if (room && id) { room.match.input(id, m); ws.lastInput = now; if (ws.delta) ackSnapshot(ws.delta, m.sa); } return; }
     if (m.t === "sa") { if (ws.delta) ackSnapshot(ws.delta, m.q); return; }   // a snapshot confirmed between controls
+    if (m.t === "rtc") { ws.rtc?.answer(m.sdp); return; }   // the player's answer to the data channel's offer
     // how the connection is doing on the player's side, every 10 s (numbers only): summed for the log at leave
     if (m.t === "net") {
       const n = (v, max) => Number.isFinite(v) ? Math.max(0, Math.min(max, v)) : 0, a = ws.net || (ws.net = { n: 0, p: 0, j: 0, s: 0, g: 0, f: 0 });
@@ -208,11 +216,14 @@ wss.on("connection", (ws, req) => {
       if (!pid) { send(ws, { t: "error", reason: "room full" }); ws.close(1013); return; }
       room = r; id = pid; room.clients.add(ws); done();
       ws.pid = pid; if (m.bin === 1) ws.delta = deltaStream();   // a page that rebuilds binary deltas gets them
+      // and a page that can, a data channel for them (and its controls) as well
+      if (ws.delta && m.rtc === 1 && rtcReady) ws.rtc = openRtc(pid, sdp => send(ws, { t: "rtc", sdp }), text => handle(text, false), () => { ws.rtc = null; });
       send(ws, { t: "welcome", id, code, tickHz: TICK_HZ, sendHz: TICK_HZ / SEND_EVERY, serverTime: Date.now() });
-      log("join", code, id, "players", room.clients.size);
+      log("join", code, id, "players", room.clients.size, ws.rtc ? "webrtc offered" : "");
     }
-  });
+  }
   ws.on("close", () => {
+    ws.rtc?.close();
     perIp.set(addr, perIp.get(addr) - 1); if (!perIp.get(addr)) perIp.delete(addr);
     if (!room) return;
     room.clients.delete(ws); room.match.removePilot(id);
@@ -237,7 +248,7 @@ setInterval(() => { for (const ws of wss.clients) if (ws.readyState === 1 && !ws
 process.on("uncaughtException", e => log("uncaught", e.stack));
 process.on("unhandledRejection", e => log("unhandled rejection", e && e.stack || e));
 
-function stop() { for (const r of [...rooms.values()]) closeRoom(r); for (const ws of wss.clients) ws.terminate(); wss.close(); return new Promise(r => server.close(r)); }
+function stop() { for (const r of [...rooms.values()]) closeRoom(r); for (const ws of wss.clients) { ws.rtc?.close(); ws.terminate(); } wss.close(); rtcShutdown(); return new Promise(r => server.close(r)); }
 const listening = new Promise(r => server.listen(PORT, () => { log("listening", server.address().port, "max rooms", MAX_ROOMS); r(server.address().port); }));
 if (process.env.BRS_NO_SIGNALS !== "1") for (const sig of ["SIGTERM", "SIGINT"]) process.on(sig, () => { log("stopping"); stop().then(() => process.exit(0)); });
 export { listening, stop, rooms };

@@ -29,7 +29,7 @@
     srv.ws = ws;
     ws.binaryType = "arraybuffer";
     srv.snaps = new Map(); srv.snapQ = 0;
-    ws.onopen = () => ws.send(JSON.stringify({ t: "join", code, name: me.name, bots: botChoice.n, level: botChoice.level, pub: !joining, bin: 1 }));   // a new game is listed, as online lobbies are; a room opened by typing a code is not
+    ws.onopen = () => ws.send(JSON.stringify({ t: "join", code, name: me.name, bots: botChoice.n, level: botChoice.level, pub: !joining, bin: 1, rtc: window.RTCPeerConnection ? 1 : 0 }));   // a new game is listed, as online lobbies are; a room opened by typing a code is not
     ws.onmessage = e => {
       if (e.data instanceof ArrayBuffer) { receiveDelta(new Uint8Array(e.data)); return; }
       if (typeof e.data !== "string" || e.data.length > 262144) return;
@@ -37,12 +37,13 @@
       if (!m || typeof m !== "object") return;
       if (m.t === "snap") receiveServer(m);
       else if (m.t === "pong") { if (Number.isFinite(m.c)) gotPing(performance.now() - m.c); }
+      else if (m.t === "rtc" && typeof m.sdp === "string" && m.sdp.length < 16384) answerRtc(ws, m.sdp).catch(() => {});
       else if (m.t === "welcome" && typeof m.id === "string") {
         srv.id = m.id; srv.joined = true; srv.sendHz = clamp(num(m.sendHz, 15), 1, 60);
         setStatus(true, "Server · " + code.toUpperCase() + " · online");
       } else if (m.t === "error") { srv.err = String(m.reason || "").slice(0, 40); announce("SERVER", srv.err, "#ff8a8a", 2, true); }
     };
-    ws.onclose = () => { srv.joined = false; setStatus(false, "Server · disconnected" + (srv.err ? " · " + srv.err : "")); };
+    ws.onclose = () => { srv.joined = false; try { srv.pc?.close(); } catch {} srv.dc = null; setStatus(false, "Server · disconnected" + (srv.err ? " · " + srv.err : "")); };
     setInterval(() => { if (ws.readyState === 1) ws.send(JSON.stringify({ t: "ping", c: performance.now() })); }, 1000);
     // every 10 s the server hears how the connection is doing here (numbers only), for its own summary of the network
     setInterval(() => {
@@ -66,7 +67,29 @@
     srv.lastIn = sig; srv.lastInAt = t;
     i.s = ++srv.seq; srv.sent.set(i.s, t); i.sa = srv.snapQ;   // sa: the newest snapshot I hold (the next delta builds on it)
     if (srv.sent.size > 240) for (const [k, at] of srv.sent) { if (t - at < 3000) break; srv.sent.delete(k); }
-    ws.send(JSON.stringify(i));
+    toServer(i);
+  }
+  // to the server: by the data channel while it works (a lost message holds nothing up), else by the WebSocket
+  function toServer(m) {
+    const dc = srv.dc, t = performance.now();
+    if (dc && dc.readyState === "open" && t - srv.dcHeard < 1500) { try { dc.send(JSON.stringify(m)); return; } catch {} }
+    if (srv.ws && srv.ws.readyState === 1) srv.ws.send(JSON.stringify(m));
+  }
+  // the server offers a data channel (WebRTC: unordered, never resent) for its snapshots and my controls. Nothing
+  // goes to anyone else: no STUN, the server's own address is in its offer, and the WebSocket stays as the fallback
+  async function answerRtc(ws, sdp) {
+    if (!window.RTCPeerConnection || srv.pc) return;
+    const pc = srv.pc = new RTCPeerConnection({ iceServers: [] });
+    pc.ondatachannel = e => {
+      const dc = e.channel; dc.binaryType = "arraybuffer";
+      dc.onopen = () => { srv.dc = dc; srv.dcHeard = performance.now(); };
+      dc.onmessage = ev => { srv.dcHeard = performance.now(); if (ev.data instanceof ArrayBuffer) receiveDelta(new Uint8Array(ev.data)); };
+      dc.onclose = () => { if (srv.dc === dc) srv.dc = null; };
+    };
+    await pc.setRemoteDescription({ type: "offer", sdp });
+    await pc.setLocalDescription(await pc.createAnswer());
+    await new Promise(r => { if (pc.iceGatheringState === "complete") r(); pc.addEventListener("icegatheringstatechange", () => pc.iceGatheringState === "complete" && r()); setTimeout(r, 1500); });
+    if (ws.readyState === 1) ws.send(JSON.stringify({ t: "rtc", sdp: pc.localDescription.sdp }));
   }
   // each frame, after my flight: ease in what is left of the last correction, and remember where I was
   function serverTrack(dt, now) {
@@ -104,7 +127,7 @@
     for (const q of srv.snaps.keys()) { if (q > f.q - 64) break; srv.snaps.delete(q); }
     srv.snapQ = f.q;
     const ws = srv.ws, t = performance.now();
-    if (ws && ws.readyState === 1 && t - srv.lastInAt > 100 && t - (srv.lastAckAt || 0) > 100) { srv.lastAckAt = t; ws.send(JSON.stringify({ t: "sa", q: f.q })); }   // no controls going out: say so on its own
+    if (ws && ws.readyState === 1 && t - srv.lastInAt > 100 && t - (srv.lastAckAt || 0) > 100) { srv.lastAckAt = t; toServer({ t: "sa", q: f.q }); }   // no controls going out: say so on its own
     receiveServer(structuredClone(full));
   }
   function receiveServer(p) {

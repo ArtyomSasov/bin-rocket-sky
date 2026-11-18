@@ -30,9 +30,10 @@ const BRIDGE = `
     },
     addPilot(name) { const b = addPilot(name); if (!b) return null; Object.assign(b, spawnPoint(b.tm)); return b.id; },
     removePilot(id) { removePilot(id); },
-    // at: when it arrived (the server's clock). The controls a step started with are kept, so the step can fly them
+    // at: when it arrived (the server's clock). Older controls arriving after newer ones (the data channel keeps no
+    // order) are dropped. The controls a step started with are kept, so the step can fly them
     // until that moment and the new ones after it, as the player's screen did (see the split in updateBots)
-    input(id, i, at) { const b = botById.get(id); if (!b || !b.input) return; if (!b.prevIn) b.prevIn = { ...b.input }; Object.assign(b.input, i); b.inAt = at; },
+    input(id, i, at) { const b = botById.get(id); if (!b || !b.input || (i.s && i.s < b.input.s)) return; if (!b.prevIn) b.prevIn = { ...b.input }; Object.assign(b.input, i); b.inAt = at; },
     rtt(id, ms) { const b = botById.get(id); if (b && b.input) b.rtt = ms; },
     // one fixed step: the shared-clock world and the simulation
     step(dt, now) {
