@@ -15,7 +15,7 @@
   })();
   let serverRun = false;
   const srv = { ws: null, id: "", tag: "", sendHz: 30, dashN: 0, teleN: 0, lastIn: "", lastInAt: 0, deadSeen: false, joined: false, err: "", pred: [], pseq: 0,
-    seq: 0, sent: new Map(), hist: [], cx: 0, cy: 0, seqOff: 0, cmds: [], cs: 0, sentCs: 0, acc: 0,   // my flight commands (pilotMove)   // seqOff: the server's shot numbers less mine (for the spread)
+    seq: 0, sent: new Map(), hist: [], cx: 0, cy: 0, vox: 0, voy: 0, seqOff: 0, cmds: [], cs: 0, sentCs: 0, acc: 0,   // my flight commands (pilotMove)   // seqOff: the server's shot numbers less mine (for the spread)
     jit: 0, interp: 70, hits: [],
     lastSnapAt: 0, stalls: [], maxGap: 0, report: { stalls: 0, maxGap: 0 } };   // how the snapshots arrive (the network indicator)   // arrival jitter and the delay others are shown at (ms); my hits shown before the server's word   // my numbered controls, my flight as predicted here, and the correction still to ease in
   // the pilot the server flies for me: its own shots are mine, never a threat to me
@@ -102,16 +102,21 @@
     const o = { lv: me.lv, inv: 0 }; setMoveState(o, m.mv);
     replaying = true;
     try { for (const c of srv.cmds) pilotMove(o, c); } finally { replaying = false; }
+    // the flight takes the corrected state exactly (so the next bounce off a wall is the server's bounce too); only
+    // the picture glides there: the gap is drawn as an offset that fades (vox, voy), as Overwatch and Rocket League do
     const ex = o.x - me.x, ey = o.y - me.y;
-    if (Math.hypot(ex, ey) > 300) { me.x = o.x; me.y = o.y; srv.cx = srv.cy = 0; }   // a teleport or a respawn: at once
-    else { srv.cx = ex; srv.cy = ey; srv.lastErr = Math.hypot(ex, ey); }
-    for (const k of MOVE_STATE) if (k !== "x" && k !== "y") me[k] = o[k];
+    srv.lastErr = Math.hypot(ex, ey); srv.errN = (srv.errN || 0) + 1;
+    if (srv.lastErr > 300) srv.vox = srv.voy = 0;   // a teleport or a respawn: at once
+    else { srv.vox -= ex; srv.voy -= ey; }
+    srv.cx = srv.cy = 0;
+    for (const k of MOVE_STATE) me[k] = o[k];
     me.stick = o.stick; me.boostOn = me.boosting = o.boostOn; energy = me.energy;
   }
   // each frame, after my flight: ease in what is left of the last correction, and remember where I was
   function serverTrack(dt, now) {
-    if (me.dead || !srv.joined) { srv.hist.length = 0; srv.cx = srv.cy = 0; return; }
+    if (me.dead || !srv.joined) { srv.hist.length = 0; srv.cx = srv.cy = srv.vox = srv.voy = 0; return; }
     const k = 1 - Math.exp(-15 * dt);
+    srv.vox -= srv.vox * k; srv.voy -= srv.voy * k;
     me.x += srv.cx * k; me.y += srv.cy * k; srv.cx -= srv.cx * k; srv.cy -= srv.cy * k;
     srv.hist.push({ t: now, x: me.x + srv.cx, y: me.y + srv.cy, vx: me.vx, vy: me.vy });
     while (srv.hist.length > 2 && now - srv.hist[0].t > 1500) srv.hist.shift();

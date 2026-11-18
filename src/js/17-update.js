@@ -175,7 +175,8 @@
   }
   // what a command flight carries from one command to the next (sent by the server for the player's own pilot)
   const MOVE_STATE = ["x", "y", "vx", "vy", "a", "energy", "regenWait", "dashCool", "dashFx", "dashDone", "mt", "padAt"];
-  const moveState = o => [...MOVE_STATE.map(k => +(o[k] || 0).toFixed(3)), +(o.stick?.x || 0).toFixed(4), +(o.stick?.y || 0).toFixed(4), o.boostOn ? 1 : 0];
+  // (exact, not rounded: a bounce off a wall turns on fractions of a pixel, and the replay must bounce the same)
+  const moveState = o => [...MOVE_STATE.map(k => o[k] || 0), o.stick?.x || 0, o.stick?.y || 0, o.boostOn ? 1 : 0];
   function setMoveState(o, v) {
     MOVE_STATE.forEach((k, i) => o[k] = v[i]);
     o.stick = { x: v[MOVE_STATE.length], y: v[MOVE_STATE.length + 1] }; o.boostOn = o.boosting = !!v[MOVE_STATE.length + 2];
@@ -277,7 +278,7 @@
     if (guided || now < camBackUntil) {   // riding along with the guided nuke, then easing back to the bin
       const to = guided || me, ce2 = 1 - Math.exp(-(guided ? 10 : 6) * dt);
       cam.x += (to.x + (guided ? 0 : cam.lx) - cam.x) * ce2; cam.y += (to.y + (guided ? 0 : cam.ly) - cam.y) * ce2;
-    } else { cam.x = me.x + cam.lx; cam.y = me.y + cam.ly; }
+    } else { cam.x = me.x + srv.vox + cam.lx; cam.y = me.y + srv.voy + cam.ly; }   // (following the bin as drawn)
     // on boost the view pulls back a little (and eases in again after): speed you can feel
     const vzT = playing && !me.dead && boost ? 0.84 : 1;
     viewZoom += (vzT - viewZoom) * (1 - Math.exp(-(vzT < viewZoom ? 2.2 : 1.4) * dt));

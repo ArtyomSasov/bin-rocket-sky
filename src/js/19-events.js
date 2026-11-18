@@ -591,7 +591,7 @@
       if (onScreen(x, y, BOT * 2)) drawBot({ ...r, blink: r.inv }, x, y, now, false);
       else drawPointer(r, x, y);
     }
-    if (!me.dead) drawBot({ ...me, name: playing && !COMPACT.matches ? me.name : "", blink: now < me.inv }, sx(me.x), sy(me.y), now, true);   // on a small screen your own label goes
+    if (!me.dead) drawBot({ ...me, name: playing && !COMPACT.matches ? me.name : "", blink: now < me.inv }, sx(me.x + srv.vox), sy(me.y + srv.voy), now, true);   // (vox: a correction still fading, drawn only)   // on a small screen your own label goes
     else {
       g.textAlign = "center"; g.fillStyle = "#ffffff";
       g.font = `700 ${30 * TS}px ` + DISPLAY_FONT;
