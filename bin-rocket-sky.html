@@ -6250,6 +6250,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       st.x += (ux - st.x) * ease; st.y += (uy - st.y) * ease;
       if (human) {   // a player's energy works as the local pilot's (steerAndShoot): regen waits 0.7 s after a boost or a dash
         b.boosting = wantBoost && b.energy > 0 && Math.hypot(st.x, st.y) > 0.1;
+        if (b.boosting && !b.boostOn) { b.vx += Math.cos(b.a) * 220; b.vy += Math.sin(b.a) * 220; }   // lighting it shoves forward, as flyStep
+        b.boostOn = b.boosting;
         if (b.boosting) { b.energy = Math.max(0, b.energy - 20 * dt); b.regenAt = now + 700; }
         else if (now > (b.regenAt || 0)) b.energy = Math.min(100, b.energy + 22 * dt);
       } else {
