@@ -226,13 +226,13 @@
         if (cmds) {
           // Commands are flown against the clock, as Source and Overwatch do: each step adds its time to an allowance
           // and each command spends CMD_DT of it, so sending them faster than time passes gains nothing (the queue
-          // just overflows). A short delay is waited out from the queue; past ~4 commands' worth the last command is
-          // flown again, so the pilot never hangs in place, and as many late ones are skipped when they come
-          b.cqBudget = Math.min(CMD_DT * 6, (b.cqBudget || 0) + dt);
+          // just overflows). A delay of up to 8 commands (~133 ms, the network's jitter) is waited out; past that the
+          // last command is flown again, so the pilot never hangs in place, and as many late ones are skipped
+          b.cqBudget = Math.min(CMD_DT * 10, (b.cqBudget || 0) + dt);
           for (let n = 0; n < 3 && b.cqBudget >= CMD_DT - 1e-9; n++) {
             let c;
             if (cmds.length) { c = cmds.shift(); b.lastCmd = c; b.ackSeq = c.s; }
-            else if (b.cqBudget >= CMD_DT * 4) { c = b.lastCmd || { mx: 0, my: 0, aim: b.a, boost: false, brake: false, dash: b.dashDone || 0 }; b.cqOwed = Math.min(30, (b.cqOwed || 0) + 1); }
+            else if (b.cqBudget >= CMD_DT * 8) { c = b.lastCmd || { mx: 0, my: 0, aim: b.a, boost: false, brake: false, dash: b.dashDone || 0 }; b.cqOwed = Math.min(30, (b.cqOwed || 0) + 1); b.cqRepeats = (b.cqRepeats || 0) + 1; }
             else break;
             b.cqBudget -= CMD_DT;
             const g = pilotMove(b, c);

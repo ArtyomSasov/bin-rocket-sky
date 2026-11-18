@@ -9,7 +9,7 @@ const BRIDGE = `
   puff = sparkShower = smoke = impact = explode = swallowFx = dashBurst = afterburner = trailFrom = damageFx = deathFx =
     announce = audioCue = sfx = packPlay = packLoop = blip = boomSound = choir = feedPush = () => false;
   const pilotView = b => ({ id: b.id, name: b.name, human: !!b.input, x: b.x, y: b.y, vx: b.vx, vy: b.vy, a: b.a, dead: b.dead, lives: b.lives,
-    weapon: botWeapon(b), kills: b.st.kills, deaths: b.st.deaths, shots: b.st.shots });
+    weapon: botWeapon(b), kills: b.st.kills, deaths: b.st.deaths, shots: b.st.shots, repeats: b.cqRepeats || 0 });   // repeats: commands flown again for want of new ones
   let serverSeq = 0;
   globalThis.__simBot = id => botById.get(id);   // the live pilot object, for tests and tools
   globalThis.__simConst = { WEAPON_KEYS, K };   // protocol numbers, for tests and tools

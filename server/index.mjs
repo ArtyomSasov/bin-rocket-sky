@@ -226,11 +226,12 @@ wss.on("connection", (ws, req) => {
     ws.rtc?.close();
     perIp.set(addr, perIp.get(addr) - 1); if (!perIp.get(addr)) perIp.delete(addr);
     if (!room) return;
+    const rep = room.match.pilot(id)?.repeats || 0;   // (read before the pilot goes)
     room.clients.delete(ws); room.match.removePilot(id);
     if (!room.clients.size) room.emptySince = performance.now();
     log("leave", room.code, id, "players", room.clients.size);
     const a = ws.net;   // the player's network, for deciding what to improve: averages over their stay
-    if (a?.n) log("net", id, `${a.n * 10}s`, "ping", Math.round(a.p / a.n), "jitter", Math.round(a.j / a.n), "stalls/min", +(a.s / (a.n / 6)).toFixed(1), "worst gap", Math.round(a.g), "fps", Math.round(a.f / a.n));
+    if (a?.n) log("net", id, `${a.n * 10}s`, "ping", Math.round(a.p / a.n), "jitter", Math.round(a.j / a.n), "stalls/min", +(a.s / (a.n / 6)).toFixed(1), "worst gap", Math.round(a.g), "fps", Math.round(a.f / a.n), "cmd repeats", rep, ws.rtc ? "webrtc" : "websocket");
   });
 });
 // connections that stopped answering, and players who stopped playing, are dropped (their pilot leaves with them):
