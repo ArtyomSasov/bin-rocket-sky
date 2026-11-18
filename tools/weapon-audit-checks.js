@@ -119,11 +119,12 @@ function runWeaponAuditChecks() {
     applySupply(me,'bigmed');ok(me.lives>3&&hpPct(me)>100,'super health displayed');
     gainXp(10000,now);ok(me.lv===1&&maxLivesOf(me.lv)===3,'no leveling');
   });
-  check('each confirmed victim gets a visible kill notice, repeated reports do not duplicate it', () => {
+  check('a kill shows one notice in the middle (the latest) and a line each in the feed; repeats change nothing', () => {
     reset();killNotices.length=0;const id=myTag+'.notice'+now;
     reportKill(id,'Alpha','alpha');reportKill(id,'Beta','beta');reportKill(id,'Alpha','alpha');
-    ok(killNotices.length===2,'one notice per unique victim');
-    ok(killNoticeEl.textContent.includes('Alpha')&&killNoticeEl.textContent.includes('Beta'),'both names visible');
+    ok(killNotices.length===1,'one line in the middle: the latest kill');
+    ok(killNoticeEl.textContent.includes('Beta')&&!killNoticeEl.textContent.includes('Alpha'),'the newest victim shown; a repeated report changes nothing');
+    ok(feedEl.children.length>=2,'both kills in the feed on the right');
     killNotices.length=0;renderKillNotices();
   });
   check('minigun rounds are short travelling visuals clipped to the hit; scatter pellets really fly, in a loose cloud', () => {

@@ -1,30 +1,34 @@
   // ---------- kill feed & announcer ----------
   const feedEl = document.getElementById("feed"), annEl = document.getElementById("announce");
-  const feed = [];
   const killNotices = [];
   const killNoticeEl = document.createElement("div");
   killNoticeEl.id = "killNotice"; killNoticeEl.setAttribute("role", "status");
   killNoticeEl.setAttribute("aria-live", "polite"); document.body.appendChild(killNoticeEl);
   function showKillNotice(name) {
+    // one line in the middle, the latest (as UT says "You killed ..."); the feed on the right keeps the rest
+    killNotices.length = 0;
     killNotices.push({ name: String(name).slice(0, 40), at: performance.now(), round: stats.round });
-    if (killNotices.length > 6) killNotices.shift();
     renderKillNotices();
   }
   function renderKillNotices() {
     const now = performance.now();
-    while (killNotices.length && (now - killNotices[0].at > 4500 || killNotices[0].round !== stats.round)) killNotices.shift();
+    while (killNotices.length && (now - killNotices[0].at > 2500 || killNotices[0].round !== stats.round)) killNotices.shift();
     killNoticeEl.replaceChildren(...killNotices.map(n => {
       const line = document.createElement("div"); line.textContent = "YOU KILLED · " + n.name; return line;
     }));
   }
-  function feedPush(html, isMe) { feed.push({ html, at: performance.now(), me: !!isMe }); if (feed.length > 6) feed.shift(); renderFeed(); }
-  function renderFeed() {
-    renderKillNotices();
-    const now = performance.now();
-    while (feed.length && now - feed[0].at > 7000) feed.shift();
-    feedEl.style.top = "calc(var(--hud-bottom, 150px) + 8px)";
-    feedEl.innerHTML = feed.map(e => `<div class="fe${e.me ? " me" : ""}${e.spree ? " spree" : ""}">${e.html}</div>`).join("");
+  // the kill feed, top right: who killed whom and with what. A line stays 5 s, then fades out over 3 s (CSS); each
+  // line is its own element, so a new one never restarts the others' fade. A phone keeps fewer lines
+  const FEED_MAX = COARSE ? 3 : 6, FEED_LIFE = 8200;
+  function feedPush(html, isMe, spree) {
+    const el = document.createElement("div");
+    el.className = "fe" + (isMe ? " me" : "") + (spree ? " spree" : "");
+    el.innerHTML = html;   // (names in it are escaped by the callers)
+    feedEl.appendChild(el);
+    while (feedEl.children.length > FEED_MAX) feedEl.firstElementChild.remove();
+    setTimeout(() => el.remove(), FEED_LIFE);
   }
+  function renderFeed() { renderKillNotices(); }
   const tagOwner = tag => {
     if (tag === myTag) return { name: me.name || "You", weapon: me.weapon, me: true };
     for (const b of bots) if (b.tag === tag) return { name: b.name, weapon: botWeapon(b) };
@@ -53,7 +57,7 @@
     const n = (streaks.get(killer) || 0) + 1;
     streaks.set(killer, n); streaks.set(victim, 0);
     const sp = spreeOf(n);
-    if (sp && !(k && k.me)) { feed.push({ html: `${esc(killer)} ${sp[1]}!`, at: performance.now(), spree: true }); renderFeed(); }
+    if (sp && !(k && k.me)) feedPush(`${esc(killer)} ${sp[1]}!`, false, true);
   }
   function meKilled(id) { pushCapped(koBy, id, 12); reportKill(id, me.name || "You", "me"); }
   // my own multi-kills and sprees get the big centre announcement

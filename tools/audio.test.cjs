@@ -16,13 +16,18 @@ function setup() {
   vm.createContext(c); vm.runInContext(read('05b-audio-cues.js'), c);
   return { c, started, gainTargets, timers, listeners };
 }
-test('announcer serializes speech, keeps pitch stable and gives results priority', () => {
+test('announcer: a kill call speaks at once and cuts the previous one (as in UT); round calls keep their turn; pitch stays put', () => {
   const { c, started, timers, gainTargets } = setup();
   c.queueVoice('a_firstblood'); c.queueVoice('a_doublekill'); c.queueVoice('a_doublekill');
-  assert.equal(started.length, 1); assert.equal(started[0].playbackRate.value, 1);
-  c.queueVoice('v_win'); started[0].onended(); timers.pop()();
-  assert.equal(started.length, 2); assert.equal(started[1].buffer.name, 'win');
-  assert.deepEqual(gainTargets, [0.55, 1, 0.55]);
+  assert.equal(started.length, 2, 'double kill did not wait for first blood to finish');
+  assert.equal(started[1].buffer.name, 'double'); assert.equal(started[1].playbackRate.value, 1);
+  c.queueVoice('v_win');
+  assert.equal(started.length, 2, 'the result waits for the line being spoken');
+  started[1].onended(); timers.pop()();
+  assert.equal(started.length, 3); assert.equal(started[2].buffer.name, 'win');
+  c.queueVoice('a_doublekill');
+  assert.equal(started.length, 3, 'a kill call does not cut a round call');
+  assert.deepEqual(gainTargets, [0.55, 0.55, 1, 0.55]);
 });
 test('announcer waits for decoded recordings and drops speech when the tab is hidden', () => {
   const { c, started, timers, listeners } = setup();

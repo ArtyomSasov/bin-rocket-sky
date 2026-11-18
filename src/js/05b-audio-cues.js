@@ -24,18 +24,38 @@
     return ok;
   }
 
-  // Keep the supplied announcer intact: no random pitch, no overlapping speech, no combat voice cap.
+  // The announcer, as UT plays it: a kill call (first blood, double kill, a spree: the a_* lines) is said the moment
+  // it happens, never kept waiting behind another (UT99's ClientPlaySound starts it on a free slot at once); a newer
+  // kill call cuts the one still speaking with a quick fade (as UT2004 does), so they never talk over each other.
+  // Round calls (prepare, fight, win, lose) and flag calls keep their turn: a kill call does not cut them, it waits.
+  // No random pitch, and no combat voice cap.
   const voiceQueue = [];
   let voiceActive = null, voiceTimer = null;
+  const voicePriority = name => /^(v_win|v_lose|v_flawless|v_fight|v_prepare)$/.test(name) ? 3 : /flag/.test(name) ? 2 : 1;
+  const killCall = name => /^a_/.test(name) && voicePriority(name) === 1;   // (flag calls keep their turn)
   function queueVoice(name, volume = 1) {
     if (!audio || document.hidden) return false;
     if (voiceActive?.name === name || voiceQueue.some(v => v.name === name)) return true;
-    const priority = /^(v_win|v_lose|v_flawless|v_fight|v_prepare)$/.test(name) ? 3 : /flag/.test(name) ? 2 : 1;
+    const priority = voicePriority(name);
     if (priority === 3) voiceQueue.length = 0;
-    voiceQueue.push({ name, volume, priority, expires: performance.now() + (name === "v_fight" ? 30000 : 6000) });
+    const item = { name, volume, priority, expires: performance.now() + (name === "v_fight" ? 30000 : 6000) };
+    if (killCall(name) && (!voiceActive || voiceActive.priority < 2)) {   // now: cut whatever kill call is speaking
+      for (let i = voiceQueue.length - 1; i >= 0; i--) if (killCall(voiceQueue[i].name)) voiceQueue.splice(i, 1);
+      if (voiceActive) cutVoice();
+      voiceQueue.unshift(item);
+      pumpVoice(); return true;
+    }
+    voiceQueue.push(item);
     voiceQueue.sort((a, b) => b.priority - a.priority);
     if (voiceQueue.length > 4) voiceQueue.length = 4;
     pumpVoice(); return true;
+  }
+  // the voice speaking now stops with a 40 ms fade (no click), and the next one may start at once
+  function cutVoice() {
+    const v = voiceActive; voiceActive = null;
+    if (!v) return;
+    v.src.onended = null;
+    try { v.gain.gain.setTargetAtTime(0, audio.currentTime, 0.012); v.src.stop(audio.currentTime + 0.05); } catch {}
   }
   function pumpVoice() {
     if (voiceTimer) { clearTimeout(voiceTimer); voiceTimer = null; }
@@ -48,9 +68,10 @@
     const src = audio.createBufferSource(), gain = audio.createGain(); src.buffer = buffer;
     src.playbackRate.value = 1; gain.gain.value = item.volume;
     src.connect(gain).connect(voiceBus);
-    voiceActive = { name: item.name, src };
+    const v = voiceActive = { name: item.name, src, gain, priority: item.priority };
     mixBus.gain.setTargetAtTime(0.55, audio.currentTime, 0.04);
     src.onended = () => {
+      if (voiceActive !== v) return;
       voiceActive = null;
       mixBus.gain.setTargetAtTime(1, audio.currentTime, 0.18);
       voiceTimer = setTimeout(pumpVoice, 100);

@@ -94,13 +94,16 @@ body {
 .award span { font-size: 13px; }
 .award small { color: var(--muted); font-size: 12px; }
 .rcard .next { text-align: center; color: var(--muted); font-size: 13px; }
-.feed { display: none !important; position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); top: 200px; display: grid; gap: 4px; justify-items: end; pointer-events: none; max-width: 70vw; }
+.feed { position: fixed; z-index: 30; right: max(16px, env(safe-area-inset-right, 0px)); top: 64px; display: grid; gap: 4px; justify-items: end; pointer-events: none; max-width: min(46vw, 420px); }
 .fe { display: flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 8px; background: rgba(20,13,40,.72); border: 1px solid var(--line);
-  font: 700 12px var(--body); color: var(--ink); white-space: nowrap; animation: feedIn .25s ease-out; }
+  font: 700 13px var(--body); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  animation: feedIn .25s ease-out, feedOut 3s ease-in 5s forwards; }
 .fe svg { width: 14px; height: 14px; fill: var(--flame); flex: none; }
 .fe .k { color: #ffd36b; } .fe .v { color: #ff8a9a; } .fe.me { border-color: var(--teal); }
 .fe.spree { color: #c38bff; font-style: italic; }
 @keyframes feedIn { from { opacity: 0; transform: translateX(20px); } }
+@keyframes feedOut { to { opacity: 0; transform: translateX(12px); } }
+@media (pointer: coarse), (max-width: 700px) { .feed { top: 52px; } .fe { font-size: 11px; padding: 3px 7px; } .fe svg { width: 12px; height: 12px; } }
 .announce { position: fixed; left: 50%; top: 26%; transform: translateX(-50%); text-align: center; pointer-events: none; opacity: 0; display: grid; gap: 4px; --ac: #ffd36b; }
 .announce b { font: 700 52px/1 var(--display); color: var(--ac); letter-spacing: .04em; text-shadow: 0 0 18px var(--ac), 0 4px 0 rgba(0,0,0,.45); white-space: nowrap; }
 .announce span { font: 700 16px var(--display); color: var(--ink); text-shadow: 0 2px 6px rgba(0,0,0,.6); }
@@ -1917,18 +1920,38 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     return ok;
   }
 
-  // Keep the supplied announcer intact: no random pitch, no overlapping speech, no combat voice cap.
+  // The announcer, as UT plays it: a kill call (first blood, double kill, a spree: the a_* lines) is said the moment
+  // it happens, never kept waiting behind another (UT99's ClientPlaySound starts it on a free slot at once); a newer
+  // kill call cuts the one still speaking with a quick fade (as UT2004 does), so they never talk over each other.
+  // Round calls (prepare, fight, win, lose) and flag calls keep their turn: a kill call does not cut them, it waits.
+  // No random pitch, and no combat voice cap.
   const voiceQueue = [];
   let voiceActive = null, voiceTimer = null;
+  const voicePriority = name => /^(v_win|v_lose|v_flawless|v_fight|v_prepare)$/.test(name) ? 3 : /flag/.test(name) ? 2 : 1;
+  const killCall = name => /^a_/.test(name) && voicePriority(name) === 1;   // (flag calls keep their turn)
   function queueVoice(name, volume = 1) {
     if (!audio || document.hidden) return false;
     if (voiceActive?.name === name || voiceQueue.some(v => v.name === name)) return true;
-    const priority = /^(v_win|v_lose|v_flawless|v_fight|v_prepare)$/.test(name) ? 3 : /flag/.test(name) ? 2 : 1;
+    const priority = voicePriority(name);
     if (priority === 3) voiceQueue.length = 0;
-    voiceQueue.push({ name, volume, priority, expires: performance.now() + (name === "v_fight" ? 30000 : 6000) });
+    const item = { name, volume, priority, expires: performance.now() + (name === "v_fight" ? 30000 : 6000) };
+    if (killCall(name) && (!voiceActive || voiceActive.priority < 2)) {   // now: cut whatever kill call is speaking
+      for (let i = voiceQueue.length - 1; i >= 0; i--) if (killCall(voiceQueue[i].name)) voiceQueue.splice(i, 1);
+      if (voiceActive) cutVoice();
+      voiceQueue.unshift(item);
+      pumpVoice(); return true;
+    }
+    voiceQueue.push(item);
     voiceQueue.sort((a, b) => b.priority - a.priority);
     if (voiceQueue.length > 4) voiceQueue.length = 4;
     pumpVoice(); return true;
+  }
+  // the voice speaking now stops with a 40 ms fade (no click), and the next one may start at once
+  function cutVoice() {
+    const v = voiceActive; voiceActive = null;
+    if (!v) return;
+    v.src.onended = null;
+    try { v.gain.gain.setTargetAtTime(0, audio.currentTime, 0.012); v.src.stop(audio.currentTime + 0.05); } catch {}
   }
   function pumpVoice() {
     if (voiceTimer) { clearTimeout(voiceTimer); voiceTimer = null; }
@@ -1941,9 +1964,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const src = audio.createBufferSource(), gain = audio.createGain(); src.buffer = buffer;
     src.playbackRate.value = 1; gain.gain.value = item.volume;
     src.connect(gain).connect(voiceBus);
-    voiceActive = { name: item.name, src };
+    const v = voiceActive = { name: item.name, src, gain, priority: item.priority };
     mixBus.gain.setTargetAtTime(0.55, audio.currentTime, 0.04);
     src.onended = () => {
+      if (voiceActive !== v) return;
       voiceActive = null;
       mixBus.gain.setTargetAtTime(1, audio.currentTime, 0.18);
       voiceTimer = setTimeout(pumpVoice, 100);
@@ -6465,31 +6489,35 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   }
   // ---------- kill feed & announcer ----------
   const feedEl = document.getElementById("feed"), annEl = document.getElementById("announce");
-  const feed = [];
   const killNotices = [];
   const killNoticeEl = document.createElement("div");
   killNoticeEl.id = "killNotice"; killNoticeEl.setAttribute("role", "status");
   killNoticeEl.setAttribute("aria-live", "polite"); document.body.appendChild(killNoticeEl);
   function showKillNotice(name) {
+    // one line in the middle, the latest (as UT says "You killed ..."); the feed on the right keeps the rest
+    killNotices.length = 0;
     killNotices.push({ name: String(name).slice(0, 40), at: performance.now(), round: stats.round });
-    if (killNotices.length > 6) killNotices.shift();
     renderKillNotices();
   }
   function renderKillNotices() {
     const now = performance.now();
-    while (killNotices.length && (now - killNotices[0].at > 4500 || killNotices[0].round !== stats.round)) killNotices.shift();
+    while (killNotices.length && (now - killNotices[0].at > 2500 || killNotices[0].round !== stats.round)) killNotices.shift();
     killNoticeEl.replaceChildren(...killNotices.map(n => {
       const line = document.createElement("div"); line.textContent = "YOU KILLED · " + n.name; return line;
     }));
   }
-  function feedPush(html, isMe) { feed.push({ html, at: performance.now(), me: !!isMe }); if (feed.length > 6) feed.shift(); renderFeed(); }
-  function renderFeed() {
-    renderKillNotices();
-    const now = performance.now();
-    while (feed.length && now - feed[0].at > 7000) feed.shift();
-    feedEl.style.top = "calc(var(--hud-bottom, 150px) + 8px)";
-    feedEl.innerHTML = feed.map(e => `<div class="fe${e.me ? " me" : ""}${e.spree ? " spree" : ""}">${e.html}</div>`).join("");
+  // the kill feed, top right: who killed whom and with what. A line stays 5 s, then fades out over 3 s (CSS); each
+  // line is its own element, so a new one never restarts the others' fade. A phone keeps fewer lines
+  const FEED_MAX = COARSE ? 3 : 6, FEED_LIFE = 8200;
+  function feedPush(html, isMe, spree) {
+    const el = document.createElement("div");
+    el.className = "fe" + (isMe ? " me" : "") + (spree ? " spree" : "");
+    el.innerHTML = html;   // (names in it are escaped by the callers)
+    feedEl.appendChild(el);
+    while (feedEl.children.length > FEED_MAX) feedEl.firstElementChild.remove();
+    setTimeout(() => el.remove(), FEED_LIFE);
   }
+  function renderFeed() { renderKillNotices(); }
   const tagOwner = tag => {
     if (tag === myTag) return { name: me.name || "You", weapon: me.weapon, me: true };
     for (const b of bots) if (b.tag === tag) return { name: b.name, weapon: botWeapon(b) };
@@ -6518,7 +6546,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const n = (streaks.get(killer) || 0) + 1;
     streaks.set(killer, n); streaks.set(victim, 0);
     const sp = spreeOf(n);
-    if (sp && !(k && k.me)) { feed.push({ html: `${esc(killer)} ${sp[1]}!`, at: performance.now(), spree: true }); renderFeed(); }
+    if (sp && !(k && k.me)) feedPush(`${esc(killer)} ${sp[1]}!`, false, true);
   }
   function meKilled(id) { pushCapped(koBy, id, 12); reportKill(id, me.name || "You", "me"); }
   // my own multi-kills and sprees get the big centre announcement
