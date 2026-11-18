@@ -384,3 +384,25 @@ test('flight commands are flown against the clock: sent four times too fast they
   } finally { m.dispose(); }
 });
 
+test('nothing but its commands moves a player\u2019s pilot: crashing about the station, the server\u2019s flight is a replay\u2019s to the digit', { skip }, async () => {
+  const { createMatch } = await sim();
+  const m = createMatch({ code: 'm1x0kchk' });   // Cargo Deck: walls and props to bump into, and crash damage
+  try {
+    const id = m.addPilot('P'), b = m.game.__simBot(id), M = m.game.__simMove, shadow = { lv: 1, inv: 0 };
+    let t = 1e6; const step = () => { t += 1000 / 60; m.step(1 / 60, t); };
+    for (let i = 0; i < 10; i++) step();
+    let flown = 0;
+    for (let s = 1; s <= 1500; s++) {
+      const a = s / 40, c = [s, Math.round(Math.cos(a) * 1000), Math.round(Math.sin(a * 0.73) * 1000), Math.round(Math.sin(a * 1.3) * 3000), (s % 120 < 40 ? 1 : 0) | (s % 97 > 90 ? 2 : 0), Math.floor(s / 300)];
+      const before = M.moveState(b);
+      m.input(id, { c: [c] }); step();
+      if (b.ackSeq !== s || b.dead) continue;
+      M.setMoveState(shadow, before);
+      M.pilotMove(shadow, { s, mx: c[1] / 1000, my: c[2] / 1000, aim: c[3] / 1000, boost: !!(c[4] & 1), brake: !!(c[4] & 2), dash: c[5] });
+      assert.ok(Math.hypot(shadow.x - b.x, shadow.y - b.y) < 0.01 && Math.hypot(shadow.vx - b.vx, shadow.vy - b.vy) < 0.01, `command ${s}: the server moved it otherwise (${b.vx.toFixed(1)},${b.vy.toFixed(1)} vs ${shadow.vx.toFixed(1)},${shadow.vy.toFixed(1)})`);
+      flown++;
+    }
+    assert.ok(flown > 1000, flown + ' commands compared');
+  } finally { m.dispose(); }
+});
+

@@ -58,7 +58,7 @@
     dmg -= absorbed;
     if (!shotId.startsWith(b.tag + ".")) metricDamage(shotId, absorbed + Math.min(b.lives, dmg), b.lives <= dmg);
     b.lives = Math.round((b.lives - dmg) * 1000) / 1000;
-    if (Math.random() < ({ easy: 0.15, normal: 0.35, hard: 0.6 })[b.level]) b.dashReq = true;
+    if (!b.input && Math.random() < ({ easy: 0.15, normal: 0.35, hard: 0.6 })[b.level]) b.dashReq = true;   // an AI bot dodges when hit (a player dashes when they choose)
     const shown = remotes.get(b.id); if (shown) shown.hitAt = performance.now();
     const byHole = shotId === "x" || shotId === "p";   // the black hole or a planet: nobody gets credit
     if (!byHole) pushCapped(b.hitBy, shotId, 12);
@@ -213,7 +213,7 @@
           }
         }
       }
-      if (b.dashReq && b.energy >= 25 && now - (b.dashAt || 0) > 900) {   // hit: a quick dodge to one side
+      if (!human && b.dashReq && b.energy >= 25 && now - (b.dashAt || 0) > 900) {   // hit: a quick dodge to one side
         const a = Math.atan2(st.y, st.x) + (Math.random() < 0.5 ? 1.4 : -1.4);
         b.vx += Math.cos(a) * 900; b.vy += Math.sin(a) * 900; b.energy -= 25; b.dashAt = now; b.inv = Math.max(b.inv, now + 280);
       }
@@ -234,7 +234,7 @@
           for (let n = 0; n < 3 && b.cqBudget >= CMD_DT - 1e-9; n++) {
             let c;
             // the next one is missing but later ones are here (lost or overtaken on the way): a moment's wait for it
-            if (cmds.length && cmds[0].s !== (b.ackSeq || 0) + 1 && b.ackSeq && b.cqBudget < CMD_DT * 4) break;
+            if (cmds.length && cmds[0].s !== (b.ackSeq || 0) + 1 && b.ackSeq && b.cqBudget < CMD_DT * 8) break;
             if (cmds.length) { c = cmds.shift(); b.lastCmd = c; b.ackSeq = c.s; }
             else if (b.cqBudget >= CMD_DT * 8) { c = b.lastCmd || { mx: 0, my: 0, aim: b.a, boost: false, brake: false, dash: b.dashDone || 0 }; b.cqOwed = Math.min(30, (b.cqOwed || 0) + 1); b.cqRepeats = (b.cqRepeats || 0) + 1; }
             else break;
