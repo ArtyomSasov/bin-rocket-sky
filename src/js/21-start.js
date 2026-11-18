@@ -277,3 +277,11 @@
   if (window.BRS_FILE) document.getElementById("dlGame").hidden = true;   // already the one-file game
   // keep the game on this device (sw.js): it opens again with no internet, for offline play or a local room
   if (standalone && "serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+  // the fire and smoke textures (10-effects.js) are made ahead, one at a time while the page is idle, so the first
+  // blasts of a game don't stutter making them (the server, which draws nothing, has no need of them)
+  if (!window.BRS_BODY_CANVAS) {
+    let k = 0;
+    const later = f => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 500 }) : setTimeout(f, 30));
+    const warm = () => { if (k === 0) smokeGrain(); if (k < 32) { fireSprite(k >> 2, k & 3); k++; later(warm); } };
+    setTimeout(warm, 800);
+  }

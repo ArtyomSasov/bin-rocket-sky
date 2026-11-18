@@ -20,19 +20,42 @@
   const FIRE_RAMP = ["#ffffff", "#fff3c4", "#ffd66b", "#ffab3d", "#ff7a26", "#e2491c", "#a32c19", "#5c1a16"];
   const SMOKE_COLS = ["rgb(64,57,64)", "rgb(88,79,84)", "rgb(114,103,106)"];
   const SPARK_COLS = ["#fff8e0", "#ffe08a", "#ffb64a"];
+  // turbulent value noise (fractal, four octaves), for the inner texture of fire and smoke: billows, not smooth blobs
+  function vnoise(x, y, s) {
+    const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+    const h = (a, b) => hash(a, b, s);
+    return (h(xi, yi) * (1 - u) + h(xi + 1, yi) * u) * (1 - v) + (h(xi, yi + 1) * (1 - u) + h(xi + 1, yi + 1) * u) * v;
+  }
+  const fbm = (x, y, s) => (vnoise(x, y, s) * 0.5 + vnoise(x * 2.1, y * 2.1, s + 1) * 0.25 + vnoise(x * 4.3, y * 4.3, s + 2) * 0.15 + vnoise(x * 8.7, y * 8.7, s + 3) * 0.1);
+  const hex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
   const fireCache = [];
-  function fireSprite(i) {   // a soft, lumpy ball of flame in one of the fixed shades
-    if (fireCache[i]) return fireCache[i];
-    const c = document.createElement("canvas"); c.width = c.height = 64;
-    const q = c.getContext("2d"), col = FIRE_RAMP[i];
-    q.globalAlpha = 0.55;
-    for (let j = 0; j < 6; j++) {
-      const a = j * 2.4 + i, x = 32 + Math.cos(a) * 8, y = 32 + Math.sin(a) * 7, r = 15 + (j % 3) * 4;
-      const gr = q.createRadialGradient(x, y, 0, x, y, r);
-      gr.addColorStop(0, col); gr.addColorStop(0.35, col); gr.addColorStop(1, "rgba(0,0,0,0)");
-      q.fillStyle = gr; q.fillRect(0, 0, 64, 64);
+  // a billowing ball of flame in one of the fixed shades (four shapes each): ragged turbulent edges, brighter where
+  // it is thick, so a fireball reads as rolling fire rather than round glows. Made once, when first needed
+  function fireSprite(i, v = 0) {
+    const key = i * 4 + (v & 3);
+    if (fireCache[key]) return fireCache[key];
+    const S = 96, c = document.createElement("canvas"); c.width = c.height = S;
+    const q = c.getContext("2d"), img = q.createImageData(S, S), [r0, g0, b0] = hex(FIRE_RAMP[i]), [r1, g1, b1] = hex(FIRE_RAMP[Math.max(0, i - 2)]);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const dx = x / S - 0.5, dy = y / S - 0.5, d = Math.hypot(dx, dy) * 2, n = fbm(x / S * 5 + v * 7.3, y / S * 5 + v * 3.1, 50 + v);
+      const dens = Math.max(0, Math.min(1, (1 - d * 1.05) * 1.6 + (n - 0.5) * 1.5));
+      if (dens <= 0) continue;
+      const hot = Math.max(0, Math.min(1, dens * 1.3 - 0.35 + (n - 0.5) * 0.6)), o = (y * S + x) * 4;   // thick parts glow hotter
+      img.data[o] = r0 + (r1 - r0) * hot; img.data[o + 1] = g0 + (g1 - g0) * hot; img.data[o + 2] = b0 + (b1 - b0) * hot;
+      img.data[o + 3] = 255 * dens * dens * (3 - 2 * dens);
     }
-    return fireCache[i] = c;
+    q.putImageData(img, 0, 0);
+    return fireCache[key] = c;
+  }
+  // the grain inside smoke: a mask of thicker and thinner wisps, cut into every smoke sprite
+  let smokeMask = null;
+  function smokeGrain() {
+    if (smokeMask) return smokeMask;
+    const S = 96, c = document.createElement("canvas"); c.width = c.height = S;
+    const q = c.getContext("2d"), img = q.createImageData(S, S);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) { const o = (y * S + x) * 4, n = fbm(x / S * 4, y / S * 4, 77); img.data[o + 3] = 255 * Math.max(0, Math.min(1, 0.25 + n * 1.1)); }
+    q.putImageData(img, 0, 0);
+    return smokeMask = c;
   }
   const lightCache = new Map();
   function lightSprite(rgb) {   // a wide soft pool of light ("r,g,b"), for a blast lighting what is round it
@@ -105,7 +128,6 @@
                  a: b.a, spin: (Math.random() - 0.5) * (zap ? 0.6 : 1.6), lv: b.lv || 1, ck: b.ck, life, max: life, born: performance.now(), zap: !!zap });
     if (hulks.length > 30) hulks.shift();
     if (zap || quiet) return;
-    rings.push({ x: b.x, y: b.y, t: 0, r: 140, col: "255,200,160", warp: true, w: 4, dur: 0.4 });
     explode(b.x, b.y, 30, 240);
   }
   const whiteCache = new Map();
@@ -177,6 +199,7 @@
       gr.addColorStop(0, col); gr.addColorStop(0.4, col); gr.addColorStop(1, "rgba(25,22,32,0)");
       q.fillStyle = gr; q.globalAlpha = 0.42; q.fillRect(0, 0, 96, 96);
     }
+    q.globalAlpha = 1; q.globalCompositeOperation = "destination-in"; q.drawImage(smokeGrain(), 0, 0);   // wisps, not a smooth ball
     smokeCache.set(col, c); return c;
   }
   // boost: a dense jet of fire out of the nozzle
@@ -318,7 +341,6 @@
     const [bodyCol, lidCol] = binColors(b.ck), sz = sizeOf(b.lv || 1), q = lowQ ? 0.35 : 1;
     // the fuel goes up: the layered blast, a second puff of fire a beat later off to one side, the view warping
     explode(b.x, b.y, 110, 400 * Math.sqrt(sz));
-    rings.push({ x: b.x, y: b.y, t: 0, r: 230 * sz, col: "255,220,170", warp: true, w: 5, dur: 0.5 });
     const a2 = Math.random() * 6.28;
     for (let k = 0; k < 8 * q; k++) {
       const a = Math.random() * 6.28, v = 30 + Math.random() * 90;
@@ -540,7 +562,7 @@
     for (let k = 0, m = Math.min(40, Math.round((8 + 10 * nn) * q)); k < m; k++) {   // the fireball
       const a = Math.random() * 6.28, rr = Math.random() * 30 * s, v = (60 + Math.random() * 260) * s;
       puff(x + Math.cos(a) * rr, y + Math.sin(a) * rr, Math.cos(a) * v, Math.sin(a) * v, (0.5 + Math.random() * 0.6) * ss,
-        (18 + Math.random() * 20) * s, FIRE_RAMP[0], 4, 0, 0, 0.9, k < 3 ? 0 : Math.random() * 0.25);
+        (18 + Math.random() * 20) * s, FIRE_RAMP[0], 4, 0, 0, 0.9, k < 3 ? 0 : 0.12 + Math.random() * 0.25);   // only the first few start white-hot
     }
     for (let k = 0, m = Math.round((6 + 9 * nn) * q); k < m; k++) {   // smoke, lit by the fire inside it at first
       const a = Math.random() * 6.28, rr = Math.random() * 40 * s, v = (30 + Math.random() * 130) * s;
@@ -555,7 +577,17 @@
       const a = Math.random() * 6.28, v = (120 + Math.random() * 380) * ss;
       puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.8 + Math.random() * 1.2, 1 + Math.random() * 1.1, FIRE_RAMP[2], 5, 0, (Math.random() - 0.5) * 2.5, 0.965);
     }
-    rings.push({ x, y, t: 0, r: 150 * s, col: "255,244,225", dur: 0.2 + 0.1 * ss, w: 3 });
+    // the shock wave: a lens racing out that bends what is behind it, with a bright front (drawBlastFx), and a ring
+    // of dust and smoke thrown out with it
+    rings.push({ x, y, t: 0, r: 260 * s, col: "255,246,230", dur: 0.38 + 0.12 * ss, w: 3, shock: 26 * ss });
+    for (let k = 0, m = Math.round((14 + 10 * nn) * q); k < m; k++) {
+      const a = k / m * 6.283 + Math.random() * 0.3, v = (520 + Math.random() * 160) * s;
+      puff(x + Math.cos(a) * 12 * s, y + Math.sin(a) * 12 * s, Math.cos(a) * v, Math.sin(a) * v, 0.8 + Math.random() * 0.5, (7 + Math.random() * 5) * s, "rgb(150,138,142)", 2, 0, 0, 0.88, 0.5);
+    }
+    for (let k = 0, m = Math.round((5 + 4 * nn) * q); k < m; k++) {   // tongues of flame licking out in the first instant
+      const a = Math.random() * 6.28, v = (500 + Math.random() * 500) * ss;
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.22 + Math.random() * 0.18, (10 + Math.random() * 8) * s, FIRE_RAMP[0], 6, 0, (Math.random() - 0.5) * 2, 0.9, Math.random() * 0.2);
+    }
     if (n >= 26) for (let k = 0, m = Math.round((2 + 3 * nn) * q); k < m; k++) {
       const a = Math.random() * 6.28, v = (100 + Math.random() * 260) * ss;
       addDebris(x, y, Math.cos(a) * v, Math.sin(a) * v, 1.5 + Math.random() * 2.5, k % 2 ? "#3a3036" : "#5a4a44", 2.5 + Math.random() * 2);

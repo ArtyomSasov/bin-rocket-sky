@@ -259,6 +259,21 @@
   // shock-wave refraction: copy the band around a blast ring and paint it back slightly magnified,
   // so everything behind the expanding wave wobbles like hot air
   const warpCv = document.createElement("canvas"), wctx = warpCv.getContext("2d");
+  // a shock wave as a lens: behind it what was there is pulled in, at its front pushed out (bands scaled about the
+  // centre), so the whole view visibly ripples as it passes
+  function shockLens(x, y, r, w, strength) {
+    const R = r + w, sc = dpr * zoom, size = Math.ceil(2 * R * sc);
+    if (size < 8 || size > 2600 || r < w * 0.5) return;
+    if (warpCv.width < size) { warpCv.width = warpCv.height = size; } else wctx.clearRect(0, 0, size, size);
+    const px = Math.round((x - R) * sc), py = Math.round((y - R) * sc);
+    const ax = Math.max(0, px), ay = Math.max(0, py), bx = Math.min(cv.width, px + size), by = Math.min(cv.height, py + size);
+    if (bx <= ax || by <= ay) return;
+    wctx.drawImage(cv, ax, ay, bx - ax, by - ay, ax - px, ay - py, bx - ax, by - ay);
+    for (const [r0, r1, m] of [[r - w, r - w * 0.35, 1 - 0.035 * strength], [r - w * 0.35, r + w * 0.25, 1 + 0.06 * strength], [r + w * 0.25, r + w, 1 + 0.02 * strength]]) {
+      g.save(); g.beginPath(); g.arc(x, y, Math.max(0, r1), 0, 6.29); g.arc(x, y, Math.max(0, r0), 0, 6.29, true); g.clip("evenodd");
+      g.translate(x, y); g.scale(m, m); g.drawImage(warpCv, 0, 0, size, size, -R, -R, 2 * R, 2 * R); g.restore();
+    }
+  }
   function refractRing(x, y, r, w, strength) {
     const R = r + w, sc = dpr * zoom, size = Math.ceil(2 * R * sc);
     if (size < 8 || size > 2600) return;
@@ -557,7 +572,7 @@
     g.globalCompositeOperation = "lighter";
     g.lineCap = "round";
     for (const p of parts) {
-      if (p.k === 2 || p.k === 4) continue;   // smoke and fire clouds go over the bins (drawBlastFx)
+      if (p.k === 2 || p.k === 4 || p.k === 6) continue;   // smoke and fire (clouds, tongues) go over the bins (drawBlastFx)
       const x = sx(p.x), y = sy(p.y);
       if (!onScreen(x, y, 30)) continue;
       g.globalAlpha = Math.max(0, p.life / p.max) * 0.9;
@@ -603,7 +618,7 @@
     // smoke on top of the bins, so a damaged bin visibly smokes
     let hot = 0, fire = 0;
     for (const p of parts) {
-      if (p.k === 4) { fire++; continue; }
+      if (p.k === 4 || p.k === 6) { fire++; continue; }
       if (p.k !== 2) continue;
       const x = sx(p.x), y = sy(p.y), f = Math.max(0, p.life / p.max);
       if (!onScreen(x, y, 40 + p.size * 8)) continue;
@@ -626,14 +641,23 @@
     }
     // the fireball's clouds: swelling, cooling white to red, fading
     if (fire) for (const p of parts) {
+      if (p.k === 6) {   // a tongue of flame: a fire cloud stretched along its flight, cooling as it goes
+        const a = 1 - Math.max(0, p.life / p.max), x = sx(p.x), y = sy(p.y), sp = Math.hypot(p.vx, p.vy);
+        const L = p.size * 2 + sp * 0.09, Wd = p.size * (1.3 - a * 0.5);
+        if (!onScreen(x, y, L)) continue;
+        g.globalAlpha = Math.min(1, a / 0.05) * (1 - a) * 0.95;
+        g.save(); g.translate(x, y); g.rotate(Math.atan2(p.vy, p.vx));
+        g.drawImage(fireSprite(Math.min(7, ((a + p.glow) * 7) | 0), (p.rot * 3) | 0), -L * 0.7, -Wd, L, Wd * 2); g.restore();
+        continue;
+      }
       if (p.k !== 4) continue;
       const a = 1 - Math.max(0, p.life / p.max), d = p.size * 2 * (1 + 1.7 * (1 - (1 - a) * (1 - a)));
       const x = sx(p.x), y = sy(p.y);
       if (!onScreen(x, y, d)) continue;
-      g.globalAlpha = Math.min(1, a / 0.06) * Math.pow(1 - a, 0.7) * 0.9;
-      const i = Math.min(7, ((a * 0.95 + p.glow) * 8) | 0);
+      g.globalAlpha = Math.min(1, a / 0.06) * Math.pow(1 - a, 0.7) * 0.5;   // (many overlap: added up they would burn to white)
+      const i = Math.min(7, ((a * 1.1 + p.glow) * 8) | 0);
       g.save(); g.translate(x, y); g.rotate(p.rot + a * p.vr * 0.05);
-      g.drawImage(fireSprite(i), -d / 2, -d / 2, d, d); g.restore();
+      g.drawImage(fireSprite(i, (p.rot * 3) | 0), -d / 2, -d / 2, d, d); g.restore();
     }
     g.globalAlpha = 1;
     for (const m of impacts) {
@@ -760,6 +784,17 @@
     for (const q of rings) {
       if (q.t < 0) continue;
       const x = sx(q.x), y = sy(q.y), k = q.t / (q.dur || 0.6), e = 1 - (1 - k) * (1 - k);
+      if (q.shock) {   // a blast's shock wave: the lens, a darker band of compressed air behind it, a hot bright front
+        const rr = q.r * e, w = q.shock * (1 - 0.5 * k), fade = 1 - k;
+        if (!onScreen(x, y, rr + w)) continue;
+        g.globalCompositeOperation = "source-over";
+        if (!lowQ && k < 0.85) shockLens(x, y, rr, w, fade);
+        g.strokeStyle = `rgba(20,14,24,${0.18 * fade})`; g.lineWidth = w * 0.9; g.beginPath(); g.arc(x, y, Math.max(0, rr - w * 0.6), 0, 6.29); g.stroke();
+        g.globalCompositeOperation = "lighter";
+        g.strokeStyle = `rgba(${q.col},${0.22 * fade})`; g.lineWidth = w * 0.7; g.beginPath(); g.arc(x, y, rr, 0, 6.29); g.stroke();
+        g.strokeStyle = `rgba(255,255,255,${0.85 * fade * fade})`; g.lineWidth = 2 + 2 * fade; g.beginPath(); g.arc(x, y, rr + w * 0.15, 0, 6.29); g.stroke();
+        continue;
+      }
       if (q.warp && !lowQ && k < 0.9 && onScreen(x, y, q.r)) {
         g.globalCompositeOperation = "source-over"; refractRing(x, y, q.r * e, 24, 1 - k); g.globalCompositeOperation = "lighter";
       }

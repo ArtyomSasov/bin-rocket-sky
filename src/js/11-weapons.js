@@ -319,7 +319,7 @@
     s.fxDone = true; s.boom = true;
     const x = s.x, y = s.y, near = Math.hypot(x - me.x, y - me.y) < 1400;
     if (s.kind === K.MINE) {   // a mine: a hard orange blast and a shock ring
-      explode(x, y, 60, 340); rings.push({ x, y, t: 0, r: 170, col: "255,140,80", warp: true, dur: 0.4, w: 4 });
+      explode(x, y, 60, 340);
       if (near) { packPlay("p_boom_mine", 1, x, y) || sfx("boom_small", 1, 0.9, x, y); shake = Math.max(shake, 0.28 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
       return;
     }
@@ -342,7 +342,6 @@
       if (near) { shake = Math.max(shake, 0.25 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
     } else {   // rocket: a fat fireball with a warping shock ring and smoke
       explode(x, y, 80, 420);
-      rings.push({ x, y, t: 0, r: 240, col: "255,200,140", warp: true, dur: 0.5, w: 4 });
       if (near) { packPlay(s.kind === K.GREN ? "p_quake_grenade_boom" : "p_boom_rocket", 1, x, y) || sfx("boom_small", 1, 0.95, x, y); shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
     }
   }
