@@ -5,7 +5,7 @@ WORKDIR /app/server
 COPY server/package.json server/package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY src/js /app/src/js
-COPY server/index.mjs server/delta.mjs ./
+COPY server/index.mjs server/delta.mjs server/rtc.mjs ./
 COPY server/sim ./sim
 ENV NODE_ENV=production PORT=8080
 USER node
