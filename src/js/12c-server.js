@@ -16,7 +16,8 @@
   let serverRun = false;
   const srv = { ws: null, id: "", tag: "", sendHz: 30, dashN: 0, teleN: 0, lastIn: "", lastInAt: 0, deadSeen: false, joined: false, err: "", pred: [], pseq: 0,
     seq: 0, sent: new Map(), hist: [], cx: 0, cy: 0,
-    jit: 0, interp: 70, hits: [] };   // arrival jitter and the delay others are shown at (ms); my hits shown before the server's word   // my numbered controls, my flight as predicted here, and the correction still to ease in
+    jit: 0, interp: 70, hits: [],
+    lastSnapAt: 0, stalls: [], maxGap: 0, report: { stalls: 0, maxGap: 0 } };   // how the snapshots arrive (the network indicator)   // arrival jitter and the delay others are shown at (ms); my hits shown before the server's word   // my numbered controls, my flight as predicted here, and the correction still to ease in
   // the pilot the server flies for me: its own shots are mine, never a threat to me
   const mySrvShot = s => serverRun && !!srv.id && s.owner === srv.id;
   function serverStart(code) {
@@ -39,7 +40,13 @@
       } else if (m.t === "error") { srv.err = String(m.reason || "").slice(0, 40); announce("SERVER", srv.err, "#ff8a8a", 2, true); }
     };
     ws.onclose = () => { srv.joined = false; setStatus(false, "Server · disconnected" + (srv.err ? " · " + srv.err : "")); };
-    setInterval(() => { if (ws.readyState === 1) ws.send(JSON.stringify({ t: "ping", c: performance.now() })); }, 2000);
+    setInterval(() => { if (ws.readyState === 1) ws.send(JSON.stringify({ t: "ping", c: performance.now() })); }, 1000);
+    // every 10 s the server hears how the connection is doing here (numbers only), for its own summary of the network
+    setInterval(() => {
+      if (ws.readyState !== 1 || !srv.joined) return;
+      ws.send(JSON.stringify({ t: "net", p: Math.round(myPing || 0), j: Math.round(srv.jit), s: srv.report.stalls, g: Math.round(srv.report.maxGap), f: Math.round(1 / (frameAvg || 1 / 60)) }));
+      srv.report = { stalls: 0, maxGap: 0 };
+    }, 10000);
     setInterval(sendControls, 1000 / 30);
   }
   // my controls, as they are now: sent from the frame that uses them (so the server flies them as early as it can),
@@ -82,6 +89,7 @@
   function receiveServer(p) {
     if (p.mc) receiveMatchClock(p.mc);
     serverClock(p.ts);
+    snapArrived(performance.now());
     const seen = new Set();
     for (const e of Array.isArray(p.bots) ? p.bots.slice(0, MAX_BOTS) : []) {
       if (!Array.isArray(e) || typeof e[0] !== "string" || !/^pb[a-z0-9]{1,10}$/.test(e[0]) || !e[1] || typeof e[1] !== "object") continue;
@@ -292,6 +300,33 @@
       else if (now - e.at > wait) { predictedGrabs.delete(key); grabbed.delete(key); if (e.gun) gunFx.delete(e.gun); }
     }
   }
+  // ---------- the network indicator ----------
+  // A snapshot is due every 1/sendHz s; one that comes three gaps late is a stall (on TCP, usually a lost packet
+  // being sent again, which holds up everything behind it). The chip by the status shows the round trip and a dot:
+  // green, yellow or red by the round trip and the stalls of the last 10 s; several stalls bring up a warning
+  function snapArrived(t) {
+    if (srv.lastSnapAt) {
+      const gap = t - srv.lastSnapAt;
+      if (gap > 3000 / srv.sendHz) { srv.stalls.push(t); srv.report.stalls++; }
+      srv.report.maxGap = Math.max(srv.report.maxGap, gap);
+    }
+    srv.lastSnapAt = t;
+  }
+  const netQEl = document.getElementById("netQ"), netWarnEl = document.getElementById("netWarn");
+  function netIndicator() {
+    const show = (serverRun && srv.joined) || (playing && !offlineRun && !localRun && myPing > 0);
+    netQEl.hidden = !show;
+    if (!show) { netWarnEl.hidden = true; return; }
+    const now = performance.now();
+    while (srv.stalls.length && now - srv.stalls[0] > 10000) srv.stalls.shift();
+    const ping = Math.round(myPing || 0), stalls = srv.stalls.length, quiet = serverRun && srv.lastSnapAt && now - srv.lastSnapAt > 1000;
+    const q = quiet || ping > 180 || stalls > 5 ? "bad" : ping > 90 || stalls > 1 || srv.jit > 25 ? "ok" : "good";
+    netQEl.className = "netq " + q;
+    netQEl.textContent = ping + " ms";
+    netQEl.title = `round trip ${ping} ms · jitter ${Math.round(srv.jit)} ms · stalls in the last 10 s: ${stalls}` + (serverRun ? ` · others shown ${Math.round(srv.interp)} ms back` : "");
+    netWarnEl.hidden = !(playing && (quiet || stalls > 5 || ping > 250));
+  }
+  setInterval(netIndicator, 500);
   // the game server's open rooms, in the lobby browser next to the online lobbies (while the start screen shows)
   const ROOMS_URL = SERVER_URL ? SERVER_URL.replace(/^ws/, "http").replace(/\/?$/, "/rooms") : "";
   async function pollServerRooms() {

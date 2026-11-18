@@ -47,7 +47,7 @@ const server = createServer(async (req, res) => {
 });
 await new Promise(r => server.listen(0, '127.0.0.1', r));
 const profile = await mkdtemp(join(tmpdir(), 'brs-lab-'));
-const chrome = spawn(chromePath, ['--headless=new', '--remote-debugging-port=0', '--no-first-run', `--window-size=${W},${H}`, '--disable-background-timer-throttling',
+const chrome = spawn(chromePath, ['--headless=new', '--mute-audio', '--remote-debugging-port=0', '--no-first-run', `--window-size=${W},${H}`, '--disable-background-timer-throttling',
   '--disable-renderer-backgrounding', '--autoplay-policy=no-user-gesture-required', '--user-data-dir=' + profile, 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
 const wait = ms => new Promise(r => setTimeout(r, ms));
 let code = 0;

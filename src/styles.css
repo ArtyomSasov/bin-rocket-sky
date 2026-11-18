@@ -146,6 +146,12 @@ body {
 .status .chip { padding: 7px 12px; font-size: 13px; color: var(--muted); }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #8f86a8; margin-right: 6px; vertical-align: 1px; }
 .dot.on { background: var(--teal); box-shadow: 0 0 8px var(--teal); }
+/* the connection's quality: round trip and a coloured dot (good / so-so / bad), with the details on hover */
+.netq { margin-left: 8px; padding-left: 8px; border-left: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.netq::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; background: var(--q, #8f86a8); }
+.netq.good { --q: #4fe39a; } .netq.ok { --q: #ffd36b; } .netq.bad { --q: #ff5a6e; }
+.netwarn { position: fixed; left: 50%; bottom: 64px; transform: translateX(-50%); z-index: 31; pointer-events: none; padding: 5px 12px; border-radius: 999px;
+  background: rgba(60,14,26,.85); border: 1px solid #ff5a6e; color: #ffd0d6; font: 700 12px var(--body); }
 button {
   font: 700 15px/1 var(--display);
   color: #10302d;

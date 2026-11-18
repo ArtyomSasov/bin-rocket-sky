@@ -7,6 +7,7 @@
 // client -> server   { t: "join", code, name, bots, level }   first message; joins or creates the room
 //                    (join's pub: true lists the room in /rooms, for the lobby browser)
 //                    { t: "in", mx, my, aim, fire, alt, boost, brake, dash, tele, w, s }   the player's controls, sent as they change (s: their number)
+//                    { t: "net", p, j, s, g, f }   every 10 s: round trip, jitter, stalls, worst gap (ms), frames a second
 //                    { t: "ping", c }
 // server -> client   { t: "welcome", id, code, tickHz, sendHz, serverTime }
 //                    { t: "snap", ...a lobby host's state (see sim.mjs packet) }
@@ -176,6 +177,13 @@ wss.on("connection", (ws, req) => {
     if (!m || typeof m !== "object") return;
     if (m.t === "ping") { send(ws, { t: "pong", c: Number.isFinite(m.c) ? m.c : 0, s: Date.now() }); return; }
     if (m.t === "in") { if (room && id) { room.match.input(id, m); ws.lastInput = now; } return; }
+    // how the connection is doing on the player's side, every 10 s (numbers only): summed for the log at leave
+    if (m.t === "net") {
+      const n = (v, max) => Number.isFinite(v) ? Math.max(0, Math.min(max, v)) : 0, a = ws.net || (ws.net = { n: 0, p: 0, j: 0, s: 0, g: 0, f: 0 });
+      if (a.n >= 8640) return;   // (a day of reports is plenty)
+      a.n++; a.p += n(m.p, 5000); a.j += n(m.j, 5000); a.s += n(m.s, 300); a.g = Math.max(a.g, n(m.g, 60000)); a.f += n(m.f, 300);
+      return;
+    }
     if (m.t === "join" && !room) {
       const code = String(m.code || "").toLowerCase();
       if (!CODE.test(code)) { send(ws, { t: "error", reason: "bad code" }); ws.close(1008); return; }
@@ -200,6 +208,8 @@ wss.on("connection", (ws, req) => {
     room.clients.delete(ws); room.match.removePilot(id);
     if (!room.clients.size) room.emptySince = performance.now();
     log("leave", room.code, id, "players", room.clients.size);
+    const a = ws.net;   // the player's network, for deciding what to improve: averages over their stay
+    if (a?.n) log("net", id, `${a.n * 10}s`, "ping", Math.round(a.p / a.n), "jitter", Math.round(a.j / a.n), "stalls/min", +(a.s / (a.n / 6)).toFixed(1), "worst gap", Math.round(a.g), "fps", Math.round(a.f / a.n));
   });
 });
 // connections that stopped answering, and players who stopped playing, are dropped (their pilot leaves with them):
