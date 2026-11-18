@@ -109,6 +109,8 @@ test('a snapshot carries the round clock and every pilot in the form a lobby hos
 
 // a pilot held still at (x, y), facing aim
 const hold = (m, id, x, y, a) => Object.assign(m.game.__simBot(id), { x, y, vx: 0, vy: 0, a, inv: 0 });
+// an open field: the moons orbit by the real clock, so a fixed spot is sometimes in a passing moon's way
+function clearOffset(m) { m.game.__simTerrain.empty(); return 0; }
 
 test('a player’s shot is judged where the target was on their screen (half their round trip ago)', { skip }, async () => {
   const { createMatch } = await sim();
@@ -120,14 +122,14 @@ test('a player’s shot is judged where the target was on their screen (half the
       if (rtt) m.rtt(shooter, rtt);
       // the target crosses the line of fire at 1000 px/s; the shooter fires behind it, where its screen showed it
       let t = 0, aim = 0;
-      const y = () => 400 + t * 1000;
-      run(m, 0.5, () => { t += STEP; hold(m, shooter, 1500, 700, aim); hold(m, target, 1900, y(), 0); m.game.__simBot(target).vy = 1000; });
-      aim = Math.atan2(y() - 50 - 700, 400);   // 100 ms back, less the step (33 px) the target flies before the shot is judged: the middle of the hit zone
+      const o = clearOffset(m, 1400, 300, 2000, 1300), y = () => 400 + o + t * 1000;
+      run(m, 0.5, () => { t += STEP; hold(m, shooter, 1500, 700 + o, aim); hold(m, target, 1900, y(), 0); m.game.__simBot(target).vy = 1000; });
+      aim = Math.atan2(y() - 30 - 700 - o, 400);   // the middle of the hit zone (measured: -10..70 px back), well inside it
       const before = m.game.__simBot(target).lives;
       m.input(shooter, { aim, fire: true });
-      run(m, 1 / 30 * 1.01, () => { t += STEP; hold(m, shooter, 1500, 700, aim); hold(m, target, 1900, y(), 0); m.game.__simBot(target).vy = 1000; });
+      run(m, 1 / 30 * 1.01, () => { t += STEP; hold(m, shooter, 1500, 700 + o, aim); hold(m, target, 1900, y(), 0); m.game.__simBot(target).vy = 1000; });
       m.input(shooter, { aim, fire: false });
-      run(m, 0.2, () => { t += STEP; hold(m, shooter, 1500, 700, aim); hold(m, target, 1900, y(), 0); });
+      run(m, 0.2, () => { t += STEP; hold(m, shooter, 1500, 700 + o, aim); hold(m, target, 1900, y(), 0); });
       return m.game.__simBot(target).lives < before;
     } finally { m.dispose(); }
   };
@@ -198,6 +200,7 @@ test('scatter pellets fly: a target 800 px away is hurt when the shot gets there
     const { WEAPON_KEYS } = m.game.__simConst;
     const shooter = m.addPilot('Shooter'), target = m.addPilot('Target');
     run(m, 0.1);
+    clearOffset(m);
     const b = m.game.__simBot(shooter), t = m.game.__simBot(target);
     b.arsenal.scatter = 10;
     const w = WEAPON_KEYS.indexOf('scatter'), keep = () => { hold(m, shooter, 1500, 600, 0); hold(m, target, 2300, 600, 0); };
@@ -238,9 +241,10 @@ test('a screen that shows the others interpolated (ld ms back) has its shots jud
       run(m, 0.1);
       m.rtt(shooter, rtt);
       let t = 0, aim = 0;
-      const y = () => 400 + t * 1000, keep = () => { t += STEP; hold(m, shooter, 1500, 700, aim); hold(m, target, 1900, y(), 0); m.game.__simBot(target).vy = 1000; };
+      const o = clearOffset(m, 1400, 300, 2000, 1300);
+      const y = () => 400 + o + t * 1000, keep = () => { t += STEP; hold(m, shooter, 1500, 700 + o, aim); hold(m, target, 1900, y(), 0); m.game.__simBot(target).vy = 1000; };
       run(m, 0.5, keep);
-      aim = Math.atan2(y() - back - 700, 400);
+      aim = Math.atan2(y() - back - 700 - o, 400);
       const before = m.game.__simBot(target).lives;
       m.input(shooter, { aim, fire: true, ld });
       run(m, 1 / 30 * 1.01, keep);
@@ -250,8 +254,8 @@ test('a screen that shows the others interpolated (ld ms back) has its shots jud
     } finally { m.dispose(); }
   };
   // 100 ms round trip + 80 ms of interpolation + half a step: ~196 ms back, less the step the target flies first
-  assert.equal(await lands(100, 80, 150), true, 'judged where the interpolated screen showed it');
-  assert.equal(await lands(100, -1, 150), false, 'a screen that does not interpolate is judged only half a round trip back');
+  assert.equal(await lands(100, 80, 130), true, 'judged where the interpolated screen showed it');   // (the zone measured: 90..170 px back)
+  assert.equal(await lands(100, -1, 130), false, 'a screen that does not interpolate is judged only half a round trip back');
 });
 
 test('every gun fires for a player on the server, and the test range hands a player the whole arsenal', { skip }, async () => {

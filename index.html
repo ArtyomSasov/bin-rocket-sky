@@ -6312,9 +6312,13 @@ body:not(.playing) .match-hud { display: none; }
   // then take the other half to come back, and wait half a step on average for a step to fly them. So the targets
   // they saw are a round trip, ld and half a step old: Source's "server time - latency - view interpolation".
   // (A screen that does not say ld extrapolates the others half a round trip ahead: half a round trip ago.)
+  // ld is the screen's word, so it is believed only as far as an honest one goes: two snapshot gaps and some
+  // jitter (LD_MAX); the round trip is the server's own measure (the shortest of the recent ones), and the whole
+  // rewind is capped (REWIND_MS)
+  const LD_MAX = 100;
   function pilotLag(s, p, now) {
     if (!p.input || !(p.rtt > 0)) return;
-    const ld = p.input.ld, lag = clamp(ld >= 0 ? p.rtt + ld + 1000 / 60 : p.rtt / 2, 0, REWIND_MS);
+    const ld = Math.min(p.input.ld, LD_MAX), lag = clamp(ld >= 0 ? p.rtt + ld + 1000 / 60 : p.rtt / 2, 0, REWIND_MS);
     s.hitTime = now - lag;
     if (straightShot(s.kind)) s.catchup = lag / 1000;
   }

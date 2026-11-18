@@ -14,7 +14,8 @@ const BRIDGE = `
   globalThis.__simBot = id => botById.get(id);   // the live pilot object, for tests and tools
   globalThis.__simConst = { WEAPON_KEYS, K };   // protocol numbers, for tests and tools
   globalThis.__simShots = () => shots;   // the shots in flight, for tests and tools
-  globalThis.__simTerrain = { rubble: () => rubble, det: () => det, carveAt, shove };   // for tests and tools
+  globalThis.__simTerrain = { rubble: () => rubble, det: () => det, carveAt, shove,   // for tests and tools
+    empty() { bodies.length = 0; planets.length = 0; } };   // an open field (tests of timing, where a passing moon must not be in the way)
   globalThis.__simDet = () => det.map(b => b.cells.join(""));   // every body's solid cells, to compare with a browser
   globalThis.__sim = {
     start(code, n, level) {
