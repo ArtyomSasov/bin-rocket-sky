@@ -114,3 +114,12 @@ test('the room list shows public rooms with players in them, never a room opened
   assert.equal(other.headers.get('access-control-allow-origin'), null, 'another site’s page can’t read it');
   ws.close();
 });
+
+test('connections that never join only fill a small waiting room: a third from one address is refused, a joined one frees its place', { skip }, async () => {
+  const h = { 'X-Forwarded-For': '10.7.7.7' };
+  const a = client(h), b = client(h); await a.opened; await b.opened;
+  await assert.rejects(client(h).opened, /HTTP 401/, 'two waiting at once from one address');
+  a.sendJ({ t: 'join', code: 'm1d0owait', name: 'Waiter' }); await a.next(m => m.t === 'welcome');
+  const c = client(h); await c.opened;   // a's place in the waiting room is free again
+  a.close(); b.close(); c.close();
+});
