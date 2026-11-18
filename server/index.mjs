@@ -22,6 +22,8 @@ const MAX_PLAYERS = +env("MAX_PLAYERS", 16);      // per room; bots fill the res
 const PER_IP = +env("PER_IP", 6);                 // open connections from one address
 const ROOM_IDLE_MS = +env("ROOM_IDLE_MS", 60000); // an empty room is kept this long for someone to come back
 const ROOMS_PER_IP = +env("ROOMS_PER_IP", 1);    // rooms one address may have open at a time
+const MAX_CONN = +env("MAX_CONN", 96);            // open connections in all (each holds a small compression state)
+const JOIN_MS = +env("JOIN_MS", 5000);            // a connection that has not joined a room by then is closed
 const AFK_MS = +env("AFK_MS", 120000);            // a player who sends no controls this long is let go (rooms are scarce)
 const ORIGINS = env("ORIGINS", "https://artyomsasov.github.io,http://localhost:8000,http://127.0.0.1:8000").split(",").filter(Boolean);
 const TICK_HZ = 30, SEND_EVERY = 1, STEP = 1 / TICK_HZ;   // 30 steps and 30 snapshots a second (compressed: see perMessageDeflate)
@@ -99,11 +101,14 @@ function roomList() {
 }
 const perIp = new Map();
 // snapshots are JSON that repeats itself from one to the next: compressed (with the context kept between messages)
-// they are a fraction of the size, which a phone on a mobile network feels more than the CPU it costs here
+// they are a fraction of the size, which a phone on a mobile network feels more than the CPU it costs here.
+// The state each connection keeps is small (an 8 KB window, ~70 KB in all), the controls coming in keep none, and
+// the number of connections is capped, in all and per address, with a short time to join
 const wss = new WebSocketServer({ server, maxPayload: 2048,
-  perMessageDeflate: { threshold: 512, zlibDeflateOptions: { level: 3, memLevel: 7 }, concurrencyLimit: 4 },
-  // a browser page from elsewhere may not open a game here; non-browser clients send no Origin
-  verifyClient: ({ origin, req }) => (!origin || ORIGINS.includes(origin)) && (perIp.get(ip(req)) || 0) < PER_IP });
+  perMessageDeflate: { threshold: 512, serverMaxWindowBits: 13, clientNoContextTakeover: true, zlibDeflateOptions: { level: 3, memLevel: 6 }, concurrencyLimit: 4 },
+  // a browser page from elsewhere may not open a game here; non-browser clients send no Origin. (ip() reads
+  // X-Forwarded-For: only Caddy reaches this port, and it sets that header to the real address)
+  verifyClient: ({ origin, req }) => (!origin || ORIGINS.includes(origin)) && (perIp.get(ip(req)) || 0) < PER_IP && wss.clients.size < MAX_CONN });
 const ip = req => String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
 const send = (ws, m) => { if (ws.readyState === 1) ws.send(JSON.stringify(m)); };
 const cleanName = n => String(n ?? "").replace(/[\u0000-\u001f\u007f<>]/g, "").trim().slice(0, 14) || "Pilot";
@@ -112,6 +117,8 @@ wss.on("connection", (ws, req) => {
   const addr = ip(req);
   perIp.set(addr, (perIp.get(addr) || 0) + 1);
   let room = null, id = null, tokens = 60, refill = performance.now();
+  const joinBy = setTimeout(() => { if (!room) ws.close(1008, "join first"); }, JOIN_MS);
+  ws.on("close", () => clearTimeout(joinBy));
   // the round trip, timed on WebSocket pings (a browser answers them by itself): it sets how far back the
   // player's shots are judged
   // A client can answer late on purpose to look laggier and be judged further back, so the shortest of its
