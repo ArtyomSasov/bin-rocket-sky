@@ -39,7 +39,12 @@ const BRIDGE = `
       // flight commands queue up, each flown once in order (a repeat of one already had is skipped)
       if (i.c && i.c.length) {
         b.cq ||= [];
-        for (const c of i.c) if (c.s > (b.cqLast || 0)) { b.cq.push(c); b.cqLast = c.s; }
+        for (const c of i.c) {
+          if (c.s <= (b.cqLast || 0)) continue;
+          b.cqLast = c.s;
+          if (b.cqOwed > 0) { b.cqOwed--; b.ackSeq = c.s; b.lastCmd = c; continue; }   // its time was flown already (the last command, again)
+          b.cq.push(c);
+        }
         if (b.cq.length > 30) b.cq.splice(0, b.cq.length - 30);
       }
       delete i.c;

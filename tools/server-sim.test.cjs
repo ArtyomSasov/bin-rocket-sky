@@ -364,3 +364,23 @@ test('flight commands: the server\u2019s state after one command, flown on with 
   } finally { m.dispose(); }
 });
 
+test('flight commands are flown against the clock: sent four times too fast they gain nothing; when they stop, the pilot flies on', { skip }, async () => {
+  const { createMatch } = await sim();
+  const m = createMatch({ code: 'm1d0o' });
+  m.game.__simTerrain.empty();
+  try {
+    const id = m.addPilot('Pilot'), b = m.game.__simBot(id);
+    run(m, 0.1);
+    Object.assign(b, { x: 600, y: 1300, vx: 0, vy: 0 });
+    let s = 0, t = 1e6;
+    const step = () => { t += 1000 / 60; m.step(1 / 60, t); };
+    for (let k = 0; k < 60; k++) { const c = []; for (let j = 0; j < 4; j++) { s++; c.push([s, 1000, 0, 0, 0, 0]); } m.input(id, { c }); step(); }   // 240 commands in one second
+    assert.ok(b.mt <= 1.12, `a second of steps flew ${(b.mt * 60).toFixed(0)} commands' worth, not 240`);   // (mt: its command clock)
+    // now nothing comes: after a moment the last command is flown again, so it keeps flying (and gravity, holes, all still apply)
+    for (let k = 0; k < 40; k++) m.input(id, { c: [] });
+    const x0 = b.x;
+    for (let k = 0; k < 30; k++) step();
+    assert.ok(b.x - x0 > 100, `flew on ${b.x - x0} px with no commands`);
+  } finally { m.dispose(); }
+});
+
