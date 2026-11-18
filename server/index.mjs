@@ -12,6 +12,7 @@
 //                    { t: "snap", ...a lobby host's state (see sim.mjs packet) }
 //                    { t: "pong", c, s }     { t: "error", reason }
 import http from "node:http";
+import { isIPv6 } from "node:net";
 import { WebSocketServer } from "ws";
 import { createMatch } from "./sim/sim.mjs";
 
@@ -25,7 +26,7 @@ const ROOMS_PER_IP = +env("ROOMS_PER_IP", 1);    // rooms one address may have o
 // Connections that have not joined a room yet are capped on their own (per address, per network, in all) and get
 // a few seconds to join: someone holding many of them can only fill the waiting room, never keep players out.
 // Joined ones are bounded by the rooms (MAX_ROOMS x MAX_PLAYERS) and the per-address cap
-const JOIN_MS = +env("JOIN_MS", 5000);
+const JOIN_MS = +env("JOIN_MS", 3000);   // a browser sends its join as soon as the socket opens
 const WAIT_PER_IP = +env("WAIT_PER_IP", 2), WAIT_PER_NET = +env("WAIT_PER_NET", 6), WAIT_MAX = +env("WAIT_MAX", 24);
 const AFK_MS = +env("AFK_MS", 120000);            // a player who sends no controls this long is let go (rooms are scarce)
 const ORIGINS = env("ORIGINS", "https://artyomsasov.github.io,http://localhost:8000,http://127.0.0.1:8000").split(",").filter(Boolean);
@@ -103,13 +104,27 @@ function roomList() {
   return roomsCache;
 }
 const perIp = new Map();
-// the waiting (not yet joined) connections: per address, per network (/24 for IPv4, /64 for IPv6) and in all
-const waitIp = new Map(), waitNet = new Map();
-let waiting = 0;
-const netOf = a => { const v4 = /(\d+\.\d+\.\d+)\.\d+$/.exec(a); return v4 ? v4[1] : a.toLowerCase().split(":").slice(0, 4).join(":"); };
+// the waiting (not yet joined) connections: per address, per network (/24 for IPv4, /48 for IPv6) and in all.
+// When the waiting room is full a newcomer is still let in: the oldest waiting connection of the network holding
+// the most places makes room, so whoever fills it only pushes out their own
+const waitIp = new Map(), waitNet = new Map(), waitList = new Set();   // waitList: { ws, net, at }
+function netOf(a) {
+  a = String(a).toLowerCase();
+  const v4 = /^(?:::ffff:)?(\d+\.\d+\.\d+)\.\d+$/.exec(a);   // IPv4, also as an IPv4-mapped IPv6 address
+  if (v4) return v4[1];
+  if (!isIPv6(a)) return a;
+  const [head, tail = ""] = a.split("::"), h = head ? head.split(":") : [], t = tail ? tail.split(":") : [];
+  const full = a.includes("::") ? [...h, ...Array(8 - h.length - t.length).fill("0"), ...t] : h;
+  return full.slice(0, 3).map(g => parseInt(g, 16).toString(16)).join(":");   // the /48
+}
 const bump = (map, k, d) => { const n = (map.get(k) || 0) + d; if (n > 0) map.set(k, n); else map.delete(k); };
-const canWait = a => waiting < WAIT_MAX && (waitIp.get(a) || 0) < WAIT_PER_IP && (waitNet.get(netOf(a)) || 0) < WAIT_PER_NET;
-function wait(a, d) { waiting += d; bump(waitIp, a, d); bump(waitNet, netOf(a), d); }
+const canWait = a => (waitIp.get(a) || 0) < WAIT_PER_IP && (waitNet.get(netOf(a)) || 0) < WAIT_PER_NET;
+function makeRoom() {
+  if (waitList.size < WAIT_MAX) return;
+  let worst = null, most = 0;
+  for (const w of waitList) { const n = waitNet.get(w.net) || 0; if (!worst || n > most || (n === most && w.at < worst.at)) { worst = w; most = n; } }
+  if (worst) worst.ws.terminate();   // its close handler takes it off the lists
+}
 // snapshots are JSON that repeats itself from one to the next: compressed (with the context kept between messages)
 // they are a fraction of the size, which a phone on a mobile network feels more than the CPU it costs here.
 // The state each connection keeps is small (an 8 KB window, ~70 KB in all), the controls coming in keep none, and
@@ -127,8 +142,10 @@ wss.on("connection", (ws, req) => {
   const addr = ip(req);
   perIp.set(addr, (perIp.get(addr) || 0) + 1);
   let room = null, id = null, tokens = 60, refill = performance.now();
-  let waits = true; wait(addr, 1);
-  const done = () => { if (waits) { waits = false; wait(addr, -1); } };
+  makeRoom();
+  const entry = { ws, net: netOf(addr), at: performance.now() };
+  waitList.add(entry); bump(waitIp, addr, 1); bump(waitNet, entry.net, 1);
+  const done = () => { if (waitList.delete(entry)) { bump(waitIp, addr, -1); bump(waitNet, entry.net, -1); } };
   const joinBy = setTimeout(() => { if (!room) { done(); ws.terminate(); } }, JOIN_MS);   // terminate: the slot is free at once
   ws.on("close", () => { clearTimeout(joinBy); done(); });
   // the round trip, timed on WebSocket pings (a browser answers them by itself): it sets how far back the

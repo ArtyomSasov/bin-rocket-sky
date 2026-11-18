@@ -9,7 +9,7 @@ const skip = ready ? false : 'server dependencies are not installed (cd server &
 let srv, port, WebSocket;
 before(async () => {
   if (!ready) return;
-  Object.assign(process.env, { PORT: '0', MAX_ROOMS: '4', BRS_NO_SIGNALS: '1', ORIGINS: 'https://artyomsasov.github.io', AFK_MS: '1500', ROOMS_PER_IP: '2' });
+  Object.assign(process.env, { PORT: '0', MAX_ROOMS: '4', BRS_NO_SIGNALS: '1', ORIGINS: 'https://artyomsasov.github.io', AFK_MS: '1500', ROOMS_PER_IP: '2', WAIT_MAX: '4' });
   srv = await import('../server/index.mjs'); port = await srv.listening;
   WebSocket = require('../server/node_modules/ws');
 });
@@ -122,4 +122,15 @@ test('connections that never join only fill a small waiting room: a third from o
   a.sendJ({ t: 'join', code: 'm1d0owait', name: 'Waiter' }); await a.next(m => m.t === 'welcome');
   const c = client(h); await c.opened;   // a's place in the waiting room is free again
   a.close(); b.close(); c.close();
+});
+
+test('a full waiting room still lets a newcomer in: the oldest waiting connection of the busiest network makes room', { skip }, async () => {
+  const from = a => client({ 'X-Forwarded-For': a });
+  const a1 = from('10.1.1.1'); await a1.opened; const a2 = from('10.1.1.2'); await a2.opened;
+  const a3 = from('10.1.1.3'); await a3.opened; const b1 = from('10.2.2.1'); await b1.opened;   // four waiting: full
+  const gone = new Promise(r => a1.on('close', r));
+  const n = from('10.3.3.3'); await n.opened;
+  await gone;   // the 10.1.1.x network held three places; its oldest went
+  assert.equal(b1.readyState, WebSocket.OPEN);
+  for (const w of [a2, a3, b1, n]) w.close();
 });
