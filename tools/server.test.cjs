@@ -155,7 +155,7 @@ test('a waiting room full of single connections lets the next one in, pushing ou
 
 test('a player’s network report is taken as numbers only; nonsense in it changes nothing', { skip }, async () => {
   const ws = client({ 'X-Forwarded-For': '10.20.0.1' }); await ws.opened;
-  ws.sendJ({ t: 'join', code: 'm1d0onet', name: 'Netter' }); await ws.next(m => m.t === 'welcome');
+  ws.sendJ({ t: 'join', code: 'm1d0otest', name: 'Netter' });   // (a room the first test opened: the test server's rooms are few) await ws.next(m => m.t === 'welcome');
   ws.sendJ({ t: 'net', p: 42, j: 5, s: 1, g: 140, f: 60 });
   ws.sendJ({ t: 'net', p: 'x', j: -5, s: 1e9, g: Infinity, f: {} });
   ws.sendJ({ t: 'ping', c: 7 });

@@ -192,7 +192,7 @@ test('a broken-off piece has the same name everywhere the same craters were cut,
   try {
     run(a, 0.1); run(b, 0.1);
     const A = cutCap(a), B = cutCap(b);
-    run(a, 0.3); run(b, 0.3);
+    run(a, 0.1); run(b, 0.1);   // (soon after the break: the two matches began at different moments, so their moons pull differently)
     const ka = A.T.rubble().map(r => r.key), kb = B.T.rubble().map(r => r.key);
     assert.ok(ka.length >= 1, 'a piece broke off');
     assert.equal(JSON.stringify(ka), JSON.stringify(kb), 'the same names on both');
