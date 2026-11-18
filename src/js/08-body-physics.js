@@ -41,7 +41,7 @@
       const vn = (o.vx - (b.vx || 0)) * nx + (o.vy - (b.vy || 0)) * ny;
       if (vn < 0) {
         o.vx -= (1 + k) * vn * nx; o.vy -= (1 + k) * vn * ny;
-        if (b.free) { const w = Math.min(0.8, 40 / b.mass); b.vx += vn * nx * w; b.vy += vn * ny * w; b.va += (Math.random() - 0.5) * w; }
+        if (b.free && !replaying) { const w = Math.min(0.8, 40 / b.mass); b.vx += vn * nx * w; b.vy += vn * ny * w; b.va += (Math.random() - 0.5) * w; }
       }
       return { b, nx, ny, vn };
     }

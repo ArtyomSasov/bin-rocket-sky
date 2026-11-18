@@ -19,6 +19,7 @@ const BRIDGE = `
   // where things lie on a station, for tests: the pick-up spots, the props, the cell size and which cells are floor
   globalThis.__simArena = () => ({ spots: [...arena.guns, ...arena.supplies, arena.amp].filter(Boolean).map(o => [o.x, o.y]),
     props: det.filter(b => b.prop).map(b => [b.x, b.y, Math.max(b.hw, b.hh)]), unit: W / FOUNDRY_N, open: stationMap() ? (x, y) => foundryOpen(x, y) : null });
+  globalThis.__simMove = { pilotMove, moveState, setMoveState };   // a player's command flight, for tests
   globalThis.__simDet = () => det.map(b => b.cells.join(""));   // every body's solid cells, to compare with a browser
   globalThis.__sim = {
     start(code, n, level) {
@@ -33,14 +34,25 @@ const BRIDGE = `
     // at: when it arrived (the server's clock). Older controls arriving after newer ones (the data channel keeps no
     // order) are dropped. The controls a step started with are kept, so the step can fly them
     // until that moment and the new ones after it, as the player's screen did (see the split in updateBots)
-    input(id, i, at) { const b = botById.get(id); if (!b || !b.input || (i.s && i.s < b.input.s)) return; if (!b.prevIn) b.prevIn = { ...b.input }; Object.assign(b.input, i); b.inAt = at; },
+    input(id, i, at) {
+      const b = botById.get(id); if (!b || !b.input) return;
+      // flight commands queue up, each flown once in order (a repeat of one already had is skipped)
+      if (i.c && i.c.length) {
+        b.cq ||= [];
+        for (const c of i.c) if (c.s > (b.cqLast || 0)) { b.cq.push(c); b.cqLast = c.s; }
+        if (b.cq.length > 30) b.cq.splice(0, b.cq.length - 30);
+      }
+      delete i.c;
+      if (i.s && i.s < b.input.s) return;
+      if (!b.prevIn) b.prevIn = { ...b.input }; Object.assign(b.input, i); b.inAt = at;
+    },
     rtt(id, ms) { const b = botById.get(id); if (b && b.input) b.rtt = ms; },
     // one fixed step: the shared-clock world and the simulation
     step(dt, now) {
       // a player's newest controls start to count with this step: from its start, so ak/ag say how long they have flown
       for (const b of bots) {
         b.split = 0;
-        if (!b.input || b.input.s === b.ackSeq) { b.prevIn = null; continue; }
+        if (!b.input || b.cq || b.input.s === b.ackSeq) { b.prevIn = null; continue; }   // (a pilot flown by commands says its own ack)
         // the moment it arrived, within this step: flown from there, and counted from there (ag)
         const from = now - dt * 1000, at = Number.isFinite(b.inAt) ? Math.min(now, Math.max(from, b.inAt)) : from;
         b.ackSeq = b.input.s; b.ackAt = at; b.split = (at - from) / 1000;
@@ -83,6 +95,10 @@ export function cleanInput(i = {}) {
   return { mx, my, aim: Number.isFinite(i.aim) ? Math.atan2(Math.sin(i.aim), Math.cos(i.aim)) : 0, fire: i.fire === true, alt: i.alt === true,
     boost: i.boost === true, brake: i.brake === true, dash: count(i.dash), tele: count(i.tele), w: Number.isInteger(i.w) && i.w >= 0 && i.w < 64 ? i.w : -1,
     s: count(i.s),   // s: the controls' number, counted up by the player's screen with each message
+    // c: the newest flight commands, [number, stick x, stick y (thousandths), facing (thousandths of a radian),
+    // boost 1 + brake 2, dash count] (pilotMove in src/js/17-update.js); a few repeat in each message, for losses
+    ...(Array.isArray(i.c) ? { c: i.c.slice(-8).filter(e => Array.isArray(e) && e.length === 6 && e.every(Number.isSafeInteger) && e[0] > 0).map(e => ({
+      s: e[0], mx: unit(e[1] / 1000), my: unit(e[2] / 1000), aim: Math.max(-4, Math.min(4, e[3] / 1000)), boost: !!(e[4] & 1), brake: !!(e[4] & 2), dash: Math.max(0, e[5]) })) } : {}),
     ld: Number.isFinite(i.ld) ? Math.max(0, Math.min(150, Math.round(i.ld))) : -1 };   // ld: how far back their screen shows the others (ms; -1: not said)
 }
 

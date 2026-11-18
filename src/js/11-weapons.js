@@ -802,14 +802,15 @@
     me.dashTimes = (me.dashTimes || []).filter(t => now - t < 450);
     if (!playing || me.dead || energy < 25 || now < dashReadyAt || me.dashTimes.length >= 1) return;
     me.dashTimes.push(now);
-    if (serverRun) srv.dashN++;   // the server dashes my pilot too; here the dash is predicted
-    energy -= 25; dashReadyAt = now + 150; energyRegenAt = now + 700;
+    const cmd = serverRun && srv.joined;   // a command flight: the dash goes in my next command (pilotMove), here and on the server
+    if (serverRun) srv.dashN++;
+    if (!cmd) { energy -= 25; energyRegenAt = now + 700; }
+    dashReadyAt = now + 150;
     me.dashAt = now;
     const sm = Math.hypot(steer.x, steer.y);
     const a = sm > 0.2 ? Math.atan2(steer.y, steer.x) : me.a;
     me.tdir = a; dashBurst(me);
-    me.vx += Math.cos(a) * 900; me.vy += Math.sin(a) * 900;
-    me.inv = Math.max(me.inv, now + 280);
+    if (!cmd) { me.vx += Math.cos(a) * 900; me.vy += Math.sin(a) * 900; me.inv = Math.max(me.inv, now + 280); }
     for (let k = 0; k < 22; k++) {
       const b = a + Math.PI + (Math.random() - 0.5) * 1.2, v = 120 + Math.random() * 220;
       puff(me.x, me.y, Math.cos(b) * v, Math.sin(b) * v, 0.45, 2.4, k % 2 ? "#bff9ff" : "#ffffff");

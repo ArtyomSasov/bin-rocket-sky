@@ -67,7 +67,7 @@ test('a player flies by their stick and aim, and their shots kill by the same ru
     // so a random spawn by a pillar or the fence can't stop it)
     Object.assign(m.game.__simBot(shooter), { x: 600, y: 300, vx: 0, vy: 0 });
     const x0 = p(shooter).x;
-    run(m, 1, () => m.input(shooter, { mx: 1, my: 0, aim: 0 }));
+    run(m, 1, () => { m.input(shooter, { mx: 1, my: 0, aim: 0 }); Object.assign(m.game.__simBot(target), { x: 3000, y: 3500, vx: 0, vy: 0 }); });   // (the other pilot well away: touching pushes)
     assert.ok(p(shooter).x - x0 > 250, `moved ${p(shooter).x - x0}`);
     // shoot: line the two up in open space and hold fire
     m.input(shooter, { mx: 0, my: 0, aim: 0, fire: true });
@@ -331,6 +331,36 @@ test('a gun\u2019s random spread follows from the pilot\u2019s tag and the shot\
       const n = parseInt(s.id.slice(s.id.lastIndexOf('.') + 1), 36), want = (hash(tagSeed(b.tag), n, 991) - 0.5) * 2 * 0.03375;
       assert.ok(Math.abs(Math.atan2(s.vy, s.vx) - want) < 1e-9, `shot ${s.id}: ${Math.atan2(s.vy, s.vx)} vs ${want}`);
     }
+  } finally { m.dispose(); }
+});
+
+test('flight commands: the server\u2019s state after one command, flown on with the next ones, is exactly its state after the last', { skip }, async () => {
+  const { createMatch } = await sim();
+  const m = createMatch({ code: 'm1d0o' });
+  m.game.__simTerrain.empty();
+  try {
+    const id = m.addPilot('Pilot'), cmds = [];
+    run(m, 0.1);
+    Object.assign(m.game.__simBot(id), { x: 1300, y: 1300, vx: 0, vy: 0 });
+    // a minute of varied flying in one-frame commands: turns, boost, the brake, two dashes
+    for (let s = 1; s <= 240; s++) {
+      const a = s / 30;
+      cmds.push([s, Math.round(Math.cos(a) * 1000), Math.round(Math.sin(a * 0.7) * 1000), Math.round(Math.sin(a) * 1000), (s % 90 < 30 ? 1 : 0) | (s % 70 > 60 ? 2 : 0), s > 100 ? (s > 180 ? 2 : 1) : 0]);
+    }
+    const mid = {};
+    for (let s = 1; s <= 240; s++) {
+      m.input(id, { c: cmds.slice(Math.max(0, s - 4), s) });   // four at a time, as a page sends them
+      m.step(1 / 60, 1e6 + s * 1000 / 60);
+      const me = m.packet(1e6 + s * 1000 / 60).bots.find(e => e[0] === id)[1];
+      if (s === 120) Object.assign(mid, { ak: me.ak, mv: me.mv });
+      if (s === 240) Object.assign(mid, { endAk: me.ak, endMv: me.mv });
+    }
+    assert.equal(mid.endAk, 240, 'every command flown once');
+    const M = m.game.__simMove, o = { lv: 1, inv: 0 };
+    M.setMoveState(o, mid.mv);
+    for (const e of cmds) if (e[0] > mid.ak) M.pilotMove(o, { s: e[0], mx: e[1] / 1000, my: e[2] / 1000, aim: e[3] / 1000, boost: !!(e[4] & 1), brake: !!(e[4] & 2), dash: e[5] });
+    const end = M.moveState(o);
+    for (let i = 0; i < end.length; i++) assert.ok(Math.abs(end[i] - mid.endMv[i]) < 0.05, `state ${i}: replayed ${end[i]}, server ${mid.endMv[i]}`);
   } finally { m.dispose(); }
 });
 

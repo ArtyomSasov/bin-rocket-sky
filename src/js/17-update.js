@@ -53,11 +53,12 @@
     const ease = 1 - Math.exp(-13 * dt);
     steer.x += (ix - steer.x) * ease; steer.y += (iy - steer.y) * ease;
     const im = Math.hypot(steer.x, steer.y);
+    const boostReq = !!boost && playing && !me.dead;   // what the player asks (a command flight checks the energy itself)
     boost = boost && playing && !me.dead && energy > 0 && im > 0.1;
     me.boostFx = now - me.dashAt < 350 ? 2 : boost ? 1 : 0;
     if (boost) { energy = Math.max(0, energy - 20 * dt); energyRegenAt = now + 700; }   // a full bar is ~5 s of boost
     else if (now > energyRegenAt) energy = Math.min(100, energy + 22 * dt);   // perk: faster energy from Lv 2
-    me.ctl = { mx: ix, my: iy, fire: held, alt: altHeld, boost };   // the raw controls, for the authoritative server
+    me.ctl = { mx: ix, my: iy, fire: held, alt: altHeld, boost, boostReq };   // the raw controls, for the authoritative server
     return { im, boost };
   }
   // the flight model every pilot flies by, me and the bots alike (sx, sy: the stick, eased; k: a bot's speed factor).
@@ -86,12 +87,12 @@
       const ux = Math.cos(p.a), uy = Math.sin(p.a), along = o.vx * ux + o.vy * uy, lat = -o.vx * uy + o.vy * ux;
       const v = Math.max(PAD_V, along + 500);
       o.vx = ux * v - uy * lat * 0.3; o.vy = uy * v + ux * lat * 0.3;   // most of the sideways drift is cancelled
-      if (onScreen(sx(p.x), sy(p.y), 200)) {
+      if (!replaying && onScreen(sx(p.x), sy(p.y), 200)) {
         rings.push({ x: p.x, y: p.y, t: 0, r: 150, col: "120,255,220", warp: true, dur: 0.45, w: 10 });
         for (let k = 0; k < 24; k++) { const a = p.a + Math.PI + (Math.random() - 0.5) * 0.8, s2 = 200 + Math.random() * 400; puff(p.x, p.y, Math.cos(a) * s2, Math.sin(a) * s2, 0.4, 2.4, k % 2 ? "#7dffd8" : "#ffffff"); }
         sfx("dash", 0.9, 0.8, p.x, p.y);
       }
-      if (o === me) { camKick.x -= ux * 30; camKick.y -= uy * 30; shake = Math.max(shake, 0.12); }
+      if (o === me && !replaying) { camKick.x -= ux * 30; camKick.y -= uy * 30; shake = Math.max(shake, 0.12); }
     }
   }
   // the gravity slingshot: skimming past a planet fast and along its rim gives extra speed (up to boost speed),
@@ -107,7 +108,7 @@
       if (tang < 0.65) continue;
       const k = tang * (1 - gap / (p.rr * 0.9 + 120)), nv = Math.min(1000, v + 750 * k * dt);
       if (nv > v) { o.vx *= nv / v; o.vy *= nv / v; }
-      if (Math.random() < dt * 30 * k) puff(o.x, o.y, -o.vx * 0.2 + (Math.random() - 0.5) * 40, -o.vy * 0.2 + (Math.random() - 0.5) * 40, 0.5, 2 + Math.random() * 2, "#bff3ff", 1, 0.05);
+      if (!replaying && Math.random() < dt * 30 * k) puff(o.x, o.y, -o.vx * 0.2 + (Math.random() - 0.5) * 40, -o.vy * 0.2 + (Math.random() - 0.5) * 40, 0.5, 2 + Math.random() * 2, "#bff3ff", 1, 0.05);
       return;
     }
   }
@@ -119,7 +120,7 @@
   function flyPilot(o, sx_, sy_, boost, brake, dt, now, boosted) {
     const drift = brake && Math.hypot(sx_, sy_) > 0.3 && Math.hypot(o.vx, o.vy) > 150;
     if (drift) thrustPilot(o, 0, 0, false, false, dt);
-    else thrustPilot(o, sx_, sy_, boost, brake, dt, now < (o.pinnedUntil || 0) ? 0.6 : 1);   // pinned by nails: slower
+    else thrustPilot(o, sx_, sy_, boost, brake, dt, performance.now() < (o.pinnedUntil || 0) ? 0.6 : 1);   // pinned by nails: slower
     gravityOn(o, dt); slingshot(o, dt); padsFor(o, now);
     o.x += o.vx * dt; o.y += o.vy * dt;
     const wr = WALL_R * sizeOf(o.lv || 1), pc = bounceOff(o, wr, 0.7);
@@ -138,19 +139,89 @@
     }
     return { drift, crash, fence };
   }
+  // ---- a player's flight as numbered commands, as Quake 3, Source and Overwatch fly it ----
+  // A command is the controls for one fixed slice of flight (CMD_DT): the stick, the facing, boost, brake and the dash
+  // count. The player's screen flies each one the moment it makes it, and sends it; the server flies the very same
+  // one, once, with the same function and slice. The server then says where the pilot is after its last command,
+  // and the screen flies the commands the server has not had yet again from there (reconcile in 12c-server.js): only
+  // what really differs (a hit, a bump into something that moved) is left to correct. Its timers run on its own
+  // command clock (mt), so both sides count them alike whenever the commands arrive.
+  const CMD_DT = 1 / 60;
+  let replaying = false;   // flying commands again from the server's word: no effects, nothing else pushed
+  function pilotMove(o, c, dt = CMD_DT) {
+    o.mt = (o.mt || 0) + dt;
+    const st = o.stick || (o.stick = { x: 0, y: 0 }), m = Math.hypot(c.mx, c.my), e = 1 - Math.exp(-13 * dt);
+    st.x += ((m > 1 ? c.mx / m : c.mx) - st.x) * e; st.y += ((m > 1 ? c.my / m : c.my) - st.y) * e;
+    o.a = c.aim;
+    o.regenWait = Math.max(0, (o.regenWait || 0) - dt); o.dashCool = Math.max(0, (o.dashCool || 0) - dt); o.dashFx = Math.max(0, (o.dashFx || 0) - dt);
+    if (!Number.isFinite(o.energy)) o.energy = 100;
+    let dashed = false, lit = false;
+    if (c.dash > (o.dashDone || 0)) {   // a dash: toward where it steers (or ahead)
+      o.dashDone = c.dash;
+      if (o.energy >= 25 && o.dashCool <= 0) {
+        const a = Math.hypot(st.x, st.y) > 0.2 ? Math.atan2(st.y, st.x) : o.a;
+        o.vx += Math.cos(a) * 900; o.vy += Math.sin(a) * 900; o.energy -= 25; o.regenWait = 0.7; o.dashCool = 0.15; o.dashFx = 0.35; dashed = a;
+        if (!replaying) { o.dashAt = performance.now(); o.inv = Math.max(o.inv || 0, performance.now() + 280); }
+      }
+    }
+    const boosting = !!c.boost && o.energy > 0 && Math.hypot(st.x, st.y) > 0.1;
+    if (boosting && !o.boostOn) { o.vx += Math.cos(o.a) * 220; o.vy += Math.sin(o.a) * 220; lit = true; }   // lighting it shoves forward
+    o.boostOn = o.boosting = boosting;
+    if (boosting) { o.energy = Math.max(0, o.energy - 20 * dt); o.regenWait = 0.7; }
+    else if (o.regenWait <= 0) o.energy = Math.min(100, o.energy + 22 * dt);
+    const f = flyPilot(o, st.x, st.y, boosting, !!c.brake, dt, o.mt * 1000, boosting || o.dashFx > 0);
+    f.dashed = dashed; f.lit = lit;
+    return f;
+  }
+  // what a command flight carries from one command to the next (sent by the server for the player's own pilot)
+  const MOVE_STATE = ["x", "y", "vx", "vy", "a", "energy", "regenWait", "dashCool", "dashFx", "dashDone", "mt", "padAt"];
+  const moveState = o => [...MOVE_STATE.map(k => +(o[k] || 0).toFixed(3)), +(o.stick?.x || 0).toFixed(4), +(o.stick?.y || 0).toFixed(4), o.boostOn ? 1 : 0];
+  function setMoveState(o, v) {
+    MOVE_STATE.forEach((k, i) => o[k] = v[i]);
+    o.stick = { x: v[MOVE_STATE.length], y: v[MOVE_STATE.length + 1] }; o.boostOn = o.boosting = !!v[MOVE_STATE.length + 2];
+  }
   // touching another pilot pushes you off it (harder if it rams you on boost, softer if you ram it): kick, or 0
   const boopKick = (rammed, mineRam) => rammed ? 900 : mineRam ? 260 : 420;
   // my flight: thrust with inertia, gravity, bumping off bodies and the fence, facing, exhaust
+  // on the game server my flight goes as commands, one every CMD_DT of frame time (pilotMove): made, flown here and
+  // kept until the server has flown it too (12c-server.js sends them and reconciles)
+  function flyCmds(dt, braking) {
+    srv.acc = Math.min((srv.acc || 0) + dt, CMD_DT * 8);
+    const c0 = me.ctl || {}, r3 = v => Math.round(num(v, 0) * 1000) / 1000;
+    let f = { crash: null, fence: null, drift: !!me.drift, dashed: false, lit: false };
+    while (srv.acc >= CMD_DT - 1e-9) {
+      srv.acc -= CMD_DT;
+      // (rounded as the wire carries them, so both sides fly exactly the same numbers)
+      const c = { s: ++srv.cs, mx: r3(c0.mx), my: r3(c0.my), aim: r3(Math.atan2(Math.sin(me.a), Math.cos(me.a))), boost: !!c0.boostReq, brake: braking, dash: srv.dashN };
+      srv.cmds.push(c); if (srv.cmds.length > 240) srv.cmds.shift();
+      const g = pilotMove(me, c);
+      f = { crash: g.crash || f.crash, fence: g.fence || f.fence, drift: g.drift, dashed: g.dashed !== false ? g.dashed : f.dashed, lit: g.lit || f.lit };
+    }
+    energy = me.energy;
+    return f;
+  }
+  // face where you steer, not where you drift: recoil, bumps and the black hole's pull move the bin
+  // but no longer spin it (shooting while standing still used to flip it round and round)
+  function faceMe(dt, drift) {
+    const steerMag = Math.hypot(steer.x, steer.y), sp = Math.hypot(me.vx, me.vy);
+    if (playing && !me.dead && mouseAim()) {   // mouse aim: the nose follows the cursor, quick but not instant
+      const [cx, cy] = cursorAt();
+      if (Math.hypot(cx - sx(me.x), cy - sy(me.y)) > 12) me.a = lerpAng(me.a, Math.atan2(cy - sy(me.y), cx - sx(me.x)), 1 - Math.exp(-30 * dt));
+    } else if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-(drift ? 20 : 13) * dt));
+    else if (!playing && sp > 25) me.a = lerpAng(me.a, Math.atan2(me.vy, me.vx), 1 - Math.exp(-6 * dt));
+  }
   function flyMe(dt, now, im, boost) {
     const braking = playing && !me.dead && keys.has("KeyX");
     if (me.ctl) me.ctl.brake = braking;   // (for the authoritative server)
     // X with a direction is a drift: the engine cuts, the bin slides on with its speed and the nose swings round
     // fast to where you push, so you can turn and shoot back the way you came. X alone is the air brake
-    let drift = false;
-    const wr = WALL_R * sizeOf(me.lv);
+    let drift = false, lit = false;
+    const wr = WALL_R * sizeOf(me.lv), a0 = me.a, cmdMode = serverRun && srv.joined && playing && !me.dead;
+    if (cmdMode) boost = !!me.boosting;
     if (playing && !me.dead) {
-      const f = flyPilot(me, steer.x, steer.y, boost, braking, dt, now, me.boostFx > 0);
-      drift = f.drift;
+      if (cmdMode) faceMe(dt, me.drift);   // the facing goes into the commands
+      const f = cmdMode ? flyCmds(dt, braking) : flyPilot(me, steer.x, steer.y, boost, braking, dt, now, me.boostFx > 0);
+      drift = f.drift; lit = !!f.lit;
       if (f.crash && f.crash.hs > 60) {
         const { big, hs, x: cx, y: cy, pc } = f.crash;
         impact(cx, cy, "#ffd9b0", Math.min(2, (big ? 0.4 : 0.2) + hs / 450));
@@ -182,30 +253,22 @@
       if (me.y < wr || me.y > H - wr) { me.y = clamp(me.y, wr, H - wr); me.vy = -me.vy * 0.7 + Math.sign(H / 2 - me.y) * 220; }
     }
     me.drift = drift;
-    const sp = Math.hypot(me.vx, me.vy);
-    // face where you steer, not where you drift: recoil, bumps and the black hole's pull move the bin
-    // but no longer spin it (shooting while standing still used to flip it round and round)
+    if (!cmdMode) faceMe(dt, drift);
     const steerMag = Math.hypot(steer.x, steer.y);
-    const a0 = me.a;
-    if (playing && !me.dead && mouseAim()) {   // mouse aim: the nose follows the cursor, quick but not instant
-      const [cx, cy] = cursorAt();
-      if (Math.hypot(cx - sx(me.x), cy - sy(me.y)) > 12) me.a = lerpAng(me.a, Math.atan2(cy - sy(me.y), cx - sx(me.x)), 1 - Math.exp(-30 * dt));
-    } else if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-(drift ? 20 : 13) * dt));
-    else if (!playing && sp > 25) me.a = lerpAng(me.a, Math.atan2(me.vy, me.vx), 1 - Math.exp(-6 * dt));
     me.thrust += ((playing ? (drift ? 0 : Math.min(1, im)) * (boost ? 1.4 : 1) : 0.6) - me.thrust) * Math.min(1, dt * 6);
     if (playing && !drift && steerMag > 0.1) me.tdir = Math.atan2(steer.y, steer.x); else if (!playing) me.tdir = undefined;   // the way I push: the jets fire the other way
     // the bin banks into a turn (drawn as a lean), and settles back when flying straight
     const turn = dt > 0 ? angD(me.a - a0) / dt : 0;
     me.bank += (clamp(turn * 0.09, -0.4, 0.4) - me.bank) * Math.min(1, dt * 8);
-    // lighting the boost gives a shove forward and a flash of exhaust
-    if (boost && !me.boostOn && playing && !me.dead) {
+    // lighting the boost gives a shove forward and a flash of exhaust (in a command flight the shove is in pilotMove)
+    if (cmdMode ? lit : boost && !me.boostOn && playing && !me.dead) {
       audioCue("boost");
-      me.vx += Math.cos(me.a) * 220; me.vy += Math.sin(me.a) * 220;
+      if (!cmdMode) { me.vx += Math.cos(me.a) * 220; me.vy += Math.sin(me.a) * 220; }
       camKick.x -= Math.cos(me.a) * 10; camKick.y -= Math.sin(me.a) * 10;
       const jet = exhaustJets(me, now).sort((a, b) => b.power - a.power)[0];
       impacts.push({ x: jet.x, y: jet.y, t: 0, r: 70, col: "#9ff3ff" });
     }
-    me.boostOn = boost;
+    if (!cmdMode) me.boostOn = boost;
     // the camera leads the bin by up to ~a fifth of the screen in the direction it flies
     const lead = Math.min(vw, vh) * 0.2, sp2 = Math.hypot(me.vx, me.vy), lk = me.dead ? 0 : Math.min(1, sp2 / 900) * lead / (sp2 || 1);
     const ce = 1 - Math.exp(-2.5 * dt);

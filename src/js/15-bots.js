@@ -189,9 +189,11 @@
       // the stick, eased in like a thumb on a joystick, then the same thrust and turning as the player
       const dm = Math.hypot(dx, dy), ux = dm > 1 ? dx / dm : dx, uy = dm > 1 ? dy / dm : dy, ease = 1 - Math.exp(-(human ? 13 : 6 + 4 * b.L.speed) * dt);
       const st = b.stick || (b.stick = { x: 0, y: 0 });
-      const split = human && b.prevIn && b.split > 1e-4 ? b.split : 0;   // new controls came in part way through this step
-      if (!split) { st.x += (ux - st.x) * ease; st.y += (uy - st.y) * ease; }
-      if (human) {   // a player's energy works as the local pilot's (steerAndShoot): regen waits 0.7 s after a boost or a dash
+      const cmds = human && b.cq;   // a player whose screen sends flight commands: flown by them (pilotMove), below
+      const split = human && !cmds && b.prevIn && b.split > 1e-4 ? b.split : 0;   // new controls came in part way through this step
+      if (!split && !cmds) { st.x += (ux - st.x) * ease; st.y += (uy - st.y) * ease; }
+      if (cmds) {}
+      else if (human) {   // a player's energy works as the local pilot's (steerAndShoot): regen waits 0.7 s after a boost or a dash
         b.boosting = wantBoost && b.energy > 0 && Math.hypot(st.x, st.y) > 0.1;
         if (b.boosting && !b.boostOn) { b.vx += Math.cos(b.a) * 220; b.vy += Math.sin(b.a) * 220; }   // lighting it shoves forward, as flyStep
         b.boostOn = b.boosting;
@@ -201,7 +203,7 @@
         b.energy = Math.min(100, (b.energy ?? 100) + (b.boosting ? -20 : 22) * dt);
         b.boosting = wantBoost && b.energy > (b.boosting ? 0 : 40) && b.L.speed >= 0.9;
       }
-      if (human) {   // a player's dash: toward where they steer (or ahead), like dash() for the local pilot
+      if (human && !cmds) {   // a player's dash: toward where they steer (or ahead), like dash() for the local pilot
         b.dashReq = false;
         if (human.dash > b.dashDone) {
           b.dashDone = human.dash;
@@ -219,8 +221,15 @@
       if (human) {   // a player's pilot flies by the very function that flies their own bin on their screen (flyPilot)
         // with controls that changed during the step: the old ones until they arrived, the new ones after, as the
         // player's own screen flew them (it changed them when it sent them, a fixed trip earlier)
-        const parts = split ? [[b.prevIn, split], [human, dt - split]] : [[human, dt]];
+        const parts = cmds ? [] : split ? [[b.prevIn, split], [human, dt - split]] : [[human, dt]];
         let f = { crash: null, fence: null };
+        if (cmds) {   // one command a step, as the screen flies one a frame; two when they have piled up (a burst after a stall)
+          for (let n = cmds.length > 4 ? 2 : Math.min(1, cmds.length); n > 0; n--) {
+            const c = cmds.shift(), g = pilotMove(b, c);
+            b.ackSeq = c.s;
+            f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
+          }
+        }
         for (const [inp, d] of parts) {
           if (split) {
             const m = Math.hypot(inp.mx, inp.my), px = m > 1 ? inp.mx / m : inp.mx, py = m > 1 ? inp.my / m : inp.my, e = 1 - Math.exp(-13 * d);
@@ -229,7 +238,7 @@
           const g = flyPilot(b, st.x, st.y, b.boosting, !!inp.brake, d, now, b.boosting || now - (b.dashAt || 0) < 350);
           f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
         }
-        b.a = lerpAng(b.a, human.aim, 1 - Math.exp(-30 * dt));   // the nose follows the player's aim, as with mouse aim
+        if (!cmds) b.a = lerpAng(b.a, human.aim, 1 - Math.exp(-30 * dt));   // the nose follows the player's aim, as with mouse aim
         if (f.crash && f.crash.hs > 60) impact(f.crash.x, f.crash.y, "#ffd9b0", Math.min(2, 0.4 + f.crash.hs / 450));
         if (f.crash && f.crash.dmg > 0) botHurt(b, f.crash.dmg, "p", now, false);
         if (f.fence && f.fence.dmg > 0) botHurt(b, f.fence.dmg, "p", now, false);
@@ -341,7 +350,8 @@
       m.sh = b.shield || 0;
       // a player's own HUD (the guns they carry), and which of their controls this state already holds:
       // ak, the last one applied; ag, for how long (ms, including this step), so their screen can compare
-      if (b.input) { m.ar = pilotArsenalWire(b); m.tn = b.teleN || 0; m.ak = b.ackSeq || 0; m.ag = Math.round(now - (b.ackAt ?? now)); m.en = Math.round(b.energy); }
+      if (b.input) { m.ar = pilotArsenalWire(b); m.tn = b.teleN || 0; m.ak = b.ackSeq || 0; m.ag = Math.round(now - (b.ackAt ?? now)); m.en = Math.round(b.energy);
+        if (b.cq) m.mv = moveState(b); }   // flown by commands: exactly where its last one left it (the screen flies the rest again)
       if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, lv: 1, wp: WEAPON_KEYS.indexOf(botWeapon(b)), tg: b.tag,
         st: [stats.round, b.st.kills, b.st.deaths, b.st.shots, b.st.hits, b.st.best] });
       applyRemote(b.id, m);   // show it here

@@ -15,7 +15,7 @@
   })();
   let serverRun = false;
   const srv = { ws: null, id: "", tag: "", sendHz: 30, dashN: 0, teleN: 0, lastIn: "", lastInAt: 0, deadSeen: false, joined: false, err: "", pred: [], pseq: 0,
-    seq: 0, sent: new Map(), hist: [], cx: 0, cy: 0, seqOff: 0,   // seqOff: the server's shot numbers less mine (for the spread)
+    seq: 0, sent: new Map(), hist: [], cx: 0, cy: 0, seqOff: 0, cmds: [], cs: 0, sentCs: 0, acc: 0,   // my flight commands (pilotMove)   // seqOff: the server's shot numbers less mine (for the spread)
     jit: 0, interp: 70, hits: [],
     lastSnapAt: 0, stalls: [], maxGap: 0, report: { stalls: 0, maxGap: 0 } };   // how the snapshots arrive (the network indicator)   // arrival jitter and the delay others are shown at (ms); my hits shown before the server's word   // my numbered controls, my flight as predicted here, and the correction still to ease in
   // the pilot the server flies for me: its own shots are mine, never a threat to me
@@ -62,9 +62,11 @@
     const c = me.ctl || {}, i = { t: "in", mx: +num(c.mx, 0).toFixed(3), my: +num(c.my, 0).toFixed(3), aim: +me.a.toFixed(3),
       fire: !!c.fire && !me.dead && playing, alt: !!c.alt && !me.dead && playing, boost: !!c.boost, brake: !!c.brake && !me.dead, dash: srv.dashN, tele: srv.teleN,
       w: WEAPON_KEYS.indexOf(me.weapon), ld: Math.round(srv.interp / 5) * 5 };   // ld: how far in the past I see the others (for lag compensation)
-    const sig = JSON.stringify(i), t = performance.now();
-    if (sig === srv.lastIn ? t - srv.lastInAt < 250 : t - srv.lastInAt < 14) return;   // at most one a frame (the server allows 90 a second)
+    const sig = JSON.stringify(i), t = performance.now(), fresh = srv.cs > srv.sentCs;   // fresh: flight commands not sent yet
+    if (!fresh && (sig === srv.lastIn ? t - srv.lastInAt < 250 : t - srv.lastInAt < 14)) return;   // at most one a frame (the server allows 90 a second)
     srv.lastIn = sig; srv.lastInAt = t;
+    // the newest four flight commands: each goes out four times, so a lost message loses none of them
+    if (srv.cmds.length) { i.c = srv.cmds.slice(-4).map(c => [c.s, Math.round(c.mx * 1000), Math.round(c.my * 1000), Math.round(c.aim * 1000), (c.boost ? 1 : 0) | (c.brake ? 2 : 0), c.dash]); srv.sentCs = srv.cs; }
     i.s = ++srv.seq; srv.sent.set(i.s, t); i.sa = srv.snapQ;   // sa: the newest snapshot I hold (the next delta builds on it)
     if (srv.sent.size > 240) for (const [k, at] of srv.sent) { if (t - at < 3000) break; srv.sent.delete(k); }
     toServer(i);
@@ -90,6 +92,21 @@
     await pc.setLocalDescription(await pc.createAnswer());
     await new Promise(r => { if (pc.iceGatheringState === "complete") r(); pc.addEventListener("icegatheringstatechange", () => pc.iceGatheringState === "complete" && r()); setTimeout(r, 1500); });
     if (ws.readyState === 1) ws.send(JSON.stringify({ t: "rtc", sdp: pc.localDescription.sdp }));
+  }
+  // Reconciliation with commands, as Quake 3 and Overwatch do it: the server says where my pilot is after my command
+  // ak; from there my commands it has not flown yet are flown again here, on a copy. Where that ends is where I should
+  // be now. Speed, energy and the rest are taken as they are; the place is eased in (serverTrack), never jumped.
+  function reconcile(m) {
+    const ak = Number.isSafeInteger(m.ak) ? m.ak : 0;
+    while (srv.cmds.length && srv.cmds[0].s <= ak) srv.cmds.shift();   // flown on the server: done with
+    const o = { lv: me.lv, inv: 0 }; setMoveState(o, m.mv);
+    replaying = true;
+    try { for (const c of srv.cmds) pilotMove(o, c); } finally { replaying = false; }
+    const ex = o.x - me.x, ey = o.y - me.y;
+    if (Math.hypot(ex, ey) > 300) { me.x = o.x; me.y = o.y; srv.cx = srv.cy = 0; }   // a teleport or a respawn: at once
+    else { srv.cx = ex; srv.cy = ey; srv.lastErr = Math.hypot(ex, ey); }
+    for (const k of MOVE_STATE) if (k !== "x" && k !== "y") me[k] = o[k];
+    me.stick = o.stick; me.boostOn = me.boosting = o.boostOn; energy = me.energy;
   }
   // each frame, after my flight: ease in what is left of the last correction, and remember where I was
   function serverTrack(dt, now) {
@@ -180,6 +197,7 @@
       srv.hist.length = 0; srv.cx = srv.cy = 0;
     }
     if (me.dead || !Number.isFinite(m.x) || !Number.isFinite(m.y)) return;
+    if (Array.isArray(m.mv) && m.mv.length === MOVE_STATE.length + 3 && m.mv.every(Number.isFinite)) { reconcile(m); return; }
     if (Number.isFinite(m.en) && Math.abs(m.en - energy) > 15) energy = clamp(m.en, 0, 100);
     // Reconciliation, as Quake and Source do it: the server's state holds my controls up to number ak, flown for ag
     // ms. My own flight had flown the same controls exactly that long at (when I sent ak) + ag: what differs between
