@@ -98,11 +98,12 @@ game already uses, so there is no server of our own; a lobby disappears from the
 
 Also picked with a new lobby (and carried in its code), on top of the map size. Every map is hand-laid and always
 the same, in every lobby, so it can be learned. Each layout is mirrored through the centre, so both halves (and
-both CTF bases) are equal. The space layouts live in `src/js/01b-arenas.js`; Foundry lives in `src/js/01c-foundry.js`.
+both CTF bases) are equal. The space layouts live in `src/js/01b-arenas.js`; the stations (Foundry, Cargo Deck) live in `src/js/01c-foundry.js`.
 
 | Map | Layout |
 |---|---|
 | Foundry | An industrial station with three connected routes, a contested reactor, mirrored bases, cross-corridors and permanent walls; no ambient space junk or world events, but combat debris remains |
+| Cargo Deck | A station: a ring corridor round a pillared cargo hall, a cross through the middle and four store rooms; crates, drums and glass partitions break into pieces under fire |
 | Twin Worlds | Two ringed giants and two ice worlds; two towers form a gate round an open centre with Overdrive |
 | The Ring | A ring of asteroids round the centre with four gates, rock clusters in two corners |
 | Drydocks | Rows of moored hulls above and below, ring stations either side of a small moonbase |

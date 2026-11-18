@@ -167,7 +167,7 @@
         if (b.x < m) dx += (m - b.x) / m * 2.5; if (b.x > W - m) dx -= (b.x - W + m) / m * 2.5;
         if (b.y < m) dy += (m - b.y) / m * 2.5; if (b.y > H - m) dy -= (b.y - H + m) / m * 2.5;
         for (const p of bodies) {   // and around planets and moons
-          if (p.fixed) continue;
+          if (p.fixed || p.prop) continue;   // (a station's crates are steered round by its route, not kept off)
           const hx = b.x - p.x, hy = b.y - p.y, hd = Math.hypot(hx, hy) || 1, gap = hd - p.rr;
           if (gap < 280) { dx += hx / hd * 3 * (1 - gap / 280); dy += hy / hd * 3 * (1 - gap / 280); }
         }

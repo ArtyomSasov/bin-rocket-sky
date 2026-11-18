@@ -17,12 +17,27 @@ function run(m, seconds, each) {
 
 test('every map builds solid terrain on the server; the Foundry station keeps its 52 walls', { skip }, async () => {
   const { createMatch } = await sim();
-  for (const map of ['f', 'c', 'a', 'y', 'r', 's', 'w', 'o']) {
+  for (const map of ['f', 'k', 'c', 'a', 'y', 'r', 's', 'w', 'o']) {
     const m = createMatch({ code: 'm1d0' + map });
     try {
       const { bodies, solidCells } = m.info;
       assert.ok(bodies > 0 && solidCells > bodies * 20, `${map}: ${bodies} bodies, ${solidCells} solid cells`);
-      if (map === 'f') assert.equal(bodies, 52);
+      if (map === 'f') assert.equal(m.info.walls, 52);
+      if (map === 'f' || map === 'k') assert.ok(m.info.props >= 20, `${map}: ${m.info.props} props`);
+    } finally { m.dispose(); }
+  }
+});
+
+test('station props stand on the floor, clear of the walls and of every pick-up spot', { skip }, async () => {
+  const { createMatch } = await sim();
+  for (const map of ['f', 'k']) {
+    const m = createMatch({ code: 'm1d0' + map });
+    try {
+      const { spots, props, unit, open } = m.game.__simArena();
+      for (const [x, y, r] of props) {
+        for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, 0]]) assert.ok(open(Math.floor((x + dx * r * 0.7) / unit), Math.floor((y + dy * r * 0.7) / unit)), `${map}: prop at ${x / unit},${y / unit} is in a wall`);
+        for (const [sx, sy] of spots) assert.ok(Math.hypot(sx - x, sy - y) > r + unit * 0.2, `${map}: prop at ${(x / unit).toFixed(2)},${(y / unit).toFixed(2)} covers the pick-up at ${(sx / unit).toFixed(2)},${(sy / unit).toFixed(2)}`);
+      }
     } finally { m.dispose(); }
   }
 });
@@ -35,7 +50,7 @@ test('a 24-bot match runs on the server: fights end in kills and the station is 
     run(m, 60);
     const info = m.info;
     assert.ok(info.kills > 0 && info.deaths >= info.kills, JSON.stringify(info));
-    assert.equal(info.bodies, 52);
+    assert.equal(info.walls, 52);
     assert.ok(info.solidCells > walls * 0.9, 'walls stay solid');
   } finally { m.dispose(); }
 });

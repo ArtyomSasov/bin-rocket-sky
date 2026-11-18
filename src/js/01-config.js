@@ -7,7 +7,8 @@
   // e.g. M0Y... or M1C0A...; generated codes never contain 0, and a code without it is Classic.
   // The layout of each map is in 01b-arenas.js. star: a sun in the middle; lumpy: planets become ragged asteroids
   const MAPS = {
-    f: { name: "Foundry", label: "Foundry · NEW", hint: "industrial corridors, three routes", station: true },
+    f: { name: "Foundry", label: "Foundry", hint: "industrial corridors, three routes", station: true },
+    k: { name: "Cargo Deck", label: "Cargo Deck · NEW", hint: "a ring corridor round a cargo hall, crates to smash", station: true },
     c: { name: "Twin Worlds", label: "Twin Worlds", hint: "two giants, an open centre" },
     a: { name: "The Ring", label: "The Ring", hint: "a ring of asteroids, four gates", lumpy: true },
     y: { name: "Drydocks", label: "Drydocks", hint: "rows of moored hulls" },

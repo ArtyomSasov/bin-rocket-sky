@@ -16,6 +16,9 @@ const BRIDGE = `
   globalThis.__simShots = () => shots;   // the shots in flight, for tests and tools
   globalThis.__simTerrain = { rubble: () => rubble, det: () => det, carveAt, shove,   // for tests and tools
     empty() { bodies.length = 0; planets.length = 0; ROCKS = 0; world.rocks.length = 0; eventAt = () => ({ cyc: 0, ph: 0, et: 0, type: "meteors", active: false, warn: false }); } };   // an open field (tests of timing, where a passing moon must not be in the way)
+  // where things lie on a station, for tests: the pick-up spots, the props, the cell size and which cells are floor
+  globalThis.__simArena = () => ({ spots: [...arena.guns, ...arena.supplies, arena.amp].filter(Boolean).map(o => [o.x, o.y]),
+    props: det.filter(b => b.prop).map(b => [b.x, b.y, Math.max(b.hw, b.hh)]), unit: W / FOUNDRY_N, open: stationMap() ? (x, y) => foundryOpen(x, y) : null });
   globalThis.__simDet = () => det.map(b => b.cells.join(""));   // every body's solid cells, to compare with a browser
   globalThis.__sim = {
     start(code, n, level) {
@@ -54,7 +57,7 @@ const BRIDGE = `
     get bots() { let n = 0; for (const b of bots) if (!b.input) n++; return n; },
     get pilots() { return bots.map(pilotView); },
     get info() {
-      return { map: MAPS[mapThemeOf(worldCode)].name, mode: MODE, round: stats.round, live: roundLive, bodies: bodies.length,
+      return { map: MAPS[mapThemeOf(worldCode)].name, mode: MODE, round: stats.round, live: roundLive, bodies: bodies.length, walls: bodies.filter(b => b.fixed).length, props: det.filter(b => b.prop && !b.dead).length,
         solidCells: bodies.reduce((s, b) => s + b.mass, 0), shots: shots.length,
         kills: bots.reduce((s, b) => s + b.st.kills, 0), deaths: bots.reduce((s, b) => s + b.st.deaths, 0) };
     }

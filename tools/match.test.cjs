@@ -48,19 +48,21 @@ test('late joins and reconnects adopt the running clock; malformed clocks are ig
   assert.equal(c.roundAt(start + 1000000).idx, 6);
 });
 
-test('Foundry corridors are connected, symmetric and routes stay in open cells', () => {
-  const c = { W: 4200, H: 4200, clamp: (x, a, b) => Math.max(a, Math.min(b, x)) };
-  vm.createContext(c); vm.runInContext(read('01c-foundry.js') + '\nglobalThis.foundryOpen=foundryOpen; globalThis.foundryPoint=foundryPoint;', c);
-  const open = [];
-  for (let y = 0; y < 21; y++) for (let x = 0; x < 21; x++) {
-    assert.equal(c.foundryOpen(x, y), c.foundryOpen(20 - x, 20 - y));
-    if (c.foundryOpen(x, y)) open.push([x, y]);
-  }
-  assert.ok(open.length > 150);
-  for (const cell of open) {
-    const route = c.foundryRoute(c.foundryPoint(...cell), c.foundryPoint(10, 10));
-    assert.ok(route, 'connected cell ' + cell);
-    assert.ok(c.foundryOpen(Math.floor(route.x / 200), Math.floor(route.y / 200)));
+test('station corridors (Foundry, Cargo Deck) are connected, symmetric and routes stay in open cells', () => {
+  for (const theme of ['f', 'k']) {
+    const c = { W: 4200, H: 4200, worldCode: 'm0' + theme, mapThemeOf: code => code.slice(-1), clamp: (x, a, b) => Math.max(a, Math.min(b, x)) };
+    vm.createContext(c); vm.runInContext(read('01c-foundry.js') + '\nglobalThis.foundryOpen=foundryOpen; globalThis.foundryPoint=foundryPoint; globalThis.foundryRoute=foundryRoute;', c);
+    const open = [];
+    for (let y = 0; y < 21; y++) for (let x = 0; x < 21; x++) {
+      assert.equal(c.foundryOpen(x, y), c.foundryOpen(20 - x, 20 - y), theme + ' symmetric at ' + x + ',' + y);
+      if (c.foundryOpen(x, y)) open.push([x, y]);
+    }
+    assert.ok(open.length > 150, theme + ': ' + open.length + ' open cells');
+    for (const cell of open) {
+      const route = c.foundryRoute(c.foundryPoint(...cell), c.foundryPoint(10, 10));
+      assert.ok(route, theme + ': connected cell ' + cell);
+      assert.ok(c.foundryOpen(Math.floor(route.x / 200), Math.floor(route.y / 200)));
+    }
   }
 });
 

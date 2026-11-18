@@ -12,7 +12,9 @@
   };
   const WRECK_PAL = { hull: ["#7d8aa3", "#5a6478", "#9aa6bf"], tower: ["#8f8aa0", "#6d6880", "#4a4660"], crates: ["#c0503c", "#3c78c0", "#d8a83c", "#4a9a6a"], ring: ["#8a93ad", "#5e6680", "#c8d0e8"],
     // the waste depot: skips, refuse trucks, giant wheelie bins and bales of crushed waste
-    skip: ["#e8a530", "#b97a1c", "#f2c45a"], truck: ["#e8eef4", "#3c8a5a", "#2a3044"], wheelie: ["#3a7a4a", "#2a5a38", "#4fa060"], bales: ["#8a7a5a", "#5a7a9a", "#9a5a5a", "#6a8a5a"] };
+    skip: ["#e8a530", "#b97a1c", "#f2c45a"], truck: ["#e8eef4", "#3c8a5a", "#2a3044"], wheelie: ["#3a7a4a", "#2a5a38", "#4fa060"], bales: ["#8a7a5a", "#5a7a9a", "#9a5a5a", "#6a8a5a"],
+    // a station's props: crates, drums and glass partitions
+    crate: ["#a8743f", "#6e4a28", "#d39a5c"], drum: ["#c23b2c", "#7a1f18", "#3a3a3a"], panel: ["#9fd6e0", "#4d5a63", "#c8f0f8"] };
   const BODY_RES = matchMedia("(pointer: coarse)").matches ? 0.6 : 1;   // art baked at lower resolution on phones
   let planets = [], moons = [], wrecks = [], det = [], rubble = [], bodies = [], worldCode = "lobby", mapKey = "m", rubbleSeq = 0;
 
@@ -490,7 +492,7 @@
     const t = performance.now();
     if (t - fxT > 16) { fxT = t; fxN = 0; }
     if (fxN > (lowQ ? 8 : 20)) return;
-    const big = rad >= 14, metal = !!WRECK_PAL[b.kind], k = Math.min(big ? 7 : 2, 1 + (n >> 1)), [nx, ny] = normalAt(b, x, y), out = Math.atan2(ny, nx), bvx = b.vx || 0, bvy = b.vy || 0;
+    const big = rad >= 14, metal = !!WRECK_PAL[b.kind] && b.kind !== "crate", k = Math.min(big ? 7 : 2, 1 + (n >> 1)), [nx, ny] = normalAt(b, x, y), out = Math.atan2(ny, nx), bvx = b.vx || 0, bvy = b.vy || 0;
     fxN += k + 4;
     for (let i = 0; i < k; i++) {
       const a = out + (Math.random() - 0.5) * 2.2, v = 80 + Math.random() * (big ? 280 : 160);
@@ -653,6 +655,7 @@
       comps.forEach((c, i) => { if (i !== main) breakAway(b, c); });
       rebuildBodies();
     }
+    if (b.prop && !b.free && !b.dead && b.mass < b.mass0 * 0.5) { collapseProp(b); return; }
     if (b.planet && !b.free && b.mass < b.mass0 * 0.15) {
       destroyPlanet(b, now);
       if (b.lastOwn && playing) { me.score += 25; showScore(); gainXp(5, now); floaters.push({ x: b.x, y: b.y - 80, t: 0, txt: "PLANET +25", gold: true }); }
