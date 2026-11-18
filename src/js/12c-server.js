@@ -186,6 +186,7 @@
     if (Number.isInteger(m.tn) && m.tn !== me.teleN) { me.teleN = clamp(m.tn, 0, 6); renderTele(); }
     if ("tm" in m) me.tm = m.tm === 0 || m.tm === 1 ? m.tm : undefined;
     if ("fc" in m) me.fc = m.fc === 0 || m.fc === 1 ? m.fc : -1;
+    if (Array.isArray(m.al) && m.al.length === 3 && m.al.every(Number.isFinite)) { me.beltArmor = clamp(m.al[0], 0, MAX_SHIELD); me.bodyArmor = clamp(m.al[1], 0, MAX_SHIELD); me.padsArmor = clamp(m.al[2], 0, MAX_SHIELD); }
     if (Number.isFinite(m.sh) && m.sh !== me.shield) { me.shield = clamp(m.sh, 0, MAX_SHIELD); renderShield(); }
     if (Number.isFinite(m.l) && m.l !== me.lives) { const hit = m.l < me.lives; me.lives = clamp(m.l, 0, LIVES * 1.99); renderHearts(hit); if (hit && !me.dead) { me.hitAt = now; hurtFlash = Math.min(1, hurtFlash + 0.4); } }
     if (m.d === 1 && !me.dead) {   // the server's verdict: I died
@@ -322,10 +323,16 @@
   // damage is still the server's call, which comes a round trip later. Over a long round trip the guess is too often
   // wrong, so then only the server's word is shown
   const HIT_GUESS_MS = 220;
+  // The damage of my hits shown but not confirmed yet counts against the target's health as last reported (shields
+  // included): once by that count it is dead, the server has most likely killed it already, and more hits on it are
+  // not shown (they would only turn out to be misses), as Overwatch shows a predicted kill
   function serverHitFx(s, rid, r) {
     if ((myPing || 0) > HIT_GUESS_MS) return;
+    const now = performance.now(), keep = 400 + (myPing || 100) * 2;
+    let owed = 0; for (const h of srv.hits) if (h.rid === rid && now - h.at < keep) owed += h.dmg || 0;
+    if (Number.isFinite(r.lives) && r.lives + (r.shield || 0) - owed <= 0) return;
     hitConfirm({ ...s, mine: true }, r.lv, r.x, r.y, r);
-    srv.hits.push({ rid, at: performance.now() });
+    srv.hits.push({ rid, at: now, dmg: shotDmg(s) });
     if (srv.hits.length > 64) srv.hits.shift();
   }
   // the server confirms a hit of mine on rid: true if it was shown already (its effects then stay quiet)
@@ -368,7 +375,10 @@
     if (!MODES[MODE].noSupplies) for (const c of world.supplies) {
       const sp = SUPPLIES[c.type];
       if (grabbed.has(c.key) || c.age < 0.05 || !near(c.x, c.y, 50)) continue;
-      if (sp.heal ? me.lives >= sp.cap : (me.shield || 0) >= (c.type === "mega" ? sp.armor : Math.min(sp.armor, MAX_SHIELD))) continue;   // it would do nothing: left lying
+      // would it do anything? The server's own rule (applySupply), tried on a copy of my health and armour layers
+      const t = { lives: me.lives, dead: false, beltArmor: me.beltArmor || 0, bodyArmor: me.bodyArmor || 0, padsArmor: me.padsArmor || 0, shield: me.shield || 0 };
+      if (!(t.beltArmor || t.bodyArmor || t.padsArmor)) t.bodyArmor = t.shield;   // (an older server: the total only)
+      if (!applySupply(t, c.type)) continue;   // it would do nothing: left lying
       take(c.key, null);
       floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: sp.name, gold: !!sp.big });
       burst(c.x, c.y, sp.col, 26); impacts.push({ x: c.x, y: c.y, t: 0, r: 70, col: sp.col });
