@@ -135,13 +135,14 @@ test('a full waiting room still lets a newcomer in: the oldest waiting connectio
   for (const w of [a2, a3, b1, n]) w.close();
 });
 
-test('a waiting room full of single connections from different networks refuses the next one; a burst never overfills it', { skip }, async () => {
+test('a waiting room full of single connections lets the next one in, pushing out the oldest; a burst never overfills it', { skip }, async () => {
   const from = a => client({ 'X-Forwarded-For': a });
   const ws = [];
   for (const a of ['10.11.0.1', '10.12.0.1', '10.13.0.1', '10.14.0.1']) { const w = from(a); await w.opened; ws.push(w); }
-  await assert.rejects(from('10.15.0.1').opened, /HTTP 401/, 'nobody holds two places: no one is pushed out');
-  for (const w of ws) assert.equal(w.readyState, WebSocket.OPEN);
-  for (const w of ws) w.close();
+  const gone = new Promise(r => ws[0].on('close', r));
+  const n = from('10.15.0.1'); await n.opened; await gone;
+  for (const w of ws.slice(1)) assert.equal(w.readyState, WebSocket.OPEN);
+  for (const w of [...ws, n]) w.close();
   await new Promise(r => setTimeout(r, 100));
   // a burst from one network with two places each time: the room never holds more than WAIT_MAX
   const burst = []; for (let i = 0; i < 12; i++) burst.push(from('10.16.' + (i % 6) + '.1'), from('10.16.' + (i % 6) + '.2'));
