@@ -78,7 +78,7 @@
   function botFire(b, now) {
     const w = botWeapon(b), pat = WEAPONS[w];
     if (w === "gamma" && shots.some(s => s.owner === b.id && s.kind === K.GAMMA && s.life > 0 && !s.boom)) return .3;
-    const s = volley(b, now, pat, null, w === "bolt" ? boltLock(b, null) : undefined);
+    const gun = muzzleOf(b, w), s = volley(b, now, pat, gun, w === "bolt" ? boltLock(b, gun) : undefined);   // from its gun's tip
     if (w === "orb") b.orb = s;   // a bot can set its orb off with the beam (see updateBots)
     shotSound(pat.shot[0], b.x, b.y, b.id);
     b.vx -= Math.cos(b.a) * 25; b.vy -= Math.sin(b.a) * 25;

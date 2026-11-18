@@ -28,7 +28,7 @@
     const ws = new WebSocket(SERVER_URL);
     srv.ws = ws;
     ws.binaryType = "arraybuffer";
-    srv.snaps = new Map(); srv.snapQ = 0;
+    srv.snaps = new Map(); srv.snapQ = 0; srv.placed = false;
     ws.onopen = () => ws.send(JSON.stringify({ t: "join", code, name: me.name, bots: botChoice.n, level: botChoice.level, pub: !joining, bin: 1, rtc: window.RTCPeerConnection ? 1 : 0 }));   // a new game is listed, as online lobbies are; a room opened by typing a code is not
     ws.onmessage = e => {
       if (e.data instanceof ArrayBuffer) { receiveDelta(new Uint8Array(e.data)); return; }
@@ -204,6 +204,17 @@
       srv.hist.length = 0; srv.cx = srv.cy = 0;
     }
     if (me.dead || !Number.isFinite(m.x) || !Number.isFinite(m.y)) return;
+    // where the server put me, at the start of a game or a round: taken as it is (until then my bin waits, unseen,
+    // instead of flying from a spawn point of its own and being thrown across the map a moment later)
+    if (!srv.placed) {
+      if (m.rd !== stats.round) return;
+      if (Array.isArray(m.mv) && m.mv.length === MOVE_STATE.length + 3 && m.mv.every(Number.isFinite)) setMoveState(me, m.mv);
+      else { me.x = m.x; me.y = m.y; me.vx = num(m.vx, 0); me.vy = num(m.vy, 0); }
+      srv.cmds.length = 0; srv.vox = srv.voy = srv.cx = srv.cy = 0; srv.hist.length = 0;
+      cam.x = me.x + cam.lx; cam.y = me.y + cam.ly;
+      srv.placed = true;
+      return;
+    }
     if (Array.isArray(m.mv) && m.mv.length === MOVE_STATE.length + 3 && m.mv.every(Number.isFinite)) { reconcile(m); return; }
     if (Number.isFinite(m.en) && Math.abs(m.en - energy) > 15) energy = clamp(m.en, 0, 100);
     // Reconciliation, as Quake and Source do it: the server's state holds my controls up to number ak, flown for ag

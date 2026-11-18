@@ -19,6 +19,9 @@
   // fixed shades, so the sprite caches stay small: a fire cloud cools white, yellow, orange, red, then a dull ember red
   const FIRE_RAMP = ["#ffffff", "#fff3c4", "#ffd66b", "#ffab3d", "#ff7a26", "#e2491c", "#a32c19", "#5c1a16"];
   const SMOKE_COLS = ["rgb(64,57,64)", "rgb(88,79,84)", "rgb(114,103,106)"];
+  // energy (the shock orb, its combo): white-hot to electric blue to deep violet, no fire at all
+  const PLASMA_RAMP = ["#ffffff", "#e8fbff", "#bdf0ff", "#86dcff", "#57b8ff", "#4a82f0", "#4a4fc8", "#2a2470"];
+  const rampOf = col => col === "plasma" ? PLASMA_RAMP : FIRE_RAMP;
   const SPARK_COLS = ["#fff8e0", "#ffe08a", "#ffb64a"];
   // turbulent value noise (fractal, four octaves), for the inner texture of fire and smoke: billows, not smooth blobs
   function vnoise(x, y, s) {
@@ -31,11 +34,11 @@
   const fireCache = [];
   // a billowing ball of flame in one of the fixed shades (four shapes each): ragged turbulent edges, brighter where
   // it is thick, so a fireball reads as rolling fire rather than round glows. Made once, when first needed
-  function fireSprite(i, v = 0) {
-    const key = i * 4 + (v & 3);
+  function fireSprite(i, v = 0, ramp = FIRE_RAMP) {
+    const key = i * 4 + (v & 3) + (ramp === PLASMA_RAMP ? 64 : 0);
     if (fireCache[key]) return fireCache[key];
     const S = 96, c = document.createElement("canvas"); c.width = c.height = S;
-    const q = c.getContext("2d"), img = q.createImageData(S, S), [r0, g0, b0] = hex(FIRE_RAMP[i]), [r1, g1, b1] = hex(FIRE_RAMP[Math.max(0, i - 2)]);
+    const q = c.getContext("2d"), img = q.createImageData(S, S), [r0, g0, b0] = hex(ramp[i]), [r1, g1, b1] = hex(ramp[Math.max(0, i - 2)]);
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
       const dx = x / S - 0.5, dy = y / S - 0.5, d = Math.hypot(dx, dy) * 2, n = fbm(x / S * 5 + v * 7.3, y / S * 5 + v * 3.1, 50 + v);
       const dens = Math.max(0, Math.min(1, (1 - d * 1.05) * 1.6 + (n - 0.5) * 1.5));
@@ -555,38 +558,50 @@
   //  4. sparks and embers slowed by drag, flying on curving paths;
   //  5. a thin bright shock ring;
   //  6. a few hot chips of wreckage.
-  function explode(x, y, n, speed) {
+  //  7. burning chunks flung out, each trailing fire and smoke.
+  // pal "plasma": the same blast in energy (the shock orb and its combo): blue-white clouds, cold light, no smoke or chips
+  const BLAST_PAL = {
+    fire: { cloud: "fire", light: "255,176,96", sparks: SPARK_COLS, ember: "fire", ring: "255,246,230", dust: "rgb(150,138,142)", smoke: true },
+    plasma: { cloud: "plasma", light: "120,200,255", sparks: ["#ffffff", "#c8f4ff", "#7fdcff"], ember: "plasma", ring: "200,240,255", dust: "rgb(110,160,220)", smoke: false }
+  };
+  function explode(x, y, n, speed, pal = "fire") {
+    const P = BLAST_PAL[pal] || BLAST_PAL.fire;
     const s = speed / 420, ss = Math.sqrt(s), nn = n / 80, q = lowQ ? 0.4 : COARSE ? 0.65 : 1;   // a phone: fewer pieces
-    impacts.push({ x, y, t: 0, r: 34 + 50 * s, col: "#fffbe8", dur: 0.1 });
-    impacts.push({ x, y, t: 0, r: 320 * s, col: "255,176,96", dur: 0.4, soft: 0.75 });
-    for (let k = 0, m = Math.min(40, Math.round((8 + 10 * nn) * q)); k < m; k++) {   // the fireball
+    impacts.push({ x, y, t: 0, r: 34 + 50 * s, col: pal === "plasma" ? "#e8fbff" : "#fffbe8", dur: 0.1 });
+    impacts.push({ x, y, t: 0, r: 320 * s, col: P.light, dur: 0.4, soft: 0.75 });
+    for (let k = 0, m = Math.min(40, Math.round((8 + 10 * nn) * q)); k < m; k++) {   // the fireball (or the ball of energy)
       const a = Math.random() * 6.28, rr = Math.random() * 30 * s, v = (60 + Math.random() * 260) * s;
       puff(x + Math.cos(a) * rr, y + Math.sin(a) * rr, Math.cos(a) * v, Math.sin(a) * v, (0.5 + Math.random() * 0.6) * ss,
-        (18 + Math.random() * 20) * s, FIRE_RAMP[0], 4, 0, 0, 0.9, k < 3 ? 0 : 0.12 + Math.random() * 0.25);   // only the first few start white-hot
+        (18 + Math.random() * 20) * s, P.cloud, 4, 0, 0, 0.9, (k < 3 ? 0 : 0.12 + Math.random() * 0.25) + (P.smoke ? 0 : 0.25));   // only the first few start white-hot (energy: blue from the start)
     }
-    for (let k = 0, m = Math.round((6 + 9 * nn) * q); k < m; k++) {   // smoke, lit by the fire inside it at first
+    if (P.smoke) for (let k = 0, m = Math.round((6 + 9 * nn) * q); k < m; k++) {   // smoke, lit by the fire inside it at first
       const a = Math.random() * 6.28, rr = Math.random() * 40 * s, v = (30 + Math.random() * 130) * s;
       puff(x + Math.cos(a) * rr, y + Math.sin(a) * rr, Math.cos(a) * v, Math.sin(a) * v, (1.5 + Math.random() * 1.5) * Math.min(1.6, ss),
         (9 + Math.random() * 8) * s, SMOKE_COLS[k % 3], 2, 0, 0, 0.95, 0.6 + Math.random() * 0.4);
     }
     for (let k = 0, m = Math.round((10 + 20 * nn) * q); k < m; k++) {   // sparks
       const a = Math.random() * 6.28, v = (400 + Math.random() * 800) * ss;
-      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.35 + Math.random() * 0.5, 1.4 + Math.random() * 1.2, SPARK_COLS[k % 3], 1, 0.05, (Math.random() - 0.5) * 3, 0.955);
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.35 + Math.random() * 0.5, 1.4 + Math.random() * 1.2, P.sparks[k % 3], 1, 0.05, (Math.random() - 0.5) * 3, 0.955);
     }
     for (let k = 0, m = Math.round((8 + 16 * nn) * q); k < m; k++) {   // embers
       const a = Math.random() * 6.28, v = (120 + Math.random() * 380) * ss;
-      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.8 + Math.random() * 1.2, 1 + Math.random() * 1.1, FIRE_RAMP[2], 5, 0, (Math.random() - 0.5) * 2.5, 0.965);
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.8 + Math.random() * 1.2, 1 + Math.random() * 1.1, P.ember, 5, 0, (Math.random() - 0.5) * 2.5, 0.965);
     }
     // the shock wave: a lens racing out that bends what is behind it, with a bright front (drawBlastFx), and a ring
     // of dust and smoke thrown out with it
-    rings.push({ x, y, t: 0, r: 260 * s, col: "255,246,230", dur: 0.38 + 0.12 * ss, w: 3, shock: 26 * ss });
+    rings.push({ x, y, t: 0, r: 260 * s, col: P.ring, dur: 0.38 + 0.12 * ss, w: 3, shock: 26 * ss });
     for (let k = 0, m = Math.round((14 + 10 * nn) * q); k < m; k++) {
       const a = k / m * 6.283 + Math.random() * 0.3, v = (520 + Math.random() * 160) * s;
-      puff(x + Math.cos(a) * 12 * s, y + Math.sin(a) * 12 * s, Math.cos(a) * v, Math.sin(a) * v, 0.8 + Math.random() * 0.5, (7 + Math.random() * 5) * s, "rgb(150,138,142)", 2, 0, 0, 0.88, 0.5);
+      puff(x + Math.cos(a) * 12 * s, y + Math.sin(a) * 12 * s, Math.cos(a) * v, Math.sin(a) * v, 0.8 + Math.random() * 0.5, (7 + Math.random() * 5) * s, P.dust, 2, 0, 0, 0.88, P.smoke ? 0.5 : 0);
     }
     for (let k = 0, m = Math.round((5 + 4 * nn) * q); k < m; k++) {   // tongues of flame licking out in the first instant
       const a = Math.random() * 6.28, v = (500 + Math.random() * 500) * ss;
-      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.22 + Math.random() * 0.18, (10 + Math.random() * 8) * s, FIRE_RAMP[0], 6, 0, (Math.random() - 0.5) * 2, 0.9, Math.random() * 0.2);
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.22 + Math.random() * 0.18, (10 + Math.random() * 8) * s, P.cloud, 6, 0, (Math.random() - 0.5) * 2, 0.9, Math.random() * 0.2);
+    }
+    if (!P.smoke) return;
+    for (let k = 0, m = n >= 26 ? Math.round((3 + 3 * nn) * q) : 0; k < m; k++) {   // burning chunks, trailing fire and smoke
+      const a = Math.random() * 6.28, v = (280 + Math.random() * 420) * ss;
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.9 + Math.random() * 0.9, 2.2 + Math.random() * 1.5, "fire", 8, 0, (Math.random() - 0.5) * 1.6, 0.975);
     }
     if (n >= 26) for (let k = 0, m = Math.round((2 + 3 * nn) * q); k < m; k++) {
       const a = Math.random() * 6.28, v = (100 + Math.random() * 260) * ss;

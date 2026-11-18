@@ -573,13 +573,19 @@
     g.lineCap = "round";
     for (const p of parts) {
       if (p.k === 2 || p.k === 4 || p.k === 6) continue;   // smoke and fire (clouds, tongues) go over the bins (drawBlastFx)
+      if (p.k === 8) {   // a burning chunk: a white-hot core in an orange glow (its trail is fire clouds, updateFx)
+        const f = p.life / p.max, d = p.size * 5, x = sx(p.x), y = sy(p.y);
+        if (!onScreen(x, y, d)) continue;
+        g.globalAlpha = Math.min(1, f * 3); g.drawImage(dotSprite("#ff9a3c"), x - d, y - d, d * 2, d * 2); g.drawImage(dotSprite("#fff3c4"), x - d / 3, y - d / 3, d * 2 / 3, d * 2 / 3);
+        continue;
+      }
       const x = sx(p.x), y = sy(p.y);
       if (!onScreen(x, y, 30)) continue;
       g.globalAlpha = Math.max(0, p.life / p.max) * 0.9;
       if (p.k === 5) {   // an ember: a tiny hot point that flickers and cools from yellow to dull red
         const f = p.life / p.max, d = p.size * 3.4;
         g.globalAlpha = Math.min(1, f * 2.5) * (0.7 + 0.3 * Math.sin(now / 37 + p.rot * 9));
-        g.drawImage(dotSprite(FIRE_RAMP[Math.min(7, 2 + ((1 - f) * 5.5) | 0)]), x - d / 2, y - d / 2, d, d);
+        g.drawImage(dotSprite(rampOf(p.col)[Math.min(7, 2 + ((1 - f) * 5.5) | 0)]), x - d / 2, y - d / 2, d, d);
       } else if (p.k === 1) {
         g.strokeStyle = p.col; g.lineWidth = p.size;
         g.beginPath(); g.moveTo(x, y); g.lineTo(x - p.vx * p.len, y - p.vy * p.len); g.stroke();
@@ -606,7 +612,8 @@
       if (onScreen(x, y, BOT * 2)) drawBot({ ...r, blink: r.inv }, x, y, now, false);
       else drawPointer(r, x, y);
     }
-    if (!me.dead) drawBot({ ...me, name: playing && !COMPACT.matches ? me.name : "", blink: now < me.inv }, sx(me.x + srv.vox), sy(me.y + srv.voy), now, true);   // (vox: a correction still fading, drawn only)   // on a small screen your own label goes
+    if (serverRun && !srv.placed) {}   // (not placed by the server yet: a moment)
+    else if (!me.dead) drawBot({ ...me, name: playing && !COMPACT.matches ? me.name : "", blink: now < me.inv }, sx(me.x + srv.vox), sy(me.y + srv.voy), now, true);   // (vox: a correction still fading, drawn only)   // on a small screen your own label goes
     else {
       g.textAlign = "center"; g.fillStyle = "#ffffff";
       g.font = `700 ${30 * TS}px ` + DISPLAY_FONT;
@@ -647,7 +654,7 @@
         if (!onScreen(x, y, L)) continue;
         g.globalAlpha = Math.min(1, a / 0.05) * (1 - a) * 0.95;
         g.save(); g.translate(x, y); g.rotate(Math.atan2(p.vy, p.vx));
-        g.drawImage(fireSprite(Math.min(7, ((a + p.glow) * 7) | 0), (p.rot * 3) | 0), -L * 0.7, -Wd, L, Wd * 2); g.restore();
+        g.drawImage(fireSprite(Math.min(7, ((a + p.glow) * 7) | 0), (p.rot * 3) | 0, rampOf(p.col)), -L * 0.7, -Wd, L, Wd * 2); g.restore();
         continue;
       }
       if (p.k !== 4) continue;
@@ -657,7 +664,7 @@
       g.globalAlpha = Math.min(1, a / 0.06) * Math.pow(1 - a, 0.7) * 0.5;   // (many overlap: added up they would burn to white)
       const i = Math.min(7, ((a * 1.1 + p.glow) * 8) | 0);
       g.save(); g.translate(x, y); g.rotate(p.rot + a * p.vr * 0.05);
-      g.drawImage(fireSprite(i, (p.rot * 3) | 0), -d / 2, -d / 2, d, d); g.restore();
+      g.drawImage(fireSprite(i, (p.rot * 3) | 0, rampOf(p.col)), -d / 2, -d / 2, d, d); g.restore();
     }
     g.globalAlpha = 1;
     for (const m of impacts) {

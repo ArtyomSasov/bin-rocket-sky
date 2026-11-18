@@ -2,14 +2,16 @@
   // shots leave from the tip of the gun drawn on the wing (left and right in turn), not from the middle of the bin
   const mountsOf = w => w === "fire" ? [[256, 150]] : w === "laser" || w === "gauntlet" ? [[160, 96]] : ["nuke", "holy", "bolt", "gamma", "tele", "gauss", "gauntlet"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
   const BARREL = { fire: 44, laser: 60, rocket: 50, triple: 42, nuke: 96, holy: 30, saw: 40, gamma: 44, tele: 28, minigun: 58, gauss: 80, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48, nail: 54, gren: 44, gauntlet: 34 };   // tip, in mount units
-  let gunSide = 0;
-  function muzzleAt(weapon) {
-    const ms = mountsOf(weapon), [mx, my] = ms[gunSide++ % ms.length];
-    const S = BOT * sizeOf(me.lv), t = BARREL[weapon] * S / 320 * 1.35, R = me.a + Math.PI / 2 - SPRITE_TILT;
+  // the tip of a pilot's gun (any pilot: me, a bot, a player's pilot on the server, which fires from the same tips),
+  // the wing guns taking turns (p.gunSide)
+  function muzzleOf(p, weapon) {
+    const ms = mountsOf(weapon), [mx, my] = ms[(p.gunSide = (p.gunSide || 0) + 1) % ms.length];
+    const S = BOT * sizeOf(p.lv || 1), t = (BARREL[weapon] ?? 44) * S / 320 * 1.35, R = p.a + Math.PI / 2 - SPRITE_TILT;
     // sprite frame: the mount, then along its tilted barrel; then into the world the way drawBot rotates the bin
     const lx = (mx / 320 - 0.5) * S + Math.sin(SPRITE_TILT) * t, ly = (my / 320 - 0.5) * S - Math.cos(SPRITE_TILT) * t;
-    return { x: me.x + lx * Math.cos(R) - ly * Math.sin(R), y: me.y + lx * Math.sin(R) + ly * Math.cos(R) };
+    return { x: p.x + lx * Math.cos(R) - ly * Math.sin(R), y: p.y + lx * Math.sin(R) + ly * Math.cos(R) };
   }
+  const muzzleAt = weapon => muzzleOf(me, weapon);
   // one scatter record on the wire becomes the same pellets everywhere: a loose, uneven cloud of shot, some pellets
   // wide, some lagging, some ahead. The cloud is fixed (not drawn per shot) so a shot shown at once on my screen and
   // the server's copy of it, which has another id, throw exactly the same pellets.
@@ -84,8 +86,7 @@
     rings.push({ x, y, t: 0, r: R * 1.4, col: "160,235,255", warp: true, dur: 0.7, w: big ? 22 : 12 });
     rings.push({ x, y, t: -0.08, r: R * 0.9, col: "255,255,255", dur: 0.45, w: 8 });
     impacts.push({ x, y, t: 0, r: R * 0.7, col: "#9fe8ff" });
-    explode(x, y, lowQ ? 50 : 140, big ? 820 : 520);
-    for (let k = 0; k < (lowQ ? 20 : 50); k++) { const a = Math.random() * 6.283, v = 200 + Math.random() * 700; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.5 + Math.random() * 0.5, 2 + Math.random() * 3, k % 2 ? "#6fd8ff" : "#ffffff"); }
+    explode(x, y, 120, big ? 640 : 460, "plasma");   // energy, not fire
     shove(x, y, R * 1.5, big ? 900 : 500);
     const d = Math.hypot(me.x - x, me.y - y);
     if (d < 1600) { shake = Math.max(shake, (big ? 0.7 : 0.35) * (1 - d / 1600)); if (big) flash = Math.max(flash, 0.35 * (1 - d / 1600)); }
@@ -332,7 +333,8 @@
       if (near) shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400));
       return;
     }
-    if (s.kind === K.ORB) {   // plasma: a blue-white flash, a warping shock ring, crackling sparks, a sizzle
+    if (s.kind === K.ORB) {   // plasma: a blue-white ball of energy, a warping shock ring, crackling sparks, a sizzle
+      explode(x, y, 45, 300, "plasma");
       impacts.push({ x, y, t: 0, r: 170, col: "#bff4ff" });
       rings.push({ x, y, t: 0, r: 280, col: "120,220,255", warp: true, dur: 0.55, w: 16 });
       rings.push({ x, y, t: -0.06, r: 170, col: "255,255,255", dur: 0.35, w: 6 });
@@ -631,7 +633,7 @@
     }
     const cdMul = MODES[MODE].cdMul || 1;
     fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
-    const gun = serverRun ? null : muzzleAt(k);   // the server fires a pilot's gun from the bin's nose
+    const gun = muzzleAt(k);   // (the server fires a player's pilot from the same gun tips)
     const muzzle = volley(me, now, pat, gun, (k === "bolt" && !alt || k === "laser" && alt) ? boltLock(me, gun) : undefined, mul);
     const [name, vol, pitch] = pat.sfx;
     const packed = alt && k === "orb" ? audioCue("shockBeam") : k === "minigun" ? continuousFire("me", "minigun", me.x, me.y, now, !!alt)
@@ -893,7 +895,8 @@
   // the time. It is only kept from scrolling the page
   cv.addEventListener("wheel", e => { if (playing) e.preventDefault(); }, { passive: false });
   function nukeTouches(s) {
-    if (!s.mine && playing && !me.dead && segHit(s, me.x, me.y, 20 + 26 * sizeOf(me.lv))) return true;
+    // (my own nuke never sets itself off on me: on the game server the one shown here is the server's, not "mine")
+    if (!s.mine && !mySrvShot(s) && playing && !me.dead && segHit(s, me.x, me.y, 20 + 26 * sizeOf(me.lv))) return true;
     for (const [id, r] of remotes) if (!r.dead && id !== s.owner && segHit(s, r.x, r.y, 20 + 26 * sizeOf(r.lv))) return true;
     for (const k of world.rocks) if (!grabbed.has(k.key) && k.age >= 0.6 && segHit(s, k.x, k.y, k.r + 10)) return true;
     return false;

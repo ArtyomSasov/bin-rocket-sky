@@ -3440,6 +3440,9 @@ details.controls[open] .clist { margin-top: 8px; }
   // fixed shades, so the sprite caches stay small: a fire cloud cools white, yellow, orange, red, then a dull ember red
   const FIRE_RAMP = ["#ffffff", "#fff3c4", "#ffd66b", "#ffab3d", "#ff7a26", "#e2491c", "#a32c19", "#5c1a16"];
   const SMOKE_COLS = ["rgb(64,57,64)", "rgb(88,79,84)", "rgb(114,103,106)"];
+  // energy (the shock orb, its combo): white-hot to electric blue to deep violet, no fire at all
+  const PLASMA_RAMP = ["#ffffff", "#e8fbff", "#bdf0ff", "#86dcff", "#57b8ff", "#4a82f0", "#4a4fc8", "#2a2470"];
+  const rampOf = col => col === "plasma" ? PLASMA_RAMP : FIRE_RAMP;
   const SPARK_COLS = ["#fff8e0", "#ffe08a", "#ffb64a"];
   // turbulent value noise (fractal, four octaves), for the inner texture of fire and smoke: billows, not smooth blobs
   function vnoise(x, y, s) {
@@ -3452,11 +3455,11 @@ details.controls[open] .clist { margin-top: 8px; }
   const fireCache = [];
   // a billowing ball of flame in one of the fixed shades (four shapes each): ragged turbulent edges, brighter where
   // it is thick, so a fireball reads as rolling fire rather than round glows. Made once, when first needed
-  function fireSprite(i, v = 0) {
-    const key = i * 4 + (v & 3);
+  function fireSprite(i, v = 0, ramp = FIRE_RAMP) {
+    const key = i * 4 + (v & 3) + (ramp === PLASMA_RAMP ? 64 : 0);
     if (fireCache[key]) return fireCache[key];
     const S = 96, c = document.createElement("canvas"); c.width = c.height = S;
-    const q = c.getContext("2d"), img = q.createImageData(S, S), [r0, g0, b0] = hex(FIRE_RAMP[i]), [r1, g1, b1] = hex(FIRE_RAMP[Math.max(0, i - 2)]);
+    const q = c.getContext("2d"), img = q.createImageData(S, S), [r0, g0, b0] = hex(ramp[i]), [r1, g1, b1] = hex(ramp[Math.max(0, i - 2)]);
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
       const dx = x / S - 0.5, dy = y / S - 0.5, d = Math.hypot(dx, dy) * 2, n = fbm(x / S * 5 + v * 7.3, y / S * 5 + v * 3.1, 50 + v);
       const dens = Math.max(0, Math.min(1, (1 - d * 1.05) * 1.6 + (n - 0.5) * 1.5));
@@ -3976,38 +3979,50 @@ details.controls[open] .clist { margin-top: 8px; }
   //  4. sparks and embers slowed by drag, flying on curving paths;
   //  5. a thin bright shock ring;
   //  6. a few hot chips of wreckage.
-  function explode(x, y, n, speed) {
+  //  7. burning chunks flung out, each trailing fire and smoke.
+  // pal "plasma": the same blast in energy (the shock orb and its combo): blue-white clouds, cold light, no smoke or chips
+  const BLAST_PAL = {
+    fire: { cloud: "fire", light: "255,176,96", sparks: SPARK_COLS, ember: "fire", ring: "255,246,230", dust: "rgb(150,138,142)", smoke: true },
+    plasma: { cloud: "plasma", light: "120,200,255", sparks: ["#ffffff", "#c8f4ff", "#7fdcff"], ember: "plasma", ring: "200,240,255", dust: "rgb(110,160,220)", smoke: false }
+  };
+  function explode(x, y, n, speed, pal = "fire") {
+    const P = BLAST_PAL[pal] || BLAST_PAL.fire;
     const s = speed / 420, ss = Math.sqrt(s), nn = n / 80, q = lowQ ? 0.4 : COARSE ? 0.65 : 1;   // a phone: fewer pieces
-    impacts.push({ x, y, t: 0, r: 34 + 50 * s, col: "#fffbe8", dur: 0.1 });
-    impacts.push({ x, y, t: 0, r: 320 * s, col: "255,176,96", dur: 0.4, soft: 0.75 });
-    for (let k = 0, m = Math.min(40, Math.round((8 + 10 * nn) * q)); k < m; k++) {   // the fireball
+    impacts.push({ x, y, t: 0, r: 34 + 50 * s, col: pal === "plasma" ? "#e8fbff" : "#fffbe8", dur: 0.1 });
+    impacts.push({ x, y, t: 0, r: 320 * s, col: P.light, dur: 0.4, soft: 0.75 });
+    for (let k = 0, m = Math.min(40, Math.round((8 + 10 * nn) * q)); k < m; k++) {   // the fireball (or the ball of energy)
       const a = Math.random() * 6.28, rr = Math.random() * 30 * s, v = (60 + Math.random() * 260) * s;
       puff(x + Math.cos(a) * rr, y + Math.sin(a) * rr, Math.cos(a) * v, Math.sin(a) * v, (0.5 + Math.random() * 0.6) * ss,
-        (18 + Math.random() * 20) * s, FIRE_RAMP[0], 4, 0, 0, 0.9, k < 3 ? 0 : 0.12 + Math.random() * 0.25);   // only the first few start white-hot
+        (18 + Math.random() * 20) * s, P.cloud, 4, 0, 0, 0.9, (k < 3 ? 0 : 0.12 + Math.random() * 0.25) + (P.smoke ? 0 : 0.25));   // only the first few start white-hot (energy: blue from the start)
     }
-    for (let k = 0, m = Math.round((6 + 9 * nn) * q); k < m; k++) {   // smoke, lit by the fire inside it at first
+    if (P.smoke) for (let k = 0, m = Math.round((6 + 9 * nn) * q); k < m; k++) {   // smoke, lit by the fire inside it at first
       const a = Math.random() * 6.28, rr = Math.random() * 40 * s, v = (30 + Math.random() * 130) * s;
       puff(x + Math.cos(a) * rr, y + Math.sin(a) * rr, Math.cos(a) * v, Math.sin(a) * v, (1.5 + Math.random() * 1.5) * Math.min(1.6, ss),
         (9 + Math.random() * 8) * s, SMOKE_COLS[k % 3], 2, 0, 0, 0.95, 0.6 + Math.random() * 0.4);
     }
     for (let k = 0, m = Math.round((10 + 20 * nn) * q); k < m; k++) {   // sparks
       const a = Math.random() * 6.28, v = (400 + Math.random() * 800) * ss;
-      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.35 + Math.random() * 0.5, 1.4 + Math.random() * 1.2, SPARK_COLS[k % 3], 1, 0.05, (Math.random() - 0.5) * 3, 0.955);
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.35 + Math.random() * 0.5, 1.4 + Math.random() * 1.2, P.sparks[k % 3], 1, 0.05, (Math.random() - 0.5) * 3, 0.955);
     }
     for (let k = 0, m = Math.round((8 + 16 * nn) * q); k < m; k++) {   // embers
       const a = Math.random() * 6.28, v = (120 + Math.random() * 380) * ss;
-      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.8 + Math.random() * 1.2, 1 + Math.random() * 1.1, FIRE_RAMP[2], 5, 0, (Math.random() - 0.5) * 2.5, 0.965);
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.8 + Math.random() * 1.2, 1 + Math.random() * 1.1, P.ember, 5, 0, (Math.random() - 0.5) * 2.5, 0.965);
     }
     // the shock wave: a lens racing out that bends what is behind it, with a bright front (drawBlastFx), and a ring
     // of dust and smoke thrown out with it
-    rings.push({ x, y, t: 0, r: 260 * s, col: "255,246,230", dur: 0.38 + 0.12 * ss, w: 3, shock: 26 * ss });
+    rings.push({ x, y, t: 0, r: 260 * s, col: P.ring, dur: 0.38 + 0.12 * ss, w: 3, shock: 26 * ss });
     for (let k = 0, m = Math.round((14 + 10 * nn) * q); k < m; k++) {
       const a = k / m * 6.283 + Math.random() * 0.3, v = (520 + Math.random() * 160) * s;
-      puff(x + Math.cos(a) * 12 * s, y + Math.sin(a) * 12 * s, Math.cos(a) * v, Math.sin(a) * v, 0.8 + Math.random() * 0.5, (7 + Math.random() * 5) * s, "rgb(150,138,142)", 2, 0, 0, 0.88, 0.5);
+      puff(x + Math.cos(a) * 12 * s, y + Math.sin(a) * 12 * s, Math.cos(a) * v, Math.sin(a) * v, 0.8 + Math.random() * 0.5, (7 + Math.random() * 5) * s, P.dust, 2, 0, 0, 0.88, P.smoke ? 0.5 : 0);
     }
     for (let k = 0, m = Math.round((5 + 4 * nn) * q); k < m; k++) {   // tongues of flame licking out in the first instant
       const a = Math.random() * 6.28, v = (500 + Math.random() * 500) * ss;
-      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.22 + Math.random() * 0.18, (10 + Math.random() * 8) * s, FIRE_RAMP[0], 6, 0, (Math.random() - 0.5) * 2, 0.9, Math.random() * 0.2);
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.22 + Math.random() * 0.18, (10 + Math.random() * 8) * s, P.cloud, 6, 0, (Math.random() - 0.5) * 2, 0.9, Math.random() * 0.2);
+    }
+    if (!P.smoke) return;
+    for (let k = 0, m = n >= 26 ? Math.round((3 + 3 * nn) * q) : 0; k < m; k++) {   // burning chunks, trailing fire and smoke
+      const a = Math.random() * 6.28, v = (280 + Math.random() * 420) * ss;
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.9 + Math.random() * 0.9, 2.2 + Math.random() * 1.5, "fire", 8, 0, (Math.random() - 0.5) * 1.6, 0.975);
     }
     if (n >= 26) for (let k = 0, m = Math.round((2 + 3 * nn) * q); k < m; k++) {
       const a = Math.random() * 6.28, v = (100 + Math.random() * 260) * ss;
@@ -4034,14 +4049,16 @@ details.controls[open] .clist { margin-top: 8px; }
   // shots leave from the tip of the gun drawn on the wing (left and right in turn), not from the middle of the bin
   const mountsOf = w => w === "fire" ? [[256, 150]] : w === "laser" || w === "gauntlet" ? [[160, 96]] : ["nuke", "holy", "bolt", "gamma", "tele", "gauss", "gauntlet"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
   const BARREL = { fire: 44, laser: 60, rocket: 50, triple: 42, nuke: 96, holy: 30, saw: 40, gamma: 44, tele: 28, minigun: 58, gauss: 80, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48, nail: 54, gren: 44, gauntlet: 34 };   // tip, in mount units
-  let gunSide = 0;
-  function muzzleAt(weapon) {
-    const ms = mountsOf(weapon), [mx, my] = ms[gunSide++ % ms.length];
-    const S = BOT * sizeOf(me.lv), t = BARREL[weapon] * S / 320 * 1.35, R = me.a + Math.PI / 2 - SPRITE_TILT;
+  // the tip of a pilot's gun (any pilot: me, a bot, a player's pilot on the server, which fires from the same tips),
+  // the wing guns taking turns (p.gunSide)
+  function muzzleOf(p, weapon) {
+    const ms = mountsOf(weapon), [mx, my] = ms[(p.gunSide = (p.gunSide || 0) + 1) % ms.length];
+    const S = BOT * sizeOf(p.lv || 1), t = (BARREL[weapon] ?? 44) * S / 320 * 1.35, R = p.a + Math.PI / 2 - SPRITE_TILT;
     // sprite frame: the mount, then along its tilted barrel; then into the world the way drawBot rotates the bin
     const lx = (mx / 320 - 0.5) * S + Math.sin(SPRITE_TILT) * t, ly = (my / 320 - 0.5) * S - Math.cos(SPRITE_TILT) * t;
-    return { x: me.x + lx * Math.cos(R) - ly * Math.sin(R), y: me.y + lx * Math.sin(R) + ly * Math.cos(R) };
+    return { x: p.x + lx * Math.cos(R) - ly * Math.sin(R), y: p.y + lx * Math.sin(R) + ly * Math.cos(R) };
   }
+  const muzzleAt = weapon => muzzleOf(me, weapon);
   // one scatter record on the wire becomes the same pellets everywhere: a loose, uneven cloud of shot, some pellets
   // wide, some lagging, some ahead. The cloud is fixed (not drawn per shot) so a shot shown at once on my screen and
   // the server's copy of it, which has another id, throw exactly the same pellets.
@@ -4116,8 +4133,7 @@ details.controls[open] .clist { margin-top: 8px; }
     rings.push({ x, y, t: 0, r: R * 1.4, col: "160,235,255", warp: true, dur: 0.7, w: big ? 22 : 12 });
     rings.push({ x, y, t: -0.08, r: R * 0.9, col: "255,255,255", dur: 0.45, w: 8 });
     impacts.push({ x, y, t: 0, r: R * 0.7, col: "#9fe8ff" });
-    explode(x, y, lowQ ? 50 : 140, big ? 820 : 520);
-    for (let k = 0; k < (lowQ ? 20 : 50); k++) { const a = Math.random() * 6.283, v = 200 + Math.random() * 700; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.5 + Math.random() * 0.5, 2 + Math.random() * 3, k % 2 ? "#6fd8ff" : "#ffffff"); }
+    explode(x, y, 120, big ? 640 : 460, "plasma");   // energy, not fire
     shove(x, y, R * 1.5, big ? 900 : 500);
     const d = Math.hypot(me.x - x, me.y - y);
     if (d < 1600) { shake = Math.max(shake, (big ? 0.7 : 0.35) * (1 - d / 1600)); if (big) flash = Math.max(flash, 0.35 * (1 - d / 1600)); }
@@ -4364,7 +4380,8 @@ details.controls[open] .clist { margin-top: 8px; }
       if (near) shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400));
       return;
     }
-    if (s.kind === K.ORB) {   // plasma: a blue-white flash, a warping shock ring, crackling sparks, a sizzle
+    if (s.kind === K.ORB) {   // plasma: a blue-white ball of energy, a warping shock ring, crackling sparks, a sizzle
+      explode(x, y, 45, 300, "plasma");
       impacts.push({ x, y, t: 0, r: 170, col: "#bff4ff" });
       rings.push({ x, y, t: 0, r: 280, col: "120,220,255", warp: true, dur: 0.55, w: 16 });
       rings.push({ x, y, t: -0.06, r: 170, col: "255,255,255", dur: 0.35, w: 6 });
@@ -4663,7 +4680,7 @@ details.controls[open] .clist { margin-top: 8px; }
     }
     const cdMul = MODES[MODE].cdMul || 1;
     fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
-    const gun = serverRun ? null : muzzleAt(k);   // the server fires a pilot's gun from the bin's nose
+    const gun = muzzleAt(k);   // (the server fires a player's pilot from the same gun tips)
     const muzzle = volley(me, now, pat, gun, (k === "bolt" && !alt || k === "laser" && alt) ? boltLock(me, gun) : undefined, mul);
     const [name, vol, pitch] = pat.sfx;
     const packed = alt && k === "orb" ? audioCue("shockBeam") : k === "minigun" ? continuousFire("me", "minigun", me.x, me.y, now, !!alt)
@@ -4925,7 +4942,8 @@ details.controls[open] .clist { margin-top: 8px; }
   // the time. It is only kept from scrolling the page
   cv.addEventListener("wheel", e => { if (playing) e.preventDefault(); }, { passive: false });
   function nukeTouches(s) {
-    if (!s.mine && playing && !me.dead && segHit(s, me.x, me.y, 20 + 26 * sizeOf(me.lv))) return true;
+    // (my own nuke never sets itself off on me: on the game server the one shown here is the server's, not "mine")
+    if (!s.mine && !mySrvShot(s) && playing && !me.dead && segHit(s, me.x, me.y, 20 + 26 * sizeOf(me.lv))) return true;
     for (const [id, r] of remotes) if (!r.dead && id !== s.owner && segHit(s, r.x, r.y, 20 + 26 * sizeOf(r.lv))) return true;
     for (const k of world.rocks) if (!grabbed.has(k.key) && k.age >= 0.6 && segHit(s, k.x, k.y, k.r + 10)) return true;
     return false;
@@ -5952,7 +5970,7 @@ details.controls[open] .clist { margin-top: 8px; }
     const ws = new WebSocket(SERVER_URL);
     srv.ws = ws;
     ws.binaryType = "arraybuffer";
-    srv.snaps = new Map(); srv.snapQ = 0;
+    srv.snaps = new Map(); srv.snapQ = 0; srv.placed = false;
     ws.onopen = () => ws.send(JSON.stringify({ t: "join", code, name: me.name, bots: botChoice.n, level: botChoice.level, pub: !joining, bin: 1, rtc: window.RTCPeerConnection ? 1 : 0 }));   // a new game is listed, as online lobbies are; a room opened by typing a code is not
     ws.onmessage = e => {
       if (e.data instanceof ArrayBuffer) { receiveDelta(new Uint8Array(e.data)); return; }
@@ -6128,6 +6146,17 @@ details.controls[open] .clist { margin-top: 8px; }
       srv.hist.length = 0; srv.cx = srv.cy = 0;
     }
     if (me.dead || !Number.isFinite(m.x) || !Number.isFinite(m.y)) return;
+    // where the server put me, at the start of a game or a round: taken as it is (until then my bin waits, unseen,
+    // instead of flying from a spawn point of its own and being thrown across the map a moment later)
+    if (!srv.placed) {
+      if (m.rd !== stats.round) return;
+      if (Array.isArray(m.mv) && m.mv.length === MOVE_STATE.length + 3 && m.mv.every(Number.isFinite)) setMoveState(me, m.mv);
+      else { me.x = m.x; me.y = m.y; me.vx = num(m.vx, 0); me.vy = num(m.vy, 0); }
+      srv.cmds.length = 0; srv.vox = srv.voy = srv.cx = srv.cy = 0; srv.hist.length = 0;
+      cam.x = me.x + cam.lx; cam.y = me.y + cam.ly;
+      srv.placed = true;
+      return;
+    }
     if (Array.isArray(m.mv) && m.mv.length === MOVE_STATE.length + 3 && m.mv.every(Number.isFinite)) { reconcile(m); return; }
     if (Number.isFinite(m.en) && Math.abs(m.en - energy) > 15) energy = clamp(m.en, 0, 100);
     // Reconciliation, as Quake and Source do it: the server's state holds my controls up to number ak, flown for ag
@@ -6653,7 +6682,7 @@ details.controls[open] .clist { margin-top: 8px; }
   function botFire(b, now) {
     const w = botWeapon(b), pat = WEAPONS[w];
     if (w === "gamma" && shots.some(s => s.owner === b.id && s.kind === K.GAMMA && s.life > 0 && !s.boom)) return .3;
-    const s = volley(b, now, pat, null, w === "bolt" ? boltLock(b, null) : undefined);
+    const gun = muzzleOf(b, w), s = volley(b, now, pat, gun, w === "bolt" ? boltLock(b, gun) : undefined);   // from its gun's tip
     if (w === "orb") b.orb = s;   // a bot can set its orb off with the beam (see updateBots)
     shotSound(pat.shot[0], b.x, b.y, b.id);
     b.vx -= Math.cos(b.a) * 25; b.vy -= Math.sin(b.a) * 25;
@@ -7092,7 +7121,8 @@ details.controls[open] .clist { margin-top: 8px; }
     if (alt && pat.cutter) pat = { ...pat, cut: Math.round(24 + 48 * b.cutCharge) };
     const cdMul = MODES[MODE].cdMul || 1;
     b.fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * b.spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
-    const shot = volley(b, now, pat, null, (k === "bolt" && !alt) || (k === "laser" && alt) ? boltLock(b, null) : undefined, mul);
+    const gun = muzzleOf(b, k);   // from the gun's tip, as the player's screen fires it
+    const shot = volley(b, now, pat, gun, (k === "bolt" && !alt) || (k === "laser" && alt) ? boltLock(b, gun) : undefined, mul);
     if (pat.guided && shot) { shot.life = SHOTS[K.NUKE].life; b.guide = { shot, gb: b.input.gb || 0 }; }   // steered by the player from now on
     const kick = (pat.kick || 0) * (w.charge ? mul : 1);
     b.vx -= ax * kick; b.vy -= ay * kick;
@@ -7453,6 +7483,7 @@ details.controls[open] .clist { margin-top: 8px; }
     // X with a direction is a drift: the engine cuts, the bin slides on with its speed and the nose swings round
     // fast to where you push, so you can turn and shoot back the way you came. X alone is the air brake
     let drift = false, lit = false;
+    if (serverRun && !srv.placed && playing) { me.vx = me.vy = 0; return; }   // waiting for the server to say where I am
     const wr = WALL_R * sizeOf(me.lv), a0 = me.a, cmdMode = serverRun && srv.joined && playing && !me.dead;
     if (cmdMode) boost = !!me.boosting;
     if (playing && !me.dead) {
@@ -7673,7 +7704,7 @@ details.controls[open] .clist { margin-top: 8px; }
         }
       }
       if ((s.x < 0 || s.x > W || s.y < 0 || s.y > H) && SPLASH[s.kind]) splash(s, now);
-      if (s.x < 0 || s.x > W || s.y < 0 || s.y > H) { explode(clamp(s.x, 0, W), clamp(s.y, 0, H), s.kind === K.ROCKET ? 40 : 10, 160); shots.splice(i, 1); continue; }
+      if (s.x < 0 || s.x > W || s.y < 0 || s.y > H) { if (!SPLASH[s.kind]) explode(clamp(s.x, 0, W), clamp(s.y, 0, H), 10, 160); shots.splice(i, 1); continue; }   // (a blast weapon has had its own)
       if (s.kind === K.ROCKET || s.kind === K.HROCKET) {   // a smoke trail with fire licking out of the motor
         const sp = Math.hypot(s.vx, s.vy) || 1, bx = s.x - s.vx / sp * 26, by = s.y - s.vy / sp * 26;
         if (Math.random() < stepDt * (lowQ ? 30 : 70)) puff(bx, by, -s.vx * 0.08 + (Math.random() - .5) * 50, -s.vy * 0.08 + (Math.random() - .5) * 50, 1.2 + Math.random() * 1.0, 6 + Math.random() * 6, "rgb(120,110,140)", 2);
@@ -7954,6 +7985,11 @@ details.controls[open] .clist { margin-top: 8px; }
       const damp = Math.pow(p.drag || (p.k === 2 ? 0.93 : 0.97), dt * 60);
       p.vx *= damp; p.vy *= damp;
       if (p.curl) { const c = Math.cos(p.curl * dt), s = Math.sin(p.curl * dt), vx = p.vx; p.vx = vx * c - p.vy * s; p.vy = vx * s + p.vy * c; }   // an arc
+      if (p.k === 8 && Math.random() < (lowQ ? 25 : 60) * dt) {   // a burning chunk leaves fire and smoke behind it
+        const f = p.life / p.max;
+        if (Math.random() < 0.65 * f + 0.15) puff(p.x, p.y, p.vx * 0.15 + (Math.random() - 0.5) * 30, p.vy * 0.15 + (Math.random() - 0.5) * 30, 0.25 + Math.random() * 0.2, (5 + Math.random() * 4) * (0.5 + f), "fire", 4, 0, 0, 0.9, 0.2 + (1 - f) * 0.3);
+        else puff(p.x, p.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 0.8 + Math.random() * 0.6, 3 + Math.random() * 3, SMOKE_COLS[1], 2, 0, 0, 0.94, 0.3);
+      }
     }
     const partCap = lowQ ? MAX_PARTS / 3 : MAX_PARTS;
     if (parts.length > partCap) parts.splice(0, parts.length - partCap);
@@ -8215,6 +8251,7 @@ details.controls[open] .clist { margin-top: 8px; }
         myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode);
         // Respawn after rebuilding: a repaired planet must not enclose a pilot in its old tunnel.
         Object.assign(me, spawnPoint(me.tm), { vx: 0, vy: 0 });
+        if (serverRun) srv.placed = false;   // on the server, the server says where (serverSelf)
         for (const b of bots) Object.assign(b, spawnPoint(b.tm), { nav: null, navAt: 0, patrol: null, dashReq: false });
       }
       firstBlood = false; streaks.clear(); multi = 0;
@@ -10007,13 +10044,19 @@ details.controls[open] .clist { margin-top: 8px; }
     g.lineCap = "round";
     for (const p of parts) {
       if (p.k === 2 || p.k === 4 || p.k === 6) continue;   // smoke and fire (clouds, tongues) go over the bins (drawBlastFx)
+      if (p.k === 8) {   // a burning chunk: a white-hot core in an orange glow (its trail is fire clouds, updateFx)
+        const f = p.life / p.max, d = p.size * 5, x = sx(p.x), y = sy(p.y);
+        if (!onScreen(x, y, d)) continue;
+        g.globalAlpha = Math.min(1, f * 3); g.drawImage(dotSprite("#ff9a3c"), x - d, y - d, d * 2, d * 2); g.drawImage(dotSprite("#fff3c4"), x - d / 3, y - d / 3, d * 2 / 3, d * 2 / 3);
+        continue;
+      }
       const x = sx(p.x), y = sy(p.y);
       if (!onScreen(x, y, 30)) continue;
       g.globalAlpha = Math.max(0, p.life / p.max) * 0.9;
       if (p.k === 5) {   // an ember: a tiny hot point that flickers and cools from yellow to dull red
         const f = p.life / p.max, d = p.size * 3.4;
         g.globalAlpha = Math.min(1, f * 2.5) * (0.7 + 0.3 * Math.sin(now / 37 + p.rot * 9));
-        g.drawImage(dotSprite(FIRE_RAMP[Math.min(7, 2 + ((1 - f) * 5.5) | 0)]), x - d / 2, y - d / 2, d, d);
+        g.drawImage(dotSprite(rampOf(p.col)[Math.min(7, 2 + ((1 - f) * 5.5) | 0)]), x - d / 2, y - d / 2, d, d);
       } else if (p.k === 1) {
         g.strokeStyle = p.col; g.lineWidth = p.size;
         g.beginPath(); g.moveTo(x, y); g.lineTo(x - p.vx * p.len, y - p.vy * p.len); g.stroke();
@@ -10040,7 +10083,8 @@ details.controls[open] .clist { margin-top: 8px; }
       if (onScreen(x, y, BOT * 2)) drawBot({ ...r, blink: r.inv }, x, y, now, false);
       else drawPointer(r, x, y);
     }
-    if (!me.dead) drawBot({ ...me, name: playing && !COMPACT.matches ? me.name : "", blink: now < me.inv }, sx(me.x + srv.vox), sy(me.y + srv.voy), now, true);   // (vox: a correction still fading, drawn only)   // on a small screen your own label goes
+    if (serverRun && !srv.placed) {}   // (not placed by the server yet: a moment)
+    else if (!me.dead) drawBot({ ...me, name: playing && !COMPACT.matches ? me.name : "", blink: now < me.inv }, sx(me.x + srv.vox), sy(me.y + srv.voy), now, true);   // (vox: a correction still fading, drawn only)   // on a small screen your own label goes
     else {
       g.textAlign = "center"; g.fillStyle = "#ffffff";
       g.font = `700 ${30 * TS}px ` + DISPLAY_FONT;
@@ -10081,7 +10125,7 @@ details.controls[open] .clist { margin-top: 8px; }
         if (!onScreen(x, y, L)) continue;
         g.globalAlpha = Math.min(1, a / 0.05) * (1 - a) * 0.95;
         g.save(); g.translate(x, y); g.rotate(Math.atan2(p.vy, p.vx));
-        g.drawImage(fireSprite(Math.min(7, ((a + p.glow) * 7) | 0), (p.rot * 3) | 0), -L * 0.7, -Wd, L, Wd * 2); g.restore();
+        g.drawImage(fireSprite(Math.min(7, ((a + p.glow) * 7) | 0), (p.rot * 3) | 0, rampOf(p.col)), -L * 0.7, -Wd, L, Wd * 2); g.restore();
         continue;
       }
       if (p.k !== 4) continue;
@@ -10091,7 +10135,7 @@ details.controls[open] .clist { margin-top: 8px; }
       g.globalAlpha = Math.min(1, a / 0.06) * Math.pow(1 - a, 0.7) * 0.5;   // (many overlap: added up they would burn to white)
       const i = Math.min(7, ((a * 1.1 + p.glow) * 8) | 0);
       g.save(); g.translate(x, y); g.rotate(p.rot + a * p.vr * 0.05);
-      g.drawImage(fireSprite(i, (p.rot * 3) | 0), -d / 2, -d / 2, d, d); g.restore();
+      g.drawImage(fireSprite(i, (p.rot * 3) | 0, rampOf(p.col)), -d / 2, -d / 2, d, d); g.restore();
     }
     g.globalAlpha = 1;
     for (const m of impacts) {

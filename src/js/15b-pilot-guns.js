@@ -139,7 +139,8 @@
     if (alt && pat.cutter) pat = { ...pat, cut: Math.round(24 + 48 * b.cutCharge) };
     const cdMul = MODES[MODE].cdMul || 1;
     b.fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * b.spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
-    const shot = volley(b, now, pat, null, (k === "bolt" && !alt) || (k === "laser" && alt) ? boltLock(b, null) : undefined, mul);
+    const gun = muzzleOf(b, k);   // from the gun's tip, as the player's screen fires it
+    const shot = volley(b, now, pat, gun, (k === "bolt" && !alt) || (k === "laser" && alt) ? boltLock(b, gun) : undefined, mul);
     if (pat.guided && shot) { shot.life = SHOTS[K.NUKE].life; b.guide = { shot, gb: b.input.gb || 0 }; }   // steered by the player from now on
     const kick = (pat.kick || 0) * (w.charge ? mul : 1);
     b.vx -= ax * kick; b.vy -= ay * kick;

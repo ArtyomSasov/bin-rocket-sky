@@ -218,6 +218,7 @@
     // X with a direction is a drift: the engine cuts, the bin slides on with its speed and the nose swings round
     // fast to where you push, so you can turn and shoot back the way you came. X alone is the air brake
     let drift = false, lit = false;
+    if (serverRun && !srv.placed && playing) { me.vx = me.vy = 0; return; }   // waiting for the server to say where I am
     const wr = WALL_R * sizeOf(me.lv), a0 = me.a, cmdMode = serverRun && srv.joined && playing && !me.dead;
     if (cmdMode) boost = !!me.boosting;
     if (playing && !me.dead) {
@@ -438,7 +439,7 @@
         }
       }
       if ((s.x < 0 || s.x > W || s.y < 0 || s.y > H) && SPLASH[s.kind]) splash(s, now);
-      if (s.x < 0 || s.x > W || s.y < 0 || s.y > H) { explode(clamp(s.x, 0, W), clamp(s.y, 0, H), s.kind === K.ROCKET ? 40 : 10, 160); shots.splice(i, 1); continue; }
+      if (s.x < 0 || s.x > W || s.y < 0 || s.y > H) { if (!SPLASH[s.kind]) explode(clamp(s.x, 0, W), clamp(s.y, 0, H), 10, 160); shots.splice(i, 1); continue; }   // (a blast weapon has had its own)
       if (s.kind === K.ROCKET || s.kind === K.HROCKET) {   // a smoke trail with fire licking out of the motor
         const sp = Math.hypot(s.vx, s.vy) || 1, bx = s.x - s.vx / sp * 26, by = s.y - s.vy / sp * 26;
         if (Math.random() < stepDt * (lowQ ? 30 : 70)) puff(bx, by, -s.vx * 0.08 + (Math.random() - .5) * 50, -s.vy * 0.08 + (Math.random() - .5) * 50, 1.2 + Math.random() * 1.0, 6 + Math.random() * 6, "rgb(120,110,140)", 2);
@@ -719,6 +720,11 @@
       const damp = Math.pow(p.drag || (p.k === 2 ? 0.93 : 0.97), dt * 60);
       p.vx *= damp; p.vy *= damp;
       if (p.curl) { const c = Math.cos(p.curl * dt), s = Math.sin(p.curl * dt), vx = p.vx; p.vx = vx * c - p.vy * s; p.vy = vx * s + p.vy * c; }   // an arc
+      if (p.k === 8 && Math.random() < (lowQ ? 25 : 60) * dt) {   // a burning chunk leaves fire and smoke behind it
+        const f = p.life / p.max;
+        if (Math.random() < 0.65 * f + 0.15) puff(p.x, p.y, p.vx * 0.15 + (Math.random() - 0.5) * 30, p.vy * 0.15 + (Math.random() - 0.5) * 30, 0.25 + Math.random() * 0.2, (5 + Math.random() * 4) * (0.5 + f), "fire", 4, 0, 0, 0.9, 0.2 + (1 - f) * 0.3);
+        else puff(p.x, p.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 0.8 + Math.random() * 0.6, 3 + Math.random() * 3, SMOKE_COLS[1], 2, 0, 0, 0.94, 0.3);
+      }
     }
     const partCap = lowQ ? MAX_PARTS / 3 : MAX_PARTS;
     if (parts.length > partCap) parts.splice(0, parts.length - partCap);
@@ -980,6 +986,7 @@
         myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode);
         // Respawn after rebuilding: a repaired planet must not enclose a pilot in its old tunnel.
         Object.assign(me, spawnPoint(me.tm), { vx: 0, vy: 0 });
+        if (serverRun) srv.placed = false;   // on the server, the server says where (serverSelf)
         for (const b of bots) Object.assign(b, spawnPoint(b.tm), { nav: null, navAt: 0, patrol: null, dashReq: false });
       }
       firstBlood = false; streaks.clear(); multi = 0;
