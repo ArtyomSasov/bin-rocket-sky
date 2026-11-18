@@ -162,7 +162,7 @@
   balanceShot(K.SAW_ALT, { dmg: HP(34) });
   balanceShot(K.BULLET, { dmg: HP(14), life: .5 });
   balanceShot(K.BULLET_ALT, { name: "Stinger shard", dmg: HP(38), life: 1.4, r: 7, col: "#94caff" });
-  balanceShot(K.PELLET, { dmg: HP(10), life: 1.6 });
+  balanceShot(K.PELLET, { dmg: HP(10), life: 0.6 });   // real pellets in flight (not hitscan): ~900 px of reach
   balanceShot(K.SLUG, { dmg: HP(60), life: 1.4 });
   balanceShot(K.GREN, { dmg: HP(100) });
   balanceShot(K.MELEE, { dmg: HP(50) });
@@ -176,7 +176,7 @@
   Object.assign(WEAPONS.saw, { shot: [K.SAW, 1680] }); WEAPONS.saw.alt.shot = [K.SAW_ALT, 1680];
   Object.assign(WEAPONS.minigun, { cd: .1, jitter: .03375, shot: [K.BULLET, 6000] });
   Object.assign(WEAPONS.minigun.alt, { name: "Heavy shards", cost: 2, cd: .28, jitter: .01, shot: [K.BULLET_ALT, 2500] });
-  Object.assign(WEAPONS.scatter, { cd: 1, shot: [K.PELLET, 2000] });
+  Object.assign(WEAPONS.scatter, { cd: 1, shot: [K.PELLET, 1500] });
   balanceShot(K.RAIL, { dmg: HP(80) });
   WEAPONS.rail.cd = 1.8; WEAPONS.gren.shot = [K.GREN, 1225];
   WEAPONS.gauntlet.cd = .4; WEAPONS.mine.cd = .8;

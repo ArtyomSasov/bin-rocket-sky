@@ -123,14 +123,19 @@ function runWeaponAuditChecks() {
     ok(killNoticeEl.textContent.includes('Alpha')&&killNoticeEl.textContent.includes('Beta'),'both names visible');
     killNotices.length=0;renderKillNotices();
   });
-  check('minigun and pellets create short travelling visual rounds clipped to the hit, not full beams', () => {
-    for(const weapon of ['minigun','scatter']) {
-      reset();beams.length=0;me.weapon=weapon;me.arsenal[weapon]=20;
-      bodies=[{fixed:true,x:450,y:500,hw:20,hh:200,r:201}];shoot(now,false);updateShots(.016,now+16);
-      const visible=beams.filter(b=>b.round!==undefined);
-      ok(visible.length===(weapon==='scatter'?11:1),'visible round per pellet');
-      ok(visible.every(b=>!b.pistol&&b.x2<=434&&b.duration<=.45),'short-lived visual stops at cover');
-    }
+  check('minigun rounds are short travelling visuals clipped to the hit; scatter pellets really fly, in a loose cloud', () => {
+    reset();beams.length=0;me.weapon='minigun';me.arsenal.minigun=20;
+    bodies=[{fixed:true,x:450,y:500,hw:20,hh:200,r:201}];shoot(now,false);updateShots(.016,now+16);
+    const visible=beams.filter(b=>b.round!==undefined);
+    ok(visible.length===1,'one visible round');
+    ok(visible.every(b=>!b.pistol&&b.x2<=434&&b.duration<=.45),'short-lived visual stops at cover');
+    reset();beams.length=0;me.weapon='scatter';me.arsenal.scatter=20;bodies=[];shoot(now,false);updateShots(.016,now+16);
+    const pellets=shots.filter(s=>s.kind===K.PELLET);
+    ok(pellets.length===11&&pellets.every(p=>!p.traced&&p.life>0),'eleven pellets in flight, not a hitscan line');
+    ok(!beams.some(b=>b.round===K.PELLET),'no instant tracer');
+    const speeds=new Set(pellets.map(p=>Math.round(Math.hypot(p.vx,p.vy)/20))),gaps=pellets.map(p=>Math.atan2(p.vy,p.vx)).sort((a,b)=>a-b).slice(1).map((a,i,arr)=>a-(i?arr[i-1]:a));
+    ok(speeds.size>=6,'pellets at different speeds');
+    ok(new Set(gaps.slice(1).map(g=>Math.round(g*100))).size>=4,'uneven spread, not a fan');
   });
   check('Demonic has one controllable orb, a visible bounded zone, and a last-ammo remote blast', () => {
     reset();me.weapon='gamma';me.arsenal.gamma=2;shoot(now,false);

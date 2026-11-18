@@ -10,13 +10,21 @@
     const lx = (mx / 320 - 0.5) * S + Math.sin(SPRITE_TILT) * t, ly = (my / 320 - 0.5) * S - Math.cos(SPRITE_TILT) * t;
     return { x: me.x + lx * Math.cos(R) - ly * Math.sin(R), y: me.y + lx * Math.sin(R) + ly * Math.cos(R) };
   }
-  // one scatter record on the wire becomes the same ten pellets everywhere
+  // one scatter record on the wire becomes the same pellets everywhere: a loose, uneven cloud of shot, some pellets
+  // wide, some lagging, some ahead. The cloud is fixed (not drawn per shot) so a shot shown at once on my screen and
+  // the server's copy of it, which has another id, throw exactly the same pellets.
+  const PELLET_CLOUD = (() => {
+    let h = 0x9e3779b9;
+    const rnd = () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
+    // denser in the middle: the mean of two draws, over a cone of about +-17 degrees
+    return Array.from({ length: 11 }, () => ({ da: (rnd() + rnd() - 1) * 0.3, f: 0.78 + rnd() * 0.36, life: 0.85 + rnd() * 0.15 }));
+  })();
   function scatterPellets(s) {
-    for (let k = 0; k < 11; k++) {
-      const da = (k - 5) * 0.066, f = 0.86 + ((k * 7) % 10) * 0.028, c = Math.cos(da), sn = Math.sin(da);
+    PELLET_CLOUD.forEach(({ da, f, life }, k) => {
+      const c = Math.cos(da), sn = Math.sin(da);
       metricChild(s.id, s.id + "p" + k);
-      shots.push({ ...s, id: s.id + "p" + k, ox: s.x, oy: s.y, vx: (s.vx * c - s.vy * sn) * f, vy: (s.vx * sn + s.vy * c) * f });
-    }
+      shots.push({ ...s, id: s.id + "p" + k, ox: s.x, oy: s.y, life: s.life * life, vx: (s.vx * c - s.vy * sn) * f, vy: (s.vx * sn + s.vy * c) * f });
+    });
   }
   // a pellet hurts more the closer it was fired from (the classic shotgun falloff); it also shoves what it hits
   const pelletDmg = () => SHOTS[K.PELLET].dmg; // Q3: spread, not damage falloff

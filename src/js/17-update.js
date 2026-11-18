@@ -114,6 +114,7 @@
   // my flight: thrust with inertia, gravity, bumping off bodies and the fence, facing, exhaust
   function flyMe(dt, now, im, boost) {
     const braking = playing && !me.dead && keys.has("KeyX");
+    if (me.ctl) me.ctl.brake = braking;   // (for the authoritative server)
     // X with a direction is a drift: the engine cuts, the bin slides on with its speed and the nose swings round
     // fast to where you push, so you can turn and shoot back the way you came. X alone is the air brake
     const drift = braking && Math.hypot(steer.x, steer.y) > 0.3 && Math.hypot(me.vx, me.vy) > 150;
@@ -210,7 +211,7 @@
   // damage lands with the beam you see, not when a fast slug would have got there. The rail bores through every body
   // to the fence (each bin on the line is hit once); the others stop at the first rock. The shot then spans that line
   // (px,py -> x,y) for one frame, so the usual hit checks (me, the others, my bots, orbs for a combo) see all of it.
-  const HITSCAN = { [K.BULLET]: 1, [K.PELLET]: 1, [K.PISTOL]: 1, [K.RAIL]: 1, [K.LASER]: 1, [K.SHOCK]: 1, [K.BOLT]: 1, [K.GAUSS]: 1 };
+  const HITSCAN = { [K.BULLET]: 1, [K.PISTOL]: 1, [K.RAIL]: 1, [K.LASER]: 1, [K.SHOCK]: 1, [K.BOLT]: 1, [K.GAUSS]: 1 };
   function traceBeam(s) {
     s.traced = true; s.expireAfterStep = true;
     const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v, pierce = pierces(s);
@@ -235,8 +236,8 @@
       impact(stop.x, stop.y, SHOTS[s.kind].col, 0.8);
     }
     if (s.kind === K.PISTOL) beams.push({ x1: s.px, y1: s.py, x2: s.x, y2: s.y, t: 0, pistol: true });
-    if (s.kind === K.BULLET || s.kind === K.PELLET) {
-      const speed = s.kind === K.BULLET ? 2600 : 1500;
+    if (s.kind === K.BULLET) {
+      const speed = 2600;
       const distance = Math.hypot(s.x - s.px, s.y - s.py);
       beams.push({ x1: s.px, y1: s.py, x2: s.x, y2: s.y, t: 0, round: s.kind, speed, duration: Math.min(.45, distance / speed + .035) });
       if (beams.length > 256) beams.splice(0, beams.length - 256);
@@ -786,6 +787,7 @@
     const { im, boost } = steerAndShoot(dt, now);
     bodyTick(now, dt);
     flyMe(dt, now, im, boost);
+    if (serverRun) { serverTrack(dt, now); sendControls(); }
     recordHitPose(me, now);
     updateShots(dt, now);
     if (playing) reconcileWeapons(now);

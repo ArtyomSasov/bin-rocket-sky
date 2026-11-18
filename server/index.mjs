@@ -6,7 +6,7 @@
 //
 // client -> server   { t: "join", code, name, bots, level }   first message; joins or creates the room
 //                    (join's pub: true lists the room in /rooms, for the lobby browser)
-//                    { t: "in", mx, my, aim, fire, alt, boost, dash, tele, w }   the player's controls, sent as they change
+//                    { t: "in", mx, my, aim, fire, alt, boost, brake, dash, tele, w, s }   the player's controls, sent as they change (s: their number)
 //                    { t: "ping", c }
 // server -> client   { t: "welcome", id, code, tickHz, sendHz, serverTime }
 //                    { t: "snap", ...a lobby host's state (see sim.mjs packet) }
@@ -24,7 +24,7 @@ const ROOM_IDLE_MS = +env("ROOM_IDLE_MS", 60000); // an empty room is kept this 
 const ROOMS_PER_IP = +env("ROOMS_PER_IP", 1);    // rooms one address may have open at a time
 const AFK_MS = +env("AFK_MS", 120000);            // a player who sends no controls this long is let go (rooms are scarce)
 const ORIGINS = env("ORIGINS", "https://artyomsasov.github.io,http://localhost:8000,http://127.0.0.1:8000").split(",").filter(Boolean);
-const TICK_HZ = 30, SEND_EVERY = 2, STEP = 1 / TICK_HZ;   // 30 steps and 15 snapshots a second
+const TICK_HZ = 30, SEND_EVERY = 1, STEP = 1 / TICK_HZ;   // 30 steps and 30 snapshots a second (compressed: see perMessageDeflate)
 const CODE = /^[a-z0-9]{4,16}$/;
 const RTT_CAP = 300;   // ms: a player's shots are judged at most 150 ms back
 
@@ -40,9 +40,9 @@ function openRoom(code, bots, level) {
     room.acc = Math.min(room.acc + (now - room.last) / 1000, STEP * 4); room.last = now;
     while (room.acc >= STEP) {
       room.acc -= STEP;
-      const t0 = performance.now();
-      try { match.step(STEP, now); } catch (e) { log("step failed", code, e.stack); }
-      if (++room.ticks % SEND_EVERY === 0) broadcast(room, now);
+      const t0 = performance.now(), at = now - room.acc * 1000;   // the moment this step stands for (catch-up steps are earlier)
+      try { match.step(STEP, at); } catch (e) { log("step failed", code, e.stack); }
+      if (++room.ticks % SEND_EVERY === 0) broadcast(room, at);
       if (performance.now() - t0 > STEP * 1000) room.slowTicks++;
     }
   }, 1000 / TICK_HZ);
@@ -98,7 +98,10 @@ function roomList() {
   return roomsCache;
 }
 const perIp = new Map();
-const wss = new WebSocketServer({ server, maxPayload: 2048, perMessageDeflate: false,
+// snapshots are JSON that repeats itself from one to the next: compressed (with the context kept between messages)
+// they are a fraction of the size, which a phone on a mobile network feels more than the CPU it costs here
+const wss = new WebSocketServer({ server, maxPayload: 2048,
+  perMessageDeflate: { threshold: 512, zlibDeflateOptions: { level: 3, memLevel: 7 }, concurrencyLimit: 4 },
   // a browser page from elsewhere may not open a game here; non-browser clients send no Origin
   verifyClient: ({ origin, req }) => (!origin || ORIGINS.includes(origin)) && (perIp.get(ip(req)) || 0) < PER_IP });
 const ip = req => String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();

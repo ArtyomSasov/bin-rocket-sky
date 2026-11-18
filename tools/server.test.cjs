@@ -30,7 +30,7 @@ test('a player joins a room, gets snapshots, and flies by the input it sends', {
   const ws = client(); await ws.opened;
   ws.sendJ({ t: 'join', code: 'm1d0otest', name: 'Tester', bots: 2 });
   const hi = await ws.next(m => m.t === 'welcome');
-  assert.equal(hi.code, 'm1d0otest'); assert.equal(hi.sendHz, 15);
+  assert.equal(hi.code, 'm1d0otest'); assert.equal(hi.sendHz, 30);
   const me = s => s.bots.find(([id]) => id === hi.id)?.[1];
   const first = await ws.next(m => m.t === 'snap' && me(m)?.x !== undefined);
   assert.equal(first.bots.length, 3, 'the player and two bots');

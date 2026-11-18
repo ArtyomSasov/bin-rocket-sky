@@ -759,7 +759,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   balanceShot(K.SAW_ALT, { dmg: HP(34) });
   balanceShot(K.BULLET, { dmg: HP(14), life: .5 });
   balanceShot(K.BULLET_ALT, { name: "Stinger shard", dmg: HP(38), life: 1.4, r: 7, col: "#94caff" });
-  balanceShot(K.PELLET, { dmg: HP(10), life: 1.6 });
+  balanceShot(K.PELLET, { dmg: HP(10), life: 0.6 });   // real pellets in flight (not hitscan): ~900 px of reach
   balanceShot(K.SLUG, { dmg: HP(60), life: 1.4 });
   balanceShot(K.GREN, { dmg: HP(100) });
   balanceShot(K.MELEE, { dmg: HP(50) });
@@ -773,7 +773,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   Object.assign(WEAPONS.saw, { shot: [K.SAW, 1680] }); WEAPONS.saw.alt.shot = [K.SAW_ALT, 1680];
   Object.assign(WEAPONS.minigun, { cd: .1, jitter: .03375, shot: [K.BULLET, 6000] });
   Object.assign(WEAPONS.minigun.alt, { name: "Heavy shards", cost: 2, cd: .28, jitter: .01, shot: [K.BULLET_ALT, 2500] });
-  Object.assign(WEAPONS.scatter, { cd: 1, shot: [K.PELLET, 2000] });
+  Object.assign(WEAPONS.scatter, { cd: 1, shot: [K.PELLET, 1500] });
   balanceShot(K.RAIL, { dmg: HP(80) });
   WEAPONS.rail.cd = 1.8; WEAPONS.gren.shot = [K.GREN, 1225];
   WEAPONS.gauntlet.cd = .4; WEAPONS.mine.cd = .8;
@@ -3722,13 +3722,21 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const lx = (mx / 320 - 0.5) * S + Math.sin(SPRITE_TILT) * t, ly = (my / 320 - 0.5) * S - Math.cos(SPRITE_TILT) * t;
     return { x: me.x + lx * Math.cos(R) - ly * Math.sin(R), y: me.y + lx * Math.sin(R) + ly * Math.cos(R) };
   }
-  // one scatter record on the wire becomes the same ten pellets everywhere
+  // one scatter record on the wire becomes the same pellets everywhere: a loose, uneven cloud of shot, some pellets
+  // wide, some lagging, some ahead. The cloud is fixed (not drawn per shot) so a shot shown at once on my screen and
+  // the server's copy of it, which has another id, throw exactly the same pellets.
+  const PELLET_CLOUD = (() => {
+    let h = 0x9e3779b9;
+    const rnd = () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
+    // denser in the middle: the mean of two draws, over a cone of about +-17 degrees
+    return Array.from({ length: 11 }, () => ({ da: (rnd() + rnd() - 1) * 0.3, f: 0.78 + rnd() * 0.36, life: 0.85 + rnd() * 0.15 }));
+  })();
   function scatterPellets(s) {
-    for (let k = 0; k < 11; k++) {
-      const da = (k - 5) * 0.066, f = 0.86 + ((k * 7) % 10) * 0.028, c = Math.cos(da), sn = Math.sin(da);
+    PELLET_CLOUD.forEach(({ da, f, life }, k) => {
+      const c = Math.cos(da), sn = Math.sin(da);
       metricChild(s.id, s.id + "p" + k);
-      shots.push({ ...s, id: s.id + "p" + k, ox: s.x, oy: s.y, vx: (s.vx * c - s.vy * sn) * f, vy: (s.vx * sn + s.vy * c) * f });
-    }
+      shots.push({ ...s, id: s.id + "p" + k, ox: s.x, oy: s.y, life: s.life * life, vx: (s.vx * c - s.vy * sn) * f, vy: (s.vx * sn + s.vy * c) * f });
+    });
   }
   // a pellet hurts more the closer it was fired from (the classic shotgun falloff); it also shoves what it hits
   const pelletDmg = () => SHOTS[K.PELLET].dmg; // Q3: spread, not damage falloff
@@ -5573,7 +5581,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     return /^wss:\/\/[a-z0-9.-]+(:\d+)?\/?$/i.test(u) ? u : "";
   })();
   let serverRun = false;
-  const srv = { ws: null, id: "", tag: "", sendHz: 15, dashN: 0, teleN: 0, lastIn: "", lastInAt: 0, deadSeen: false, joined: false, err: "", pred: [], pseq: 0 };
+  const srv = { ws: null, id: "", tag: "", sendHz: 30, dashN: 0, teleN: 0, lastIn: "", lastInAt: 0, deadSeen: false, joined: false, err: "", pred: [], pseq: 0,
+    seq: 0, sent: new Map(), hist: [], cx: 0, cy: 0 };   // my numbered controls, my flight as predicted here, and the correction still to ease in
   // the pilot the server flies for me: its own shots are mine, never a threat to me
   const mySrvShot = s => serverRun && !!srv.id && s.owner === srv.id;
   function serverStart(code) {
@@ -5599,17 +5608,41 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     setInterval(() => { if (ws.readyState === 1) ws.send(JSON.stringify({ t: "ping", c: performance.now() })); }, 2000);
     setInterval(sendControls, 1000 / 30);
   }
-  // my controls, as they are now: sent when they change, and at least four times a second
+  // my controls, as they are now: sent from the frame that uses them (so the server flies them as early as it can),
+  // when they change and at least four times a second. Each message is numbered: the server says which number its
+  // state has reached (ak) and how long it has flown it (ag), and serverSelf compares that with my own flight then
   function sendControls() {
     const ws = srv.ws;
     if (!ws || ws.readyState !== 1 || !srv.joined) return;
     const c = me.ctl || {}, i = { t: "in", mx: +num(c.mx, 0).toFixed(3), my: +num(c.my, 0).toFixed(3), aim: +me.a.toFixed(3),
-      fire: !!c.fire && !me.dead && playing, alt: !!c.alt && !me.dead && playing, boost: !!c.boost, dash: srv.dashN, tele: srv.teleN,
+      fire: !!c.fire && !me.dead && playing, alt: !!c.alt && !me.dead && playing, boost: !!c.boost, brake: !!c.brake && !me.dead, dash: srv.dashN, tele: srv.teleN,
       w: WEAPON_KEYS.indexOf(me.weapon) };
     const sig = JSON.stringify(i), t = performance.now();
-    if (sig === srv.lastIn && t - srv.lastInAt < 250) return;
+    if (sig === srv.lastIn ? t - srv.lastInAt < 250 : t - srv.lastInAt < 14) return;   // at most one a frame (the server allows 90 a second)
     srv.lastIn = sig; srv.lastInAt = t;
-    ws.send(sig);
+    i.s = ++srv.seq; srv.sent.set(i.s, t);
+    if (srv.sent.size > 240) for (const [k, at] of srv.sent) { if (t - at < 3000) break; srv.sent.delete(k); }
+    ws.send(JSON.stringify(i));
+  }
+  // each frame, after my flight: ease in what is left of the last correction, and remember where I was
+  function serverTrack(dt, now) {
+    if (me.dead || !srv.joined) { srv.hist.length = 0; srv.cx = srv.cy = 0; return; }
+    const k = 1 - Math.exp(-15 * dt);
+    me.x += srv.cx * k; me.y += srv.cy * k; srv.cx -= srv.cx * k; srv.cy -= srv.cy * k;
+    srv.hist.push({ t: now, x: me.x + srv.cx, y: me.y + srv.cy, vx: me.vx, vy: me.vy });
+    while (srv.hist.length > 2 && now - srv.hist[0].t > 1500) srv.hist.shift();
+  }
+  // where my flight was predicted to be at time t (between two frames)
+  function histAt(t) {
+    const h = srv.hist;
+    if (!h.length || t < h[0].t) return null;
+    for (let i = h.length - 1; i >= 0; i--) if (h[i].t <= t) {
+      const a = h[i], b = h[i + 1];
+      if (!b) return { i, ...a };
+      const f = (t - a.t) / (b.t - a.t || 1);
+      return { i, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, vx: a.vx + (b.vx - a.vx) * f, vy: a.vy + (b.vy - a.vy) * f };
+    }
+    return null;
   }
   // a snapshot: the round clock, every pilot (mine among them) and the world
   function receiveServer(p) {
@@ -5657,8 +5690,28 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       me.dead = false; me.inv = now + 2000; me.vx = me.vy = 0;
       if (Number.isFinite(m.x)) { me.x = m.x; me.y = m.y; }
       audioCue("respawn"); renderHearts(false);
+      srv.hist.length = 0; srv.cx = srv.cy = 0;
     }
     if (me.dead || !Number.isFinite(m.x) || !Number.isFinite(m.y)) return;
+    if (Number.isFinite(m.en) && Math.abs(m.en - energy) > 15) energy = clamp(m.en, 0, 100);
+    // Reconciliation, as Quake and Source do it: the server's state holds my controls up to number ak, flown for ag
+    // ms. My own flight had flown the same controls exactly that long at (when I sent ak) + ag: what differs between
+    // the two is a real error (a hit's shove, a bump into someone, a rounding), and only that is corrected, eased in
+    // over a few frames. The flight I have predicted since is kept, so a fast turn is never pulled back.
+    const sentAt = srv.sent.get(m.ak);
+    if (sentAt !== undefined && Number.isFinite(m.ag)) {
+      const h = histAt(sentAt + clamp(m.ag, 0, 1000) - 1000 / 60);   // (a frame: my controls fly from the end of the frame that sent them)
+      if (!h) return;
+      const ex = m.x - h.x, ey = m.y - h.y, evx = num(m.vx, h.vx) - h.vx, evy = num(m.vy, h.vy) - h.vy;
+      if (Math.hypot(ex, ey) > 300) { me.x += ex + srv.cx; me.y += ey + srv.cy; srv.cx = srv.cy = 0; }   // a teleport or a jump: at once
+      else if (Math.hypot(ex, ey) > 1.5) { srv.cx += ex; srv.cy += ey; }   // (the server rounds to whole pixels)
+      if (Math.hypot(evx, evy) > 4) { me.vx += evx; me.vy += evy; }
+      // what I remember since then moves with the correction, so the next state is not corrected twice
+      const vx = Math.hypot(evx, evy) > 4 ? evx : 0, vy = Math.hypot(evx, evy) > 4 ? evy : 0, px = Math.hypot(ex, ey) > 1.5 ? ex : 0, py = Math.hypot(ex, ey) > 1.5 ? ey : 0;
+      for (let i = h.i + 1; i < srv.hist.length; i++) { const e = srv.hist[i]; e.x += px; e.y += py; e.vx += vx; e.vy += vy; }
+      return;
+    }
+    // (before the server has applied any controls of mine: the old way, its position carried forward half a round trip)
     // my flight is predicted here; the server's position is about half a round trip old, so compare it carried
     // forward that far, and close the gap gently (a large one, like a hit's shove or a teleport, at once)
     const lead = clamp((myPing || 60) / 2000, 0, 0.2), tx = clamp(m.x + num(m.vx, 0) * lead, 0, W), ty = clamp(m.y + num(m.vy, 0) * lead, 0, H);
@@ -5846,7 +5899,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     addBots(1, "hard");
     if (bots.length === before) return null;
     const b = bots[bots.length - 1];
-    b.name = String(name || "Pilot").slice(0, 14); b.input = { mx: 0, my: 0, aim: b.a, fire: false, alt: false, boost: false, dash: 0, tele: 0, w: -1 }; b.dashDone = 0; b.teleDone = 0; b.fireCd = 0;   // a bot's opening pause is not for players
+    b.name = String(name || "Pilot").slice(0, 14); b.input = { mx: 0, my: 0, aim: b.a, fire: false, alt: false, boost: false, brake: false, dash: 0, tele: 0, w: -1, s: 0 }; b.ackSeq = 0; b.energy = 100; b.dashDone = 0; b.teleDone = 0; b.fireCd = 0;   // a bot's opening pause is not for players
     pilotArm(b);
     return b;
   }
@@ -6005,15 +6058,21 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       const dm = Math.hypot(dx, dy), ux = dm > 1 ? dx / dm : dx, uy = dm > 1 ? dy / dm : dy, ease = 1 - Math.exp(-(human ? 13 : 6 + 4 * b.L.speed) * dt);
       const st = b.stick || (b.stick = { x: 0, y: 0 });
       st.x += (ux - st.x) * ease; st.y += (uy - st.y) * ease;
-      b.energy = Math.min(100, (b.energy ?? 100) + (b.boosting ? -20 : 22) * dt);
-      b.boosting = human ? wantBoost && b.energy > 0 && Math.hypot(st.x, st.y) > 0.1 : wantBoost && b.energy > (b.boosting ? 0 : 40) && b.L.speed >= 0.9;
+      if (human) {   // a player's energy works as the local pilot's (steerAndShoot): regen waits 0.7 s after a boost or a dash
+        b.boosting = wantBoost && b.energy > 0 && Math.hypot(st.x, st.y) > 0.1;
+        if (b.boosting) { b.energy = Math.max(0, b.energy - 20 * dt); b.regenAt = now + 700; }
+        else if (now > (b.regenAt || 0)) b.energy = Math.min(100, b.energy + 22 * dt);
+      } else {
+        b.energy = Math.min(100, (b.energy ?? 100) + (b.boosting ? -20 : 22) * dt);
+        b.boosting = wantBoost && b.energy > (b.boosting ? 0 : 40) && b.L.speed >= 0.9;
+      }
       if (human) {   // a player's dash: toward where they steer (or ahead), like dash() for the local pilot
         b.dashReq = false;
         if (human.dash > b.dashDone) {
           b.dashDone = human.dash;
           if (b.energy >= 25 && now - (b.dashAt || 0) > 150) {
             const a = Math.hypot(st.x, st.y) > 0.2 ? Math.atan2(st.y, st.x) : b.a;
-            b.vx += Math.cos(a) * 900; b.vy += Math.sin(a) * 900; b.energy -= 25; b.dashAt = now; b.inv = Math.max(b.inv, now + 280);
+            b.vx += Math.cos(a) * 900; b.vy += Math.sin(a) * 900; b.energy -= 25; b.regenAt = now + 700; b.dashAt = now; b.inv = Math.max(b.inv, now + 280);
           }
         }
       }
@@ -6022,20 +6081,29 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         b.vx += Math.cos(a) * 900; b.vy += Math.sin(a) * 900; b.energy -= 25; b.dashAt = now; b.inv = Math.max(b.inv, now + 280);
       }
       b.dashReq = false;
-      thrustPilot(b, st.x, st.y, b.boosting, false, dt, (human ? 1 : b.L.speed) * (now < (b.pinnedUntil || 0) ? 0.6 : 1));
+      // a player's X: the air brake, or with a direction a drift (the engine cuts and the bin slides on), as in flyMe
+      const brake = !!human?.brake, drift = brake && Math.hypot(st.x, st.y) > 0.3 && Math.hypot(b.vx, b.vy) > 150;
+      if (drift) thrustPilot(b, 0, 0, false, false, dt);
+      else thrustPilot(b, st.x, st.y, b.boosting, brake, dt, (human ? 1 : b.L.speed) * (now < (b.pinnedUntil || 0) ? 0.6 : 1));
       slingshot(b, dt); padsFor(b, now);
       if (human) b.a = lerpAng(b.a, human.aim, 1 - Math.exp(-30 * dt));   // the nose follows the player's aim, as with mouse aim
       else if (Math.hypot(st.x, st.y) > 0.15) b.a = lerpAng(b.a, Math.atan2(st.y, st.x), 1 - Math.exp(-13 * dt));
       gravityOn(b, dt);
       b.x += b.vx * dt; b.y += b.vy * dt;
-      const pc = bounceOff(b, 40, 0.6);
+      const wr = human ? WALL_R * sizeOf(b.lv || 1) : 40, pc = bounceOff(b, wr, human ? 0.7 : 0.6);
+      if (human && pc && hurtsOnHit(pc.b)) { b.vx += pc.nx * 220; b.vy += pc.ny * 220; }
       if (pc && pc.vn < -200) {
         impact(b.x - pc.nx * 40, b.y - pc.ny * 40, "#ffd9b0", 1.2);
         const dmg = hurtsOnHit(pc.b) ? crashDmg(-pc.vn, false) : 0;
         if (dmg > 0) botHurt(b, dmg, "p", now, false);
       }
-      if (b.x < 40 || b.x > W - 40) { b.vx = -b.vx * 0.6; b.x = clamp(b.x, 40, W - 40); }
-      if (b.y < 40 || b.y > H - 40) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 40, H - 40); }
+      if (human) {   // the fence, as flyMe has it
+        if (b.x < wr || b.x > W - wr) { b.x = clamp(b.x, wr, W - wr); b.vx = -b.vx * 0.7 + Math.sign(W / 2 - b.x) * 220; }
+        if (b.y < wr || b.y > H - wr) { b.y = clamp(b.y, wr, H - wr); b.vy = -b.vy * 0.7 + Math.sign(H / 2 - b.y) * 220; }
+      } else {
+        if (b.x < 40 || b.x > W - 40) { b.vx = -b.vx * 0.6; b.x = clamp(b.x, 40, W - 40); }
+        if (b.y < 40 || b.y > H - 40) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 40, H - 40); }
+      }
       // shoot when the nose points at the target (where it will be)
       b.fireCd -= dt;
       // shock combo: once its orb hangs near the target, a bot shoots the orb with the beam (harder bots do it more)
@@ -6116,7 +6184,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         tm: b.tm ?? -1, fc: b.fc ?? -1, cp: [stats.round, b.caps || 0], tg: b.tag
       };
       m.sh = b.shield || 0;
-      if (b.input) { m.ar = pilotArsenalWire(b); m.tn = b.teleN || 0; }   // a player's own HUD: the guns they carry
+      // a player's own HUD (the guns they carry), and which of their controls this state already holds:
+      // ak, the last one applied; ag, for how long (ms, including this step), so their screen can compare
+      if (b.input) { m.ar = pilotArsenalWire(b); m.tn = b.teleN || 0; m.ak = b.ackSeq || 0; m.ag = Math.round(now - (b.ackAt ?? now)); m.en = Math.round(b.energy); }
       if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, lv: 1, wp: WEAPON_KEYS.indexOf(botWeapon(b)), tg: b.tag,
         st: [stats.round, b.st.kills, b.st.deaths, b.st.shots, b.st.hits, b.st.best] });
       applyRemote(b.id, m);   // show it here
@@ -6474,6 +6544,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // my flight: thrust with inertia, gravity, bumping off bodies and the fence, facing, exhaust
   function flyMe(dt, now, im, boost) {
     const braking = playing && !me.dead && keys.has("KeyX");
+    if (me.ctl) me.ctl.brake = braking;   // (for the authoritative server)
     // X with a direction is a drift: the engine cuts, the bin slides on with its speed and the nose swings round
     // fast to where you push, so you can turn and shoot back the way you came. X alone is the air brake
     const drift = braking && Math.hypot(steer.x, steer.y) > 0.3 && Math.hypot(me.vx, me.vy) > 150;
@@ -6570,7 +6641,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // damage lands with the beam you see, not when a fast slug would have got there. The rail bores through every body
   // to the fence (each bin on the line is hit once); the others stop at the first rock. The shot then spans that line
   // (px,py -> x,y) for one frame, so the usual hit checks (me, the others, my bots, orbs for a combo) see all of it.
-  const HITSCAN = { [K.BULLET]: 1, [K.PELLET]: 1, [K.PISTOL]: 1, [K.RAIL]: 1, [K.LASER]: 1, [K.SHOCK]: 1, [K.BOLT]: 1, [K.GAUSS]: 1 };
+  const HITSCAN = { [K.BULLET]: 1, [K.PISTOL]: 1, [K.RAIL]: 1, [K.LASER]: 1, [K.SHOCK]: 1, [K.BOLT]: 1, [K.GAUSS]: 1 };
   function traceBeam(s) {
     s.traced = true; s.expireAfterStep = true;
     const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v, pierce = pierces(s);
@@ -6595,8 +6666,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       impact(stop.x, stop.y, SHOTS[s.kind].col, 0.8);
     }
     if (s.kind === K.PISTOL) beams.push({ x1: s.px, y1: s.py, x2: s.x, y2: s.y, t: 0, pistol: true });
-    if (s.kind === K.BULLET || s.kind === K.PELLET) {
-      const speed = s.kind === K.BULLET ? 2600 : 1500;
+    if (s.kind === K.BULLET) {
+      const speed = 2600;
       const distance = Math.hypot(s.x - s.px, s.y - s.py);
       beams.push({ x1: s.px, y1: s.py, x2: s.x, y2: s.y, t: 0, round: s.kind, speed, duration: Math.min(.45, distance / speed + .035) });
       if (beams.length > 256) beams.splice(0, beams.length - 256);
@@ -7146,6 +7217,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const { im, boost } = steerAndShoot(dt, now);
     bodyTick(now, dt);
     flyMe(dt, now, im, boost);
+    if (serverRun) { serverTrack(dt, now); sendControls(); }
     recordHitPose(me, now);
     updateShots(dt, now);
     if (playing) reconcileWeapons(now);

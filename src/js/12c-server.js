@@ -14,7 +14,8 @@
     return /^wss:\/\/[a-z0-9.-]+(:\d+)?\/?$/i.test(u) ? u : "";
   })();
   let serverRun = false;
-  const srv = { ws: null, id: "", tag: "", sendHz: 15, dashN: 0, teleN: 0, lastIn: "", lastInAt: 0, deadSeen: false, joined: false, err: "", pred: [], pseq: 0 };
+  const srv = { ws: null, id: "", tag: "", sendHz: 30, dashN: 0, teleN: 0, lastIn: "", lastInAt: 0, deadSeen: false, joined: false, err: "", pred: [], pseq: 0,
+    seq: 0, sent: new Map(), hist: [], cx: 0, cy: 0 };   // my numbered controls, my flight as predicted here, and the correction still to ease in
   // the pilot the server flies for me: its own shots are mine, never a threat to me
   const mySrvShot = s => serverRun && !!srv.id && s.owner === srv.id;
   function serverStart(code) {
@@ -40,17 +41,41 @@
     setInterval(() => { if (ws.readyState === 1) ws.send(JSON.stringify({ t: "ping", c: performance.now() })); }, 2000);
     setInterval(sendControls, 1000 / 30);
   }
-  // my controls, as they are now: sent when they change, and at least four times a second
+  // my controls, as they are now: sent from the frame that uses them (so the server flies them as early as it can),
+  // when they change and at least four times a second. Each message is numbered: the server says which number its
+  // state has reached (ak) and how long it has flown it (ag), and serverSelf compares that with my own flight then
   function sendControls() {
     const ws = srv.ws;
     if (!ws || ws.readyState !== 1 || !srv.joined) return;
     const c = me.ctl || {}, i = { t: "in", mx: +num(c.mx, 0).toFixed(3), my: +num(c.my, 0).toFixed(3), aim: +me.a.toFixed(3),
-      fire: !!c.fire && !me.dead && playing, alt: !!c.alt && !me.dead && playing, boost: !!c.boost, dash: srv.dashN, tele: srv.teleN,
+      fire: !!c.fire && !me.dead && playing, alt: !!c.alt && !me.dead && playing, boost: !!c.boost, brake: !!c.brake && !me.dead, dash: srv.dashN, tele: srv.teleN,
       w: WEAPON_KEYS.indexOf(me.weapon) };
     const sig = JSON.stringify(i), t = performance.now();
-    if (sig === srv.lastIn && t - srv.lastInAt < 250) return;
+    if (sig === srv.lastIn ? t - srv.lastInAt < 250 : t - srv.lastInAt < 14) return;   // at most one a frame (the server allows 90 a second)
     srv.lastIn = sig; srv.lastInAt = t;
-    ws.send(sig);
+    i.s = ++srv.seq; srv.sent.set(i.s, t);
+    if (srv.sent.size > 240) for (const [k, at] of srv.sent) { if (t - at < 3000) break; srv.sent.delete(k); }
+    ws.send(JSON.stringify(i));
+  }
+  // each frame, after my flight: ease in what is left of the last correction, and remember where I was
+  function serverTrack(dt, now) {
+    if (me.dead || !srv.joined) { srv.hist.length = 0; srv.cx = srv.cy = 0; return; }
+    const k = 1 - Math.exp(-15 * dt);
+    me.x += srv.cx * k; me.y += srv.cy * k; srv.cx -= srv.cx * k; srv.cy -= srv.cy * k;
+    srv.hist.push({ t: now, x: me.x + srv.cx, y: me.y + srv.cy, vx: me.vx, vy: me.vy });
+    while (srv.hist.length > 2 && now - srv.hist[0].t > 1500) srv.hist.shift();
+  }
+  // where my flight was predicted to be at time t (between two frames)
+  function histAt(t) {
+    const h = srv.hist;
+    if (!h.length || t < h[0].t) return null;
+    for (let i = h.length - 1; i >= 0; i--) if (h[i].t <= t) {
+      const a = h[i], b = h[i + 1];
+      if (!b) return { i, ...a };
+      const f = (t - a.t) / (b.t - a.t || 1);
+      return { i, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, vx: a.vx + (b.vx - a.vx) * f, vy: a.vy + (b.vy - a.vy) * f };
+    }
+    return null;
   }
   // a snapshot: the round clock, every pilot (mine among them) and the world
   function receiveServer(p) {
@@ -98,8 +123,28 @@
       me.dead = false; me.inv = now + 2000; me.vx = me.vy = 0;
       if (Number.isFinite(m.x)) { me.x = m.x; me.y = m.y; }
       audioCue("respawn"); renderHearts(false);
+      srv.hist.length = 0; srv.cx = srv.cy = 0;
     }
     if (me.dead || !Number.isFinite(m.x) || !Number.isFinite(m.y)) return;
+    if (Number.isFinite(m.en) && Math.abs(m.en - energy) > 15) energy = clamp(m.en, 0, 100);
+    // Reconciliation, as Quake and Source do it: the server's state holds my controls up to number ak, flown for ag
+    // ms. My own flight had flown the same controls exactly that long at (when I sent ak) + ag: what differs between
+    // the two is a real error (a hit's shove, a bump into someone, a rounding), and only that is corrected, eased in
+    // over a few frames. The flight I have predicted since is kept, so a fast turn is never pulled back.
+    const sentAt = srv.sent.get(m.ak);
+    if (sentAt !== undefined && Number.isFinite(m.ag)) {
+      const h = histAt(sentAt + clamp(m.ag, 0, 1000) - 1000 / 60);   // (a frame: my controls fly from the end of the frame that sent them)
+      if (!h) return;
+      const ex = m.x - h.x, ey = m.y - h.y, evx = num(m.vx, h.vx) - h.vx, evy = num(m.vy, h.vy) - h.vy;
+      if (Math.hypot(ex, ey) > 300) { me.x += ex + srv.cx; me.y += ey + srv.cy; srv.cx = srv.cy = 0; }   // a teleport or a jump: at once
+      else if (Math.hypot(ex, ey) > 1.5) { srv.cx += ex; srv.cy += ey; }   // (the server rounds to whole pixels)
+      if (Math.hypot(evx, evy) > 4) { me.vx += evx; me.vy += evy; }
+      // what I remember since then moves with the correction, so the next state is not corrected twice
+      const vx = Math.hypot(evx, evy) > 4 ? evx : 0, vy = Math.hypot(evx, evy) > 4 ? evy : 0, px = Math.hypot(ex, ey) > 1.5 ? ex : 0, py = Math.hypot(ex, ey) > 1.5 ? ey : 0;
+      for (let i = h.i + 1; i < srv.hist.length; i++) { const e = srv.hist[i]; e.x += px; e.y += py; e.vx += vx; e.vy += vy; }
+      return;
+    }
+    // (before the server has applied any controls of mine: the old way, its position carried forward half a round trip)
     // my flight is predicted here; the server's position is about half a round trip old, so compare it carried
     // forward that far, and close the gap gently (a large one, like a hit's shove or a teleport, at once)
     const lead = clamp((myPing || 60) / 2000, 0, 0.2), tx = clamp(m.x + num(m.vx, 0) * lead, 0, W), ty = clamp(m.y + num(m.vy, 0) * lead, 0, H);

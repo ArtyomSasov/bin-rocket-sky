@@ -29,6 +29,8 @@ const BRIDGE = `
     rtt(id, ms) { const b = botById.get(id); if (b && b.input) b.rtt = ms; },
     // one fixed step: the shared-clock world and the simulation
     step(dt, now) {
+      // a player's newest controls start to count with this step: from its start, so ak/ag say how long they have flown
+      for (const b of bots) if (b.input && b.input.s !== b.ackSeq) { b.ackSeq = b.input.s; b.ackAt = now - dt * 1000; }
       worldTick(now);
       update(dt, now);
       // what only the screen keeps: dropped here, since no frame ever draws it
@@ -64,7 +66,8 @@ export function cleanInput(i = {}) {
   const m = Math.hypot(mx, my); if (m > 1) { mx /= m; my /= m; }
   const count = n => Number.isSafeInteger(n) && n >= 0 ? n : 0;
   return { mx, my, aim: Number.isFinite(i.aim) ? Math.atan2(Math.sin(i.aim), Math.cos(i.aim)) : 0, fire: i.fire === true, alt: i.alt === true,
-    boost: i.boost === true, dash: count(i.dash), tele: count(i.tele), w: Number.isInteger(i.w) && i.w >= 0 && i.w < 64 ? i.w : -1 };
+    boost: i.boost === true, brake: i.brake === true, dash: count(i.dash), tele: count(i.tele), w: Number.isInteger(i.w) && i.w >= 0 && i.w < 64 ? i.w : -1,
+    s: count(i.s) };   // s: the controls' number, counted up by the player's screen with each message
 }
 
 export function createMatch({ code = "m1d0c", bots = 0, level = "normal" } = {}) {

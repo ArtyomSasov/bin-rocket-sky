@@ -31,7 +31,7 @@
     addBots(1, "hard");
     if (bots.length === before) return null;
     const b = bots[bots.length - 1];
-    b.name = String(name || "Pilot").slice(0, 14); b.input = { mx: 0, my: 0, aim: b.a, fire: false, alt: false, boost: false, dash: 0, tele: 0, w: -1 }; b.dashDone = 0; b.teleDone = 0; b.fireCd = 0;   // a bot's opening pause is not for players
+    b.name = String(name || "Pilot").slice(0, 14); b.input = { mx: 0, my: 0, aim: b.a, fire: false, alt: false, boost: false, brake: false, dash: 0, tele: 0, w: -1, s: 0 }; b.ackSeq = 0; b.energy = 100; b.dashDone = 0; b.teleDone = 0; b.fireCd = 0;   // a bot's opening pause is not for players
     pilotArm(b);
     return b;
   }
@@ -190,15 +190,21 @@
       const dm = Math.hypot(dx, dy), ux = dm > 1 ? dx / dm : dx, uy = dm > 1 ? dy / dm : dy, ease = 1 - Math.exp(-(human ? 13 : 6 + 4 * b.L.speed) * dt);
       const st = b.stick || (b.stick = { x: 0, y: 0 });
       st.x += (ux - st.x) * ease; st.y += (uy - st.y) * ease;
-      b.energy = Math.min(100, (b.energy ?? 100) + (b.boosting ? -20 : 22) * dt);
-      b.boosting = human ? wantBoost && b.energy > 0 && Math.hypot(st.x, st.y) > 0.1 : wantBoost && b.energy > (b.boosting ? 0 : 40) && b.L.speed >= 0.9;
+      if (human) {   // a player's energy works as the local pilot's (steerAndShoot): regen waits 0.7 s after a boost or a dash
+        b.boosting = wantBoost && b.energy > 0 && Math.hypot(st.x, st.y) > 0.1;
+        if (b.boosting) { b.energy = Math.max(0, b.energy - 20 * dt); b.regenAt = now + 700; }
+        else if (now > (b.regenAt || 0)) b.energy = Math.min(100, b.energy + 22 * dt);
+      } else {
+        b.energy = Math.min(100, (b.energy ?? 100) + (b.boosting ? -20 : 22) * dt);
+        b.boosting = wantBoost && b.energy > (b.boosting ? 0 : 40) && b.L.speed >= 0.9;
+      }
       if (human) {   // a player's dash: toward where they steer (or ahead), like dash() for the local pilot
         b.dashReq = false;
         if (human.dash > b.dashDone) {
           b.dashDone = human.dash;
           if (b.energy >= 25 && now - (b.dashAt || 0) > 150) {
             const a = Math.hypot(st.x, st.y) > 0.2 ? Math.atan2(st.y, st.x) : b.a;
-            b.vx += Math.cos(a) * 900; b.vy += Math.sin(a) * 900; b.energy -= 25; b.dashAt = now; b.inv = Math.max(b.inv, now + 280);
+            b.vx += Math.cos(a) * 900; b.vy += Math.sin(a) * 900; b.energy -= 25; b.regenAt = now + 700; b.dashAt = now; b.inv = Math.max(b.inv, now + 280);
           }
         }
       }
@@ -207,20 +213,29 @@
         b.vx += Math.cos(a) * 900; b.vy += Math.sin(a) * 900; b.energy -= 25; b.dashAt = now; b.inv = Math.max(b.inv, now + 280);
       }
       b.dashReq = false;
-      thrustPilot(b, st.x, st.y, b.boosting, false, dt, (human ? 1 : b.L.speed) * (now < (b.pinnedUntil || 0) ? 0.6 : 1));
+      // a player's X: the air brake, or with a direction a drift (the engine cuts and the bin slides on), as in flyMe
+      const brake = !!human?.brake, drift = brake && Math.hypot(st.x, st.y) > 0.3 && Math.hypot(b.vx, b.vy) > 150;
+      if (drift) thrustPilot(b, 0, 0, false, false, dt);
+      else thrustPilot(b, st.x, st.y, b.boosting, brake, dt, (human ? 1 : b.L.speed) * (now < (b.pinnedUntil || 0) ? 0.6 : 1));
       slingshot(b, dt); padsFor(b, now);
       if (human) b.a = lerpAng(b.a, human.aim, 1 - Math.exp(-30 * dt));   // the nose follows the player's aim, as with mouse aim
       else if (Math.hypot(st.x, st.y) > 0.15) b.a = lerpAng(b.a, Math.atan2(st.y, st.x), 1 - Math.exp(-13 * dt));
       gravityOn(b, dt);
       b.x += b.vx * dt; b.y += b.vy * dt;
-      const pc = bounceOff(b, 40, 0.6);
+      const wr = human ? WALL_R * sizeOf(b.lv || 1) : 40, pc = bounceOff(b, wr, human ? 0.7 : 0.6);
+      if (human && pc && hurtsOnHit(pc.b)) { b.vx += pc.nx * 220; b.vy += pc.ny * 220; }
       if (pc && pc.vn < -200) {
         impact(b.x - pc.nx * 40, b.y - pc.ny * 40, "#ffd9b0", 1.2);
         const dmg = hurtsOnHit(pc.b) ? crashDmg(-pc.vn, false) : 0;
         if (dmg > 0) botHurt(b, dmg, "p", now, false);
       }
-      if (b.x < 40 || b.x > W - 40) { b.vx = -b.vx * 0.6; b.x = clamp(b.x, 40, W - 40); }
-      if (b.y < 40 || b.y > H - 40) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 40, H - 40); }
+      if (human) {   // the fence, as flyMe has it
+        if (b.x < wr || b.x > W - wr) { b.x = clamp(b.x, wr, W - wr); b.vx = -b.vx * 0.7 + Math.sign(W / 2 - b.x) * 220; }
+        if (b.y < wr || b.y > H - wr) { b.y = clamp(b.y, wr, H - wr); b.vy = -b.vy * 0.7 + Math.sign(H / 2 - b.y) * 220; }
+      } else {
+        if (b.x < 40 || b.x > W - 40) { b.vx = -b.vx * 0.6; b.x = clamp(b.x, 40, W - 40); }
+        if (b.y < 40 || b.y > H - 40) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 40, H - 40); }
+      }
       // shoot when the nose points at the target (where it will be)
       b.fireCd -= dt;
       // shock combo: once its orb hangs near the target, a bot shoots the orb with the beam (harder bots do it more)
@@ -301,7 +316,9 @@
         tm: b.tm ?? -1, fc: b.fc ?? -1, cp: [stats.round, b.caps || 0], tg: b.tag
       };
       m.sh = b.shield || 0;
-      if (b.input) { m.ar = pilotArsenalWire(b); m.tn = b.teleN || 0; }   // a player's own HUD: the guns they carry
+      // a player's own HUD (the guns they carry), and which of their controls this state already holds:
+      // ak, the last one applied; ag, for how long (ms, including this step), so their screen can compare
+      if (b.input) { m.ar = pilotArsenalWire(b); m.tn = b.teleN || 0; m.ak = b.ackSeq || 0; m.ag = Math.round(now - (b.ackAt ?? now)); m.en = Math.round(b.energy); }
       if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, lv: 1, wp: WEAPON_KEYS.indexOf(botWeapon(b)), tg: b.tag,
         st: [stats.round, b.st.kills, b.st.deaths, b.st.shots, b.st.hits, b.st.best] });
       applyRemote(b.id, m);   // show it here

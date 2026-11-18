@@ -74,7 +74,7 @@ test('player input is clamped to what a stick, an angle and buttons can send', {
   assert.ok(Math.abs(i.mx - Math.SQRT1_2) < 1e-12 && Math.abs(i.my - Math.SQRT1_2) < 1e-12, 'a stick never goes past its rim');
   assert.ok(Math.abs(i.aim - (7 - 2 * Math.PI)) < 1e-12, 'an angle is wrapped');
   assert.deepEqual({ fire: i.fire, boost: i.boost, dash: i.dash }, { fire: false, boost: true, dash: 0 });
-  assert.deepEqual(cleanInput({ mx: NaN, aim: Infinity, dash: 2.5, tele: -1, w: 99, alt: 1 }), { mx: 0, my: 0, aim: 0, fire: false, alt: false, boost: false, dash: 0, tele: 0, w: -1 });
+  assert.deepEqual(cleanInput({ mx: NaN, aim: Infinity, dash: 2.5, tele: -1, w: 99, alt: 1 }), { mx: 0, my: 0, aim: 0, fire: false, alt: false, boost: false, brake: false, dash: 0, tele: 0, w: -1, s: 0 });
 });
 
 test('a player joining a full arena takes an AI bot’s place; a server of players only has no room left', { skip }, async () => {
@@ -207,4 +207,41 @@ test('a broken-off piece has the same name everywhere the same craters were cut,
     const wire = a.packet(clock).rb;
     assert.ok(wire && wire.list.some(e => e[0] === ra.key), JSON.stringify(wire));
   } finally { a.dispose(); b.dispose(); }
+});
+
+test('scatter pellets fly: a target 800 px away is hurt when the shot gets there, not when the trigger is pulled', { skip }, async () => {
+  const { createMatch } = await sim();
+  const m = createMatch({ code: 'm1d0o' });
+  try {
+    const { WEAPON_KEYS } = m.game.__simConst;
+    const shooter = m.addPilot('Shooter'), target = m.addPilot('Target');
+    run(m, 0.1);
+    const b = m.game.__simBot(shooter), t = m.game.__simBot(target);
+    b.arsenal.scatter = 10;
+    const w = WEAPON_KEYS.indexOf('scatter'), keep = () => { hold(m, shooter, 1500, 600, 0); hold(m, target, 2300, 600, 0); };
+    m.input(shooter, { w, aim: 0 });
+    run(m, 0.3, keep);
+    const before = t.lives;
+    m.input(shooter, { w, aim: 0, fire: true });
+    run(m, 1 / 30 * 1.01, keep);
+    m.input(shooter, { w, aim: 0, fire: false });
+    run(m, 0.2, keep);
+    assert.equal(t.lives, before, 'not hurt while the pellets are still on their way');
+    run(m, 0.6, keep);
+    assert.ok(t.lives < before, 'hurt once they arrive');
+  } finally { m.dispose(); }
+});
+
+test('a player’s state says which of their numbered controls it holds and for how long', { skip }, async () => {
+  const { createMatch } = await sim();
+  const m = createMatch({ code: 'm1d0o' });
+  try {
+    const id = m.addPilot('Pilot');
+    run(m, 0.1);
+    m.input(id, { mx: 1, s: 7 });
+    run(m, 0.1);
+    const mine = m.packet(clock).bots.find(([bid]) => bid === id)[1];
+    assert.equal(mine.ak, 7);
+    assert.ok(mine.ag >= 95 && mine.ag <= 140, `flown ${mine.ag} ms`);
+  } finally { m.dispose(); }
 });

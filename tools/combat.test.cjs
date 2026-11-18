@@ -144,7 +144,7 @@ test('a delayed hitscan bullet is judged against where the victim was when it wa
   // the victim sat on the line until 760 ms, then moved 300 px off it by 1000 ms (now)
   const history=[];for(let t=600;t<=1000;t+=10)history.push({at:t,x:1800,y:t<=760?0:(t-760)/240*300,lv:1,inv:false,dead:false});
   const victim={x:1800,y:300,lv:1,hitHistory:history};c.remotes.set('pvictim',victim);
-  for(const kind of [K.BULLET,K.PELLET]){
+  for(const kind of [K.BULLET]){
     // a remote round fired 250 ms ago, traced this frame across 2000 px (catch-up makes its step start then)
     const s={kind,px:0,py:0,x:2000,y:0,vx:6000,vy:0,owner:'pother',hitTime:750,stepFrom:734,stepTo:1000};
     assert.equal(c.targetHit(s,victim),true,'rewound to fire time: '+kind);
