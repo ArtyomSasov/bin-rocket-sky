@@ -30,14 +30,23 @@ const BRIDGE = `
     },
     addPilot(name) { const b = addPilot(name); if (!b) return null; Object.assign(b, spawnPoint(b.tm)); return b.id; },
     removePilot(id) { removePilot(id); },
-    input(id, i) { const b = botById.get(id); if (b && b.input) Object.assign(b.input, i); },
+    // at: when it arrived (the server's clock). The controls a step started with are kept, so the step can fly them
+    // until that moment and the new ones after it, as the player's screen did (see the split in updateBots)
+    input(id, i, at) { const b = botById.get(id); if (!b || !b.input) return; if (!b.prevIn) b.prevIn = { ...b.input }; Object.assign(b.input, i); b.inAt = at; },
     rtt(id, ms) { const b = botById.get(id); if (b && b.input) b.rtt = ms; },
     // one fixed step: the shared-clock world and the simulation
     step(dt, now) {
       // a player's newest controls start to count with this step: from its start, so ak/ag say how long they have flown
-      for (const b of bots) if (b.input && b.input.s !== b.ackSeq) { b.ackSeq = b.input.s; b.ackAt = now - dt * 1000; }
+      for (const b of bots) {
+        b.split = 0;
+        if (!b.input || b.input.s === b.ackSeq) { b.prevIn = null; continue; }
+        // the moment it arrived, within this step: flown from there, and counted from there (ag)
+        const from = now - dt * 1000, at = Number.isFinite(b.inAt) ? Math.min(now, Math.max(from, b.inAt)) : from;
+        b.ackSeq = b.input.s; b.ackAt = at; b.split = (at - from) / 1000;
+      }
       worldTick(now);
       update(dt, now);
+      for (const b of bots) b.prevIn = null;
       // what only the screen keeps: dropped here, since no frame ever draws it
       parts.length = 0; impacts.length = 0; rings.length = 0; floaters.length = 0; arcs.length = 0; beams.length = 0; lasers.length = 0;
       hulks.length = 0; frags.length = 0; debris.length = 0;
@@ -87,7 +96,7 @@ export function createMatch({ code = "m1d0c", bots = 0, level = "normal" } = {})
     packet: (now = performance.now()) => { game.__setNow(now); const p = sim.packet(now); p.ts = Math.round(performance.timeOrigin + now); return p; },
     addPilot: name => sim.addPilot(name),
     removePilot: id => sim.removePilot(id),
-    input: (id, i) => sim.input(id, cleanInput(i)),
+    input: (id, i, at = performance.now()) => sim.input(id, cleanInput(i), at),
     // the player's round trip (ms), measured by the server: how far back their shots are judged (at most 250 ms)
     rtt: (id, ms) => sim.rtt(id, Math.max(0, Math.min(1000, Number(ms) || 0))),
     pilot: id => sim.pilot(id),

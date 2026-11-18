@@ -189,7 +189,8 @@
       // the stick, eased in like a thumb on a joystick, then the same thrust and turning as the player
       const dm = Math.hypot(dx, dy), ux = dm > 1 ? dx / dm : dx, uy = dm > 1 ? dy / dm : dy, ease = 1 - Math.exp(-(human ? 13 : 6 + 4 * b.L.speed) * dt);
       const st = b.stick || (b.stick = { x: 0, y: 0 });
-      st.x += (ux - st.x) * ease; st.y += (uy - st.y) * ease;
+      const split = human && b.prevIn && b.split > 1e-4 ? b.split : 0;   // new controls came in part way through this step
+      if (!split) { st.x += (ux - st.x) * ease; st.y += (uy - st.y) * ease; }
       if (human) {   // a player's energy works as the local pilot's (steerAndShoot): regen waits 0.7 s after a boost or a dash
         b.boosting = wantBoost && b.energy > 0 && Math.hypot(st.x, st.y) > 0.1;
         if (b.boosting && !b.boostOn) { b.vx += Math.cos(b.a) * 220; b.vy += Math.sin(b.a) * 220; }   // lighting it shoves forward, as flyStep
@@ -215,28 +216,48 @@
         b.vx += Math.cos(a) * 900; b.vy += Math.sin(a) * 900; b.energy -= 25; b.dashAt = now; b.inv = Math.max(b.inv, now + 280);
       }
       b.dashReq = false;
-      // a player's X: the air brake, or with a direction a drift (the engine cuts and the bin slides on), as in flyMe
-      const brake = !!human?.brake, drift = brake && Math.hypot(st.x, st.y) > 0.3 && Math.hypot(b.vx, b.vy) > 150;
-      if (drift) thrustPilot(b, 0, 0, false, false, dt);
-      else thrustPilot(b, st.x, st.y, b.boosting, brake, dt, (human ? 1 : b.L.speed) * (now < (b.pinnedUntil || 0) ? 0.6 : 1));
+      if (human) {   // a player's pilot flies by the very function that flies their own bin on their screen (flyPilot)
+        // with controls that changed during the step: the old ones until they arrived, the new ones after, as the
+        // player's own screen flew them (it changed them when it sent them, a fixed trip earlier)
+        const parts = split ? [[b.prevIn, split], [human, dt - split]] : [[human, dt]];
+        let f = { crash: null, fence: null };
+        for (const [inp, d] of parts) {
+          if (split) {
+            const m = Math.hypot(inp.mx, inp.my), px = m > 1 ? inp.mx / m : inp.mx, py = m > 1 ? inp.my / m : inp.my, e = 1 - Math.exp(-13 * d);
+            st.x += (px - st.x) * e; st.y += (py - st.y) * e;
+          }
+          const g = flyPilot(b, st.x, st.y, b.boosting, !!inp.brake, d, now, b.boosting || now - (b.dashAt || 0) < 350);
+          f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
+        }
+        b.a = lerpAng(b.a, human.aim, 1 - Math.exp(-30 * dt));   // the nose follows the player's aim, as with mouse aim
+        if (f.crash && f.crash.hs > 60) impact(f.crash.x, f.crash.y, "#ffd9b0", Math.min(2, 0.4 + f.crash.hs / 450));
+        if (f.crash && f.crash.dmg > 0) botHurt(b, f.crash.dmg, "p", now, false);
+        if (f.fence && f.fence.dmg > 0) botHurt(b, f.fence.dmg, "p", now, false);
+        // the junk rocks bump it, as they bump my bin (updateJunk)
+        for (const k of world.rocks) if (k && !grabbed.has(k.key) && k.age >= 0.6) collideRock(b, k);
+        // and touching another pilot pushes it off, as updateRemotes pushes my bin
+        for (const o of bots) {
+          if (o === b || o.dead) continue;
+          const ox = b.x - o.x, oy = b.y - o.y, d = Math.hypot(ox, oy);
+          if (d >= 31 * (sizeOf(b.lv || 1) + sizeOf(o.lv || 1)) || d <= 0.01 || now - ((b.boops ||= new Map()).get(o.id) || 0) <= 400) continue;
+          b.boops.set(o.id, now);
+          const kick = boopKick(o.boosting || now - (o.dashAt || 0) < 350, b.boosting || now - (b.dashAt || 0) < 350);
+          b.vx += ox / d * kick; b.vy += oy / d * kick;
+        }
+      } else {   // a bot
+      thrustPilot(b, st.x, st.y, b.boosting, false, dt, b.L.speed * (now < (b.pinnedUntil || 0) ? 0.6 : 1));
       slingshot(b, dt); padsFor(b, now);
-      if (human) b.a = lerpAng(b.a, human.aim, 1 - Math.exp(-30 * dt));   // the nose follows the player's aim, as with mouse aim
-      else if (Math.hypot(st.x, st.y) > 0.15) b.a = lerpAng(b.a, Math.atan2(st.y, st.x), 1 - Math.exp(-13 * dt));
+      if (Math.hypot(st.x, st.y) > 0.15) b.a = lerpAng(b.a, Math.atan2(st.y, st.x), 1 - Math.exp(-13 * dt));
       gravityOn(b, dt);
       b.x += b.vx * dt; b.y += b.vy * dt;
-      const wr = human ? WALL_R * sizeOf(b.lv || 1) : 40, pc = bounceOff(b, wr, human ? 0.7 : 0.6);
-      if (human && pc && hurtsOnHit(pc.b)) { b.vx += pc.nx * 220; b.vy += pc.ny * 220; }
+      const pc = bounceOff(b, 40, 0.6);
       if (pc && pc.vn < -200) {
         impact(b.x - pc.nx * 40, b.y - pc.ny * 40, "#ffd9b0", 1.2);
         const dmg = hurtsOnHit(pc.b) ? crashDmg(-pc.vn, false) : 0;
         if (dmg > 0) botHurt(b, dmg, "p", now, false);
       }
-      if (human) {   // the fence, as flyMe has it
-        if (b.x < wr || b.x > W - wr) { b.x = clamp(b.x, wr, W - wr); b.vx = -b.vx * 0.7 + Math.sign(W / 2 - b.x) * 220; }
-        if (b.y < wr || b.y > H - wr) { b.y = clamp(b.y, wr, H - wr); b.vy = -b.vy * 0.7 + Math.sign(H / 2 - b.y) * 220; }
-      } else {
-        if (b.x < 40 || b.x > W - 40) { b.vx = -b.vx * 0.6; b.x = clamp(b.x, 40, W - 40); }
-        if (b.y < 40 || b.y > H - 40) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 40, H - 40); }
+      if (b.x < 40 || b.x > W - 40) { b.vx = -b.vx * 0.6; b.x = clamp(b.x, 40, W - 40); }
+      if (b.y < 40 || b.y > H - 40) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 40, H - 40); }
       }
       // shoot when the nose points at the target (where it will be)
       b.fireCd -= dt;

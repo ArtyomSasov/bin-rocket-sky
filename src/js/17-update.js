@@ -111,17 +111,60 @@
       return;
     }
   }
+  // One step of a player's flight: the same function flies my bin here and a player's pilot on the server, so the
+  // server's word on where I am agrees with what this screen predicted. Thrust (or a drift: with the brake and a
+  // direction the engine cuts and the bin slides on), gravity, the slingshot and pads, the move, then bumping off
+  // bodies and the fence. It says what was hit and the damage that does; the caller shows it and applies it.
+  // boosted: on boost or just dashed (a crash then hurts more)
+  function flyPilot(o, sx_, sy_, boost, brake, dt, now, boosted) {
+    const drift = brake && Math.hypot(sx_, sy_) > 0.3 && Math.hypot(o.vx, o.vy) > 150;
+    if (drift) thrustPilot(o, 0, 0, false, false, dt);
+    else thrustPilot(o, sx_, sy_, boost, brake, dt, now < (o.pinnedUntil || 0) ? 0.6 : 1);   // pinned by nails: slower
+    gravityOn(o, dt); slingshot(o, dt); padsFor(o, now);
+    o.x += o.vx * dt; o.y += o.vy * dt;
+    const wr = WALL_R * sizeOf(o.lv || 1), pc = bounceOff(o, wr, 0.7);
+    let crash = null, fence = null;
+    if (pc) {   // planets and moons: like the fence, and worse on boost
+      const big = hurtsOnHit(pc.b), hs = -pc.vn;
+      if (big) { o.vx += pc.nx * 220; o.vy += pc.ny * 220; }
+      crash = { pc, big, hs, x: o.x - pc.nx * wr, y: o.y - pc.ny * wr, dmg: big && hs > 60 ? crashDmg(hs, boosted) : 0 };
+    }
+    const hitX = o.x < wr ? wr : o.x > W - wr ? W - wr : null, hitY = o.y < wr ? wr : o.y > H - wr ? H - wr : null;
+    if (hitX !== null || hitY !== null) {   // the fence: bounced back in, and hurt if it was fast
+      const hitSpeed = Math.hypot(o.vx, o.vy);
+      if (hitX !== null) { o.x = hitX; o.vx = -o.vx * 0.7 + Math.sign(W / 2 - o.x) * 220; }
+      if (hitY !== null) { o.y = hitY; o.vy = -o.vy * 0.7 + Math.sign(H / 2 - o.y) * 220; }
+      fence = { hitSpeed, x: hitX !== null ? (hitX < W / 2 ? 0 : W) : o.x, y: hitY !== null ? (hitY < H / 2 ? 0 : H) : o.y, dmg: hitSpeed > 120 ? 0.6 : 0 };
+    }
+    return { drift, crash, fence };
+  }
+  // touching another pilot pushes you off it (harder if it rams you on boost, softer if you ram it): kick, or 0
+  const boopKick = (rammed, mineRam) => rammed ? 900 : mineRam ? 260 : 420;
   // my flight: thrust with inertia, gravity, bumping off bodies and the fence, facing, exhaust
   function flyMe(dt, now, im, boost) {
     const braking = playing && !me.dead && keys.has("KeyX");
     if (me.ctl) me.ctl.brake = braking;   // (for the authoritative server)
     // X with a direction is a drift: the engine cuts, the bin slides on with its speed and the nose swings round
     // fast to where you push, so you can turn and shoot back the way you came. X alone is the air brake
-    const drift = braking && Math.hypot(steer.x, steer.y) > 0.3 && Math.hypot(me.vx, me.vy) > 150;
-    me.drift = drift;
+    let drift = false;
+    const wr = WALL_R * sizeOf(me.lv);
     if (playing && !me.dead) {
-      if (drift) thrustPilot(me, 0, 0, false, false, dt);
-      else thrustPilot(me, steer.x, steer.y, boost, braking, dt, now < (me.pinnedUntil || 0) ? 0.6 : 1);   // pinned by nails: slower
+      const f = flyPilot(me, steer.x, steer.y, boost, braking, dt, now, me.boostFx > 0);
+      drift = f.drift;
+      if (f.crash && f.crash.hs > 60) {
+        const { big, hs, x: cx, y: cy, pc } = f.crash;
+        impact(cx, cy, "#ffd9b0", Math.min(2, (big ? 0.4 : 0.2) + hs / 450));
+        if (hs > 300) sparkShower(cx, cy, pc.nx, pc.ny, Math.min(1.6, hs / 600));
+        sfx("crash", Math.min(1, (big ? 0.3 : 0.15) + hs / 700), big ? 0.8 : 1.2);
+        if (f.crash.dmg > 0) hurt(now, f.crash.dmg); else shake = Math.max(shake, big ? 0.12 : 0.06);
+      }
+      if (f.fence) {
+        const { hitSpeed, x: wx, y: wy } = f.fence;
+        impact(wx, wy, "#bdfff6", Math.min(2, 0.4 + hitSpeed / 450));
+        if (hitSpeed > 300) sparkShower(wx, wy, W / 2 - wx || (W / 2 - me.x), H / 2 - wy || (H / 2 - me.y), Math.min(1.6, hitSpeed / 600));
+        sfx("crash", Math.min(1, 0.3 + hitSpeed / 700));
+        if (f.fence.dmg > 0) hurt(now, f.fence.dmg); else shake = Math.max(shake, 0.12);
+      }
       if (drift && Math.abs(angD(Math.atan2(me.vy, me.vx) - me.a)) > 0.6 && Math.random() < 50 * dt) {   // the hull scrubs sideways: smoke off both flanks
         const s = 26 * sizeOf(me.lv), nx = -Math.sin(me.a), ny = Math.cos(me.a), side = Math.random() < 0.5 ? 1 : -1;
         puff(me.x + nx * s * side, me.y + ny * s * side, nx * side * 60 + (Math.random() - 0.5) * 40, ny * side * 60 + (Math.random() - 0.5) * 40, 0.6, 3 + Math.random() * 3, "rgb(190,200,225)", 2);
@@ -130,42 +173,16 @@
         const fx = me.x + Math.cos(me.a) * 30 * sizeOf(me.lv), fy = me.y + Math.sin(me.a) * 30 * sizeOf(me.lv);
         puff(fx, fy, Math.cos(me.a) * 220 + me.vx, Math.sin(me.a) * 220 + me.vy, 0.35, 3 + Math.random() * 3, "#cfe8ff", 2);
       }
+    } else {   // the start screen's idle drift, or a wreck waiting to respawn
+      if (!playing) { me.vx = Math.cos(now / 2400) * 120; me.vy = Math.sin(now / 3100) * 90 - 40; }
+      if (me.dead) { me.vx = me.vy = 0; } else gravityOn(me, dt);
+      me.x += me.vx * dt; me.y += me.vy * dt;
+      if (!me.dead) bounceOff(me, wr, 0.7);
+      if (me.x < wr || me.x > W - wr) { me.x = clamp(me.x, wr, W - wr); me.vx = -me.vx * 0.7 + Math.sign(W / 2 - me.x) * 220; }
+      if (me.y < wr || me.y > H - wr) { me.y = clamp(me.y, wr, H - wr); me.vy = -me.vy * 0.7 + Math.sign(H / 2 - me.y) * 220; }
     }
+    me.drift = drift;
     const sp = Math.hypot(me.vx, me.vy);
-    if (!playing) { me.vx = Math.cos(now / 2400) * 120; me.vy = Math.sin(now / 3100) * 90 - 40; }
-    if (me.dead) { me.vx = me.vy = 0; }
-    if (!me.dead) { gravityOn(me, dt); if (playing) { slingshot(me, dt); padsFor(me, now); } }
-    me.x += me.vx * dt; me.y += me.vy * dt;
-    // walls: crash, lose a life, bounce back in
-    const wr = WALL_R * sizeOf(me.lv);
-    // planets and moons: same as a wall, and worse on boost
-    const pc = me.dead ? null : bounceOff(me, wr, 0.7);
-    if (pc) {
-      const big = hurtsOnHit(pc.b);
-      if (big) { me.vx += pc.nx * 220; me.vy += pc.ny * 220; }
-      const hs = -pc.vn, cx = me.x - pc.nx * wr, cy = me.y - pc.ny * wr;
-      if (playing && hs > 60) {
-        impact(cx, cy, "#ffd9b0", Math.min(2, (big ? 0.4 : 0.2) + hs / 450));
-        if (hs > 300) sparkShower(cx, cy, pc.nx, pc.ny, Math.min(1.6, hs / 600));
-        sfx("crash", Math.min(1, (big ? 0.3 : 0.15) + hs / 700), big ? 0.8 : 1.2);
-        const dmg = big ? crashDmg(hs, me.boostFx > 0) : 0;
-        if (dmg > 0) hurt(now, dmg); else shake = Math.max(shake, big ? 0.12 : 0.06);
-      }
-    }
-    let hitX = me.x < wr ? wr : me.x > W - wr ? W - wr : null;
-    let hitY = me.y < wr ? wr : me.y > H - wr ? H - wr : null;
-    if (hitX !== null || hitY !== null) {
-      const hitSpeed = Math.hypot(me.vx, me.vy);
-      if (hitX !== null) { me.x = hitX; me.vx = -me.vx * 0.7 + Math.sign(W / 2 - me.x) * 220; }
-      if (hitY !== null) { me.y = hitY; me.vy = -me.vy * 0.7 + Math.sign(H / 2 - me.y) * 220; }
-      if (playing && !me.dead) {
-        const wx = hitX !== null ? (hitX < W / 2 ? 0 : W) : me.x, wy = hitY !== null ? (hitY < H / 2 ? 0 : H) : me.y;
-        impact(wx, wy, "#bdfff6", Math.min(2, 0.4 + hitSpeed / 450));
-        if (hitSpeed > 300) sparkShower(wx, wy, W / 2 - wx || (W / 2 - me.x), H / 2 - wy || (H / 2 - me.y), Math.min(1.6, hitSpeed / 600));
-        sfx("crash", Math.min(1, 0.3 + hitSpeed / 700));
-        if (hitSpeed > 120) hurt(now, 0.6); else shake = Math.max(shake, 0.12);
-      }
-    }
     // face where you steer, not where you drift: recoil, bumps and the black hole's pull move the bin
     // but no longer spin it (shooting while standing still used to flip it round and round)
     const steerMag = Math.hypot(steer.x, steer.y);
@@ -495,7 +512,7 @@
       if (playing && !me.dead && d < 31 * (sizeOf(me.lv) + sizeOf(r.lv || 1)) && d > 0.01 && (!r.boop || now - r.boop > 400)) {
         r.boop = now;
         const rammed = (r.boost || 0) > 0, mineRam = me.boostFx > 0;
-        const kick = rammed ? 900 : mineRam ? 260 : 420;
+        const kick = boopKick(rammed, mineRam);   // (the server pushes a player's pilot the same way: updateBots)
         me.vx += dx / d * kick; me.vy += dy / d * kick;
         impact(me.x - dx / 2, me.y - dy / 2, "#bdfff6", 1.2);
         if (rammed || mineRam) { sparkShower(me.x - dx / 2, me.y - dy / 2, -dy, dx, 1.3); sparkShower(me.x - dx / 2, me.y - dy / 2, dy, -dx, 1.3); shake = Math.max(shake, 0.4); }
