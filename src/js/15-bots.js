@@ -233,6 +233,8 @@
           b.cqBudget = Math.min(CMD_DT * 30, (b.cqBudget || 0) + real);
           for (let n = 0; n < 3 && b.cqBudget >= CMD_DT - 1e-9; n++) {
             let c;
+            // the next one is missing but later ones are here (lost or overtaken on the way): a moment's wait for it
+            if (cmds.length && cmds[0].s !== (b.ackSeq || 0) + 1 && b.ackSeq && b.cqBudget < CMD_DT * 4) break;
             if (cmds.length) { c = cmds.shift(); b.lastCmd = c; b.ackSeq = c.s; }
             else if (b.cqBudget >= CMD_DT * 8) { c = b.lastCmd || { mx: 0, my: 0, aim: b.a, boost: false, brake: false, dash: b.dashDone || 0 }; b.cqOwed = Math.min(30, (b.cqOwed || 0) + 1); b.cqRepeats = (b.cqRepeats || 0) + 1; }
             else break;

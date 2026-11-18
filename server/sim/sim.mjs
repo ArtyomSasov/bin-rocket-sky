@@ -36,14 +36,15 @@ const BRIDGE = `
     // until that moment and the new ones after it, as the player's screen did (see the split in updateBots)
     input(id, i, at) {
       const b = botById.get(id); if (!b || !b.input) return;
-      // flight commands queue up, each flown once in order (a repeat of one already had is skipped)
+      // flight commands queue up in their own order, each flown once: a repeat of one already had is skipped, and one
+      // that comes late (the data channel keeps no order) still goes in its place
       if (i.c && i.c.length) {
         b.cq ||= [];
         for (const c of i.c) {
-          if (c.s <= (b.cqLast || 0)) continue;
-          b.cqLast = c.s;
-          if (b.cqOwed > 0) { b.cqOwed--; b.ackSeq = c.s; b.lastCmd = c; continue; }   // its time was flown already (the last command, again)
-          b.cq.push(c);
+          if (c.s <= (b.ackSeq || 0) || b.cq.some(q => q.s === c.s)) continue;
+          if (b.cqOwed > 0 && c.s === (b.ackSeq || 0) + 1) { b.cqOwed--; b.ackSeq = c.s; b.lastCmd = c; continue; }   // its time was flown already (the last command, again)
+          let k = b.cq.length; while (k > 0 && b.cq[k - 1].s > c.s) k--;
+          b.cq.splice(k, 0, c);
         }
         if (b.cq.length > 60) b.cq.splice(0, b.cq.length - 60);   // (a second's worth: more is a screen running fast, not lag)
       }
