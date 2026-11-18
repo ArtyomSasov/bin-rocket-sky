@@ -23,7 +23,7 @@ Pick a mode when you create a lobby; the lobby code carries it, so friends who j
 | Capture the Flag | Take the enemy flag from their pad to yours while your own flag is home |
 | Nukes only | Everyone has unlimited nukes and nothing else |
 | Railgun instagib | Unlimited railguns, one hit kills |
-| Test range | Every gun at once with endless ammo and 99 teleport jumps, to try them all; uses the same fixed keys as matches |
+| Test range | Every gun at once with endless ammo, to try them all; uses the same fixed keys as matches |
 
 Use **Random look** below the centered pilot preview to randomize all five appearance choices. The look is saved in this browser.
 
@@ -134,7 +134,7 @@ players (they face where they steer, so they make attack runs, break off and loo
 - **Brake / drift:** hold X to brake; X with a direction drifts (you slide on while the nose swings round).
 - **Scoreboard:** hold Tab to see every player and bot; release to hide. The Scores button toggles it on touchscreens. The round clock stays in its own top row; the wrapping status/weapon panel sits below it.
 - **Weapons:** fixed 1–9, 0; Alt+1–6 for extended slots; Q/E cycles carried weapons. Right mouse button or C uses alternate fire.
-- **Enforcer:** starting pistol with unlimited ammo, instant accurate hits; alternate fire is faster with a wider spread.
+- **Laser pistol:** starting gun with unlimited ammo, instant accurate red beams; alternate fire is faster with a wider spread.
 - **Rocket launcher:** primary fires one straight rocket. Hold alternate fire to load one rocket every 0.45 seconds, up to three; release to launch exactly that many. Switching, death or round end cancels without spending ammo.
 - **Minigun:** Stinger UT3 baseline: 14 HP hitscan at 10 shots/s; alternative fires large 38 HP projectiles every 0.28 s. Each mode uses its supplied UT loop, followed by winddown.
 - **Pulse Gun:** rapid green plasma bolts; alternate fire holds a short green beam that stops at cover. One ammo per bolt or beam tick.
@@ -145,7 +145,6 @@ players (they face where they steer, so they make attack runs, break off and loo
 - **Railgun:** 80 HP per primary shot, 1.8-second recovery; no alternate fire. Instagib mode keeps its one-hit rule.
 - **Remote commands:** mines and Demonic Orb retain their command slots after the last shot until their projectiles expire.
 - **Trophies:** the gun a pilot dies with drops where it died, with its ammo, for 15 s; anyone can take it.
-- **Teleporter:** T throws the beacon, T again jumps onto it (a pick-up gives three jumps).
 
 ## Run locally
 
@@ -177,7 +176,7 @@ This is still peer-to-peer, with health owned by the victim (bots by their host)
 server. Compensation helps hitscan and fast linear rounds under ordinary latency; it cannot remove long outages or make
 all projectile and moving-terrain simulations identical between clients.
 
-The wire protocol uses `binrocket-sky/v18/` topics. Players must reload to this version to join each other;
+The wire protocol uses `binrocket-sky/v19/` topics. Players must reload to this version to join each other;
 older pages are isolated (v2–v14 use older maps, clocks or gameplay; v1 events do not identify the round). Taken terrain cells are sent in a
 rolling snapshot (one shared body per state), so late joins and reconnects recover holes after a full pass
 through the map. Detached rubble is still simulated locally.
@@ -215,7 +214,7 @@ src/js/           the game code, one file per section, joined in file-name order
   16-announcer.js      announcer, kill streaks
   17-update.js         the per-frame simulation (flight with inertia, hits, pick-ups)
   18-draw.js           rendering
-  19-events.js         world events: black hole (pulls in planets, wrecks, junk and pick-ups), meteors, aliens, gold rain
+  19-events.js         world events: black hole (pulls in planets, wrecks, junk and pick-ups), meteors, aliens
   20-loop-hud.js       main loop, energy bar, mini map (pilots only)
   21-start.js          start screen, lobby and mode pickers
 tools/build.mjs   the build (also writes sw.js, the offline cache, from src/sw.js)
@@ -311,6 +310,6 @@ estimated from nominal weapon values. Do not add peer confirmations to validated
 Bots still do not reproduce most alt-fire, player shielding or both minigun modes; their results are
 stability/coverage evidence, not an equal PvP balance study. See `WEAPON-IMPLEMENTATION.md`.
 
-The minigun and Scatter Gun use short glowing travelling tracers while their hit detection stays instantaneous.
+The minigun uses long glowing travelling tracers while its hit detection stays instantaneous; Scatter Gun pellets are real projectiles in a loose cloud, so their damage lands when they arrive.
 Demonic Orb controls a visible 280 px zone: one active orb, 6 HP pulses every 0.45 s, and manual detonation up to 80 HP.
 Armor pickups have distinct vest / pads / belt shapes; Foundry has extra mirrored vests, and older maps have extra pads.
