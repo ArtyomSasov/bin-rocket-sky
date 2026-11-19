@@ -371,6 +371,7 @@
     if (stop) {   // a beam ends on rock: it scorches a crater there
       if (own || stop.b.free) carveAt(stop.b, stop.x, stop.y, SHOTS[s.kind].carve, own);
       impact(stop.x, stop.y, SHOTS[s.kind].col, 0.8);
+      surfaceHit(stop.b, stop.x, stop.y, s.kind);
     }
     if (s.kind === K.PISTOL) beams.push({ x1: s.px, y1: s.py, x2: s.x, y2: s.y, t: 0, pistol: true });
     if (s.kind === K.BULLET) {
@@ -462,8 +463,10 @@
         if (s.kind === K.RAIL || s.kind === K.GAUSS) {   // rail and gauss slugs bore a tunnel straight through and keep going
           if (dig) for (let f = 0; f <= 1.0001; f += 0.125) { const px = s.px + (s.x - s.px) * f, py = s.py + (s.y - s.py) * f; if (solidAt(hb.b, px, py)) carveAt(hb.b, px, py, SHOTS[s.kind].carve, own); }
           impact(hb.x, hb.y, SHOTS[s.kind].col, 0.8);
+          if (!s.surfFx) { s.surfFx = true; surfaceHit(hb.b, hb.x, hb.y, s.kind === K.GAUSS ? K.GAUSS : K.SLUG); }   // (a rail bores: chips where it goes in)
         } else if (bounce && s.bn < bounce) {   // shards and saws chip and ricochet; grenades just bounce
           if (dig && s.kind !== K.GREN) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);
+          if (s.kind !== K.GREN) surfaceHit(hb.b, hb.x, hb.y, K.PELLET);   // (a ricochet chips)
           const [nx, ny] = normalAt(hb.b, hb.x, hb.y), vn = s.vx * nx + s.vy * ny, keep = s.kind === K.GREN ? 0.6 : 0.85;
           if (s.kind === K.SAW) packPlay("p_ut_saw_ric", .7, s.x, s.y);
           if (vn < 0) { s.vx = (s.vx - 2 * vn * nx) * keep; s.vy = (s.vy - 2 * vn * ny) * keep; }
@@ -473,6 +476,7 @@
           if (s.kind === K.SHARD) shardRicochet(s);
         } else {
           if (dig && SHOTS[s.kind].carve && s.kind !== K.MINE && s.kind !== K.SAW) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);   // only the mine attaches; an exhausted saw disappears
+          if (s.kind !== K.MINE && !s.surfFx) { s.surfFx = true; surfaceHit(hb.b, hb.x, hb.y, s.kind); }
           if ((s.kind === K.BULLET || s.kind === K.PELLET) && now - ricAt > 90) { ricAt = now; packPlay("p_ric", 0.4, hb.x, hb.y); }   // whine off the rock
           if (s.kind === K.NAIL || s.kind === K.SPIKE) { stickNail(hb.b, hb.x, hb.y, Math.atan2(s.vy, s.vx), s.kind === K.SPIKE); audioCue("nailWall", hb.x, hb.y); }
           if (s.kind === K.MINE) {   // a prox mine sticks where it lands, just off the surface

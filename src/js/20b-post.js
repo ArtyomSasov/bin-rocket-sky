@@ -32,10 +32,10 @@
       "vec2 p=cam+vec2(v.x-.5,.5-v.y)*view;vec3 acc=vec3(0.);float heat=0.;float self=texture2D(m,p/world).a;" +
       "for(int i=0;i<16;i++){if(float(i)>=n)break;vec4 L=lp[i];vec2 d=L.xy-p;float r=length(d);if(r>L.z)continue;float a=1.-r/L.z;a*=a*L.w;" +
       "float vis=1.;if(self<.5){vec2 st=d/r*min(r*.92,260.)/10.;for(int k=1;k<10;k++){vec2 q=p+st*float(k);if(length(L.xy-q)>ls[i]&&texture2D(m,q/world).a>.5){vis=0.;break;}}}" +
-      "acc+=lc[i]*a*vis;heat+=lh[i]*(1.-r/L.z);}gl_FragColor=vec4(acc,min(heat,1.));}";
+      "acc+=lc[i]*a*vis;float hz=1.-r/(L.z*.6);heat+=lh[i]*max(hz,0.)*max(hz,0.);}gl_FragColor=vec4(acc,min(heat,1.));}";
     // heat haze: where the light map says it is hot (its alpha), the picture shimmers (two waves out of step)
     const COMP = "precision mediump float;varying vec2 v;uniform sampler2D t,b1,b2,lm;uniform float bl,ca,vig,sat,dbg,amb,time;void main(){" +
-      "float h=texture2D(lm,v).a;vec2 u=v+vec2(sin(v.y*140.+time*9.)+sin(v.y*67.-time*5.)*.6,cos(v.x*120.+time*8.)*.8)*h*.0028;" +
+      "float h=texture2D(lm,v).a;vec2 u=v+vec2(sin(v.y*140.+time*9.)+sin(v.y*67.-time*5.)*.6,cos(v.x*120.+time*8.)*.8)*h*.0016;" +
       "vec2 o=(v-.5)*ca;vec3 c=vec3(texture2D(t,u+o).r,texture2D(t,u).g,texture2D(t,u-o).b);" +
       "vec3 L=texture2D(lm,v).rgb;c=c*(amb+L*1.8)+L*.22;if(dbg>.5)c=L+texture2D(t,v).rgb*.15;" +
       "c+=(texture2D(b1,v).rgb*.9+texture2D(b2,v).rgb*1.1)*bl;" +

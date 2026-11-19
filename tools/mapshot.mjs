@@ -65,16 +65,17 @@ try {
     await wait(1200); await shot(`${tag}-${fx}-${fy}`);
   }
   if (process.env.BREAK) {   // a rocket into the nearest prop, then a few more, photographed as it breaks
-    const n = await ev(`__e("det.filter(b => b.prop).length")`);
+    const n = await ev(`__e("det.filter(b => b.prop || b.wall || b.planet).length")`);
     console.log('props on the map:', n);
     if (n) {
-      await ev(`(() => { const E = __e, kind = ${JSON.stringify(process.env.BREAK)}; window.__prop = E("det.filter(b => (b.prop || b.wall) && !b.dead)").filter(b => kind === "wall" ? b.wall : b.prop && (kind === "1" || b.kind === kind)).sort((a, b) => Math.hypot(a.x - E("me.x"), a.y - E("me.y")) - Math.hypot(b.x - E("me.x"), b.y - E("me.y")))[0];
+      await ev(`(() => { const E = __e, kind = ${JSON.stringify(process.env.BREAK)}; window.__prop = E("det.filter(b => (b.prop || b.wall || b.planet) && !b.dead)").filter(b => kind === "wall" ? b.wall : kind === "planet" ? b.planet && !b.free : b.prop && (kind === "1" || b.kind === kind)).sort((a, b) => Math.hypot(a.x - E("me.x"), a.y - E("me.y")) - Math.hypot(b.x - E("me.x"), b.y - E("me.y")))[0];
         clearInterval(window.__hold); window.__hold = setInterval(() => E('me.x = __prop.x - 420; me.y = __prop.y; me.vx = me.vy = 0; me.inv = 1e15'), 16); E('cam.x = __prop.x; cam.y = __prop.y'); })()`);
       await wait(1000); await shot(`${tag}-prop-0`);
       for (let k = 1; k <= 4; k++) {
         // a rocket (BREAK=1, or BREAK=wall at the nearest inner wall of a station), or a burst of eight bullets
-        const rocket = process.env.BREAK === '1' || process.env.BREAK === 'wall';
-        for (let j = 0; j < (rocket ? 1 : 8); j++) await ev(`__e('shots.push({ id: "t${Math.random()}", kind: ${rocket ? 'K.ROCKET' : 'K.BULLET'}, x: __prop.x - ${70 + j * 10}, y: __prop.y + ${(k - 2.5) * 10 + (Math.random() - 0.5) * 16}, px: __prop.x - ${75 + j * 10}, py: __prop.y, vx: 1400, vy: 0, life: 1, mine: true, owner: "me", m: 1, bn: 0 })')`);
+        const rocket = process.env.BREAK === '1' || process.env.BREAK === 'wall' || process.env.BREAK === 'planet', kindOf = process.env.SHOT ? 'K.' + process.env.SHOT : rocket ? 'K.ROCKET' : 'K.BULLET';   // SHOT=PULSE_BOLT, BULLET, ORB...
+        const many = process.env.SHOT ? 6 : rocket ? 1 : 8;
+        for (let j = 0; j < many; j++) await ev(`__e('shots.push({ id: "t${Math.random()}", kind: ${kindOf}, x: __prop.x - ${(process.env.BREAK === 'planet' ? 'Math.max(__prop.hw, 60) + ' : '') + (70 + j * 10)}, y: __prop.y + ${(k - 2.5) * 10 + (Math.random() - 0.5) * 16}, px: __prop.x - ${(process.env.BREAK === 'planet' ? 'Math.max(__prop.hw, 60) + ' : '') + (75 + j * 10)}, py: __prop.y, vx: 1400, vy: 0, life: 1, mine: true, owner: "me", m: 1, bn: 0 })')`);
         await wait(250); await shot(`${tag}-prop-${k}a`);
         await wait(700); await shot(`${tag}-prop-${k}b`);
       }

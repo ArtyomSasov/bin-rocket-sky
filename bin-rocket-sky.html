@@ -2946,7 +2946,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // round the edge of the hole for a moment, dark smoke hanging after, and the fire's light on everything round it
   function wallBreach(b, x, y, rad) {
     const [nx, ny] = normalAt(b, x, y), out = Math.atan2(ny, nx), q = lowQ ? 0.4 : 1, R = rad, col = () => bodyCol(b);
-    const dust = ["rgb(126,120,116)", "rgb(98,94,92)", "rgb(150,142,134)"];
+    const dust = materialOf(b) === "metal" ? ["rgb(126,120,116)", "rgb(98,94,92)", "rgb(150,142,134)"] : [col(), col(), "rgb(120,106,96)"];
     for (let i = 0, m = Math.round(14 * q); i < m; i++) {   // dust
       const side = Math.random() < 0.3 ? out + Math.PI : out, a = side + (Math.random() - 0.5) * 2.4, v = 50 + Math.random() * 220;
       puff(x + Math.cos(a) * R * 0.4, y + Math.sin(a) * R * 0.4, Math.cos(a) * v, Math.sin(a) * v, 1.6 + Math.random() * 1.6, 12 + Math.random() * 18, i % 3 ? dust[i % 3] : col(), 2, 0, (Math.random() - 0.5) * 1.2, 0.9);
@@ -2972,19 +2972,78 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       const a = out + (Math.random() - 0.5) * 1.4, v = 15 + Math.random() * 40;
       puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 3 + Math.random() * 2, 18 + Math.random() * 14, SMOKE_COLS[i % 2], 2, 0, (Math.random() - 0.5) * 0.6, 0.95);
     }
-    impacts.push({ x, y, t: 0, r: 260, col: "255,170,90", dur: 1.3, soft: 0.45, flick: Math.random() * 6.28 });
+    impacts.push({ x, y, t: 0, r: 220, col: "255,170,90", dur: 1.2, soft: 0.3, flick: Math.random() * 6.28 });
     if (Math.hypot(x - me.x, y - me.y) < 1200) shake = Math.max(shake, 0.35 * (1 - Math.hypot(x - me.x, y - me.y) / 1200));
     sfx("chunk", 0.9, 0.7, x, y);
   }
+  // what a body is made of, for how a hit looks on it
+  const materialOf = b => b.wall || b.fixed || b.kind === "station" || b.kind === "drum" || b.kind === "panel" || (WRECK_PAL[b.kind] && b.kind !== "crate") ? "metal" : b.kind === "crate" ? "wood" : "rock";
+  const ENERGY_HIT = new Set([K.LASER, K.PISTOL, K.PULSE, K.PULSE_BOLT, K.SHOCK, K.BOLT, K.ORB, K.GAMMA, K.FIRE]);
+  // a burn on a body's face (painted only where it still stands): black at the heart, scorched brown round it
+  function scorchMark(b, x, y, r) {
+    const [lx, ly] = toLocal(b, x, y), q = b.q;
+    q.save(); q.globalCompositeOperation = "source-atop";
+    const gr = q.createRadialGradient(lx, ly, 0, lx, ly, r);
+    gr.addColorStop(0, "rgba(6,4,4,0.8)"); gr.addColorStop(0.45, "rgba(40,22,12,0.55)"); gr.addColorStop(1, "rgba(60,34,18,0)");
+    q.fillStyle = gr; q.fillRect(lx - r, ly - r, r * 2, r * 2); q.restore();
+  }
+  // a bullet's pit: a small dark dent with a lighter lip
+  function pitMark(b, x, y, r) {
+    const [lx, ly] = toLocal(b, x, y), q = b.q;
+    q.save(); q.globalCompositeOperation = "source-atop";
+    q.fillStyle = "rgba(255,255,255,0.12)"; q.beginPath(); q.arc(lx + 0.6, ly + 0.6, r * 1.35, 0, 6.29); q.fill();
+    q.fillStyle = "rgba(10,8,8,0.6)"; q.beginPath(); q.arc(lx, ly, r, 0, 6.29); q.fill(); q.restore();
+  }
+  // Any shot meeting a body, as everyone sees it (the crater itself is the shooter's or the server's): by what it is
+  // made of and what hit it. A slug or pellet: a pit, a puff of dust, chips, and off metal sparks. Energy (laser,
+  // plasma, fire): a scorch burnt into it, embers and molten drops, a wisp of smoke. Something heavy (rockets,
+  // grenades, the orbs, gauss): the breach, as a station wall's, in the body's own colours
+  let surfT = 0, surfN = 0;
+  function surfaceHit(b, x, y, kind) {
+    if (!b || b.dead) return;
+    const t = performance.now(); if (t - surfT > 16) { surfT = t; surfN = 0; }
+    if (++surfN > (lowQ ? 3 : 8)) return;
+    const S = SHOTS[kind] || {}, carve = S.carve || 0, mat = materialOf(b), [nx, ny] = normalAt(b, x, y), out = Math.atan2(ny, nx), q = lowQ ? 0.5 : 1;
+    if (carve >= WALL_CARVE) {   // (rockets, grenades, mines, the orbs, gauss, the disc)
+      wallBreach(b, x, y, Math.max(carve, 40) * (b.wall ? WALL_GIVE : 1));
+      if (b.wall) wallMark(b, x, y, Math.max(carve, 40) * WALL_GIVE, true); else scorchMark(b, x, y, Math.max(carve, 40) * 1.4);
+      return;
+    }
+    if (ENERGY_HIT.has(kind)) {
+      scorchMark(b, x, y, 8 + carve * 0.8);
+      const hot = kind === K.FIRE ? "fire" : S.col;
+      for (let i = 0, m = Math.round(5 * q); i < m; i++) {   // embers and molten drops
+        const a = out + (Math.random() - 0.5) * 2.4, v = 60 + Math.random() * 220;
+        puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.35 + Math.random() * 0.5, 1.4 + Math.random() * 1.4, i % 2 ? "#ffb04a" : hot, i % 2 ? 5 : 3, 0, 0, 0.94);
+      }
+      puff(x, y, Math.cos(out) * 30, Math.sin(out) * 30, 1.2 + Math.random() * 0.8, 6 + Math.random() * 6, SMOKE_COLS[1], 2, 0, (Math.random() - 0.5) * 0.8, 0.95);   // a wisp of smoke
+      impacts.push({ x, y, t: 0, r: 90, col: kind === K.FIRE ? "255,160,80" : rgbStr(S.col), dur: 0.35, soft: 0.35 });
+      return;
+    }
+    pitMark(b, x, y, 2 + Math.min(4, carve * 0.25));
+    const dust = mat === "metal" ? "rgb(140,136,132)" : bodyCol(b);
+    for (let i = 0, m = Math.round(3 * q); i < m; i++) {   // dust
+      const a = out + (Math.random() - 0.5) * 1.6, v = 30 + Math.random() * 110;
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.6 + Math.random() * 0.8, 4 + Math.random() * 5, i ? dust : "rgb(110,104,100)", 2, 0, 0, 0.92);
+    }
+    for (let i = 0, m = mat === "metal" ? 0 : Math.round(2 * q); i < m; i++) {   // chips of rock or wood
+      const a = out + (Math.random() - 0.5) * 2, v = 120 + Math.random() * 260;
+      addDebris(x, y, Math.cos(a) * v, Math.sin(a) * v, 1.5 + Math.random() * 2.5, bodyCol(b), 3 + Math.random() * 3);
+    }
+    if (mat === "metal") for (let i = 0, m = Math.round(6 * q); i < m; i++) {   // sparks off metal
+      const a = out + (Math.random() - 0.5) * 1.8, v = 300 + Math.random() * 500;
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.15 + Math.random() * 0.25, 0.8 + Math.random() * 0.8, i % 3 ? "#fff1b8" : "#ffb04a", 1, 0.05, 0, 0.92);
+    }
+  }
+  const rgbStr = c => { const v = parseInt(String(c).slice(1, 7), 16) || 0xffffff; return `${v >> 16 & 255},${v >> 8 & 255},${v & 255}`; };
   function carveAt(b, x, y, rad, own) {
     if (b.dead) return 0;
-    if (b.wall && rad < WALL_CARVE) { wallMark(b, x, y, rad, false); return 0; }   // (a light weapon only marks it)
+    if (b.wall && rad < WALL_CARVE) return 0;   // (a light weapon only marks it: surfaceHit)
     const [lx0, ly0] = toLocal(b, x, y), lx = Math.round(lx0), ly = Math.round(ly0), r = Math.round(rad);
     const shared = own && !b.free, sq = shared ? ++carveSeq : 0;
     const n = carveLocal(b, lx, ly, r, true, shared ? carveRnd(lx, ly, r, sq) : Math.random);
     if (!n) return 0;
     rubbleFx(b, x, y, rad, n);
-    if (b.wall) { wallMark(b, x, y, rad * WALL_GIVE, true); wallBreach(b, x, y, rad * WALL_GIVE); }
     b.blast = { x, y, rad, at: performance.now() };   // what a piece cut off by this crater is flung away from
     if (own) b.lastOwn = true;
     if (shared) {
@@ -4596,6 +4655,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     // blasts dig: grenades, mines and homing rockets that go off near rock bite craters out of it
     const dig = { [K.GREN]: 62, [K.MINE]: 58, [K.HROCKET]: 46 }[s.kind], own = s.mine || botById.has(s.owner);
     if (dig) for (const b of [...bodies]) if (Math.hypot(b.x - s.x, b.y - s.y) - b.r < dig && (own || b.free)) carveAt(b, s.x, s.y, dig, own);
+    if (dig && !s.surfFx) { const b = solidAny(s.x, s.y) || bodies.find(o => !o.dead && Math.hypot(o.x - s.x, o.y - s.y) - o.r < dig * 0.6); if (b) { s.surfFx = true; surfaceHit(b, s.x, s.y, s.kind); } }   // (the breach, seen by everyone)
     const hit = (o, id, rad) => {
       const d = Math.hypot(o.x - s.x, o.y - s.y), R = R0 + rad;
       if (d > R || id === s.direct || !canHurt(s, o, id, true) || fixedCover(s.x, s.y, o.x, o.y)) return 0;
@@ -7979,6 +8039,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (stop) {   // a beam ends on rock: it scorches a crater there
       if (own || stop.b.free) carveAt(stop.b, stop.x, stop.y, SHOTS[s.kind].carve, own);
       impact(stop.x, stop.y, SHOTS[s.kind].col, 0.8);
+      surfaceHit(stop.b, stop.x, stop.y, s.kind);
     }
     if (s.kind === K.PISTOL) beams.push({ x1: s.px, y1: s.py, x2: s.x, y2: s.y, t: 0, pistol: true });
     if (s.kind === K.BULLET) {
@@ -8070,8 +8131,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         if (s.kind === K.RAIL || s.kind === K.GAUSS) {   // rail and gauss slugs bore a tunnel straight through and keep going
           if (dig) for (let f = 0; f <= 1.0001; f += 0.125) { const px = s.px + (s.x - s.px) * f, py = s.py + (s.y - s.py) * f; if (solidAt(hb.b, px, py)) carveAt(hb.b, px, py, SHOTS[s.kind].carve, own); }
           impact(hb.x, hb.y, SHOTS[s.kind].col, 0.8);
+          if (!s.surfFx) { s.surfFx = true; surfaceHit(hb.b, hb.x, hb.y, s.kind === K.GAUSS ? K.GAUSS : K.SLUG); }   // (a rail bores: chips where it goes in)
         } else if (bounce && s.bn < bounce) {   // shards and saws chip and ricochet; grenades just bounce
           if (dig && s.kind !== K.GREN) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);
+          if (s.kind !== K.GREN) surfaceHit(hb.b, hb.x, hb.y, K.PELLET);   // (a ricochet chips)
           const [nx, ny] = normalAt(hb.b, hb.x, hb.y), vn = s.vx * nx + s.vy * ny, keep = s.kind === K.GREN ? 0.6 : 0.85;
           if (s.kind === K.SAW) packPlay("p_ut_saw_ric", .7, s.x, s.y);
           if (vn < 0) { s.vx = (s.vx - 2 * vn * nx) * keep; s.vy = (s.vy - 2 * vn * ny) * keep; }
@@ -8081,6 +8144,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
           if (s.kind === K.SHARD) shardRicochet(s);
         } else {
           if (dig && SHOTS[s.kind].carve && s.kind !== K.MINE && s.kind !== K.SAW) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);   // only the mine attaches; an exhausted saw disappears
+          if (s.kind !== K.MINE && !s.surfFx) { s.surfFx = true; surfaceHit(hb.b, hb.x, hb.y, s.kind); }
           if ((s.kind === K.BULLET || s.kind === K.PELLET) && now - ricAt > 90) { ricAt = now; packPlay("p_ric", 0.4, hb.x, hb.y); }   // whine off the rock
           if (s.kind === K.NAIL || s.kind === K.SPIKE) { stickNail(hb.b, hb.x, hb.y, Math.atan2(s.vy, s.vx), s.kind === K.SPIKE); audioCue("nailWall", hb.x, hb.y); }
           if (s.kind === K.MINE) {   // a prox mine sticks where it lands, just off the surface
@@ -11029,10 +11093,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       "vec2 p=cam+vec2(v.x-.5,.5-v.y)*view;vec3 acc=vec3(0.);float heat=0.;float self=texture2D(m,p/world).a;" +
       "for(int i=0;i<16;i++){if(float(i)>=n)break;vec4 L=lp[i];vec2 d=L.xy-p;float r=length(d);if(r>L.z)continue;float a=1.-r/L.z;a*=a*L.w;" +
       "float vis=1.;if(self<.5){vec2 st=d/r*min(r*.92,260.)/10.;for(int k=1;k<10;k++){vec2 q=p+st*float(k);if(length(L.xy-q)>ls[i]&&texture2D(m,q/world).a>.5){vis=0.;break;}}}" +
-      "acc+=lc[i]*a*vis;heat+=lh[i]*(1.-r/L.z);}gl_FragColor=vec4(acc,min(heat,1.));}";
+      "acc+=lc[i]*a*vis;float hz=1.-r/(L.z*.6);heat+=lh[i]*max(hz,0.)*max(hz,0.);}gl_FragColor=vec4(acc,min(heat,1.));}";
     // heat haze: where the light map says it is hot (its alpha), the picture shimmers (two waves out of step)
     const COMP = "precision mediump float;varying vec2 v;uniform sampler2D t,b1,b2,lm;uniform float bl,ca,vig,sat,dbg,amb,time;void main(){" +
-      "float h=texture2D(lm,v).a;vec2 u=v+vec2(sin(v.y*140.+time*9.)+sin(v.y*67.-time*5.)*.6,cos(v.x*120.+time*8.)*.8)*h*.0028;" +
+      "float h=texture2D(lm,v).a;vec2 u=v+vec2(sin(v.y*140.+time*9.)+sin(v.y*67.-time*5.)*.6,cos(v.x*120.+time*8.)*.8)*h*.0016;" +
       "vec2 o=(v-.5)*ca;vec3 c=vec3(texture2D(t,u+o).r,texture2D(t,u).g,texture2D(t,u-o).b);" +
       "vec3 L=texture2D(lm,v).rgb;c=c*(amb+L*1.8)+L*.22;if(dbg>.5)c=L+texture2D(t,v).rgb*.15;" +
       "c+=(texture2D(b1,v).rgb*.9+texture2D(b2,v).rgb*1.1)*bl;" +

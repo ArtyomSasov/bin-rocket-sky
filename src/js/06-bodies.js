@@ -540,7 +540,7 @@
   // round the edge of the hole for a moment, dark smoke hanging after, and the fire's light on everything round it
   function wallBreach(b, x, y, rad) {
     const [nx, ny] = normalAt(b, x, y), out = Math.atan2(ny, nx), q = lowQ ? 0.4 : 1, R = rad, col = () => bodyCol(b);
-    const dust = ["rgb(126,120,116)", "rgb(98,94,92)", "rgb(150,142,134)"];
+    const dust = materialOf(b) === "metal" ? ["rgb(126,120,116)", "rgb(98,94,92)", "rgb(150,142,134)"] : [col(), col(), "rgb(120,106,96)"];
     for (let i = 0, m = Math.round(14 * q); i < m; i++) {   // dust
       const side = Math.random() < 0.3 ? out + Math.PI : out, a = side + (Math.random() - 0.5) * 2.4, v = 50 + Math.random() * 220;
       puff(x + Math.cos(a) * R * 0.4, y + Math.sin(a) * R * 0.4, Math.cos(a) * v, Math.sin(a) * v, 1.6 + Math.random() * 1.6, 12 + Math.random() * 18, i % 3 ? dust[i % 3] : col(), 2, 0, (Math.random() - 0.5) * 1.2, 0.9);
@@ -566,19 +566,78 @@
       const a = out + (Math.random() - 0.5) * 1.4, v = 15 + Math.random() * 40;
       puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 3 + Math.random() * 2, 18 + Math.random() * 14, SMOKE_COLS[i % 2], 2, 0, (Math.random() - 0.5) * 0.6, 0.95);
     }
-    impacts.push({ x, y, t: 0, r: 260, col: "255,170,90", dur: 1.3, soft: 0.45, flick: Math.random() * 6.28 });
+    impacts.push({ x, y, t: 0, r: 220, col: "255,170,90", dur: 1.2, soft: 0.3, flick: Math.random() * 6.28 });
     if (Math.hypot(x - me.x, y - me.y) < 1200) shake = Math.max(shake, 0.35 * (1 - Math.hypot(x - me.x, y - me.y) / 1200));
     sfx("chunk", 0.9, 0.7, x, y);
   }
+  // what a body is made of, for how a hit looks on it
+  const materialOf = b => b.wall || b.fixed || b.kind === "station" || b.kind === "drum" || b.kind === "panel" || (WRECK_PAL[b.kind] && b.kind !== "crate") ? "metal" : b.kind === "crate" ? "wood" : "rock";
+  const ENERGY_HIT = new Set([K.LASER, K.PISTOL, K.PULSE, K.PULSE_BOLT, K.SHOCK, K.BOLT, K.ORB, K.GAMMA, K.FIRE]);
+  // a burn on a body's face (painted only where it still stands): black at the heart, scorched brown round it
+  function scorchMark(b, x, y, r) {
+    const [lx, ly] = toLocal(b, x, y), q = b.q;
+    q.save(); q.globalCompositeOperation = "source-atop";
+    const gr = q.createRadialGradient(lx, ly, 0, lx, ly, r);
+    gr.addColorStop(0, "rgba(6,4,4,0.8)"); gr.addColorStop(0.45, "rgba(40,22,12,0.55)"); gr.addColorStop(1, "rgba(60,34,18,0)");
+    q.fillStyle = gr; q.fillRect(lx - r, ly - r, r * 2, r * 2); q.restore();
+  }
+  // a bullet's pit: a small dark dent with a lighter lip
+  function pitMark(b, x, y, r) {
+    const [lx, ly] = toLocal(b, x, y), q = b.q;
+    q.save(); q.globalCompositeOperation = "source-atop";
+    q.fillStyle = "rgba(255,255,255,0.12)"; q.beginPath(); q.arc(lx + 0.6, ly + 0.6, r * 1.35, 0, 6.29); q.fill();
+    q.fillStyle = "rgba(10,8,8,0.6)"; q.beginPath(); q.arc(lx, ly, r, 0, 6.29); q.fill(); q.restore();
+  }
+  // Any shot meeting a body, as everyone sees it (the crater itself is the shooter's or the server's): by what it is
+  // made of and what hit it. A slug or pellet: a pit, a puff of dust, chips, and off metal sparks. Energy (laser,
+  // plasma, fire): a scorch burnt into it, embers and molten drops, a wisp of smoke. Something heavy (rockets,
+  // grenades, the orbs, gauss): the breach, as a station wall's, in the body's own colours
+  let surfT = 0, surfN = 0;
+  function surfaceHit(b, x, y, kind) {
+    if (!b || b.dead) return;
+    const t = performance.now(); if (t - surfT > 16) { surfT = t; surfN = 0; }
+    if (++surfN > (lowQ ? 3 : 8)) return;
+    const S = SHOTS[kind] || {}, carve = S.carve || 0, mat = materialOf(b), [nx, ny] = normalAt(b, x, y), out = Math.atan2(ny, nx), q = lowQ ? 0.5 : 1;
+    if (carve >= WALL_CARVE) {   // (rockets, grenades, mines, the orbs, gauss, the disc)
+      wallBreach(b, x, y, Math.max(carve, 40) * (b.wall ? WALL_GIVE : 1));
+      if (b.wall) wallMark(b, x, y, Math.max(carve, 40) * WALL_GIVE, true); else scorchMark(b, x, y, Math.max(carve, 40) * 1.4);
+      return;
+    }
+    if (ENERGY_HIT.has(kind)) {
+      scorchMark(b, x, y, 8 + carve * 0.8);
+      const hot = kind === K.FIRE ? "fire" : S.col;
+      for (let i = 0, m = Math.round(5 * q); i < m; i++) {   // embers and molten drops
+        const a = out + (Math.random() - 0.5) * 2.4, v = 60 + Math.random() * 220;
+        puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.35 + Math.random() * 0.5, 1.4 + Math.random() * 1.4, i % 2 ? "#ffb04a" : hot, i % 2 ? 5 : 3, 0, 0, 0.94);
+      }
+      puff(x, y, Math.cos(out) * 30, Math.sin(out) * 30, 1.2 + Math.random() * 0.8, 6 + Math.random() * 6, SMOKE_COLS[1], 2, 0, (Math.random() - 0.5) * 0.8, 0.95);   // a wisp of smoke
+      impacts.push({ x, y, t: 0, r: 90, col: kind === K.FIRE ? "255,160,80" : rgbStr(S.col), dur: 0.35, soft: 0.35 });
+      return;
+    }
+    pitMark(b, x, y, 2 + Math.min(4, carve * 0.25));
+    const dust = mat === "metal" ? "rgb(140,136,132)" : bodyCol(b);
+    for (let i = 0, m = Math.round(3 * q); i < m; i++) {   // dust
+      const a = out + (Math.random() - 0.5) * 1.6, v = 30 + Math.random() * 110;
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.6 + Math.random() * 0.8, 4 + Math.random() * 5, i ? dust : "rgb(110,104,100)", 2, 0, 0, 0.92);
+    }
+    for (let i = 0, m = mat === "metal" ? 0 : Math.round(2 * q); i < m; i++) {   // chips of rock or wood
+      const a = out + (Math.random() - 0.5) * 2, v = 120 + Math.random() * 260;
+      addDebris(x, y, Math.cos(a) * v, Math.sin(a) * v, 1.5 + Math.random() * 2.5, bodyCol(b), 3 + Math.random() * 3);
+    }
+    if (mat === "metal") for (let i = 0, m = Math.round(6 * q); i < m; i++) {   // sparks off metal
+      const a = out + (Math.random() - 0.5) * 1.8, v = 300 + Math.random() * 500;
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.15 + Math.random() * 0.25, 0.8 + Math.random() * 0.8, i % 3 ? "#fff1b8" : "#ffb04a", 1, 0.05, 0, 0.92);
+    }
+  }
+  const rgbStr = c => { const v = parseInt(String(c).slice(1, 7), 16) || 0xffffff; return `${v >> 16 & 255},${v >> 8 & 255},${v & 255}`; };
   function carveAt(b, x, y, rad, own) {
     if (b.dead) return 0;
-    if (b.wall && rad < WALL_CARVE) { wallMark(b, x, y, rad, false); return 0; }   // (a light weapon only marks it)
+    if (b.wall && rad < WALL_CARVE) return 0;   // (a light weapon only marks it: surfaceHit)
     const [lx0, ly0] = toLocal(b, x, y), lx = Math.round(lx0), ly = Math.round(ly0), r = Math.round(rad);
     const shared = own && !b.free, sq = shared ? ++carveSeq : 0;
     const n = carveLocal(b, lx, ly, r, true, shared ? carveRnd(lx, ly, r, sq) : Math.random);
     if (!n) return 0;
     rubbleFx(b, x, y, rad, n);
-    if (b.wall) { wallMark(b, x, y, rad * WALL_GIVE, true); wallBreach(b, x, y, rad * WALL_GIVE); }
     b.blast = { x, y, rad, at: performance.now() };   // what a piece cut off by this crater is flung away from
     if (own) b.lastOwn = true;
     if (shared) {

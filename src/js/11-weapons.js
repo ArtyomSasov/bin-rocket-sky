@@ -310,6 +310,7 @@
     // blasts dig: grenades, mines and homing rockets that go off near rock bite craters out of it
     const dig = { [K.GREN]: 62, [K.MINE]: 58, [K.HROCKET]: 46 }[s.kind], own = s.mine || botById.has(s.owner);
     if (dig) for (const b of [...bodies]) if (Math.hypot(b.x - s.x, b.y - s.y) - b.r < dig && (own || b.free)) carveAt(b, s.x, s.y, dig, own);
+    if (dig && !s.surfFx) { const b = solidAny(s.x, s.y) || bodies.find(o => !o.dead && Math.hypot(o.x - s.x, o.y - s.y) - o.r < dig * 0.6); if (b) { s.surfFx = true; surfaceHit(b, s.x, s.y, s.kind); } }   // (the breach, seen by everyone)
     const hit = (o, id, rad) => {
       const d = Math.hypot(o.x - s.x, o.y - s.y), R = R0 + rad;
       if (d > R || id === s.direct || !canHurt(s, o, id, true) || fixedCover(s.x, s.y, o.x, o.y)) return 0;
