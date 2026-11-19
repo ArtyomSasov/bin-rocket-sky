@@ -808,6 +808,25 @@
     if (gw[5] === 1) { detonate(s, performance.now()); return; }
     s.vx = clamp(gw[3], -900, 900); s.vy = clamp(gw[4], -900, 900); s.life = Math.max(s.life, 1);
   }
+  // the void bomb bursts: a black hole opens where it is (holesNow) for six seconds; the burst itself is an implosion,
+  // light sucked in, a ring falling inward, and a blow to whoever is close
+  function voidBurst(s, now, bm) {
+    const x = clamp(s.x, 0, W), y = clamp(s.y, 0, H), d = Math.hypot(me.x - x, me.y - y);
+    voids.push({ x, y, born: performance.now(), dur: 6000 });
+    impacts.push({ x, y, t: 0, r: 220, col: "#efe0ff", dur: 0.18 });
+    impacts.push({ x, y, t: 0, r: 700, col: "176,107,255", dur: 1.6, soft: 0.6, flick: Math.random() * 6.28 });
+    rings.push({ x, y, t: 0, r: 900, col: "200,160,255", warp: true, dur: 0.6, w: 26, shock: 30 });
+    for (let k = 0; k < (lowQ ? 50 : 140); k++) {   // everything near rushes in at once
+      const a = Math.random() * 6.283, r = 200 + Math.random() * 700, v = r * (2 + Math.random() * 1.5);
+      puff(x + Math.cos(a) * r, y + Math.sin(a) * r, -Math.cos(a) * v + Math.sin(a) * v * 0.5, -Math.sin(a) * v - Math.cos(a) * v * 0.5, 0.35 + Math.random() * 0.3, 1.2 + Math.random() * 1.6, k % 3 ? "#c9a6ff" : "#ffffff", 1, 0.06);
+    }
+    explode(x, y, 30, 260, "plasma");
+    if (post) { post.wave(x, y, 900, 0.7, -0.08); post.burst(x, y, 260, [0.35, 0.18, 0.55], 2.5, -1800); }
+    packPlay("p_boom_gamma", 1, x, y) || sfx("boom_big", 1, 0.5, x, y);
+    if (d < 2000) shake = Math.max(shake, 0.9 * (1 - d / 2000));
+    if (canHurt(s, me, "me", true) && d < bm.R && !fixedCover(x, y, me.x, me.y)) hurtMe(s, now, bombDmg(bm, d), s.kind, 0, false);
+    for (const b of bots) { const bd = Math.hypot(b.x - x, b.y - y); if (bd < bm.R && canHurt(s, b, b.id, true) && !fixedCover(x, y, b.x, b.y)) botHurt(b, bombDmg(bm, bd) * selfMul(s, b.id), s.id, now, false, s.kind); }
+  }
   // ---- the gamma orb zaps every enemy near it as it flies (each victim judges its own zaps, like any hit)
   function gammaZap(s, dt, now) {
     s.zap = (s.zap || 0) - dt;
@@ -839,7 +858,7 @@
     delete me.arsenal[k];
     packPlay("p_noammo", 0.8);   // the empty click
     // out of ammo: fall back to another gun you carry (never auto-pick the nuke), else the fireball
-    me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && w !== "holy" && w !== "tele" && w !== "gauntlet" && me.arsenal[w]) || "fire";
+    me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && w !== "holy" && w !== "void" && w !== "tele" && w !== "gauntlet" && me.arsenal[w]) || "fire";
     renderWeapon();
   }
   // quick dodge: a burst forward (or toward where you steer) with a moment of invulnerability
@@ -1010,6 +1029,7 @@
     if (s.boom) return;
     s.boom = true; s.life = 0;
     const bm = BOMBS[s.kind], R = bm.R, holy = !!bm.holy;
+    if (bm.void) { voidBurst(s, now, bm); return; }
     const x = clamp(s.x, 0, W), y = clamp(s.y, 0, H), d = Math.hypot(me.x - x, me.y - y);
     const q = lowQ ? 0.35 : 1, far = R * 2.4;
     const [wr, wdur, wpow] = bm.wave;

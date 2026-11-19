@@ -22,9 +22,9 @@ test('last gamma and mine ammo keeps its command slot until the live projectile 
     assert.equal(c.hasWeapon(weapon),true);c.shots[0].life=0;assert.equal(c.hasWeapon(weapon),false);
   }
 });
-test('slot keys are stable when inventory changes and all 16 have usable key combinations',()=>{
+test('slot keys are stable when inventory changes and every slot has its own usable key combination',()=>{
   const c=setup(),keys=vm.runInContext('WEAPON_SLOTS.map(weaponKey)',c);
-  assert.equal(new Set(keys).size,16);assert.ok(keys.every(k=>/^(Alt\+)?[0-9]$/.test(k)));
+  assert.equal(new Set(keys).size,keys.length);assert.ok(keys.length>=16);assert.ok(keys.every(k=>/^(Alt\+)?[0-9]$/.test(k)));
   const before=c.weaponKey('rail');c.me.arsenal={rail:2,fire:Infinity};assert.equal(c.weaponKey('rail'),before);
   assert.equal(c.weaponKey('fire'),'1');assert.equal(c.weaponKey('gauntlet'),'2');
 });

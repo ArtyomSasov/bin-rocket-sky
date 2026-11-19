@@ -728,7 +728,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   ];
   const tierOf = lv => TIERS.filter(t => lv >= t.from).pop();
   // shot kinds: what flies. The number is what goes over the network; everything per kind lives in SHOTS
-  const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10, HOLY: 11, SAW: 12, GAMMA: 13, BEACON: 14, TFRAG: 15, BULLET: 16, GAUSS: 17, SHOCK: 18, PULSE: 19, FLAK: 20, DET: 21, NAIL: 22, GREN: 23, MELEE: 24, SPIKE: 25, MDET: 26, HROCKET: 27, RECALL: 28, PISTOL: 29, SAW_ALT: 30, BULLET_ALT: 31, PULSE_BOLT: 32, SWORD: 33 };
+  const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10, HOLY: 11, SAW: 12, GAMMA: 13, BEACON: 14, TFRAG: 15, BULLET: 16, GAUSS: 17, SHOCK: 18, PULSE: 19, FLAK: 20, DET: 21, NAIL: 22, GREN: 23, MELEE: 24, SPIKE: 25, MDET: 26, HROCKET: 27, RECALL: 28, PISTOL: 29, SAW_ALT: 30, BULLET_ALT: 31, PULSE_BOLT: 32, SWORD: 33, VOID: 34 };
   const MINE_R = 55, MINE_ARM = 0.7;   // mines go off when a bin comes this close, after arming
   // life: seconds; dmg: in lives (Lv 1 has 3 = 100%; pellets use pelletDmg, the nuke deals its damage in detonate);
   // r: extra hit radius; col: colour; carve: crater radius; shove: push on the bin it hits; sfx: [sound, volume, pitch] of someone else's shot;
@@ -772,7 +772,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     { ...SHOTS[K.BULLET], name: "rapid minigun round", dmg: .08 },
     { name: "pulse plasma", life: 1.05, dmg: .22, r: 7, col: "#a8ff55", carve: 9, shove: 45, sfx: ["p_ut_pulse_fire", .65, 1] },
     // the Blood Blade's swing: everything in the arc ahead of it, each once (pierce), for a moment
-    { name: "blood blade", life: 0.1, dmg: 2.7, r: 110, col: "#ff2a3c", carve: 0, shove: 900, pierce: true, sfx: ["p_melee_hit", 0.9, 0.8] }
+    { name: "blood blade", life: 0.1, dmg: 2.7, r: 110, col: "#ff2a3c", carve: 0, shove: 900, pierce: true, sfx: ["p_melee_hit", 0.9, 0.8] },
+    // the void bomb: a slow dark orb that opens a black hole where it bursts
+    { name: "void bomb", life: 4, dmg: 0, r: 14, col: "#b06bff", carve: 0, shove: 0, sfx: ["rocket", 1, 0.4] }
   );
   // weapons: pick-ups swap the fireball for a while. Each gun is described here, and the player and the bots fire it
   // the same way (see volley):
@@ -793,6 +795,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     // rockets as in Quake: straight and fast (about 2.4x a bin's speed), dodgeable by reading them; alt three slow homing ones
     rocket:  { name: "Rocket launcher", ammo: 10, cd: 0.8, col: "#ff5a6e", shot: [K.ROCKET, 1350], kick: 120, feel: [12, 0.16, 70], sfx: ["rocket", 0.8],
                alt: { name: "Load rockets", load: true, cost: 1, cd: 0.9, shot: [K.ROCKET, 1350], kick: 200, feel: [18, 0.23, 96], sfx: ["rocket", 1, 0.8] } },
+    // the void bomb: where it bursts (on whatever it touches, or at the end of its flight) a black hole opens for six
+    // seconds, dragging in bins, shots, wrecks, rock and smoke, and eating what reaches it
+    void:    { name: "Void Bomb", ammo: 1, cd: 1.2, col: "#b06bff", shot: [K.VOID, 420], kick: 140, feel: [26, 0.4, 110], sfx: ["rocket", 1, 0.4] },
     nuke:    { name: "Nuke", ammo: 1, cd: 1.0, col: "#ffe14d", shot: [K.NUKE, 360], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.6],
                alt: { name: "Guided", cost: 1, cd: 1.0, shot: [K.NUKE, 420], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.5], guided: true } },
     scatter: { name: "Scatter gun", ammo: 16, cd: 0.7, col: "#ffd27a", shot: [K.PELLET, 1250], kick: 260, feel: [22, 0.3, 90], sfx: ["scatter", 1, 0.85], fx: "blast",
@@ -909,7 +914,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     x: { name: "Test range", label: "Test range", hint: "every gun, endless ammo", sandbox: true }
   };
   // the guns the test range hands out (the retired ones stay out), in gun-bar order
-  const SANDBOX_GUNS = ["fire", "gauntlet", "minigun", "scatter", "shard", "gren", "rocket", "laser", "orb", "rail", "saw", "mine", "gamma", "nuke", "holy"];   // (saw: the Blood Blade)
+  const SANDBOX_GUNS = ["fire", "gauntlet", "minigun", "scatter", "shard", "gren", "rocket", "laser", "orb", "rail", "saw", "mine", "gamma", "nuke", "holy", "void"];   // (saw: the Blood Blade)
   const modeOf = code => MODES[codeOpts(code).mode] ? codeOpts(code).mode : "d";
   // match settings: round length (minutes) and a score that ends the round early (kills, or flags in CTF)
   const TIME_OPTS = { 2: 3, 3: 5, 4: 8, 5: 10, 6: 15 }, TIME_DEFAULT = "3";
@@ -919,7 +924,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const scoreLimit = code => { const s = scoreOf(code); return s ? SCORE_OPTS[s][MODES[modeOf(code)].flags ? 1 : 0] : 0; };
   let MODE = "d";
   const TEAM_NAME = ["Red", "Blue"], TEAM_HEX = ["#ff5a6e", "#4fa8ff"], TEAM_RGB = ["255,90,110", "79,168,255"];
-  const WEAPON_KEYS = ["fire", "triple", "laser", "rocket", "nuke", "scatter", "rail", "mine", "orb", "bolt", "shard", "holy", "saw", "gamma", "tele", "minigun", "gauss", "nail", "gren", "gauntlet"];
+  const WEAPON_KEYS = ["fire", "triple", "laser", "rocket", "nuke", "scatter", "rail", "mine", "orb", "bolt", "shard", "holy", "saw", "gamma", "tele", "minigun", "gauss", "nail", "gren", "gauntlet", "void"];
   // the gun bar's order: the fireball and the gauntlet first, like Quake's 1 and 2
   const GUN_ORDER = ["fire", "gauntlet", ...WEAPON_KEYS.filter(k => k !== "fire" && k !== "gauntlet")];   // index is what goes over the network
   // rounds on the shared clock: ROUND_PLAY seconds of fighting (the lobby's time limit), then 15 seconds of results
@@ -957,11 +962,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // The holy bomb is thrown, bounces, sings a choir sing seconds before its fuse runs out, then outdoes the nuke
   const BOOM_LIFE = 4;
   // big-bomb crates, each on its own spot: once taken, it comes back at the start of its next cycle (s)
-  const BOMB_CRATES = { nuke: { key: "N", period: 70 }, holy: { key: "H", period: 60 } };
+  const BOMB_CRATES = { nuke: { key: "N", period: 70 }, holy: { key: "H", period: 60 }, void: { key: "V", period: 80 } };
   // wave: [reach, seconds to get there, push at the centre] of the blast wave that flings everything outward
   // edge: past R, out to where its shock wave ends (wave[0]), the nuke still hurts, from this much down to nothing:
   // what is seen inside the blast is felt
-  const BOMBS = { [K.NUKE]: { R: 1100, kill: 0, damage: HP(1000), edge: HP(45), carve: 420, wave: [2100, 1.1, 2400] },
+  const BOMBS = { [K.VOID]: { R: 320, kill: 0, damage: HP(40), carve: 120, wave: [700, 0.6, -900], void: true }, [K.NUKE]: { R: 1100, kill: 0, damage: HP(1000), edge: HP(45), carve: 420, wave: [2100, 1.1, 2400] },
                   [K.HOLY]: { R: 2000, kill: 1300, carve: 700, wave: [3600, 1.5, 3000], sing: 2.55, holy: true, wipe: true } };   // sing: the holy bomb's sound (2.53 s) starts so it ends with the blast   // wipe: bodies inside kill are erased whole
   const bombReach = bm => bm.edge ? bm.wave[0] : bm.R;
   const bombDmg = (bm, d) => bm.damage ? (d <= bm.R ? Math.max(bm.damage * (1 - d / bm.R), bm.edge || 0) : bm.edge ? bm.edge * Math.max(0, 1 - (d - bm.R) / (bm.wave[0] - bm.R)) : 0)
@@ -983,6 +988,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     shield: "M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z",
     nuke: "M14.10 8.36L17.25 2.91A10.5 10.5 0 0 0 6.75 2.91L9.90 8.36A4.2 4.2 0 0 1 14.10 8.36ZM7.80 12.00L1.50 12.00A10.5 10.5 0 0 0 6.75 21.09L9.90 15.64A4.2 4.2 0 0 1 7.80 12.00ZM14.10 15.64L17.25 21.09A10.5 10.5 0 0 0 22.50 12.00L16.20 12.00A4.2 4.2 0 0 1 14.10 15.64ZM12 9.8a2.2 2.2 0 1 0 0.01 0Z",
     holy: "M12 10a6.5 6.5 0 1 0 0.01 0ZM12 1C6.5 1 3.5 2.4 3.5 4.2S6.5 7.4 12 7.4s8.5-1.4 8.5-3.2S17.5 1 12 1Zm0 1.7c4 0 6.4.8 6.4 1.5S16 5.7 12 5.7 5.6 4.9 5.6 4.2 8 2.7 12 2.7Z",
+    void: "M12 2a10 10 0 1 0 .01 0ZM12 6a6 6 0 1 1-.01 0ZM12 9a3 3 0 1 0 .01 0Z",
     saw: "M20.5 1.5l2 2-11 12.5-3.5.5.5-3.5ZM7.5 14l2.5 2.5-1.5 1.5 3 3-1.5 1.5-3-3-2 2-1.5-1.5 2-2-3-3L4 13.5l3 3Z",   // the Blood Blade (the saw's old slot)
     gamma: "M12 2a10 10 0 1 0 .01 0ZM12 5l-3 5 3 2-4 6 8-6-3-2 3-5Z",
     tele: "M12 2a10 10 0 1 0 0.01 0ZM12 5a7 7 0 1 0 0.01 0ZM12 9.4a2.6 2.6 0 1 0 0.01 0Z",
@@ -1648,6 +1654,19 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   }
   const ramp = ev => Math.max(0, Math.min(1, ev.et / 2, (EV_LEN - ev.et) / 2));
   const blackHole = ev => ({ x: 500 + hash(ev.cyc, 78, 1) * (W - 1000), y: 500 + hash(ev.cyc, 78, 2) * (H - 1000), k: ramp(ev) });
+  // every black hole open now: the event's, and those the void bombs opened (each for its dur: it swells open in
+  // the first eighth of a second and closes in its last sixth). v: a void bomb's
+  const voids = [];
+  function holesNow() {
+    const out = [], ev = eventAt(clockNow()), t = performance.now();
+    if (ev.active && ev.type === "blackhole") out.push(blackHole(ev));
+    for (let i = voids.length - 1; i >= 0; i--) {
+      const v = voids[i], a = (t - v.born) / v.dur;
+      if (a >= 1) { voids.splice(i, 1); continue; }
+      out.push({ x: v.x, y: v.y, k: Math.min(1, a * 8) * Math.min(1, (1 - a) * 6), v: true });
+    }
+    return out;
+  }
   // the black hole's pull on everything that moves by the shared clock (planets, moons, wrecks, junk, pick-ups):
   // a spiral toward the hole that deepens through the event and eases back over HOLE_BACK seconds after it, the
   // same in every browser. heavy (0..1): how much it resists. Returns how far in it was dragged (0..0.97)
@@ -2718,7 +2737,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     : type === "truck" ? [380 + rnd(1) * 60, 150 + rnd(2) * 20] : type === "wheelie" ? [150 + rnd(1) * 30, 210 + rnd(2) * 40]
     : type === "bales" ? [230 + rnd(1) * 40, 180 + rnd(2) * 30] : [300 + rnd(1) * 60, 120 + rnd(2) * 30];
   // the arena's fixed spots in world units: guns, supplies, Overdrive and the two big bombs (see 01b-arenas.js)
-  let arena = { guns: [], supplies: [], amp: null, nuke: null, holy: null, pads: [] };
+  let arena = { guns: [], supplies: [], amp: null, nuke: null, holy: null, void: null, pads: [] };
   // the Large and Huge arenas: more pairs in the widest gaps, found the same way every time (no randomness)
   function widestGap(taken, pad, edge) {
     let best = null, bd = -1;
@@ -2820,6 +2839,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       amp: A.amp ? spot(["amp", ...A.amp], 200, AMP_PERIOD) : null,
       nuke: A.nuke && (big || modeOf(code) === "n" || modeOf(code) === "x") ? spot(["nuke", ...A.nuke], 201, BOMB_CRATES.nuke.period) : null,
       holy: A.holy && (big || modeOf(code) === "x") ? spot(["holy", ...A.holy], 202, BOMB_CRATES.holy.period) : null,
+      // the void bomb's crate: across the map from the nuke's (mirrored), where nukes lie out
+      void: A.nuke && (big || modeOf(code) === "n" || modeOf(code) === "x") ? spot(["void", 1 - A.nuke[0], 1 - A.nuke[1]], 203, BOMB_CRATES.void.period) : null,
       pads: BOOST_PADS ? padList.map(([, fx, fy, deg]) => ({ x: fx * W, y: fy * H, a: deg / 57.2958 })) : []   // (their places are still kept clear)
     };
     PICKS = arena.guns.length; SUPPLY_SLOTS = arena.supplies.length;
@@ -5593,6 +5614,25 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (gw[5] === 1) { detonate(s, performance.now()); return; }
     s.vx = clamp(gw[3], -900, 900); s.vy = clamp(gw[4], -900, 900); s.life = Math.max(s.life, 1);
   }
+  // the void bomb bursts: a black hole opens where it is (holesNow) for six seconds; the burst itself is an implosion,
+  // light sucked in, a ring falling inward, and a blow to whoever is close
+  function voidBurst(s, now, bm) {
+    const x = clamp(s.x, 0, W), y = clamp(s.y, 0, H), d = Math.hypot(me.x - x, me.y - y);
+    voids.push({ x, y, born: performance.now(), dur: 6000 });
+    impacts.push({ x, y, t: 0, r: 220, col: "#efe0ff", dur: 0.18 });
+    impacts.push({ x, y, t: 0, r: 700, col: "176,107,255", dur: 1.6, soft: 0.6, flick: Math.random() * 6.28 });
+    rings.push({ x, y, t: 0, r: 900, col: "200,160,255", warp: true, dur: 0.6, w: 26, shock: 30 });
+    for (let k = 0; k < (lowQ ? 50 : 140); k++) {   // everything near rushes in at once
+      const a = Math.random() * 6.283, r = 200 + Math.random() * 700, v = r * (2 + Math.random() * 1.5);
+      puff(x + Math.cos(a) * r, y + Math.sin(a) * r, -Math.cos(a) * v + Math.sin(a) * v * 0.5, -Math.sin(a) * v - Math.cos(a) * v * 0.5, 0.35 + Math.random() * 0.3, 1.2 + Math.random() * 1.6, k % 3 ? "#c9a6ff" : "#ffffff", 1, 0.06);
+    }
+    explode(x, y, 30, 260, "plasma");
+    if (post) { post.wave(x, y, 900, 0.7, -0.08); post.burst(x, y, 260, [0.35, 0.18, 0.55], 2.5, -1800); }
+    packPlay("p_boom_gamma", 1, x, y) || sfx("boom_big", 1, 0.5, x, y);
+    if (d < 2000) shake = Math.max(shake, 0.9 * (1 - d / 2000));
+    if (canHurt(s, me, "me", true) && d < bm.R && !fixedCover(x, y, me.x, me.y)) hurtMe(s, now, bombDmg(bm, d), s.kind, 0, false);
+    for (const b of bots) { const bd = Math.hypot(b.x - x, b.y - y); if (bd < bm.R && canHurt(s, b, b.id, true) && !fixedCover(x, y, b.x, b.y)) botHurt(b, bombDmg(bm, bd) * selfMul(s, b.id), s.id, now, false, s.kind); }
+  }
   // ---- the gamma orb zaps every enemy near it as it flies (each victim judges its own zaps, like any hit)
   function gammaZap(s, dt, now) {
     s.zap = (s.zap || 0) - dt;
@@ -5624,7 +5664,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     delete me.arsenal[k];
     packPlay("p_noammo", 0.8);   // the empty click
     // out of ammo: fall back to another gun you carry (never auto-pick the nuke), else the fireball
-    me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && w !== "holy" && w !== "tele" && w !== "gauntlet" && me.arsenal[w]) || "fire";
+    me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && w !== "holy" && w !== "void" && w !== "tele" && w !== "gauntlet" && me.arsenal[w]) || "fire";
     renderWeapon();
   }
   // quick dodge: a burst forward (or toward where you steer) with a moment of invulnerability
@@ -5795,6 +5835,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (s.boom) return;
     s.boom = true; s.life = 0;
     const bm = BOMBS[s.kind], R = bm.R, holy = !!bm.holy;
+    if (bm.void) { voidBurst(s, now, bm); return; }
     const x = clamp(s.x, 0, W), y = clamp(s.y, 0, H), d = Math.hypot(me.x - x, me.y - y);
     const q = lowQ ? 0.35 : 1, far = R * 2.4;
     const [wr, wdur, wpow] = bm.wave;
@@ -5915,7 +5956,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   }
 
   // Stable controls are independent of inventory and mode; protocol IDs stay in WEAPON_KEYS.
-  const WEAPON_SLOTS = ["fire", "gauntlet", "minigun", "scatter", "rocket", "gren", "laser", "orb", "rail", "nail", "shard", "saw", "mine", "gamma", "nuke", "holy"];
+  const WEAPON_SLOTS = ["fire", "gauntlet", "minigun", "scatter", "rocket", "gren", "laser", "orb", "rail", "nail", "shard", "saw", "mine", "gamma", "nuke", "holy", "void"];
   const weaponKey = k => { const i = WEAPON_SLOTS.indexOf(k); return i < 0 ? "Q/E" : (i >= 10 ? "Alt+" : "") + ((i % 10 + 1) % 10); };
   const controlledKind = k => ({ gamma: K.GAMMA, mine: K.MINE })[k];
   const controlledShots = k => shots.filter(s => (s.mine || mySrvShot(s)) && s.life > 0 && !s.boom && s.kind === controlledKind(k));
@@ -5966,6 +6007,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     gren: "Volley: three bouncing grenades to cover several routes; 3 ammo.",
     gauntlet: "Lunge: free, forward-only melee approach; 1.2 s recharge and 0.2 s protection. Dash uses movement direction and costs energy.",
     nail: "Spike: a fast, precise round that passes through multiple bins; 2 ammo. Walls still stop it.",
+    void: "Void Bomb: a slow dark orb; where it bursts a black hole opens for six seconds and drags everything in. Get clear.",
     saw: "Blood Blade: each press swings the red energy sword through the arc ahead, cutting everyone in it; no alternate fire.",
     mine: "Detonate works with zero ammo while your mines are active.",
     gamma: "One slow orb controls a 280 px zone: green pulses drain nearby enemies. ALT detonates for up to 80 HP, including after the last ammo. Walls block damage.",
@@ -7519,6 +7561,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const w = botWeapon(b);
     if (w === "nuke") return td > 1200 && td < 2600;
     if (w === "holy") return td > 2100 && td < 3200;
+    if (w === "void") return td > 1600 && td < 2600;   // (well clear of the hole it opens)
     if (WEAPONS[w]?.sword) return td < 230;   // (a blade: only at arm's length)
     return td < 950;
   }
@@ -7536,7 +7579,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   function updateBots(dt, now) {
     if (!bots.length) return;
     creditBots(hitBy, false); creditBots(koBy, true);   // bots that hit or killed me
-    const ev = eventAt(clockNow()), bh = ev.active && ev.type === "blackhole" ? blackHole(ev) : null;
+    const holes = holesNow();
     for (const b of bots) {
       if (!b.dead && roundLive) botXp(b, dt * 0.35);   // what a player gets from sparks: about 20 XP a minute
       while (b.shotLog.length && now - b.shotLog[0].at > 700) b.shotLog.shift();
@@ -7548,7 +7591,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       }
       const human = b.input;   // flown by a player: the AI below only steers the others
       // nearest living target: me or anyone else in the lobby (other bots included)
-      let tgt = null, td = botWeapon(b) === "holy" ? 3200 : botWeapon(b) === "nuke" ? 2600 : 1700;   // (a big bomb looks further)
+      let tgt = null, td = botWeapon(b) === "holy" ? 3200 : botWeapon(b) === "nuke" || botWeapon(b) === "void" ? 2600 : 1700;   // (a big bomb looks further)
       if (playing && !me.dead && !mates(b, me)) { const d = Math.hypot(me.x - b.x, me.y - b.y); if (d < td) { td = d; tgt = me; } }
       for (const [rid, r] of remotes) {
         if (rid === b.id || r.dead || mates(r, b)) continue;
@@ -7633,7 +7676,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
           if (gap < 280) { dx += hx / hd * 3 * (1 - gap / 280); dy += hy / hd * 3 * (1 - gap / 280); }
         }
       }
-      if (bh) {   // and away from a black hole
+      for (const bh of holes) {   // and away from a black hole (the event's, a void bomb's)
         const hx = b.x - bh.x, hy = b.y - bh.y, hd = Math.hypot(hx, hy) || 1;
         if (hd < 900 && !human) { dx += hx / hd * 3 * (1 - hd / 900) * 2; dy += hy / hd * 3 * (1 - hd / 900) * 2; }
         if (hd < 1500) { const acc = bh.k * 9e7 / (hd * hd + 1.5e4); b.vx -= hx / hd * acc * dt; b.vy -= hy / hd * acc * dt; }
@@ -8601,7 +8644,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         if (full > 0) s.stepTo = s.stepFrom + (s.stepTo - s.stepFrom) * L / full;
         s.x = s.px + s.vx / v * L; s.y = s.py + s.vy / v * L;
       }
-      if (s.kind === K.NUKE && (s.x < 0 || s.x > W || s.y < 0 || s.y > H || solidAny(s.x, s.y) || nukeTouches(s))) { detonate(s, now); shots.splice(i, 1); continue; }
+      if ((s.kind === K.NUKE || s.kind === K.VOID) && (s.x < 0 || s.x > W || s.y < 0 || s.y > H || solidAny(s.x, s.y) || nukeTouches(s))) { detonate(s, now); shots.splice(i, 1); continue; }
       if (s.kind === K.HOLY) { holyFlight(s, stepDt); continue; }
       if (s.kind === K.BEACON) {   // the teleporter's beacon: slides to a stop and blinks
         bounceFlight(s, stepDt, 1.9);
@@ -9246,7 +9289,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       energy = 100; energyRegenAt = 0; dashReadyAt = 0; lungeReady = 0;
       flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
       grabbed.clear(); myGrabs.length = 0; drops.clear(); gunDrops.clear(); myDrops.length = 0; myGunDrops.length = 0;
-      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; wallDrips.length = 0; casings.length = 0; meltLines.length = 0; slashes.length = 0; afterBlasts.length = 0; shockQueue.length = 0;
+      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; wallDrips.length = 0; casings.length = 0; meltLines.length = 0; slashes.length = 0; voids.length = 0; afterBlasts.length = 0; shockQueue.length = 0;
       if (shownRound !== -1) {
         myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode);
         // Respawn after rebuilding: a repaired planet must not enclose a pilot in its old tunnel.
@@ -9775,6 +9818,15 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       }
       g.restore();
       g.globalCompositeOperation = "lighter";
+      return;
+    }
+    if (s.kind === K.VOID) {   // the void bomb: a dark orb, light bending round it, a violet ring turning
+      const t = now / 1000;
+      g.save(); g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.5; g.drawImage(dotSprite("#9b5cff"), x - 60, y - 60, 120, 120);
+      g.globalAlpha = 1; g.strokeStyle = "rgba(210,170,255,0.9)"; g.lineWidth = 3;
+      for (let i = 0; i < 3; i++) { g.beginPath(); g.ellipse(x, y, 26, 9, t * 2 + i * 1.05, 0, 6.29); g.stroke(); }
+      g.globalCompositeOperation = "source-over"; g.fillStyle = "#05010a"; g.beginPath(); g.arc(x, y, 15, 0, 6.29); g.fill();
+      g.strokeStyle = "#e9dcff"; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, 16, 0, 6.29); g.stroke(); g.restore();
       return;
     }
     if (s.kind === K.NUKE) {
@@ -10554,9 +10606,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         bannerEl.classList.toggle("warn", ev.warn);
       } else bannerEl.hidden = true;
     }
-    if (ev.active && ev.type === "blackhole") {
+    for (const bh of holesNow()) {
       // shots bend toward the hole and vanish at the horizon
-      const bh = blackHole(ev);
       for (const s of shots) {
         const dx = bh.x - s.x, dy = bh.y - s.y, d = Math.hypot(dx, dy) || 1;
         if (d < 60 * bh.k) { s.life = 0; continue; }
@@ -10564,9 +10615,16 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       }
       // loose rubble and flying wreckage fall in the same way, and whatever reaches the horizon is gone for good
       const eat = HOLE_EAT * bh.k;
+      // (and all the small stuff: smoke, sparks, chunks, cases, drops, spiralling in)
+      for (const list of [parts, chunks, casings, oilDrops]) for (const o of list) {
+        const dx = bh.x - o.x, dy = bh.y - o.y, d = Math.hypot(dx, dy) || 1;
+        if (d > 1600) continue;
+        const acc = bh.k * 6e7 / (d * d + 2e4); o.vx += (dx / d + dy / d * 0.6) * acc * dt; o.vy += (dy / d - dx / d * 0.6) * acc * dt;
+        if (d < eat && list === parts) o.life = Math.min(o.life, 0.05);
+      }
       for (const list of [rubble, hulks, frags, debris]) for (let i = list.length - 1; i >= 0; i--) {
         const o = list[i], dx = bh.x - o.x, dy = bh.y - o.y, d = Math.hypot(dx, dy) || 1;
-        if (d < 1500) { const acc = bh.k * 4e7 / (d * d + 1.5e4); o.vx += dx / d * acc * dt; o.vy += dy / d * acc * dt; }
+        if (d < 1500) { const acc = bh.k * 4e7 / (d * d + 1.5e4); o.vx += (dx / d + dy / d * 0.35) * acc * dt; o.vy += (dy / d - dx / d * 0.35) * acc * dt; }
         if (d < eat + 20) {
           swallowFx(o.x, o.y, bh, list === rubble ? bodyCol(o) : "#c38bff");
           if (list === rubble) { o.dead = true; rebuildBodies(); } else list.splice(i, 1);
@@ -10591,23 +10649,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         }
       }
     }
+    if (playing && !me.dead && roundLive) for (const bh of holesNow()) if (bh.v) holeOnMe(bh, dt, now);   // (a void bomb's hole, whatever the event)
     if (!ev.active || !playing || me.dead || !roundLive) return;   // events leave you alone during the results break
     const mr = 30 * sizeOf(me.lv);
 
-    if (ev.type === "blackhole") {
-      const bh = blackHole(ev), dx = bh.x - me.x, dy = bh.y - me.y, d = Math.hypot(dx, dy) || 1;
-      // pull ~ 1/d^2: drifting is fine far out, under ~200 px only a boost gets you out, under ~140 px nothing does
-      if (d < 1500) {
-        const acc = bh.k * 9e7 / (d * d + 1.5e4);
-        me.vx += dx / d * acc * dt; me.vy += dy / d * acc * dt;
-      }
-      if (d < 60 * bh.k) {
-        floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: "Swallowed!", gold: false });
-        for (let k = 0; k < 60; k++) { const b = Math.random() * 6.28; puff(me.x, me.y, Math.cos(b) * 300, Math.sin(b) * 300, 0.9, 2.6, k % 2 ? "#c38bff" : "#ffffff"); }
-        hurt(now, 99, true);   // the horizon ignores dash invulnerability
-        feedPush(`<span class="v">${esc(me.name || "You")}</span> was swallowed by the black hole`, true);
-      }
-    }
+    if (ev.type === "blackhole") holeOnMe(blackHole(ev), dt, now);
 
     if (ev.type === "meteors") {
       for (let i = 0; i < 40; i++) {
@@ -10787,10 +10833,24 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     g.drawImage(warpCv, 0, 0, size, size, -R, -R, 2 * R, 2 * R);
     g.restore();
   }
-  function drawBlackHole(now) {
-    const ev = eventAt(clockNow());
-    if (!ev.active || ev.type !== "blackhole") return;
-    const bh = blackHole(ev), x = sx(bh.x), y = sy(bh.y), k = bh.k, t = now / 1000;
+  // a black hole on my bin: pulled in ~ 1/d^2, and swallowed at the horizon
+  function holeOnMe(bh, dt, now) {
+      const dx = bh.x - me.x, dy = bh.y - me.y, d = Math.hypot(dx, dy) || 1;
+      // pull ~ 1/d^2: drifting is fine far out, under ~200 px only a boost gets you out, under ~140 px nothing does
+      if (d < 1500) {
+        const acc = bh.k * 9e7 / (d * d + 1.5e4);
+        me.vx += dx / d * acc * dt; me.vy += dy / d * acc * dt;
+      }
+      if (d < 60 * bh.k) {
+        floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: "Swallowed!", gold: false });
+        for (let k = 0; k < 60; k++) { const b = Math.random() * 6.28; puff(me.x, me.y, Math.cos(b) * 300, Math.sin(b) * 300, 0.9, 2.6, k % 2 ? "#c38bff" : "#ffffff"); }
+        hurt(now, 99, true);   // the horizon ignores dash invulnerability
+        feedPush(`<span class="v">${esc(me.name || "You")}</span> was swallowed by the black hole`, true);
+      }
+  }
+  function drawBlackHole(now) { for (const bh of holesNow()) drawHole(bh, now); }
+  function drawHole(bh, now) {
+    const x = sx(bh.x), y = sy(bh.y), k = bh.k, t = now / 1000;
     const R = 360 * k;
     if (!onScreen(x, y, R)) { if (playing) drawEdgeArrow(x, y, "#c38bff"); return; }
     if (!lowQ && R > 30) {
@@ -11762,6 +11822,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     } catch (e) { console.warn("fluid smoke off:", e.message); return null; } })();
     // what stirs and fills the fluid this frame: new blasts and fires (impacts that throw light), rockets, fast bins
     function feedFluid() {
+      // a black hole drinks the smoke in, swirling
+      for (const bh of holesNow()) if (bh.k > 0.05) { fluid.splat(bh.x, bh.y, 260 * bh.k, null, 0, 0, 0, -1400 * bh.k); fluid.splat(bh.x + 200, bh.y, 120, [0.3, 0.12, 0.45], 0.03 * bh.k, 0, -900 * bh.k); fluid.splat(bh.x - 200, bh.y, 120, [0.3, 0.12, 0.45], 0.03 * bh.k, 0, 900 * bh.k); }
       // fires keep smoking while they burn; bins badly hurt smoke too
       for (const m of impacts) if (m.flick && m.t >= 0 && m.t < m.dur) fluid.splat(m.x + (Math.random() - 0.5) * 40, m.y + (Math.random() - 0.5) * 40, 26, [0.2, 0.18, 0.18], 0.12, (Math.random() - 0.5) * 120, (Math.random() - 0.5) * 120);
       const smoking = o => { if (!o.dead && o.lives !== undefined && damageOf(o) > 0.45) fluid.splat(o.x, o.y, 18, [0.22, 0.2, 0.22], 0.06 * damageOf(o), -(o.vx || 0) * 0.3, -(o.vy || 0) * 0.3); };
@@ -11823,7 +11885,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       return lamps;
     }
     const rgbOf = c => { if (c[0] === "#") { const v = parseInt(c.slice(1, 7), 16); return [(v >> 16 & 255) / 255, (v >> 8 & 255) / 255, (v & 255) / 255]; } const p = c.split(",").map(Number); return [p[0] / 255, p[1] / 255, p[2] / 255]; };
-    const SHOT_LIGHT = { [K.ROCKET]: [260, 0.55, 0.45], [K.HROCKET]: [260, 0.55, 0.45], [K.FIRE]: [170, 0.4, 0.3], [K.ORB]: [300, 0.6], [K.GAMMA]: [320, 0.6], [K.NUKE]: [380, 0.7, 0.6], [K.HOLY]: [420, 0.7, 0.3], [K.GREN]: [150, 0.3], [K.PULSE_BOLT]: [150, 0.35] };
+    const SHOT_LIGHT = { [K.ROCKET]: [260, 0.55, 0.45], [K.HROCKET]: [260, 0.55, 0.45], [K.FIRE]: [170, 0.4, 0.3], [K.ORB]: [300, 0.6], [K.GAMMA]: [320, 0.6], [K.NUKE]: [380, 0.7, 0.6], [K.HOLY]: [420, 0.7, 0.3], [K.GREN]: [150, 0.3], [K.PULSE_BOLT]: [150, 0.35], [K.VOID]: [260, 0.5] };
     function gatherLights(now) {
       const list = [], cx = cam.x, cy = cam.y, hw = vw / 2, hh = vh / 2;
       // score: what goes first when there are more than 16 (a lamp counts for less the further it is)

@@ -56,9 +56,8 @@
         bannerEl.classList.toggle("warn", ev.warn);
       } else bannerEl.hidden = true;
     }
-    if (ev.active && ev.type === "blackhole") {
+    for (const bh of holesNow()) {
       // shots bend toward the hole and vanish at the horizon
-      const bh = blackHole(ev);
       for (const s of shots) {
         const dx = bh.x - s.x, dy = bh.y - s.y, d = Math.hypot(dx, dy) || 1;
         if (d < 60 * bh.k) { s.life = 0; continue; }
@@ -66,9 +65,16 @@
       }
       // loose rubble and flying wreckage fall in the same way, and whatever reaches the horizon is gone for good
       const eat = HOLE_EAT * bh.k;
+      // (and all the small stuff: smoke, sparks, chunks, cases, drops, spiralling in)
+      for (const list of [parts, chunks, casings, oilDrops]) for (const o of list) {
+        const dx = bh.x - o.x, dy = bh.y - o.y, d = Math.hypot(dx, dy) || 1;
+        if (d > 1600) continue;
+        const acc = bh.k * 6e7 / (d * d + 2e4); o.vx += (dx / d + dy / d * 0.6) * acc * dt; o.vy += (dy / d - dx / d * 0.6) * acc * dt;
+        if (d < eat && list === parts) o.life = Math.min(o.life, 0.05);
+      }
       for (const list of [rubble, hulks, frags, debris]) for (let i = list.length - 1; i >= 0; i--) {
         const o = list[i], dx = bh.x - o.x, dy = bh.y - o.y, d = Math.hypot(dx, dy) || 1;
-        if (d < 1500) { const acc = bh.k * 4e7 / (d * d + 1.5e4); o.vx += dx / d * acc * dt; o.vy += dy / d * acc * dt; }
+        if (d < 1500) { const acc = bh.k * 4e7 / (d * d + 1.5e4); o.vx += (dx / d + dy / d * 0.35) * acc * dt; o.vy += (dy / d - dx / d * 0.35) * acc * dt; }
         if (d < eat + 20) {
           swallowFx(o.x, o.y, bh, list === rubble ? bodyCol(o) : "#c38bff");
           if (list === rubble) { o.dead = true; rebuildBodies(); } else list.splice(i, 1);
@@ -93,23 +99,11 @@
         }
       }
     }
+    if (playing && !me.dead && roundLive) for (const bh of holesNow()) if (bh.v) holeOnMe(bh, dt, now);   // (a void bomb's hole, whatever the event)
     if (!ev.active || !playing || me.dead || !roundLive) return;   // events leave you alone during the results break
     const mr = 30 * sizeOf(me.lv);
 
-    if (ev.type === "blackhole") {
-      const bh = blackHole(ev), dx = bh.x - me.x, dy = bh.y - me.y, d = Math.hypot(dx, dy) || 1;
-      // pull ~ 1/d^2: drifting is fine far out, under ~200 px only a boost gets you out, under ~140 px nothing does
-      if (d < 1500) {
-        const acc = bh.k * 9e7 / (d * d + 1.5e4);
-        me.vx += dx / d * acc * dt; me.vy += dy / d * acc * dt;
-      }
-      if (d < 60 * bh.k) {
-        floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: "Swallowed!", gold: false });
-        for (let k = 0; k < 60; k++) { const b = Math.random() * 6.28; puff(me.x, me.y, Math.cos(b) * 300, Math.sin(b) * 300, 0.9, 2.6, k % 2 ? "#c38bff" : "#ffffff"); }
-        hurt(now, 99, true);   // the horizon ignores dash invulnerability
-        feedPush(`<span class="v">${esc(me.name || "You")}</span> was swallowed by the black hole`, true);
-      }
-    }
+    if (ev.type === "blackhole") holeOnMe(blackHole(ev), dt, now);
 
     if (ev.type === "meteors") {
       for (let i = 0; i < 40; i++) {
@@ -289,10 +283,24 @@
     g.drawImage(warpCv, 0, 0, size, size, -R, -R, 2 * R, 2 * R);
     g.restore();
   }
-  function drawBlackHole(now) {
-    const ev = eventAt(clockNow());
-    if (!ev.active || ev.type !== "blackhole") return;
-    const bh = blackHole(ev), x = sx(bh.x), y = sy(bh.y), k = bh.k, t = now / 1000;
+  // a black hole on my bin: pulled in ~ 1/d^2, and swallowed at the horizon
+  function holeOnMe(bh, dt, now) {
+      const dx = bh.x - me.x, dy = bh.y - me.y, d = Math.hypot(dx, dy) || 1;
+      // pull ~ 1/d^2: drifting is fine far out, under ~200 px only a boost gets you out, under ~140 px nothing does
+      if (d < 1500) {
+        const acc = bh.k * 9e7 / (d * d + 1.5e4);
+        me.vx += dx / d * acc * dt; me.vy += dy / d * acc * dt;
+      }
+      if (d < 60 * bh.k) {
+        floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: "Swallowed!", gold: false });
+        for (let k = 0; k < 60; k++) { const b = Math.random() * 6.28; puff(me.x, me.y, Math.cos(b) * 300, Math.sin(b) * 300, 0.9, 2.6, k % 2 ? "#c38bff" : "#ffffff"); }
+        hurt(now, 99, true);   // the horizon ignores dash invulnerability
+        feedPush(`<span class="v">${esc(me.name || "You")}</span> was swallowed by the black hole`, true);
+      }
+  }
+  function drawBlackHole(now) { for (const bh of holesNow()) drawHole(bh, now); }
+  function drawHole(bh, now) {
+    const x = sx(bh.x), y = sy(bh.y), k = bh.k, t = now / 1000;
     const R = 360 * k;
     if (!onScreen(x, y, R)) { if (playing) drawEdgeArrow(x, y, "#c38bff"); return; }
     if (!lowQ && R > 30) {

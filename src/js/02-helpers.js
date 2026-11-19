@@ -92,6 +92,19 @@
   }
   const ramp = ev => Math.max(0, Math.min(1, ev.et / 2, (EV_LEN - ev.et) / 2));
   const blackHole = ev => ({ x: 500 + hash(ev.cyc, 78, 1) * (W - 1000), y: 500 + hash(ev.cyc, 78, 2) * (H - 1000), k: ramp(ev) });
+  // every black hole open now: the event's, and those the void bombs opened (each for its dur: it swells open in
+  // the first eighth of a second and closes in its last sixth). v: a void bomb's
+  const voids = [];
+  function holesNow() {
+    const out = [], ev = eventAt(clockNow()), t = performance.now();
+    if (ev.active && ev.type === "blackhole") out.push(blackHole(ev));
+    for (let i = voids.length - 1; i >= 0; i--) {
+      const v = voids[i], a = (t - v.born) / v.dur;
+      if (a >= 1) { voids.splice(i, 1); continue; }
+      out.push({ x: v.x, y: v.y, k: Math.min(1, a * 8) * Math.min(1, (1 - a) * 6), v: true });
+    }
+    return out;
+  }
   // the black hole's pull on everything that moves by the shared clock (planets, moons, wrecks, junk, pick-ups):
   // a spiral toward the hole that deepens through the event and eases back over HOLE_BACK seconds after it, the
   // same in every browser. heavy (0..1): how much it resists. Returns how far in it was dragged (0..0.97)

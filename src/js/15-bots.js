@@ -79,6 +79,7 @@
     const w = botWeapon(b);
     if (w === "nuke") return td > 1200 && td < 2600;
     if (w === "holy") return td > 2100 && td < 3200;
+    if (w === "void") return td > 1600 && td < 2600;   // (well clear of the hole it opens)
     if (WEAPONS[w]?.sword) return td < 230;   // (a blade: only at arm's length)
     return td < 950;
   }
@@ -96,7 +97,7 @@
   function updateBots(dt, now) {
     if (!bots.length) return;
     creditBots(hitBy, false); creditBots(koBy, true);   // bots that hit or killed me
-    const ev = eventAt(clockNow()), bh = ev.active && ev.type === "blackhole" ? blackHole(ev) : null;
+    const holes = holesNow();
     for (const b of bots) {
       if (!b.dead && roundLive) botXp(b, dt * 0.35);   // what a player gets from sparks: about 20 XP a minute
       while (b.shotLog.length && now - b.shotLog[0].at > 700) b.shotLog.shift();
@@ -108,7 +109,7 @@
       }
       const human = b.input;   // flown by a player: the AI below only steers the others
       // nearest living target: me or anyone else in the lobby (other bots included)
-      let tgt = null, td = botWeapon(b) === "holy" ? 3200 : botWeapon(b) === "nuke" ? 2600 : 1700;   // (a big bomb looks further)
+      let tgt = null, td = botWeapon(b) === "holy" ? 3200 : botWeapon(b) === "nuke" || botWeapon(b) === "void" ? 2600 : 1700;   // (a big bomb looks further)
       if (playing && !me.dead && !mates(b, me)) { const d = Math.hypot(me.x - b.x, me.y - b.y); if (d < td) { td = d; tgt = me; } }
       for (const [rid, r] of remotes) {
         if (rid === b.id || r.dead || mates(r, b)) continue;
@@ -193,7 +194,7 @@
           if (gap < 280) { dx += hx / hd * 3 * (1 - gap / 280); dy += hy / hd * 3 * (1 - gap / 280); }
         }
       }
-      if (bh) {   // and away from a black hole
+      for (const bh of holes) {   // and away from a black hole (the event's, a void bomb's)
         const hx = b.x - bh.x, hy = b.y - bh.y, hd = Math.hypot(hx, hy) || 1;
         if (hd < 900 && !human) { dx += hx / hd * 3 * (1 - hd / 900) * 2; dy += hy / hd * 3 * (1 - hd / 900) * 2; }
         if (hd < 1500) { const acc = bh.k * 9e7 / (hd * hd + 1.5e4); b.vx -= hx / hd * acc * dt; b.vy -= hy / hd * acc * dt; }

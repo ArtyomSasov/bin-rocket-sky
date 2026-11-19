@@ -276,7 +276,7 @@
     : type === "truck" ? [380 + rnd(1) * 60, 150 + rnd(2) * 20] : type === "wheelie" ? [150 + rnd(1) * 30, 210 + rnd(2) * 40]
     : type === "bales" ? [230 + rnd(1) * 40, 180 + rnd(2) * 30] : [300 + rnd(1) * 60, 120 + rnd(2) * 30];
   // the arena's fixed spots in world units: guns, supplies, Overdrive and the two big bombs (see 01b-arenas.js)
-  let arena = { guns: [], supplies: [], amp: null, nuke: null, holy: null, pads: [] };
+  let arena = { guns: [], supplies: [], amp: null, nuke: null, holy: null, void: null, pads: [] };
   // the Large and Huge arenas: more pairs in the widest gaps, found the same way every time (no randomness)
   function widestGap(taken, pad, edge) {
     let best = null, bd = -1;
@@ -378,6 +378,8 @@
       amp: A.amp ? spot(["amp", ...A.amp], 200, AMP_PERIOD) : null,
       nuke: A.nuke && (big || modeOf(code) === "n" || modeOf(code) === "x") ? spot(["nuke", ...A.nuke], 201, BOMB_CRATES.nuke.period) : null,
       holy: A.holy && (big || modeOf(code) === "x") ? spot(["holy", ...A.holy], 202, BOMB_CRATES.holy.period) : null,
+      // the void bomb's crate: across the map from the nuke's (mirrored), where nukes lie out
+      void: A.nuke && (big || modeOf(code) === "n" || modeOf(code) === "x") ? spot(["void", 1 - A.nuke[0], 1 - A.nuke[1]], 203, BOMB_CRATES.void.period) : null,
       pads: BOOST_PADS ? padList.map(([, fx, fy, deg]) => ({ x: fx * W, y: fy * H, a: deg / 57.2958 })) : []   // (their places are still kept clear)
     };
     PICKS = arena.guns.length; SUPPLY_SLOTS = arena.supplies.length;
