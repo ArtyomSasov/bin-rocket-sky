@@ -114,7 +114,9 @@
   const shielded = o => typeof o.inv === "number" ? performance.now() < o.inv : !!o.inv;
   function recordHitPose(o, now) {
     let h = o.hitHistory || (o.hitHistory = []), prev = h[h.length - 1];
-    if (prev && (prev.dead !== !!o.dead || prev.inv !== o.inv || Math.hypot(o.x - prev.x, o.y - prev.y) > 180)) h.length = 0;
+    // (a death or a jump starts it again; a dash's invulnerability does not: each pose keeps its own, so a shot judged in
+    // the past meets the target as it was then, before it dashed out of it)
+    if (prev && (prev.dead !== !!o.dead || Math.hypot(o.x - prev.x, o.y - prev.y) > 180)) h.length = 0;
     if (h.length && now - h[h.length - 1].at < 8) return;
     h.push({ at: now, x: o.x, y: o.y, lv: o.lv, inv: o.inv, dead: !!o.dead });
     while (h.length > 48 || (h.length > 1 && now - h[0].at > 600)) h.shift();
@@ -397,9 +399,12 @@
     metricVolley(p, pat);
     const mine = p === me, [kind, speed] = pat.shot, amp = ((mine ? me.ampUntil : p.ampUntil || 0) > now ? QUAD : 1) * mul, ride = kind === K.GREN || kind === K.HOLY || kind === K.MINE ? .6 : 0;
     const base = (aim ?? p.a) + (pat.back ? Math.PI : 0), sz = sizeOf(p.lv || 1);
-    let s;
+    let s, vi = 0;
+    // the spread's number: a player's shot fired by a flight command is numbered by that command (jk) and its place in
+    // the volley, which the screen and the server both know exactly; any other by the shot count
+    const jk = mine ? (serverRun ? srv.jk : undefined) : p.jk;
     for (const da of pat.spread || [0]) {
-      const n = mine ? (serverRun ? srv.pseq + srv.seqOff : shotSeq) : p.seq, tag = mine ? (serverRun ? srv.tag : myTag) : p.tag;
+      const n = Number.isSafeInteger(jk) ? jk * 16 + (vi++ & 15) : mine ? (serverRun ? srv.pseq + srv.seqOff : shotSeq) : p.seq, tag = mine ? (serverRun ? srv.tag : myTag) : p.tag;
       const ja = pat.jitter ? shotJitter(tag, n, pat.jitter) : 0, bx = Math.cos(base + da + ja), by = Math.sin(base + da + ja);
       const id = (mine ? myTag : p.tag) + "." + (mine ? shotSeq++ : p.seq++).toString(36);
       const ox = from ? from.x : p.x + bx * 42 * sz, oy = from ? from.y : p.y + by * 42 * sz;

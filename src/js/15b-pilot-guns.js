@@ -35,14 +35,18 @@
   // ld is the screen's word, so it is believed only as far as an honest one goes: two snapshot gaps and some
   // jitter (LD_MAX); the round trip is the server's own measure (the shortest of the recent ones), and the whole
   // rewind is capped (REWIND_MS)
-  const LD_MAX = 100;
+  const LD_MAX = 150;   // (a screen shows the others at most 150 ms back: srv.interp)
   // A shot from a flight command also waited in the command queue before it was flown (cmdWait): the server's own
   // measure, from when the command came in, so its targets are judged that much further back too. Nothing in it is
   // the screen's word but ld, capped as before
   function pilotLag(s, p, now) {
     if (!p.input || !(p.rtt > 0)) return;
     const ld = Math.min(p.input.ld, LD_MAX), wait = p.cmdWait >= 0 ? Math.min(p.cmdWait, 200) : 0;
-    const lag = clamp(ld >= 0 ? p.rtt + ld + 1000 / 60 + wait : p.rtt / 2, 0, REWIND_MS);
+    let lag = ld >= 0 ? p.rtt + ld + 1000 / 60 + wait : p.rtt / 2;
+    // the screen says which moment of the others it showed (viewAt, as Source's command carries its view's tick): that
+    // moment exactly, with no guess at the way there and back; believed only within 60 ms of the estimate above
+    if (p.viewAt > 0 && ld >= 0 && now >= p.viewAt) lag = clamp(now - p.viewAt, lag - 60, lag + 60);
+    lag = clamp(lag, 0, REWIND_MS);
     s.hitTime = now - lag;
     if (straightShot(s.kind)) s.catchup = lag / 1000;
   }

@@ -248,7 +248,8 @@
             // the trigger as this command held it, aimed as it was aimed, before the command's flight, as the player's
             // screen fires before it flies its frame (Source and Overwatch fire from the user command the same way)
             b.a = c.aim; human.fire = !!c.fire; human.alt = !!c.alt;
-            b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; pilotTriggers(b, CMD_DT, now); b.cmdWait = -1;
+            b.fireCd -= CMD_DT;   // (the cooldown runs by commands too, as on the player's screen)
+            b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; b.viewAt = c.va > 0 ? c.va : -1; b.jk = c.s; pilotTriggers(b, CMD_DT, now); b.cmdWait = b.viewAt = -1; b.jk = undefined;
             const g = pilotMove(b, c);
             f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
           }
@@ -299,7 +300,7 @@
       if (b.y < 40 || b.y > H - 40) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 40, H - 40); }
       }
       // shoot when the nose points at the target (where it will be)
-      b.fireCd -= dt;
+      if (!b.cq) b.fireCd -= dt;   // (a player flown by commands: by each command, above)
       // shock combo: once its orb hangs near the target, a bot shoots the orb with the beam (harder bots do it more)
       if (b.orb && (b.orb.life <= 0 || !shots.includes(b.orb))) b.orb = null;
       if (!human && b.orb && tgt && botWeapon(b) === "orb" && SHOTS[K.ORB].life - b.orb.life > 0.5 && Math.hypot(tgt.x - b.orb.x, tgt.y - b.orb.y) < 260
@@ -336,9 +337,11 @@
         botHurt(b, me.boostFx === 2 ? 1.2 : 0.6, myTag + ".ram" + Math.floor(now), now, false);
       }
       recordHitPose(b, now);
-      // anyone's shots can hit the bot (the bot's own excepted)
-      if (now < b.inv) continue;
+      // anyone's shots can hit the bot (the bot's own excepted). Its invulnerability now (a dash, a respawn) stops a
+      // shot judged now; a player's shot judged in the past (lag compensation) meets it as it was then (targetHit)
+      const invNow = now < b.inv;
       for (const s of shots) {
+        if (invNow && !(s.hitTime && HITSCAN[s.kind] && !s.mine)) continue;
         if (s.life <= 0 || SHOTS[s.kind].inert || !canHurt(s, b, b.id)) continue;
         if (s.kind === K.MINE && SHOTS[K.MINE].life - s.life < MINE_ARM) continue;
         if (targetHit(s, b)) {

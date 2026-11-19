@@ -7,18 +7,11 @@
     if (left === ampShown) return;
     ampShown = left; ampChip.hidden = !left; ampChip.textContent = "QUAD DAMAGE x4 · " + left + "s";
   }
-  // controls: respawn when due, fire, read the stick / keys / mouse, boost energy
-  function steerAndShoot(dt, now) {
-    // input → acceleration
-    let ix = 0, iy = 0;
-    const shiftHeld = keys.has("ShiftLeft") || keys.has("ShiftRight");
-    let boost = (shiftHeld || boostBtnDown) && boostDownAt >= 0 && now - boostDownAt > BOOST_HOLD * 1000 && !keys.has("KeyX");
-    if (me.dead && now >= me.respawnAt && !serverRun) respawn(now);   // the server respawns my pilot where it chooses
-    fireCd -= dt; shake = Math.max(0, shake - dt);
-    const aimM = mouseAim();
-    const held = firing || FIRE_KEYS.some(k => keys.has(k)) || (aimM && ptr.down);   // with mouse aim the left button fires
+  // the trigger, for dt seconds: cooldown, charge, rocket loading, and the shots it lets go
+  function fireTick(dt, now, held, altHeld) {
+    fireCd -= dt;
     const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided && (!serverRun || srv.joined);   // on the server my shots are only shown (12c-server.js)
-    const altW = WEAPONS[me.weapon].alt, altHeld = altFiring || keys.has("KeyC");
+    const altW = WEAPONS[me.weapon].alt;
     rocketLoadTick(dt, now, altHeld, ready);
     if (altW && altW.charge) {   // rail alt: hold to widen the cutter, release to open a short breach
       if (altHeld && ready && me.arsenal[me.weapon] >= altW.cost) {
@@ -33,6 +26,22 @@
     me.heat = Math.max(0, (me.heat || 0) - 0.45 * dt); if (me.overheat && me.heat < 0.3) { me.overheat = false; renderAmmo(me.weapon); audioCue("ready"); }
     if (ready && altHeld && altW && !altW.charge && !altW.load) { triggerTick(dt, now, false, held); shoot(now, true); }
     else if (triggerTick(dt, now, ready && fireCd <= 0 && !(altHeld && (altW?.charge || altW?.load)) && railCharge === 0, held) || (ready && me.weapon === "gauntlet" && now < (me.lungeUntil || 0))) shoot(now);   // a lunge lands blows too
+  }
+  // controls: respawn when due, fire, read the stick / keys / mouse, boost energy
+  function steerAndShoot(dt, now) {
+    // input → acceleration
+    let ix = 0, iy = 0;
+    const shiftHeld = keys.has("ShiftLeft") || keys.has("ShiftRight");
+    let boost = (shiftHeld || boostBtnDown) && boostDownAt >= 0 && now - boostDownAt > BOOST_HOLD * 1000 && !keys.has("KeyX");
+    if (me.dead && now >= me.respawnAt && !serverRun) respawn(now);   // the server respawns my pilot where it chooses
+    shake = Math.max(0, shake - dt);
+    const aimM = mouseAim();
+    const held = firing || FIRE_KEYS.some(k => keys.has(k)) || (aimM && ptr.down);   // with mouse aim the left button fires
+    const altHeld = altFiring || keys.has("KeyC");
+    // on the game server the trigger is pulled once per flight command (flyCmds), as the server pulls it: the same
+    // moments, the same shots in the same order (their spread is numbered by them), the same aim; offline every frame
+    srv.trig = { held, altHeld };
+    if (!(serverRun && srv.joined && playing && !me.dead)) fireTick(dt, now, held, altHeld);
     if (playing && !me.dead) {
       if (keys.has("KeyA") || keys.has("ArrowLeft")) ix -= 1;
       if (keys.has("KeyD") || keys.has("ArrowRight")) ix += 1;
@@ -212,9 +221,11 @@
       const c = { s: ++srv.cs, mx: r3(c0.mx), my: r3(c0.my), aim: r3(Math.atan2(Math.sin(me.a), Math.cos(me.a))), boost: !!c0.boostReq, brake: braking, dash: srv.dashN,
         fire: !!c0.fire && roundLive, alt: !!c0.alt && roundLive,   // the trigger too: the server fires on this command, with this aim
         kx: srv.kx || 0, ky: srv.ky || 0,   // the recoil my shots gave before it (the server gives its own; a replay needs mine)
-        ct: Math.round(clockNow()) };   // when (shared clock): the junk rocks are met where they were then
+        ct: Math.round(clockNow()),   // when (shared clock): the junk rocks are met where they were then
+        vt: serverRun ? Math.round(Date.now() + (srv.off || 0) - srv.interp) : 0 };   // the moment of the others shown now (serverInterp)
       srv.kx = srv.ky = 0;
       srv.cmds.push(c); if (srv.cmds.length > 240) srv.cmds.shift();
+      if (srv.trig) { me.a = c.aim; srv.jk = c.s; fireTick(CMD_DT, performance.now(), srv.trig.held, srv.trig.altHeld); srv.jk = undefined; }   // the trigger, before the flight (as the server)
       const g = pilotMove(me, c);
       f = { crash: g.crash || f.crash, fence: g.fence || f.fence, drift: g.drift, dashed: g.dashed !== false ? g.dashed : f.dashed, lit: g.lit || f.lit, rock: g.rock || f.rock };
     }

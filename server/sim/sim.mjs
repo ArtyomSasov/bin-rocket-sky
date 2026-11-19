@@ -108,8 +108,11 @@ export function cleanInput(i = {}) {
     gx: unit(i.gx), gy: unit(i.gy), gb: count(i.gb),   // a guided nuke: the stick steering it, and the count of blow-ups
     // c: the newest flight commands, [number, stick x, stick y (thousandths), facing (thousandths of a radian),
     // boost 1 + brake 2, dash count] (pilotMove in src/js/17-update.js); a few repeat in each message, for losses
-    ...(Array.isArray(i.c) ? { c: i.c.slice(-16).filter(e => Array.isArray(e) && (e.length === 6 || e.length === 7) && e.every(Number.isSafeInteger) && e[0] > 0).map(e => ({
-      ct: e.length === 7 && Number.isFinite(i.cb) ? i.cb - Math.max(0, Math.min(5000, e[6])) : 0,
+    ...(Array.isArray(i.c) ? { c: i.c.slice(-16).filter(e => Array.isArray(e) && e.length >= 6 && e.length <= 8 && e.every(Number.isSafeInteger) && e[0] > 0).map(e => ({
+      ct: e.length >= 7 && Number.isFinite(i.cb) ? i.cb - Math.max(0, Math.min(5000, e[6])) : 0,
+      // va: the moment of the others their screen showed as it made this command (their 8th number: how long before vb,
+      // in the snapshots' own time), here on this process's clock; only a bound on it is believed (pilotLag)
+      va: e.length === 8 && Number.isFinite(i.vb) ? i.vb - Math.max(0, Math.min(5000, e[7])) - performance.timeOrigin : 0,
       s: e[0], mx: unit(e[1] / 1000), my: unit(e[2] / 1000), aim: Math.max(-4, Math.min(4, e[3] / 1000)), boost: !!(e[4] & 1), brake: !!(e[4] & 2), fire: !!(e[4] & 4), alt: !!(e[4] & 8), dash: Math.max(0, e[5]) })) } : {}),
     ld: Number.isFinite(i.ld) ? Math.max(0, Math.min(150, Math.round(i.ld))) : -1 };   // ld: how far back their screen shows the others (ms; -1: not said)
 }

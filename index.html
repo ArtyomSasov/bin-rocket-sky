@@ -4274,7 +4274,9 @@ details.controls[open] .clist { margin-top: 8px; }
   const shielded = o => typeof o.inv === "number" ? performance.now() < o.inv : !!o.inv;
   function recordHitPose(o, now) {
     let h = o.hitHistory || (o.hitHistory = []), prev = h[h.length - 1];
-    if (prev && (prev.dead !== !!o.dead || prev.inv !== o.inv || Math.hypot(o.x - prev.x, o.y - prev.y) > 180)) h.length = 0;
+    // (a death or a jump starts it again; a dash's invulnerability does not: each pose keeps its own, so a shot judged in
+    // the past meets the target as it was then, before it dashed out of it)
+    if (prev && (prev.dead !== !!o.dead || Math.hypot(o.x - prev.x, o.y - prev.y) > 180)) h.length = 0;
     if (h.length && now - h[h.length - 1].at < 8) return;
     h.push({ at: now, x: o.x, y: o.y, lv: o.lv, inv: o.inv, dead: !!o.dead });
     while (h.length > 48 || (h.length > 1 && now - h[0].at > 600)) h.shift();
@@ -4557,9 +4559,12 @@ details.controls[open] .clist { margin-top: 8px; }
     metricVolley(p, pat);
     const mine = p === me, [kind, speed] = pat.shot, amp = ((mine ? me.ampUntil : p.ampUntil || 0) > now ? QUAD : 1) * mul, ride = kind === K.GREN || kind === K.HOLY || kind === K.MINE ? .6 : 0;
     const base = (aim ?? p.a) + (pat.back ? Math.PI : 0), sz = sizeOf(p.lv || 1);
-    let s;
+    let s, vi = 0;
+    // the spread's number: a player's shot fired by a flight command is numbered by that command (jk) and its place in
+    // the volley, which the screen and the server both know exactly; any other by the shot count
+    const jk = mine ? (serverRun ? srv.jk : undefined) : p.jk;
     for (const da of pat.spread || [0]) {
-      const n = mine ? (serverRun ? srv.pseq + srv.seqOff : shotSeq) : p.seq, tag = mine ? (serverRun ? srv.tag : myTag) : p.tag;
+      const n = Number.isSafeInteger(jk) ? jk * 16 + (vi++ & 15) : mine ? (serverRun ? srv.pseq + srv.seqOff : shotSeq) : p.seq, tag = mine ? (serverRun ? srv.tag : myTag) : p.tag;
       const ja = pat.jitter ? shotJitter(tag, n, pat.jitter) : 0, bx = Math.cos(base + da + ja), by = Math.sin(base + da + ja);
       const id = (mine ? myTag : p.tag) + "." + (mine ? shotSeq++ : p.seq++).toString(36);
       const ox = from ? from.x : p.x + bx * 42 * sz, oy = from ? from.y : p.y + by * 42 * sz;
@@ -6151,7 +6156,8 @@ details.controls[open] .clist { margin-top: 8px; }
     // every flight command the server has not confirmed yet (up to 16), as Quake 3 sends them: whatever was lost or
     // came late on the way goes again in the next message (srv.cmds holds only the unconfirmed: reconcile drops the rest)
     const now0 = Math.round(clockNow());   // (each command's moment goes as how long before this one it was made)
-    if (srv.cmds.length) { i.c = srv.cmds.slice(-16).map(c => [c.s, Math.round(c.mx * 1000), Math.round(c.my * 1000), Math.round(c.aim * 1000), (c.boost ? 1 : 0) | (c.brake ? 2 : 0) | (c.fire ? 4 : 0) | (c.alt ? 8 : 0), c.dash, Math.max(0, Math.min(5000, now0 - c.ct))]); i.cb = now0; srv.sentCs = srv.cs; }
+    const vb = Math.round(Date.now() + (srv.off || 0));   // (and the moment of the others it showed, before this one in the snapshots' time)
+    if (srv.cmds.length) { i.c = srv.cmds.slice(-16).map(c => [c.s, Math.round(c.mx * 1000), Math.round(c.my * 1000), Math.round(c.aim * 1000), (c.boost ? 1 : 0) | (c.brake ? 2 : 0) | (c.fire ? 4 : 0) | (c.alt ? 8 : 0), c.dash, Math.max(0, Math.min(5000, now0 - c.ct)), Math.max(0, Math.min(5000, vb - (c.vt || vb)))]); i.cb = now0; i.vb = vb; srv.sentCs = srv.cs; }
     i.s = ++srv.seq; srv.sent.set(i.s, t); i.sa = srv.snapQ;   // sa: the newest snapshot I hold (the next delta builds on it)
     if (srv.sent.size > 240) for (const [k, at] of srv.sent) { if (t - at < 3000) break; srv.sent.delete(k); }
     toServer(i);
@@ -7014,7 +7020,8 @@ details.controls[open] .clist { margin-top: 8px; }
             // the trigger as this command held it, aimed as it was aimed, before the command's flight, as the player's
             // screen fires before it flies its frame (Source and Overwatch fire from the user command the same way)
             b.a = c.aim; human.fire = !!c.fire; human.alt = !!c.alt;
-            b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; pilotTriggers(b, CMD_DT, now); b.cmdWait = -1;
+            b.fireCd -= CMD_DT;   // (the cooldown runs by commands too, as on the player's screen)
+            b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; b.viewAt = c.va > 0 ? c.va : -1; b.jk = c.s; pilotTriggers(b, CMD_DT, now); b.cmdWait = b.viewAt = -1; b.jk = undefined;
             const g = pilotMove(b, c);
             f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
           }
@@ -7065,7 +7072,7 @@ details.controls[open] .clist { margin-top: 8px; }
       if (b.y < 40 || b.y > H - 40) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 40, H - 40); }
       }
       // shoot when the nose points at the target (where it will be)
-      b.fireCd -= dt;
+      if (!b.cq) b.fireCd -= dt;   // (a player flown by commands: by each command, above)
       // shock combo: once its orb hangs near the target, a bot shoots the orb with the beam (harder bots do it more)
       if (b.orb && (b.orb.life <= 0 || !shots.includes(b.orb))) b.orb = null;
       if (!human && b.orb && tgt && botWeapon(b) === "orb" && SHOTS[K.ORB].life - b.orb.life > 0.5 && Math.hypot(tgt.x - b.orb.x, tgt.y - b.orb.y) < 260
@@ -7102,9 +7109,11 @@ details.controls[open] .clist { margin-top: 8px; }
         botHurt(b, me.boostFx === 2 ? 1.2 : 0.6, myTag + ".ram" + Math.floor(now), now, false);
       }
       recordHitPose(b, now);
-      // anyone's shots can hit the bot (the bot's own excepted)
-      if (now < b.inv) continue;
+      // anyone's shots can hit the bot (the bot's own excepted). Its invulnerability now (a dash, a respawn) stops a
+      // shot judged now; a player's shot judged in the past (lag compensation) meets it as it was then (targetHit)
+      const invNow = now < b.inv;
       for (const s of shots) {
+        if (invNow && !(s.hitTime && HITSCAN[s.kind] && !s.mine)) continue;
         if (s.life <= 0 || SHOTS[s.kind].inert || !canHurt(s, b, b.id)) continue;
         if (s.kind === K.MINE && SHOTS[K.MINE].life - s.life < MINE_ARM) continue;
         if (targetHit(s, b)) {
@@ -7195,14 +7204,18 @@ details.controls[open] .clist { margin-top: 8px; }
   // ld is the screen's word, so it is believed only as far as an honest one goes: two snapshot gaps and some
   // jitter (LD_MAX); the round trip is the server's own measure (the shortest of the recent ones), and the whole
   // rewind is capped (REWIND_MS)
-  const LD_MAX = 100;
+  const LD_MAX = 150;   // (a screen shows the others at most 150 ms back: srv.interp)
   // A shot from a flight command also waited in the command queue before it was flown (cmdWait): the server's own
   // measure, from when the command came in, so its targets are judged that much further back too. Nothing in it is
   // the screen's word but ld, capped as before
   function pilotLag(s, p, now) {
     if (!p.input || !(p.rtt > 0)) return;
     const ld = Math.min(p.input.ld, LD_MAX), wait = p.cmdWait >= 0 ? Math.min(p.cmdWait, 200) : 0;
-    const lag = clamp(ld >= 0 ? p.rtt + ld + 1000 / 60 + wait : p.rtt / 2, 0, REWIND_MS);
+    let lag = ld >= 0 ? p.rtt + ld + 1000 / 60 + wait : p.rtt / 2;
+    // the screen says which moment of the others it showed (viewAt, as Source's command carries its view's tick): that
+    // moment exactly, with no guess at the way there and back; believed only within 60 ms of the estimate above
+    if (p.viewAt > 0 && ld >= 0 && now >= p.viewAt) lag = clamp(now - p.viewAt, lag - 60, lag + 60);
+    lag = clamp(lag, 0, REWIND_MS);
     s.hitTime = now - lag;
     if (straightShot(s.kind)) s.catchup = lag / 1000;
   }
@@ -7450,18 +7463,11 @@ details.controls[open] .clist { margin-top: 8px; }
     if (left === ampShown) return;
     ampShown = left; ampChip.hidden = !left; ampChip.textContent = "QUAD DAMAGE x4 · " + left + "s";
   }
-  // controls: respawn when due, fire, read the stick / keys / mouse, boost energy
-  function steerAndShoot(dt, now) {
-    // input → acceleration
-    let ix = 0, iy = 0;
-    const shiftHeld = keys.has("ShiftLeft") || keys.has("ShiftRight");
-    let boost = (shiftHeld || boostBtnDown) && boostDownAt >= 0 && now - boostDownAt > BOOST_HOLD * 1000 && !keys.has("KeyX");
-    if (me.dead && now >= me.respawnAt && !serverRun) respawn(now);   // the server respawns my pilot where it chooses
-    fireCd -= dt; shake = Math.max(0, shake - dt);
-    const aimM = mouseAim();
-    const held = firing || FIRE_KEYS.some(k => keys.has(k)) || (aimM && ptr.down);   // with mouse aim the left button fires
+  // the trigger, for dt seconds: cooldown, charge, rocket loading, and the shots it lets go
+  function fireTick(dt, now, held, altHeld) {
+    fireCd -= dt;
     const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided && (!serverRun || srv.joined);   // on the server my shots are only shown (12c-server.js)
-    const altW = WEAPONS[me.weapon].alt, altHeld = altFiring || keys.has("KeyC");
+    const altW = WEAPONS[me.weapon].alt;
     rocketLoadTick(dt, now, altHeld, ready);
     if (altW && altW.charge) {   // rail alt: hold to widen the cutter, release to open a short breach
       if (altHeld && ready && me.arsenal[me.weapon] >= altW.cost) {
@@ -7476,6 +7482,22 @@ details.controls[open] .clist { margin-top: 8px; }
     me.heat = Math.max(0, (me.heat || 0) - 0.45 * dt); if (me.overheat && me.heat < 0.3) { me.overheat = false; renderAmmo(me.weapon); audioCue("ready"); }
     if (ready && altHeld && altW && !altW.charge && !altW.load) { triggerTick(dt, now, false, held); shoot(now, true); }
     else if (triggerTick(dt, now, ready && fireCd <= 0 && !(altHeld && (altW?.charge || altW?.load)) && railCharge === 0, held) || (ready && me.weapon === "gauntlet" && now < (me.lungeUntil || 0))) shoot(now);   // a lunge lands blows too
+  }
+  // controls: respawn when due, fire, read the stick / keys / mouse, boost energy
+  function steerAndShoot(dt, now) {
+    // input → acceleration
+    let ix = 0, iy = 0;
+    const shiftHeld = keys.has("ShiftLeft") || keys.has("ShiftRight");
+    let boost = (shiftHeld || boostBtnDown) && boostDownAt >= 0 && now - boostDownAt > BOOST_HOLD * 1000 && !keys.has("KeyX");
+    if (me.dead && now >= me.respawnAt && !serverRun) respawn(now);   // the server respawns my pilot where it chooses
+    shake = Math.max(0, shake - dt);
+    const aimM = mouseAim();
+    const held = firing || FIRE_KEYS.some(k => keys.has(k)) || (aimM && ptr.down);   // with mouse aim the left button fires
+    const altHeld = altFiring || keys.has("KeyC");
+    // on the game server the trigger is pulled once per flight command (flyCmds), as the server pulls it: the same
+    // moments, the same shots in the same order (their spread is numbered by them), the same aim; offline every frame
+    srv.trig = { held, altHeld };
+    if (!(serverRun && srv.joined && playing && !me.dead)) fireTick(dt, now, held, altHeld);
     if (playing && !me.dead) {
       if (keys.has("KeyA") || keys.has("ArrowLeft")) ix -= 1;
       if (keys.has("KeyD") || keys.has("ArrowRight")) ix += 1;
@@ -7655,9 +7677,11 @@ details.controls[open] .clist { margin-top: 8px; }
       const c = { s: ++srv.cs, mx: r3(c0.mx), my: r3(c0.my), aim: r3(Math.atan2(Math.sin(me.a), Math.cos(me.a))), boost: !!c0.boostReq, brake: braking, dash: srv.dashN,
         fire: !!c0.fire && roundLive, alt: !!c0.alt && roundLive,   // the trigger too: the server fires on this command, with this aim
         kx: srv.kx || 0, ky: srv.ky || 0,   // the recoil my shots gave before it (the server gives its own; a replay needs mine)
-        ct: Math.round(clockNow()) };   // when (shared clock): the junk rocks are met where they were then
+        ct: Math.round(clockNow()),   // when (shared clock): the junk rocks are met where they were then
+        vt: serverRun ? Math.round(Date.now() + (srv.off || 0) - srv.interp) : 0 };   // the moment of the others shown now (serverInterp)
       srv.kx = srv.ky = 0;
       srv.cmds.push(c); if (srv.cmds.length > 240) srv.cmds.shift();
+      if (srv.trig) { me.a = c.aim; srv.jk = c.s; fireTick(CMD_DT, performance.now(), srv.trig.held, srv.trig.altHeld); srv.jk = undefined; }   // the trigger, before the flight (as the server)
       const g = pilotMove(me, c);
       f = { crash: g.crash || f.crash, fence: g.fence || f.fence, drift: g.drift, dashed: g.dashed !== false ? g.dashed : f.dashed, lit: g.lit || f.lit, rock: g.rock || f.rock };
     }
