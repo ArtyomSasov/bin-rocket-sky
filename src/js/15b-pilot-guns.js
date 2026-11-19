@@ -44,8 +44,9 @@
     const ld = Math.min(p.input.ld, LD_MAX), wait = p.cmdWait >= 0 ? Math.min(p.cmdWait, 200) : 0;
     let lag = ld >= 0 ? p.rtt + ld + 1000 / 60 + wait : p.rtt / 2;
     // the screen says which moment of the others it showed (viewAt, as Source's command carries its view's tick): that
-    // moment exactly, with no guess at the way there and back; believed only within 60 ms of the estimate above
-    if (p.viewAt > 0 && ld >= 0 && now >= p.viewAt) lag = clamp(now - p.viewAt, lag - 60, lag + 60);
+    // moment exactly, with no guess at the way there and back; believed only from 60 ms under the estimate above to
+    // 25 ms over it (a screen lying about it gains at most 25 ms of rewind)
+    if (p.viewAt > 0 && ld >= 0 && now >= p.viewAt) lag = clamp(now - p.viewAt, lag - 60, lag + 25);
     lag = clamp(lag, 0, REWIND_MS);
     s.hitTime = now - lag;
     if (straightShot(s.kind)) s.catchup = lag / 1000;

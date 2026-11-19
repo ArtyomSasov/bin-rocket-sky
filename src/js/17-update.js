@@ -197,7 +197,7 @@
   }
   // a player's command queue starts afresh (a respawn, a new round): nothing old is flown again or owed, and the
   // allowance does not count the time spent dead
-  function resetCmds(b) { if (!b.cq) return; b.cq.length = 0; b.cqBudget = 0; b.cqAt = undefined; b.cqOwed = 0; b.lastCmd = null; }
+  function resetCmds(b) { if (!b.cq) return; b.cq.length = 0; b.cqBudget = 0; b.cqAt = undefined; b.cqOwed = 0; b.lastCmd = null; b.jkN = undefined; }   // (jkN: counted again from the next command)
   // what a command flight carries from one command to the next (sent by the server for the player's own pilot)
   const MOVE_STATE = ["x", "y", "vx", "vy", "a", "energy", "regenWait", "dashCool", "dashFx", "dashDone", "mt", "padAt"];
   // (exact, not rounded: a bounce off a wall turns on fractions of a pixel, and the replay must bounce the same)

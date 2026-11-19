@@ -241,7 +241,10 @@
             // the next one is missing but later ones are here (lost or overtaken on the way): a moment's wait for it
             // (cmdAck: the number of the last command flown; it is not the controls messages' number, ackSeq)
             if (cmds.length && cmds[0].s !== (b.cmdAck || 0) + 1 && b.cmdAck && b.cqBudget < CMD_DT * 8) break;
-            if (cmds.length) { c = cmds.shift(); b.lastCmd = c; b.cmdAck = c.s; }
+            // jkN: the spread's number for this command's shots, counted here one by one (from the first command, or a
+            // screen starting its count again at 1), so a screen cannot pick its numbers by skipping some; an honest
+            // one, sending them all, counts the same (c.s). A command flown again (below) has none
+            if (cmds.length) { c = cmds.shift(); b.lastCmd = c; b.cmdAck = c.s; b.jkN = b.jkN === undefined || c.s === 1 ? c.s : b.jkN + 1; c = { ...c, jk: b.jkN }; }
             else if (b.cqBudget >= CMD_DT * 8) { c = b.lastCmd || { mx: 0, my: 0, aim: b.a, boost: false, brake: false, fire: false, alt: false, dash: b.dashDone || 0 }; b.cqOwed = Math.min(30, (b.cqOwed || 0) + 1); b.cqRepeats = (b.cqRepeats || 0) + 1; }
             else break;
             b.cqBudget -= CMD_DT;
@@ -249,7 +252,7 @@
             // screen fires before it flies its frame (Source and Overwatch fire from the user command the same way)
             b.a = c.aim; human.fire = !!c.fire; human.alt = !!c.alt;
             b.fireCd -= CMD_DT;   // (the cooldown runs by commands too, as on the player's screen)
-            b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; b.viewAt = c.va > 0 ? c.va : -1; b.jk = c.s; pilotTriggers(b, CMD_DT, now); b.cmdWait = b.viewAt = -1; b.jk = undefined;
+            b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; b.viewAt = c.va > 0 ? c.va : -1; b.jk = c.jk; pilotTriggers(b, CMD_DT, now); b.cmdWait = b.viewAt = -1; b.jk = undefined;
             const g = pilotMove(b, c);
             f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
           }

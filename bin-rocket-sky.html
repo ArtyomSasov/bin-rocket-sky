@@ -7051,7 +7051,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
             // the next one is missing but later ones are here (lost or overtaken on the way): a moment's wait for it
             // (cmdAck: the number of the last command flown; it is not the controls messages' number, ackSeq)
             if (cmds.length && cmds[0].s !== (b.cmdAck || 0) + 1 && b.cmdAck && b.cqBudget < CMD_DT * 8) break;
-            if (cmds.length) { c = cmds.shift(); b.lastCmd = c; b.cmdAck = c.s; }
+            // jkN: the spread's number for this command's shots, counted here one by one (from the first command, or a
+            // screen starting its count again at 1), so a screen cannot pick its numbers by skipping some; an honest
+            // one, sending them all, counts the same (c.s). A command flown again (below) has none
+            if (cmds.length) { c = cmds.shift(); b.lastCmd = c; b.cmdAck = c.s; b.jkN = b.jkN === undefined || c.s === 1 ? c.s : b.jkN + 1; c = { ...c, jk: b.jkN }; }
             else if (b.cqBudget >= CMD_DT * 8) { c = b.lastCmd || { mx: 0, my: 0, aim: b.a, boost: false, brake: false, fire: false, alt: false, dash: b.dashDone || 0 }; b.cqOwed = Math.min(30, (b.cqOwed || 0) + 1); b.cqRepeats = (b.cqRepeats || 0) + 1; }
             else break;
             b.cqBudget -= CMD_DT;
@@ -7059,7 +7062,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
             // screen fires before it flies its frame (Source and Overwatch fire from the user command the same way)
             b.a = c.aim; human.fire = !!c.fire; human.alt = !!c.alt;
             b.fireCd -= CMD_DT;   // (the cooldown runs by commands too, as on the player's screen)
-            b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; b.viewAt = c.va > 0 ? c.va : -1; b.jk = c.s; pilotTriggers(b, CMD_DT, now); b.cmdWait = b.viewAt = -1; b.jk = undefined;
+            b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; b.viewAt = c.va > 0 ? c.va : -1; b.jk = c.jk; pilotTriggers(b, CMD_DT, now); b.cmdWait = b.viewAt = -1; b.jk = undefined;
             const g = pilotMove(b, c);
             f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
           }
@@ -7251,8 +7254,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const ld = Math.min(p.input.ld, LD_MAX), wait = p.cmdWait >= 0 ? Math.min(p.cmdWait, 200) : 0;
     let lag = ld >= 0 ? p.rtt + ld + 1000 / 60 + wait : p.rtt / 2;
     // the screen says which moment of the others it showed (viewAt, as Source's command carries its view's tick): that
-    // moment exactly, with no guess at the way there and back; believed only within 60 ms of the estimate above
-    if (p.viewAt > 0 && ld >= 0 && now >= p.viewAt) lag = clamp(now - p.viewAt, lag - 60, lag + 60);
+    // moment exactly, with no guess at the way there and back; believed only from 60 ms under the estimate above to
+    // 25 ms over it (a screen lying about it gains at most 25 ms of rewind)
+    if (p.viewAt > 0 && ld >= 0 && now >= p.viewAt) lag = clamp(now - p.viewAt, lag - 60, lag + 25);
     lag = clamp(lag, 0, REWIND_MS);
     s.hitTime = now - lag;
     if (straightShot(s.kind)) s.catchup = lag / 1000;
@@ -7691,7 +7695,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   }
   // a player's command queue starts afresh (a respawn, a new round): nothing old is flown again or owed, and the
   // allowance does not count the time spent dead
-  function resetCmds(b) { if (!b.cq) return; b.cq.length = 0; b.cqBudget = 0; b.cqAt = undefined; b.cqOwed = 0; b.lastCmd = null; }
+  function resetCmds(b) { if (!b.cq) return; b.cq.length = 0; b.cqBudget = 0; b.cqAt = undefined; b.cqOwed = 0; b.lastCmd = null; b.jkN = undefined; }   // (jkN: counted again from the next command)
   // what a command flight carries from one command to the next (sent by the server for the player's own pilot)
   const MOVE_STATE = ["x", "y", "vx", "vy", "a", "energy", "regenWait", "dashCool", "dashFx", "dashDone", "mt", "padAt"];
   // (exact, not rounded: a bounce off a wall turns on fractions of a pixel, and the replay must bounce the same)
