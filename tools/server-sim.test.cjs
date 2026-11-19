@@ -257,7 +257,9 @@ test('a broken-off piece has the same name everywhere the same craters were cut,
     // (the two test matches started at different moments, so their moons pull a little differently)
     assert.ok((ra.vx * rb.vx + ra.vy * rb.vy) / Math.hypot(ra.vx, ra.vy) / Math.hypot(rb.vx, rb.vy) > 0.95, 'flung the same way');
     assert.ok((ra.x - A.p.x) * ra.vx > 0, 'away from the planet it broke from');
-    const wire = a.packet(clock).rb;
+    // (a piece that has not moved since the last snapshot is left out of it; every 15th snapshot carries them all)
+    let wire = null;
+    for (let i = 0; i < 16 && !(wire && wire.list.some(e => e[0] === ra.key)); i++) wire = a.packet(clock + i).rb;
     assert.ok(wire && wire.list.some(e => e[0] === ra.key), JSON.stringify(wire));
   } finally { a.dispose(); b.dispose(); }
 });
