@@ -15,14 +15,14 @@ function run(m, seconds, each) {
   return clock;
 }
 
-test('every map builds solid terrain on the server; the Foundry station keeps its 52 walls', { skip }, async () => {
+test('every map builds solid terrain on the server; the Foundry station keeps its 40 hull walls and breakable walls inside', { skip }, async () => {
   const { createMatch } = await sim();
   for (const map of ['f', 'k', 'h', 'v', 'c', 'a', 'y', 'r', 's', 'w', 'o']) {
     const m = createMatch({ code: 'm1d0' + map });
     try {
       const { bodies, solidCells } = m.info;
       assert.ok(bodies > 0 && solidCells > bodies * 20, `${map}: ${bodies} bodies, ${solidCells} solid cells`);
-      if (map === 'f') assert.equal(m.info.walls, 52);
+      if (map === 'f') { assert.equal(m.info.walls, 40); assert.ok(m.info.innerWalls >= 10, `${m.info.innerWalls} inner walls`); }
       if (['f', 'k', 'h', 'v'].includes(map)) assert.ok(m.info.props >= 20, `${map}: ${m.info.props} props`);
     } finally { m.dispose(); }
   }
@@ -50,8 +50,8 @@ test('a 24-bot match runs on the server: fights end in kills and the station is 
     run(m, 60);
     const info = m.info;
     assert.ok(info.kills > 0 && info.deaths >= info.kills, JSON.stringify(info));
-    assert.equal(info.walls, 52);
-    assert.ok(info.solidCells > walls * 0.9, 'walls stay solid');
+    assert.equal(info.walls, 40);   // (the hull: nothing breaks it)
+    assert.ok(info.solidCells > walls * 0.8, 'the station stands (its inner walls and crates take some damage)');
   } finally { m.dispose(); }
 });
 

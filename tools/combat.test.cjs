@@ -11,7 +11,7 @@ function setup() {
     me:{x:1000,y:1000,lv:1}, playing:false, W:4000,H:4000,
     audioCue(){}, canHurt:(s,o,id)=>!o.dead && id!==s.owner, sweepOrphans(){},
     toLocal:(b,x,y)=>[x-b.x+b.hw,y-b.y+b.hh], toWorld:(b,x,y)=>[x+b.x-b.hw,y+b.y-b.hh],
-    rubbleFx(){}, bodies:[],det:[],stats:{round:1},myCarves:[],carveSeq:0,MAX_CARVES:320,seenCarves:new Set(),carveRnd(){},carveLocal(){return 0;}
+    rubbleFx(){}, WALL_CARVE:+fs.readFileSync(path.join(__dirname,'../src/js/01-config.js'),'utf8').match(/WALL_CARVE = (\d+)/)[1], solidAt:()=>false, bodies:[],det:[],stats:{round:1},myCarves:[],carveSeq:0,MAX_CARVES:320,seenCarves:new Set(),carveRnd(){},carveLocal(){return 0;}
   };
   vm.createContext(c);
   vm.runInContext(section('01-config.js','  const K =','  // weapons:') + '\nglobalThis.K=K;globalThis.SHOTS=SHOTS;',c);

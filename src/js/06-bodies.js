@@ -260,7 +260,7 @@
   }
   const solidAny = (x, y) => { for (const b of bodies) if (solidAt(b, x, y)) return b; return null; };
   // rough test for placement and steering: inside a body's footprint (plus a margin)
-  const inBody = (x, y, pad) => { for (const b of bodies) if (!b.free && (b.fixed ? Math.abs(x - b.x) < b.hw + pad && Math.abs(y - b.y) < b.hh + pad : (x - b.x) ** 2 + (y - b.y) ** 2 < (b.rr + pad) ** 2)) return b; return null; };
+  const inBody = (x, y, pad) => { for (const b of bodies) if (!b.free && (b.fixed || b.wall ? Math.abs(x - b.x) < b.hw + pad && Math.abs(y - b.y) < b.hh + pad : (x - b.x) ** 2 + (y - b.y) ** 2 < (b.rr + pad) ** 2)) return b; return null; };
   function rebuildBodies() { bodies = det.filter(b => !b.dead && !b.free).concat(rubble.filter(b => !b.dead)); }
 
   // everything that scales with the arena: pick-ups and junk keep about the same density (capped for the huge map)
@@ -408,6 +408,7 @@
   let carveSeq = 0;
   function bodyCol(b) {
     if (b.fixed) return "#6f8996";
+    if (b.wall || b.kind === "station") return station().wall[Math.random() < 0.5 ? 0 : 1];   // a station wall's chips (and a piece blown off it): its own colours
     const list = PLANET_PAL[b.kind] ? PLANET_PAL[b.kind].bands : WRECK_PAL[b.kind];
     return list[Math.floor(Math.random() * list.length)];
   }
@@ -445,8 +446,10 @@
     }
     return n;
   }
+  // (a station's inner wall gives only to heavy weapons: WALL_CARVE, 01-config.js)
   function carveLocal(b, lx, ly, rad, hot, rnd = Math.random) {
     if (b.fixed) return 0;   // rnd: a seeded one when every client must cut the same shape
+    if (b.wall) { if (rad < WALL_CARVE) return 0; rad *= WALL_GIVE; }
     const cs = b.cs, R2 = rad * 1.2, i0 = Math.max(0, Math.floor((lx - R2) / cs)), i1 = Math.min(b.gw - 1, Math.floor((lx + R2) / cs));
     const j0 = Math.max(0, Math.floor((ly - R2) / cs)), j1 = Math.min(b.gh - 1, Math.floor((ly + R2) / cs));
     // one ragged outline for both the cells and the art, so what you see is exactly what can be hit
@@ -532,6 +535,7 @@
   // (independent of canvas resolution), so desktop and mobile agree on the entire tunnel.
   function carveLineLocal(b, x1, y1, x2, y2, rad) {
     if (b.fixed) return 0;
+    if (b.wall) { if (rad < WALL_CARVE) return 0; rad *= WALL_GIVE; }
     const cs = b.cs, dx = x2 - x1, dy = y2 - y1, len2 = dx * dx + dy * dy;
     const i0 = Math.max(0, Math.floor((Math.min(x1, x2) - rad) / cs)), i1 = Math.min(b.gw - 1, Math.floor((Math.max(x1, x2) + rad) / cs));
     const j0 = Math.max(0, Math.floor((Math.min(y1, y2) - rad) / cs)), j1 = Math.min(b.gh - 1, Math.floor((Math.max(y1, y2) + rad) / cs));

@@ -863,6 +863,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const SPLASH = { [K.FLAK]: [210, HP(70), 0, 400], [K.SAW_ALT]: [252, HP(34), 0, 350], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [280, HP(80), 0, 600] };
   const GAMMA_ZAP = { r: 280, every: 0.45, dmg: HP(6) };   // the gamma orb zaps every enemy this close as it flies
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
+  // a station's inner wall gives only to heavy weapons (a crater of WALL_CARVE or more: rockets, grenades, mines, the
+  // orbs, the charged rail and gauss), and then WALL_GIVE times more than rock does; the hull never
+  const WALL_CARVE = 24, WALL_GIVE = 1.5;
   const BOOST_PADS = false;   // the speed pads on the maps: taken off (their spots stay, kept clear, should they come back)
   const AMP_PERIOD = 95, AMP_TIME = 20000, QUAD = 4;         // Quad damage: a rare pick-up, four times the damage for 20 s                        // mines go off when a bin comes this close, after arming
   // UT99 pickups: ordinary health caps at 100; super health at 199.
@@ -1128,6 +1131,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // Floor and walls read apart at a glance: the floor is dark tread plate, sunk in the shadow of the walls; the walls
   // are raised slabs, lit along every edge that meets the floor and banded in hazard stripes there.
   const FOUNDRY_N = 21;
+  const stationHull = (x, y) => x <= 0 || y <= 0 || x >= FOUNDRY_N - 1 || y >= FOUNDRY_N - 1;   // the outer ring: never broken
   // Cargo Deck, folded into one quarter (it is mirrored both ways): a ring corridor, a cross through the middle, a
   // pillared hall round the centre and four store rooms, each with a door to the ring and one to the cross
   const cargoOpen = (x, y) => {
@@ -1331,11 +1335,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     SLOTS = ROCKS = GOLD_N = 0;
     world.sparks.length = world.rocks.length = 0;
     const st = station(), unit = W / FOUNDRY_N;
+    // a row's run of wall: the hull (the outer ring) stays whole; the walls inside are solid but heavy weapons break
+    // them (wall: see carveLocal), and they stand again with the next round's station
     for (let y = 0; y < FOUNDRY_N; y++) for (let x = 0; x < FOUNDRY_N;) {
       if (foundryOpen(x, y)) { x++; continue; }
-      const start = x; while (x < FOUNDRY_N && !foundryOpen(x, y)) x++;
+      const start = x, hull = stationHull(x, y); while (x < FOUNDRY_N && !foundryOpen(x, y) && stationHull(x, y) === hull) x++;
       const b = newBody("f" + wrecks.length, "station", (x - start) * unit, unit, unit / 12);
-      Object.assign(b, { fixed: true, hx: (start + x) * unit / 2, hy: (y + 0.5) * unit });
+      Object.assign(b, { fixed: hull, wall: !hull, hx: (start + x) * unit / 2, hy: (y + 0.5) * unit });
       b.x = b.hx; b.y = b.hy;
       paintStationWall(b, start, x, y, unit, st);
       cellsFromArt(b); wrecks.push(b);
@@ -1382,9 +1388,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     g.fillStyle = st.void; g.fillRect(0, 0, vw, vh);
     const unit = W / FOUNDRY_N, tile = floorTile(st), sh = unit * 0.16;
     for (let y = 1; y < 20; y++) for (let x = 1; x < 20; x++) {
-      if (!foundryOpen(x, y)) continue;
       const px = sx(x * unit), py = sy(y * unit);
       if (!onScreen(px + unit / 2, py + unit / 2, unit)) continue;
+      if (!foundryOpen(x, y)) {   // the deck under a wall shows where the wall is broken: darker, dusty
+        g.drawImage(tile, px, py, unit + 0.5, unit + 0.5);
+        g.fillStyle = "rgba(10,8,10,0.55)"; g.fillRect(px, py, unit + 0.5, unit + 0.5);
+        continue;
+      }
       g.drawImage(tile, px, py, unit + 0.5, unit + 0.5);
       // the walls cast a shadow on the floor next to them, and a strip of light runs along their foot
       for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) if (!foundryOpen(x + dx, y + dy)) {
@@ -2648,7 +2658,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   }
   const solidAny = (x, y) => { for (const b of bodies) if (solidAt(b, x, y)) return b; return null; };
   // rough test for placement and steering: inside a body's footprint (plus a margin)
-  const inBody = (x, y, pad) => { for (const b of bodies) if (!b.free && (b.fixed ? Math.abs(x - b.x) < b.hw + pad && Math.abs(y - b.y) < b.hh + pad : (x - b.x) ** 2 + (y - b.y) ** 2 < (b.rr + pad) ** 2)) return b; return null; };
+  const inBody = (x, y, pad) => { for (const b of bodies) if (!b.free && (b.fixed || b.wall ? Math.abs(x - b.x) < b.hw + pad && Math.abs(y - b.y) < b.hh + pad : (x - b.x) ** 2 + (y - b.y) ** 2 < (b.rr + pad) ** 2)) return b; return null; };
   function rebuildBodies() { bodies = det.filter(b => !b.dead && !b.free).concat(rubble.filter(b => !b.dead)); }
 
   // everything that scales with the arena: pick-ups and junk keep about the same density (capped for the huge map)
@@ -2796,6 +2806,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   let carveSeq = 0;
   function bodyCol(b) {
     if (b.fixed) return "#6f8996";
+    if (b.wall || b.kind === "station") return station().wall[Math.random() < 0.5 ? 0 : 1];   // a station wall's chips (and a piece blown off it): its own colours
     const list = PLANET_PAL[b.kind] ? PLANET_PAL[b.kind].bands : WRECK_PAL[b.kind];
     return list[Math.floor(Math.random() * list.length)];
   }
@@ -2833,8 +2844,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     return n;
   }
+  // (a station's inner wall gives only to heavy weapons: WALL_CARVE, 01-config.js)
   function carveLocal(b, lx, ly, rad, hot, rnd = Math.random) {
     if (b.fixed) return 0;   // rnd: a seeded one when every client must cut the same shape
+    if (b.wall) { if (rad < WALL_CARVE) return 0; rad *= WALL_GIVE; }
     const cs = b.cs, R2 = rad * 1.2, i0 = Math.max(0, Math.floor((lx - R2) / cs)), i1 = Math.min(b.gw - 1, Math.floor((lx + R2) / cs));
     const j0 = Math.max(0, Math.floor((ly - R2) / cs)), j1 = Math.min(b.gh - 1, Math.floor((ly + R2) / cs));
     // one ragged outline for both the cells and the art, so what you see is exactly what can be hit
@@ -2920,6 +2933,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // (independent of canvas resolution), so desktop and mobile agree on the entire tunnel.
   function carveLineLocal(b, x1, y1, x2, y2, rad) {
     if (b.fixed) return 0;
+    if (b.wall) { if (rad < WALL_CARVE) return 0; rad *= WALL_GIVE; }
     const cs = b.cs, dx = x2 - x1, dy = y2 - y1, len2 = dx * dx + dy * dy;
     const i0 = Math.max(0, Math.floor((Math.min(x1, x2) - rad) / cs)), i1 = Math.min(b.gw - 1, Math.floor((Math.max(x1, x2) + rad) / cs));
     const j0 = Math.max(0, Math.floor((Math.min(y1, y2) - rad) / cs)), j1 = Math.min(b.gh - 1, Math.floor((Math.max(y1, y2) + rad) / cs));
@@ -4419,13 +4433,18 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       dx > 0 ? (W - s.x) / dx : dx < 0 ? -s.x / dx : Infinity,
       dy > 0 ? (H - s.y) / dy : dy < 0 ? -s.y / dy : Infinity));
     // The station shell blocks even penetrating weapons; old maps keep their terrain cutting.
-    for (const b of bodies) if (b.fixed) {
+    // An inner wall stops it too, where it is still standing, unless the beam is heavy enough to break it (it cuts
+    // its way through: carveBeam)
+    const heavy = (s.cut || SHOTS[s.kind].carve) >= WALL_CARVE;
+    for (const b of bodies) if (b.fixed || (b.wall && !b.dead && !b.free && !heavy)) {
       let near = 0, far = reach;
       for (const [p, d, lo, hi] of [[s.x, dx, b.x - b.hw, b.x + b.hw], [s.y, dy, b.y - b.hh, b.y + b.hh]]) {
         if (Math.abs(d) < 1e-9) { if (p < lo || p > hi) { far = -1; break; } }
         else { const a = (lo - p) / d, z = (hi - p) / d; near = Math.max(near, Math.min(a, z)); far = Math.min(far, Math.max(a, z)); }
       }
-      if (far >= near) reach = Math.min(reach, near);
+      if (far < near) continue;
+      if (b.fixed) { reach = Math.min(reach, near); continue; }
+      for (let t = Math.max(0, near); t <= Math.min(far, reach); t += b.cs * 0.5) if (solidAt(b, s.x + dx * t, s.y + dy * t)) { reach = Math.min(reach, t); break; }
     }
     return reach;
   }

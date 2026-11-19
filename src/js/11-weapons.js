@@ -213,13 +213,18 @@
       dx > 0 ? (W - s.x) / dx : dx < 0 ? -s.x / dx : Infinity,
       dy > 0 ? (H - s.y) / dy : dy < 0 ? -s.y / dy : Infinity));
     // The station shell blocks even penetrating weapons; old maps keep their terrain cutting.
-    for (const b of bodies) if (b.fixed) {
+    // An inner wall stops it too, where it is still standing, unless the beam is heavy enough to break it (it cuts
+    // its way through: carveBeam)
+    const heavy = (s.cut || SHOTS[s.kind].carve) >= WALL_CARVE;
+    for (const b of bodies) if (b.fixed || (b.wall && !b.dead && !b.free && !heavy)) {
       let near = 0, far = reach;
       for (const [p, d, lo, hi] of [[s.x, dx, b.x - b.hw, b.x + b.hw], [s.y, dy, b.y - b.hh, b.y + b.hh]]) {
         if (Math.abs(d) < 1e-9) { if (p < lo || p > hi) { far = -1; break; } }
         else { const a = (lo - p) / d, z = (hi - p) / d; near = Math.max(near, Math.min(a, z)); far = Math.min(far, Math.max(a, z)); }
       }
-      if (far >= near) reach = Math.min(reach, near);
+      if (far < near) continue;
+      if (b.fixed) { reach = Math.min(reach, near); continue; }
+      for (let t = Math.max(0, near); t <= Math.min(far, reach); t += b.cs * 0.5) if (solidAt(b, s.x + dx * t, s.y + dy * t)) { reach = Math.min(reach, t); break; }
     }
     return reach;
   }

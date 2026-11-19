@@ -3,6 +3,7 @@
   // Floor and walls read apart at a glance: the floor is dark tread plate, sunk in the shadow of the walls; the walls
   // are raised slabs, lit along every edge that meets the floor and banded in hazard stripes there.
   const FOUNDRY_N = 21;
+  const stationHull = (x, y) => x <= 0 || y <= 0 || x >= FOUNDRY_N - 1 || y >= FOUNDRY_N - 1;   // the outer ring: never broken
   // Cargo Deck, folded into one quarter (it is mirrored both ways): a ring corridor, a cross through the middle, a
   // pillared hall round the centre and four store rooms, each with a door to the ring and one to the cross
   const cargoOpen = (x, y) => {
@@ -206,11 +207,13 @@
     SLOTS = ROCKS = GOLD_N = 0;
     world.sparks.length = world.rocks.length = 0;
     const st = station(), unit = W / FOUNDRY_N;
+    // a row's run of wall: the hull (the outer ring) stays whole; the walls inside are solid but heavy weapons break
+    // them (wall: see carveLocal), and they stand again with the next round's station
     for (let y = 0; y < FOUNDRY_N; y++) for (let x = 0; x < FOUNDRY_N;) {
       if (foundryOpen(x, y)) { x++; continue; }
-      const start = x; while (x < FOUNDRY_N && !foundryOpen(x, y)) x++;
+      const start = x, hull = stationHull(x, y); while (x < FOUNDRY_N && !foundryOpen(x, y) && stationHull(x, y) === hull) x++;
       const b = newBody("f" + wrecks.length, "station", (x - start) * unit, unit, unit / 12);
-      Object.assign(b, { fixed: true, hx: (start + x) * unit / 2, hy: (y + 0.5) * unit });
+      Object.assign(b, { fixed: hull, wall: !hull, hx: (start + x) * unit / 2, hy: (y + 0.5) * unit });
       b.x = b.hx; b.y = b.hy;
       paintStationWall(b, start, x, y, unit, st);
       cellsFromArt(b); wrecks.push(b);
@@ -257,9 +260,13 @@
     g.fillStyle = st.void; g.fillRect(0, 0, vw, vh);
     const unit = W / FOUNDRY_N, tile = floorTile(st), sh = unit * 0.16;
     for (let y = 1; y < 20; y++) for (let x = 1; x < 20; x++) {
-      if (!foundryOpen(x, y)) continue;
       const px = sx(x * unit), py = sy(y * unit);
       if (!onScreen(px + unit / 2, py + unit / 2, unit)) continue;
+      if (!foundryOpen(x, y)) {   // the deck under a wall shows where the wall is broken: darker, dusty
+        g.drawImage(tile, px, py, unit + 0.5, unit + 0.5);
+        g.fillStyle = "rgba(10,8,10,0.55)"; g.fillRect(px, py, unit + 0.5, unit + 0.5);
+        continue;
+      }
       g.drawImage(tile, px, py, unit + 0.5, unit + 0.5);
       // the walls cast a shadow on the floor next to them, and a strip of light runs along their foot
       for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) if (!foundryOpen(x + dx, y + dy)) {

@@ -89,7 +89,7 @@ const BRIDGE = `
     get bots() { let n = 0; for (const b of bots) if (!b.input) n++; return n; },
     get pilots() { return bots.map(pilotView); },
     get info() {
-      return { map: MAPS[mapThemeOf(worldCode)].name, mode: MODE, round: stats.round, live: roundLive, bodies: bodies.length, walls: bodies.filter(b => b.fixed).length, props: det.filter(b => b.prop && !b.dead).length,
+      return { map: MAPS[mapThemeOf(worldCode)].name, mode: MODE, round: stats.round, live: roundLive, bodies: bodies.length, walls: bodies.filter(b => b.fixed).length, innerWalls: det.filter(b => b.wall && !b.dead && !b.free).length, props: det.filter(b => b.prop && !b.dead).length,
         solidCells: bodies.reduce((s, b) => s + b.mass, 0), shots: shots.length,
         kills: bots.reduce((s, b) => s + b.st.kills, 0), deaths: bots.reduce((s, b) => s + b.st.deaths, 0) };
     }
