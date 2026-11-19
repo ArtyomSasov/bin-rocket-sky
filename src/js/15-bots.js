@@ -285,29 +285,13 @@
         if (f.fence && f.fence.dmg > 0) botHurt(b, f.fence.dmg, "p", now, false);
         // the junk rocks bump it, as they bump my bin (updateJunk)
         if (!cmds) for (const k of world.rocks) if (k && !grabbed.has(k.key) && k.age >= 0.6) collideRock(b, k);   // (commands meet them in pilotMove)
-        // and touching another pilot pushes it off, as updateRemotes pushes my bin
-        for (const o of bots) {
-          if (o === b || o.dead) continue;
-          const ox = b.x - o.x, oy = b.y - o.y, d = Math.hypot(ox, oy);
-          if (d >= 31 * (sizeOf(b.lv || 1) + sizeOf(o.lv || 1)) || d <= 0.01 || now - ((b.boops ||= new Map()).get(o.id) || 0) <= 400) continue;
-          b.boops.set(o.id, now);
-          const oDash = now - (o.dashAt || 0) < 350, bDash = now - (b.dashAt || 0) < 350, oRam = o.boosting || oDash, bRam = b.boosting || bDash;
-          const kick = boopKick(oRam, bRam);
-          b.vx += ox / d * kick; b.vy += oy / d * kick;
-          // a ram hurts, as on a player's own screen (updateRemotes): whoever hits on boost or a dash does the damage and
-          // gets the credit; a player's pilot is hurt here, an AI bot it rams too (an AI bot has no loop of its own for it)
-          if (!mates(o, b) && roundLive) {
-            if (oRam && o.tag) botHurt(b, oDash ? 1.2 : 0.6, o.tag + ".ram" + Math.floor(now), now, false);
-            if (bRam && b.tag && !o.input && now - (o.rammedBy || 0) > 400) { o.rammedBy = now; o.vx -= ox / d * 900; o.vy -= oy / d * 900; botHurt(o, bDash ? 1.2 : 0.6, b.tag + ".ram" + Math.floor(now), now, false); }
-          }
-        }
       } else {   // a bot
       thrustPilot(b, st.x, st.y, b.boosting, false, dt, b.L.speed * (now < (b.pinnedUntil || 0) ? 0.6 : 1));
       slingshot(b, dt); padsFor(b, now);
       if (Math.hypot(st.x, st.y) > 0.15) b.a = lerpAng(b.a, Math.atan2(st.y, st.x), 1 - Math.exp(-13 * dt));
       gravityOn(b, dt);
       b.x += b.vx * dt; b.y += b.vy * dt;
-      const pc = bounceOff(b, 40, 0.6);
+      const pc = bounceOff(b, 40, 0.6, binMass(b.lv));
       if (pc && pc.vn < -200) {
         impact(b.x - pc.nx * 40, b.y - pc.ny * 40, "#ffd9b0", 1.2);
         const dmg = hurtsOnHit(pc.b) ? crashDmg(-pc.vn, false) : 0;
@@ -337,21 +321,15 @@
       // another pilot ramming my bot on boost (the bot is the victim, so its owner decides)
       for (const [rid, r] of remotes) {
         if (botById.has(rid) || r.dead || !(r.boost > 0) || !r.tag || mates(r, b)) continue;
-        if (Math.hypot(r.x - b.x, r.y - b.y) < 31 * (sizeOf(r.lv || 1) + 1) && (!b.rammedBy || now - b.rammedBy > 400)) {
-          b.rammedBy = now;
-          const dx = b.x - r.x, dy = b.y - r.y, d = Math.hypot(dx, dy) || 1;
-          b.vx += dx / d * 900; b.vy += dy / d * 900;
-          botHurt(b, r.boost === 2 ? 1.2 : 0.6, r.tag + ".ram" + Math.floor(now), now, false);
+        const dx = b.x - r.x, dy = b.y - r.y, d = Math.hypot(dx, dy) || 1;
+        if (d < 31 * (sizeOf(r.lv || 1) + sizeOf(b.lv || 1))) {   // (their bin is theirs to move: only mine takes the blow here)
+          const nx = dx / d, ny = dy / d, mb = binMass(b.lv), mr = binMass(r.lv), vn = (b.vx - (r.vx || 0)) * nx + (b.vy - (r.vy || 0)) * ny;
+          if (vn < 0) {
+            const j = -1.5 * vn / (1 / mb + 1 / mr), dmg = knockDmg(j / mb);
+            b.vx += j * nx / mb; b.vy += j * ny / mb;
+            if (dmg > 0 && (!b.rammedBy || now - b.rammedBy > 300)) { b.rammedBy = now; botHurt(b, dmg, r.tag + ".ram" + Math.floor(now), now, false); }
+          }
         }
-      }
-      // ramming a bot on boost
-      if (playing && !me.dead && !mates(b, me) && me.boostFx > 0 && Math.hypot(me.x - b.x, me.y - b.y) < 31 * (sizeOf(me.lv) + 1) && (!b.rammedAt || now - b.rammedAt > 400)) {
-        b.rammedAt = now;
-        const dx = b.x - me.x, dy = b.y - me.y, d = Math.hypot(dx, dy) || 1;
-        b.vx += dx / d * 900; b.vy += dy / d * 900; me.vx -= dx / d * 260; me.vy -= dy / d * 260;
-        sparkShower((b.x + me.x) / 2, (b.y + me.y) / 2, -dy, dx, 1.3); sparkShower((b.x + me.x) / 2, (b.y + me.y) / 2, dy, -dx, 1.3);
-        shake = Math.max(shake, 0.4); sfx("ram", 1);
-        botHurt(b, me.boostFx === 2 ? 1.2 : 0.6, myTag + ".ram" + Math.floor(now), now, false);
       }
       recordHitPose(b, now);
       // anyone's shots can hit the bot (the bot's own excepted). Its invulnerability now (a dash, a respawn) stops a
@@ -369,6 +347,43 @@
           botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx));
         }
       }
+    }
+    binContacts(now);
+  }
+  // Bins meeting bins (bots, players' pilots on the server, and my own bin when this page runs the bots): each pair
+  // once, pushed apart by their overlap (the lighter further) and struck by weight (collide, a fairly dead bounce,
+  // e 0.5). What each one feels (its change of speed) is what hurts it (knockDmg): a ram on boost or a dash hurts the
+  // one rammed, and the credit is the rammer's; the rammer, nose first, takes 40% of what it feels; a plain crash at
+  // speed hurts both, and nobody gets the credit
+  function binContacts(now) {
+    const list = bots.filter(b => !b.dead);
+    if (!serverRun && playing && !me.dead) list.push(me);
+    for (let i = 0; i < list.length; i++) for (let k = i + 1; k < list.length; k++) {
+      const a = list[i], b = list[k], R = 31 * (sizeOf(a.lv || 1) + sizeOf(b.lv || 1));
+      const dx = a.x - b.x, dy = a.y - b.y;
+      if (Math.abs(dx) >= R || Math.abs(dy) >= R) continue;
+      const d = Math.hypot(dx, dy);
+      if (d >= R || d <= 0.01) continue;
+      const nx = dx / d, ny = dy / d, ma = binMass(a.lv), mb = binMass(b.lv), over = R - d;
+      a.x += nx * over * mb / (ma + mb); a.y += ny * over * mb / (ma + mb); b.x -= nx * over * ma / (ma + mb); b.y -= ny * over * ma / (ma + mb);
+      const j = collide(a, ma, b, mb, nx, ny, 0.5);
+      if (j <= 0) continue;
+      const dvA = j / ma, dvB = j / mb, ramOf = o => o === me ? me.boostFx > 0 : o.boosting || now - (o.dashAt || 0) < 350;
+      const ramA = ramOf(a), ramB = ramOf(b), cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+      impact(cx, cy, "#bdfff6", Math.min(1.6, 0.4 + j / 600));
+      if (j > 350) { sparkShower(cx, cy, -ny, nx, Math.min(1.5, j / 600)); sparkShower(cx, cy, ny, -nx, Math.min(1.5, j / 600)); }
+      sfx("ram", Math.min(1, 0.3 + j / 900), 1, cx, cy);
+      if ((a === me || b === me) && j > 350) shake = Math.max(shake, Math.min(0.6, j / 1500));
+      if (!roundLive || mates(a, b) || now - ((a.knocks ||= new Map()).get(b) || 0) < 300) continue;
+      a.knocks.set(b, now);
+      const hit = (o, other, dv, rammer, rammed) => {
+        const dmg = knockDmg(dv) * (rammer && !rammed ? 0.4 : 1);
+        if (dmg <= 0) return;
+        const id = rammed && !rammer && other.tag ? other.tag + ".ram" + Math.floor(now) : (o === me ? myTag : o.tag || "x") + ".crash" + Math.floor(now);
+        if (o === me) { if (hurt(now, dmg) && rammed && other.tag) { pushCapped(hitBy, id, 12); if (me.dead) { meKilled(id); } } }
+        else botHurt(o, dmg, rammed && !rammer ? id : "p", now, false);
+      };
+      hit(a, b, dvA, ramA, ramB); hit(b, a, dvB, ramB, ramA);
     }
   }
   // all bots travel inside my own state message (one publish per tick, whatever the bot count):

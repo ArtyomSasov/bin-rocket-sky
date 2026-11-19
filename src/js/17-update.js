@@ -132,7 +132,7 @@
     else thrustPilot(o, sx_, sy_, boost, brake, dt, performance.now() < (o.pinnedUntil || 0) ? 0.6 : 1);   // pinned by nails: slower
     gravityOn(o, dt); slingshot(o, dt); padsFor(o, now);
     o.x += o.vx * dt; o.y += o.vy * dt;
-    const wr = WALL_R * sizeOf(o.lv || 1), pc = bounceOff(o, wr, 0.7);
+    const wr = WALL_R * sizeOf(o.lv || 1), pc = bounceOff(o, wr, 0.7, binMass(o.lv));
     let crash = null, fence = null;
     if (pc) {   // planets and moons: like the fence, and worse on boost
       const big = hurtsOnHit(pc.b), hs = -pc.vn;
@@ -225,7 +225,6 @@
     o.stick = { x: v[MOVE_STATE.length], y: v[MOVE_STATE.length + 1] }; o.boostOn = o.boosting = !!v[MOVE_STATE.length + 2];
   }
   // touching another pilot pushes you off it (harder if it rams you on boost, softer if you ram it): kick, or 0
-  const boopKick = (rammed, mineRam) => rammed ? 900 : mineRam ? 260 : 420;
   // my flight: thrust with inertia, gravity, bumping off bodies and the fence, facing, exhaust
   // on the game server my flight goes as commands, one every CMD_DT of frame time (pilotMove): made, flown here and
   // kept until the server has flown it too (12c-server.js sends them and reconciles)
@@ -305,7 +304,7 @@
       if (!playing) { me.vx = Math.cos(now / 2400) * 120; me.vy = Math.sin(now / 3100) * 90 - 40; }
       if (me.dead) { me.vx = me.vy = 0; } else gravityOn(me, dt);
       me.x += me.vx * dt; me.y += me.vy * dt;
-      if (!me.dead) bounceOff(me, wr, 0.7);
+      if (!me.dead) bounceOff(me, wr, 0.7, binMass(me.lv));
       if (me.x < wr || me.x > W - wr) { me.x = clamp(me.x, wr, W - wr); me.vx = -me.vx * 0.7 + Math.sign(W / 2 - me.x) * 220; }
       if (me.y < wr || me.y > H - wr) { me.y = clamp(me.y, wr, H - wr); me.vy = -me.vy * 0.7 + Math.sign(H / 2 - me.y) * 220; }
     }
@@ -634,20 +633,26 @@
       if (Math.abs(r.x - me.x) < vw / 2 + 300 && Math.abs(r.y - me.y) < vh / 2 + 300) { trailFrom(r, 0.6 + r.thrust * 1.4 + (r.boost || 0) * 1.5, dt); damageFx(r, dt); afterburner(r, r.boost || 0, dt); }
       // boop
       const dx = wrapD(me.x - r.x, W), dy = wrapD(me.y - r.y, H), d = Math.hypot(dx, dy);
-      if (playing && !me.dead && d < 31 * (sizeOf(me.lv) + sizeOf(r.lv || 1)) && d > 0.01 && (!r.boop || now - r.boop > 400)) {
-        r.boop = now;
-        const rammed = (r.boost || 0) > 0, mineRam = me.boostFx > 0;
-        const kick = boopKick(rammed, mineRam);   // (the server pushes a player's pilot the same way: updateBots)
-        me.vx += dx / d * kick; me.vy += dy / d * kick;
-        impact(me.x - dx / 2, me.y - dy / 2, "#bdfff6", 1.2);
-        if (rammed || mineRam) { sparkShower(me.x - dx / 2, me.y - dy / 2, -dy, dx, 1.3); sparkShower(me.x - dx / 2, me.y - dy / 2, dy, -dx, 1.3); shake = Math.max(shake, 0.4); }
-        sfx("ram", rammed ? 1 : 0.6);
-        // they rammed me on boost: I take the damage and report it so they get the credit
-        if (rammed && r.tag && !mates(r, me)) {
-          const id = r.tag + ".ram" + Math.floor(now);
-          if (hurt(now, r.boost === 2 ? 1.2 : 0.6)) {
-            pushCapped(hitBy, id, 12);
-            if (me.dead) { meKilled(id); killedBy(rid); }
+      // touching another pilot's bin: struck by weight (binContacts' rules), only my bin moved here (theirs is theirs,
+      // or the server's); on the server its own contact is the one that counts, mine only shows it at once
+      if (playing && !me.dead && d < 31 * (sizeOf(me.lv) + sizeOf(r.lv || 1)) && d > 0.01) {
+        const nx = dx / d, ny = dy / d, ma = binMass(me.lv), mr = binMass(r.lv), over = 31 * (sizeOf(me.lv) + sizeOf(r.lv || 1)) - d;
+        me.x += nx * over * mr / (ma + mr); me.y += ny * over * mr / (ma + mr);
+        const vn = (me.vx - (r.vx || 0)) * nx + (me.vy - (r.vy || 0)) * ny;
+        if (vn < 0) {
+          const j = -1.5 * vn / (1 / ma + 1 / mr), dv = j / ma;
+          me.vx += j * nx / ma; me.vy += j * ny / ma;
+          const rammed = (r.boost || 0) > 0, mineRam = me.boostFx > 0, cx = me.x - dx / 2, cy = me.y - dy / 2;
+          impact(cx, cy, "#bdfff6", Math.min(1.6, 0.4 + j / 600));
+          if (j > 350) { sparkShower(cx, cy, -dy, dx, Math.min(1.5, j / 600)); sparkShower(cx, cy, dy, -dx, Math.min(1.5, j / 600)); shake = Math.max(shake, Math.min(0.6, j / 1500)); }
+          sfx("ram", Math.min(1, 0.3 + j / 900));
+          // what I feel hurts me (offline and between browsers: on the server only its snapshots change my health); if
+          // they rammed me, the credit is theirs, and I report it
+          const dmg = knockDmg(dv) * (mineRam && !rammed ? 0.4 : 1);
+          if (!serverRun && dmg > 0 && !mates(r, me) && roundLive && (!r.knockAt || now - r.knockAt > 300)) {
+            r.knockAt = now;
+            const id = rammed && !mineRam && r.tag ? r.tag + ".ram" + Math.floor(now) : null;
+            if (hurt(now, dmg) && id) { pushCapped(hitBy, id, 12); if (me.dead) { meKilled(id); killedBy(rid); } }
           }
         }
       }
@@ -824,7 +829,7 @@
             sparkShower(hit.x, hit.y, -Math.cos(h.nailA), -Math.sin(h.nailA), 1); packPlay("p_hit_nail", 0.8, hit.x, hit.y);
           }
           else if (h.x < 40 || h.x > W - 40 || h.y < 40 || h.y > H - 40) { h.x = clamp(h.x, 40, W - 40); h.y = clamp(h.y, 40, H - 40); h.pin = { b: null }; }
-        } else bounceOff(h, 30 * sizeOf(h.lv), 0.8);
+        } else bounceOff(h, 30 * sizeOf(h.lv), 0.8, 0.35 * binMass(h.lv));
       }
       if (h.burn) {   // burning: flames lick up off it, then it crumbles to ash
         const bt = (now - h.burn) / 1000, sz1 = sizeOf(h.lv);
@@ -870,7 +875,7 @@
         f.vx += fdx / fd * push; f.vy += fdy / fd * push; f.spin += (Math.random() - 0.5) * 3;
         impact((f.x + me.x) / 2, (f.y + me.y) / 2, "#d9c8ff", 0.7);
       }
-      bounceOff(f, f.s * 0.25, 0.8);
+      bounceOff(f, f.s * 0.25, 0.8, 0.25 * (f.s / BOT) ** 2);
       if (f.x < 0 || f.x > W) { f.vx = -f.vx; f.x = clamp(f.x, 0, W); }
       if (f.y < 0 || f.y > H) { f.vy = -f.vy; f.y = clamp(f.y, 0, H); }
       if ((now - f.born) / 1000 < 4 && Math.random() < (lowQ ? 3 : 8) * dt) puff(f.x, f.y, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30, 1.4, 3 + Math.random() * 3, "rgb(60,54,72)", 2);
@@ -889,7 +894,7 @@
       d.life -= dt;
       if (d.life <= 0) { debris.splice(i, 1); continue; }
       d.x += d.vx * dt; d.y += d.vy * dt; d.vx *= drift; d.vy *= drift; d.vr *= drift; d.rot += d.vr * dt;
-      bounceOff(d, 4, 0.8);
+      bounceOff(d, 4, 0.8, debrisMass(d));
       if (d.x < 0 || d.x > W) { d.vx = -d.vx; d.x = clamp(d.x, 0, W); }
       if (d.y < 0 || d.y > H) { d.vy = -d.vy; d.y = clamp(d.y, 0, H); }
       const ddx = d.x - me.x, ddy = d.y - me.y, dd = Math.hypot(ddx, ddy);

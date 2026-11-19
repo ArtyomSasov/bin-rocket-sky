@@ -26,7 +26,29 @@
   const hurtsOnHit = b => b.mass >= 150;
   // crash damage grows with how hard you hit, small even at full boost (in lives: Lv 1 has 3)
   const crashDmg = (hs, boosting) => hs < 220 ? 0 : Math.min(0.5, (boosting ? 0.25 : 0.12) * hs / 400);
-  function bounceOff(o, rad, k) {
+  // ---------- mass and collisions: one set of weights for everything ----------
+  // Masses in "bins": a Lv 1 bin weighs 1, a bigger one with its area. A wreck's hulk is a shell (a third of a bin), a
+  // piece of a broken bin a quarter, a scrap of debris almost nothing; loose rubble weighs what its rock does (its
+  // cells' area, rock half again as dense as a bin); planets, moons, wrecks and walls do not move (Infinity).
+  const BIN_AREA = Math.PI * 30 * 30;
+  const binMass = lv => sizeOf(lv || 1) ** 2;
+  const rubbleMass = b => Math.max(0.04, b.mass * b.cs * b.cs / BIN_AREA * 1.5);
+  const debrisMass = d => Math.max(0.003, 0.012 * ((d.size || 4) / 5) ** 2);
+  // two things meeting along n (from b to a): momentum kept, the bounce by e (0 dead, 1 elastic); returns the impulse
+  // (in bin x px/s; what each feels is j / its mass: that is what hurts)
+  function collide(a, ma, b, mb, nx, ny, e) {
+    const vn = (a.vx - (b.vx || 0)) * nx + (a.vy - (b.vy || 0)) * ny;
+    if (vn >= 0) return 0;
+    const j = -(1 + e) * vn / (1 / ma + (mb === Infinity ? 0 : 1 / mb));
+    a.vx += j * nx / ma; a.vy += j * ny / ma;
+    if (mb !== Infinity) { b.vx -= j * nx / mb; b.vy -= j * ny / mb; }
+    return j;
+  }
+  // a collision's damage, from the change of speed felt (dv, px/s): nothing under 300 (a bump), then rising steeply
+  const knockDmg = dv => dv > 300 ? (dv - 300) * 0.0016 : 0;
+  // o (its mass mo; omitted: heavy, as before) against the bodies: the fixed ones throw it back; loose rubble takes its
+  // share of the blow by weight (a bin ploughs through grit, a boulder stops it)
+  function bounceOff(o, rad, k, mo) {
     for (const b of bodies) {
       const dx = o.x - b.x, dy = o.y - b.y;
       if (dx * dx + dy * dy > (b.r + rad) ** 2) continue;
@@ -40,8 +62,14 @@
       for (let it = 0; it < 10 && ringHits(b, o, rad); it++) { o.x += nx * Math.max(2, rad * 0.2); o.y += ny * Math.max(2, rad * 0.2); }
       const vn = (o.vx - (b.vx || 0)) * nx + (o.vy - (b.vy || 0)) * ny;
       if (vn < 0) {
-        o.vx -= (1 + k) * vn * nx; o.vy -= (1 + k) * vn * ny;
-        if (b.free && !replaying) { const w = Math.min(0.8, 40 / b.mass); b.vx += vn * nx * w; b.vy += vn * ny * w; b.va += (Math.random() - 0.5) * w; }
+        if (b.free && mo !== undefined) {   // loose rubble: by weight (a replay moves only o: the rubble took its blow the first time)
+          const mb = rubbleMass(b), j = -(1 + k * 0.6) * vn / (1 / mo + 1 / mb);
+          o.vx += j * nx / mo; o.vy += j * ny / mo;
+          if (!replaying) { b.vx -= j * nx / mb; b.vy -= j * ny / mb; b.va += (Math.random() - 0.5) * Math.min(3, j / mb / 200); }
+        } else {
+          o.vx -= (1 + k) * vn * nx; o.vy -= (1 + k) * vn * ny;
+          if (b.free && !replaying) { const w = Math.min(0.8, 40 / b.mass); b.vx += vn * nx * w; b.vy += vn * ny * w; b.va += (Math.random() - 0.5) * w; }
+        }
       }
       return { b, nx, ny, vn };
     }
