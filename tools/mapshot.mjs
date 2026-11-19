@@ -69,6 +69,8 @@ try {
       await ev(`(() => { const E = __e, kind = ${JSON.stringify(process.env.BREAK)}; window.__prop = E("det.filter(b => (b.prop || b.wall) && !b.dead)").filter(b => kind === "wall" ? b.wall : b.prop && (kind === "1" || b.kind === kind)).sort((a, b) => Math.hypot(a.x - E("me.x"), a.y - E("me.y")) - Math.hypot(b.x - E("me.x"), b.y - E("me.y")))[0];
         clearInterval(window.__hold); window.__hold = setInterval(() => E('me.x = __prop.x - 420; me.y = __prop.y; me.vx = me.vy = 0; me.inv = 1e15'), 16); E('cam.x = __prop.x; cam.y = __prop.y'); })()`);
       await wait(1000); await shot(`${tag}-prop-0`);
+      if (process.env.LIGHTMAP) await ev('window.__lightMap = true');
+      if (process.env.POST) await ev(`__e('settings.post = "${process.env.POST}"')`);   // (POST=on: the WebGL look even in a slow headless browser)
       for (let k = 1; k <= 4; k++) {
         // a rocket (BREAK=1, or BREAK=wall at the nearest inner wall of a station), or a burst of eight bullets
         const rocket = process.env.BREAK === '1' || process.env.BREAK === 'wall';
