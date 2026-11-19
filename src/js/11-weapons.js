@@ -217,7 +217,7 @@
     // its way through: carveBeam)
     // (a rail or gauss slug drills into it: it bores RAIL_DRILL px into the wall and stops there, so a wall is drilled
     // through by a few shots in one place, not shot through by one)
-    const heavy = (s.cut || SHOTS[s.kind].carve) >= WALL_CARVE, drill = !heavy && (s.kind === K.RAIL || s.kind === K.GAUSS);
+    const heavy = (s.cut || SHOTS[s.kind].carve) >= WALL_CARVE || s.kind === K.RAIL || s.kind === K.GAUSS, drill = false;   // (a rail slug cuts clean through)
     for (const b of bodies) if (b.fixed || (b.wall && !b.dead && !b.free && !heavy)) {
       let near = 0, far = reach;
       for (const [p, d, lo, hi] of [[s.x, dx, b.x - b.hw, b.x + b.hw], [s.y, dy, b.y - b.hh, b.y + b.hh]]) {

@@ -446,10 +446,10 @@
     }
     return n;
   }
-  // (a station's inner wall gives only to heavy weapons: WALL_CARVE, 01-config.js)
+  // (a station's inner wall: a light weapon chips a small bite out of it, a heavy one blows a hole: WALL_CARVE)
   function carveLocal(b, lx, ly, rad, hot, rnd = Math.random) {
     if (b.fixed) return 0;   // rnd: a seeded one when every client must cut the same shape
-    if (b.wall) { if (rad < WALL_CARVE) return 0; rad *= WALL_GIVE; }
+    if (b.wall) rad *= rad < WALL_CARVE ? 0.6 : WALL_GIVE;
     const cs = b.cs, R2 = rad * 1.2, i0 = Math.max(0, Math.floor((lx - R2) / cs)), i1 = Math.min(b.gw - 1, Math.floor((lx + R2) / cs));
     const j0 = Math.max(0, Math.floor((ly - R2) / cs)), j1 = Math.min(b.gh - 1, Math.floor((ly + R2) / cs));
     // one ragged outline for both the cells and the art, so what you see is exactly what can be hit
@@ -731,7 +731,7 @@
   let carvingWall = false;
   function carveAt(b, x, y, rad, own) {
     if (b.dead) return 0;
-    if (b.wall && rad < WALL_CARVE) return 0;   // (a light weapon only marks it: surfaceHit)
+    // (bullets wear a station wall away a bite at a time; rockets and the like blow holes in it)
     // a heavy hit on a station wall takes the crater out of every row of it that the crater reaches (it is one wall)
     if (b.wall && !carvingWall) {
       carvingWall = true;
@@ -758,7 +758,7 @@
   let drilling = false;   // a rail slug's line: it bores a narrow tunnel even through a station's inner wall
   function carveLineLocal(b, x1, y1, x2, y2, rad) {
     if (b.fixed) return 0;
-    if (b.wall && !drilling) { if (rad < WALL_CARVE) return 0; rad *= WALL_GIVE; }
+    if (b.wall && !drilling) rad *= rad < WALL_CARVE ? 0.6 : WALL_GIVE;
     const cs = b.cs, dx = x2 - x1, dy = y2 - y1, len2 = dx * dx + dy * dy;
     const i0 = Math.max(0, Math.floor((Math.min(x1, x2) - rad) / cs)), i1 = Math.min(b.gw - 1, Math.floor((Math.max(x1, x2) + rad) / cs));
     const j0 = Math.max(0, Math.floor((Math.min(y1, y2) - rad) / cs)), j1 = Math.min(b.gh - 1, Math.floor((Math.max(y1, y2) + rad) / cs));

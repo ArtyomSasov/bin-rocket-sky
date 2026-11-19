@@ -345,7 +345,7 @@ try {
   assert.equal(await evaluate(foundry,"document.getElementById('scoreboard').hidden"),true);
   const walls = await evaluate(foundry,`(()=>{const t=__t,p=t.foundryPoint(10,10),b=t.bodies.find(b=>b.fixed),mass=b.mass;
     t.carveAt(b,b.x,b.y,700,true); return {preserved:b.mass===mass,reach:t.beamReach({x:p.x,y:p.y,vx:0,vy:-4200,kind:t.K.RAIL})};})()`);
-  assert.equal(walls.preserved,true);assert.ok(walls.reach>0 && walls.reach<400);
+  assert.equal(walls.preserved,true);assert.ok(walls.reach>400 && walls.reach<2300,'a rail slug cuts through the inner walls and stops at the hull: '+walls.reach);
   const guest = await page(true);await evaluate(guest,"window.__code='M1C0FFORG'");await join(guest,'Foundry guest',false);
   await until(guest,"[...__t.remotes.values()].filter(r=>r.host).length===24",20000);
   assert.deepEqual(await evaluate(guest,'__t.match'),await evaluate(foundry,'__t.match'));

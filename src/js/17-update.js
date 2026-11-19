@@ -74,7 +74,7 @@
   // Inertia: thrust pushes the bin and it keeps its speed, coasting down only slowly. Pushing against your motion
   // fires the retro thrusters (they bite harder), braking is an air brake; past top speed the excess (a hit, a blast) bleeds off
   function thrustPilot(o, sx_, sy_, boost, braking, dt, k = 1) {
-    const im = Math.hypot(sx_, sy_), top = (boost ? 880 : 560) * k, acc = (boost ? 1500 : 980) * k, sp0 = Math.hypot(o.vx, o.vy);
+    const im = Math.hypot(sx_, sy_), top = (boost ? 1020 : 580) * k, acc = (boost ? 2300 : 1150) * k, sp0 = Math.hypot(o.vx, o.vy);
     if (im > 0.05) {
       const ux = sx_ / im, uy = sy_ / im, along = sp0 > 1 ? (o.vx * ux + o.vy * uy) / sp0 : 1;
       const va = o.vx * ux + o.vy * uy;   // speed already going this way: thrust fades out as it nears top speed

@@ -499,7 +499,7 @@
   // A bin killed by a blast, a slug, lightning or a blade is first thrown by the blow: it flies off the way the killing
   // shot went, tumbling, burning and trailing smoke, sparks and oil, and goes up where it slams into something (or
   // after half a second to a second), its pieces carrying on the way it flew (deathStyle, updateFx's hulks)
-  const THROWN = new Set([0, 1, 2, 6]);
+  const THROWN = new Set([0, 2, 6]);   // (a rail slug cuts it in two where it is: railCut)
   function deathFx(b, ds, dk, da) {
     b = { ...b, ck: teamCk(b) };   // the wreck keeps the colours the bin flew in
     if (THROWN.has(dk) && Number.isFinite(da)) {
@@ -601,18 +601,21 @@
   function railCut(b, da) {
     const sz = sizeOf(b.lv || 1), s = BOT * sz, rot = b.a + Math.PI / 2 - SPRITE_TILT, nx = -Math.sin(da), ny = Math.cos(da);
     for (const piece of sliceSprite(da - rot, (Math.random() - 0.5) * 36))
-      addFrag(b, piece, s, rot, renderPiece(piece, s, b.lv || 1, b.ck || [0, 0, 0, 0, 0], "200,120,255", "255,245,255", 1.8), (wx, wy) => {
-        const sg = Math.sign(wx * nx + wy * ny) || 1, v = 90 + Math.random() * 50;   // the halves part across the cut, carried along the slug's path
-        return [nx * sg * v + Math.cos(da) * 110 + (b.vx || 0) * 0.3, ny * sg * v + Math.sin(da) * 110 + (b.vy || 0) * 0.3, sg * (0.25 + Math.random() * 0.4)];
+      addFrag(b, piece, s, rot, renderPiece(piece, s, b.lv || 1, b.ck || [0, 0, 0, 0, 0], "255,120,30", "255,236,190", 2.4), (wx, wy) => {
+        const sg = Math.sign(wx * nx + wy * ny) || 1, v = 160 + Math.random() * 90;   // the halves part across the cut, thrown on along the slug's path
+        return [nx * sg * v + Math.cos(da) * 380 + (b.vx || 0) * 0.3, ny * sg * v + Math.sin(da) * 380 + (b.vy || 0) * 0.3, sg * (0.8 + Math.random() * 1.2)];
       });
     const L = s * 0.75;
     for (let k = 0; k < (lowQ ? 14 : 40); k++) {   // sparks spraying off both sides of the cut
       const t = (Math.random() - 0.5) * L, px = b.x + Math.cos(da) * t, py = b.y + Math.sin(da) * t;
       const a = da + (Math.random() < 0.5 ? 1.57 : -1.57) + (Math.random() - 0.5) * 0.7, v = 160 + Math.random() * 380;
-      puff(px, py, Math.cos(a) * v, Math.sin(a) * v, 0.35 + Math.random() * 0.5, 1 + Math.random(), k % 3 ? "#e9c8ff" : "#ffffff", 1, 0.05);
+      puff(px, py, Math.cos(a) * v, Math.sin(a) * v, 0.35 + Math.random() * 0.5, 1 + Math.random(), k % 3 ? "#ffb04a" : "#fff1b8", k % 4 ? 3 : 1, 0.05);   // molten drops and sparks
     }
-    impacts.push({ x: b.x, y: b.y, t: 0, r: 100 * sz, col: "#e9c8ff" });
-    rings.push({ x: b.x, y: b.y, t: 0, r: 170 * sz, col: "217,168,255", dur: 0.4, w: 6 });
+    meltLines.push({ x1: b.x - Math.cos(da) * L / 2, y1: b.y - Math.sin(da) * L / 2, x2: b.x + Math.cos(da) * L / 2, y2: b.y + Math.sin(da) * L / 2, w: 10 * sz, t: 0, dur: 1.6 });   // the cut glows where it went
+    oilSplash(b.x, b.y, 16, 300, Math.cos(da) * 300, Math.sin(da) * 300);
+    impacts.push({ x: b.x, y: b.y, t: 0, r: 100 * sz, col: "#fff1d0" });
+    impacts.push({ x: b.x, y: b.y, t: 0, r: 200 * sz, col: "255,150,70", dur: 0.9, soft: 0.5, flick: Math.random() * 6.28 });
+    rings.push({ x: b.x, y: b.y, t: 0, r: 170 * sz, col: "255,200,150", dur: 0.4, w: 6 });
     smoke(b.x, b.y, lowQ ? 4 : 10, 50, 2);
     sfx("chunk", 1, 0.7, b.x, b.y);
   }

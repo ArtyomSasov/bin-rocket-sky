@@ -89,6 +89,7 @@ try {
       combo: `explode(me.x + 330, me.y, 120, 640, "plasma")`,
       flak: `flakBurst({ kind: K.FLAK, id: 'fx' + Math.random(), owner: 'nobody', x: me.x + 330, y: me.y, vx: 0, vy: 0, life: 1, m: 1 })`,
       bin: `deathFx({ ...bots[0], x: me.x + 330, y: me.y, vx: 0, vy: 0, dead: false }, 3, 0, 0)`,
+      railkill: `deathFx({ ...bots[0], x: me.x + 250, y: me.y, vx: 0, vy: 0, dead: false }, 2, 1, 0.2)`,
       binthrown: `deathFx({ ...bots[0], x: me.x + 150, y: me.y, vx: 0, vy: 0, dead: false }, 3, 0, 0.3)`,
       hits: `for (let k = 0; k < 4; k++) impact(${at(250)} + (k - 1.5) * 90, SHOTS[[K.BULLET, K.PELLET, K.RAIL, K.ROCKET][k]].col, k < 2 ? 1 : 2)`,
       hitsfrozen: `for (let k = 0; k < 4; k++) impact(${at(250)} + (k - 1.5) * 90, SHOTS[[K.BULLET, K.PELLET, K.RAIL, K.ROCKET][k]].col, k < 2 ? 1 : 2); update(0.03, performance.now()); hitStopUntil = performance.now() + 600`,
