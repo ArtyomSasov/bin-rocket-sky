@@ -13,9 +13,16 @@
   // k: 0 glow dot, 1 spark streak, 2 smoke, 3 hot blob (white to red), 4 fire cloud, 5 ember. curl turns its path into an
   // arc (radians a second), drag is its own slowing per 1/60 s (0: the kind's default), glow lights smoke from inside
   // (and starts a fire cloud cooler)
+  // a finished particle goes back to a pool and the next puff takes it again: a big blast makes hundreds, and making
+  // new objects for each would hand the garbage collector work that shows as a stutter mid-fight
+  const partPool = [];
   function puff(x, y, vx, vy, life, size, col, k = 0, len = 0.035, curl = 0, drag = 0, glow = 0) {
-    parts.push({ x, y, vx, vy, life, max: life, size, col, k, len, curl, drag, glow, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 14 });
+    const p = partPool.pop() || {};
+    p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.life = life; p.max = life; p.size = size; p.col = col; p.k = k; p.len = len;
+    p.curl = curl; p.drag = drag; p.glow = glow; p.rot = Math.random() * 6.28; p.vr = (Math.random() - 0.5) * 14;
+    parts.push(p);
   }
+  const freePart = p => { if (partPool.length < 3000) partPool.push(p); };
   // fixed shades, so the sprite caches stay small: a fire cloud cools white, yellow, orange, red, then a dull ember red
   const FIRE_RAMP = ["#ffffff", "#fff3c4", "#ffd66b", "#ffab3d", "#ff7a26", "#e2491c", "#a32c19", "#5c1a16"];
   const SMOKE_COLS = ["rgb(64,57,64)", "rgb(88,79,84)", "rgb(114,103,106)"];

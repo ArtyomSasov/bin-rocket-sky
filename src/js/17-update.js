@@ -768,7 +768,7 @@
         const dx = p.x - me.x, dy = p.y - me.y, d2 = dx * dx + dy * dy;
         if (d2 < pushR2 && d2 > 1) { const d = Math.sqrt(d2), v = meSp * 0.8 + 80; p.vx = dx / d * v + me.vx * 0.3; p.vy = dy / d * v + me.vy * 0.3; }
       }
-      if (p.life <= 0) { parts[i] = parts[parts.length - 1]; parts.pop(); continue; }
+      if (p.life <= 0) { parts[i] = parts[parts.length - 1]; parts.pop(); freePart(p); continue; }
       p.x += p.vx * dt; p.y += p.vy * dt;
       const damp = Math.pow(p.drag || (p.k === 2 ? 0.93 : 0.97), dt * 60);
       p.vx *= damp; p.vy *= damp;
