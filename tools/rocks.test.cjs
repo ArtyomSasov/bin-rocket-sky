@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 function setup() {
   let now=5000;
-  const c={Map,Math,Number,Array,W:2000,H:2000,ROCKS:36,ROCK_PERIOD:22,myTag:'pilot',clockNow:()=>now,
+  const c={Map,Math,Number,Array,W:2000,H:2000,ROCKS:36,ROCK_PERIOD:22,myTag:'pilot',clockNow:()=>now,replaying:false,
     hash:()=>0.5,sizeOf:lv=>1+(lv-1)*0.09,mod:(v,s)=>((v%s)+s)%s,
     bounceIn:(v,lo,hi)=>lo+(hi-lo)-Math.abs((((v-lo)%(2*(hi-lo)))+2*(hi-lo))%(2*(hi-lo))-(hi-lo))};
   vm.createContext(c);

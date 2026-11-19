@@ -261,15 +261,22 @@
         if (f.crash && f.crash.dmg > 0) botHurt(b, f.crash.dmg, "p", now, false);
         if (f.fence && f.fence.dmg > 0) botHurt(b, f.fence.dmg, "p", now, false);
         // the junk rocks bump it, as they bump my bin (updateJunk)
-        for (const k of world.rocks) if (k && !grabbed.has(k.key) && k.age >= 0.6) collideRock(b, k);
+        if (!cmds) for (const k of world.rocks) if (k && !grabbed.has(k.key) && k.age >= 0.6) collideRock(b, k);   // (commands meet them in pilotMove)
         // and touching another pilot pushes it off, as updateRemotes pushes my bin
         for (const o of bots) {
           if (o === b || o.dead) continue;
           const ox = b.x - o.x, oy = b.y - o.y, d = Math.hypot(ox, oy);
           if (d >= 31 * (sizeOf(b.lv || 1) + sizeOf(o.lv || 1)) || d <= 0.01 || now - ((b.boops ||= new Map()).get(o.id) || 0) <= 400) continue;
           b.boops.set(o.id, now);
-          const kick = boopKick(o.boosting || now - (o.dashAt || 0) < 350, b.boosting || now - (b.dashAt || 0) < 350);
+          const oDash = now - (o.dashAt || 0) < 350, bDash = now - (b.dashAt || 0) < 350, oRam = o.boosting || oDash, bRam = b.boosting || bDash;
+          const kick = boopKick(oRam, bRam);
           b.vx += ox / d * kick; b.vy += oy / d * kick;
+          // a ram hurts, as on a player's own screen (updateRemotes): whoever hits on boost or a dash does the damage and
+          // gets the credit; a player's pilot is hurt here, an AI bot it rams too (an AI bot has no loop of its own for it)
+          if (!mates(o, b) && roundLive) {
+            if (oRam && o.tag) botHurt(b, oDash ? 1.2 : 0.6, o.tag + ".ram" + Math.floor(now), now, false);
+            if (bRam && b.tag && !o.input && now - (o.rammedBy || 0) > 400) { o.rammedBy = now; o.vx -= ox / d * 900; o.vy -= oy / d * 900; botHurt(o, bDash ? 1.2 : 0.6, b.tag + ".ram" + Math.floor(now), now, false); }
+          }
         }
       } else {   // a bot
       thrustPilot(b, st.x, st.y, b.boosting, false, dt, b.L.speed * (now < (b.pinnedUntil || 0) ? 0.6 : 1));

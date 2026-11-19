@@ -68,7 +68,8 @@
     srv.lastIn = sig; srv.lastInAt = t;
     // every flight command the server has not confirmed yet (up to 16), as Quake 3 sends them: whatever was lost or
     // came late on the way goes again in the next message (srv.cmds holds only the unconfirmed: reconcile drops the rest)
-    if (srv.cmds.length) { i.c = srv.cmds.slice(-16).map(c => [c.s, Math.round(c.mx * 1000), Math.round(c.my * 1000), Math.round(c.aim * 1000), (c.boost ? 1 : 0) | (c.brake ? 2 : 0) | (c.fire ? 4 : 0) | (c.alt ? 8 : 0), c.dash]); srv.sentCs = srv.cs; }
+    const now0 = Math.round(clockNow());   // (each command's moment goes as how long before this one it was made)
+    if (srv.cmds.length) { i.c = srv.cmds.slice(-16).map(c => [c.s, Math.round(c.mx * 1000), Math.round(c.my * 1000), Math.round(c.aim * 1000), (c.boost ? 1 : 0) | (c.brake ? 2 : 0) | (c.fire ? 4 : 0) | (c.alt ? 8 : 0), c.dash, Math.max(0, Math.min(5000, now0 - c.ct))]); i.cb = now0; srv.sentCs = srv.cs; }
     i.s = ++srv.seq; srv.sent.set(i.s, t); i.sa = srv.snapQ;   // sa: the newest snapshot I hold (the next delta builds on it)
     if (srv.sent.size > 240) for (const [k, at] of srv.sent) { if (t - at < 3000) break; srv.sent.delete(k); }
     toServer(i);

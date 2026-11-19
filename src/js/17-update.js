@@ -172,6 +172,14 @@
     else if (o.regenWait <= 0) o.energy = Math.min(100, o.energy + 22 * dt);
     const f = flyPilot(o, st.x, st.y, boosting, !!c.brake, dt, o.mt * 1000, boosting || o.dashFx > 0);
     f.dashed = dashed; f.lit = lit;
+    // the junk rocks, where they were at the moment the command was made (ct, on the shared clock they move by): the
+    // screen and the server meet each rock in the same place, whenever each flies the command
+    if (c.ct > 0) for (let i = 0; i < ROCKS; i++) {
+      const k = rock(i, c.ct);
+      if (k.age < 0.6 || grabbed.has(k.key) || (k.x - o.x) ** 2 + (k.y - o.y) ** 2 > (k.r + 60) ** 2) continue;
+      const sp = collideRock(o, k);
+      if (sp > 0) f.rock = { k, sp };
+    }
     // the state ends each command in hundredths, on both sides alike (as Gaffer on Games quantizes): the server sends
     // exactly what it flies on from, small numbers the deltas shorten, and a replay from it is still exact
     for (const k of MOVE_STATE) if (k !== "padAt") o[k] = Math.round(o[k] * 100) / 100;
@@ -203,11 +211,12 @@
       // (rounded as the wire carries them, so both sides fly exactly the same numbers)
       const c = { s: ++srv.cs, mx: r3(c0.mx), my: r3(c0.my), aim: r3(Math.atan2(Math.sin(me.a), Math.cos(me.a))), boost: !!c0.boostReq, brake: braking, dash: srv.dashN,
         fire: !!c0.fire && roundLive, alt: !!c0.alt && roundLive,   // the trigger too: the server fires on this command, with this aim
-        kx: srv.kx || 0, ky: srv.ky || 0 };   // the recoil my shots gave before it (the server gives its own; a replay needs mine)
+        kx: srv.kx || 0, ky: srv.ky || 0,   // the recoil my shots gave before it (the server gives its own; a replay needs mine)
+        ct: Math.round(clockNow()) };   // when (shared clock): the junk rocks are met where they were then
       srv.kx = srv.ky = 0;
       srv.cmds.push(c); if (srv.cmds.length > 240) srv.cmds.shift();
       const g = pilotMove(me, c);
-      f = { crash: g.crash || f.crash, fence: g.fence || f.fence, drift: g.drift, dashed: g.dashed !== false ? g.dashed : f.dashed, lit: g.lit || f.lit };
+      f = { crash: g.crash || f.crash, fence: g.fence || f.fence, drift: g.drift, dashed: g.dashed !== false ? g.dashed : f.dashed, lit: g.lit || f.lit, rock: g.rock || f.rock };
     }
     energy = me.energy;
     return f;
@@ -242,6 +251,11 @@
         if (hs > 300) sparkShower(cx, cy, pc.nx, pc.ny, Math.min(1.6, hs / 600));
         sfx("crash", Math.min(1, (big ? 0.3 : 0.15) + hs / 700), big ? 0.8 : 1.2);
         if (f.crash.dmg > 0) hurt(now, f.crash.dmg); else shake = Math.max(shake, big ? 0.12 : 0.06);
+      }
+      if (f.rock) {   // a junk rock bumped in a command flight: the knock shows here (the rock's own fate is the server's)
+        const { k, sp } = f.rock, dx = me.x - k.x, dy = me.y - k.y, d = Math.hypot(dx, dy) || 1;
+        impact(k.x + dx / d * k.r, k.y + dy / d * k.r, "#d9c8ff", Math.min(1.5, sp / 300));
+        sfx("crash", Math.min(0.7, sp / 800), 1.4);
       }
       if (f.fence) {
         const { hitSpeed, x: wx, y: wy } = f.fence;
@@ -551,7 +565,7 @@
         if (chipRock(k, Math.max(0.5, shotDmg(s) / DMG_UNIT), s.px, s.py)) breakRock(k, s.mine);
         break;
       }
-      if (grabbed.has(k.key) || !playing || me.dead) continue;
+      if (grabbed.has(k.key) || !playing || me.dead || (serverRun && srv.placed)) continue;   // (a command flight meets the rocks in pilotMove)
       const speed = collideRock(me, k);
       if (speed > 0) {
         const dx = me.x - k.x, dy = me.y - k.y, d = Math.hypot(dx, dy);
