@@ -871,14 +871,7 @@
       if (f.life <= 0) { frags.splice(i, 1); continue; }
       const drag = Math.exp(-(stationMap() ? 1.1 : 0.015) * dt), spinDrag = stationMap() ? Math.exp(-1.5 * dt) : 1;
       f.x += f.vx * dt; f.y += f.vy * dt; f.vx *= drag; f.vy *= drag; f.spin *= spinDrag; f.a += f.spin * dt;
-      // you can shove the pieces around
-      const fdx = f.x - me.x, fdy = f.y - me.y, fd = Math.hypot(fdx, fdy), fr = 30 * sizeOf(me.lv) + f.s * 0.3;
-      if (playing && !me.dead && fd < fr && fd > 0.01 && (!f.bump || now - f.bump > 250)) {
-        f.bump = now;
-        const push = Math.max(140, Math.hypot(me.vx, me.vy) * 0.9);
-        f.vx += fdx / fd * push; f.vy += fdy / fd * push; f.spin += (Math.random() - 0.5) * 3;
-        impact((f.x + me.x) / 2, (f.y + me.y) / 2, "#d9c8ff", 0.7);
-      }
+      // (bins shove the pieces about: piecesCollide)
       bounceOff(f, f.s * 0.25, 0.8, 0.25 * (f.s / BOT) ** 2);
       if (f.x < 0 || f.x > W) { f.vx = -f.vx; f.x = clamp(f.x, 0, W); }
       if (f.y < 0 || f.y > H) { f.vy = -f.vy; f.y = clamp(f.y, 0, H); }

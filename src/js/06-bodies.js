@@ -619,6 +619,54 @@
       if (c.x < 0 || c.x > W) { c.vx = -c.vx * 0.5; c.x = clamp(c.x, 0, W); }
       if (c.y < 0 || c.y > H) { c.vy = -c.vy * 0.5; c.y = clamp(c.y, 0, H); }
     }
+    piecesCollide();
+  }
+  // ---------- the loose pieces meeting each other and the bins ----------
+  // Chunks, the pieces of broken bins and the hulks are discs of their weight: every pair that touches is pushed apart
+  // (the lighter further) and struck by momentum with a dull bounce (e 0.3); a glancing touch drags along the surface
+  // (friction), which spins them up. The bins (mine and everyone shown) plough through them: a bin is far heavier, so
+  // a piece takes its speed and is thrown off it. Found through a grid of 96 px cells, so it stays cheap with hundreds
+  const pieceGrid = new Map();
+  function piecesCollide() {
+    const all = [];
+    for (const c of chunks) all.push([c, c.r * 0.8, 0.02 * (c.r / 8) ** 2, "spin"]);
+    for (const f of frags) all.push([f, f.s * 0.25, 0.25 * (f.s / BOT) ** 2, "spin"]);
+    for (const h of hulks) all.push([h, 30 * sizeOf(h.lv), 0.35 * binMass(h.lv), "hulk"]);
+    if (all.length < 2 && !chunks.length) return;
+    pieceGrid.clear();
+    const C = 96, key = (i, j) => i * 4096 + j;
+    all.forEach((e, n) => { const k = key(Math.floor(e[0].x / C), Math.floor(e[0].y / C)); let l = pieceGrid.get(k); if (!l) pieceGrid.set(k, l = []); l.push(n); });
+    const meet = (A, B) => {
+      const [a, ra, ma] = A, [b, rb, mb] = B, dx = a.x - b.x, dy = a.y - b.y, R = ra + rb;
+      if (dx * dx + dy * dy >= R * R) return;
+      const d = Math.hypot(dx, dy) || 0.01, nx = dx / d, ny = dy / d, over = R - d, w = mb === Infinity ? 1 : mb / (ma + mb);
+      a.x += nx * over * w; a.y += ny * over * w;
+      if (mb !== Infinity) { b.x -= nx * over * (1 - w); b.y -= ny * over * (1 - w); }
+      const rvx = a.vx - (b.vx || 0), rvy = a.vy - (b.vy || 0), vn = rvx * nx + rvy * ny;
+      if (vn >= 0) return;
+      const j = collide(a, ma, b, mb, nx, ny, 0.3);
+      // friction along the contact: some of the slide goes, and turns into spin
+      const vt = rvx * -ny + rvy * nx, f = Math.min(Math.abs(vt), j / ma * 0.4) * Math.sign(vt);
+      a.vx -= f * -ny * 0.5; a.vy -= f * nx * 0.5; a.spin = (a.spin || 0) + f / Math.max(4, ra) * 0.8;
+      if (mb !== Infinity && b.spin !== undefined) b.spin -= f / Math.max(4, rb) * 0.8 * ma / mb;
+      if (j / ma > 260 && Math.random() < 0.3) puff((a.x + b.x) / 2, (a.y + b.y) / 2, (Math.random() - 0.5) * 120, (Math.random() - 0.5) * 120, 0.2, 1, "#ffd9a0", 1, 0.04);   // a scrape
+    };
+    for (const [k, l] of pieceGrid) {
+      const i = Math.floor(k / 4096), jj = k - i * 4096;
+      for (const [di, dj] of [[0, 0], [1, 0], [0, 1], [1, 1], [1, -1]]) {
+        const m = pieceGrid.get(key(i + di, jj + dj)); if (!m) continue;
+        for (const p of l) for (const q of m) if (di || dj ? true : q > p) meet(all[p], all[q]);
+      }
+    }
+    // the bins plough through
+    const bins = [];
+    if (playing && !me.dead) bins.push(me);
+    for (const r of remotes.values()) if (!r.dead) bins.push(r);
+    for (const b of bots) if (!b.dead && !remotes.has(b.id)) bins.push(b);
+    for (const b of bins) {
+      const BR = 30 * sizeOf(b.lv || 1), i0 = Math.floor((b.x - BR - 60) / C), i1 = Math.floor((b.x + BR + 60) / C), j0 = Math.floor((b.y - BR - 60) / C), j1 = Math.floor((b.y + BR + 60) / C);
+      for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const l = pieceGrid.get(key(i, j)); if (l) for (const n of l) if (!(b === me && all[n][3] === "hulk")) meet(all[n], [b, BR, Infinity]); }   // (my bin and a hulk meet in updateFx, both moving)
+    }
   }
   function drawChunks(now) {
     for (const c of chunks) {

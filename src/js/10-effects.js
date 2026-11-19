@@ -385,10 +385,10 @@
     // wrecks, pieces and debris: pushed when the shock front gets to them (it runs out at SHOCK_SPEED), and by their
     // weight: a hulk is heavy, a big piece of a bin less, a scrap of debris light
     const now = performance.now();
-    for (const list of [hulks, frags, debris]) for (const o of list) {
+    for (const list of [hulks, frags, debris, chunks]) for (const o of list) {
       const dx = o.x - x, dy = o.y - y, d = Math.hypot(dx, dy);
       if (d < 1 || d > r) continue;
-      const kg = list === hulks ? 3 : list === frags ? Math.max(0.6, (o.s || 40) / 60) : 0.5;
+      const kg = list === hulks ? 3 : list === frags ? Math.max(0.6, (o.s || 40) / 60) : list === chunks ? Math.max(0.3, o.r / 12) : 0.5;
       const f = power * (1 - d / r) / Math.sqrt(kg);
       shockQueue.push({ at: now + d / SHOCK_SPEED * 1000, o, vx: dx / d * f, vy: dy / d * f, sp: (Math.random() - 0.5) * f / 200 });
     }
