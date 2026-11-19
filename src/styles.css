@@ -504,3 +504,5 @@ details.controls[open] .clist { margin-top: 8px; }
 .srv-rooms > span { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #ffcf8a; }
 .srv-join { display: grid; gap: 2px; text-align: left; padding: 10px 14px; font-size: 15px; }
 .srv-join small { font: 600 12px var(--body); opacity: .8; }
+/* the WebGL look over the game's canvas (20b-post.js): shown instead of it, never in the way of the mouse */
+#post { position: fixed; inset: 0; width: 100%; height: 100%; display: none; pointer-events: none; }

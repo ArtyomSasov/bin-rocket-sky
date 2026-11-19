@@ -25,7 +25,7 @@
   // graphics settings, kept in this browser: res "auto" (drops when slow) or a fixed share of the screen's resolution,
   // fx "high" or "low" (lighter effects), aim: the crosshair ("off", "small", "big"), aimCol: its colour
   const settings = (() => {
-    const d = { res: "auto", fx: "high", aim: "small", aimCol: "gun", engine: "on", engineV: 3, mouse: "aim" };   // Recorded spaceship loop; the sound setting can still disable it
+    const d = { res: "auto", fx: "high", post: "auto", aim: "small", aimCol: "gun", engine: "on", engineV: 3, mouse: "aim" };   // Recorded spaceship loop; the sound setting can still disable it
     try {
       const v = JSON.parse(store.get("binrocket.gfx"));
       if (!v || typeof v !== "object") return d;
