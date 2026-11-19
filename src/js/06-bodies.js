@@ -515,13 +515,35 @@
   // own: my shots (and my bots') on shared bodies are reported so everyone digs the same hole
   // the ragged edge of a shared crater comes from its own numbers, so every client cuts exactly the same shape
   const carveRnd = (lx, ly, r, sq) => { let n = 0; return () => hash(lx * 31 + ly, sq * 7 + n++, r); };
+  // what a hit leaves on a station wall's face (painted only where the wall still stands): a light weapon a sooty
+  // scorch and a few scratches; a heavy one, round the hole it blew, soot and cracks running out from it
+  function wallMark(b, x, y, rad, heavy) {
+    const [lx, ly] = toLocal(b, x, y), q = b.q;
+    q.save(); q.globalCompositeOperation = "source-atop";
+    const R = heavy ? rad * 1.6 : rad * 1.3 + 4, gr = q.createRadialGradient(lx, ly, 0, lx, ly, R);
+    gr.addColorStop(0, `rgba(12,9,8,${heavy ? 0.7 : 0.4})`); gr.addColorStop(1, "rgba(12,9,8,0)");
+    q.fillStyle = gr; q.fillRect(lx - R, ly - R, R * 2, R * 2);
+    q.strokeStyle = heavy ? "rgba(8,6,6,0.75)" : "rgba(20,16,16,0.45)"; q.lineCap = "round";
+    for (let k = 0, n = heavy ? 5 + Math.floor(Math.random() * 4) : 2 + Math.floor(Math.random() * 2); k < n; k++) {
+      let a = Math.random() * 6.283, px = lx + Math.cos(a) * (heavy ? rad : 2), py = ly + Math.sin(a) * (heavy ? rad : 2);
+      q.lineWidth = heavy ? 1.6 + Math.random() * 1.4 : 0.8; q.beginPath(); q.moveTo(px, py);
+      for (let j = 0, m = heavy ? 4 : 2; j < m; j++) {   // a crack wanders a little as it runs
+        a += (Math.random() - 0.5) * 0.9; const step = (heavy ? rad * 0.45 : 5) * (0.6 + Math.random() * 0.8);
+        px += Math.cos(a) * step; py += Math.sin(a) * step; q.lineTo(px, py);
+      }
+      q.stroke();
+    }
+    q.restore();
+  }
   function carveAt(b, x, y, rad, own) {
     if (b.dead) return 0;
+    if (b.wall && rad < WALL_CARVE) { wallMark(b, x, y, rad, false); return 0; }   // (a light weapon only marks it)
     const [lx0, ly0] = toLocal(b, x, y), lx = Math.round(lx0), ly = Math.round(ly0), r = Math.round(rad);
     const shared = own && !b.free, sq = shared ? ++carveSeq : 0;
     const n = carveLocal(b, lx, ly, r, true, shared ? carveRnd(lx, ly, r, sq) : Math.random);
     if (!n) return 0;
     rubbleFx(b, x, y, rad, n);
+    if (b.wall) wallMark(b, x, y, rad * WALL_GIVE, true);
     b.blast = { x, y, rad, at: performance.now() };   // what a piece cut off by this crater is flung away from
     if (own) b.lastOwn = true;
     if (shared) {

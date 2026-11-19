@@ -7,7 +7,7 @@ import { loadGame } from "./headless.mjs";
 // purely visual and audio ones with no-ops; the rules that decide outcomes stay untouched.
 const BRIDGE = `
   puff = sparkShower = smoke = impact = explode = swallowFx = dashBurst = afterburner = trailFrom = damageFx = deathFx =
-    announce = audioCue = sfx = packPlay = packLoop = blip = boomSound = choir = feedPush = () => false;
+    announce = audioCue = sfx = packPlay = packLoop = blip = boomSound = choir = feedPush = wallMark = () => false;
   const pilotView = b => ({ id: b.id, name: b.name, human: !!b.input, x: b.x, y: b.y, vx: b.vx, vy: b.vy, a: b.a, dead: b.dead, lives: b.lives,
     weapon: botWeapon(b), kills: b.st.kills, deaths: b.st.deaths, shots: b.st.shots, repeats: b.cqRepeats || 0 });   // repeats: commands flown again for want of new ones
   let serverSeq = 0;

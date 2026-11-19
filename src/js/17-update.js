@@ -856,8 +856,8 @@
       const f = frags[i];
       f.life -= dt;
       if (f.life <= 0) { frags.splice(i, 1); continue; }
-      const drag = Math.exp(-0.015 * dt);
-      f.x += f.vx * dt; f.y += f.vy * dt; f.vx *= drag; f.vy *= drag; f.a += f.spin * dt;
+      const drag = Math.exp(-(stationMap() ? 1.1 : 0.015) * dt), spinDrag = stationMap() ? Math.exp(-1.5 * dt) : 1;
+      f.x += f.vx * dt; f.y += f.vy * dt; f.vx *= drag; f.vy *= drag; f.spin *= spinDrag; f.a += f.spin * dt;
       // you can shove the pieces around
       const fdx = f.x - me.x, fdy = f.y - me.y, fd = Math.hypot(fdx, fdy), fr = 30 * sizeOf(me.lv) + f.s * 0.3;
       if (playing && !me.dead && fd < fr && fd > 0.01 && (!f.bump || now - f.bump > 250)) {
@@ -878,12 +878,13 @@
       for (const o of frags) if (segHit(s, o.x, o.y, o.s * 0.3)) { o.vx += s.vx * 0.12; o.vy += s.vy * 0.12; o.spin += (Math.random() - 0.5) * 2; s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.6); break; }
     }
     // wreckage drifts (almost no drag in space), spins, bounces off the fence, smoulders at first
-    const drift = Math.exp(-0.015 * dt);
+    // (on a station's deck it scrapes along and comes to rest; in space it drifts on)
+    const drift = Math.exp(-(stationMap() ? 1.4 : 0.015) * dt);
     for (let i = debris.length - 1; i >= 0; i--) {
       const d = debris[i];
       d.life -= dt;
       if (d.life <= 0) { debris.splice(i, 1); continue; }
-      d.x += d.vx * dt; d.y += d.vy * dt; d.vx *= drift; d.vy *= drift; d.rot += d.vr * dt;
+      d.x += d.vx * dt; d.y += d.vy * dt; d.vx *= drift; d.vy *= drift; d.vr *= drift; d.rot += d.vr * dt;
       bounceOff(d, 4, 0.8);
       if (d.x < 0 || d.x > W) { d.vx = -d.vx; d.x = clamp(d.x, 0, W); }
       if (d.y < 0 || d.y > H) { d.vy = -d.vy; d.y = clamp(d.y, 0, H); }
