@@ -139,7 +139,13 @@
       }
       for (const s of shots) if ((s.kind === K.ROCKET || s.kind === K.HROCKET || s.kind === K.NUKE) && s.life > 0) fluid.splat(s.x, s.y, 16, [0.5, 0.48, 0.5], 0.09, -s.vx * 0.25, -s.vy * 0.25);
         else if (s.kind === K.GAMMA && s.life > 0) fluid.splat(s.x + (Math.random() - 0.5) * 30, s.y + (Math.random() - 0.5) * 30, 30, [0.12, 0.75, 0.25], 0.16, -s.vx * 0.4 + (Math.random() - 0.5) * 300, -s.vy * 0.4 + (Math.random() - 0.5) * 300);   // its green clouds
-      const stir = o => { const sp = Math.hypot(o.vx || 0, o.vy || 0); if (sp > 160) fluid.splat(o.x, o.y, 34, null, 0, o.vx * 0.9, o.vy * 0.9); };
+      // a bin stirs it as it passes, and its engine breathes smoke into it (much more on boost)
+      const stir = o => {
+        const sp = Math.hypot(o.vx || 0, o.vy || 0), boost = o === me ? me.boostFx > 0 : (o.boost || 0) > 0, th = o === me ? me.thrust || 0 : o.thrust || 0;
+        if (sp > 160) fluid.splat(o.x, o.y, 34, null, 0, o.vx * 0.9, o.vy * 0.9);
+        if (th > 0.2 || boost) { const a = (o.a || 0) + Math.PI, bx = o.x + Math.cos(a) * 40, by = o.y + Math.sin(a) * 40;
+          fluid.splat(bx, by, boost ? 22 : 14, [0.36, 0.34, 0.36], boost ? 0.1 : 0.025, Math.cos(a) * (boost ? 500 : 220), Math.sin(a) * (boost ? 500 : 220)); }
+      };
       if (playing && !me.dead) stir(me);
       for (const r of remotes.values()) if (!r.dead) stir(r);
     }

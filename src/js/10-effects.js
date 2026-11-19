@@ -677,6 +677,12 @@
         Math.cos(j.a) * 100 + (b.vx || 0) * 0.65, Math.sin(j.a) * 100 + (b.vy || 0) * 0.65,
         0.25 + Math.random() * 0.45, 1 + Math.random() * 1.5, trailCols[k % trailCols.length]);
     }
+    // and a thin smoke behind a working engine, thicker on boost
+    const boostOn = b === me ? me.boostFx > 0 : (b.boost || 0) > 0;
+    for (let k = 0, m = emissionCount(b, "trailSmoke", (boostOn ? 26 : 7) * (lowQ ? 0.4 : 1) * Math.max(0.1, b.thrust || 0), dt); k < m; k++) {
+      const j = jets[0], a = j.a + (Math.random() - 0.5) * 0.5, v = 60 + Math.random() * 80;
+      puff(j.x, j.y, Math.cos(a) * v + (b.vx || 0) * 0.3, Math.sin(a) * v + (b.vy || 0) * 0.3, 0.9 + Math.random() * 0.9, 3 + Math.random() * (boostOn ? 6 : 3), boostOn ? SMOKE_COLS[1] : SMOKE_COLS[2], 2, 0, (Math.random() - 0.5) * 0.8, 0.95);
+    }
   }
 
   const FIRE_COLS = ["#fff3b0", "#ffd23f", "#ff9a2e", "#ff5a1f"];

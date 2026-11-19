@@ -4526,6 +4526,12 @@ details.controls[open] .clist { margin-top: 8px; }
         Math.cos(j.a) * 100 + (b.vx || 0) * 0.65, Math.sin(j.a) * 100 + (b.vy || 0) * 0.65,
         0.25 + Math.random() * 0.45, 1 + Math.random() * 1.5, trailCols[k % trailCols.length]);
     }
+    // and a thin smoke behind a working engine, thicker on boost
+    const boostOn = b === me ? me.boostFx > 0 : (b.boost || 0) > 0;
+    for (let k = 0, m = emissionCount(b, "trailSmoke", (boostOn ? 26 : 7) * (lowQ ? 0.4 : 1) * Math.max(0.1, b.thrust || 0), dt); k < m; k++) {
+      const j = jets[0], a = j.a + (Math.random() - 0.5) * 0.5, v = 60 + Math.random() * 80;
+      puff(j.x, j.y, Math.cos(a) * v + (b.vx || 0) * 0.3, Math.sin(a) * v + (b.vy || 0) * 0.3, 0.9 + Math.random() * 0.9, 3 + Math.random() * (boostOn ? 6 : 3), boostOn ? SMOKE_COLS[1] : SMOKE_COLS[2], 2, 0, (Math.random() - 0.5) * 0.8, 0.95);
+    }
   }
 
   const FIRE_COLS = ["#fff3b0", "#ffd23f", "#ff9a2e", "#ff5a1f"];
@@ -9644,7 +9650,7 @@ details.controls[open] .clist { margin-top: 8px; }
   }
 
   // live engine fire. Local frame: nozzle at the origin, +y points out of the engine.
-  function drawFlame(len, wid, now, seed, tier) {
+  function drawFlame(len, wid, now, seed, tier, bend = 0, billow = 0) {
     const t = now / 1000;
     g.globalCompositeOperation = "lighter";
     const layers = [[tier.outer, 1, 1, 0.7], [tier.mid, 0.72, 0.8, 0.85], [tier.core, 0.4, 0.55, 0.95]];
@@ -9656,7 +9662,7 @@ details.controls[open] .clist { margin-top: 8px; }
         const L = len * lf * (tongue ? 0.6 : 1) * (0.84 + 0.1 * Math.sin(t * 29 + ph) + 0.07 * Math.sin(t * 47 + ph * 2.3));
         const w = wid * wf * (tongue ? 0.55 : 1);
         const ox = tongue * wid * 0.27;
-        const sway = Math.sin(t * 13 + ph) * w * 0.35 + Math.sin(t * 23 + ph) * w * 0.12;
+        const sway = Math.sin(t * 13 + ph) * w * 0.35 + Math.sin(t * 23 + ph) * w * 0.12 + bend * (k === 2 ? 0.5 : 1);   // (it trails as the bin swings)
         const gr = g.createLinearGradient(0, 0, 0, L);
         gr.addColorStop(0, `rgba(${c},${al})`); gr.addColorStop(0.55, `rgba(${c},${al * 0.65})`); gr.addColorStop(1, `rgba(${c},0)`);
         g.fillStyle = gr;
@@ -9667,7 +9673,14 @@ details.controls[open] .clist { margin-top: 8px; }
         g.closePath(); g.fill();
       }
     }
-    const hr = wid * (0.85 + 0.1 * Math.sin(t * 37 + seed));
+    // billowing fire inside the jet (the blasts' own flame textures), more and brighter on boost, bent with it
+    for (let k = 0, n = Math.round(billow); k < n; k++) {
+      const f = (k + 0.5) / n, yy = len * f * 0.85, d = wid * (1.3 + f * 1.4) * (0.85 + 0.15 * Math.sin(t * 31 + k + seed));
+      g.globalAlpha = 0.55 * (1 - f * 0.6); g.save(); g.translate(bend * f * f * 1.4, yy); g.rotate(t * 3 + k * 1.7 + seed);
+      g.drawImage(fireSprite(Math.min(7, 1 + k + (f * 3 | 0)), ((t * 24) | 0) + k & 3), -d / 2, -d / 2, d, d); g.restore();
+    }
+    g.globalAlpha = 1;
+    const hr = wid * (0.85 + 0.1 * Math.sin(t * 37 + seed)) * (billow > 2 ? 1.6 : 1);
     const hg = g.createRadialGradient(0, wid * 0.15, 0, 0, wid * 0.15, hr);
     hg.addColorStop(0, `rgba(${tier.core},0.65)`); hg.addColorStop(1, `rgba(${tier.mid},0)`);
     g.fillStyle = hg; g.beginPath(); g.arc(0, wid * 0.15, hr, 0, 6.29); g.fill();
@@ -10209,9 +10222,10 @@ details.controls[open] .clist { margin-top: 8px; }
     const pal = bf ? { outer: firePal.outer, mid: firePal.mid, core: [255, 255, 255] } : firePal;
     for (const j of exhaustJets(b, now)) {
       g.save(); g.translate(x + j.x - b.x, y + j.y - b.y); g.rotate(j.a - Math.PI / 2);
-      const power = j.power * sputter, len = s * (j.main ? 0.65 : 0.4) * power * (1 + (bf ? 0.9 : 0) + burst * 0.6);
-      const wid = s * (j.main ? 0.24 : 0.12) * Math.sqrt(power) * (bf ? 1.2 : 1);
-      drawFlame(len, wid, now, (b.hue || 0) * 0.1 + (j.main ? 0 : 3), pal);
+      const power = j.power * sputter, len = s * (j.main ? 0.65 : 0.4) * power * (1 + (bf ? 1.7 : 0) + burst * 0.8);
+      const wid = s * (j.main ? 0.24 : 0.12) * Math.sqrt(power) * (bf ? 1.5 : 1);
+      const lat = (b.vx || 0) * Math.sin(j.a) - (b.vy || 0) * Math.cos(j.a), bend = clamp(lat * 0.05, -wid * 1.4, wid * 1.4);
+      drawFlame(len, wid, now, (b.hue || 0) * 0.1 + (j.main ? 0 : 3), pal, bend, fl || lowQ || !j.main ? 0 : bf ? 6 : power > 0.3 ? 2 : 0);
       if (bf && power > 0.4 && !lowQ) { // shock diamonds stay in the jet, behind its white-hot throat
         g.globalCompositeOperation = "lighter";
         for (let i = 1; i <= 3; i++) {
@@ -11518,7 +11532,13 @@ details.controls[open] .clist { margin-top: 8px; }
       }
       for (const s of shots) if ((s.kind === K.ROCKET || s.kind === K.HROCKET || s.kind === K.NUKE) && s.life > 0) fluid.splat(s.x, s.y, 16, [0.5, 0.48, 0.5], 0.09, -s.vx * 0.25, -s.vy * 0.25);
         else if (s.kind === K.GAMMA && s.life > 0) fluid.splat(s.x + (Math.random() - 0.5) * 30, s.y + (Math.random() - 0.5) * 30, 30, [0.12, 0.75, 0.25], 0.16, -s.vx * 0.4 + (Math.random() - 0.5) * 300, -s.vy * 0.4 + (Math.random() - 0.5) * 300);   // its green clouds
-      const stir = o => { const sp = Math.hypot(o.vx || 0, o.vy || 0); if (sp > 160) fluid.splat(o.x, o.y, 34, null, 0, o.vx * 0.9, o.vy * 0.9); };
+      // a bin stirs it as it passes, and its engine breathes smoke into it (much more on boost)
+      const stir = o => {
+        const sp = Math.hypot(o.vx || 0, o.vy || 0), boost = o === me ? me.boostFx > 0 : (o.boost || 0) > 0, th = o === me ? me.thrust || 0 : o.thrust || 0;
+        if (sp > 160) fluid.splat(o.x, o.y, 34, null, 0, o.vx * 0.9, o.vy * 0.9);
+        if (th > 0.2 || boost) { const a = (o.a || 0) + Math.PI, bx = o.x + Math.cos(a) * 40, by = o.y + Math.sin(a) * 40;
+          fluid.splat(bx, by, boost ? 22 : 14, [0.36, 0.34, 0.36], boost ? 0.1 : 0.025, Math.cos(a) * (boost ? 500 : 220), Math.sin(a) * (boost ? 500 : 220)); }
+      };
       if (playing && !me.dead) stir(me);
       for (const r of remotes.values()) if (!r.dead) stir(r);
     }
