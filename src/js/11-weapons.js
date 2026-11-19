@@ -351,6 +351,9 @@
   let hitStopUntil = 0;
   // Quake's medals: Impressive for two rail hits in a row; Humiliation for a ram kill; Headshot for a scoped rail kill from afar
   let railRun = 0, railLast = null;
+  const railHits = new Set();   // my rail shots that hit (by id)
+  // a new rail shot of mine: if the one before it hit nothing, the run of hits is over
+  function railFired(id) { if (railLast && !railHits.has(railLast)) railRun = 0; railLast = id; if (railHits.size > 64) railHits.clear(); }
   const myRails = new Map(), myMelee = new Set();
   const pendingHitFx = new Map();
   function predictHit(s, id, r) {
@@ -370,7 +373,9 @@
   }
   function hitConfirm(s, lv, x, y, target) {
     const t0 = performance.now();
-    if (s.mine && s.kind === K.RAIL && !s.hitAny) { s.hitAny = true; if (++railRun >= 2) announce("IMPRESSIVE", railRun + " rail hits in a row", "#d9a8ff", 2); }
+    // Impressive, as Quake 3 gives it: two rail hits in a row, a miss in between starting the count again (a shot that
+    // pierces two pilots counts once). On the server the shot is the one shown here (its id), offline my own
+    if (s.mine && s.kind === K.RAIL && !railHits.has(s.id)) { railHits.add(s.id); if (++railRun >= 2) announce("IMPRESSIVE", railRun + " rail hits in a row", "#d9a8ff", 2); }
     if (target) target.hitAt = t0;
     if (s.mine && shotDmg(s) >= 0.9) hitStopUntil = Math.max(hitStopUntil, t0 + (s.kind === K.RAIL ? 70 : 45));   // a heavy hit lands: the world stops for a beat
     if (!s.mine) return;
@@ -390,7 +395,7 @@
   const shotJitter = (tag, n, j) => (hash(tagSeed(String(tag || "")), n, 991) - 0.5) * 2 * j;
   function volley(p, now, pat, from, aim, mul = 1) {
     metricVolley(p, pat);
-    const mine = p === me, [kind, speed] = pat.shot, amp = (mine && me.ampUntil > now ? QUAD : 1) * mul, ride = kind === K.GREN || kind === K.HOLY || kind === K.MINE ? .6 : 0;
+    const mine = p === me, [kind, speed] = pat.shot, amp = ((mine ? me.ampUntil : p.ampUntil || 0) > now ? QUAD : 1) * mul, ride = kind === K.GREN || kind === K.HOLY || kind === K.MINE ? .6 : 0;
     const base = (aim ?? p.a) + (pat.back ? Math.PI : 0), sz = sizeOf(p.lv || 1);
     let s;
     for (const da of pat.spread || [0]) {
@@ -403,7 +408,7 @@
       const fwd = speed > 0 ? Math.max(0, p.vx * bx + p.vy * by) * ride : 0;
       s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * (speed + fwd) + (speed > 0 ? 0 : p.vx * ride), vy: by * (speed + fwd) + (speed > 0 ? 0 : p.vy * ride),
             life: SHOTS[kind].life, cut: pat.cut || 0, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: false };   // pc: pierces (fireballs from Lv 7)
-      if (mine && serverRun) { s = predictShot(s); continue; }   // on the authoritative server my shot is only shown here
+      if (mine && serverRun) { s = predictShot(s); if (kind === K.RAIL) railFired(s.id); continue; }   // on the authoritative server my shot is only shown here
       noteShotKind(id, kind);
       metricShot(s, p, pat);
       pilotLag(s, p, now);
@@ -416,8 +421,8 @@
         puff(ox, oy, cx * v - bx * 60 + p.vx * 0.8, cy * v - by * 60 + p.vy * 0.8, 0.5 + Math.random() * 0.3, 1.8, "#e8c060");
       }
       if (kind === K.RAIL && mine) {   // for Impressive (a miss breaks the run) and Headshot
-        if (railLast && !railLast.hitAny) railRun = 0;
-        railLast = s; myRails.set(id, { x: s.x, y: s.y, charged: false }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value);
+        railFired(id);
+        myRails.set(id, { x: s.x, y: s.y, charged: false }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value);
       }
       const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind, +amp.toFixed(2), s.pc ? 1 : 0, s.cut || 0, Date.now()];
       if (mine) { myShotLog.push({ at: now, d }); stats.shots++; net.shot(d); }

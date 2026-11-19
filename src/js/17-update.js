@@ -690,7 +690,7 @@
       }
     }
     // Overdrive
-    if (playing && !me.dead && world.amp && !grabbed.has(world.amp.key) && Math.hypot(world.amp.x - me.x, world.amp.y - me.y) < 30 + 30 * sizeOf(me.lv) + magnet()) {
+    if (!serverRun && playing && !me.dead && world.amp && !grabbed.has(world.amp.key) && Math.hypot(world.amp.x - me.x, world.amp.y - me.y) < 30 + 30 * sizeOf(me.lv) + magnet()) {
       const c = world.amp;
       grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
       me.ampUntil = now + AMP_TIME;
@@ -801,11 +801,16 @@
       const dx = me.x - h.x, dy = me.y - h.y, d = Math.hypot(dx, dy);
       if (playing && !me.dead && d > 0.01 && d < 31 * (sizeOf(me.lv) + sz) && (!h.bump || now - h.bump > 300)) {
         h.bump = now;
-        const push = Math.max(160, Math.hypot(me.vx, me.vy) * 0.8);
-        me.vx += dx / d * 260; me.vy += dy / d * 260; h.vx -= dx / d * push; h.vy -= dy / d * push; h.spin += (Math.random() - 0.5) * 2;
-        impact(me.x - dx / 2, me.y - dy / 2, "#d9c8ff", 1.2);
-        if (push > 300) sparkShower(me.x - dx / 2, me.y - dy / 2, -dy, dx, 0.8);
-        sfx("crash", 0.6) || blip(180, 0.15, "square");
+        // a wreck is a shell, lighter than a live bin: momentum shared by weight (a third of a bin's), restitution 0.4, so
+        // flying into it knocks it away and barely slows me, and one drifting into me at rest nudges me only a little.
+        // On the server it is only a picture here (the server has no wrecks): it never moves my bin there
+        const nx = dx / d, ny = dy / d, vn = (me.vx - h.vx) * nx + (me.vy - h.vy) * ny, mh = 0.35;
+        const j = vn < 0 ? -1.4 * vn / (1 + 1 / mh) : 40 * mh / (1 + mh);   // (touching but parting: just a little push apart)
+        if (!serverRun) { me.vx += nx * j; me.vy += ny * j; }
+        h.vx -= nx * j / mh; h.vy -= ny * j / mh; h.spin += (Math.random() - 0.5) * 2 * Math.min(1, j / 200);
+        impact(me.x - dx / 2, me.y - dy / 2, "#d9c8ff", Math.min(1.2, 0.3 + j / 250));
+        if (j > 250) sparkShower(me.x - dx / 2, me.y - dy / 2, -dy, dx, 0.8);
+        sfx("crash", Math.min(0.6, 0.15 + j / 600)) || blip(180, 0.15, "square");
       }
     }
     for (let i = frags.length - 1; i >= 0; i--) {

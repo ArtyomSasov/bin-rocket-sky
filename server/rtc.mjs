@@ -12,7 +12,7 @@ if (PORT) {
 }
 export const rtcReady = !!nd;
 // the library's threads end, so the process can (after every channel is closed)
-export function rtcShutdown() { try { nd?.cleanup?.(); } catch {} }
+export function rtcShutdown() { if (process.env.RTC_NO_CLEANUP !== "1") try { nd?.cleanup?.(); } catch {} }
 
 // the offer's own address (host candidates) replaced by the public one
 const publicSdp = sdp => !PUBLIC_IP ? sdp : sdp.replace(/^(a=candidate:\S+ \d+ (?:udp|UDP) \d+ )(\S+)( \d+ typ host)/gm, `$1${PUBLIC_IP}$3`);

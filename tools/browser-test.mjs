@@ -258,10 +258,10 @@ try {
   await until(lagB, `__t.seenShots.has(${JSON.stringify(lagShot)})`,3000);
   const lagDebug = await evaluate(lagB, '({now:performance.now(),shot:__t.shots[0],history:__t.me.hitHistory,pose:__t.hitPose(__t.shots[0],__t.me),round:__t.roundLive,remotes:[...__t.remotes.values()].map(r=>({tag:r.tag,ping:r.ping,off:r.off,tm:r.tm}))})');
   const lagHealth = await evaluate(lagB, '__t.updateShots(0.016,performance.now());__t.me.lives');
-  if(lagHealth!==7.6) console.log('LAG DEBUG',JSON.stringify(lagDebug));
-  assert.equal(lagHealth,7.6,'delayed rail hits historical position exactly once');
+  if(lagHealth!==7) console.log('LAG DEBUG',JSON.stringify(lagDebug));
+  assert.equal(lagHealth,7,'delayed rail hits historical position exactly once');
   dropStates=false;await evaluate(lagA,'__t.netSend(1,performance.now())');await wait(350);
-  assert.equal(await evaluate(lagB,'__t.updateShots(0.016,performance.now());__t.me.lives'),7.6,'journal and second broker cannot repeat damage');
+  assert.equal(await evaluate(lagB,'__t.updateShots(0.016,performance.now());__t.me.lives'),7,'journal and second broker cannot repeat damage');
   // Lose the immediate channel; the repeated state journal must still deliver the shot.
   dropFire=true;
   const recovered = await evaluate(lagA, "__t.volley(__t.me,performance.now(),{shot:[__t.K.NAIL,1500]},{x:100,y:600}).id");

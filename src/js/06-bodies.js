@@ -378,7 +378,7 @@
       amp: A.amp ? spot(["amp", ...A.amp], 200, AMP_PERIOD) : null,
       nuke: A.nuke && (big || modeOf(code) === "n" || modeOf(code) === "x") ? spot(["nuke", ...A.nuke], 201, BOMB_CRATES.nuke.period) : null,
       holy: A.holy && (big || modeOf(code) === "x") ? spot(["holy", ...A.holy], 202, BOMB_CRATES.holy.period) : null,
-      pads: padList.map(([, fx, fy, deg]) => ({ x: fx * W, y: fy * H, a: deg / 57.2958 }))
+      pads: BOOST_PADS ? padList.map(([, fx, fy, deg]) => ({ x: fx * W, y: fy * H, a: deg / 57.2958 })) : []   // (their places are still kept clear)
     };
     PICKS = arena.guns.length; SUPPLY_SLOTS = arena.supplies.length;
     det = [...planets, ...moons, ...wrecks];

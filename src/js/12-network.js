@@ -211,7 +211,7 @@
     if (Number.isInteger(p.wp)) r.weapon = WEAPON_KEYS[p.wp] || "fire";
     if (Number.isFinite(p.sh)) r.shield = clamp(p.sh, 0, MAX_SHIELD);
     if (Number.isFinite(p.pg)) r.ping = clamp(p.pg, 0, 5000);
-    if ("am" in p) r.amp = p.am === 1;
+    if ("am" in p) r.amp = p.am >= 1;   // (a player on the server: the seconds it has left)
     if (Number.isFinite(p.l)) r.lives = clamp(p.l, 0, LIVES * 1.99);
     if (p.rd === stats.round && Array.isArray(p.f)) for (const f of p.f.slice(0, 24)) addRemoteShot(id, f, p.ts);
     if (Array.isArray(p.gw) && p.gw.length === 6 && typeof p.gw[0] === "string" && p.gw.slice(1).every(Number.isFinite)) guideRemote(id, p.gw);

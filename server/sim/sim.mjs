@@ -19,6 +19,7 @@ const BRIDGE = `
   // where things lie on a station, for tests: the pick-up spots, the props, the cell size and which cells are floor
   globalThis.__simArena = () => ({ spots: [...arena.guns, ...arena.supplies, arena.amp].filter(Boolean).map(o => [o.x, o.y]),
     props: det.filter(b => b.prop).map(b => [b.x, b.y, Math.max(b.hw, b.hh)]), unit: W / FOUNDRY_N, open: stationMap() ? (x, y) => foundryOpen(x, y) : null });
+  globalThis.__simQuad = () => world.amp;   // the Quad damage pick-up as it lies now (null while taken)
   globalThis.__simMove = { pilotMove, moveState, setMoveState };   // a player's command flight, for tests
   globalThis.__simDet = () => det.map(b => b.cells.join(""));   // every body's solid cells, to compare with a browser
   globalThis.__sim = {

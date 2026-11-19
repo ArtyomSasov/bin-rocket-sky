@@ -255,7 +255,7 @@ setInterval(() => { for (const ws of wss.clients) if (ws.readyState === 1 && !ws
 process.on("uncaughtException", e => log("uncaught", e.stack));
 process.on("unhandledRejection", e => log("unhandled rejection", e && e.stack || e));
 
-function stop() { for (const r of [...rooms.values()]) closeRoom(r); for (const ws of wss.clients) { ws.rtc?.close(); ws.terminate(); } wss.close(); rtcShutdown(); return new Promise(r => server.close(r)); }
+function stop() { for (const r of [...rooms.values()]) closeRoom(r); for (const ws of wss.clients) { ws.rtc?.close(); ws.terminate(); } wss.close(); return new Promise(r => server.close(r)).then(() => new Promise(r => setTimeout(r, 500))).then(rtcShutdown); }   // (the channels' own threads finish closing before the library stops: stopping it at once could crash the process)
 const listening = new Promise(r => server.listen(PORT, () => { log("listening", server.address().port, "max rooms", MAX_ROOMS); r(server.address().port); }));
 if (process.env.BRS_NO_SIGNALS !== "1") for (const sig of ["SIGTERM", "SIGINT"]) process.on(sig, () => { log("stopping"); stop().then(() => process.exit(0)); });
 export { listening, stop, rooms };

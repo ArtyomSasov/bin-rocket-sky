@@ -20,7 +20,7 @@ function runGameplayChecks() {
     bodies=[];det=[];shots.length=0;me.weapon='rail';me.arsenal.rail=8;
     shoot(performance.now(),true);ok(shots.length===0&&me.arsenal.rail===8,'no alternate shot or ammo spend');
     ok(!WEAPONS.rail.alt,'no alternate mode');shoot(performance.now(),false);
-    ok(Math.abs(shotDmg(shots.at(-1))-2.4)<1e-6&&fireCd===1.8,'80 HP and slower recovery');
+    ok(Math.abs(shotDmg(shots.at(-1))-3)<1e-6&&fireCd===1.8,'100 HP (Quake 3) and slower recovery');
   });
   check('laser stops at the nearest bin and draws exactly its damage endpoint',()=>{
     shots.length=0;remotes.set('far',{x:900,y:600,lv:1,dead:false});remotes.set('near',{x:500,y:600,lv:1,dead:false});

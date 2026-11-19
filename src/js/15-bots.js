@@ -64,7 +64,7 @@
     if (!byHole) pushCapped(b.hitBy, shotId, 12);
     if (b.lives <= 0) {
       if (b.weapon !== "fire" && !MODES[MODE].only) dropGun(b.x, b.y, b.weapon, b.input ? b.arsenal[b.weapon] : b.ammo);   // its trophy
-      b.dead = true; b.respawnAt = now + 3000; b.fc = -1; b.weapon = "fire";
+      b.dead = true; b.respawnAt = now + 3000; b.fc = -1; b.weapon = "fire"; b.ampUntil = 0;
       if (b.input) pilotArm(b);   // a player starts again with the fireball and the gauntlet
       b.lv = levelAfterDeath(b.lv); b.xp = XP_STEPS[b.lv - 1]; b.ds = deathPiecesOf(kind); b.dk = deathStyleOf(kind); b.da = ang;
       b.st.deaths++; b.st.streak = 0;
@@ -139,6 +139,11 @@
         if (grabbed.has(c.key) || c.age < .05 || Math.hypot(c.x - b.x, c.y - b.y) > 56 || !applySupply(b, c.type)) continue;
         grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
         sfx(SUPPLIES[c.type].heal ? "heal" : "shield_get", .5, 1, c.x, c.y);
+      }
+      // Quad damage, for a player on the server (their screen only shows it: the server decides who took it)
+      const qd = world.amp;
+      if (human && roundLive && qd && !grabbed.has(qd.key) && Math.hypot(qd.x - b.x, qd.y - b.y) < 30 + 30 * sizeOf(b.lv || 1)) {
+        grabbed.add(qd.key); pushCapped(myGrabs, qd.key, 40); b.ampUntil = now + AMP_TIME;
       }
       if (!MODES[MODE].only && roundLive) {
         let best = null, bd = b.weapon === "fire" && td > 700 ? 1300 : 0;
@@ -373,6 +378,7 @@
         tm: b.tm ?? -1, fc: b.fc ?? -1, cp: [stats.round, b.caps || 0], tg: b.tag
       };
       m.sh = b.shield || 0;
+      m.am = b.ampUntil > now ? Math.ceil((b.ampUntil - now) / 1000) : 0;   // Quad damage: the seconds it has left
       // a player's own HUD (the guns they carry), and which of their controls this state already holds:
       // ak, the last one applied; ag, for how long (ms, including this step), so their screen can compare
       if (b.input) { m.ar = pilotArsenalWire(b); m.tn = b.teleN || 0; m.ak = (b.cq ? b.cmdAck : b.ackSeq) || 0; m.ag = Math.round(now - (b.ackAt ?? now)); m.en = Math.round(b.energy);

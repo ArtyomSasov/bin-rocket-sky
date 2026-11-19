@@ -189,6 +189,16 @@
     if ("tm" in m) me.tm = m.tm === 0 || m.tm === 1 ? m.tm : undefined;
     if ("fc" in m) me.fc = m.fc === 0 || m.fc === 1 ? m.fc : -1;
     if (Array.isArray(m.al) && m.al.length === 3 && m.al.every(Number.isFinite)) { me.beltArmor = clamp(m.al[0], 0, MAX_SHIELD); me.bodyArmor = clamp(m.al[1], 0, MAX_SHIELD); me.padsArmor = clamp(m.al[2], 0, MAX_SHIELD); }
+    if (Number.isInteger(m.am)) {   // Quad damage, as the server has it: taken there, its seconds counted there
+      const left = me.ampUntil > now ? (me.ampUntil - now) / 1000 : 0;
+      if (m.am > 0 && !left) {
+        announce("QUAD DAMAGE", "four times the damage for 20 seconds", "#6fa8ff", 4);
+        const c = world.amp || me;
+        for (let k = 0; k < 50; k++) { const a = Math.random() * 6.28, v = 100 + Math.random() * 300; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.8, 2.5, k % 2 ? "#5b9bff" : "#ffffff"); }
+        rings.push({ x: c.x, y: c.y, t: 0, r: 260, col: "91,155,255", warp: true, dur: 0.6, w: 14 });
+      }
+      if (!m.am) me.ampUntil = 0; else if (Math.abs(left - m.am) > 1.2) me.ampUntil = now + m.am * 1000;
+    }
     if (Number.isFinite(m.sh) && m.sh !== me.shield) { me.shield = clamp(m.sh, 0, MAX_SHIELD); renderShield(); }
     if (Number.isFinite(m.l) && m.l !== me.lives) { const hit = m.l < me.lives; me.lives = clamp(m.l, 0, LIVES * 1.99); renderHearts(hit); if (hit && !me.dead) { me.hitAt = now; hurtFlash = Math.min(1, hurtFlash + 0.4); } }
     if (m.d === 1 && !me.dead) {   // the server's verdict: I died
@@ -278,7 +288,7 @@
     // A prediction this screen refused (too many shots alive) is not recorded, so the server's copy still shows.
     if (addRemoteShot(srv.id, d, Date.now(), true) === true) srv.pred.push({ kind: s.kind, at: performance.now(), n: srv.pseq - 1 }); if (srv.pred.length > 48) srv.pred.shift();
     stats.shots++;
-    return { ...s, mine: false, owner: srv.id };   // for the caller: where it left from (and whose it is, for a saw recall)
+    return { ...s, mine: false, owner: srv.id, id: d[0] };   // for the caller: where it left from, whose it is (a saw recall), its id here
   }
   // a shot of mine from the server that this screen already showed: the oldest shown one of its kind, if recent
   // (id: the server's id for it, which ends in the server's number for the shot: from it, how the numbering of my

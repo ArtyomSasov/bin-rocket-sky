@@ -186,7 +186,7 @@
   Object.assign(WEAPONS.minigun, { cd: .1, jitter: .03375, shot: [K.BULLET, 6000] });   // (its pace is set by spin)
   Object.assign(WEAPONS.minigun.alt, { name: "Heavy shards", cost: 2, cd: .28, jitter: .01, shot: [K.BULLET_ALT, 2500] });
   Object.assign(WEAPONS.scatter, { cd: 1, shot: [K.PELLET, 1500] });
-  balanceShot(K.RAIL, { dmg: HP(80) });
+  balanceShot(K.RAIL, { dmg: HP(100) });   // Quake 3's railgun: 100
   WEAPONS.rail.cd = 1.8; WEAPONS.gren.shot = [K.GREN, 1225];
   WEAPONS.gauntlet.cd = .4; WEAPONS.mine.cd = .8;
   WEAPONS.nuke.shot = [K.NUKE, 840]; WEAPONS.nuke.alt.shot = [K.NUKE, 840];
@@ -198,6 +198,7 @@
   const SPLASH = { [K.FLAK]: [210, HP(70), 0, 400], [K.SAW_ALT]: [252, HP(34), 0, 350], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [280, HP(80), 0, 600] };
   const GAMMA_ZAP = { r: 280, every: 0.45, dmg: HP(6) };   // the gamma orb zaps every enemy this close as it flies
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
+  const BOOST_PADS = false;   // the speed pads on the maps: taken off (their spots stay, kept clear, should they come back)
   const AMP_PERIOD = 95, AMP_TIME = 20000, QUAD = 4;         // Quad damage: a rare pick-up, four times the damage for 20 s                        // mines go off when a bin comes this close, after arming
   // UT99 pickups: ordinary health caps at 100; super health at 199.
   const SUPPLIES = {
@@ -288,7 +289,7 @@
     orb: "M2 10h8v6H2ZM5 16h3v4H5ZM10 11.5h8v3h-8ZM18 10.5h4v5h-4ZM14 4.5a3 3 0 1 0 0.01 0Z",
     bolt: "M9 1h7l-4 7h5l-3 5h4L7 23l3-8H6l2-5H4z",
     shard: "M2 9h11v7H2ZM5 16h3v4H5ZM13 8h4v9h-4ZM17 9l5-2v3l-5 1ZM17 12h5v1.5h-5ZM17 14.5l5 1v3l-5-2Z",
-    amp: "M12 1l9 7-9 15-9-15ZM10 6.5h1.8v4h2.4v-4h1.8V16h-1.8v-3.8H10Z",
+    amp: "M12 0l2 3.3a8.8 8.8 0 0 1 6.7 6.7L24 12l-3.3 2a8.8 8.8 0 0 1-6.7 6.7L12 24l-2-3.3A8.8 8.8 0 0 1 3.3 14L0 12l3.3-2A8.8 8.8 0 0 1 10 3.3ZM13.4 7.5h-1.9L8 13v1.7h4.1V17h1.8v-2.3h1.4v-1.6h-1.4ZM12.1 10v3.1H10Z",   // Quad damage: a spiked sphere with a 4
     shield: "M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z",
     nuke: "M14.10 8.36L17.25 2.91A10.5 10.5 0 0 0 6.75 2.91L9.90 8.36A4.2 4.2 0 0 1 14.10 8.36ZM7.80 12.00L1.50 12.00A10.5 10.5 0 0 0 6.75 21.09L9.90 15.64A4.2 4.2 0 0 1 7.80 12.00ZM14.10 15.64L17.25 21.09A10.5 10.5 0 0 0 22.50 12.00L16.20 12.00A4.2 4.2 0 0 1 14.10 15.64ZM12 9.8a2.2 2.2 0 1 0 0.01 0Z",
     holy: "M12 10a6.5 6.5 0 1 0 0.01 0ZM12 1C6.5 1 3.5 2.4 3.5 4.2S6.5 7.4 12 7.4s8.5-1.4 8.5-3.2S17.5 1 12 1Zm0 1.7c4 0 6.4.8 6.4 1.5S16 5.7 12 5.7 5.6 4.9 5.6 4.2 8 2.7 12 2.7Z",

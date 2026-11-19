@@ -9,7 +9,7 @@ const skip = ready ? false : 'server dependencies are not installed (cd server &
 let srv, port, WebSocket, D;
 before(async () => {
   if (!ready) return;
-  Object.assign(process.env, { PORT: '0', MAX_ROOMS: '4', BRS_NO_SIGNALS: '1', ORIGINS: 'https://artyomsasov.github.io', RTC_PORT: '18446', AFK_MS: '1500', ROOMS_PER_IP: '2', WAIT_MAX: '4' });
+  Object.assign(process.env, { PORT: '0', MAX_ROOMS: '4', BRS_NO_SIGNALS: '1', ORIGINS: 'https://artyomsasov.github.io', RTC_PORT: '18446', RTC_NO_CLEANUP: '1', AFK_MS: '1500', ROOMS_PER_IP: '2', WAIT_MAX: '4' });
   srv = await import('../server/index.mjs'); port = await srv.listening;
   WebSocket = require('../server/node_modules/ws');
   D = (await import('../server/delta.mjs')).SNAP_DELTA;
@@ -31,7 +31,7 @@ function client(headers) {
     } else m = JSON.parse(d);
     got.push(m); for (const w of [...waiters]) if (w.f(m)) { waiters.splice(waiters.indexOf(w), 1); w.r(m); }
   });
-  ws.next = (f, ms = 5000) => new Promise((r, j) => { const old = got.find(f); if (old) return r(old); const w = { f, r }; waiters.push(w); setTimeout(() => j(new Error('timeout')), ms); });
+  ws.next = (f, ms = 5000) => new Promise((r, j) => { const old = got.find(f); if (old) return r(old); const w = { f, r }; waiters.push(w); setTimeout(() => j(new Error('timeout')), ms).unref(); });
   ws.sendJ = m => ws.send(JSON.stringify(m));
   ws.opened = new Promise((r, j) => { ws.on('open', r); ws.on('error', j); ws.on('unexpected-response', (_, res) => j(new Error('HTTP ' + res.statusCode))); });
   ws.got = got;

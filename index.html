@@ -837,7 +837,7 @@ details.controls[open] .clist { margin-top: 8px; }
   Object.assign(WEAPONS.minigun, { cd: .1, jitter: .03375, shot: [K.BULLET, 6000] });   // (its pace is set by spin)
   Object.assign(WEAPONS.minigun.alt, { name: "Heavy shards", cost: 2, cd: .28, jitter: .01, shot: [K.BULLET_ALT, 2500] });
   Object.assign(WEAPONS.scatter, { cd: 1, shot: [K.PELLET, 1500] });
-  balanceShot(K.RAIL, { dmg: HP(80) });
+  balanceShot(K.RAIL, { dmg: HP(100) });   // Quake 3's railgun: 100
   WEAPONS.rail.cd = 1.8; WEAPONS.gren.shot = [K.GREN, 1225];
   WEAPONS.gauntlet.cd = .4; WEAPONS.mine.cd = .8;
   WEAPONS.nuke.shot = [K.NUKE, 840]; WEAPONS.nuke.alt.shot = [K.NUKE, 840];
@@ -849,6 +849,7 @@ details.controls[open] .clist { margin-top: 8px; }
   const SPLASH = { [K.FLAK]: [210, HP(70), 0, 400], [K.SAW_ALT]: [252, HP(34), 0, 350], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [280, HP(80), 0, 600] };
   const GAMMA_ZAP = { r: 280, every: 0.45, dmg: HP(6) };   // the gamma orb zaps every enemy this close as it flies
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
+  const BOOST_PADS = false;   // the speed pads on the maps: taken off (their spots stay, kept clear, should they come back)
   const AMP_PERIOD = 95, AMP_TIME = 20000, QUAD = 4;         // Quad damage: a rare pick-up, four times the damage for 20 s                        // mines go off when a bin comes this close, after arming
   // UT99 pickups: ordinary health caps at 100; super health at 199.
   const SUPPLIES = {
@@ -939,7 +940,7 @@ details.controls[open] .clist { margin-top: 8px; }
     orb: "M2 10h8v6H2ZM5 16h3v4H5ZM10 11.5h8v3h-8ZM18 10.5h4v5h-4ZM14 4.5a3 3 0 1 0 0.01 0Z",
     bolt: "M9 1h7l-4 7h5l-3 5h4L7 23l3-8H6l2-5H4z",
     shard: "M2 9h11v7H2ZM5 16h3v4H5ZM13 8h4v9h-4ZM17 9l5-2v3l-5 1ZM17 12h5v1.5h-5ZM17 14.5l5 1v3l-5-2Z",
-    amp: "M12 1l9 7-9 15-9-15ZM10 6.5h1.8v4h2.4v-4h1.8V16h-1.8v-3.8H10Z",
+    amp: "M12 0l2 3.3a8.8 8.8 0 0 1 6.7 6.7L24 12l-3.3 2a8.8 8.8 0 0 1-6.7 6.7L12 24l-2-3.3A8.8 8.8 0 0 1 3.3 14L0 12l3.3-2A8.8 8.8 0 0 1 10 3.3ZM13.4 7.5h-1.9L8 13v1.7h4.1V17h1.8v-2.3h1.4v-1.6h-1.4ZM12.1 10v3.1H10Z",   // Quad damage: a spiked sphere with a 4
     shield: "M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z",
     nuke: "M14.10 8.36L17.25 2.91A10.5 10.5 0 0 0 6.75 2.91L9.90 8.36A4.2 4.2 0 0 1 14.10 8.36ZM7.80 12.00L1.50 12.00A10.5 10.5 0 0 0 6.75 21.09L9.90 15.64A4.2 4.2 0 0 1 7.80 12.00ZM14.10 15.64L17.25 21.09A10.5 10.5 0 0 0 22.50 12.00L16.20 12.00A4.2 4.2 0 0 1 14.10 15.64ZM12 9.8a2.2 2.2 0 1 0 0.01 0Z",
     holy: "M12 10a6.5 6.5 0 1 0 0.01 0ZM12 1C6.5 1 3.5 2.4 3.5 4.2S6.5 7.4 12 7.4s8.5-1.4 8.5-3.2S17.5 1 12 1Zm0 1.7c4 0 6.4.8 6.4 1.5S16 5.7 12 5.7 5.6 4.9 5.6 4.2 8 2.7 12 2.7Z",
@@ -1334,7 +1335,7 @@ details.controls[open] .clist { margin-top: 8px; }
     const guns = st.guns.flatMap(([type, x, y]) => [spot(type, x, y), spot(type, 20 - x, 20 - y)]);
     arena = { guns, supplies: st.supplies.flatMap(([t, x, y]) => [spot(t, x, y, SUPPLIES[t].period), spot(t, 20 - x, 20 - y, SUPPLIES[t].period)]),
       amp: spot("amp", 10, 10, AMP_PERIOD), nuke: null, holy: null,
-      pads: st.pads.map(([x, y, a]) => ({ ...foundryPoint(x, y), a })) };
+      pads: BOOST_PADS ? st.pads.map(([x, y, a]) => ({ ...foundryPoint(x, y), a })) : [] };
     arena.supplies.push(spot("mega", ...st.mega, SUPPLIES.mega.period));
     PICKS = guns.length; SUPPLY_SLOTS = arena.supplies.length;
     det = [...wrecks, ...props]; rebuildBodies();
@@ -2751,7 +2752,7 @@ details.controls[open] .clist { margin-top: 8px; }
       amp: A.amp ? spot(["amp", ...A.amp], 200, AMP_PERIOD) : null,
       nuke: A.nuke && (big || modeOf(code) === "n" || modeOf(code) === "x") ? spot(["nuke", ...A.nuke], 201, BOMB_CRATES.nuke.period) : null,
       holy: A.holy && (big || modeOf(code) === "x") ? spot(["holy", ...A.holy], 202, BOMB_CRATES.holy.period) : null,
-      pads: padList.map(([, fx, fy, deg]) => ({ x: fx * W, y: fy * H, a: deg / 57.2958 }))
+      pads: BOOST_PADS ? padList.map(([, fx, fy, deg]) => ({ x: fx * W, y: fy * H, a: deg / 57.2958 })) : []   // (their places are still kept clear)
     };
     PICKS = arena.guns.length; SUPPLY_SLOTS = arena.supplies.length;
     det = [...planets, ...moons, ...wrecks];
@@ -4510,6 +4511,9 @@ details.controls[open] .clist { margin-top: 8px; }
   let hitStopUntil = 0;
   // Quake's medals: Impressive for two rail hits in a row; Humiliation for a ram kill; Headshot for a scoped rail kill from afar
   let railRun = 0, railLast = null;
+  const railHits = new Set();   // my rail shots that hit (by id)
+  // a new rail shot of mine: if the one before it hit nothing, the run of hits is over
+  function railFired(id) { if (railLast && !railHits.has(railLast)) railRun = 0; railLast = id; if (railHits.size > 64) railHits.clear(); }
   const myRails = new Map(), myMelee = new Set();
   const pendingHitFx = new Map();
   function predictHit(s, id, r) {
@@ -4529,7 +4533,9 @@ details.controls[open] .clist { margin-top: 8px; }
   }
   function hitConfirm(s, lv, x, y, target) {
     const t0 = performance.now();
-    if (s.mine && s.kind === K.RAIL && !s.hitAny) { s.hitAny = true; if (++railRun >= 2) announce("IMPRESSIVE", railRun + " rail hits in a row", "#d9a8ff", 2); }
+    // Impressive, as Quake 3 gives it: two rail hits in a row, a miss in between starting the count again (a shot that
+    // pierces two pilots counts once). On the server the shot is the one shown here (its id), offline my own
+    if (s.mine && s.kind === K.RAIL && !railHits.has(s.id)) { railHits.add(s.id); if (++railRun >= 2) announce("IMPRESSIVE", railRun + " rail hits in a row", "#d9a8ff", 2); }
     if (target) target.hitAt = t0;
     if (s.mine && shotDmg(s) >= 0.9) hitStopUntil = Math.max(hitStopUntil, t0 + (s.kind === K.RAIL ? 70 : 45));   // a heavy hit lands: the world stops for a beat
     if (!s.mine) return;
@@ -4549,7 +4555,7 @@ details.controls[open] .clist { margin-top: 8px; }
   const shotJitter = (tag, n, j) => (hash(tagSeed(String(tag || "")), n, 991) - 0.5) * 2 * j;
   function volley(p, now, pat, from, aim, mul = 1) {
     metricVolley(p, pat);
-    const mine = p === me, [kind, speed] = pat.shot, amp = (mine && me.ampUntil > now ? QUAD : 1) * mul, ride = kind === K.GREN || kind === K.HOLY || kind === K.MINE ? .6 : 0;
+    const mine = p === me, [kind, speed] = pat.shot, amp = ((mine ? me.ampUntil : p.ampUntil || 0) > now ? QUAD : 1) * mul, ride = kind === K.GREN || kind === K.HOLY || kind === K.MINE ? .6 : 0;
     const base = (aim ?? p.a) + (pat.back ? Math.PI : 0), sz = sizeOf(p.lv || 1);
     let s;
     for (const da of pat.spread || [0]) {
@@ -4562,7 +4568,7 @@ details.controls[open] .clist { margin-top: 8px; }
       const fwd = speed > 0 ? Math.max(0, p.vx * bx + p.vy * by) * ride : 0;
       s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * (speed + fwd) + (speed > 0 ? 0 : p.vx * ride), vy: by * (speed + fwd) + (speed > 0 ? 0 : p.vy * ride),
             life: SHOTS[kind].life, cut: pat.cut || 0, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: false };   // pc: pierces (fireballs from Lv 7)
-      if (mine && serverRun) { s = predictShot(s); continue; }   // on the authoritative server my shot is only shown here
+      if (mine && serverRun) { s = predictShot(s); if (kind === K.RAIL) railFired(s.id); continue; }   // on the authoritative server my shot is only shown here
       noteShotKind(id, kind);
       metricShot(s, p, pat);
       pilotLag(s, p, now);
@@ -4575,8 +4581,8 @@ details.controls[open] .clist { margin-top: 8px; }
         puff(ox, oy, cx * v - bx * 60 + p.vx * 0.8, cy * v - by * 60 + p.vy * 0.8, 0.5 + Math.random() * 0.3, 1.8, "#e8c060");
       }
       if (kind === K.RAIL && mine) {   // for Impressive (a miss breaks the run) and Headshot
-        if (railLast && !railLast.hitAny) railRun = 0;
-        railLast = s; myRails.set(id, { x: s.x, y: s.y, charged: false }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value);
+        railFired(id);
+        myRails.set(id, { x: s.x, y: s.y, charged: false }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value);
       }
       const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind, +amp.toFixed(2), s.pc ? 1 : 0, s.cut || 0, Date.now()];
       if (mine) { myShotLog.push({ at: now, d }); stats.shots++; net.shot(d); }
@@ -5606,7 +5612,7 @@ details.controls[open] .clist { margin-top: 8px; }
     if (Number.isInteger(p.wp)) r.weapon = WEAPON_KEYS[p.wp] || "fire";
     if (Number.isFinite(p.sh)) r.shield = clamp(p.sh, 0, MAX_SHIELD);
     if (Number.isFinite(p.pg)) r.ping = clamp(p.pg, 0, 5000);
-    if ("am" in p) r.amp = p.am === 1;
+    if ("am" in p) r.amp = p.am >= 1;   // (a player on the server: the seconds it has left)
     if (Number.isFinite(p.l)) r.lives = clamp(p.l, 0, LIVES * 1.99);
     if (p.rd === stats.round && Array.isArray(p.f)) for (const f of p.f.slice(0, 24)) addRemoteShot(id, f, p.ts);
     if (Array.isArray(p.gw) && p.gw.length === 6 && typeof p.gw[0] === "string" && p.gw.slice(1).every(Number.isFinite)) guideRemote(id, p.gw);
@@ -6265,6 +6271,16 @@ details.controls[open] .clist { margin-top: 8px; }
     if ("tm" in m) me.tm = m.tm === 0 || m.tm === 1 ? m.tm : undefined;
     if ("fc" in m) me.fc = m.fc === 0 || m.fc === 1 ? m.fc : -1;
     if (Array.isArray(m.al) && m.al.length === 3 && m.al.every(Number.isFinite)) { me.beltArmor = clamp(m.al[0], 0, MAX_SHIELD); me.bodyArmor = clamp(m.al[1], 0, MAX_SHIELD); me.padsArmor = clamp(m.al[2], 0, MAX_SHIELD); }
+    if (Number.isInteger(m.am)) {   // Quad damage, as the server has it: taken there, its seconds counted there
+      const left = me.ampUntil > now ? (me.ampUntil - now) / 1000 : 0;
+      if (m.am > 0 && !left) {
+        announce("QUAD DAMAGE", "four times the damage for 20 seconds", "#6fa8ff", 4);
+        const c = world.amp || me;
+        for (let k = 0; k < 50; k++) { const a = Math.random() * 6.28, v = 100 + Math.random() * 300; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.8, 2.5, k % 2 ? "#5b9bff" : "#ffffff"); }
+        rings.push({ x: c.x, y: c.y, t: 0, r: 260, col: "91,155,255", warp: true, dur: 0.6, w: 14 });
+      }
+      if (!m.am) me.ampUntil = 0; else if (Math.abs(left - m.am) > 1.2) me.ampUntil = now + m.am * 1000;
+    }
     if (Number.isFinite(m.sh) && m.sh !== me.shield) { me.shield = clamp(m.sh, 0, MAX_SHIELD); renderShield(); }
     if (Number.isFinite(m.l) && m.l !== me.lives) { const hit = m.l < me.lives; me.lives = clamp(m.l, 0, LIVES * 1.99); renderHearts(hit); if (hit && !me.dead) { me.hitAt = now; hurtFlash = Math.min(1, hurtFlash + 0.4); } }
     if (m.d === 1 && !me.dead) {   // the server's verdict: I died
@@ -6354,7 +6370,7 @@ details.controls[open] .clist { margin-top: 8px; }
     // A prediction this screen refused (too many shots alive) is not recorded, so the server's copy still shows.
     if (addRemoteShot(srv.id, d, Date.now(), true) === true) srv.pred.push({ kind: s.kind, at: performance.now(), n: srv.pseq - 1 }); if (srv.pred.length > 48) srv.pred.shift();
     stats.shots++;
-    return { ...s, mine: false, owner: srv.id };   // for the caller: where it left from (and whose it is, for a saw recall)
+    return { ...s, mine: false, owner: srv.id, id: d[0] };   // for the caller: where it left from, whose it is (a saw recall), its id here
   }
   // a shot of mine from the server that this screen already showed: the oldest shown one of its kind, if recent
   // (id: the server's id for it, which ends in the server's number for the shot: from it, how the numbering of my
@@ -6814,7 +6830,7 @@ details.controls[open] .clist { margin-top: 8px; }
     if (!byHole) pushCapped(b.hitBy, shotId, 12);
     if (b.lives <= 0) {
       if (b.weapon !== "fire" && !MODES[MODE].only) dropGun(b.x, b.y, b.weapon, b.input ? b.arsenal[b.weapon] : b.ammo);   // its trophy
-      b.dead = true; b.respawnAt = now + 3000; b.fc = -1; b.weapon = "fire";
+      b.dead = true; b.respawnAt = now + 3000; b.fc = -1; b.weapon = "fire"; b.ampUntil = 0;
       if (b.input) pilotArm(b);   // a player starts again with the fireball and the gauntlet
       b.lv = levelAfterDeath(b.lv); b.xp = XP_STEPS[b.lv - 1]; b.ds = deathPiecesOf(kind); b.dk = deathStyleOf(kind); b.da = ang;
       b.st.deaths++; b.st.streak = 0;
@@ -6889,6 +6905,11 @@ details.controls[open] .clist { margin-top: 8px; }
         if (grabbed.has(c.key) || c.age < .05 || Math.hypot(c.x - b.x, c.y - b.y) > 56 || !applySupply(b, c.type)) continue;
         grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
         sfx(SUPPLIES[c.type].heal ? "heal" : "shield_get", .5, 1, c.x, c.y);
+      }
+      // Quad damage, for a player on the server (their screen only shows it: the server decides who took it)
+      const qd = world.amp;
+      if (human && roundLive && qd && !grabbed.has(qd.key) && Math.hypot(qd.x - b.x, qd.y - b.y) < 30 + 30 * sizeOf(b.lv || 1)) {
+        grabbed.add(qd.key); pushCapped(myGrabs, qd.key, 40); b.ampUntil = now + AMP_TIME;
       }
       if (!MODES[MODE].only && roundLive) {
         let best = null, bd = b.weapon === "fire" && td > 700 ? 1300 : 0;
@@ -7123,6 +7144,7 @@ details.controls[open] .clist { margin-top: 8px; }
         tm: b.tm ?? -1, fc: b.fc ?? -1, cp: [stats.round, b.caps || 0], tg: b.tag
       };
       m.sh = b.shield || 0;
+      m.am = b.ampUntil > now ? Math.ceil((b.ampUntil - now) / 1000) : 0;   // Quad damage: the seconds it has left
       // a player's own HUD (the guns they carry), and which of their controls this state already holds:
       // ak, the last one applied; ag, for how long (ms, including this step), so their screen can compare
       if (b.input) { m.ar = pilotArsenalWire(b); m.tn = b.teleN || 0; m.ak = (b.cq ? b.cmdAck : b.ackSeq) || 0; m.ag = Math.round(now - (b.ackAt ?? now)); m.en = Math.round(b.energy);
@@ -8111,7 +8133,7 @@ details.controls[open] .clist { margin-top: 8px; }
       }
     }
     // Overdrive
-    if (playing && !me.dead && world.amp && !grabbed.has(world.amp.key) && Math.hypot(world.amp.x - me.x, world.amp.y - me.y) < 30 + 30 * sizeOf(me.lv) + magnet()) {
+    if (!serverRun && playing && !me.dead && world.amp && !grabbed.has(world.amp.key) && Math.hypot(world.amp.x - me.x, world.amp.y - me.y) < 30 + 30 * sizeOf(me.lv) + magnet()) {
       const c = world.amp;
       grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
       me.ampUntil = now + AMP_TIME;
@@ -8222,11 +8244,16 @@ details.controls[open] .clist { margin-top: 8px; }
       const dx = me.x - h.x, dy = me.y - h.y, d = Math.hypot(dx, dy);
       if (playing && !me.dead && d > 0.01 && d < 31 * (sizeOf(me.lv) + sz) && (!h.bump || now - h.bump > 300)) {
         h.bump = now;
-        const push = Math.max(160, Math.hypot(me.vx, me.vy) * 0.8);
-        me.vx += dx / d * 260; me.vy += dy / d * 260; h.vx -= dx / d * push; h.vy -= dy / d * push; h.spin += (Math.random() - 0.5) * 2;
-        impact(me.x - dx / 2, me.y - dy / 2, "#d9c8ff", 1.2);
-        if (push > 300) sparkShower(me.x - dx / 2, me.y - dy / 2, -dy, dx, 0.8);
-        sfx("crash", 0.6) || blip(180, 0.15, "square");
+        // a wreck is a shell, lighter than a live bin: momentum shared by weight (a third of a bin's), restitution 0.4, so
+        // flying into it knocks it away and barely slows me, and one drifting into me at rest nudges me only a little.
+        // On the server it is only a picture here (the server has no wrecks): it never moves my bin there
+        const nx = dx / d, ny = dy / d, vn = (me.vx - h.vx) * nx + (me.vy - h.vy) * ny, mh = 0.35;
+        const j = vn < 0 ? -1.4 * vn / (1 + 1 / mh) : 40 * mh / (1 + mh);   // (touching but parting: just a little push apart)
+        if (!serverRun) { me.vx += nx * j; me.vy += ny * j; }
+        h.vx -= nx * j / mh; h.vy -= ny * j / mh; h.spin += (Math.random() - 0.5) * 2 * Math.min(1, j / 200);
+        impact(me.x - dx / 2, me.y - dy / 2, "#d9c8ff", Math.min(1.2, 0.3 + j / 250));
+        if (j > 250) sparkShower(me.x - dx / 2, me.y - dy / 2, -dy, dx, 0.8);
+        sfx("crash", Math.min(0.6, 0.15 + j / 600)) || blip(180, 0.15, "square");
       }
     }
     for (let i = frags.length - 1; i >= 0; i--) {
@@ -9126,22 +9153,39 @@ details.controls[open] .clist { margin-top: 8px; }
     }
   }
   // the rare nuke crate: bigger, hazard-striped, pulsing
-  function drawAmpCrate(c, x, y, now) {   // Quad damage: a blue rune with a 4, turning in a cold glow, motes circling it
-    const k = Math.min(1, c.age * 40), pulse = 0.7 + 0.3 * Math.sin(now / 160);
+  // Quad damage, after the arena shooters' power-up: a glowing blue sphere turning in place, a spiked ring round it,
+  // the 4 burning in it, a cold glow and motes circling
+  function drawAmpCrate(c, x, y, now) {
+    const k = Math.min(1, c.age * 40), pulse = 0.7 + 0.3 * Math.sin(now / 160), R = 26 * k, bob = Math.sin(now / 420) * 4;
+    y += bob;
     g.globalCompositeOperation = "lighter";
-    const gl = g.createRadialGradient(x, y, 6, x, y, 80);
-    gl.addColorStop(0, `rgba(91,155,255,${0.7 * pulse})`); gl.addColorStop(1, "rgba(91,155,255,0)");
-    g.fillStyle = gl; g.beginPath(); g.arc(x, y, 80, 0, 6.29); g.fill();
-    for (let i = 0; i < 8; i++) { const a = now / 450 + i * 0.785; g.fillStyle = i % 2 ? "#d6e6ff" : "#7fb0ff"; g.beginPath(); g.arc(x + Math.cos(a) * 42, y + Math.sin(a) * 42 * 0.55, 2.6, 0, 6.29); g.fill(); }
+    const gl = g.createRadialGradient(x, y, 6, x, y, 95);
+    gl.addColorStop(0, `rgba(80,140,255,${0.75 * pulse})`); gl.addColorStop(0.5, `rgba(60,90,255,${0.25 * pulse})`); gl.addColorStop(1, "rgba(60,90,255,0)");
+    g.fillStyle = gl; g.beginPath(); g.arc(x, y, 95, 0, 6.29); g.fill();
+    for (let i = 0; i < 10; i++) { const a = now / 520 + i * 0.628, rr = 46 + Math.sin(now / 300 + i) * 4; g.fillStyle = i % 2 ? "#d6e6ff" : "#7fb0ff"; g.beginPath(); g.arc(x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.5, 2.2, 0, 6.29); g.fill(); }
     g.globalCompositeOperation = "source-over";
-    g.save(); g.translate(x, y); g.scale(k * 2.2 * (0.35 + 0.65 * Math.abs(Math.cos(now / 500))), k * 2.2);
-    g.translate(-12, -12);
-    const rg = g.createLinearGradient(0, 0, 0, 24); rg.addColorStop(0, "#e6f0ff"); rg.addColorStop(0.45, "#5b9bff"); rg.addColorStop(1, "#1f3f9e");
-    g.fillStyle = rg; g.fill(ICON_PATHS.amp, "evenodd");
-    g.strokeStyle = "rgba(220,235,255,0.9)"; g.lineWidth = 0.8; g.stroke(ICON_PATHS.amp);
+    // the spiked ring, turning the other way
+    g.save(); g.translate(x, y); g.rotate(-now / 900);
+    g.strokeStyle = "#9cc2ff"; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, R + 7, 0, 6.29); g.stroke();
+    g.fillStyle = "#c9dcff";
+    for (let i = 0; i < 4; i++) { g.rotate(1.5708); g.beginPath(); g.moveTo(-5, -(R + 5)); g.lineTo(0, -(R + 17)); g.lineTo(5, -(R + 5)); g.closePath(); g.fill(); }
     g.restore();
-    g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.textAlign = "center"; g.fillStyle = "#8fb8ff";
-    g.fillText("QUAD DAMAGE", x, y + 46);
+    // the sphere: lit from the top left, a band of light running round it as it turns
+    const sg = g.createRadialGradient(x - R * 0.35, y - R * 0.4, R * 0.1, x, y, R);
+    sg.addColorStop(0, "#f2f7ff"); sg.addColorStop(0.3, "#6aa4ff"); sg.addColorStop(0.8, "#1d3fb8"); sg.addColorStop(1, "#0c1a5c");
+    g.fillStyle = sg; g.beginPath(); g.arc(x, y, R, 0, 6.29); g.fill();
+    g.save(); g.beginPath(); g.arc(x, y, R, 0, 6.29); g.clip();
+    const band = ((now / 1400) % 1) * 2 - 1;
+    g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(150,200,255,0.25)";
+    g.beginPath(); g.ellipse(x + band * R, y, R * 0.18, R, 0, 0, 6.29); g.fill();
+    g.globalCompositeOperation = "source-over"; g.restore();
+    // the 4, burning
+    g.font = `900 ${Math.round(30 * k)}px ` + DISPLAY_FONT; g.textAlign = "center"; g.textBaseline = "middle";
+    g.lineWidth = 4; g.strokeStyle = "rgba(8,16,60,0.85)"; g.strokeText("4", x, y + 1);
+    g.shadowColor = "#bfe0ff"; g.shadowBlur = 12 * pulse; g.fillStyle = "#ffffff"; g.fillText("4", x, y + 1); g.shadowBlur = 0;
+    g.textBaseline = "alphabetic";
+    g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.fillStyle = "#8fb8ff";
+    g.fillText("QUAD DAMAGE", x, y + R + 34 - bob);
   }
   function drawNukeCrate(c, x, y, now) {   // also the holy bomb's crate: white and gold
     const k = Math.min(1, c.age * 40), pulse = 0.6 + 0.4 * Math.sin(now / 180), col = WEAPONS[c.type].col, rgb = c.type === "holy" ? "255,243,176" : "255,225,77";

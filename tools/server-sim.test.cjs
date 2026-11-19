@@ -84,6 +84,27 @@ test('a player flies by their stick and aim, and their shots kill by the same ru
   } finally { m.dispose(); }
 });
 
+test('a player takes Quad damage on the server: four times the damage until it runs out or they die, and their state says so', { skip }, async () => {
+  const { createMatch } = await sim();
+  const m = createMatch({ code: 'm1d0o' });
+  m.game.__simTerrain.empty();
+  try {
+    const id = m.addPilot('Quad');
+    run(m, 0.1);
+    let q = null;
+    for (let i = 0; i < 300 && !q; i++) { run(m, 1); q = m.game.__simQuad(); }   // (it comes onto its spot on the shared clock)
+    assert.ok(q, 'no Quad damage on the map');
+    const b = m.game.__simBot(id);
+    run(m, 0.2, () => Object.assign(b, { x: q.x, y: q.y, vx: 0, vy: 0 }));
+    assert.ok(b.ampUntil > clock, 'not taken');
+    m.input(id, { mx: 0, my: 0, aim: 0, fire: true });
+    run(m, 0.5, () => Object.assign(b, { x: 1500, y: 600, vx: 0, vy: 0, a: 0 }));
+    const mine = m.game.__simShots().filter(s => s.owner === b.id);
+    assert.ok(mine.length && mine.every(s => s.m === 4), JSON.stringify(mine.map(s => s.m)));
+    assert.ok(m.game.__simBot(id).ampUntil > clock);
+  } finally { m.dispose(); }
+});
+
 test('player input is clamped to what a stick, an angle and buttons can send', { skip }, async () => {
   const { cleanInput } = await sim();
   const i = cleanInput({ mx: 9, my: 9, aim: 7, fire: 'yes', boost: true, dash: -3 });

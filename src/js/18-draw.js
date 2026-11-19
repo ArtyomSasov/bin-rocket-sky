@@ -625,22 +625,39 @@
     }
   }
   // the rare nuke crate: bigger, hazard-striped, pulsing
-  function drawAmpCrate(c, x, y, now) {   // Quad damage: a blue rune with a 4, turning in a cold glow, motes circling it
-    const k = Math.min(1, c.age * 40), pulse = 0.7 + 0.3 * Math.sin(now / 160);
+  // Quad damage, after the arena shooters' power-up: a glowing blue sphere turning in place, a spiked ring round it,
+  // the 4 burning in it, a cold glow and motes circling
+  function drawAmpCrate(c, x, y, now) {
+    const k = Math.min(1, c.age * 40), pulse = 0.7 + 0.3 * Math.sin(now / 160), R = 26 * k, bob = Math.sin(now / 420) * 4;
+    y += bob;
     g.globalCompositeOperation = "lighter";
-    const gl = g.createRadialGradient(x, y, 6, x, y, 80);
-    gl.addColorStop(0, `rgba(91,155,255,${0.7 * pulse})`); gl.addColorStop(1, "rgba(91,155,255,0)");
-    g.fillStyle = gl; g.beginPath(); g.arc(x, y, 80, 0, 6.29); g.fill();
-    for (let i = 0; i < 8; i++) { const a = now / 450 + i * 0.785; g.fillStyle = i % 2 ? "#d6e6ff" : "#7fb0ff"; g.beginPath(); g.arc(x + Math.cos(a) * 42, y + Math.sin(a) * 42 * 0.55, 2.6, 0, 6.29); g.fill(); }
+    const gl = g.createRadialGradient(x, y, 6, x, y, 95);
+    gl.addColorStop(0, `rgba(80,140,255,${0.75 * pulse})`); gl.addColorStop(0.5, `rgba(60,90,255,${0.25 * pulse})`); gl.addColorStop(1, "rgba(60,90,255,0)");
+    g.fillStyle = gl; g.beginPath(); g.arc(x, y, 95, 0, 6.29); g.fill();
+    for (let i = 0; i < 10; i++) { const a = now / 520 + i * 0.628, rr = 46 + Math.sin(now / 300 + i) * 4; g.fillStyle = i % 2 ? "#d6e6ff" : "#7fb0ff"; g.beginPath(); g.arc(x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.5, 2.2, 0, 6.29); g.fill(); }
     g.globalCompositeOperation = "source-over";
-    g.save(); g.translate(x, y); g.scale(k * 2.2 * (0.35 + 0.65 * Math.abs(Math.cos(now / 500))), k * 2.2);
-    g.translate(-12, -12);
-    const rg = g.createLinearGradient(0, 0, 0, 24); rg.addColorStop(0, "#e6f0ff"); rg.addColorStop(0.45, "#5b9bff"); rg.addColorStop(1, "#1f3f9e");
-    g.fillStyle = rg; g.fill(ICON_PATHS.amp, "evenodd");
-    g.strokeStyle = "rgba(220,235,255,0.9)"; g.lineWidth = 0.8; g.stroke(ICON_PATHS.amp);
+    // the spiked ring, turning the other way
+    g.save(); g.translate(x, y); g.rotate(-now / 900);
+    g.strokeStyle = "#9cc2ff"; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, R + 7, 0, 6.29); g.stroke();
+    g.fillStyle = "#c9dcff";
+    for (let i = 0; i < 4; i++) { g.rotate(1.5708); g.beginPath(); g.moveTo(-5, -(R + 5)); g.lineTo(0, -(R + 17)); g.lineTo(5, -(R + 5)); g.closePath(); g.fill(); }
     g.restore();
-    g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.textAlign = "center"; g.fillStyle = "#8fb8ff";
-    g.fillText("QUAD DAMAGE", x, y + 46);
+    // the sphere: lit from the top left, a band of light running round it as it turns
+    const sg = g.createRadialGradient(x - R * 0.35, y - R * 0.4, R * 0.1, x, y, R);
+    sg.addColorStop(0, "#f2f7ff"); sg.addColorStop(0.3, "#6aa4ff"); sg.addColorStop(0.8, "#1d3fb8"); sg.addColorStop(1, "#0c1a5c");
+    g.fillStyle = sg; g.beginPath(); g.arc(x, y, R, 0, 6.29); g.fill();
+    g.save(); g.beginPath(); g.arc(x, y, R, 0, 6.29); g.clip();
+    const band = ((now / 1400) % 1) * 2 - 1;
+    g.globalCompositeOperation = "lighter"; g.fillStyle = "rgba(150,200,255,0.25)";
+    g.beginPath(); g.ellipse(x + band * R, y, R * 0.18, R, 0, 0, 6.29); g.fill();
+    g.globalCompositeOperation = "source-over"; g.restore();
+    // the 4, burning
+    g.font = `900 ${Math.round(30 * k)}px ` + DISPLAY_FONT; g.textAlign = "center"; g.textBaseline = "middle";
+    g.lineWidth = 4; g.strokeStyle = "rgba(8,16,60,0.85)"; g.strokeText("4", x, y + 1);
+    g.shadowColor = "#bfe0ff"; g.shadowBlur = 12 * pulse; g.fillStyle = "#ffffff"; g.fillText("4", x, y + 1); g.shadowBlur = 0;
+    g.textBaseline = "alphabetic";
+    g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.fillStyle = "#8fb8ff";
+    g.fillText("QUAD DAMAGE", x, y + R + 34 - bob);
   }
   function drawNukeCrate(c, x, y, now) {   // also the holy bomb's crate: white and gold
     const k = Math.min(1, c.age * 40), pulse = 0.6 + 0.4 * Math.sin(now / 180), col = WEAPONS[c.type].col, rgb = c.type === "holy" ? "255,243,176" : "255,225,77";
