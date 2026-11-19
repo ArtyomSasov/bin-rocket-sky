@@ -74,6 +74,13 @@
   }
   // what a bot shoots with: the mode's gun, or a gun from a crate it grabbed (mines are left for players)
   const botWeapon = b => MODES[MODE].only || b.weapon;
+  // how far a bot shoots from: most guns within 950; a big bomb only at a target beyond its own blast (so it lives)
+  function botInRange(b, td) {
+    const w = botWeapon(b);
+    if (w === "nuke") return td > 1200 && td < 2600;
+    if (w === "holy") return td > 2100 && td < 3200;
+    return td < 950;
+  }
   // fires once; returns the gun's reload time
   function botFire(b, now) {
     const w = botWeapon(b), pat = WEAPONS[w];
@@ -100,7 +107,7 @@
       }
       const human = b.input;   // flown by a player: the AI below only steers the others
       // nearest living target: me or anyone else in the lobby (other bots included)
-      let tgt = null, td = 1700;
+      let tgt = null, td = botWeapon(b) === "holy" ? 3200 : botWeapon(b) === "nuke" ? 2600 : 1700;   // (a big bomb looks further)
       if (playing && !me.dead && !mates(b, me)) { const d = Math.hypot(me.x - b.x, me.y - b.y); if (d < td) { td = d; tgt = me; } }
       for (const [rid, r] of remotes) {
         if (rid === b.id || r.dead || mates(r, b)) continue;
@@ -140,20 +147,25 @@
         grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
         sfx(SUPPLIES[c.type].heal ? "heal" : "shield_get", .5, 1, c.x, c.y);
       }
-      // Quad damage, for a player on the server (their screen only shows it: the server decides who took it)
+      // Quad damage: anyone flying through it takes it, a player on the server (their screen only shows it) or a bot
       const qd = world.amp;
-      if (human && roundLive && qd && !grabbed.has(qd.key) && Math.hypot(qd.x - b.x, qd.y - b.y) < 30 + 30 * sizeOf(b.lv || 1)) {
+      if (roundLive && qd && !grabbed.has(qd.key) && Math.hypot(qd.x - b.x, qd.y - b.y) < 30 + 30 * sizeOf(b.lv || 1)) {
         grabbed.add(qd.key); pushCapped(myGrabs, qd.key, 40); b.ampUntil = now + AMP_TIME;
+        if (!human) for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 100 + Math.random() * 300; puff(qd.x, qd.y, Math.cos(a) * v, Math.sin(a) * v, 0.8, 2.5, k % 2 ? "#5b9bff" : "#ffffff"); }
+        sfx("shield_get", 0.6, 0.7, qd.x, qd.y);
       }
       if (!MODES[MODE].only && roundLive) {
         let best = null, bd = b.weapon === "fire" && td > 700 ? 1300 : 0;
-        for (const c of world.picks) {
-          if (grabbed.has(c.key) || c.age < 0.05 || (!human && (c.type === "mine" || c.type === "tele")) || WEAPONS[c.type]?.disabled) continue;   // mines and the teleporter are left for players
+        // the guns on their spots and the two big bombs' crates (a nuke, the holy bomb): a bot takes any of them, and so
+        // does a player on the server (the teleporter is retired)
+        for (const c of [...world.picks, ...world.bombs]) {
+          if (grabbed.has(c.key) || c.age < 0.05 || c.type === "tele" || WEAPONS[c.type]?.disabled) continue;
           const d = Math.hypot(c.x - b.x, c.y - b.y);
           if (d < 34 + 30) {   // picked up
             grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
             if (human) pilotGive(b, c.type, WEAPONS[c.type].ammo);
             else { b.weapon = c.type; b.ammo = Math.ceil(WEAPONS[c.type].ammo * (c.type === "laser" || c.type === "bolt" ? 0.4 : 1)); }
+            if (c.type === "holy" || c.type === "nuke") announce(c.type === "holy" ? "HOLY BOMB TAKEN" : "NUKE TAKEN", b.name + " has it", WEAPONS[c.type].col);
             for (let k = 0; k < 20; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 200; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.5, 2, WEAPONS[c.type].col); }
             sfx("weapon_get", 0.5, 1, c.x, c.y);
             best = null; break;
@@ -161,11 +173,13 @@
           if (d < bd) { bd = d; best = c; }
         }
         for (const [gid, d] of gunDrops) {   // trophies count as crates
-          if (grabbed.has("W" + gid) || WEAPONS[d.type]?.disabled || (d.type === "mine" && !human) || performance.now() - d.born < 600) continue;
+          if (grabbed.has("W" + gid) || WEAPONS[d.type]?.disabled || performance.now() - d.born < 600) continue;
           const dd = Math.hypot(d.x - b.x, d.y - b.y);
           if (dd < 64) { grabbed.add("W" + gid); pushCapped(myGrabs, "W" + gid, 40); if (human) pilotGive(b, d.type, d.ammo); else { b.weapon = d.type; b.ammo = d.ammo; } sfx("weapon_get", 0.5, 1, d.x, d.y); best = null; break; }
           if (dd < bd) { bd = dd; best = d; }
         }
+        // Quad damage draws a bot from twice as far as a gun does (and a gun in hand does not stop it)
+        if (qd && !grabbed.has(qd.key) && !human) { const dq = Math.hypot(qd.x - b.x, qd.y - b.y) / 2; if (dq < Math.max(bd, 900)) { bd = dq; best = qd; } }
         if (best && !human) { routeGoal = best; const gx = best.x - b.x, gy = best.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * 1.4; dy += gy / gd * 1.4; }
       }
       const m = 260;   // keep off the fence
@@ -317,7 +331,7 @@
         }
       }
       if (human) { if (!b.cq) pilotTriggers(b, dt, now); }   // (a pilot flown by commands has its trigger with each command, above)
-      else if (tgt && roundLive && td < 950 && Math.abs(angD(aimA - b.a)) < 0.22 + b.L.aim && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
+      else if (tgt && roundLive && botInRange(b, td) && Math.abs(angD(aimA - b.a)) < 0.22 + b.L.aim && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
         const md = MODES[MODE];
         b.fireCd = (md.botCd ? b.L.cd * md.botCd : cd < 0.15 ? cd * 2 : Math.max(b.L.cd, cd * 1.3)) * (0.7 + Math.random() * 0.6); }
       // another pilot ramming my bot on boost (the bot is the victim, so its owner decides)

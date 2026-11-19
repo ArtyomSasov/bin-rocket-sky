@@ -1017,12 +1017,12 @@
     rings.push({ x, y, t: -0.5, r: far, col: holy ? "255,240,190" : "255,140,80", dur: 2.2, w: 22 });   // the slow heat wave rolling far out
     if (d < far) { shake = Math.max(shake, (holy ? 1.8 : 1.4) * (1 - d / far)); flash = Math.max(flash, d < R * 1.6 ? 1 : 1 - (d - R * 1.6) / (far - R * 1.6)); }
     if (!customBomb) packPlay("p_death", 1) || boomSound(2.2, 120, 0.8);
-    if (canHurt(s, me, "me", true) && d < R && !fixedCover(x, y, me.x, me.y)) {   // your own bomb too: get clear of it
+    if (canHurt(s, me, "me", true) && d < bombReach(bm) && !fixedCover(x, y, me.x, me.y)) {   // your own bomb too: get clear of it
       hurtMe(s, now, bombDmg(bm, d), s.kind, 0, d < bm.kill);
     }
     for (const b of bots) {
       const bd = Math.hypot(b.x - x, b.y - y);
-      if (bd > R || !canHurt(s, b, b.id, true) || fixedCover(x, y, b.x, b.y)) continue;
+      if (bd > bombReach(bm) || !canHurt(s, b, b.id, true) || fixedCover(x, y, b.x, b.y)) continue;
       botHurt(b, bd < bm.kill ? 99 : bombDmg(bm, bd) * selfMul(s, b.id), s.id, now, bd < bm.kill, s.kind);
     }
     if (!s.mine) return;

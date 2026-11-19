@@ -105,6 +105,26 @@ test('a player takes Quad damage on the server: four times the damage until it r
   } finally { m.dispose(); }
 });
 
+test('bots take Quad damage and the big bombs\u2019 crates, and a player on the server takes a bomb crate too', { skip }, async () => {
+  const { createMatch } = await sim();
+  const m = createMatch({ code: 'm1x0c', bots: 1 });   // (the big bombs' crates lie out in this mode)
+  m.game.__simTerrain.empty();
+  try {
+    const id = m.addPilot('Player');
+    run(m, 0.1);
+    const bot = m.game.__simBots().find(b => !b.input), me = m.game.__simBot(id);
+    let q = null, bombs = [];
+    for (let i = 0; i < 200 && (!q || bombs.length < 2); i++) { run(m, 1); q = m.game.__simQuad(); bombs = m.game.__simWorld().bombs; }
+    assert.ok(q && bombs.length >= 2, 'Quad and two bomb crates on the map');
+    const [nuke, holy] = [bombs.find(c => c.type === 'nuke'), bombs.find(c => c.type === 'holy')];
+    run(m, 0.2, () => { Object.assign(bot, { x: q.x, y: q.y, vx: 0, vy: 0 }); Object.assign(me, { x: 300, y: 300, vx: 0, vy: 0 }); });
+    assert.ok(bot.ampUntil > clock, 'the bot took Quad damage');
+    run(m, 0.2, () => { Object.assign(bot, { x: nuke.x, y: nuke.y, vx: 0, vy: 0 }); Object.assign(me, { x: holy.x, y: holy.y, vx: 0, vy: 0 }); });
+    assert.equal(bot.weapon, 'nuke', 'the bot took the nuke');
+    assert.ok(me.arsenal.holy >= 1, 'the player took the holy bomb');
+  } finally { m.dispose(); }
+});
+
 test('player input is clamped to what a stick, an angle and buttons can send', { skip }, async () => {
   const { cleanInput } = await sim();
   const i = cleanInput({ mx: 9, my: 9, aim: 7, fire: 'yes', boost: true, dash: -3 });

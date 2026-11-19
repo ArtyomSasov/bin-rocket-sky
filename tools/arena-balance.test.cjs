@@ -41,7 +41,10 @@ test('progression cannot change health or hitbox; superweapons retain explicit s
   assert.equal(run('lvOf(1e9)'), 1); assert.equal(run('sizeOf(10)'), 1);
   assert.equal(run('maxLivesOf(10)'), 3); assert.equal(run('levelAfterDeath(10)'), 1);
   assert.equal(run('bombDmg(BOMBS[K.NUKE], 0)'), 30);
-  assert.equal(run('bombDmg(BOMBS[K.NUKE], BOMBS[K.NUKE].R)'), 0);
+  // past its core the nuke still hurts, fading out at the end of its shock wave
+  assert.ok(Math.abs(run('bombDmg(BOMBS[K.NUKE], BOMBS[K.NUKE].R)') - run('BOMBS[K.NUKE].edge')) < 1e-9);
+  assert.equal(run('bombDmg(BOMBS[K.NUKE], BOMBS[K.NUKE].wave[0])'), 0);
+  assert.equal(run('bombReach(BOMBS[K.NUKE])'), run('BOMBS[K.NUKE].wave[0]'));
 });
 test('source damage relationships and Stinger alternate cadence match their intended roles', () => {
   const { run } = setup();

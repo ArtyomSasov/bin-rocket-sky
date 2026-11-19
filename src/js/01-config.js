@@ -276,9 +276,13 @@
   // big-bomb crates, each on its own spot: once taken, it comes back at the start of its next cycle (s)
   const BOMB_CRATES = { nuke: { key: "N", period: 70 }, holy: { key: "H", period: 60 } };
   // wave: [reach, seconds to get there, push at the centre] of the blast wave that flings everything outward
-  const BOMBS = { [K.NUKE]: { R: 1100, kill: 0, damage: HP(1000), carve: 420, wave: [2100, 1.1, 2400] },
+  // edge: past R, out to where its shock wave ends (wave[0]), the nuke still hurts, from this much down to nothing:
+  // what is seen inside the blast is felt
+  const BOMBS = { [K.NUKE]: { R: 1100, kill: 0, damage: HP(1000), edge: HP(45), carve: 420, wave: [2100, 1.1, 2400] },
                   [K.HOLY]: { R: 2000, kill: 1300, carve: 700, wave: [3600, 1.5, 3000], sing: 2.55, holy: true, wipe: true } };   // sing: the holy bomb's sound (2.53 s) starts so it ends with the blast   // wipe: bodies inside kill are erased whole
-  const bombDmg = (bm, d) => bm.damage ? bm.damage * Math.max(0, 1 - d / bm.R) : d < bm.kill ? 99 : 1.5 + 2.5 * (1 - (d - bm.kill) / (bm.R - bm.kill));
+  const bombReach = bm => bm.edge ? bm.wave[0] : bm.R;
+  const bombDmg = (bm, d) => bm.damage ? (d <= bm.R ? Math.max(bm.damage * (1 - d / bm.R), bm.edge || 0) : bm.edge ? bm.edge * Math.max(0, 1 - (d - bm.R) / (bm.wave[0] - bm.R)) : 0)
+    : d < bm.kill ? 99 : 1.5 + 2.5 * (1 - (d - bm.kill) / (bm.R - bm.kill));
   // weapon icons (24x24 SVG path data, even-odd fill): used on crates (canvas) and in the HUD (SVG)
   const ICONS = {
     fire: "M2 6h19v6h-9v3H9l-2 6H2l3-9H2ZM13 12v2h-2v-2Z",

@@ -11,7 +11,9 @@ const BRIDGE = `
   const pilotView = b => ({ id: b.id, name: b.name, human: !!b.input, x: b.x, y: b.y, vx: b.vx, vy: b.vy, a: b.a, dead: b.dead, lives: b.lives,
     weapon: botWeapon(b), kills: b.st.kills, deaths: b.st.deaths, shots: b.st.shots, repeats: b.cqRepeats || 0 });   // repeats: commands flown again for want of new ones
   let serverSeq = 0;
-  globalThis.__simBot = id => botById.get(id);   // the live pilot object, for tests and tools
+  globalThis.__simBot = id => botById.get(id);
+  globalThis.__simBots = () => bots;   // every pilot, for tests and tools
+  globalThis.__simWorld = () => world;   // the pick-ups as they lie now   // the live pilot object, for tests and tools
   globalThis.__simConst = { WEAPON_KEYS, K };   // protocol numbers, for tests and tools
   globalThis.__simShots = () => shots;   // the shots in flight, for tests and tools
   globalThis.__simTerrain = { rubble: () => rubble, det: () => det, carveAt, shove,   // for tests and tools
