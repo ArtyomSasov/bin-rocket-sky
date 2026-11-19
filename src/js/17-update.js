@@ -132,19 +132,20 @@
     else thrustPilot(o, sx_, sy_, boost, brake, dt, performance.now() < (o.pinnedUntil || 0) ? 0.6 : 1);   // pinned by nails: slower
     gravityOn(o, dt); slingshot(o, dt); padsFor(o, now);
     o.x += o.vx * dt; o.y += o.vy * dt;
-    const wr = WALL_R * sizeOf(o.lv || 1), pc = bounceOff(o, wr, 0.7, binMass(o.lv));
+    // walls, planets and moons: met as a car meets a wall: a dead bounce (e 0.25), the slide along it kept (scraping
+    // sparks off it), and only a hard head-on hit hurts, a little
+    const wr = WALL_R * sizeOf(o.lv || 1), pc = bounceOff(o, wr, 0.25, binMass(o.lv));
     let crash = null, fence = null;
-    if (pc) {   // planets and moons: like the fence, and worse on boost
-      const big = hurtsOnHit(pc.b), hs = -pc.vn;
-      if (big) { o.vx += pc.nx * 220; o.vy += pc.ny * 220; }
-      crash = { pc, big, hs, x: o.x - pc.nx * wr, y: o.y - pc.ny * wr, dmg: big && hs > 60 ? crashDmg(hs, boosted) : 0 };
+    if (pc) {
+      const big = hurtsOnHit(pc.b), hs = -pc.vn, slide = Math.abs(o.vx * -pc.ny + o.vy * pc.nx);
+      crash = { pc, big, hs, slide, x: o.x - pc.nx * wr, y: o.y - pc.ny * wr, dmg: big && hs > 60 ? crashDmg(hs, boosted) : 0 };
     }
     const hitX = o.x < wr ? wr : o.x > W - wr ? W - wr : null, hitY = o.y < wr ? wr : o.y > H - wr ? H - wr : null;
     if (hitX !== null || hitY !== null) {   // the fence: bounced back in, and hurt if it was fast
       const hitSpeed = Math.hypot(o.vx, o.vy);
-      if (hitX !== null) { o.x = hitX; o.vx = -o.vx * 0.7 + Math.sign(W / 2 - o.x) * 220; }
-      if (hitY !== null) { o.y = hitY; o.vy = -o.vy * 0.7 + Math.sign(H / 2 - o.y) * 220; }
-      fence = { hitSpeed, x: hitX !== null ? (hitX < W / 2 ? 0 : W) : o.x, y: hitY !== null ? (hitY < H / 2 ? 0 : H) : o.y, dmg: hitSpeed > 120 ? 0.6 : 0 };
+      if (hitX !== null) { o.x = hitX; o.vx = -o.vx * 0.3 + Math.sign(W / 2 - o.x) * 60; }
+      if (hitY !== null) { o.y = hitY; o.vy = -o.vy * 0.3 + Math.sign(H / 2 - o.y) * 60; }
+      fence = { hitSpeed, x: hitX !== null ? (hitX < W / 2 ? 0 : W) : o.x, y: hitY !== null ? (hitY < H / 2 ? 0 : H) : o.y, dmg: hitSpeed > 500 ? 0.15 : 0 };
     }
     return { drift, crash, fence };
   }
@@ -273,6 +274,7 @@
       const f = cmdMode ? flyCmds(dt, braking) : flyPilot(me, steer.x, steer.y, boost, braking, dt, now, me.boostFx > 0);
       if (cmdMode) faceMe(dt, me.drift);
       drift = f.drift; lit = !!f.lit;
+      if (f.crash && f.crash.slide > 220 && f.crash.hs < 200 && Math.random() < 0.6) sparkShower(f.crash.x, f.crash.y, -f.crash.pc.ny * Math.sign(me.vx * -f.crash.pc.ny + me.vy * f.crash.pc.nx), f.crash.pc.nx * Math.sign(me.vx * -f.crash.pc.ny + me.vy * f.crash.pc.nx), 0.5);   // scraping along it
       if (f.crash && f.crash.hs > 60) {
         const { big, hs, x: cx, y: cy, pc } = f.crash;
         impact(cx, cy, "#ffd9b0", Math.min(2, (big ? 0.4 : 0.2) + hs / 450));

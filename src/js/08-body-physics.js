@@ -25,7 +25,7 @@
   // only something big hurts when you fly into it: planets, moons and whole wrecks; small rubble just gets knocked aside
   const hurtsOnHit = b => b.mass >= 150;
   // crash damage grows with how hard you hit, small even at full boost (in lives: Lv 1 has 3)
-  const crashDmg = (hs, boosting) => hs < 220 ? 0 : Math.min(0.5, (boosting ? 0.25 : 0.12) * hs / 400);
+  const crashDmg = (hs, boosting) => hs < 380 ? 0 : Math.min(0.25, (boosting ? 0.1 : 0.05) * (hs - 300) / 300);   // (a hard head-on hit only, and a little)
   // ---------- mass and collisions: one set of weights for everything ----------
   // Masses in "bins": a Lv 1 bin weighs 1, a bigger one with its area. A wreck's hulk is a shell (a third of a bin), a
   // piece of a broken bin a quarter, a scrap of debris almost nothing; loose rubble weighs what its rock does (its

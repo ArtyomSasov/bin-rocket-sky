@@ -291,7 +291,7 @@
       if (Math.hypot(st.x, st.y) > 0.15) b.a = lerpAng(b.a, Math.atan2(st.y, st.x), 1 - Math.exp(-13 * dt));
       gravityOn(b, dt);
       b.x += b.vx * dt; b.y += b.vy * dt;
-      const pc = bounceOff(b, 40, 0.6, binMass(b.lv));
+      const pc = bounceOff(b, 40, 0.25, binMass(b.lv));
       if (pc && pc.vn < -200) {
         impact(b.x - pc.nx * 40, b.y - pc.ny * 40, "#ffd9b0", 1.2);
         const dmg = hurtsOnHit(pc.b) ? crashDmg(-pc.vn, false) : 0;
