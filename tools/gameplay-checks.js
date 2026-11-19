@@ -55,6 +55,8 @@ function runGameplayChecks() {
     const b={x:700,y:600,vx:0,vy:0,a:0,lv:1,ck:[0,0,0,0,0]};
     const expected=[[K.NAIL,4],[K.SPIKE,4],[K.FIRE,5],[K.LASER,2],[K.BOLT,2],[K.ORB,3],[K.RAIL,1],[K.SAW,6],[K.MELEE,6]];
     for(const [kind,style] of expected) {ok(deathStyleOf(kind)===style,'weapon death style');deathFx(b,deathPiecesOf(kind),style,0);}
+    ok(hulks.some(h=>h.dying),'a killing blow throws the wreck first');
+    for(const h of [...hulks]) if(h.dying){hulks.splice(hulks.indexOf(h),1);wreckBlows(h);}   // (and it goes up where it lands)
     for(const kind of [K.ROCKET,K.GREN,K.MINE,K.NUKE,K.HOLY]) ok(deathPiecesOf(kind)>=3,'blast must shatter');
     ok(hulks.some(h=>h.nails)&&hulks.some(h=>h.burn)&&hulks.some(h=>h.zap),'distinct hulks');ok(melts.length===1&&frags.length>=10,'melt and cuts');
     updateFx(6,performance.now()+6000);ok(!hulks.some(h=>h.burn||h.zap),'burnt and shocked bodies disappear');

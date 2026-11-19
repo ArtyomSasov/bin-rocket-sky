@@ -840,7 +840,24 @@
             sparkShower(hit.x, hit.y, -Math.cos(h.nailA), -Math.sin(h.nailA), 1); packPlay("p_hit_nail", 0.8, hit.x, hit.y);
           }
           else if (h.x < 40 || h.x > W - 40 || h.y < 40 || h.y > H - 40) { h.x = clamp(h.x, 40, W - 40); h.y = clamp(h.y, 40, H - 40); h.pin = { b: null }; }
-        } else bounceOff(h, 30 * sizeOf(h.lv), 0.8, 0.35 * binMass(h.lv));
+        } else {
+          const pc = bounceOff(h, 30 * sizeOf(h.lv), 0.8, 0.35 * binMass(h.lv));
+          if (h.dying) {   // a bin thrown by the blow that killed it: burning as it flies, until it slams into something
+            const d = h.dying, sz2 = sizeOf(h.lv);
+            d.fuse -= dt; d.age = (d.age || 0) + dt;
+            if (Math.random() < (lowQ ? 25 : 60) * dt) puff(h.x + (Math.random() - 0.5) * 30 * sz2, h.y + (Math.random() - 0.5) * 30 * sz2, -h.vx * 0.2 + (Math.random() - 0.5) * 60, -h.vy * 0.2 + (Math.random() - 0.5) * 60, 0.3 + Math.random() * 0.3, (8 + Math.random() * 8) * sz2, "fire", 4, 0, 0, 0.9, 0.2);
+            if (Math.random() < (lowQ ? 10 : 25) * dt) puff(h.x, h.y, -h.vx * 0.1, -h.vy * 0.1, 1 + Math.random(), (6 + Math.random() * 6) * sz2, SMOKE_COLS[0], 2, 0, (Math.random() - 0.5), 0.95);
+            if (Math.random() < 12 * dt) { const a = Math.random() * 6.28; puff(h.x, h.y, Math.cos(a) * 300, Math.sin(a) * 300, 0.2, 1, "#fff1b8", 1, 0.05); }
+            if (Math.random() < 8 * dt) oilSplash(h.x, h.y, 1, 60, h.vx * 0.3, h.vy * 0.3);
+            const slam = pc && -pc.vn > 120, edge = h.x < 60 || h.x > W - 60 || h.y < 60 || h.y > H - 60;
+            let hitBin = false;
+            if (d.age > 0.12) {   // (not the one it was killed by, beside it as it dies)
+              for (const r of remotes.values()) if (!r.dead && Math.hypot(r.x - h.x, r.y - h.y) < 60 * sz2) hitBin = true;
+              if (!me.dead && playing && Math.hypot(me.x - h.x, me.y - h.y) < 60 * sz2) hitBin = true;
+            }
+            if (slam || edge || hitBin || d.fuse <= 0) { hulks.splice(i, 1); wreckBlows(h); continue; }
+          }
+        }
       }
       if (h.burn) {   // burning: flames lick up off it, then it crumbles to ash
         const bt = (now - h.burn) / 1000, sz1 = sizeOf(h.lv);

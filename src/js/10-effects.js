@@ -423,7 +423,7 @@
     const s = BOT * sizeOf(b.lv || 1), rot = b.a + Math.PI / 2 - SPRITE_TILT;
     for (const piece of cutSprite(n)) addFrag(b, piece, s, rot, renderPiece(piece, s, b.lv || 1, b.ck || [0, 0, 0, 0, 0]), (wx, wy) => {
       const d = Math.hypot(wx, wy) || 1, v = 70 + Math.random() * 150;   // flung out from the middle
-      return [wx / d * v + (b.vx || 0) * 0.4, wy / d * v + (b.vy || 0) * 0.4, (Math.random() - 0.5) * 1.3];
+      return [wx / d * v + (b.vx || 0) * 0.7, wy / d * v + (b.vy || 0) * 0.7, (Math.random() - 0.5) * 1.3];   // (carrying on the way it flew)
     });
   }
   function shove(x, y, r, power) {
@@ -496,8 +496,29 @@
   // pieces for a blast (2-4), a hulk sometimes for the rest
   const BLASTS = new Set([K.ROCKET, K.HROCKET, K.GREN, K.MINE, K.NUKE, K.HOLY, K.FLAK, K.SHARD, K.PELLET, K.SLUG, K.TFRAG]);
   const deathPiecesOf = kind => BLASTS.has(kind) ? 3 + Math.floor(Math.random() * 2) : 1 + Math.floor(Math.random() * 4);
+  // A bin killed by a blast, a slug, lightning or a blade is first thrown by the blow: it flies off the way the killing
+  // shot went, tumbling, burning and trailing smoke, sparks and oil, and goes up where it slams into something (or
+  // after half a second to a second), its pieces carrying on the way it flew (deathStyle, updateFx's hulks)
+  const THROWN = new Set([0, 1, 2, 6]);
   function deathFx(b, ds, dk, da) {
     b = { ...b, ck: teamCk(b) };   // the wreck keeps the colours the bin flew in
+    if (THROWN.has(dk) && Number.isFinite(da)) {
+      makeHulk(b, false, true);
+      const h = hulks[hulks.length - 1], sp = 650 + Math.random() * 350;
+      h.vx = Math.cos(da) * sp + (b.vx || 0) * 0.5; h.vy = Math.sin(da) * sp + (b.vy || 0) * 0.5; h.spin = (Math.random() - 0.5) * 10;
+      h.dying = { ds, dk, da, fuse: 0.45 + Math.random() * 0.6 };
+      impact(b.x, b.y, "#fff1d0", 1.6); sparkShower(b.x, b.y, Math.cos(da), Math.sin(da), 1.4); oilSplash(b.x, b.y, 14, 340, h.vx * 0.5, h.vy * 0.5);
+      sfx("crash", 0.8, 0.8, b.x, b.y);
+      return;
+    }
+    deathStyle(b, ds, dk, da);
+  }
+  // the thrown wreck goes up: in its own death's way, where it is now and moving as it moves
+  function wreckBlows(h) {
+    const d = h.dying;
+    deathStyle({ x: h.x, y: h.y, vx: h.vx, vy: h.vy, a: h.a, lv: h.lv, ck: h.ck }, d.ds, d.dk, d.da);
+  }
+  function deathStyle(b, ds, dk, da) {
     if (dk === 1) railCut(b, da);
     else if (dk === 2) electrocute(b);
     else if (dk === 3) meltDown(b);
