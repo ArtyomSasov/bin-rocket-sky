@@ -267,7 +267,7 @@
       const d = oilDrops[i]; d.t += dt;
       const k = Math.exp(-(deck ? 4 : 0.6) * dt); d.vx *= k; d.vy *= k; d.x += d.vx * dt; d.y += d.vy * dt;
       // a drop flying into a wall or a planet splashes on it (painted on its face, as a scorch is)
-      const hit = Math.abs(d.vx) + Math.abs(d.vy) > 30 ? solidAny(d.x, d.y) : null;
+      const hit = Math.abs(d.vx) + Math.abs(d.vy) > 30 && solidCell(d.x, d.y) ? solidAny(d.x, d.y) : null;
       if (hit && !hit.free) { oilOnBody(hit, d.x, d.y, d.r * 2.4, d.vx, d.vy); oilDrops.splice(i, 1); continue; }
       if (d.t >= d.life) { if (deck && !solidAny(d.x, d.y)) oilStain(d.x, d.y, d.r * (2 + Math.random() * 2), d.vx, d.vy); oilDrops.splice(i, 1); }
     }

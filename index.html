@@ -3510,6 +3510,34 @@ details.controls[open] .clist { margin-top: 8px; }
     if (mb !== Infinity) { b.vx -= j * nx / mb; b.vy -= j * ny / mb; }
     return j;
   }
+  // where the world is solid, on a coarse grid (16 px), redrawn four times a second: cheap enough for every spark and
+  // ember to ask whether it has hit something (the effects only: play goes by the bodies' own cells)
+  const SG = 16;
+  let sgrid = null, sgW = 0, sgH = 0, sgAt = -1e9;
+  function rebuildSolidGrid(now) {
+    if (sgrid && now - sgAt < 250) return;
+    sgAt = now; sgW = Math.ceil(W / SG); sgH = Math.ceil(H / SG);
+    if (!sgrid || sgrid.length !== sgW * sgH) sgrid = new Uint8Array(sgW * sgH); else sgrid.fill(0);
+    for (const b of bodies) {
+      if (b.dead || b.free) continue;
+      const i0 = Math.max(0, Math.floor((b.x - b.r) / SG)), i1 = Math.min(sgW - 1, Math.floor((b.x + b.r) / SG));
+      const j0 = Math.max(0, Math.floor((b.y - b.r) / SG)), j1 = Math.min(sgH - 1, Math.floor((b.y + b.r) / SG));
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (!sgrid[j * sgW + i] && solidAt(b, (i + 0.5) * SG, (j + 0.5) * SG)) sgrid[j * sgW + i] = 1;
+    }
+  }
+  const solidCell = (x, y) => { if (!sgrid) return 0; const i = Math.floor(x / SG), j = Math.floor(y / SG); return i < 0 || j < 0 || i >= sgW || j >= sgH ? 0 : sgrid[j * sgW + i]; };
+  // a small thing (spark, ember, drop) that moved from (ox, oy) into something solid: put back, its speed turned off
+  // the surface (e: how much of it comes back), a little lost along it. True if it bounced
+  function bounceSmall(p, ox, oy, e) {
+    if (!solidCell(p.x, p.y)) return false;
+    let nx = solidCell(p.x - SG, p.y) - solidCell(p.x + SG, p.y), ny = solidCell(p.x, p.y - SG) - solidCell(p.x, p.y + SG);
+    const l = Math.hypot(nx, ny);
+    if (!l) { nx = -p.vx; ny = -p.vy; const m = Math.hypot(nx, ny) || 1; nx /= m; ny /= m; } else { nx /= l; ny /= l; }
+    const vn = p.vx * nx + p.vy * ny;
+    if (vn < 0) { p.vx -= (1 + e) * vn * nx; p.vy -= (1 + e) * vn * ny; p.vx *= 0.85; p.vy *= 0.85; }
+    p.x = ox; p.y = oy;
+    return true;
+  }
   // a collision's damage, from the change of speed felt (dv, px/s): nothing under 300 (a bump), then rising steeply
   const knockDmg = dv => dv > 300 ? (dv - 300) * 0.0016 : 0;
   // o (its mass mo; omitted: heavy, as before) against the bodies: the fixed ones throw it back; loose rubble takes its
@@ -4033,7 +4061,7 @@ details.controls[open] .clist { margin-top: 8px; }
       const d = oilDrops[i]; d.t += dt;
       const k = Math.exp(-(deck ? 4 : 0.6) * dt); d.vx *= k; d.vy *= k; d.x += d.vx * dt; d.y += d.vy * dt;
       // a drop flying into a wall or a planet splashes on it (painted on its face, as a scorch is)
-      const hit = Math.abs(d.vx) + Math.abs(d.vy) > 30 ? solidAny(d.x, d.y) : null;
+      const hit = Math.abs(d.vx) + Math.abs(d.vy) > 30 && solidCell(d.x, d.y) ? solidAny(d.x, d.y) : null;
       if (hit && !hit.free) { oilOnBody(hit, d.x, d.y, d.r * 2.4, d.vx, d.vy); oilDrops.splice(i, 1); continue; }
       if (d.t >= d.life) { if (deck && !solidAny(d.x, d.y)) oilStain(d.x, d.y, d.r * (2 + Math.random() * 2), d.vx, d.vy); oilDrops.splice(i, 1); }
     }
@@ -7471,7 +7499,7 @@ details.controls[open] .clist { margin-top: 8px; }
       const dvA = j / ma, dvB = j / mb, ramOf = o => o === me ? me.boostFx > 0 : o.boosting || now - (o.dashAt || 0) < 350;
       const ramA = ramOf(a), ramB = ramOf(b), cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
       impact(cx, cy, "#bdfff6", Math.min(1.6, 0.4 + j / 600));
-      if (j > 350) { sparkShower(cx, cy, -ny, nx, Math.min(1.5, j / 600)); sparkShower(cx, cy, ny, -nx, Math.min(1.5, j / 600)); }
+      if (j > 350) { sparkShower(cx, cy, -ny, nx, Math.min(1.5, j / 600)); sparkShower(cx, cy, ny, -nx, Math.min(1.5, j / 600)); oilSplash(cx, cy, Math.min(16, j / 60), Math.min(420, j * 0.5), (a.vx + b.vx) / 2, (a.vy + b.vy) / 2); }
       sfx("ram", Math.min(1, 0.3 + j / 900), 1, cx, cy);
       if ((a === me || b === me) && j > 350) shake = Math.max(shake, Math.min(0.6, j / 1500));
       if (!roundLive || mates(a, b) || now - ((a.knocks ||= new Map()).get(b) || 0) < 300) continue;
@@ -8093,7 +8121,7 @@ details.controls[open] .clist { margin-top: 8px; }
       if (f.crash && f.crash.hs > 60) {
         const { big, hs, x: cx, y: cy, pc } = f.crash;
         impact(cx, cy, "#ffd9b0", Math.min(2, (big ? 0.4 : 0.2) + hs / 450));
-        if (hs > 300) sparkShower(cx, cy, pc.nx, pc.ny, Math.min(1.6, hs / 600));
+        if (hs > 300) { sparkShower(cx, cy, pc.nx, pc.ny, Math.min(1.6, hs / 600)); oilSplash(cx, cy, Math.min(14, hs / 50), Math.min(380, hs * 0.5), pc.nx * hs * 0.3, pc.ny * hs * 0.3); }
         sfx("crash", Math.min(1, (big ? 0.3 : 0.15) + hs / 700), big ? 0.8 : 1.2);
         if (f.crash.dmg > 0) hurt(now, f.crash.dmg); else shake = Math.max(shake, big ? 0.12 : 0.06);
       }
@@ -8461,7 +8489,7 @@ details.controls[open] .clist { margin-top: 8px; }
           me.vx += j * nx / ma; me.vy += j * ny / ma;
           const rammed = (r.boost || 0) > 0, mineRam = me.boostFx > 0, cx = me.x - dx / 2, cy = me.y - dy / 2;
           impact(cx, cy, "#bdfff6", Math.min(1.6, 0.4 + j / 600));
-          if (j > 350) { sparkShower(cx, cy, -dy, dx, Math.min(1.5, j / 600)); sparkShower(cx, cy, dy, -dx, Math.min(1.5, j / 600)); shake = Math.max(shake, Math.min(0.6, j / 1500)); }
+          if (j > 350) { sparkShower(cx, cy, -dy, dx, Math.min(1.5, j / 600)); sparkShower(cx, cy, dy, -dx, Math.min(1.5, j / 600)); shake = Math.max(shake, Math.min(0.6, j / 1500)); oilSplash(cx, cy, Math.min(16, j / 60), Math.min(420, j * 0.5), me.vx * 0.5, me.vy * 0.5); }
           sfx("ram", Math.min(1, 0.3 + j / 900));
           // what I feel hurts me (offline and between browsers: on the server only its snapshots change my health); if
           // they rammed me, the credit is theirs, and I report it
@@ -8586,6 +8614,7 @@ details.controls[open] .clist { margin-top: 8px; }
   }
   // particles, wreckage, fragments, flashes, rings, floating text
   function updateFx(dt, now) {
+    rebuildSolidGrid(now);
     // flying through smoke and sparks shoves them aside (faster = harder)
     const meSp = Math.hypot(me.vx, me.vy), pushR = 46 * sizeOf(me.lv), pushR2 = pushR * pushR, canPush = playing && !me.dead && meSp > 60;
     for (let i = parts.length - 1; i >= 0; i--) {
@@ -8595,7 +8624,10 @@ details.controls[open] .clist { margin-top: 8px; }
         if (d2 < pushR2 && d2 > 1) { const d = Math.sqrt(d2), v = meSp * 0.8 + 80; p.vx = dx / d * v + me.vx * 0.3; p.vy = dy / d * v + me.vy * 0.3; }
       }
       if (p.life <= 0) { parts[i] = parts[parts.length - 1]; parts.pop(); freePart(p); continue; }
+      const ox = p.x, oy = p.y;
       p.x += p.vx * dt; p.y += p.vy * dt;
+      // sparks, embers, hot blobs and burning bits bounce off what stands (smoke and fire clouds roll over it)
+      if ((p.k === 1 || p.k === 3 || p.k === 5 || p.k === 8) && solidCell(p.x, p.y) && bounceSmall(p, ox, oy, p.k === 1 ? 0.45 : 0.3) && p.k === 1) p.life *= 0.7;
       const damp = Math.pow(p.drag || (p.k === 2 ? 0.93 : 0.97), dt * 60);
       p.vx *= damp; p.vy *= damp;
       if (p.curl) { const c = Math.cos(p.curl * dt), s = Math.sin(p.curl * dt), vx = p.vx; p.vx = vx * c - p.vy * s; p.vy = vx * s + p.vy * c; }   // an arc

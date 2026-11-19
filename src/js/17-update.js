@@ -276,7 +276,7 @@
       if (f.crash && f.crash.hs > 60) {
         const { big, hs, x: cx, y: cy, pc } = f.crash;
         impact(cx, cy, "#ffd9b0", Math.min(2, (big ? 0.4 : 0.2) + hs / 450));
-        if (hs > 300) sparkShower(cx, cy, pc.nx, pc.ny, Math.min(1.6, hs / 600));
+        if (hs > 300) { sparkShower(cx, cy, pc.nx, pc.ny, Math.min(1.6, hs / 600)); oilSplash(cx, cy, Math.min(14, hs / 50), Math.min(380, hs * 0.5), pc.nx * hs * 0.3, pc.ny * hs * 0.3); }
         sfx("crash", Math.min(1, (big ? 0.3 : 0.15) + hs / 700), big ? 0.8 : 1.2);
         if (f.crash.dmg > 0) hurt(now, f.crash.dmg); else shake = Math.max(shake, big ? 0.12 : 0.06);
       }
@@ -644,7 +644,7 @@
           me.vx += j * nx / ma; me.vy += j * ny / ma;
           const rammed = (r.boost || 0) > 0, mineRam = me.boostFx > 0, cx = me.x - dx / 2, cy = me.y - dy / 2;
           impact(cx, cy, "#bdfff6", Math.min(1.6, 0.4 + j / 600));
-          if (j > 350) { sparkShower(cx, cy, -dy, dx, Math.min(1.5, j / 600)); sparkShower(cx, cy, dy, -dx, Math.min(1.5, j / 600)); shake = Math.max(shake, Math.min(0.6, j / 1500)); }
+          if (j > 350) { sparkShower(cx, cy, -dy, dx, Math.min(1.5, j / 600)); sparkShower(cx, cy, dy, -dx, Math.min(1.5, j / 600)); shake = Math.max(shake, Math.min(0.6, j / 1500)); oilSplash(cx, cy, Math.min(16, j / 60), Math.min(420, j * 0.5), me.vx * 0.5, me.vy * 0.5); }
           sfx("ram", Math.min(1, 0.3 + j / 900));
           // what I feel hurts me (offline and between browsers: on the server only its snapshots change my health); if
           // they rammed me, the credit is theirs, and I report it
@@ -769,6 +769,7 @@
   }
   // particles, wreckage, fragments, flashes, rings, floating text
   function updateFx(dt, now) {
+    rebuildSolidGrid(now);
     // flying through smoke and sparks shoves them aside (faster = harder)
     const meSp = Math.hypot(me.vx, me.vy), pushR = 46 * sizeOf(me.lv), pushR2 = pushR * pushR, canPush = playing && !me.dead && meSp > 60;
     for (let i = parts.length - 1; i >= 0; i--) {
@@ -778,7 +779,10 @@
         if (d2 < pushR2 && d2 > 1) { const d = Math.sqrt(d2), v = meSp * 0.8 + 80; p.vx = dx / d * v + me.vx * 0.3; p.vy = dy / d * v + me.vy * 0.3; }
       }
       if (p.life <= 0) { parts[i] = parts[parts.length - 1]; parts.pop(); freePart(p); continue; }
+      const ox = p.x, oy = p.y;
       p.x += p.vx * dt; p.y += p.vy * dt;
+      // sparks, embers, hot blobs and burning bits bounce off what stands (smoke and fire clouds roll over it)
+      if ((p.k === 1 || p.k === 3 || p.k === 5 || p.k === 8) && solidCell(p.x, p.y) && bounceSmall(p, ox, oy, p.k === 1 ? 0.45 : 0.3) && p.k === 1) p.life *= 0.7;
       const damp = Math.pow(p.drag || (p.k === 2 ? 0.93 : 0.97), dt * 60);
       p.vx *= damp; p.vy *= damp;
       if (p.curl) { const c = Math.cos(p.curl * dt), s = Math.sin(p.curl * dt), vx = p.vx; p.vx = vx * c - p.vy * s; p.vy = vx * s + p.vy * c; }   // an arc

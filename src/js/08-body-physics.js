@@ -44,6 +44,34 @@
     if (mb !== Infinity) { b.vx -= j * nx / mb; b.vy -= j * ny / mb; }
     return j;
   }
+  // where the world is solid, on a coarse grid (16 px), redrawn four times a second: cheap enough for every spark and
+  // ember to ask whether it has hit something (the effects only: play goes by the bodies' own cells)
+  const SG = 16;
+  let sgrid = null, sgW = 0, sgH = 0, sgAt = -1e9;
+  function rebuildSolidGrid(now) {
+    if (sgrid && now - sgAt < 250) return;
+    sgAt = now; sgW = Math.ceil(W / SG); sgH = Math.ceil(H / SG);
+    if (!sgrid || sgrid.length !== sgW * sgH) sgrid = new Uint8Array(sgW * sgH); else sgrid.fill(0);
+    for (const b of bodies) {
+      if (b.dead || b.free) continue;
+      const i0 = Math.max(0, Math.floor((b.x - b.r) / SG)), i1 = Math.min(sgW - 1, Math.floor((b.x + b.r) / SG));
+      const j0 = Math.max(0, Math.floor((b.y - b.r) / SG)), j1 = Math.min(sgH - 1, Math.floor((b.y + b.r) / SG));
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (!sgrid[j * sgW + i] && solidAt(b, (i + 0.5) * SG, (j + 0.5) * SG)) sgrid[j * sgW + i] = 1;
+    }
+  }
+  const solidCell = (x, y) => { if (!sgrid) return 0; const i = Math.floor(x / SG), j = Math.floor(y / SG); return i < 0 || j < 0 || i >= sgW || j >= sgH ? 0 : sgrid[j * sgW + i]; };
+  // a small thing (spark, ember, drop) that moved from (ox, oy) into something solid: put back, its speed turned off
+  // the surface (e: how much of it comes back), a little lost along it. True if it bounced
+  function bounceSmall(p, ox, oy, e) {
+    if (!solidCell(p.x, p.y)) return false;
+    let nx = solidCell(p.x - SG, p.y) - solidCell(p.x + SG, p.y), ny = solidCell(p.x, p.y - SG) - solidCell(p.x, p.y + SG);
+    const l = Math.hypot(nx, ny);
+    if (!l) { nx = -p.vx; ny = -p.vy; const m = Math.hypot(nx, ny) || 1; nx /= m; ny /= m; } else { nx /= l; ny /= l; }
+    const vn = p.vx * nx + p.vy * ny;
+    if (vn < 0) { p.vx -= (1 + e) * vn * nx; p.vy -= (1 + e) * vn * ny; p.vx *= 0.85; p.vy *= 0.85; }
+    p.x = ox; p.y = oy;
+    return true;
+  }
   // a collision's damage, from the change of speed felt (dv, px/s): nothing under 300 (a bump), then rising steeply
   const knockDmg = dv => dv > 300 ? (dv - 300) * 0.0016 : 0;
   // o (its mass mo; omitted: heavy, as before) against the bodies: the fixed ones throw it back; loose rubble takes its
