@@ -5781,7 +5781,12 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     smoke(x, y, Math.round(60 * q), 560, 6);
     rings.push({ x, y, t: -0.5, r: far, col: holy ? "255,240,190" : "255,140,80", dur: 2.2, w: 22 });   // the slow heat wave rolling far out
-    if (d < far) { shake = Math.max(shake, (holy ? 1.8 : 1.4) * (1 - d / far)); flash = Math.max(flash, d < R * 1.6 ? 1 : 1 - (d - R * 1.6) / (far - R * 1.6)); }
+    if (d < far) { shake = Math.max(shake, (holy ? 1.8 : 1.4) * (1 - d / far)); flash = Math.max(flash, 0.5 * (d < R * 1.6 ? 1 : 1 - (d - R * 1.6) / (far - R * 1.6))); }   // (a flash, not a white-out: the blast is the show)
+    if (post) { post.burst(x, y, R * 0.55, holy ? [0.85, 0.6, 0.22] : [0.3, 0.27, 0.27], holy ? 1.6 : 7, R * 4.5); post.wave(x, y, wr, wdur * 1.4, holy ? 0.05 : 0.07); }   // a towering cloud rolling out, and the wave bending the air
+    if (holy) for (let k = 0; k < (lowQ ? 60 : 160); k++) {   // a rain of golden light drifting down out of it
+      const a = Math.random() * 6.283, v = 80 + Math.random() * 700;
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 1.5 + Math.random() * 2.5, 1.5 + Math.random() * 2.5, k % 3 ? "#ffe9a0" : "#ffffff", 0, 0, (Math.random() - 0.5) * 0.6, 0.97);
+    }
     if (!customBomb) packPlay("p_death", 1) || boomSound(2.2, 120, 0.8);
     if (canHurt(s, me, "me", true) && d < bombReach(bm) && !fixedCover(x, y, me.x, me.y)) {   // your own bomb too: get clear of it
       hurtMe(s, now, bombDmg(bm, d), s.kind, 0, d < bm.kill);
@@ -11265,7 +11270,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         const rr = fr * (0.62 + 0.22 * Math.sin(j * 3.1 + T * 3 + b.seed));
         const bx = x + Math.cos(a) * rr, by = y + Math.sin(a) * rr, br = fr * (0.38 + 0.08 * Math.sin(T * 5 + j));
         const bg = g.createRadialGradient(bx, by, 0, bx, by, br);
-        bg.addColorStop(0, `rgba(255,${Math.round(200 - cool * 90)},${Math.round(110 - cool * 70)},${0.55 * heat})`); bg.addColorStop(1, "rgba(255,60,20,0)");
+        bg.addColorStop(0, b.holy ? `rgba(255,${Math.round(200 + 20 * heat)},90,${0.22 * heat})` : `rgba(255,${Math.round(170 - cool * 90)},${Math.round(70 - cool * 50)},${0.24 * heat})`); bg.addColorStop(1, "rgba(255,60,20,0)");
         g.fillStyle = bg; g.beginPath(); g.arc(bx, by, br, 0, 6.29); g.fill();
       }
       // the core
@@ -11274,19 +11279,41 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       cg.addColorStop(0.3, `rgba(255,${Math.round(240 - cool * 80)},${Math.round(180 - cool * 120)},${0.9 * heat})`);
       cg.addColorStop(0.7, `rgba(255,${Math.round(140 - cool * 60)},40,${0.55 * heat})`);
       cg.addColorStop(1, "rgba(200,40,20,0)");
-      g.fillStyle = cg; g.beginPath(); g.arc(x, y, fr, 0, 6.29); g.fill();
-      // blinding first instant
-      if (T < 0.4) {
-        const fl = g.createRadialGradient(x, y, 0, x, y, R * 1.8);
-        fl.addColorStop(0, `rgba(255,255,255,${1 - T / 0.4})`); fl.addColorStop(0.4, `rgba(255,245,220,${0.6 * (1 - T / 0.4)})`); fl.addColorStop(1, "rgba(255,255,255,0)");
-        g.fillStyle = fl; g.beginPath(); g.arc(x, y, R * 1.8, 0, 6.29); g.fill();
+      g.globalAlpha = Math.max(0, 0.45 - T * 0.25); g.fillStyle = cg; g.beginPath(); g.arc(x, y, fr * 0.6, 0, 6.29); g.fill(); g.globalAlpha = 1;   // (a hot heart only: the fire is the show)
+      // the fireball itself: billowing flame clouds churning through it, cooling from the outside in
+      g.globalCompositeOperation = "source-over";
+      const ramp = b.holy ? PLASMA_RAMP : FIRE_RAMP;
+      for (let j = 0, n = lowQ ? 10 : 26; j < n; j++) {
+        const a = j * 2.4 + b.seed + T * (j % 2 ? 0.25 : -0.2), rr = fr * (j / n) * 0.9, d = fr * (0.5 + 0.35 * Math.sin(j * 1.3 + b.seed));
+        const shade = Math.min(7, Math.floor(1 + (j / n) * 3 + cool * 4 * (0.5 + j / n)));
+        g.globalAlpha = Math.min(1, heat * 1.4) * 0.8;
+        g.save(); g.translate(x + Math.cos(a) * rr, y + Math.sin(a) * rr); g.rotate(a + T * 0.5);
+        g.drawImage(fireSprite(b.holy ? Math.min(6, shade + 2) : shade, j & 3, b.holy ? FIRE_RAMP : ramp), -d / 2, -d / 2, d, d); g.restore();
+      }
+      g.globalAlpha = 1; g.globalCompositeOperation = "lighter";
+      // a ring of fire rolling outward with the blast wave
+      if (T < 2.2) {
+        const k = T / 2.2, rr = R * (0.35 + 1.05 * (1 - Math.pow(1 - k, 2.2)));
+        for (let j = 0, n = lowQ ? 14 : 34; j < n; j++) {
+          const a = j / n * 6.283 + b.seed, wob = rr * (1 + 0.06 * Math.sin(j * 5 + T * 4)), d = R * (0.22 + 0.08 * Math.sin(j * 2.1)) * (1 - k * 0.5);
+          g.globalAlpha = 0.55 * (1 - k);
+          g.save(); g.translate(x + Math.cos(a) * wob, y + Math.sin(a) * wob); g.rotate(a);
+          g.drawImage(fireSprite(Math.min(7, 2 + Math.floor(k * 5)), j & 3, b.holy ? FIRE_RAMP : FIRE_RAMP), -d / 2, -d / 2, d, d); g.restore();
+        }
+        g.globalAlpha = 1;
+      }
+      // a short blinding instant
+      if (T < 0.25) {
+        const fl = g.createRadialGradient(x, y, 0, x, y, R * 1.2);
+        fl.addColorStop(0, `rgba(255,255,255,${0.8 * (1 - T / 0.25)})`); fl.addColorStop(0.25, `rgba(255,235,190,${0.25 * (1 - T / 0.25)})`); fl.addColorStop(1, "rgba(255,255,255,0)");
+        g.fillStyle = fl; g.beginPath(); g.arc(x, y, R * 1.2, 0, 6.29); g.fill();
       }
       if (b.holy && T < 3) {   // long beams of light fanning out of the holy blast
         const a0 = b.seed, fade = T < 0.3 ? T / 0.3 : 1 - (T - 0.3) / 2.7;
         for (let j = 0; j < (lowQ ? 6 : 12); j++) {
           const a = a0 + j * 0.5236 + T * 0.15, len = R * (1.2 + 0.4 * Math.sin(j * 2.3 + a0)), wd = 0.05 + 0.03 * Math.sin(j * 1.7);
           const rg = g.createRadialGradient(x, y, 0, x, y, len);
-          rg.addColorStop(0, `rgba(255,252,230,${0.55 * fade})`); rg.addColorStop(1, "rgba(255,240,180,0)");
+          rg.addColorStop(0, `rgba(255,230,150,${0.3 * fade})`); rg.addColorStop(1, "rgba(255,200,90,0)");
           g.fillStyle = rg; g.beginPath(); g.moveTo(x, y); g.arc(x, y, len, a - wd, a + wd); g.closePath(); g.fill();
         }
       }
@@ -11585,9 +11612,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       "float vis=1.;if(self<.5){vec2 st=d/r*min(r*.92,260.)/10.;for(int k=1;k<10;k++){vec2 q=p+st*float(k);if(length(L.xy-q)>ls[i]&&texture2D(m,q/world).a>.5){vis=0.;break;}}}" +
       "acc+=lc[i]*a*vis;float hz=1.-r/(L.z*.6);heat+=lh[i]*max(hz,0.)*max(hz,0.);}gl_FragColor=vec4(acc,min(heat,1.));}";
     // heat haze: where the light map says it is hot (its alpha), the picture shimmers (two waves out of step)
-    const COMP = "precision mediump float;varying vec2 v;uniform sampler2D t,b1,b2,lm,dye;uniform float bl,ca,vig,sat,dbg,amb,time,fl;void main(){" +
+    // shock waves (up to 4: centre, radius, width, strength in the view's terms): the picture bends outward across each
+    // ring as through a lens, a little blurred and split in colour at its edge
+    const COMP = "precision mediump float;varying vec2 v;uniform sampler2D t,b1,b2,lm,dye;uniform float bl,ca,vig,sat,dbg,amb,time,fl,asp,wn;uniform vec4 wv[4];uniform float ww[4];void main(){" +
       "float h=texture2D(lm,v).a;vec2 u=v+vec2(sin(v.y*140.+time*9.)+sin(v.y*67.-time*5.)*.6,cos(v.x*120.+time*8.)*.8)*h*.0016;" +
-      "vec2 o=(v-.5)*ca;vec3 c=vec3(texture2D(t,u+o).r,texture2D(t,u).g,texture2D(t,u-o).b);" +
+      "float wsum=0.;for(int i=0;i<4;i++){if(float(i)>=wn)break;vec2 d=v-wv[i].xy;d.x*=asp;float L=length(d);float k=exp(-pow((L-wv[i].z)/ww[i],2.))*wv[i].w;u-=normalize(d+1e-5)*vec2(1./asp,1.)*k;wsum+=k;}" +
+      "vec2 o=(v-.5)*ca+vec2(wsum*.6);vec3 c=vec3(texture2D(t,u+o).r,texture2D(t,u).g,texture2D(t,u-o).b);" +
+      "if(wsum>.002){c=(c+texture2D(t,u+vec2(wsum*1.5,0.)).rgb+texture2D(t,u-vec2(0.,wsum*1.5)).rgb)/3.;}" +
       "vec3 L=texture2D(lm,v).rgb;c=c*(amb+L*1.8)+L*.22;if(dbg>.5)c=L+texture2D(t,v).rgb*.15;" +
       // the smoke (the fluid's dye: its colour premultiplied, its thickness in alpha), lit as the world is
       "if(fl>.5){vec4 s=texture2D(dye,v);float a=clamp(s.a,0.,1.)*.82;vec3 sc=s.rgb/max(s.a,.001);c=mix(c,sc*(amb*.9+L*1.6),a);}" +
@@ -11766,9 +11797,15 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     let on = false, kick = 0, failed = false, tooSlow = false;
     function show(v) { if (v === on) return; on = v; el.style.display = v ? "block" : "none"; cv.style.opacity = v ? "0" : ""; }
     show(false);
+    const waves = [];
+    const WV = new Float32Array(16), WW = new Float32Array(4);
     return {
       // a big hit or blast splits the colours a moment (k: 0..1)
       kick(k) { kick = Math.max(kick, k); },
+      // a blast's smoke rolling out through the fluid
+      burst(x, y, r, col, amount, radial) { if (fluid) { fluid.splat(x, y, r, col, amount, 0, 0, radial); for (let k = 0; k < 6; k++) { const a = k / 6 * 6.283; fluid.splat(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, r * 0.5, col, amount * 0.4, Math.cos(a) * radial * 0.25, Math.sin(a) * radial * 0.25); } } },
+      // a shock wave bending the picture: out to reach (world px) over dur seconds, strength in the view's terms
+      wave(x, y, reach, dur, strength) { waves.push({ x, y, reach, dur, s: strength, t0: performance.now() }); if (waves.length > 4) waves.shift(); },
       frame(dt) {
         // (on Auto, once the game has run slow it stays off: switching it back on would only slow it again)
         if (lowQ && settings.post === "auto") tooSlow = true;
@@ -11795,7 +11832,15 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
           kick = Math.max(0, kick - dt * 3.5);
           const fl = fluid && settings.post !== "lite" ? (feedFluid(), fluid.step(dt)) : false;
           const ca = Math.min(0.012, 0.0015 + kick * 0.01 + flash * 0.006);
-          pass(P.comp, null, W0, H0, p => { use(0, frameTex); use(1, A1.t); use(2, A2.t); use(4, LM.t); gl.uniform1i(p.u("t"), 0); gl.uniform1i(p.u("b1"), 1); gl.uniform1i(p.u("b2"), 2); gl.uniform1i(p.u("lm"), 4); if (fl) { use(7, fluid.dye()); gl.uniform1i(p.u("dye"), 7); } gl.uniform1f(p.u("fl"), fl ? 1 : 0); gl.uniform1f(p.u("dbg"), window.__lightMap ? 1 : 0); gl.uniform1f(p.u("amb"), stationMap() ? 0.56 : 0.86); gl.uniform1f(p.u("time"), (performance.now() / 1000) % 1000);   // (a station a little darker, so its lights tell)   // (__lightMap: the light alone, for checking it)
+          // the waves in the view: where each ring is now
+          const tw = performance.now(); let nw = 0;
+          for (let i = waves.length - 1; i >= 0; i--) if (tw - waves[i].t0 > waves[i].dur * 1000) waves.splice(i, 1);
+          for (const w of waves) {
+            const k = (tw - w.t0) / (w.dur * 1000), r = w.reach * (1 - Math.pow(1 - k, 2)) / vh;
+            WV.set([(w.x - cam.x) / vw + 0.5, 0.5 - (w.y - cam.y) / vh, r, w.s * (1 - k)], nw * 4); WW[nw] = 0.03 + 0.05 * k; nw++;
+          }
+          pass(P.comp, null, W0, H0, p => {
+            gl.uniform1f(p.u("wn"), nw); gl.uniform1f(p.u("asp"), vw / vh); if (nw) { gl.uniform4fv(p.u("wv"), WV); gl.uniform1fv(p.u("ww"), WW); } use(0, frameTex); use(1, A1.t); use(2, A2.t); use(4, LM.t); gl.uniform1i(p.u("t"), 0); gl.uniform1i(p.u("b1"), 1); gl.uniform1i(p.u("b2"), 2); gl.uniform1i(p.u("lm"), 4); if (fl) { use(7, fluid.dye()); gl.uniform1i(p.u("dye"), 7); } gl.uniform1f(p.u("fl"), fl ? 1 : 0); gl.uniform1f(p.u("dbg"), window.__lightMap ? 1 : 0); gl.uniform1f(p.u("amb"), stationMap() ? 0.56 : 0.86); gl.uniform1f(p.u("time"), (performance.now() / 1000) % 1000);   // (a station a little darker, so its lights tell)   // (__lightMap: the light alone, for checking it)
             gl.uniform1f(p.u("bl"), 0.6); gl.uniform1f(p.u("ca"), ca); gl.uniform1f(p.u("vig"), playing ? 0.32 : 0.22); gl.uniform1f(p.u("sat"), 1.08); });
           show(true);
         } catch (e) { failed = true; show(false); console.warn("post effects off:", e.message); }

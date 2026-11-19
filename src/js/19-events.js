@@ -826,7 +826,7 @@
         const rr = fr * (0.62 + 0.22 * Math.sin(j * 3.1 + T * 3 + b.seed));
         const bx = x + Math.cos(a) * rr, by = y + Math.sin(a) * rr, br = fr * (0.38 + 0.08 * Math.sin(T * 5 + j));
         const bg = g.createRadialGradient(bx, by, 0, bx, by, br);
-        bg.addColorStop(0, `rgba(255,${Math.round(200 - cool * 90)},${Math.round(110 - cool * 70)},${0.55 * heat})`); bg.addColorStop(1, "rgba(255,60,20,0)");
+        bg.addColorStop(0, b.holy ? `rgba(255,${Math.round(200 + 20 * heat)},90,${0.22 * heat})` : `rgba(255,${Math.round(170 - cool * 90)},${Math.round(70 - cool * 50)},${0.24 * heat})`); bg.addColorStop(1, "rgba(255,60,20,0)");
         g.fillStyle = bg; g.beginPath(); g.arc(bx, by, br, 0, 6.29); g.fill();
       }
       // the core
@@ -835,19 +835,41 @@
       cg.addColorStop(0.3, `rgba(255,${Math.round(240 - cool * 80)},${Math.round(180 - cool * 120)},${0.9 * heat})`);
       cg.addColorStop(0.7, `rgba(255,${Math.round(140 - cool * 60)},40,${0.55 * heat})`);
       cg.addColorStop(1, "rgba(200,40,20,0)");
-      g.fillStyle = cg; g.beginPath(); g.arc(x, y, fr, 0, 6.29); g.fill();
-      // blinding first instant
-      if (T < 0.4) {
-        const fl = g.createRadialGradient(x, y, 0, x, y, R * 1.8);
-        fl.addColorStop(0, `rgba(255,255,255,${1 - T / 0.4})`); fl.addColorStop(0.4, `rgba(255,245,220,${0.6 * (1 - T / 0.4)})`); fl.addColorStop(1, "rgba(255,255,255,0)");
-        g.fillStyle = fl; g.beginPath(); g.arc(x, y, R * 1.8, 0, 6.29); g.fill();
+      g.globalAlpha = Math.max(0, 0.45 - T * 0.25); g.fillStyle = cg; g.beginPath(); g.arc(x, y, fr * 0.6, 0, 6.29); g.fill(); g.globalAlpha = 1;   // (a hot heart only: the fire is the show)
+      // the fireball itself: billowing flame clouds churning through it, cooling from the outside in
+      g.globalCompositeOperation = "source-over";
+      const ramp = b.holy ? PLASMA_RAMP : FIRE_RAMP;
+      for (let j = 0, n = lowQ ? 10 : 26; j < n; j++) {
+        const a = j * 2.4 + b.seed + T * (j % 2 ? 0.25 : -0.2), rr = fr * (j / n) * 0.9, d = fr * (0.5 + 0.35 * Math.sin(j * 1.3 + b.seed));
+        const shade = Math.min(7, Math.floor(1 + (j / n) * 3 + cool * 4 * (0.5 + j / n)));
+        g.globalAlpha = Math.min(1, heat * 1.4) * 0.8;
+        g.save(); g.translate(x + Math.cos(a) * rr, y + Math.sin(a) * rr); g.rotate(a + T * 0.5);
+        g.drawImage(fireSprite(b.holy ? Math.min(6, shade + 2) : shade, j & 3, b.holy ? FIRE_RAMP : ramp), -d / 2, -d / 2, d, d); g.restore();
+      }
+      g.globalAlpha = 1; g.globalCompositeOperation = "lighter";
+      // a ring of fire rolling outward with the blast wave
+      if (T < 2.2) {
+        const k = T / 2.2, rr = R * (0.35 + 1.05 * (1 - Math.pow(1 - k, 2.2)));
+        for (let j = 0, n = lowQ ? 14 : 34; j < n; j++) {
+          const a = j / n * 6.283 + b.seed, wob = rr * (1 + 0.06 * Math.sin(j * 5 + T * 4)), d = R * (0.22 + 0.08 * Math.sin(j * 2.1)) * (1 - k * 0.5);
+          g.globalAlpha = 0.55 * (1 - k);
+          g.save(); g.translate(x + Math.cos(a) * wob, y + Math.sin(a) * wob); g.rotate(a);
+          g.drawImage(fireSprite(Math.min(7, 2 + Math.floor(k * 5)), j & 3, b.holy ? FIRE_RAMP : FIRE_RAMP), -d / 2, -d / 2, d, d); g.restore();
+        }
+        g.globalAlpha = 1;
+      }
+      // a short blinding instant
+      if (T < 0.25) {
+        const fl = g.createRadialGradient(x, y, 0, x, y, R * 1.2);
+        fl.addColorStop(0, `rgba(255,255,255,${0.8 * (1 - T / 0.25)})`); fl.addColorStop(0.25, `rgba(255,235,190,${0.25 * (1 - T / 0.25)})`); fl.addColorStop(1, "rgba(255,255,255,0)");
+        g.fillStyle = fl; g.beginPath(); g.arc(x, y, R * 1.2, 0, 6.29); g.fill();
       }
       if (b.holy && T < 3) {   // long beams of light fanning out of the holy blast
         const a0 = b.seed, fade = T < 0.3 ? T / 0.3 : 1 - (T - 0.3) / 2.7;
         for (let j = 0; j < (lowQ ? 6 : 12); j++) {
           const a = a0 + j * 0.5236 + T * 0.15, len = R * (1.2 + 0.4 * Math.sin(j * 2.3 + a0)), wd = 0.05 + 0.03 * Math.sin(j * 1.7);
           const rg = g.createRadialGradient(x, y, 0, x, y, len);
-          rg.addColorStop(0, `rgba(255,252,230,${0.55 * fade})`); rg.addColorStop(1, "rgba(255,240,180,0)");
+          rg.addColorStop(0, `rgba(255,230,150,${0.3 * fade})`); rg.addColorStop(1, "rgba(255,200,90,0)");
           g.fillStyle = rg; g.beginPath(); g.moveTo(x, y); g.arc(x, y, len, a - wd, a + wd); g.closePath(); g.fill();
         }
       }

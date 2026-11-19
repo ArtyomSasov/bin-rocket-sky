@@ -99,6 +99,7 @@ try {
     };
     const pick = process.argv[2] ? process.argv[2].split(',') : Object.keys(FX);
     await ev('window.__dist = 4000');
+    if (process.env.POST) await ev(`__e('settings.post = "${process.env.POST}"')`);   // (POST=on: the WebGL look even when headless is slow)
     for (const name of pick) {
       await ev(`__e('parts.length = impacts.length = rings.length = booms.length = waves.length = debris.length = frags.length = hulks.length = 0')`);
       await wait(300);

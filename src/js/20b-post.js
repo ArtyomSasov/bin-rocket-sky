@@ -34,9 +34,13 @@
       "float vis=1.;if(self<.5){vec2 st=d/r*min(r*.92,260.)/10.;for(int k=1;k<10;k++){vec2 q=p+st*float(k);if(length(L.xy-q)>ls[i]&&texture2D(m,q/world).a>.5){vis=0.;break;}}}" +
       "acc+=lc[i]*a*vis;float hz=1.-r/(L.z*.6);heat+=lh[i]*max(hz,0.)*max(hz,0.);}gl_FragColor=vec4(acc,min(heat,1.));}";
     // heat haze: where the light map says it is hot (its alpha), the picture shimmers (two waves out of step)
-    const COMP = "precision mediump float;varying vec2 v;uniform sampler2D t,b1,b2,lm,dye;uniform float bl,ca,vig,sat,dbg,amb,time,fl;void main(){" +
+    // shock waves (up to 4: centre, radius, width, strength in the view's terms): the picture bends outward across each
+    // ring as through a lens, a little blurred and split in colour at its edge
+    const COMP = "precision mediump float;varying vec2 v;uniform sampler2D t,b1,b2,lm,dye;uniform float bl,ca,vig,sat,dbg,amb,time,fl,asp,wn;uniform vec4 wv[4];uniform float ww[4];void main(){" +
       "float h=texture2D(lm,v).a;vec2 u=v+vec2(sin(v.y*140.+time*9.)+sin(v.y*67.-time*5.)*.6,cos(v.x*120.+time*8.)*.8)*h*.0016;" +
-      "vec2 o=(v-.5)*ca;vec3 c=vec3(texture2D(t,u+o).r,texture2D(t,u).g,texture2D(t,u-o).b);" +
+      "float wsum=0.;for(int i=0;i<4;i++){if(float(i)>=wn)break;vec2 d=v-wv[i].xy;d.x*=asp;float L=length(d);float k=exp(-pow((L-wv[i].z)/ww[i],2.))*wv[i].w;u-=normalize(d+1e-5)*vec2(1./asp,1.)*k;wsum+=k;}" +
+      "vec2 o=(v-.5)*ca+vec2(wsum*.6);vec3 c=vec3(texture2D(t,u+o).r,texture2D(t,u).g,texture2D(t,u-o).b);" +
+      "if(wsum>.002){c=(c+texture2D(t,u+vec2(wsum*1.5,0.)).rgb+texture2D(t,u-vec2(0.,wsum*1.5)).rgb)/3.;}" +
       "vec3 L=texture2D(lm,v).rgb;c=c*(amb+L*1.8)+L*.22;if(dbg>.5)c=L+texture2D(t,v).rgb*.15;" +
       // the smoke (the fluid's dye: its colour premultiplied, its thickness in alpha), lit as the world is
       "if(fl>.5){vec4 s=texture2D(dye,v);float a=clamp(s.a,0.,1.)*.82;vec3 sc=s.rgb/max(s.a,.001);c=mix(c,sc*(amb*.9+L*1.6),a);}" +
@@ -215,9 +219,15 @@
     let on = false, kick = 0, failed = false, tooSlow = false;
     function show(v) { if (v === on) return; on = v; el.style.display = v ? "block" : "none"; cv.style.opacity = v ? "0" : ""; }
     show(false);
+    const waves = [];
+    const WV = new Float32Array(16), WW = new Float32Array(4);
     return {
       // a big hit or blast splits the colours a moment (k: 0..1)
       kick(k) { kick = Math.max(kick, k); },
+      // a blast's smoke rolling out through the fluid
+      burst(x, y, r, col, amount, radial) { if (fluid) { fluid.splat(x, y, r, col, amount, 0, 0, radial); for (let k = 0; k < 6; k++) { const a = k / 6 * 6.283; fluid.splat(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, r * 0.5, col, amount * 0.4, Math.cos(a) * radial * 0.25, Math.sin(a) * radial * 0.25); } } },
+      // a shock wave bending the picture: out to reach (world px) over dur seconds, strength in the view's terms
+      wave(x, y, reach, dur, strength) { waves.push({ x, y, reach, dur, s: strength, t0: performance.now() }); if (waves.length > 4) waves.shift(); },
       frame(dt) {
         // (on Auto, once the game has run slow it stays off: switching it back on would only slow it again)
         if (lowQ && settings.post === "auto") tooSlow = true;
@@ -244,7 +254,15 @@
           kick = Math.max(0, kick - dt * 3.5);
           const fl = fluid && settings.post !== "lite" ? (feedFluid(), fluid.step(dt)) : false;
           const ca = Math.min(0.012, 0.0015 + kick * 0.01 + flash * 0.006);
-          pass(P.comp, null, W0, H0, p => { use(0, frameTex); use(1, A1.t); use(2, A2.t); use(4, LM.t); gl.uniform1i(p.u("t"), 0); gl.uniform1i(p.u("b1"), 1); gl.uniform1i(p.u("b2"), 2); gl.uniform1i(p.u("lm"), 4); if (fl) { use(7, fluid.dye()); gl.uniform1i(p.u("dye"), 7); } gl.uniform1f(p.u("fl"), fl ? 1 : 0); gl.uniform1f(p.u("dbg"), window.__lightMap ? 1 : 0); gl.uniform1f(p.u("amb"), stationMap() ? 0.56 : 0.86); gl.uniform1f(p.u("time"), (performance.now() / 1000) % 1000);   // (a station a little darker, so its lights tell)   // (__lightMap: the light alone, for checking it)
+          // the waves in the view: where each ring is now
+          const tw = performance.now(); let nw = 0;
+          for (let i = waves.length - 1; i >= 0; i--) if (tw - waves[i].t0 > waves[i].dur * 1000) waves.splice(i, 1);
+          for (const w of waves) {
+            const k = (tw - w.t0) / (w.dur * 1000), r = w.reach * (1 - Math.pow(1 - k, 2)) / vh;
+            WV.set([(w.x - cam.x) / vw + 0.5, 0.5 - (w.y - cam.y) / vh, r, w.s * (1 - k)], nw * 4); WW[nw] = 0.03 + 0.05 * k; nw++;
+          }
+          pass(P.comp, null, W0, H0, p => {
+            gl.uniform1f(p.u("wn"), nw); gl.uniform1f(p.u("asp"), vw / vh); if (nw) { gl.uniform4fv(p.u("wv"), WV); gl.uniform1fv(p.u("ww"), WW); } use(0, frameTex); use(1, A1.t); use(2, A2.t); use(4, LM.t); gl.uniform1i(p.u("t"), 0); gl.uniform1i(p.u("b1"), 1); gl.uniform1i(p.u("b2"), 2); gl.uniform1i(p.u("lm"), 4); if (fl) { use(7, fluid.dye()); gl.uniform1i(p.u("dye"), 7); } gl.uniform1f(p.u("fl"), fl ? 1 : 0); gl.uniform1f(p.u("dbg"), window.__lightMap ? 1 : 0); gl.uniform1f(p.u("amb"), stationMap() ? 0.56 : 0.86); gl.uniform1f(p.u("time"), (performance.now() / 1000) % 1000);   // (a station a little darker, so its lights tell)   // (__lightMap: the light alone, for checking it)
             gl.uniform1f(p.u("bl"), 0.6); gl.uniform1f(p.u("ca"), ca); gl.uniform1f(p.u("vig"), playing ? 0.32 : 0.22); gl.uniform1f(p.u("sat"), 1.08); });
           show(true);
         } catch (e) { failed = true; show(false); console.warn("post effects off:", e.message); }
