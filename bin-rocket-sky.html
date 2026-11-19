@@ -10986,13 +10986,14 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       "vec3 s=texture2D(t,v).rgb*.227;s+=(texture2D(t,v+d*1.385).rgb+texture2D(t,v-d*1.385).rgb)*.316;s+=(texture2D(t,v+d*3.231).rgb+texture2D(t,v-d*3.231).rgb)*.07;gl_FragColor=vec4(s,1.);}";
     // the frame + both glows, graded; the vignette; the colour split (ca) out from the middle
     // Light: up to 16 lights (world x, y, reach, strength; colour), each falling off with the square of the distance and
-    // blocked by what stands between it and the point lit: a walk of 10 steps along the way through the occluder map
+    // blocked by what stands between it and the point lit (within 260 px of it: light from above leaves short shadows):
+    // a walk of 10 steps along the way through the occluder map
     // (walls, planets, crates: one small picture of the whole world). A point inside a wall is its top, lit as it is
     const LIGHT = "#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n" +
-      "varying vec2 v;uniform sampler2D m;uniform vec2 cam,view,world;uniform vec4 lp[16];uniform vec3 lc[16];uniform float lh[16];uniform float n;void main(){" +
+      "varying vec2 v;uniform sampler2D m;uniform vec2 cam,view,world;uniform vec4 lp[16];uniform vec3 lc[16];uniform float lh[16];uniform float ls[16];uniform float n;void main(){" +
       "vec2 p=cam+vec2(v.x-.5,.5-v.y)*view;vec3 acc=vec3(0.);float heat=0.;float self=texture2D(m,p/world).a;" +
       "for(int i=0;i<16;i++){if(float(i)>=n)break;vec4 L=lp[i];vec2 d=L.xy-p;float r=length(d);if(r>L.z)continue;float a=1.-r/L.z;a*=a*L.w;" +
-      "float vis=1.;if(self<.5){for(int k=1;k<10;k++){if(texture2D(m,(p+d*(float(k)/11.))/world).a>.5){vis=0.;break;}}}" +
+      "float vis=1.;if(self<.5){vec2 st=d/r*min(r*.92,260.)/10.;for(int k=1;k<10;k++){vec2 q=p+st*float(k);if(length(L.xy-q)>ls[i]&&texture2D(m,q/world).a>.5){vis=0.;break;}}}" +
       "acc+=lc[i]*a*vis;heat+=lh[i]*(1.-r/L.z);}gl_FragColor=vec4(acc,min(heat,1.));}";
     // heat haze: where the light map says it is hot (its alpha), the picture shimmers (two waves out of step)
     const COMP = "precision mediump float;varying vec2 v;uniform sampler2D t,b1,b2,lm;uniform float bl,ca,vig,sat,dbg,amb,time;void main(){" +
@@ -11033,25 +11034,50 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         mq.setTransform(k, 0, 0, k, b.x * k, b.y * k); mq.rotate(b.a || 0);
         mq.drawImage(b.cv, -b.hw, -b.hh, b.hw * 2, b.hh * 2);
       }
+      // the bins too (they throw shadows from lamps and blasts), as discs
+      mq.setTransform(1, 0, 0, 1, 0, 0); mq.fillStyle = "#000";
+      const disc = (x, y, lv) => { mq.beginPath(); mq.arc(x * k, y * k, binR(lv || 1) * 0.75 * k, 0, 6.29); mq.fill(); };
+      if (playing && !me.dead) disc(me.x, me.y, me.lv);
+      for (const r of remotes.values()) if (!r.dead) disc(r.x, r.y, r.lv);
+      for (const b of bots) if (!b.dead) disc(b.x, b.y, b.lv);
       use(3, maskTex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, mask);
     }
     // this frame's lights: the light thrown by blasts and fires (impacts that are soft pools), and the brightest shots
-    const LP = new Float32Array(64), LC = new Float32Array(48), LH = new Float32Array(16);
+    const LP = new Float32Array(64), LC = new Float32Array(48), LH = new Float32Array(16), LS = new Float32Array(16);
+    // a station's lamps: one over every fourth open cell or so, warm white, a few of them failing and flickering
+    let lamps = [], lampsFor = "";
+    function stationLamps() {
+      const key = worldCode + ":" + stationMap();
+      if (key === lampsFor) return lamps;
+      lampsFor = key; lamps = [];
+      if (!stationMap()) return lamps;
+      const unit = W / FOUNDRY_N;
+      for (const y of [2, 6, 10, 14, 18]) for (const x of [2, 6, 10, 14, 18]) if (foundryOpen(x, y))
+        lamps.push({ x: (x + 0.5) * unit, y: (y + 0.5) * unit, r: unit * 2.6, col: (x + y) % 8 === 0 ? station().accent[1] : "#ffe6c0", flick: hash(x, y, 77) < 0.2 ? hash(x, y, 78) * 6.28 : 0 });
+      return lamps;
+    }
     const rgbOf = c => { if (c[0] === "#") { const v = parseInt(c.slice(1, 7), 16); return [(v >> 16 & 255) / 255, (v >> 8 & 255) / 255, (v & 255) / 255]; } const p = c.split(",").map(Number); return [p[0] / 255, p[1] / 255, p[2] / 255]; };
     const SHOT_LIGHT = { [K.ROCKET]: [260, 0.55, 0.45], [K.HROCKET]: [260, 0.55, 0.45], [K.FIRE]: [170, 0.4, 0.3], [K.ORB]: [300, 0.6], [K.GAMMA]: [320, 0.6], [K.NUKE]: [380, 0.7, 0.6], [K.HOLY]: [420, 0.7, 0.3], [K.GREN]: [150, 0.3], [K.PULSE_BOLT]: [150, 0.35] };
     function gatherLights(now) {
       const list = [], cx = cam.x, cy = cam.y, hw = vw / 2, hh = vh / 2;
-      const add = (x, y, r, a, col, heat = 0) => { if (a > 0.02 && Math.abs(x - cx) < hw + r && Math.abs(y - cy) < hh + r) list.push([x, y, r, a, col, heat]); };
+      // score: what goes first when there are more than 16 (a lamp counts for less the further it is)
+      const add = (x, y, r, a, col, heat = 0, skip = 0, score = a * r * 3) => { if (a > 0.02 && Math.abs(x - cx) < hw + r && Math.abs(y - cy) < hh + r) list.push([x, y, r, a, col, heat, skip, score]); };
+      for (const L of stationLamps()) {
+        const a = 0.42 * (L.flick ? (Math.sin(now / 53 + L.flick) * Math.sin(now / 131 + L.flick * 3) > 0.55 ? 0.15 : 1) : 1);
+        add(L.x, L.y, L.r, a, L.col, 0, 0, a * L.r / (1 + Math.hypot(L.x - cx, L.y - cy) / 600));
+      }
+      // a shot's muzzle flash lights its surroundings for its first moment (not shadowed by its own shooter)
+      for (const s of shots) { const age = SHOTS[s.kind].life - s.life; if (age >= 0 && age < 0.05 && !SHOTS[s.kind].inert) add(s.x, s.y, 190, 0.55 * (1 - age / 0.05), SHOTS[s.kind].col, 0, 70); }
       for (const m of impacts) {
         if (!m.soft || m.t < 0) continue;
         const k = m.t / (m.dur || 0.22), fl = m.flick ? (1 - k) * (0.7 + 0.3 * Math.sin(now / 37 + m.flick) * Math.sin(now / 61 + m.flick * 2)) : (1 - k) * (1 - k);
         add(m.x, m.y, m.r * (0.8 + 0.4 * k) * 1.4, fl * m.soft * 1.2, m.col, m.flick ? (1 - k) * 1.2 : (1 - k) * 0.6);   // (a fire shimmers longest)
       }
-      for (const s of shots) { const L = SHOT_LIGHT[s.kind]; if (L && s.life > 0) add(s.x, s.y, L[0], L[1], SHOTS[s.kind].col, L[2] || 0); }
-      list.sort((a, b) => b[3] * b[2] - a[3] * a[2]);
+      for (const s of shots) { const L = SHOT_LIGHT[s.kind]; if (L && s.life > 0) add(s.x, s.y, L[0], L[1], SHOTS[s.kind].col, L[2] || 0, 30); }
+      list.sort((a, b) => b[7] - a[7]);
       const n = Math.min(16, list.length);
-      for (let i = 0; i < n; i++) { const [x, y, r, a, col, heat] = list[i], c = rgbOf(col); LP.set([x, y, r, a], i * 4); LC.set(c, i * 3); LH[i] = heat; }
+      for (let i = 0; i < n; i++) { const [x, y, r, a, col, heat, skip] = list[i], c = rgbOf(col); LP.set([x, y, r, a], i * 4); LC.set(c, i * 3); LH[i] = heat; LS[i] = skip; }
       return n;
     }
     const pass = (pr, out, w, h, bind) => { gl.useProgram(pr.p); gl.bindFramebuffer(gl.FRAMEBUFFER, out ? out.f : null); gl.viewport(0, 0, w, h); bind(pr); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); };
@@ -11086,10 +11112,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
           const nl = gatherLights(performance.now());
           fit(LM, w1, h1);
           pass(P.light, LM, w1, h1, p => { use(3, maskTex); gl.uniform1i(p.u("m"), 3); gl.uniform2f(p.u("cam"), cam.x, cam.y); gl.uniform2f(p.u("view"), vw, vh); gl.uniform2f(p.u("world"), W, H);
-            gl.uniform1f(p.u("n"), nl); if (nl) { gl.uniform4fv(p.u("lp"), LP); gl.uniform3fv(p.u("lc"), LC); gl.uniform1fv(p.u("lh"), LH); } });
+            gl.uniform1f(p.u("n"), nl); if (nl) { gl.uniform4fv(p.u("lp"), LP); gl.uniform3fv(p.u("lc"), LC); gl.uniform1fv(p.u("lh"), LH); gl.uniform1fv(p.u("ls"), LS); } });
           kick = Math.max(0, kick - dt * 3.5);
           const ca = Math.min(0.012, 0.0015 + kick * 0.01 + flash * 0.006);
-          pass(P.comp, null, W0, H0, p => { use(0, frameTex); use(1, A1.t); use(2, A2.t); use(4, LM.t); gl.uniform1i(p.u("t"), 0); gl.uniform1i(p.u("b1"), 1); gl.uniform1i(p.u("b2"), 2); gl.uniform1i(p.u("lm"), 4); gl.uniform1f(p.u("dbg"), window.__lightMap ? 1 : 0); gl.uniform1f(p.u("amb"), stationMap() ? 0.82 : 1); gl.uniform1f(p.u("time"), (performance.now() / 1000) % 1000);   // (a station a little darker, so its lights tell)   // (__lightMap: the light alone, for checking it)
+          pass(P.comp, null, W0, H0, p => { use(0, frameTex); use(1, A1.t); use(2, A2.t); use(4, LM.t); gl.uniform1i(p.u("t"), 0); gl.uniform1i(p.u("b1"), 1); gl.uniform1i(p.u("b2"), 2); gl.uniform1i(p.u("lm"), 4); gl.uniform1f(p.u("dbg"), window.__lightMap ? 1 : 0); gl.uniform1f(p.u("amb"), stationMap() ? 0.68 : 1); gl.uniform1f(p.u("time"), (performance.now() / 1000) % 1000);   // (a station a little darker, so its lights tell)   // (__lightMap: the light alone, for checking it)
             gl.uniform1f(p.u("bl"), 0.6); gl.uniform1f(p.u("ca"), ca); gl.uniform1f(p.u("vig"), playing ? 0.32 : 0.22); gl.uniform1f(p.u("sat"), 1.08); });
           show(true);
         } catch (e) { failed = true; show(false); console.warn("post effects off:", e.message); }
