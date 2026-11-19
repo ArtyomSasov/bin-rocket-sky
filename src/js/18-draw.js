@@ -1139,6 +1139,15 @@
           g.fillStyle = "#c5efff"; g.beginPath(); g.moveTo(0, yj - r * 2); g.lineTo(r, yj); g.lineTo(0, yj + r * 2); g.lineTo(-r, yj); g.closePath(); g.fill();
         }
       }
+      if (j.main) {   // the main engine's bell: dark metal, its rim glowing hot with the burn (white-hot on boost)
+        g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
+        const bw = Math.max(9, wid * 0.85), bl = bw * 0.7, mg = g.createLinearGradient(-bw, 0, bw, 0);
+        mg.addColorStop(0, "#1b2230"); mg.addColorStop(0.45, "#5c6b80"); mg.addColorStop(0.6, "#8a9ab0"); mg.addColorStop(1, "#1b2230");
+        g.fillStyle = mg; g.beginPath(); g.moveTo(-bw * 0.55, -bl); g.lineTo(bw * 0.55, -bl); g.lineTo(bw, 2); g.lineTo(-bw, 2); g.closePath(); g.fill();
+        const heat = Math.min(1, power * (bf ? 1.2 : 0.7));
+        g.globalCompositeOperation = "lighter"; g.strokeStyle = bf ? `rgba(255,240,210,${0.9 * heat})` : `rgba(255,${120 + 80 * heat},60,${0.8 * heat})`; g.lineWidth = 2.5;
+        g.beginPath(); g.moveTo(-bw, 2); g.lineTo(bw, 2); g.stroke(); g.globalCompositeOperation = "source-over";
+      }
       if (!j.main) { // metal lip at the fixed manoeuvring nozzle
         g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
         g.fillStyle = "#253241"; g.beginPath(); g.moveTo(-wid * 0.6, -4); g.lineTo(wid * 0.6, -4); g.lineTo(wid * 0.45, 3); g.lineTo(-wid * 0.45, 3); g.closePath(); g.fill();
@@ -1156,6 +1165,14 @@
     drawMounts(isMe ? me.weapon : b.weapon, s, now);
     if (body) {
       g.drawImage(b.ck ? tintedBody(teamCk(b)) : body, -s / 2, -s / 2, s, s);
+      if (!lowQ) {   // light on the hull: a sheen from the top left that stays put as it turns, and its engines' glow on its stern
+        const ckL = teamCk(b) || [0, 0, 0, 0, 0], loc = a => a - pose.a;
+        g.globalCompositeOperation = "lighter";
+        g.globalAlpha = 0.22; g.drawImage(litBody(ckL, loc(-2.36), "rgba(255,255,255,1)"), -s / 2, -s / 2, s, s);
+        const th = Math.max(bf ? 1 : 0, Math.min(1.4, b.thrust || 0));
+        if (th > 0.05) { const jm = exhaustJets(b, now).find(j => j.main); if (jm) { g.globalAlpha = Math.min(0.45, 0.18 * th + (bf ? 0.18 : 0)); g.drawImage(litBody(ckL, loc(jm.a), bf ? "rgba(255,220,160,1)" : "rgba(255,140,60,1)"), -s / 2, -s / 2, s, s); } }
+        g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
+      }
       const hf = b.hitAt ? Math.min(1, 1 - (now - b.hitAt) / 120) : 0;   // just hit: a white flash
       if (hf > 0) { g.globalAlpha = hf * 0.85; g.drawImage(whiteBody(teamCk(b) || [0, 0, 0, 0, 0]), -s / 2, -s / 2, s, s); g.globalAlpha = 1; }
     } else { g.fillStyle = "#4fd6c8"; g.fillRect(-s / 3, -s / 3, s / 1.5, s / 1.5); }

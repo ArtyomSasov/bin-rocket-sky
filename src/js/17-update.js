@@ -80,9 +80,9 @@
       const va = o.vx * ux + o.vy * uy;   // speed already going this way: thrust fades out as it nears top speed
       const kk = Math.max(0, Math.min(acc * Math.min(1, im) * (along < 0 ? 1 - 0.8 * along : 1) * dt, (top * Math.min(1, im) - va) * Math.min(1, 6 * dt)));
       o.vx += ux * kk; o.vy += uy * kk;
-      const lat = -o.vx * uy + o.vy * ux, ld = lat * (1 - Math.exp(-2.2 * dt));   // sideways slip fades: turns sweep in tight arcs
+      const lat = -o.vx * uy + o.vy * ux, ld = lat * (1 - Math.exp(-1.2 * dt));   // sideways slip fades, slowly: a turn carries a drift, as a ship's does
       o.vx += uy * ld; o.vy -= ux * ld;
-    } else { const d = Math.exp(-0.45 * dt); o.vx *= d; o.vy *= d; }
+    } else { const d = Math.exp(-0.28 * dt); o.vx *= d; o.vy *= d; }   // (off the throttle it glides on)
     if (braking) { const s = Math.hypot(o.vx, o.vy), ns = Math.max(0, s - 1000 * dt); if (s > 1) { o.vx *= ns / s; o.vy *= ns / s; } }
     const s1 = Math.hypot(o.vx, o.vy);
     if (s1 > top) { const ns = top + (s1 - top) * Math.exp(-2.5 * dt); o.vx *= ns / s1; o.vy *= ns / s1; }

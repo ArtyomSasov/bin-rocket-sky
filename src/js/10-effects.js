@@ -153,6 +153,22 @@
     whiteCache.set(key, c);
     return c;
   }
+  // a bin's silhouette lit from one side: white (or a colour) fading across it from the side at angle a, for a sheen
+  // that stays put as the bin turns, or the glow its engines throw on its stern. Cached by tint, side (16 steps), colour
+  const litCache = new Map();
+  function litBody(ck, a, col) {
+    const step = Math.round(((a % 6.2832) + 6.2832) % 6.2832 / 6.2832 * 16) % 16, key = ck.join(",") + "|" + (ck.team ?? "") + "|" + step + "|" + col;
+    let c = litCache.get(key);
+    if (c) return c;
+    const src = whiteBody(ck); c = document.createElement("canvas"); c.width = src.width; c.height = src.height;
+    const x = c.getContext("2d"), w = c.width, h = c.height, aa = step / 16 * 6.2832, dx = Math.cos(aa) * w / 2, dy = Math.sin(aa) * h / 2;
+    x.drawImage(src, 0, 0); x.globalCompositeOperation = "source-in";
+    const gr = x.createLinearGradient(w / 2 + dx, h / 2 + dy, w / 2 - dx * 0.2, h / 2 - dy * 0.2);
+    gr.addColorStop(0, col); gr.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = gr; x.fillRect(0, 0, w, h);
+    if (litCache.size > 400) litCache.clear();
+    litCache.set(key, c);
+    return c;
+  }
   const darkCache = new Map();
   function darkBody(ck, amount = 0.58) {
     const src = tintedBody(ck), key = ck.join(",") + "|" + (ck.team ?? "") + "|" + amount;

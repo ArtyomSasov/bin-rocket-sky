@@ -201,6 +201,16 @@
         const a = 0.55 * (L.flick ? (Math.sin(now / 53 + L.flick) * Math.sin(now / 131 + L.flick * 3) > 0.55 ? 0.15 : 1) : 1);
         add(L.x, L.y, L.r, a, L.col, 0, 0, a * L.r / (1 + Math.hypot(L.x - cx, L.y - cy) / 600));
       }
+      // engines light what is behind them (much more on boost)
+      const engines = [];
+      if (playing && !me.dead) engines.push(me);
+      for (const r of remotes.values()) if (!r.dead) engines.push(r);
+      for (const b of engines) {
+        const boost = b === me ? me.boostFx > 0 : (b.boost || 0) > 0, th = b.thrust || 0;
+        if (th < 0.2 && !boost) continue;
+        const j = exhaustJets(b, now).find(o => o.main); if (!j) continue;
+        add(j.x + Math.cos(j.a) * 40, j.y + Math.sin(j.a) * 40, boost ? 340 : 200, boost ? 0.7 : 0.3 * Math.min(1, th), boost ? "#ffd9a0" : "#ff9a4a", boost ? 0.25 : 0, 45);
+      }
       // a shot's muzzle flash lights its surroundings for its first moment (not shadowed by its own shooter)
       for (const s of shots) { const age = SHOTS[s.kind].life - s.life; if (age >= 0 && age < 0.05 && !SHOTS[s.kind].inert) add(s.x, s.y, 190, 0.55 * (1 - age / 0.05), SHOTS[s.kind].col, 0, 70); }
       for (const m of impacts) {

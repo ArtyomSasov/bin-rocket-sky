@@ -4094,6 +4094,22 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     whiteCache.set(key, c);
     return c;
   }
+  // a bin's silhouette lit from one side: white (or a colour) fading across it from the side at angle a, for a sheen
+  // that stays put as the bin turns, or the glow its engines throw on its stern. Cached by tint, side (16 steps), colour
+  const litCache = new Map();
+  function litBody(ck, a, col) {
+    const step = Math.round(((a % 6.2832) + 6.2832) % 6.2832 / 6.2832 * 16) % 16, key = ck.join(",") + "|" + (ck.team ?? "") + "|" + step + "|" + col;
+    let c = litCache.get(key);
+    if (c) return c;
+    const src = whiteBody(ck); c = document.createElement("canvas"); c.width = src.width; c.height = src.height;
+    const x = c.getContext("2d"), w = c.width, h = c.height, aa = step / 16 * 6.2832, dx = Math.cos(aa) * w / 2, dy = Math.sin(aa) * h / 2;
+    x.drawImage(src, 0, 0); x.globalCompositeOperation = "source-in";
+    const gr = x.createLinearGradient(w / 2 + dx, h / 2 + dy, w / 2 - dx * 0.2, h / 2 - dy * 0.2);
+    gr.addColorStop(0, col); gr.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = gr; x.fillRect(0, 0, w, h);
+    if (litCache.size > 400) litCache.clear();
+    litCache.set(key, c);
+    return c;
+  }
   const darkCache = new Map();
   function darkBody(ck, amount = 0.58) {
     const src = tintedBody(ck), key = ck.join(",") + "|" + (ck.team ?? "") + "|" + amount;
@@ -8281,9 +8297,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       const va = o.vx * ux + o.vy * uy;   // speed already going this way: thrust fades out as it nears top speed
       const kk = Math.max(0, Math.min(acc * Math.min(1, im) * (along < 0 ? 1 - 0.8 * along : 1) * dt, (top * Math.min(1, im) - va) * Math.min(1, 6 * dt)));
       o.vx += ux * kk; o.vy += uy * kk;
-      const lat = -o.vx * uy + o.vy * ux, ld = lat * (1 - Math.exp(-2.2 * dt));   // sideways slip fades: turns sweep in tight arcs
+      const lat = -o.vx * uy + o.vy * ux, ld = lat * (1 - Math.exp(-1.2 * dt));   // sideways slip fades, slowly: a turn carries a drift, as a ship's does
       o.vx += uy * ld; o.vy -= ux * ld;
-    } else { const d = Math.exp(-0.45 * dt); o.vx *= d; o.vy *= d; }
+    } else { const d = Math.exp(-0.28 * dt); o.vx *= d; o.vy *= d; }   // (off the throttle it glides on)
     if (braking) { const s = Math.hypot(o.vx, o.vy), ns = Math.max(0, s - 1000 * dt); if (s > 1) { o.vx *= ns / s; o.vy *= ns / s; } }
     const s1 = Math.hypot(o.vx, o.vy);
     if (s1 > top) { const ns = top + (s1 - top) * Math.exp(-2.5 * dt); o.vx *= ns / s1; o.vy *= ns / s1; }
@@ -10501,6 +10517,15 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
           g.fillStyle = "#c5efff"; g.beginPath(); g.moveTo(0, yj - r * 2); g.lineTo(r, yj); g.lineTo(0, yj + r * 2); g.lineTo(-r, yj); g.closePath(); g.fill();
         }
       }
+      if (j.main) {   // the main engine's bell: dark metal, its rim glowing hot with the burn (white-hot on boost)
+        g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
+        const bw = Math.max(9, wid * 0.85), bl = bw * 0.7, mg = g.createLinearGradient(-bw, 0, bw, 0);
+        mg.addColorStop(0, "#1b2230"); mg.addColorStop(0.45, "#5c6b80"); mg.addColorStop(0.6, "#8a9ab0"); mg.addColorStop(1, "#1b2230");
+        g.fillStyle = mg; g.beginPath(); g.moveTo(-bw * 0.55, -bl); g.lineTo(bw * 0.55, -bl); g.lineTo(bw, 2); g.lineTo(-bw, 2); g.closePath(); g.fill();
+        const heat = Math.min(1, power * (bf ? 1.2 : 0.7));
+        g.globalCompositeOperation = "lighter"; g.strokeStyle = bf ? `rgba(255,240,210,${0.9 * heat})` : `rgba(255,${120 + 80 * heat},60,${0.8 * heat})`; g.lineWidth = 2.5;
+        g.beginPath(); g.moveTo(-bw, 2); g.lineTo(bw, 2); g.stroke(); g.globalCompositeOperation = "source-over";
+      }
       if (!j.main) { // metal lip at the fixed manoeuvring nozzle
         g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
         g.fillStyle = "#253241"; g.beginPath(); g.moveTo(-wid * 0.6, -4); g.lineTo(wid * 0.6, -4); g.lineTo(wid * 0.45, 3); g.lineTo(-wid * 0.45, 3); g.closePath(); g.fill();
@@ -10518,6 +10543,14 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     drawMounts(isMe ? me.weapon : b.weapon, s, now);
     if (body) {
       g.drawImage(b.ck ? tintedBody(teamCk(b)) : body, -s / 2, -s / 2, s, s);
+      if (!lowQ) {   // light on the hull: a sheen from the top left that stays put as it turns, and its engines' glow on its stern
+        const ckL = teamCk(b) || [0, 0, 0, 0, 0], loc = a => a - pose.a;
+        g.globalCompositeOperation = "lighter";
+        g.globalAlpha = 0.22; g.drawImage(litBody(ckL, loc(-2.36), "rgba(255,255,255,1)"), -s / 2, -s / 2, s, s);
+        const th = Math.max(bf ? 1 : 0, Math.min(1.4, b.thrust || 0));
+        if (th > 0.05) { const jm = exhaustJets(b, now).find(j => j.main); if (jm) { g.globalAlpha = Math.min(0.45, 0.18 * th + (bf ? 0.18 : 0)); g.drawImage(litBody(ckL, loc(jm.a), bf ? "rgba(255,220,160,1)" : "rgba(255,140,60,1)"), -s / 2, -s / 2, s, s); } }
+        g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
+      }
       const hf = b.hitAt ? Math.min(1, 1 - (now - b.hitAt) / 120) : 0;   // just hit: a white flash
       if (hf > 0) { g.globalAlpha = hf * 0.85; g.drawImage(whiteBody(teamCk(b) || [0, 0, 0, 0, 0]), -s / 2, -s / 2, s, s); g.globalAlpha = 1; }
     } else { g.fillStyle = "#4fd6c8"; g.fillRect(-s / 3, -s / 3, s / 1.5, s / 1.5); }
@@ -11893,6 +11926,16 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       for (const L of stationLamps()) {
         const a = 0.55 * (L.flick ? (Math.sin(now / 53 + L.flick) * Math.sin(now / 131 + L.flick * 3) > 0.55 ? 0.15 : 1) : 1);
         add(L.x, L.y, L.r, a, L.col, 0, 0, a * L.r / (1 + Math.hypot(L.x - cx, L.y - cy) / 600));
+      }
+      // engines light what is behind them (much more on boost)
+      const engines = [];
+      if (playing && !me.dead) engines.push(me);
+      for (const r of remotes.values()) if (!r.dead) engines.push(r);
+      for (const b of engines) {
+        const boost = b === me ? me.boostFx > 0 : (b.boost || 0) > 0, th = b.thrust || 0;
+        if (th < 0.2 && !boost) continue;
+        const j = exhaustJets(b, now).find(o => o.main); if (!j) continue;
+        add(j.x + Math.cos(j.a) * 40, j.y + Math.sin(j.a) * 40, boost ? 340 : 200, boost ? 0.7 : 0.3 * Math.min(1, th), boost ? "#ffd9a0" : "#ff9a4a", boost ? 0.25 : 0, 45);
       }
       // a shot's muzzle flash lights its surroundings for its first moment (not shadowed by its own shooter)
       for (const s of shots) { const age = SHOTS[s.kind].life - s.life; if (age >= 0 && age < 0.05 && !SHOTS[s.kind].inert) add(s.x, s.y, 190, 0.55 * (1 - age / 0.05), SHOTS[s.kind].col, 0, 70); }
