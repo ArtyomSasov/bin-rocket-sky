@@ -290,6 +290,13 @@
       g.fillStyle = "rgba(48,3,7,0.86)"; g.beginPath(); g.ellipse(0, 0, r * o.sx, r, 0, 0, 6.29); g.fill();
       for (const [bx, by, br] of o.blobs) { g.beginPath(); g.arc(bx * grow, by * grow, br * grow, 0, 6.29); g.fill(); }
       for (const [d, off, rr] of o.spat) { g.beginPath(); g.arc(d * o.sx * grow, off, rr, 0, 6.29); g.fill(); }
+      g.strokeStyle = "rgba(48,3,7,0.8)"; g.lineCap = "round";
+      for (const [a, L, w] of o.spines || []) { g.lineWidth = w; g.beginPath(); g.moveTo(Math.cos(a) * r * o.sx * 0.8, Math.sin(a) * r * 0.8); g.lineTo(Math.cos(a) * L * o.sx * grow, Math.sin(a) * L * grow); g.stroke(); }
+      for (const [a, L, w, T] of o.runs || []) {   // runs crawling out of the pool, slower and slower
+        const k = Math.min(1, Math.sqrt((tNow - o.born) / T)), ex = Math.cos(a) * (r + L * k), ey = Math.sin(a) * (r + L * k);
+        g.lineWidth = w * 2; g.beginPath(); g.moveTo(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7); g.quadraticCurveTo(ex * 0.6 + Math.sin(a * 3) * 4, ey * 0.6, ex, ey); g.stroke();
+        g.beginPath(); g.arc(ex, ey, w * 1.4, 0, 6.29); g.fill();
+      }
       g.fillStyle = "rgba(150,20,26,0.35)"; g.beginPath(); g.ellipse(-r * 0.25, -r * 0.2, r * o.sx * 0.5, r * 0.35, 0, 0, 6.29); g.fill();
       g.fillStyle = "rgba(255,200,200,0.14)"; g.beginPath(); g.ellipse(-r * 0.35, -r * 0.35, r * 0.22, r * 0.1, -0.4, 0, 6.29); g.fill();
       g.restore();

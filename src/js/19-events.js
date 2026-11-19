@@ -944,6 +944,7 @@
     drawPickups(now);
     drawWreckage(now);
     drawChunks(now);
+    drawCasings();
     drawOil();
     drawGlow(now);
     drawBlackHole(now);   // lenses the world behind it; bots and text are drawn on top, undistorted

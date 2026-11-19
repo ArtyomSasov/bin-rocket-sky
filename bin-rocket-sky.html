@@ -1426,6 +1426,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       g.fillStyle = "rgba(48,3,7,0.86)"; g.beginPath(); g.ellipse(0, 0, r * o.sx, r, 0, 0, 6.29); g.fill();
       for (const [bx, by, br] of o.blobs) { g.beginPath(); g.arc(bx * grow, by * grow, br * grow, 0, 6.29); g.fill(); }
       for (const [d, off, rr] of o.spat) { g.beginPath(); g.arc(d * o.sx * grow, off, rr, 0, 6.29); g.fill(); }
+      g.strokeStyle = "rgba(48,3,7,0.8)"; g.lineCap = "round";
+      for (const [a, L, w] of o.spines || []) { g.lineWidth = w; g.beginPath(); g.moveTo(Math.cos(a) * r * o.sx * 0.8, Math.sin(a) * r * 0.8); g.lineTo(Math.cos(a) * L * o.sx * grow, Math.sin(a) * L * grow); g.stroke(); }
+      for (const [a, L, w, T] of o.runs || []) {   // runs crawling out of the pool, slower and slower
+        const k = Math.min(1, Math.sqrt((tNow - o.born) / T)), ex = Math.cos(a) * (r + L * k), ey = Math.sin(a) * (r + L * k);
+        g.lineWidth = w * 2; g.beginPath(); g.moveTo(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7); g.quadraticCurveTo(ex * 0.6 + Math.sin(a * 3) * 4, ey * 0.6, ex, ey); g.stroke();
+        g.beginPath(); g.arc(ex, ey, w * 1.4, 0, 6.29); g.fill();
+      }
       g.fillStyle = "rgba(150,20,26,0.35)"; g.beginPath(); g.ellipse(-r * 0.25, -r * 0.2, r * o.sx * 0.5, r * 0.35, 0, 0, 6.29); g.fill();
       g.fillStyle = "rgba(255,200,200,0.14)"; g.beginPath(); g.ellipse(-r * 0.35, -r * 0.35, r * 0.22, r * 0.1, -0.4, 0, 6.29); g.fill();
       g.restore();
@@ -4102,6 +4109,35 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // ---------- oil: a bin's blood ----------
   // A hit splashes it out in dark glossy drops; a bin badly hurt leaks it. A drop that lands on a station's deck leaves
   // a stain there (a leaking bin a trail), kept for the round; in space the drops fly on and thin out
+  // ---------- brass: a minigun's spent cases ----------
+  // thrown out to the right of the gun as it fires, tumbling, clinking off walls; on a deck they skid and lie there for
+  // the round (the oldest go once there are too many), in space they drift away
+  const casings = [];
+  function ejectCasing(x, y, a, vx = 0, vy = 0) {
+    const side = a + Math.PI / 2 + (Math.random() - 0.5) * 0.6, v = 160 + Math.random() * 160;
+    casings.push({ x: x - Math.cos(a) * 30, y: y - Math.sin(a) * 30, vx: Math.cos(side) * v + vx * 0.6, vy: Math.sin(side) * v + vy * 0.6, a: Math.random() * 6.28, spin: (Math.random() - 0.5) * 40, t: 0, life: stationMap() ? Infinity : 6 });
+    if (casings.length > 260) casings.shift();
+  }
+  function updateCasings(dt) {
+    const deck = stationMap(), drag = Math.exp(-(deck ? 3 : 0.1) * dt);
+    for (let i = casings.length - 1; i >= 0; i--) {
+      const c = casings[i]; c.t += dt;
+      if (c.t > c.life) { casings.splice(i, 1); continue; }
+      const ox = c.x, oy = c.y;
+      c.x += c.vx * dt; c.y += c.vy * dt; c.vx *= drag; c.vy *= drag; c.spin *= Math.exp(-(deck ? 3 : 0.2) * dt); c.a += c.spin * dt;
+      if (solidCell(c.x, c.y) && bounceSmall(c, ox, oy, 0.4) && Math.hypot(c.vx, c.vy) > 60 && Math.random() < 0.3) sfx("hit", 0.08, 3.2, c.x, c.y);   // a clink
+    }
+  }
+  function drawCasings() {
+    for (const c of casings) {
+      const x = sx(c.x), y = sy(c.y);
+      if (!onScreen(x, y, 10)) continue;
+      g.save(); g.translate(x, y); g.rotate(c.a); g.globalAlpha = c.life === Infinity ? 1 : Math.min(1, (c.life - c.t) * 2);
+      g.fillStyle = "#c9962e"; g.fillRect(-3.5, -1.4, 7, 2.8); g.fillStyle = "#ffe08a"; g.fillRect(-3.5, -1.4, 7, 1); g.fillStyle = "#7a5718"; g.fillRect(2.6, -1.6, 1.2, 3.2);
+      g.restore();
+    }
+    g.globalAlpha = 1;
+  }
   const oilDrops = [], oilStains = [];
   function oilSplash(x, y, n, speed, ax = 0, ay = 0) {
     for (let i = 0, m = Math.round(n * (lowQ ? 0.5 : 1)); i < m; i++) {
@@ -4116,7 +4152,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const sp = Math.hypot(vx, vy), stretch = 1 + Math.min(1.6, sp / 200);
     oilStains.push({ x, y, r, rot: sp > 1 ? Math.atan2(vy, vx) : Math.random() * 6.28, sx: stretch * (0.8 + Math.random() * 0.4), born: performance.now(),
       blobs: Array.from({ length: 4 + (Math.random() * 4 | 0) }, () => [(Math.random() - 0.3) * r * 1.6, (Math.random() - 0.5) * r * 0.9, r * (0.25 + Math.random() * 0.4)]),
-      spat: Array.from({ length: Math.min(6, sp / 60 | 0) }, () => [r * (1.4 + Math.random() * 1.8), (Math.random() - 0.5) * r * 0.8, 0.6 + Math.random() * 1.6]) });
+      spat: Array.from({ length: Math.min(6, sp / 60 | 0) }, () => [r * (1.4 + Math.random() * 1.8), (Math.random() - 0.5) * r * 0.8, 0.6 + Math.random() * 1.6]),
+      // thin spines thrown out ahead (a fast drop), and runs crawling slowly out of a big pool over a few seconds
+      spines: Array.from({ length: Math.min(7, 1 + sp / 80 | 0) }, () => [(Math.random() - 0.5) * 1.3, r * (1.2 + Math.random() * 1.6), 0.5 + Math.random() * 0.9]),
+      runs: r > 7 ? Array.from({ length: 1 + (Math.random() * 3 | 0) }, () => [Math.random() * 6.283, r * (1.5 + Math.random() * 3), 1 + Math.random() * 1.6, 2000 + Math.random() * 3000]) : [] });
     if (oilStains.length > 400) oilStains.shift();
   }
   function updateOil(dt) {
@@ -4138,7 +4177,26 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     q.fillStyle = "rgba(60,4,8,0.85)"; q.beginPath(); q.ellipse(0, 0, r * 1.6, r * 0.8, 0, 0, 6.29); q.fill();
     q.fillStyle = "rgba(110,10,14,0.7)"; q.beginPath(); q.ellipse(-r * 0.2, -r * 0.15, r * 0.9, r * 0.4, 0, 0, 6.29); q.fill();
     for (let k = 0; k < 3; k++) { q.beginPath(); q.arc(r * (1.8 + Math.random() * 1.6), (Math.random() - 0.5) * r, r * (0.15 + Math.random() * 0.25), 0, 6.29); q.fill(); }
+    q.strokeStyle = "rgba(70,5,9,0.8)"; q.lineCap = "round";   // spines
+    for (let k = 0; k < 4; k++) { const a2 = (Math.random() - 0.5) * 1.2, L = r * (1.5 + Math.random() * 2); q.lineWidth = 0.6 + Math.random() * 0.8; q.beginPath(); q.moveTo(Math.cos(a2) * r, Math.sin(a2) * r); q.lineTo(Math.cos(a2) * L, Math.sin(a2) * L); q.stroke(); }
     q.restore();
+    // and it runs down the wall (down the screen), a drip or two, while there is wall under it
+    for (let k = 0, n = r > 3 ? 1 + (Math.random() < 0.5 ? 1 : 0) : 0; k < n; k++) wallDrips.push({ b, x: x + (Math.random() - 0.5) * r, y, w: 0.8 + Math.random() * r * 0.25, left: 30 + Math.random() * 90, v: 12 + Math.random() * 18 });
+    if (wallDrips.length > 120) wallDrips.splice(0, wallDrips.length - 120);
+  }
+  const wallDrips = [];
+  function updateDrips(dt) {
+    for (let i = wallDrips.length - 1; i >= 0; i--) {
+      const d = wallDrips[i], b = d.b, step = Math.min(d.left, d.v * dt);
+      if (b.dead || step <= 0 || !solidAt(b, d.x, d.y + step)) { wallDrips.splice(i, 1); continue; }
+      const [x0, y0] = toLocal(b, d.x, d.y), wob = (Math.random() - 0.5) * 0.6;
+      d.x += wob; d.y += step; d.left -= step; d.v *= 0.995; d.w *= 0.997;
+      const [x1, y1] = toLocal(b, d.x, d.y), q = b.q;
+      q.save(); q.globalCompositeOperation = "source-atop"; q.strokeStyle = "rgba(64,4,8,0.85)"; q.lineCap = "round"; q.lineWidth = d.w;
+      q.beginPath(); q.moveTo(x0, y0); q.lineTo(x1, y1); q.stroke();
+      if (d.left <= step + 0.01) { q.fillStyle = "rgba(64,4,8,0.9)"; q.beginPath(); q.arc(x1, y1, d.w * 0.9, 0, 6.29); q.fill(); }   // a bead at its end
+      q.restore();
+    }
   }
   function damageFx(b, dt) {
     // a fresh hit (hitAt moved on): a splash of oil
@@ -8322,6 +8380,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         s.life = Math.max(1e-4, left);
       }
       if (s.kind === K.RECALL) { recallSaws(s); shots.splice(i, 1); continue; }
+      if (s.kind === K.BULLET && !s.cased) {   // a minigun round just fired: its case flies out, and its gun's barrels are spinning
+        s.cased = true; const sh = s.mine ? me : remotes.get(s.owner) || botById.get(s.owner);
+        if (sh && Math.hypot(sh.x - s.x, sh.y - s.y) < 140) { ejectCasing(s.x, s.y, Math.atan2(s.vy, s.vx), sh.vx || 0, sh.vy || 0); if (sh !== me) sh.spinVis = Math.min(1, (sh.spinVis || 0) + 0.12); }
+      }
       // Ripper discs retain their ricochet direction; no automatic recall.
       if (s.kind === K.DET) { detonateOrb(s); if (s.life <= 0) shots.splice(i, 1); continue; }   // inert: it only sets off its orb
       if (HITSCAN[s.kind] && !s.traced && s.life > 0) traceBeam(s);   // rail, laser, beams: the whole line, this very frame
@@ -8714,7 +8776,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         else puff(p.x, p.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 0.8 + Math.random() * 0.6, 3 + Math.random() * 3, SMOKE_COLS[1], 2, 0, 0, 0.94, 0.3);
       }
     }
-    shockTick(now); updateOil(dt); updateChunks(dt);
+    shockTick(now); updateOil(dt); updateChunks(dt); updateDrips(dt); updateCasings(dt);
     for (let i = afterBlasts.length - 1; i >= 0; i--) if (now >= afterBlasts[i].at) {
       const b = afterBlasts[i]; afterBlasts.splice(i, 1);
       if (b.o) {   // a piece of a broken bin popping where it has flown to: a kick to it, sparks, a little fire
@@ -8980,7 +9042,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       energy = 100; energyRegenAt = 0; dashReadyAt = 0; lungeReady = 0;
       flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
       grabbed.clear(); myGrabs.length = 0; drops.clear(); gunDrops.clear(); myDrops.length = 0; myGunDrops.length = 0;
-      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; afterBlasts.length = 0; shockQueue.length = 0;
+      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; wallDrips.length = 0; casings.length = 0; afterBlasts.length = 0; shockQueue.length = 0;
       if (shownRound !== -1) {
         myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode);
         // Respawn after rebuilding: a repaired planet must not enclose a pilot in its old tunnel.
@@ -9899,7 +9961,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
 
   // the weapon you carry is mounted on the wings, so everyone can see what is coming at them.
   // Drawn in art pixels; -y points the way the bin flies.
-  let gauntSpinFast = false, mountHeat = 0;   // my gauntlet whirls while it's on; my minigun's heat
+  let gauntSpinFast = false, mountHeat = 0, barrelA = 0;   // my gauntlet whirls while it's on; my minigun's heat; its barrels' turn
   function drawMounts(weapon, s, now) {
     if (!weapon) return;
     const u = s / 320, mounts = mountsOf(weapon);
@@ -9989,8 +10051,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         g.fillStyle = "#8ff0ff"; g.beginPath(); g.arc(0, -38, 5 + Math.sin(now / 150), 0, 6.29); g.fill();
       } else if (weapon === "minigun") {   // a cluster of barrels that spins faster as it spins up
         g.fillStyle = "#3b2d5c"; rrect(-13, -14, 26, 20, 5); g.fill();
-        const turn = now / 18;
-        for (let k = 0; k < 3; k++) { const off = Math.sin(turn + k * 2.094) * 7; g.fillStyle = k % 2 ? "#8a7fb0" : "#cfc6e8"; rrect(off - 2.5, -64, 5, 52, 2); g.fill(); }
+        const turn = barrelA;   // (spun up, the barrels blur into one)
+        for (let k = 0; k < 6; k++) { const ph = turn + k * 1.047, off = Math.sin(ph) * 7, front = Math.cos(ph) > 0; if (!front) continue; g.fillStyle = k % 2 ? "#8a7fb0" : "#cfc6e8"; rrect(off - 2.5, -64, 5, 52, 2); g.fill(); }
+        g.fillStyle = "#2a2140"; for (const yy of [-56, -38]) g.fillRect(-9, yy, 18, 3);   // the barrel clamps
         g.fillStyle = "#ffe08a"; g.fillRect(-9, -66, 18, 4);
         if (mountHeat > 0.05) {   // the barrels glow red-hot as it spins (and white-hot when it overheats)
           g.globalCompositeOperation = "lighter";
@@ -10179,6 +10242,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     g.save(); g.translate(x, y); g.rotate(pose.a); g.scale(pose.scaleX, 1);
     drawWings(lv, s);
     gauntSpinFast = isMe && !!me.gauntOn; mountHeat = isMe ? Math.max(spin, Math.min(1, me.heat || 0)) : 0;
+    // a minigun's barrels turn with its spin (mine: the trigger's spin-up; another's: how hard it has been firing)
+    { const sv = isMe ? spin : (b.spinVis = Math.max(0, (b.spinVis || 0) - Math.min(0.1, (now - (b.spinT || now)) / 1000) * 1.2)), dtv = Math.min(0.1, (now - (b.barrelT || now)) / 1000);
+      b.spinT = b.barrelT = now; b.barrelA = (b.barrelA || 0) + (0.4 + sv * sv * 30) * dtv; barrelA = b.barrelA; if (!isMe) mountHeat = Math.max(mountHeat, sv * 0.8); }
     drawMounts(isMe ? me.weapon : b.weapon, s, now);
     if (body) {
       g.drawImage(b.ck ? tintedBody(teamCk(b)) : body, -s / 2, -s / 2, s, s);
@@ -11158,6 +11224,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     drawPickups(now);
     drawWreckage(now);
     drawChunks(now);
+    drawCasings();
     drawOil();
     drawGlow(now);
     drawBlackHole(now);   // lenses the world behind it; bots and text are drawn on top, undistorted
