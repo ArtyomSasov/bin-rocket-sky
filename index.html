@@ -3426,11 +3426,12 @@ details.controls[open] .clist { margin-top: 8px; }
   // every frame: shared poses, rubble drifting, and pending break-ups
   function bodyTick(now, dt) {
     posesAt(clockNow(), dt);
-    const drag = Math.exp(-0.02 * dt);
+    // (on a station's deck a loose piece scrapes along the floor and comes to rest; in space it drifts on)
+    const deck = stationMap(), drag = Math.exp(-(deck ? 1.6 : 0.02) * dt), spinDrag = Math.exp(-(deck ? 2 : 0.05) * dt);
     for (const b of rubble) {
       if (b.dead) continue;
       gravityOn(b, dt);   // planets pull their own rubble back
-      b.x += b.vx * dt; b.y += b.vy * dt; b.a += b.va * dt; b.vx *= drag; b.vy *= drag; b.va *= Math.exp(-0.05 * dt);
+      b.x += b.vx * dt; b.y += b.vy * dt; b.a += b.va * dt; b.vx *= drag; b.vy *= drag; b.va *= spinDrag;
       if (b.x < 0 || b.x > W) { b.vx = -b.vx * 0.6; b.x = clamp(b.x, 0, W); }
       if (b.y < 0 || b.y > H) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 0, H); }
       rubbleCollide(b, now);
@@ -8919,7 +8920,7 @@ details.controls[open] .clist { margin-top: 8px; }
       const h = hulks[i];
       h.life -= dt;
       if (h.life <= 0) { hulks.splice(i, 1); continue; }
-      const drag = Math.exp(-0.015 * dt);   // space: practically no drag
+      const drag = Math.exp(-(stationMap() ? 1.4 : 0.015) * dt);   // space: practically no drag; a deck: it skids to rest
       if (h.pin) {   // nailed to rock: it rides along with it
         if (h.pin.b && (h.pin.b.dead || !bodies.includes(h.pin.b))) h.pin = null;
         else if (h.pin.b) {
@@ -8932,6 +8933,7 @@ details.controls[open] .clist { margin-top: 8px; }
       } else {
         const oldX = h.x, oldY = h.y;
         h.x += h.vx * dt; h.y += h.vy * dt; h.vx *= drag; h.vy *= drag; h.a += h.spin * dt;
+        if (stationMap()) h.spin *= Math.exp(-1.8 * dt);
         if (h.nailA !== undefined) {   // flying on along the nail: the first rock (or the fence) it meets, it is pinned to
           const tip = 30 * sizeOf(h.lv), dx = Math.cos(h.nailA) * tip, dy = Math.sin(h.nailA) * tip;
           const hit = shotBody({ px: oldX + dx, py: oldY + dy, x: h.x + dx, y: h.y + dy });

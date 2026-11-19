@@ -817,7 +817,7 @@
       const h = hulks[i];
       h.life -= dt;
       if (h.life <= 0) { hulks.splice(i, 1); continue; }
-      const drag = Math.exp(-0.015 * dt);   // space: practically no drag
+      const drag = Math.exp(-(stationMap() ? 1.4 : 0.015) * dt);   // space: practically no drag; a deck: it skids to rest
       if (h.pin) {   // nailed to rock: it rides along with it
         if (h.pin.b && (h.pin.b.dead || !bodies.includes(h.pin.b))) h.pin = null;
         else if (h.pin.b) {
@@ -830,6 +830,7 @@
       } else {
         const oldX = h.x, oldY = h.y;
         h.x += h.vx * dt; h.y += h.vy * dt; h.vx *= drag; h.vy *= drag; h.a += h.spin * dt;
+        if (stationMap()) h.spin *= Math.exp(-1.8 * dt);
         if (h.nailA !== undefined) {   // flying on along the nail: the first rock (or the fence) it meets, it is pinned to
           const tip = 30 * sizeOf(h.lv), dx = Math.cos(h.nailA) * tip, dy = Math.sin(h.nailA) * tip;
           const hit = shotBody({ px: oldX + dx, py: oldY + dy, x: h.x + dx, y: h.y + dy });

@@ -1000,11 +1000,12 @@
   // every frame: shared poses, rubble drifting, and pending break-ups
   function bodyTick(now, dt) {
     posesAt(clockNow(), dt);
-    const drag = Math.exp(-0.02 * dt);
+    // (on a station's deck a loose piece scrapes along the floor and comes to rest; in space it drifts on)
+    const deck = stationMap(), drag = Math.exp(-(deck ? 1.6 : 0.02) * dt), spinDrag = Math.exp(-(deck ? 2 : 0.05) * dt);
     for (const b of rubble) {
       if (b.dead) continue;
       gravityOn(b, dt);   // planets pull their own rubble back
-      b.x += b.vx * dt; b.y += b.vy * dt; b.a += b.va * dt; b.vx *= drag; b.vy *= drag; b.va *= Math.exp(-0.05 * dt);
+      b.x += b.vx * dt; b.y += b.vy * dt; b.a += b.va * dt; b.vx *= drag; b.vy *= drag; b.va *= spinDrag;
       if (b.x < 0 || b.x > W) { b.vx = -b.vx * 0.6; b.x = clamp(b.x, 0, W); }
       if (b.y < 0 || b.y > H) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 0, H); }
       rubbleCollide(b, now);
