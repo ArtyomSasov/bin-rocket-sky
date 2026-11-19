@@ -157,6 +157,8 @@ const wss = new WebSocketServer({ server, maxPayload: 2048,
 const ip = req => String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
 const send = (ws, m) => { if (ws.readyState === 1) ws.send(JSON.stringify(m)); };
 const cleanName = n => String(n ?? "").replace(/[\u0000-\u001f\u007f<>]/g, "").trim().slice(0, 14) || "Pilot";
+// a chat line: text only, no control or invisible characters (nor the ones that turn text round), 140 at most
+const cleanChat = t => typeof t !== "string" ? "" : t.replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g, "").replace(/\s+/g, " ").trim().slice(0, 140);
 
 wss.on("connection", (ws, req) => {
   const addr = ip(req);
@@ -195,6 +197,18 @@ wss.on("connection", (ws, req) => {
     if (m.t === "in") { if (room && id) { room.match.input(id, m); ws.lastInput = now; if (ws.delta) ackSnapshot(ws.delta, m.sa); } return; }
     if (m.t === "sa") { if (ws.delta) ackSnapshot(ws.delta, m.q); return; }   // a snapshot confirmed between controls
     if (m.t === "rtc") { ws.rtc?.answer(m.sdp); return; }   // the player's answer to the data channel's offer
+    // chat: to everyone in the room, under the sender's pilot name; a few lines in a burst, then one each 0.7 s. The
+    // text is not logged
+    if (m.t === "chat") {
+      if (!room || !id) return;
+      ws.chatTok = Math.min(4, (ws.chatTok ?? 4) + (now - (ws.chatAt ?? now)) / 700); ws.chatAt = now;
+      const text = cleanChat(m.m);
+      if (!text || ws.chatTok < 1) return;
+      ws.chatTok--;
+      const out = JSON.stringify({ t: "chat", n: room.match.pilot(id)?.name || "Pilot", m: text, id });
+      for (const c of room.clients) if (c.readyState === 1) c.send(out);
+      return;
+    }
     // how the connection is doing on the player's side, every 10 s (numbers only): summed for the log at leave
     if (m.t === "net") {
       const n = (v, max) => Number.isFinite(v) ? Math.max(0, Math.min(max, v)) : 0, a = ws.net || (ws.net = { n: 0, p: 0, j: 0, s: 0, g: 0, f: 0 });

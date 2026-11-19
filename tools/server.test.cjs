@@ -238,3 +238,20 @@ test('a full server lets a new game in by closing a room nobody is in', { skip }
   ws.close();
 });
 
+
+test('chat goes to everyone in the room under the sender’s name, cleaned, cut to 140, and a burst is cut short', { skip }, async () => {
+  const a = client({ 'x-forwarded-for': '10.7.0.1' }), b = client({ 'x-forwarded-for': '10.7.0.2' }); await a.opened; await b.opened;
+  a.sendJ({ t: 'join', code: 'm1d0ochat', name: 'Alice' }); await a.next(m => m.t === 'welcome');
+  b.sendJ({ t: 'join', code: 'm1d0ochat', name: 'Bob' }); await b.next(m => m.t === 'welcome');
+  a.sendJ({ t: 'chat', m: '  hi\u0000 there‮ <b>x</b> ' + 'z'.repeat(300) });
+  const got = await b.next(m => m.t === 'chat');
+  assert.equal(got.n, 'Alice');
+  assert.ok(got.m.startsWith('hi there <b>x</b> zz') && got.m.length === 140 && !/[\u0000‮]/.test(got.m), got.m);
+  assert.equal((await a.next(m => m.t === 'chat')).m, got.m, 'the sender gets it too');
+  for (let i = 0; i < 10; i++) a.sendJ({ t: 'chat', m: 'spam ' + i });
+  await new Promise(r => setTimeout(r, 400));
+  // (the next() helper keeps every message: count the spam lines that came)
+  const spam = b.got.filter(m => m.t === 'chat' && /^spam/.test(m.m)).length;
+  assert.ok(spam >= 1 && spam <= 4, `${spam} of 10 got through`);
+  a.close(); b.close();
+});

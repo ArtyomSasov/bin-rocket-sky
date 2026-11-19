@@ -506,3 +506,13 @@ details.controls[open] .clist { margin-top: 8px; }
 .srv-join small { font: 600 12px var(--body); opacity: .8; }
 /* the WebGL look over the game's canvas (20b-post.js): shown instead of it, never in the way of the mouse */
 #post { position: fixed; inset: 0; width: 100%; height: 100%; display: none; pointer-events: none; }
+/* chat: lines over the mini map, fading out; the line to type in opens with T */
+.chat { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(60px + 160px + 18px + env(safe-area-inset-bottom, 0px)); width: min(420px, calc(100vw - 32px)); display: grid; gap: 6px; pointer-events: none; z-index: 5; }
+.chat[hidden] { display: none; }
+.chat-log { display: grid; gap: 3px; }
+.chat-line { font: 600 14px var(--body); color: #f1ecff; background: rgba(14,10,28,.62); padding: 4px 9px; border-radius: 8px; justify-self: start; max-width: 100%; overflow-wrap: anywhere; transition: opacity .6s; }
+.chat-line b { color: #8fe9ff; margin-right: 6px; }
+.chat-line.me b { color: #ffd36b; }
+.chat-line.old { opacity: 0; }
+.chat.open .chat-line.old { opacity: .85; }
+.chat-in { pointer-events: auto; font: 600 15px var(--body); color: #fff; background: rgba(14,10,28,.88); border: 1px solid #5ad1ff; border-radius: 10px; padding: 8px 11px; outline: none; }

@@ -515,6 +515,16 @@ details.controls[open] .clist { margin-top: 8px; }
 .srv-join small { font: 600 12px var(--body); opacity: .8; }
 /* the WebGL look over the game's canvas (20b-post.js): shown instead of it, never in the way of the mouse */
 #post { position: fixed; inset: 0; width: 100%; height: 100%; display: none; pointer-events: none; }
+/* chat: lines over the mini map, fading out; the line to type in opens with T */
+.chat { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(60px + 160px + 18px + env(safe-area-inset-bottom, 0px)); width: min(420px, calc(100vw - 32px)); display: grid; gap: 6px; pointer-events: none; z-index: 5; }
+.chat[hidden] { display: none; }
+.chat-log { display: grid; gap: 3px; }
+.chat-line { font: 600 14px var(--body); color: #f1ecff; background: rgba(14,10,28,.62); padding: 4px 9px; border-radius: 8px; justify-self: start; max-width: 100%; overflow-wrap: anywhere; transition: opacity .6s; }
+.chat-line b { color: #8fe9ff; margin-right: 6px; }
+.chat-line.me b { color: #ffd36b; }
+.chat-line.old { opacity: 0; }
+.chat.open .chat-line.old { opacity: .85; }
+.chat-in { pointer-events: auto; font: 600 15px var(--body); color: #fff; background: rgba(14,10,28,.88); border: 1px solid #5ad1ff; border-radius: 10px; padding: 8px 11px; outline: none; }
 </style>
 
 <canvas id="c" tabindex="0" aria-label="Game arena"></canvas>
@@ -523,6 +533,8 @@ details.controls[open] .clist { margin-top: 8px; }
 <div class="joy" id="joy" hidden><i></i></div>
 <div class="arsenal" id="arsenal" hidden></div>
 <canvas class="minimap" id="minimap" width="280" height="280" aria-label="Mini map" hidden></canvas>
+<div class="chat" id="chat" hidden><div class="chat-log" id="chatLog" role="log" aria-live="polite" aria-label="Chat"></div>
+  <input class="chat-in" id="chatIn" maxlength="140" autocomplete="off" spellcheck="false" placeholder="Say something · Enter sends · Esc closes" aria-label="Chat message" hidden></div>
 <button class="fire telebtn" id="teleBtn" aria-label="Teleporter: throw the beacon, then jump to it" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0.01 0ZM12 5a7 7 0 1 0 0.01 0ZM12 9.4a2.6 2.6 0 1 0 0.01 0Z"/></svg>×0</button>
 <button class="fire altbtn" id="altBtn" aria-label="Alternate fire" hidden><span id="altName">ALT</span></button>
 <button class="fire" id="fireBtn" aria-label="Fire" hidden><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg></button>
@@ -5463,7 +5475,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     teleBtn.lastChild.nodeValue = "×" + n;
   }
   document.getElementById("teleBtn").addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); useTele(performance.now()); });
-  addEventListener("keydown", e => { if (e.code === "KeyT" && !e.repeat && e.target.tagName !== "INPUT") useTele(performance.now()); });
+  // (T opens the chat now: the teleporter is retired)
   // ---- the guided nuke (the nuke's alt fire): you steer it, the view rides along, firing again sets it off.
   // Its course goes out with my state (gw) so everyone sees the same flight
   let guided = null, guideArmed = false, guideOut = null, guideOutUntil = 0, camBackUntil = 0;
@@ -6370,7 +6382,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),
         clean: true, keepalive: 20, reconnectPeriod: 2000, connectTimeout: 10000, queueQoSZero: false
       });
-      c.on("connect", () => { c.subscribe([base + "s/+", base + "f/+", base + "e/" + myId], { qos: 0 }); refresh(); });
+      c.on("connect", () => { c.subscribe([base + "s/+", base + "f/+", base + "c/+", base + "e/" + myId], { qos: 0 }); refresh(); });
       c.on("close", refresh);
       c.on("offline", refresh);
       c.on("error", () => {});
@@ -6380,6 +6392,12 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         if (!/^p[a-z0-9]{1,12}$/.test(id)) return;
         if (kind === "e") { if (id === myId && c === pingVia()) { const t = Number(payload.toString()); if (t > 0) gotPing(performance.now() - t); } return; }   // my ping echo
         if (id === myId) return;
+        if (kind === "c") {   // chat from a peer: its own name, its text cleaned and shown as text
+          if (payload.length > 600 || !remotes.has(id)) return;
+          let p; try { p = JSON.parse(payload.toString()); } catch { return; }
+          if (p && typeof p.m === "string") chatShow(remotes.get(id).name || "Pilot", p.m, false, id);
+          return;
+        }
         // A disconnect on one broker is not departure from the room. Expire silent peers instead.
         if ((kind !== "s" && kind !== "f") || payload.length > (kind === "f" ? 2048 : 65536)) return;
         let p; try { p = JSON.parse(payload.toString()); } catch { return; }
@@ -6407,6 +6425,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       const payload = JSON.stringify({ rd: stats.round, ts: Date.now(), f: [d] });
       for (const c of clients) if (c.connected) c.publish(base + "f/" + myId, payload, { qos: 0 });
     };
+    net.chat = text => { const payload = JSON.stringify({ m: text }); clients.find(c => c.connected)?.publish(base + "c/" + myId, payload, { qos: 0 }); };
     net.send = p => {
       const payload = JSON.stringify(p);
       for (const c of clients) if (c.connected) c.publish(base + "s/" + myId, payload, { qos: 0 });
@@ -6683,6 +6702,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (!m || typeof m !== "object") return;
       if (m.t === "snap") receiveServer(m);
       else if (m.t === "pong") { if (Number.isFinite(m.c)) gotPing(performance.now() - m.c); }
+      else if (m.t === "chat" && typeof m.m === "string") chatShow(String(m.n || "Pilot"), m.m, m.id === srv.id, String(m.id || ""));
       else if (m.t === "rtc" && typeof m.sdp === "string" && m.sdp.length < 16384) answerRtc(ws, m.sdp).catch(() => {});
       else if (m.t === "welcome" && typeof m.id === "string") {
         srv.id = m.id; srv.joined = true; srv.sendHz = clamp(num(m.sendHz, 15), 1, 60);
@@ -11753,7 +11773,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     ["Boost", `hold ${KEY(shift)} — uses the blue energy bar`],
     ["Weapon", `fixed ${KEY("1")}–${KEY("9")} / ${KEY("0")}; ${KEY("Alt")}+${KEY("1")}–${KEY("6")} for extras; ${KEY("Q")} / ${KEY("E")} or click a gun`],
     ["Alt fire", `right mouse button or ${KEY("C")}: available per weapon — Pulse beam, Flak shell, Shock beam, Demonic zone / manual detonation, loaded rockets (hold/release), Stinger shards, slug, mine detonation, explosive Ripper disc`],
-    ["Teleporter", `${KEY("T")} throws the beacon, ${KEY("T")} again jumps onto it (land on someone: telefrag)`],
+    ["Chat", `${KEY("T")} to type, Enter sends, Esc closes`],
     ["Brake / drift", `hold ${KEY("X")} to brake; ${KEY("X")} + a direction drifts: you slide on while the nose swings round (shoot back)`],
     ["Health & armor", "100 HP on spawn; Health Pack +20 (cap 100), Vial +5 and Big Keg +100 (cap 199). Body Armor absorbs 75%; Shield Belt absorbs all damage until depleted. No levels or XP bonuses."]] });
   const CONTROLS = {
@@ -12032,6 +12052,51 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const warm = () => { if (k === 0) smokeGrain(); if (k < 32) { fireSprite(k >> 2, k & 3); k++; later(warm); } };
     setTimeout(warm, 800);
   }
+
+  // ---------- chat ----------
+  // T opens a line to type in (the game's keys let go while it is open); Enter sends it, Esc or leaving it closes it.
+  // Lines show over the mini map and fade after 10 s (all of the last few come back while typing). Names and text go
+  // in as text only, cleaned of control and invisible characters, at most 140; a peer sending lines too fast is cut
+  const chatEl = document.getElementById("chat"), chatLog = document.getElementById("chatLog"), chatIn = document.getElementById("chatIn");
+  const cleanChatText = t => String(t).replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g, "").replace(/\s+/g, " ").trim().slice(0, 140);
+  const chatRate = new Map();
+  function chatShow(name, text, mine, from = "") {
+    text = cleanChatText(text); name = cleanChatText(name).slice(0, 14) || "Pilot";
+    if (!text) return;
+    if (from && !mine) {   // a peer's lines: a few in a burst, then about one a second
+      const now = performance.now(), r = chatRate.get(from) || { tok: 4, at: now };
+      r.tok = Math.min(4, r.tok + (now - r.at) / 900); r.at = now; chatRate.set(from, r);
+      if (r.tok < 1) return; r.tok--;
+    }
+    const line = document.createElement("div"), who = document.createElement("b");
+    line.className = "chat-line" + (mine ? " me" : ""); who.textContent = name; line.append(who, document.createTextNode(text));
+    chatLog.append(line); while (chatLog.children.length > 8) chatLog.firstChild.remove();
+    chatEl.hidden = false;
+    setTimeout(() => line.classList.add("old"), 10000);
+    if (!mine) sfx("hit", 0.15, 2.6);
+  }
+  function chatOpen() {
+    if (!playing || !chatIn.hidden) return;
+    keys.clear(); firing = false;
+    chatEl.hidden = false; chatEl.classList.add("open"); chatIn.hidden = false; chatIn.value = ""; chatIn.focus();
+  }
+  function chatClose() { chatIn.hidden = true; chatEl.classList.remove("open"); chatIn.blur(); cv.focus(); }
+  function chatSend() {
+    const text = cleanChatText(chatIn.value);
+    chatClose();
+    if (!text) return;
+    if (serverRun) toServer({ t: "chat", m: text });   // (the server sends it back to everyone, me too)
+    else { chatShow(me.name || "You", text, true); if (net.chat) net.chat(text); }
+  }
+  addEventListener("keydown", e => {
+    if (e.code === "KeyT" && !e.repeat && playing && !/INPUT|TEXTAREA/.test(e.target.tagName)) { e.preventDefault(); chatOpen(); }
+  });
+  chatIn.addEventListener("keydown", e => {
+    e.stopPropagation();
+    if (e.key === "Enter") { e.preventDefault(); chatSend(); }
+    else if (e.key === "Escape") { e.preventDefault(); chatClose(); }
+  });
+  chatIn.addEventListener("blur", () => { if (!chatIn.hidden) chatClose(); });
 })();
 </script>
 </body></html>

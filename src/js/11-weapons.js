@@ -764,7 +764,7 @@
     teleBtn.lastChild.nodeValue = "×" + n;
   }
   document.getElementById("teleBtn").addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); useTele(performance.now()); });
-  addEventListener("keydown", e => { if (e.code === "KeyT" && !e.repeat && e.target.tagName !== "INPUT") useTele(performance.now()); });
+  // (T opens the chat now: the teleporter is retired)
   // ---- the guided nuke (the nuke's alt fire): you steer it, the view rides along, firing again sets it off.
   // Its course goes out with my state (gw) so everyone sees the same flight
   let guided = null, guideArmed = false, guideOut = null, guideOutUntil = 0, camBackUntil = 0;

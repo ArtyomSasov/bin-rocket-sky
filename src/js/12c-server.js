@@ -37,6 +37,7 @@
       if (!m || typeof m !== "object") return;
       if (m.t === "snap") receiveServer(m);
       else if (m.t === "pong") { if (Number.isFinite(m.c)) gotPing(performance.now() - m.c); }
+      else if (m.t === "chat" && typeof m.m === "string") chatShow(String(m.n || "Pilot"), m.m, m.id === srv.id, String(m.id || ""));
       else if (m.t === "rtc" && typeof m.sdp === "string" && m.sdp.length < 16384) answerRtc(ws, m.sdp).catch(() => {});
       else if (m.t === "welcome" && typeof m.id === "string") {
         srv.id = m.id; srv.joined = true; srv.sendHz = clamp(num(m.sendHz, 15), 1, 60);

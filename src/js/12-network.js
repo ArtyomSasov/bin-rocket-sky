@@ -405,7 +405,7 @@
         clientId: "brs_" + myId + "_" + Math.random().toString(36).slice(2, 6),
         clean: true, keepalive: 20, reconnectPeriod: 2000, connectTimeout: 10000, queueQoSZero: false
       });
-      c.on("connect", () => { c.subscribe([base + "s/+", base + "f/+", base + "e/" + myId], { qos: 0 }); refresh(); });
+      c.on("connect", () => { c.subscribe([base + "s/+", base + "f/+", base + "c/+", base + "e/" + myId], { qos: 0 }); refresh(); });
       c.on("close", refresh);
       c.on("offline", refresh);
       c.on("error", () => {});
@@ -415,6 +415,12 @@
         if (!/^p[a-z0-9]{1,12}$/.test(id)) return;
         if (kind === "e") { if (id === myId && c === pingVia()) { const t = Number(payload.toString()); if (t > 0) gotPing(performance.now() - t); } return; }   // my ping echo
         if (id === myId) return;
+        if (kind === "c") {   // chat from a peer: its own name, its text cleaned and shown as text
+          if (payload.length > 600 || !remotes.has(id)) return;
+          let p; try { p = JSON.parse(payload.toString()); } catch { return; }
+          if (p && typeof p.m === "string") chatShow(remotes.get(id).name || "Pilot", p.m, false, id);
+          return;
+        }
         // A disconnect on one broker is not departure from the room. Expire silent peers instead.
         if ((kind !== "s" && kind !== "f") || payload.length > (kind === "f" ? 2048 : 65536)) return;
         let p; try { p = JSON.parse(payload.toString()); } catch { return; }
@@ -442,6 +448,7 @@
       const payload = JSON.stringify({ rd: stats.round, ts: Date.now(), f: [d] });
       for (const c of clients) if (c.connected) c.publish(base + "f/" + myId, payload, { qos: 0 });
     };
+    net.chat = text => { const payload = JSON.stringify({ m: text }); clients.find(c => c.connected)?.publish(base + "c/" + myId, payload, { qos: 0 }); };
     net.send = p => {
       const payload = JSON.stringify(p);
       for (const c of clients) if (c.connected) c.publish(base + "s/" + myId, payload, { qos: 0 });
