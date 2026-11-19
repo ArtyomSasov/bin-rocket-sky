@@ -167,8 +167,8 @@
   const rocketsLoaded = (t, carried) => Math.min(ROCKET_MAX, carried, 1 + Math.floor((t + 1e-8) / ROCKET_LOAD));
   balanceShot(K.PISTOL, { dmg: HP(17), col: "#ff3b4e" });   // the laser pistol: red sparks where it lands
   balanceShot(K.ROCKET, { dmg: HP(75) });
-  balanceShot(K.PULSE_BOLT, { dmg: HP(20) });
-  balanceShot(K.LASER, { dmg: HP(72 * .24) }); // UT99 beam: 72 HP per second
+  balanceShot(K.PULSE_BOLT, { dmg: HP(24) });
+  balanceShot(K.LASER, { dmg: HP(72 * .24 * 1.8) }); // the Pulse Gun's beam, a link beam: half again UT99's, and it heats up held on (LINK_HEAT)
   balanceShot(K.SHARD, { dmg: HP(16), life: 1.15 });
   balanceShot(K.FLAK, { dmg: HP(70), life: .8 });
   balanceShot(K.ORB, { dmg: HP(55), life: 4, r: 16 });
@@ -186,7 +186,10 @@
   balanceShot(K.MINE, { dmg: HP(100) });
   Object.assign(WEAPONS.fire, { cd: .4 }); Object.assign(WEAPONS.fire.alt, { cd: .2 });
   Object.assign(WEAPONS.laser.alt, { cd: .24 });
-  Object.assign(WEAPONS.laser, { cd: .18, shot: [K.PULSE_BOLT, 2030] });
+  Object.assign(WEAPONS.laser, { cd: .16, shot: [K.PULSE_BOLT, 2400] });
+  // the link beam heats as it is held on: its damage climbs to LINK_HEAT times over a second of steady fire, and falls
+  // back the moment it lets go
+  const LINK_HEAT = 2, linkHeatOf = held => 1 + (LINK_HEAT - 1) * Math.min(1, held);
   Object.assign(WEAPONS.rocket, { shot: [K.ROCKET, 1260] }); WEAPONS.rocket.alt.shot = [K.ROCKET, 1260];
   Object.assign(WEAPONS.orb, { shot: [K.ORB, 650] });
   Object.assign(WEAPONS.shard, { shot: [K.SHARD, 3500] }); WEAPONS.shard.alt.shot = [K.FLAK, 1050];

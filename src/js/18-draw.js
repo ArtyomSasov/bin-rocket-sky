@@ -198,11 +198,14 @@
       hg.addColorStop(0, "rgba(195,139,255,0.55)"); hg.addColorStop(1, "rgba(195,139,255,0)");
       g.fillStyle = hg; g.beginPath(); g.arc(x, y, 26, 0, 6.29); g.fill();
     }
-    if (s.kind === K.PULSE_BOLT) {
-      g.save(); g.translate(x,y); g.rotate(Math.atan2(s.vy,s.vx));
-      g.globalCompositeOperation = "lighter"; g.drawImage(dotSprite("#80ff30"),-24,-17,48,34);
-      g.fillStyle="#d7ff9a"; g.beginPath(); g.ellipse(0,0,11,5,0,0,Math.PI*2); g.fill();
-      g.fillStyle="#ffffff"; g.fillRect(-5,-1.5,10,3); g.restore(); return;
+    if (s.kind === K.PULSE_BOLT) {   // a pulse bolt: a churning knot of green plasma, a streak of glow behind it
+      const a = Math.atan2(s.vy, s.vx);
+      g.save(); g.translate(x, y); g.rotate(a); g.globalCompositeOperation = "lighter";
+      g.globalAlpha = 0.5; g.drawImage(dotSprite("#62ff2a"), -70, -14, 80, 28);   // the streak
+      g.globalAlpha = 0.9; g.drawImage(dotSprite("#80ff30"), -26, -20, 52, 40);
+      g.rotate(now / 70 + s.x * 0.01); g.globalAlpha = 0.85; g.drawImage(fireSprite(2 + ((now / 50) | 0) % 3, (s.x | 0) & 3, DEMON_RAMP), -16, -16, 32, 32);
+      g.globalAlpha = 1; g.fillStyle = "#f2ffd8"; g.beginPath(); g.arc(0, 0, 4.5, 0, 6.29); g.fill();
+      g.restore(); return;
     }
     if (s.kind === K.ORB) {   // plasma orb: a big crackling ball, a wide glow, spinning rings and arcs licking out
       const r = 25 + Math.sin(now / 60 + s.x) * 2.5;

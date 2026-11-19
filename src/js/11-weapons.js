@@ -242,7 +242,7 @@
   function laserBeam(s, owner) {
     const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v;
     const e = { x: s.x, y: s.y, hit: s.beamHit };
-    lasers.push({ x1: s.px, y1: s.py, x2: e.x, y2: e.y, t: 0, hit: e.hit, seed: Math.random() * 100, shock: s.kind === K.SHOCK, who: (s.mine ? "me" : owner || "?") + (s.kind === K.SHOCK ? "s" + s.id : "") });
+    lasers.push({ x1: s.px, y1: s.py, x2: e.x, y2: e.y, t: 0, hit: e.hit, seed: Math.random() * 100, shock: s.kind === K.SHOCK, heat: Math.min(1, Math.max(0, ((s.m || 1) / (s.amp || 1) - 1) / (LINK_HEAT - 1))), who: (s.mine ? "me" : owner || "?") + (s.kind === K.SHOCK ? "s" + s.id : "") });
     if (lasers.length > 40) lasers.shift();
     if (e.hit && e.hit !== "wall" && onScreen(sx(e.x), sy(e.y), 60)) {
       for (let k = 0; k < (lowQ ? 1 : 3); k++) { const a = Math.atan2(-dy, -dx) + (Math.random() - 0.5) * 2.2, sp = 80 + Math.random() * 260; puff(e.x, e.y, Math.cos(a) * sp, Math.sin(a) * sp, 0.25 + Math.random() * 0.25, 1.4 + Math.random() * 1.4, s.kind === K.SHOCK ? "#e4d2ff" : k % 2 ? "#bff9ff" : "#ffffff", 1, 0.05); }
@@ -671,6 +671,7 @@
     const cdMul = MODES[MODE].cdMul || 1;
     fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
     const gun = muzzleAt(k);   // (the server fires a player's pilot from the same gun tips)
+    if (k === "laser" && alt) { me.linkHeld = now - (me.linkAt || 0) < 200 ? (me.linkHeld || 0) + (now - me.linkAt) / 1000 : 0; me.linkAt = now; mul *= linkHeatOf(me.linkHeld); }   // (the link beam heats up held on)
     const muzzle = volley(me, now, pat, gun, (k === "bolt" && !alt || k === "laser" && alt) ? boltLock(me, gun) : undefined, mul);
     const [name, vol, pitch] = pat.sfx;
     const packed = alt && k === "orb" ? audioCue("shockBeam") : k === "minigun" ? continuousFire("me", "minigun", me.x, me.y, now, !!alt)

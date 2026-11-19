@@ -834,8 +834,8 @@ details.controls[open] .clist { margin-top: 8px; }
   const rocketsLoaded = (t, carried) => Math.min(ROCKET_MAX, carried, 1 + Math.floor((t + 1e-8) / ROCKET_LOAD));
   balanceShot(K.PISTOL, { dmg: HP(17), col: "#ff3b4e" });   // the laser pistol: red sparks where it lands
   balanceShot(K.ROCKET, { dmg: HP(75) });
-  balanceShot(K.PULSE_BOLT, { dmg: HP(20) });
-  balanceShot(K.LASER, { dmg: HP(72 * .24) }); // UT99 beam: 72 HP per second
+  balanceShot(K.PULSE_BOLT, { dmg: HP(24) });
+  balanceShot(K.LASER, { dmg: HP(72 * .24 * 1.8) }); // the Pulse Gun's beam, a link beam: half again UT99's, and it heats up held on (LINK_HEAT)
   balanceShot(K.SHARD, { dmg: HP(16), life: 1.15 });
   balanceShot(K.FLAK, { dmg: HP(70), life: .8 });
   balanceShot(K.ORB, { dmg: HP(55), life: 4, r: 16 });
@@ -853,7 +853,10 @@ details.controls[open] .clist { margin-top: 8px; }
   balanceShot(K.MINE, { dmg: HP(100) });
   Object.assign(WEAPONS.fire, { cd: .4 }); Object.assign(WEAPONS.fire.alt, { cd: .2 });
   Object.assign(WEAPONS.laser.alt, { cd: .24 });
-  Object.assign(WEAPONS.laser, { cd: .18, shot: [K.PULSE_BOLT, 2030] });
+  Object.assign(WEAPONS.laser, { cd: .16, shot: [K.PULSE_BOLT, 2400] });
+  // the link beam heats as it is held on: its damage climbs to LINK_HEAT times over a second of steady fire, and falls
+  // back the moment it lets go
+  const LINK_HEAT = 2, linkHeatOf = held => 1 + (LINK_HEAT - 1) * Math.min(1, held);
   Object.assign(WEAPONS.rocket, { shot: [K.ROCKET, 1260] }); WEAPONS.rocket.alt.shot = [K.ROCKET, 1260];
   Object.assign(WEAPONS.orb, { shot: [K.ORB, 650] });
   Object.assign(WEAPONS.shard, { shot: [K.SHARD, 3500] }); WEAPONS.shard.alt.shot = [K.FLAK, 1050];
@@ -5063,7 +5066,7 @@ details.controls[open] .clist { margin-top: 8px; }
   function laserBeam(s, owner) {
     const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v;
     const e = { x: s.x, y: s.y, hit: s.beamHit };
-    lasers.push({ x1: s.px, y1: s.py, x2: e.x, y2: e.y, t: 0, hit: e.hit, seed: Math.random() * 100, shock: s.kind === K.SHOCK, who: (s.mine ? "me" : owner || "?") + (s.kind === K.SHOCK ? "s" + s.id : "") });
+    lasers.push({ x1: s.px, y1: s.py, x2: e.x, y2: e.y, t: 0, hit: e.hit, seed: Math.random() * 100, shock: s.kind === K.SHOCK, heat: Math.min(1, Math.max(0, ((s.m || 1) / (s.amp || 1) - 1) / (LINK_HEAT - 1))), who: (s.mine ? "me" : owner || "?") + (s.kind === K.SHOCK ? "s" + s.id : "") });
     if (lasers.length > 40) lasers.shift();
     if (e.hit && e.hit !== "wall" && onScreen(sx(e.x), sy(e.y), 60)) {
       for (let k = 0; k < (lowQ ? 1 : 3); k++) { const a = Math.atan2(-dy, -dx) + (Math.random() - 0.5) * 2.2, sp = 80 + Math.random() * 260; puff(e.x, e.y, Math.cos(a) * sp, Math.sin(a) * sp, 0.25 + Math.random() * 0.25, 1.4 + Math.random() * 1.4, s.kind === K.SHOCK ? "#e4d2ff" : k % 2 ? "#bff9ff" : "#ffffff", 1, 0.05); }
@@ -5492,6 +5495,7 @@ details.controls[open] .clist { margin-top: 8px; }
     const cdMul = MODES[MODE].cdMul || 1;
     fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
     const gun = muzzleAt(k);   // (the server fires a player's pilot from the same gun tips)
+    if (k === "laser" && alt) { me.linkHeld = now - (me.linkAt || 0) < 200 ? (me.linkHeld || 0) + (now - me.linkAt) / 1000 : 0; me.linkAt = now; mul *= linkHeatOf(me.linkHeld); }   // (the link beam heats up held on)
     const muzzle = volley(me, now, pat, gun, (k === "bolt" && !alt || k === "laser" && alt) ? boltLock(me, gun) : undefined, mul);
     const [name, vol, pitch] = pat.sfx;
     const packed = alt && k === "orb" ? audioCue("shockBeam") : k === "minigun" ? continuousFire("me", "minigun", me.x, me.y, now, !!alt)
@@ -6238,7 +6242,7 @@ details.controls[open] .clist { margin-top: 8px; }
     if (age > 1200) return;
     const lag = clamp(age, 0, REWIND_MS);
     // m: Quad damage (x4) and the crown (x1.25), or the charge cannon's charge (0.25..1); anything else is ignored
-    const kind = f[5], m = kind === K.GAUSS && Number.isFinite(f[6]) ? clamp(f[6], 0.25, 5) : [QUAD, 1.25, QUAD * 1.25].includes(f[6]) ? f[6] : 1;
+    const kind = f[5], m = kind === K.GAUSS && Number.isFinite(f[6]) ? clamp(f[6], 0.25, 5) : kind === K.LASER && Number.isFinite(f[6]) ? clamp(f[6], 1, LINK_HEAT * QUAD * 1.25) : [QUAD, 1.25, QUAD * 1.25].includes(f[6]) ? f[6] : 1;   // (a link beam heats up to LINK_HEAT)
     const x = clamp(num(f[1], 0), 0, W), y = clamp(num(f[2], 0), 0, H);
     // Keep an age bound relative to the newest state as well as to this packet.
     if (!fresh && Number.isFinite(peer.lastTs) && peer.lastTs - f[9] > 1200) return;
@@ -9576,11 +9580,14 @@ details.controls[open] .clist { margin-top: 8px; }
       hg.addColorStop(0, "rgba(195,139,255,0.55)"); hg.addColorStop(1, "rgba(195,139,255,0)");
       g.fillStyle = hg; g.beginPath(); g.arc(x, y, 26, 0, 6.29); g.fill();
     }
-    if (s.kind === K.PULSE_BOLT) {
-      g.save(); g.translate(x,y); g.rotate(Math.atan2(s.vy,s.vx));
-      g.globalCompositeOperation = "lighter"; g.drawImage(dotSprite("#80ff30"),-24,-17,48,34);
-      g.fillStyle="#d7ff9a"; g.beginPath(); g.ellipse(0,0,11,5,0,0,Math.PI*2); g.fill();
-      g.fillStyle="#ffffff"; g.fillRect(-5,-1.5,10,3); g.restore(); return;
+    if (s.kind === K.PULSE_BOLT) {   // a pulse bolt: a churning knot of green plasma, a streak of glow behind it
+      const a = Math.atan2(s.vy, s.vx);
+      g.save(); g.translate(x, y); g.rotate(a); g.globalCompositeOperation = "lighter";
+      g.globalAlpha = 0.5; g.drawImage(dotSprite("#62ff2a"), -70, -14, 80, 28);   // the streak
+      g.globalAlpha = 0.9; g.drawImage(dotSprite("#80ff30"), -26, -20, 52, 40);
+      g.rotate(now / 70 + s.x * 0.01); g.globalAlpha = 0.85; g.drawImage(fireSprite(2 + ((now / 50) | 0) % 3, (s.x | 0) & 3, DEMON_RAMP), -16, -16, 32, 32);
+      g.globalAlpha = 1; g.fillStyle = "#f2ffd8"; g.beginPath(); g.arc(0, 0, 4.5, 0, 6.29); g.fill();
+      g.restore(); return;
     }
     if (s.kind === K.ORB) {   // plasma orb: a big crackling ball, a wide glow, spinning rings and arcs licking out
       const r = 25 + Math.sin(now / 60 + s.x) * 2.5;
@@ -11345,13 +11352,14 @@ details.controls[open] .clist { margin-top: 8px; }
       const x1 = sx(b.x1), y1 = sy(b.y1), x2 = sx(b.x2), y2 = sy(b.y2), L = Math.hypot(x2 - x1, y2 - y1) || 1;
       if (!onScreen((x1 + x2) / 2, (y1 + y2) / 2, L / 2 + 60)) continue;
       const now = performance.now(), k = Math.max(0, 1 - b.t / ((b.shock ? 0.35 : LASER_T) * 1.4)), nx = (x2 - x1) / L, ny = (y2 - y1) / L;
-      const [glow, body, arc] = b.shock ? ["150,100,255", "201,164,255", "235,220,255"] : ["65,220,25", "155,255,80", "220,255,160"];
+      const ht = b.heat || 0, [glow, body, arc] = b.shock ? ["150,100,255", "201,164,255", "235,220,255"] : ht > 0.5 ? ["140,255,90", "220,255,170", "255,255,220"] : ["65,220,25", "155,255,80", "220,255,160"];
       g.lineCap = "round"; g.lineJoin = "round";
       const line = (w, c) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
       const flick = 0.85 + 0.15 * Math.sin(now / 23 + b.seed);
-      line((b.shock ? 22 : 34) * k * flick + 6, `rgba(${glow},${0.16 * k})`);
-      line((b.shock ? 10 : 15) * k * flick + 2, `rgba(${glow},${0.35 * k})`);
-      line((b.shock ? 4 : 6) * k + 1, `rgba(${body},${0.9 * k})`);
+      const hw = 1 + ht * 0.9;   // (a heated link beam: thicker and whiter)
+      line((b.shock ? 22 : 34) * k * flick * hw + 6, `rgba(${glow},${(0.16 + ht * 0.12) * k})`);
+      line((b.shock ? 10 : 15) * k * flick * hw + 2, `rgba(${glow},${(0.35 + ht * 0.2) * k})`);
+      line((b.shock ? 4 : 6) * k * hw + 1, `rgba(${body},${0.9 * k})`);
       line((b.shock ? 1.6 : 2.4) * k + 0.6, `rgba(255,255,255,${k})`);
       if (!lowQ) {   // stable between 45 ms electrical discharges, independent of display refresh
         let noise = (Math.floor(now / 45) + b.seed * 997 | 0) >>> 0;
