@@ -535,6 +535,41 @@
     }
     q.restore();
   }
+  // a station wall blown open: a cloud of dust rolling out both ways, shards of the wall flung out (some through the
+  // hole) that skid to rest on the deck, a spray of sparks, burning bits arcing away with smoke trails, flames licking
+  // round the edge of the hole for a moment, dark smoke hanging after, and the fire's light on everything round it
+  function wallBreach(b, x, y, rad) {
+    const [nx, ny] = normalAt(b, x, y), out = Math.atan2(ny, nx), q = lowQ ? 0.4 : 1, R = rad, col = () => bodyCol(b);
+    const dust = ["rgb(126,120,116)", "rgb(98,94,92)", "rgb(150,142,134)"];
+    for (let i = 0, m = Math.round(14 * q); i < m; i++) {   // dust
+      const side = Math.random() < 0.3 ? out + Math.PI : out, a = side + (Math.random() - 0.5) * 2.4, v = 50 + Math.random() * 220;
+      puff(x + Math.cos(a) * R * 0.4, y + Math.sin(a) * R * 0.4, Math.cos(a) * v, Math.sin(a) * v, 1.6 + Math.random() * 1.6, 12 + Math.random() * 18, i % 3 ? dust[i % 3] : col(), 2, 0, (Math.random() - 0.5) * 1.2, 0.9);
+    }
+    for (let i = 0, m = Math.round(22 * q); i < m; i++) {   // shards
+      const side = Math.random() < 0.3 ? out + Math.PI : out, a = side + (Math.random() - 0.5) * 2.2, v = 220 + Math.random() * 520;
+      addDebris(x, y, Math.cos(a) * v, Math.sin(a) * v, 2.5 + Math.random() * 7.5, col(), 10 + Math.random() * 8);
+    }
+    sparkShower(x, y, Math.cos(out), Math.sin(out), 1.3); sparkShower(x, y, -Math.cos(out), -Math.sin(out), 0.7);
+    for (let i = 0, m = Math.round(16 * q); i < m; i++) {   // white-hot streaks off the metal
+      const a = out + (Math.random() - 0.5) * 2.6, v = 400 + Math.random() * 700;
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.25 + Math.random() * 0.45, 1 + Math.random() * 1.2, i % 3 ? "#fff1b8" : "#ffb04a", 1, 0.07, 0, 0.93);
+    }
+    for (let i = 0, m = Math.round(4 * q) + 1; i < m; i++) {   // burning bits arcing away
+      const a = out + (Math.random() - 0.5) * 2, v = 260 + Math.random() * 380;
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.9 + Math.random() * 0.8, 2.4 + Math.random() * 1.6, "fire", 8, 0, (Math.random() - 0.5) * 1.8, 0.975);
+    }
+    for (let i = 0, m = Math.round(12 * q); i < m; i++) {   // flames round the edge of the hole
+      const a = Math.random() * 6.283, v = 20 + Math.random() * 60;
+      puff(x + Math.cos(a) * R, y + Math.sin(a) * R, Math.cos(out) * v + Math.cos(a) * 20, Math.sin(out) * v + Math.sin(a) * 20, 0.5 + Math.random() * 0.7, 8 + Math.random() * 9, "fire", 4, 0, (Math.random() - 0.5) * 2, 0.92, 0.25 + Math.random() * 0.3);
+    }
+    for (let i = 0, m = Math.round(5 * q); i < m; i++) {   // dark smoke hanging after
+      const a = out + (Math.random() - 0.5) * 1.4, v = 15 + Math.random() * 40;
+      puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 3 + Math.random() * 2, 18 + Math.random() * 14, SMOKE_COLS[i % 2], 2, 0, (Math.random() - 0.5) * 0.6, 0.95);
+    }
+    impacts.push({ x, y, t: 0, r: 260, col: "255,170,90", dur: 1.3, soft: 0.45, flick: Math.random() * 6.28 });
+    if (Math.hypot(x - me.x, y - me.y) < 1200) shake = Math.max(shake, 0.35 * (1 - Math.hypot(x - me.x, y - me.y) / 1200));
+    sfx("chunk", 0.9, 0.7, x, y);
+  }
   function carveAt(b, x, y, rad, own) {
     if (b.dead) return 0;
     if (b.wall && rad < WALL_CARVE) { wallMark(b, x, y, rad, false); return 0; }   // (a light weapon only marks it)
@@ -543,7 +578,7 @@
     const n = carveLocal(b, lx, ly, r, true, shared ? carveRnd(lx, ly, r, sq) : Math.random);
     if (!n) return 0;
     rubbleFx(b, x, y, rad, n);
-    if (b.wall) wallMark(b, x, y, rad * WALL_GIVE, true);
+    if (b.wall) { wallMark(b, x, y, rad * WALL_GIVE, true); wallBreach(b, x, y, rad * WALL_GIVE); }
     b.blast = { x, y, rad, at: performance.now() };   // what a piece cut off by this crater is flung away from
     if (own) b.lastOwn = true;
     if (shared) {

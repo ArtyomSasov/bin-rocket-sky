@@ -102,7 +102,7 @@
       // score: what goes first when there are more than 16 (a lamp counts for less the further it is)
       const add = (x, y, r, a, col, heat = 0, skip = 0, score = a * r * 3) => { if (a > 0.02 && Math.abs(x - cx) < hw + r && Math.abs(y - cy) < hh + r) list.push([x, y, r, a, col, heat, skip, score]); };
       for (const L of stationLamps()) {
-        const a = 0.42 * (L.flick ? (Math.sin(now / 53 + L.flick) * Math.sin(now / 131 + L.flick * 3) > 0.55 ? 0.15 : 1) : 1);
+        const a = 0.55 * (L.flick ? (Math.sin(now / 53 + L.flick) * Math.sin(now / 131 + L.flick * 3) > 0.55 ? 0.15 : 1) : 1);
         add(L.x, L.y, L.r, a, L.col, 0, 0, a * L.r / (1 + Math.hypot(L.x - cx, L.y - cy) / 600));
       }
       // a shot's muzzle flash lights its surroundings for its first moment (not shadowed by its own shooter)
@@ -153,7 +153,7 @@
             gl.uniform1f(p.u("n"), nl); if (nl) { gl.uniform4fv(p.u("lp"), LP); gl.uniform3fv(p.u("lc"), LC); gl.uniform1fv(p.u("lh"), LH); gl.uniform1fv(p.u("ls"), LS); } });
           kick = Math.max(0, kick - dt * 3.5);
           const ca = Math.min(0.012, 0.0015 + kick * 0.01 + flash * 0.006);
-          pass(P.comp, null, W0, H0, p => { use(0, frameTex); use(1, A1.t); use(2, A2.t); use(4, LM.t); gl.uniform1i(p.u("t"), 0); gl.uniform1i(p.u("b1"), 1); gl.uniform1i(p.u("b2"), 2); gl.uniform1i(p.u("lm"), 4); gl.uniform1f(p.u("dbg"), window.__lightMap ? 1 : 0); gl.uniform1f(p.u("amb"), stationMap() ? 0.68 : 1); gl.uniform1f(p.u("time"), (performance.now() / 1000) % 1000);   // (a station a little darker, so its lights tell)   // (__lightMap: the light alone, for checking it)
+          pass(P.comp, null, W0, H0, p => { use(0, frameTex); use(1, A1.t); use(2, A2.t); use(4, LM.t); gl.uniform1i(p.u("t"), 0); gl.uniform1i(p.u("b1"), 1); gl.uniform1i(p.u("b2"), 2); gl.uniform1i(p.u("lm"), 4); gl.uniform1f(p.u("dbg"), window.__lightMap ? 1 : 0); gl.uniform1f(p.u("amb"), stationMap() ? 0.56 : 0.86); gl.uniform1f(p.u("time"), (performance.now() / 1000) % 1000);   // (a station a little darker, so its lights tell)   // (__lightMap: the light alone, for checking it)
             gl.uniform1f(p.u("bl"), 0.6); gl.uniform1f(p.u("ca"), ca); gl.uniform1f(p.u("vig"), playing ? 0.32 : 0.22); gl.uniform1f(p.u("sat"), 1.08); });
           show(true);
         } catch (e) { failed = true; show(false); console.warn("post effects off:", e.message); }
