@@ -755,9 +755,10 @@
   const MAX_CARVES = 320;
   // A rail cut is one continuous capsule, not a row of craters. Cell removal is geometric
   // (independent of canvas resolution), so desktop and mobile agree on the entire tunnel.
+  let drilling = false;   // a rail slug's line: it bores a narrow tunnel even through a station's inner wall
   function carveLineLocal(b, x1, y1, x2, y2, rad) {
     if (b.fixed) return 0;
-    if (b.wall) { if (rad < WALL_CARVE) return 0; rad *= WALL_GIVE; }
+    if (b.wall && !drilling) { if (rad < WALL_CARVE) return 0; rad *= WALL_GIVE; }
     const cs = b.cs, dx = x2 - x1, dy = y2 - y1, len2 = dx * dx + dy * dy;
     const i0 = Math.max(0, Math.floor((Math.min(x1, x2) - rad) / cs)), i1 = Math.min(b.gw - 1, Math.floor((Math.max(x1, x2) + rad) / cs));
     const j0 = Math.max(0, Math.floor((Math.min(y1, y2) - rad) / cs)), j1 = Math.min(b.gh - 1, Math.floor((Math.max(y1, y2) + rad) / cs));
@@ -777,7 +778,48 @@
     b.mass -= n; b.dirty = true;
     return n;
   }
+  // where a rail slug went through rock or metal, as everyone sees it: the runs of its line inside bodies glow molten
+  // (white, then orange, red, and dark as they cool), drip molten drops, spit sparks and smoke
+  const meltLines = [];
+  function railMelt(x1, y1, x2, y2, rad) {
+    const L = Math.hypot(x2 - x1, y2 - y1), ux = (x2 - x1) / (L || 1), uy = (y2 - y1) / (L || 1);
+    let inside = null;
+    for (let d = 0; d <= L + 8; d += 8) {
+      const x = x1 + ux * Math.min(d, L), y = y1 + uy * Math.min(d, L), solid = d <= L && solidAny(x, y);
+      if (solid && !inside) inside = [x, y];
+      else if (!solid && inside) {
+        meltLines.push({ x1: inside[0], y1: inside[1], x2: x, y2: y, w: rad, t: 0, dur: 2.6 });
+        const segL = Math.hypot(x - inside[0], y - inside[1]);
+        for (let k = 0, m = Math.min(24, segL / 14) * (lowQ ? 0.4 : 1); k < m; k++) {
+          const f = Math.random(), px = inside[0] + (x - inside[0]) * f, py = inside[1] + (y - inside[1]) * f, side = Math.random() < 0.5 ? 1 : -1, v = 60 + Math.random() * 220;
+          puff(px, py, -uy * side * v, ux * side * v, 0.5 + Math.random() * 0.9, 1.4 + Math.random() * 1.6, k % 3 ? "#ffb04a" : "#fff1b8", k % 4 ? 3 : 1, 0.05, 0, 0.94);   // molten drops and sparks out of the cut
+          if (k % 4 === 0) puff(px, py, -uy * side * 30, ux * side * 30, 1.4 + Math.random(), 6 + Math.random() * 6, SMOKE_COLS[1], 2, 0, 0, 0.95);
+        }
+        inside = null;
+      }
+    }
+    if (meltLines.length > 60) meltLines.splice(0, meltLines.length - 60);
+  }
+  function updateMelt(dt) { for (let i = meltLines.length - 1; i >= 0; i--) if ((meltLines[i].t += dt) > meltLines[i].dur) meltLines.splice(i, 1); }
+  function drawMelt() {
+    if (!meltLines.length) return;
+    g.save(); g.lineCap = "round";
+    for (const m of meltLines) {
+      const k = m.t / m.dur, x1 = sx(m.x1), y1 = sy(m.y1), x2 = sx(m.x2), y2 = sy(m.y2);
+      if (!onScreen((x1 + x2) / 2, (y1 + y2) / 2, Math.hypot(x2 - x1, y2 - y1) / 2 + 40)) continue;
+      // the cooling colour: white-hot, yellow, orange, cherry red, a dull glow
+      const col = k < 0.1 ? "255,250,230" : k < 0.3 ? "255,210,110" : k < 0.6 ? "255,130,50" : "200,50,30", a = (1 - k) * (1 - k);
+      g.globalCompositeOperation = "lighter";
+      g.strokeStyle = `rgba(${col},${0.35 * a})`; g.lineWidth = m.w * 3.2; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();   // the glow round it
+      g.strokeStyle = `rgba(${col},${0.9 * a})`; g.lineWidth = Math.max(1.5, m.w * 1.1 * (1 - k * 0.5)); g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();   // the molten lips
+    }
+    g.restore();
+  }
   function carveBeam(s, rad) {
+    drilling = s.kind === K.RAIL || s.kind === K.GAUSS;
+    try { carveBeamOn(s, rad); } finally { drilling = false; }
+  }
+  function carveBeamOn(s, rad) {
     const dx = s.x - s.px, dy = s.y - s.py, L = Math.hypot(dx, dy);
     if (!L) return;
     const ux = dx / L, uy = dy / L, own = s.mine || botById.has(s.owner);

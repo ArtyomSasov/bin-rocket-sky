@@ -855,7 +855,7 @@ details.controls[open] .clist { margin-top: 8px; }
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
   // a station's inner wall gives only to heavy weapons (a crater of WALL_CARVE or more: rockets, grenades, mines, the
   // orbs, the charged rail and gauss), and then WALL_GIVE times more than rock does; the hull never
-  const WALL_CARVE = 24, WALL_GIVE = 1.5;
+  const WALL_CARVE = 24, WALL_GIVE = 1.5, RAIL_DRILL = 60;   // RAIL_DRILL: how far a rail slug bores into a wall per shot
   const BOOST_PADS = false;   // the speed pads on the maps: taken off (their spots stay, kept clear, should they come back)
   const AMP_PERIOD = 95, AMP_TIME = 20000, QUAD = 4;         // Quad damage: a rare pick-up, four times the damage for 20 s                        // mines go off when a bin comes this close, after arming
   // UT99 pickups: ordinary health caps at 100; super health at 199.
@@ -3169,9 +3169,10 @@ details.controls[open] .clist { margin-top: 8px; }
   const MAX_CARVES = 320;
   // A rail cut is one continuous capsule, not a row of craters. Cell removal is geometric
   // (independent of canvas resolution), so desktop and mobile agree on the entire tunnel.
+  let drilling = false;   // a rail slug's line: it bores a narrow tunnel even through a station's inner wall
   function carveLineLocal(b, x1, y1, x2, y2, rad) {
     if (b.fixed) return 0;
-    if (b.wall) { if (rad < WALL_CARVE) return 0; rad *= WALL_GIVE; }
+    if (b.wall && !drilling) { if (rad < WALL_CARVE) return 0; rad *= WALL_GIVE; }
     const cs = b.cs, dx = x2 - x1, dy = y2 - y1, len2 = dx * dx + dy * dy;
     const i0 = Math.max(0, Math.floor((Math.min(x1, x2) - rad) / cs)), i1 = Math.min(b.gw - 1, Math.floor((Math.max(x1, x2) + rad) / cs));
     const j0 = Math.max(0, Math.floor((Math.min(y1, y2) - rad) / cs)), j1 = Math.min(b.gh - 1, Math.floor((Math.max(y1, y2) + rad) / cs));
@@ -3191,7 +3192,48 @@ details.controls[open] .clist { margin-top: 8px; }
     b.mass -= n; b.dirty = true;
     return n;
   }
+  // where a rail slug went through rock or metal, as everyone sees it: the runs of its line inside bodies glow molten
+  // (white, then orange, red, and dark as they cool), drip molten drops, spit sparks and smoke
+  const meltLines = [];
+  function railMelt(x1, y1, x2, y2, rad) {
+    const L = Math.hypot(x2 - x1, y2 - y1), ux = (x2 - x1) / (L || 1), uy = (y2 - y1) / (L || 1);
+    let inside = null;
+    for (let d = 0; d <= L + 8; d += 8) {
+      const x = x1 + ux * Math.min(d, L), y = y1 + uy * Math.min(d, L), solid = d <= L && solidAny(x, y);
+      if (solid && !inside) inside = [x, y];
+      else if (!solid && inside) {
+        meltLines.push({ x1: inside[0], y1: inside[1], x2: x, y2: y, w: rad, t: 0, dur: 2.6 });
+        const segL = Math.hypot(x - inside[0], y - inside[1]);
+        for (let k = 0, m = Math.min(24, segL / 14) * (lowQ ? 0.4 : 1); k < m; k++) {
+          const f = Math.random(), px = inside[0] + (x - inside[0]) * f, py = inside[1] + (y - inside[1]) * f, side = Math.random() < 0.5 ? 1 : -1, v = 60 + Math.random() * 220;
+          puff(px, py, -uy * side * v, ux * side * v, 0.5 + Math.random() * 0.9, 1.4 + Math.random() * 1.6, k % 3 ? "#ffb04a" : "#fff1b8", k % 4 ? 3 : 1, 0.05, 0, 0.94);   // molten drops and sparks out of the cut
+          if (k % 4 === 0) puff(px, py, -uy * side * 30, ux * side * 30, 1.4 + Math.random(), 6 + Math.random() * 6, SMOKE_COLS[1], 2, 0, 0, 0.95);
+        }
+        inside = null;
+      }
+    }
+    if (meltLines.length > 60) meltLines.splice(0, meltLines.length - 60);
+  }
+  function updateMelt(dt) { for (let i = meltLines.length - 1; i >= 0; i--) if ((meltLines[i].t += dt) > meltLines[i].dur) meltLines.splice(i, 1); }
+  function drawMelt() {
+    if (!meltLines.length) return;
+    g.save(); g.lineCap = "round";
+    for (const m of meltLines) {
+      const k = m.t / m.dur, x1 = sx(m.x1), y1 = sy(m.y1), x2 = sx(m.x2), y2 = sy(m.y2);
+      if (!onScreen((x1 + x2) / 2, (y1 + y2) / 2, Math.hypot(x2 - x1, y2 - y1) / 2 + 40)) continue;
+      // the cooling colour: white-hot, yellow, orange, cherry red, a dull glow
+      const col = k < 0.1 ? "255,250,230" : k < 0.3 ? "255,210,110" : k < 0.6 ? "255,130,50" : "200,50,30", a = (1 - k) * (1 - k);
+      g.globalCompositeOperation = "lighter";
+      g.strokeStyle = `rgba(${col},${0.35 * a})`; g.lineWidth = m.w * 3.2; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();   // the glow round it
+      g.strokeStyle = `rgba(${col},${0.9 * a})`; g.lineWidth = Math.max(1.5, m.w * 1.1 * (1 - k * 0.5)); g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();   // the molten lips
+    }
+    g.restore();
+  }
   function carveBeam(s, rad) {
+    drilling = s.kind === K.RAIL || s.kind === K.GAUSS;
+    try { carveBeamOn(s, rad); } finally { drilling = false; }
+  }
+  function carveBeamOn(s, rad) {
     const dx = s.x - s.px, dy = s.y - s.py, L = Math.hypot(dx, dy);
     if (!L) return;
     const ux = dx / L, uy = dy / L, own = s.mine || botById.has(s.owner);
@@ -4837,7 +4879,9 @@ details.controls[open] .clist { margin-top: 8px; }
     // The station shell blocks even penetrating weapons; old maps keep their terrain cutting.
     // An inner wall stops it too, where it is still standing, unless the beam is heavy enough to break it (it cuts
     // its way through: carveBeam)
-    const heavy = (s.cut || SHOTS[s.kind].carve) >= WALL_CARVE;
+    // (a rail or gauss slug drills into it: it bores RAIL_DRILL px into the wall and stops there, so a wall is drilled
+    // through by a few shots in one place, not shot through by one)
+    const heavy = (s.cut || SHOTS[s.kind].carve) >= WALL_CARVE, drill = !heavy && (s.kind === K.RAIL || s.kind === K.GAUSS);
     for (const b of bodies) if (b.fixed || (b.wall && !b.dead && !b.free && !heavy)) {
       let near = 0, far = reach;
       for (const [p, d, lo, hi] of [[s.x, dx, b.x - b.hw, b.x + b.hw], [s.y, dy, b.y - b.hh, b.y + b.hh]]) {
@@ -4846,7 +4890,7 @@ details.controls[open] .clist { margin-top: 8px; }
       }
       if (far < near) continue;
       if (b.fixed) { reach = Math.min(reach, near); continue; }
-      for (let t = Math.max(0, near); t <= Math.min(far, reach); t += b.cs * 0.5) if (solidAt(b, s.x + dx * t, s.y + dy * t)) { reach = Math.min(reach, t); break; }
+      for (let t = Math.max(0, near); t <= Math.min(far, reach); t += b.cs * 0.5) if (solidAt(b, s.x + dx * t, s.y + dy * t)) { reach = Math.min(reach, t + (drill ? RAIL_DRILL : 0)); break; }
     }
     return reach;
   }
@@ -8340,6 +8384,7 @@ details.controls[open] .clist { margin-top: 8px; }
     }
     const ex = s.x + dx * L, ey = s.y + dy * L;
     s.px = s.x; s.py = s.y; s.x = ex; s.y = ey;
+    if (pierce && (s.kind === K.RAIL || s.kind === K.GAUSS || s.cut)) railMelt(s.px, s.py, ex, ey, (s.cut || SHOTS[s.kind].carve) * 0.7);   // (before the cut: it sees what was there)
     if (pierce) carveBeam(s, s.cut || SHOTS[s.kind].carve);
     if (stop) {   // a beam ends on rock: it scorches a crater there
       surfaceHit(stop.b, stop.x, stop.y, s.kind);   // (first: its pieces are cut from the face before the crater is)
@@ -8770,7 +8815,7 @@ details.controls[open] .clist { margin-top: 8px; }
         else puff(p.x, p.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 0.8 + Math.random() * 0.6, 3 + Math.random() * 3, SMOKE_COLS[1], 2, 0, 0, 0.94, 0.3);
       }
     }
-    shockTick(now); updateOil(dt); updateChunks(dt); updateDrips(dt); updateCasings(dt);
+    shockTick(now); updateOil(dt); updateChunks(dt); updateDrips(dt); updateCasings(dt); updateMelt(dt);
     for (let i = afterBlasts.length - 1; i >= 0; i--) if (now >= afterBlasts[i].at) {
       const b = afterBlasts[i]; afterBlasts.splice(i, 1);
       if (b.o) {   // a piece of a broken bin popping where it has flown to: a kick to it, sparks, a little fire
@@ -9036,7 +9081,7 @@ details.controls[open] .clist { margin-top: 8px; }
       energy = 100; energyRegenAt = 0; dashReadyAt = 0; lungeReady = 0;
       flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
       grabbed.clear(); myGrabs.length = 0; drops.clear(); gunDrops.clear(); myDrops.length = 0; myGunDrops.length = 0;
-      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; wallDrips.length = 0; casings.length = 0; afterBlasts.length = 0; shockQueue.length = 0;
+      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; wallDrips.length = 0; casings.length = 0; meltLines.length = 0; afterBlasts.length = 0; shockQueue.length = 0;
       if (shownRound !== -1) {
         myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode);
         // Respawn after rebuilding: a repaired planet must not enclose a pilot in its old tunnel.
@@ -11226,6 +11271,7 @@ details.controls[open] .clist { margin-top: 8px; }
     drawPickups(now);
     drawWreckage(now);
     drawChunks(now);
+    drawMelt();
     drawCasings();
     drawOil();
     drawGlow(now);

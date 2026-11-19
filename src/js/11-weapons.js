@@ -215,7 +215,9 @@
     // The station shell blocks even penetrating weapons; old maps keep their terrain cutting.
     // An inner wall stops it too, where it is still standing, unless the beam is heavy enough to break it (it cuts
     // its way through: carveBeam)
-    const heavy = (s.cut || SHOTS[s.kind].carve) >= WALL_CARVE;
+    // (a rail or gauss slug drills into it: it bores RAIL_DRILL px into the wall and stops there, so a wall is drilled
+    // through by a few shots in one place, not shot through by one)
+    const heavy = (s.cut || SHOTS[s.kind].carve) >= WALL_CARVE, drill = !heavy && (s.kind === K.RAIL || s.kind === K.GAUSS);
     for (const b of bodies) if (b.fixed || (b.wall && !b.dead && !b.free && !heavy)) {
       let near = 0, far = reach;
       for (const [p, d, lo, hi] of [[s.x, dx, b.x - b.hw, b.x + b.hw], [s.y, dy, b.y - b.hh, b.y + b.hh]]) {
@@ -224,7 +226,7 @@
       }
       if (far < near) continue;
       if (b.fixed) { reach = Math.min(reach, near); continue; }
-      for (let t = Math.max(0, near); t <= Math.min(far, reach); t += b.cs * 0.5) if (solidAt(b, s.x + dx * t, s.y + dy * t)) { reach = Math.min(reach, t); break; }
+      for (let t = Math.max(0, near); t <= Math.min(far, reach); t += b.cs * 0.5) if (solidAt(b, s.x + dx * t, s.y + dy * t)) { reach = Math.min(reach, t + (drill ? RAIL_DRILL : 0)); break; }
     }
     return reach;
   }

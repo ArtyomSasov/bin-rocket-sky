@@ -79,6 +79,7 @@ try {
         await wait(250); await shot(`${tag}-prop-${k}a`);
         await wait(700); await shot(`${tag}-prop-${k}b`);
       }
+      if (process.env.PRINT) console.log('PRINT', await ev(`__e(${JSON.stringify(process.env.PRINT)})`));   // (PRINT=expr: a value from the page, for checking)
       console.log('prop left:', await ev(`__e("__prop.dead ? 'gone' : Math.round(__prop.mass / __prop.mass0 * 100) + '%'")`), 'rubble:', await ev(`__e("rubble.length")`));
     }
   }

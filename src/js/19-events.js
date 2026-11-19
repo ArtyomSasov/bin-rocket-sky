@@ -944,6 +944,7 @@
     drawPickups(now);
     drawWreckage(now);
     drawChunks(now);
+    drawMelt();
     drawCasings();
     drawOil();
     drawGlow(now);

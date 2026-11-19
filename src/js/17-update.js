@@ -368,6 +368,7 @@
     }
     const ex = s.x + dx * L, ey = s.y + dy * L;
     s.px = s.x; s.py = s.y; s.x = ex; s.y = ey;
+    if (pierce && (s.kind === K.RAIL || s.kind === K.GAUSS || s.cut)) railMelt(s.px, s.py, ex, ey, (s.cut || SHOTS[s.kind].carve) * 0.7);   // (before the cut: it sees what was there)
     if (pierce) carveBeam(s, s.cut || SHOTS[s.kind].carve);
     if (stop) {   // a beam ends on rock: it scorches a crater there
       surfaceHit(stop.b, stop.x, stop.y, s.kind);   // (first: its pieces are cut from the face before the crater is)
@@ -798,7 +799,7 @@
         else puff(p.x, p.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 0.8 + Math.random() * 0.6, 3 + Math.random() * 3, SMOKE_COLS[1], 2, 0, 0, 0.94, 0.3);
       }
     }
-    shockTick(now); updateOil(dt); updateChunks(dt); updateDrips(dt); updateCasings(dt);
+    shockTick(now); updateOil(dt); updateChunks(dt); updateDrips(dt); updateCasings(dt); updateMelt(dt);
     for (let i = afterBlasts.length - 1; i >= 0; i--) if (now >= afterBlasts[i].at) {
       const b = afterBlasts[i]; afterBlasts.splice(i, 1);
       if (b.o) {   // a piece of a broken bin popping where it has flown to: a kick to it, sparks, a little fire
@@ -1064,7 +1065,7 @@
       energy = 100; energyRegenAt = 0; dashReadyAt = 0; lungeReady = 0;
       flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
       grabbed.clear(); myGrabs.length = 0; drops.clear(); gunDrops.clear(); myDrops.length = 0; myGunDrops.length = 0;
-      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; wallDrips.length = 0; casings.length = 0; afterBlasts.length = 0; shockQueue.length = 0;
+      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; wallDrips.length = 0; casings.length = 0; meltLines.length = 0; afterBlasts.length = 0; shockQueue.length = 0;
       if (shownRound !== -1) {
         myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode);
         // Respawn after rebuilding: a repaired planet must not enclose a pilot in its old tunnel.
