@@ -331,6 +331,9 @@
       x = a.x + (b.x - a.x) * f; y = a.y + (b.y - a.y) * f; ang = a.a + angD(b.a - a.a) * Math.min(f, 1);
     }
     r.x = clamp(x, 0, W); r.y = clamp(y, 0, H); r.a = ang; r.tx = r.x; r.ty = r.y;
+    // invulnerable (a dash, a respawn) at the moment shown: the server judges my shots at that moment, not at the
+    // newest state's (which is ahead of what I see)
+    r.shownInv = !!(t >= (b?.t ?? Infinity) ? b.iv : a.iv);
   }
   // my shot reaching someone on my screen: its hit is shown now (spark, number, sound), as Overwatch and CS do; the
   // damage is still the server's call, which comes a round trip later. Over a long round trip the guess is too often

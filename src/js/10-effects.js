@@ -595,6 +595,7 @@
     const s = speed / 420, ss = Math.sqrt(s), nn = n / 80, q = lowQ ? 0.4 : COARSE ? 0.65 : 1;   // a phone: fewer pieces
     impacts.push({ x, y, t: 0, r: 34 + 50 * s, col: pal === "plasma" ? "#e8fbff" : "#fffbe8", dur: 0.1 });
     impacts.push({ x, y, t: 0, r: 320 * s, col: P.light, dur: 0.4, soft: 0.75 });
+    if (n >= 26 && pal === "fire") impacts.push({ x, y, t: -0.1, r: 230 * s, col: P.light, dur: 1.4, soft: 0.32, flick: Math.random() * 6.28 });   // the fuel burning on
     for (let k = 0, m = Math.min(40, Math.round((8 + 10 * nn) * q)); k < m; k++) {   // the fireball (or the ball of energy)
       const a = Math.random() * 6.28, rr = Math.random() * 30 * s, v = (60 + Math.random() * 260) * s;
       puff(x + Math.cos(a) * rr, y + Math.sin(a) * rr, Math.cos(a) * v, Math.sin(a) * v, (0.5 + Math.random() * 0.6) * ss,

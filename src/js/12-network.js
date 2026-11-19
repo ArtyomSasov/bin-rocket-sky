@@ -176,7 +176,7 @@
       r.vx = clamp(num(p.vx, 0), -1200, 1200); r.vy = clamp(num(p.vy, 0), -1200, 1200);
       if (serverRun && Number.isFinite(p.ts)) {   // from the authoritative server: kept, to be shown a little in the past (updateRemotes)
         const buf = r.buf || (r.buf = []);
-        if (!buf.length || p.ts > buf[buf.length - 1].t) buf.push({ t: p.ts, x: clamp(p.x, 0, W), y: clamp(p.y, 0, H), a: num(p.a, r.ta) });
+        if (!buf.length || p.ts > buf[buf.length - 1].t) buf.push({ t: p.ts, x: clamp(p.x, 0, W), y: clamp(p.y, 0, H), a: num(p.a, r.ta), iv: p.i === 1 });   // iv: invulnerable then
         if (buf.length > 24) buf.shift();
       } else {
         const lead = leadFor(r);

@@ -673,7 +673,9 @@
       if (m.soft) {   // light thrown round a blast: a wide soft pool, gone in a moment
         const r = m.r * (0.8 + 0.4 * k);
         if (!onScreen(x, y, r)) continue;
-        g.globalAlpha = m.soft * (1 - k) * (1 - k); g.drawImage(lightSprite(m.col), x - r, y - r, r * 2, r * 2);
+        // (a fire's light, flick: it dies away slower and flickers as flames do)
+        const fl = m.flick ? (1 - k) * (0.7 + 0.3 * Math.sin(now / 37 + m.flick) * Math.sin(now / 61 + m.flick * 2)) : (1 - k) * (1 - k);
+        g.globalAlpha = m.soft * fl; g.drawImage(lightSprite(m.col), x - r, y - r, r * 2, r * 2);
         continue;
       }
       const r = m.r * (0.5 + k);

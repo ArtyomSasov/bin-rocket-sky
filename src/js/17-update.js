@@ -157,6 +157,20 @@
   // command clock (mt), so both sides count them alike whenever the commands arrive.
   const CMD_DT = 1 / 60;
   let replaying = false;   // flying commands again from the server's word: no effects, nothing else pushed
+  // the moving bodies near o (moons, wrecks) put where they were at t; returns what to put back
+  function bodiesAt(t, o) {
+    let out = null;
+    for (const b of det) {
+      if (b.free || b.dead || b.fixed || !(b.moon || b.wreck)) continue;
+      if ((b.x - o.x) ** 2 + (b.y - o.y) ** 2 > ((b.r || 0) + 400) ** 2) continue;   // (far: it cannot come into reach within the clock's difference)
+      (out || (out = [])).push([b, b.x, b.y, b.a]);
+      const s = t / 1000;
+      if (b.moon) { const a = TAU_MOD(b.ph + b.dir * 6.283 * s / b.period); b.x = b.p.hx + Math.cos(a) * b.orbit; b.y = b.p.hy + Math.sin(a) * b.orbit; b.a = a; }
+      else { const w = Math.sin(s / b.T * 6.283 + b.ph) * b.A; b.x = b.bx + Math.cos(b.dirA) * w; b.y = b.by + Math.sin(b.dirA) * w; b.a = TAU_MOD(b.a0 + b.spin * s); }
+      holePull(b, t, 0.2);
+    }
+    return out;
+  }
   function pilotMove(o, c, dt = CMD_DT) {
     if (!Number.isFinite(o.mt)) { o.mt = 0; o.padAt = -1e9; }   // the command clock starts: a pad's wait from another clock is dropped
     o.mt += dt;
@@ -179,7 +193,11 @@
     o.boostOn = o.boosting = boosting;
     if (boosting) { o.energy = Math.max(0, o.energy - 20 * dt); o.regenWait = 0.7; }
     else if (o.regenWait <= 0) o.energy = Math.min(100, o.energy + 22 * dt);
+    // the moons and drifting wrecks too stand where the shared clock had them when the command was made, for its
+    // flight only (they go back after): the screen and the server bounce off them in the same place
+    const moved = c.ct > 0 ? bodiesAt(c.ct, o) : null;
     const f = flyPilot(o, st.x, st.y, boosting, !!c.brake, dt, o.mt * 1000, boosting || o.dashFx > 0);
+    if (moved) for (const [b, x, y, a] of moved) { b.x = x; b.y = y; b.a = a; }
     f.dashed = dashed; f.lit = lit;
     // the junk rocks, where they were at the moment the command was made (ct, on the shared clock they move by): the
     // screen and the server meet each rock in the same place, whenever each flies the command
@@ -524,7 +542,7 @@
       // target nor flies on through it and blows up somewhere it never reached on the victim's screen
       if (s.life > 0) for (const [rid, r] of remotes) {
         if (botById.has(rid)) continue;
-        if (r.inv || !canHurt(s, r, rid)) continue;
+        if ((serverRun && r.buf?.length ? r.shownInv : r.inv) || !canHurt(s, r, rid)) continue;
         if (armed && targetHit(s, r)) {
           if (pierces(s)) { if (railOnce(s, rid)) { shotBurst(s); if (s.mine) predictHit(s, rid, r); else if (mySrvShot(s)) serverHitFx(s, rid, r); } continue; }
           s.life = 0; s.direct = rid; shotBurst(s); if (s.mine) predictHit(s, rid, r); else if (mySrvShot(s)) serverHitFx(s, rid, r);
