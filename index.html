@@ -758,7 +758,8 @@ details.controls[open] .clist { margin-top: 8px; }
     { ...SHOTS[K.BULLET], name: "rapid minigun round", dmg: .08 },
     { name: "pulse plasma", life: 1.05, dmg: .22, r: 7, col: "#a8ff55", carve: 9, shove: 45, sfx: ["p_ut_pulse_fire", .65, 1] },
     // the Blood Blade's swing: everything in the arc ahead of it, each once (pierce), for a moment
-    { name: "blood blade", life: 0.1, dmg: 2.7, r: 110, col: "#ff2a3c", carve: 0, shove: 900, pierce: true, sfx: ["p_melee_hit", 0.9, 0.8] },
+    // (the swing lasts its life; the blade, a line from the bin out to its tip, sweeps the arc and cuts what it passes through)
+    { name: "blood blade", life: 0.35, dmg: 2.7, r: 20, col: "#ff2a3c", carve: 0, shove: 900, pierce: true, sfx: ["p_melee_hit", 0.9, 0.8] },
     // the void bomb: a slow dark orb that opens a black hole where it bursts
     { name: "void bomb", life: 4, dmg: 0, r: 14, col: "#b06bff", carve: 0, shove: 0, sfx: ["rocket", 1, 0.4] }
   );
@@ -800,7 +801,7 @@ details.controls[open] .clist { margin-top: 8px; }
     bolt:    { name: "Lightning", ammo: 90, cd: 0.11, col: "#bfefff", shot: [K.BOLT, 5600], kick: 4, feel: [2, 0.03, 35], sfx: ["laser", 0.22, 1.7] },
     holy:    { name: "Holy bomb", ammo: 1, cd: 1.2, col: "#fff3b0", shot: [K.HOLY, 700], kick: 120, feel: [20, 0.3, 110], sfx: ["mine_drop", 1, 0.6] },
     // the Blood Blade: a red energy sword; each press a swing through the arc ahead, cutting whoever is in it
-    saw:     { name: "Blood Blade", ammo: 30, cd: 0.55, col: "#ff2a3c", shot: [K.SWORD, 0], sword: true, kick: -160, feel: [10, 0.14, 0], sfx: ["dash", 0.7, 1.6] },
+    saw:     { name: "Blood Blade", ammo: 30, cd: 0.75, col: "#ff2a3c", shot: [K.SWORD, 300], sword: true, kick: -160, feel: [10, 0.14, 0], sfx: ["dash", 0.7, 1.6] },
     // alt: set your gamma orb off where it is now
     gamma:   { name: "Demonic Orb", ammo: 3, cd: 1.6, col: "#7dff8a", shot: [K.GAMMA, 420], kick: 220, feel: [24, 0.35, 130], sfx: ["shield_get", 1, 0.5], fx: "gamma",
                alt: { name: "Detonate", detonate: true, cost: 0, cd: 0.3, sfx: ["hit", 0.6, 0.6] } },
@@ -4221,21 +4222,31 @@ details.controls[open] .clist { margin-top: 8px; }
     g.globalAlpha = 1;
   }
   // ---------- the Blood Blade's swings: a red crescent sweeping round the bin that swung ----------
-  const SWING_MS = 200, slashes = [];
-  function swingStart(o, a) {
-    o.swingSide = -(o.swingSide || 1); o.swingAt = performance.now();
+  // A swing: SWING_ARC radians swept in SWORD_LIFE seconds, from one side of the aim to the other, the side set by the
+  // shot's own number (so every screen and the server swing it alike). The blade reaches BLADE_REACH from the bin
+  const SWING_MS = 350, SWING_ARC = 2.5, BLADE_REACH = 165;
+  const swingSideOf = s => { let h = 0; for (let i = 0; i < s.id.length; i++) h = h * 31 + s.id.charCodeAt(i) | 0; return h & 1 ? 1 : -1; };
+  const swingEase = k => 1 - Math.pow(1 - k, 2.2);
+  // where the blade is now: from the bin's edge out to its tip, swept round as the swing goes (owner: the bin swinging)
+  function swordSweep(s, owner) {
+    const k = Math.min(1, 1 - s.life / SHOTS[K.SWORD].life), a = s.sa - SWING_ARC / 2 * s.side + SWING_ARC * s.side * swingEase(k), r0 = binR(owner.lv || 1) * 0.6;
+    s.px = owner.x + Math.cos(a) * r0; s.py = owner.y + Math.sin(a) * r0; s.x = owner.x + Math.cos(a) * BLADE_REACH; s.y = owner.y + Math.sin(a) * BLADE_REACH;
+  }
+  const slashes = [];
+  function swingStart(o, a, side) {
+    o.swingSide = side; o.swingAt = performance.now();
     slashes.push({ o, a, side: o.swingSide, t: 0 });
     if (slashes.length > 24) slashes.shift();
     sfx("dash", 0.5, 1.8, o.x, o.y);
   }
-  function updateSlashes(dt) { for (let i = slashes.length - 1; i >= 0; i--) if ((slashes[i].t += dt) > 0.32) slashes.splice(i, 1); }
+  function updateSlashes(dt) { for (let i = slashes.length - 1; i >= 0; i--) if ((slashes[i].t += dt) > SWING_MS / 1000 + 0.15) slashes.splice(i, 1); }
   function drawSlashes() {
     if (!slashes.length) return;
     g.save(); g.globalCompositeOperation = "lighter";
     for (const sl of slashes) {
       const o = sl.o, x = sx(o.x), y = sy(o.y), R = 150 * sizeOf(o.lv || 1), k = Math.min(1, sl.t / (SWING_MS / 1000)), fade = sl.t < SWING_MS / 1000 ? 1 : 1 - (sl.t - SWING_MS / 1000) / 0.12;
       if (fade <= 0 || !onScreen(x, y, R + 40)) continue;
-      const a0 = sl.a - 1.25 * sl.side, a1 = a0 + 2.5 * sl.side * (1 - Math.pow(1 - k, 3));
+      const a0 = sl.a - SWING_ARC / 2 * sl.side, a1 = a0 + SWING_ARC * sl.side * swingEase(k);
       // the crescent: a wide band swept from the bin out to the blade's reach, fading toward its tail, with a white-hot
       // leading edge along the blade's tip
       const n = 16, span = a1 - a0;
@@ -8608,10 +8619,11 @@ details.controls[open] .clist { margin-top: 8px; }
         s.life = Math.max(1e-4, left);
       }
       if (s.kind === K.RECALL) { recallSaws(s); shots.splice(i, 1); continue; }
-      if (s.kind === K.SWORD && !s.swung) {   // a sword swing just made: its bin swings the blade, the crescent sweeps
-        s.swung = true; const sh = s.mine || (serverRun && s.owner === srv.id) ? me : remotes.get(s.owner) || botById.get(s.owner);
-        s.sa = Math.atan2(s.y - (sh ? sh.y : s.y), s.x - (sh ? sh.x : s.x));
-        if (sh) swingStart(sh, s.sa);
+      if (s.kind === K.SWORD) {   // a sword swing: its bin swings the blade, the crescent sweeps, and the blade cuts as it goes
+        const sh = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
+        if (!sh || sh.dead) { s.life = 0; shots.splice(i, 1); continue; }
+        if (!s.swung) { s.swung = true; s.sa = Math.atan2(s.vy, s.vx); s.side = swingSideOf(s); swingStart(sh, s.sa, s.side); }
+        s.vx = s.vy = 0; s.traced = true; swordSweep(s, sh);   // (traced: its line is set here, not flown)
       }
       if (s.kind === K.BULLET && !s.cased) {   // a minigun round just fired: its case flies out, and its gun's barrels are spinning
         s.cased = true; const sh = s.mine ? me : remotes.get(s.owner) || botById.get(s.owner);
@@ -10305,7 +10317,7 @@ details.controls[open] .clist { margin-top: 8px; }
         g.fillStyle = "#1d1630"; g.beginPath(); g.moveTo(-11, -74); g.quadraticCurveTo(0, -98, 11, -74); g.fill();
         g.fillStyle = "#ffe14d"; g.save(); g.translate(-8, -46); g.scale(16 / 24, 16 / 24); g.fill(ICON_PATHS.nuke, "evenodd"); g.restore();
       } else if (weapon === "saw") {   // the Blood Blade: a hilt, and a long blade of red energy with a white-hot edge, swung on a swing
-        const sw = swingNow, ang = sw >= 0 ? (-1.25 + 2.5 * (1 - Math.pow(1 - sw, 3))) * swingSide : -0.15;
+        const sw = swingNow, ang = sw >= 0 ? (-SWING_ARC / 2 + SWING_ARC * swingEase(sw)) * swingSide : -0.15;
         g.save(); g.translate(0, -14); g.rotate(ang);
         g.fillStyle = "#2a1f3d"; rrect(-4, -6, 8, 18, 3); g.fill(); g.fillStyle = "#8a2030"; g.fillRect(-10, -8, 20, 4);   // the hilt and guard
         g.globalCompositeOperation = "lighter";

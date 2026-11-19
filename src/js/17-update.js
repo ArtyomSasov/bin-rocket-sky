@@ -403,10 +403,11 @@
         s.life = Math.max(1e-4, left);
       }
       if (s.kind === K.RECALL) { recallSaws(s); shots.splice(i, 1); continue; }
-      if (s.kind === K.SWORD && !s.swung) {   // a sword swing just made: its bin swings the blade, the crescent sweeps
-        s.swung = true; const sh = s.mine || (serverRun && s.owner === srv.id) ? me : remotes.get(s.owner) || botById.get(s.owner);
-        s.sa = Math.atan2(s.y - (sh ? sh.y : s.y), s.x - (sh ? sh.x : s.x));
-        if (sh) swingStart(sh, s.sa);
+      if (s.kind === K.SWORD) {   // a sword swing: its bin swings the blade, the crescent sweeps, and the blade cuts as it goes
+        const sh = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
+        if (!sh || sh.dead) { s.life = 0; shots.splice(i, 1); continue; }
+        if (!s.swung) { s.swung = true; s.sa = Math.atan2(s.vy, s.vx); s.side = swingSideOf(s); swingStart(sh, s.sa, s.side); }
+        s.vx = s.vy = 0; s.traced = true; swordSweep(s, sh);   // (traced: its line is set here, not flown)
       }
       if (s.kind === K.BULLET && !s.cased) {   // a minigun round just fired: its case flies out, and its gun's barrels are spinning
         s.cased = true; const sh = s.mine ? me : remotes.get(s.owner) || botById.get(s.owner);

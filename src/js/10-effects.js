@@ -292,21 +292,31 @@
     g.globalAlpha = 1;
   }
   // ---------- the Blood Blade's swings: a red crescent sweeping round the bin that swung ----------
-  const SWING_MS = 200, slashes = [];
-  function swingStart(o, a) {
-    o.swingSide = -(o.swingSide || 1); o.swingAt = performance.now();
+  // A swing: SWING_ARC radians swept in SWORD_LIFE seconds, from one side of the aim to the other, the side set by the
+  // shot's own number (so every screen and the server swing it alike). The blade reaches BLADE_REACH from the bin
+  const SWING_MS = 350, SWING_ARC = 2.5, BLADE_REACH = 165;
+  const swingSideOf = s => { let h = 0; for (let i = 0; i < s.id.length; i++) h = h * 31 + s.id.charCodeAt(i) | 0; return h & 1 ? 1 : -1; };
+  const swingEase = k => 1 - Math.pow(1 - k, 2.2);
+  // where the blade is now: from the bin's edge out to its tip, swept round as the swing goes (owner: the bin swinging)
+  function swordSweep(s, owner) {
+    const k = Math.min(1, 1 - s.life / SHOTS[K.SWORD].life), a = s.sa - SWING_ARC / 2 * s.side + SWING_ARC * s.side * swingEase(k), r0 = binR(owner.lv || 1) * 0.6;
+    s.px = owner.x + Math.cos(a) * r0; s.py = owner.y + Math.sin(a) * r0; s.x = owner.x + Math.cos(a) * BLADE_REACH; s.y = owner.y + Math.sin(a) * BLADE_REACH;
+  }
+  const slashes = [];
+  function swingStart(o, a, side) {
+    o.swingSide = side; o.swingAt = performance.now();
     slashes.push({ o, a, side: o.swingSide, t: 0 });
     if (slashes.length > 24) slashes.shift();
     sfx("dash", 0.5, 1.8, o.x, o.y);
   }
-  function updateSlashes(dt) { for (let i = slashes.length - 1; i >= 0; i--) if ((slashes[i].t += dt) > 0.32) slashes.splice(i, 1); }
+  function updateSlashes(dt) { for (let i = slashes.length - 1; i >= 0; i--) if ((slashes[i].t += dt) > SWING_MS / 1000 + 0.15) slashes.splice(i, 1); }
   function drawSlashes() {
     if (!slashes.length) return;
     g.save(); g.globalCompositeOperation = "lighter";
     for (const sl of slashes) {
       const o = sl.o, x = sx(o.x), y = sy(o.y), R = 150 * sizeOf(o.lv || 1), k = Math.min(1, sl.t / (SWING_MS / 1000)), fade = sl.t < SWING_MS / 1000 ? 1 : 1 - (sl.t - SWING_MS / 1000) / 0.12;
       if (fade <= 0 || !onScreen(x, y, R + 40)) continue;
-      const a0 = sl.a - 1.25 * sl.side, a1 = a0 + 2.5 * sl.side * (1 - Math.pow(1 - k, 3));
+      const a0 = sl.a - SWING_ARC / 2 * sl.side, a1 = a0 + SWING_ARC * sl.side * swingEase(k);
       // the crescent: a wide band swept from the bin out to the blade's reach, fading toward its tail, with a white-hot
       // leading edge along the blade's tip
       const n = 16, span = a1 - a0;
