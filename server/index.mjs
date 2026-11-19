@@ -210,7 +210,8 @@ wss.on("connection", (ws, req) => {
         // full? An empty room (kept a minute for someone to come back) gives way to a new game at once; past that,
         // another room opens while the memory allows it; only then is the server full
         if (rooms.size >= MAX_ROOMS) for (const o of [...rooms.values()]) if (!o.clients.size) { closeRoom(o); if (rooms.size < MAX_ROOMS) break; }
-        const memOk = ROOM_MEM_MB > 0 && process.memoryUsage().rss / 1e6 < ROOM_MEM_MB;
+        // (one room over MAX_ROOMS at most, whatever the memory says: rooms opened at once have not grown yet)
+        const memOk = ROOM_MEM_MB > 0 && rooms.size < MAX_ROOMS + 1 && process.memoryUsage().rss / 1e6 < ROOM_MEM_MB;
         if (rooms.size >= MAX_ROOMS && !memOk) { send(ws, { t: "error", reason: "server full" }); ws.close(1013); return; }
         // one address opens few rooms at a time, so nobody can take every room for themselves
         if ([...rooms.values()].filter(o => o.opener === addr).length >= ROOMS_PER_IP) { send(ws, { t: "error", reason: "you already have a room" }); ws.close(1013); return; }

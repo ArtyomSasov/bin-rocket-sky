@@ -17,20 +17,20 @@ function run(m, seconds, each) {
 
 test('every map builds solid terrain on the server; the Foundry station keeps its 52 walls', { skip }, async () => {
   const { createMatch } = await sim();
-  for (const map of ['f', 'k', 'c', 'a', 'y', 'r', 's', 'w', 'o']) {
+  for (const map of ['f', 'k', 'h', 'v', 'c', 'a', 'y', 'r', 's', 'w', 'o']) {
     const m = createMatch({ code: 'm1d0' + map });
     try {
       const { bodies, solidCells } = m.info;
       assert.ok(bodies > 0 && solidCells > bodies * 20, `${map}: ${bodies} bodies, ${solidCells} solid cells`);
       if (map === 'f') assert.equal(m.info.walls, 52);
-      if (map === 'f' || map === 'k') assert.ok(m.info.props >= 20, `${map}: ${m.info.props} props`);
+      if (['f', 'k', 'h', 'v'].includes(map)) assert.ok(m.info.props >= 20, `${map}: ${m.info.props} props`);
     } finally { m.dispose(); }
   }
 });
 
 test('station props stand on the floor, clear of the walls and of every pick-up spot', { skip }, async () => {
   const { createMatch } = await sim();
-  for (const map of ['f', 'k']) {
+  for (const map of ['f', 'k', 'h', 'v']) {
     const m = createMatch({ code: 'm1d0' + map });
     try {
       const { spots, props, unit, open } = m.game.__simArena();

@@ -666,7 +666,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // The layout of each map is in 01b-arenas.js. star: a sun in the middle; lumpy: planets become ragged asteroids
   const MAPS = {
     f: { name: "Foundry", label: "Foundry", hint: "industrial corridors, three routes", station: true },
-    k: { name: "Cargo Deck", label: "Cargo Deck · NEW", hint: "a ring corridor round a cargo hall, crates to smash", station: true },
+    k: { name: "Cargo Deck", label: "Cargo Deck", hint: "a ring corridor round a cargo hall, crates to smash", station: true },
+    h: { name: "Hangar", label: "Hangar · NEW", hint: "one huge hangar bay, corridors all round", station: true },
+    v: { name: "Vault", label: "Vault · NEW", hint: "nine rooms and narrow doors, the vault in the middle", station: true },
     c: { name: "Twin Worlds", label: "Twin Worlds", hint: "two giants, an open centre" },
     a: { name: "The Ring", label: "The Ring", hint: "a ring of asteroids, four gates", lumpy: true },
     y: { name: "Drydocks", label: "Drydocks", hint: "rows of moored hulls" },
@@ -1129,6 +1131,23 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const door = ax === 3 && ay === 5 || ax === 5 && ay === 3 || ax === 5 && (ay === 7 || ay === 8) || ay === 5 && (ax === 7 || ax === 8);
     return ring || cross || hall || room || door;
   };
+  // Hangar: one huge hangar bay in the middle (long sight lines, crates for cover, four support pillars), a narrow
+  // corridor all round it, a small room in each corner and a passage into the bay from each side
+  const hangarOpen = (x, y) => {
+    if (x < 1 || x > 19 || y < 1 || y > 19) return false;
+    const ax = Math.min(x, 20 - x), ay = Math.min(y, 20 - y);
+    if (ax === 6 && ay === 6) return false;   // the bay's support pillars
+    const ring = ax === 1 || ay === 1, bay = ax >= 4 && ay >= 4, corner = ax >= 2 && ax <= 3 && ay >= 2 && ay <= 3;
+    const pass = (ax >= 2 && ax <= 3 && ay >= 9) || (ay >= 2 && ay <= 3 && ax >= 9);
+    return ring || bay || corner || pass;
+  };
+  // Vault: nine rooms in a grid joined by narrow doors, the vault itself in the middle behind four pillars
+  const vaultOpen = (x, y) => {
+    if (x < 1 || x > 19 || y < 1 || y > 19) return false;
+    const room = v => v <= 5 || (v >= 8 && v <= 12) || v >= 15, mid = v => v === 3 || v === 10 || v === 17, gap = v => v === 6 || v === 7 || v === 13 || v === 14;
+    if (room(x) && room(y)) return !(Math.min(x, 20 - x) === 9 && Math.min(y, 20 - y) === 9);
+    return (gap(x) && mid(y)) || (gap(y) && mid(x));
+  };
   const STATIONS = {
     f: {
       open: (x, y) => {
@@ -1160,6 +1179,28 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         ["crate", 18.7, 1.3, -0.1], ["drum", 18.25, 1.28], ["crate", 12.75, 7.3, 0.2], ["panel", 5.0, 10.0, Math.PI / 2]],
       labels: [["CARGO HALL", 10, 10, "#ffd08a"], ["STORE A", 5, 5, "#f0b43c"], ["STORE B", 15, 5, "#58c8e8"], ["STORE C", 5, 15, "#58c8e8"], ["STORE D", 15, 15, "#f0b43c"]],
       lift: true
+    },
+    h: {
+      open: hangarOpen,
+      floor: ["#1f2328", "#282d33", "#454d55"], wall: ["#4b5562", "#2e3640", "#ffd34d"], accent: ["#ffd34d", "#5ad1ff"], void: "#05070a",
+      guns: [["rocket", 5, 5], ["rail", 10, 1], ["scatter", 2, 2], ["minigun", 1, 10], ["laser", 8, 10], ["orb", 10, 5], ["shard", 2, 9], ["mine", 9, 2], ["saw", 5, 14], ["gren", 14, 1]],
+      supplies: [["med", 3, 3], ["shield", 10, 7], ["vial", 1, 5], ["vial", 5, 1], ["bigmed", 7, 13], ["pads", 13, 7], ["shield", 4, 10]],
+      mega: [10, 3], pads: [[3, 1, 0], [17, 19, Math.PI]],
+      props: [["crate", 7.3, 8.0, 0.05], ["crate", 7.78, 8.0, -0.1], ["crate", 7.55, 8.45, 0.2], ["drum", 12.6, 7.4], ["drum", 12.95, 7.6], ["crate", 8.6, 12.65, 0],
+        ["panel", 6.5, 10.5, Math.PI / 2], ["crate", 3.6, 2.4, 0.1], ["drum", 1.4, 3.5], ["crate", 4.5, 7.6, -0.2], ["drum", 11.4, 4.4], ["panel", 10.5, 8.6, 0]],
+      labels: [["HANGAR BAY", 10, 10, "#ffe08a"], ["DOCK 1", 2.5, 2.5, "#ffd34d"], ["DOCK 2", 17.5, 17.5, "#5ad1ff"]],
+      hangar: true
+    },
+    v: {
+      open: vaultOpen,
+      floor: ["#231b1a", "#2d2321", "#4d3a33"], wall: ["#5e3d33", "#3a2522", "#ffb070"], accent: ["#ff8a4a", "#ffd27a"], void: "#0a0605",
+      guns: [["rocket", 3, 3], ["rail", 10, 1], ["scatter", 2, 9], ["minigun", 10, 6], ["orb", 9, 10], ["laser", 5, 5], ["shard", 15, 3], ["mine", 1, 5], ["saw", 5, 12], ["gren", 12, 1]],
+      supplies: [["med", 1, 1], ["shield", 5, 9], ["vial", 3, 1], ["vial", 1, 3], ["bigmed", 10, 12], ["pads", 12, 5], ["shield", 8, 15]],
+      mega: [10, 3], pads: [[3, 6, Math.PI / 2], [17, 14, -Math.PI / 2]],
+      props: [["crate", 1.3, 8.3, 0.1], ["crate", 1.3, 8.78, -0.05], ["crate", 4.7, 8.3, 0.15], ["drum", 8.3, 1.3], ["drum", 12.7, 4.7], ["crate", 11.7, 8.3, -0.1],
+        ["panel", 4.0, 16.5, 0], ["drum", 19.6, 5.65], ["crate", 18.7, 4.7, 0.2], ["crate", 8.35, 4.6, -0.15]],
+      labels: [["THE VAULT", 10, 10, "#ffcf8a"], ["WEST WING", 3, 10, "#ff8a4a"], ["EAST WING", 17, 10, "#ffd27a"]],
+      vault: true
     }
   };
   const station = () => STATIONS[mapThemeOf(worldCode)] || STATIONS.f;
@@ -1350,6 +1391,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     if (st.reactor) drawReactor(now, unit);
     if (st.lift) drawLift(now, unit);
+    if (st.hangar) drawHangarPads(now, unit);
+    if (st.vault) drawVaultDoor(now, unit);
     for (const [text, x, y, color] of st.labels) {
       const p = foundryPoint(x, y), px = sx(p.x), py = sy(p.y);
       if (!onScreen(px, py, unit * 2)) continue;
@@ -1397,6 +1440,43 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     g.restore();
   }
+  // Hangar: two landing circles painted on the bay floor, an H in each, and the yellow taxi lines between them
+  function drawHangarPads(now, unit) {
+    for (const [cx, cy] of [[7.5, 7.5], [13.5, 13.5]]) {
+      const x = sx(cx * unit), y = sy(cy * unit), r = unit * 1.15;
+      if (!onScreen(x, y, r * 1.5)) continue;
+      g.save(); g.translate(x, y);
+      g.strokeStyle = "rgba(255,211,77,0.55)"; g.lineWidth = 8; g.beginPath(); g.arc(0, 0, r, 0, 6.29); g.stroke();
+      g.setLineDash([24, 16]); g.lineWidth = 4; g.beginPath(); g.arc(0, 0, r * 0.78, 0, 6.29); g.stroke(); g.setLineDash([]);
+      g.fillStyle = "rgba(255,211,77,0.45)"; const h = r * 0.5, w = r * 0.12;
+      g.fillRect(-h * 0.6, -h, w, h * 2); g.fillRect(h * 0.6 - w, -h, w, h * 2); g.fillRect(-h * 0.6, -w / 2, h * 1.2, w);
+      const on = Math.sin(now / 400 + cx) > 0;
+      for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; g.fillStyle = on === (k % 2 === 0) ? "#5ad1ff" : "#1d3a48"; g.beginPath(); g.arc(Math.cos(a) * r, Math.sin(a) * r, unit * 0.035, 0, 6.29); g.fill(); }
+      g.restore();
+    }
+    const a = sx(7.5 * unit), b = sy(7.5 * unit), c = sx(13.5 * unit), d = sy(13.5 * unit);
+    g.save(); g.strokeStyle = "rgba(255,211,77,0.3)"; g.lineWidth = 6; g.setLineDash([40, 30]);
+    g.beginPath(); g.moveTo(a, b); g.lineTo(c, b); g.lineTo(c, d); g.moveTo(a, b); g.lineTo(a, d); g.lineTo(c, d); g.stroke(); g.restore();
+  }
+  // Vault: the great round vault door set in the floor of the middle room, its bolts and a slowly turning wheel
+  function drawVaultDoor(now, unit) {
+    const p = foundryPoint(10, 10), x = sx(p.x), y = sy(p.y), r = unit * 1.05;
+    if (!onScreen(x, y, r * 1.6)) return;
+    g.save(); g.translate(x, y);
+    const gr = g.createRadialGradient(0, 0, r * 0.2, 0, 0, r);
+    gr.addColorStop(0, "#6b4a3a"); gr.addColorStop(0.7, "#3e2a24"); gr.addColorStop(1, "#22150f");
+    g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r, 0, 6.29); g.fill();
+    g.strokeStyle = "#b07a4a"; g.lineWidth = 10; g.stroke();
+    g.fillStyle = "#d8a060";
+    for (let k = 0; k < 16; k++) { const a = k * Math.PI / 8; g.beginPath(); g.arc(Math.cos(a) * r * 0.88, Math.sin(a) * r * 0.88, unit * 0.04, 0, 6.29); g.fill(); }
+    g.rotate(now / 6000);
+    g.strokeStyle = "#c8925a"; g.lineWidth = 9;
+    g.beginPath(); g.arc(0, 0, r * 0.42, 0, 6.29); g.stroke();
+    for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; g.beginPath(); g.moveTo(Math.cos(a) * r * 0.12, Math.sin(a) * r * 0.12); g.lineTo(Math.cos(a) * r * 0.62, Math.sin(a) * r * 0.62); g.stroke(); }
+    g.fillStyle = "#ffcf8a"; g.beginPath(); g.arc(0, 0, r * 0.1, 0, 6.29); g.fill();
+    g.restore();
+  }
+
   // ---------- helpers ----------
   const hash = (a, b, c) => {
     let x = (Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263) + Math.imul(c | 0, 1442695041)) | 0;

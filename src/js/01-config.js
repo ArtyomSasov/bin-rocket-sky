@@ -8,7 +8,9 @@
   // The layout of each map is in 01b-arenas.js. star: a sun in the middle; lumpy: planets become ragged asteroids
   const MAPS = {
     f: { name: "Foundry", label: "Foundry", hint: "industrial corridors, three routes", station: true },
-    k: { name: "Cargo Deck", label: "Cargo Deck · NEW", hint: "a ring corridor round a cargo hall, crates to smash", station: true },
+    k: { name: "Cargo Deck", label: "Cargo Deck", hint: "a ring corridor round a cargo hall, crates to smash", station: true },
+    h: { name: "Hangar", label: "Hangar · NEW", hint: "one huge hangar bay, corridors all round", station: true },
+    v: { name: "Vault", label: "Vault · NEW", hint: "nine rooms and narrow doors, the vault in the middle", station: true },
     c: { name: "Twin Worlds", label: "Twin Worlds", hint: "two giants, an open centre" },
     a: { name: "The Ring", label: "The Ring", hint: "a ring of asteroids, four gates", lumpy: true },
     y: { name: "Drydocks", label: "Drydocks", hint: "rows of moored hulls" },
