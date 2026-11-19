@@ -272,6 +272,21 @@
         g.globalAlpha = 1;
       }
     }
+    // burns on the deck: a dark blot with a ragged edge, embers in it glowing out over a few seconds
+    for (const b of scorches) {
+      const x = sx(b.x), y = sy(b.y), r = b.r;
+      if (!onScreen(x, y, r)) continue;
+      const age = (now - b.born) / 1000, gr = g.createRadialGradient(x, y, 0, x, y, r);
+      gr.addColorStop(0, "rgba(8,6,6,0.75)"); gr.addColorStop(0.55, "rgba(12,9,8,0.5)"); gr.addColorStop(1, "rgba(12,9,8,0)");
+      g.fillStyle = gr; g.beginPath();
+      for (let k = 0; k < 14; k++) { const a = k / 14 * 6.283, rr = r * (0.8 + 0.2 * Math.sin(b.seed + k * 2.3)); g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+      g.fill();
+      if (age < 6) {
+        g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.6 * (1 - age / 6) * (0.8 + 0.2 * Math.sin(now / 90 + b.seed));
+        for (let k = 0; k < 7; k++) { const a = b.seed + k * 0.9, d = r * (0.15 + 0.5 * ((k * 37 % 10) / 10)); g.drawImage(dotSprite(k % 2 ? "#ff7a26" : "#ffab3d"), x + Math.cos(a) * d - 6, y + Math.sin(a) * d - 6, 12, 12); }
+        g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
+      }
+    }
     if (st.reactor) drawReactor(now, unit);
     if (st.lift) drawLift(now, unit);
     if (st.hangar) drawHangarPads(now, unit);

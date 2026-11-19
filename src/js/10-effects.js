@@ -551,6 +551,8 @@
   }
 
   const FIRE_COLS = ["#fff3b0", "#ffd23f", "#ff9a2e", "#ff5a1f"];
+  const afterBlasts = [];   // the smaller blasts that follow a big one, each at its moment (updateFx)
+  const scorches = [];      // burns left on a station's deck (drawn with its floor), kept for the round
   // A layered blast, scaled by speed (a rocket is 420) with n setting how rich it is (a rocket is 80):
   //  1. a short white flash, and warm light thrown on everything round it;
   //  2. a fireball of several billowing clouds that cool white, yellow, orange, red as they swell and fade;
@@ -589,7 +591,7 @@
     }
     // the shock wave: a lens racing out that bends what is behind it, with a bright front (drawBlastFx), and a ring
     // of dust and smoke thrown out with it
-    rings.push({ x, y, t: 0, r: 260 * s, col: P.ring, dur: 0.38 + 0.12 * ss, w: 3, shock: 26 * ss });
+    if (n >= 26) rings.push({ x, y, t: 0, r: 260 * s, col: P.ring, dur: 0.38 + 0.12 * ss, w: 3, shock: 26 * ss });   // (a small burst has no wave of its own)
     for (let k = 0, m = Math.round((14 + 10 * nn) * q); k < m; k++) {
       const a = k / m * 6.283 + Math.random() * 0.3, v = (520 + Math.random() * 160) * s;
       puff(x + Math.cos(a) * 12 * s, y + Math.sin(a) * 12 * s, Math.cos(a) * v, Math.sin(a) * v, 0.8 + Math.random() * 0.5, (7 + Math.random() * 5) * s, P.dust, 2, 0, 0, 0.88, P.smoke ? 0.5 : 0);
@@ -599,6 +601,13 @@
       puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.22 + Math.random() * 0.18, (10 + Math.random() * 8) * s, P.cloud, 6, 0, (Math.random() - 0.5) * 2, 0.9, Math.random() * 0.2);
     }
     if (!P.smoke) return;
+    if (n >= 26) {   // the fuel still going up: a few smaller blasts round it a moment later
+      for (let k = 0, m = Math.round((2 + Math.random() * 2) * (lowQ ? 0.5 : 1)); k < m; k++) {
+        const a = Math.random() * 6.28, d = (40 + Math.random() * 70) * s;
+        afterBlasts.push({ at: performance.now() + 100 + Math.random() * 250, x: x + Math.cos(a) * d, y: y + Math.sin(a) * d, speed: (140 + Math.random() * 80) * s });
+      }
+      if (stationMap()) { scorches.push({ x, y, r: (70 + 40 * nn) * s, born: performance.now(), seed: Math.random() * 6.28 }); if (scorches.length > 40) scorches.shift(); }   // a burn on the deck
+    }
     for (let k = 0, m = n >= 26 ? Math.round((3 + 3 * nn) * q) : 0; k < m; k++) {   // burning chunks, trailing fire and smoke
       const a = Math.random() * 6.28, v = (280 + Math.random() * 420) * ss;
       puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.9 + Math.random() * 0.9, 2.2 + Math.random() * 1.5, "fire", 8, 0, (Math.random() - 0.5) * 1.6, 0.975);

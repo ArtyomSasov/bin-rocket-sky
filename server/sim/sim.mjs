@@ -43,7 +43,7 @@ const BRIDGE = `
         for (const c of i.c) {
           c.at = Number.isFinite(at) ? at : 0;   // when it came in (the server's own clock: how long it then waits in the queue is its measure)
           // the moment it was made is the screen's word: believed only near the shared clock here (a rock is not dodged by a fib)
-          if (c.ct && Math.abs(c.ct - clockNow()) > 400) c.ct = clockNow();
+          if (!(c.ct > 0) || Math.abs(c.ct - clockNow()) > 400) c.ct = clockNow();   // (none said: the server's own clock; rocks are never skipped)
           if (c.s <= (b.cmdAck || 0) || b.cq.some(q => q.s === c.s)) continue;
           if (b.cqOwed > 0 && c.s === (b.cmdAck || 0) + 1) { b.cqOwed--; b.cmdAck = c.s; b.lastCmd = c; continue; }   // its time was flown already (the last command, again)
           let k = b.cq.length; while (k > 0 && b.cq[k - 1].s > c.s) k--;
