@@ -47,7 +47,7 @@
   ];
   const tierOf = lv => TIERS.filter(t => lv >= t.from).pop();
   // shot kinds: what flies. The number is what goes over the network; everything per kind lives in SHOTS
-  const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10, HOLY: 11, SAW: 12, GAMMA: 13, BEACON: 14, TFRAG: 15, BULLET: 16, GAUSS: 17, SHOCK: 18, PULSE: 19, FLAK: 20, DET: 21, NAIL: 22, GREN: 23, MELEE: 24, SPIKE: 25, MDET: 26, HROCKET: 27, RECALL: 28, PISTOL: 29, SAW_ALT: 30, BULLET_ALT: 31, PULSE_BOLT: 32 };
+  const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10, HOLY: 11, SAW: 12, GAMMA: 13, BEACON: 14, TFRAG: 15, BULLET: 16, GAUSS: 17, SHOCK: 18, PULSE: 19, FLAK: 20, DET: 21, NAIL: 22, GREN: 23, MELEE: 24, SPIKE: 25, MDET: 26, HROCKET: 27, RECALL: 28, PISTOL: 29, SAW_ALT: 30, BULLET_ALT: 31, PULSE_BOLT: 32, SWORD: 33 };
   const MINE_R = 55, MINE_ARM = 0.7;   // mines go off when a bin comes this close, after arming
   // life: seconds; dmg: in lives (Lv 1 has 3 = 100%; pellets use pelletDmg, the nuke deals its damage in detonate);
   // r: extra hit radius; col: colour; carve: crater radius; shove: push on the bin it hits; sfx: [sound, volume, pitch] of someone else's shot;
@@ -89,7 +89,9 @@
     { name: "pistol round", life: 0.3, dmg: 0.3, r: 0, col: "#ffe8a8", carve: 4, shove: 20, sfx: ["p_ut_fire", .7, 1] },
     { name: "explosive disc", life: 1.5, dmg: .75, r: 8, col: "#ff9c50", carve: 30, shove: 250, sfx: ["p_ut_saw_alt", .8, 1] },
     { ...SHOTS[K.BULLET], name: "rapid minigun round", dmg: .08 },
-    { name: "pulse plasma", life: 1.05, dmg: .22, r: 7, col: "#a8ff55", carve: 9, shove: 45, sfx: ["p_ut_pulse_fire", .65, 1] }
+    { name: "pulse plasma", life: 1.05, dmg: .22, r: 7, col: "#a8ff55", carve: 9, shove: 45, sfx: ["p_ut_pulse_fire", .65, 1] },
+    // the Blood Blade's swing: everything in the arc ahead of it, each once (pierce), for a moment
+    { name: "blood blade", life: 0.1, dmg: 2.7, r: 110, col: "#ff2a3c", carve: 0, shove: 900, pierce: true, sfx: ["p_melee_hit", 0.9, 0.8] }
   );
   // weapons: pick-ups swap the fireball for a while. Each gun is described here, and the player and the bots fire it
   // the same way (see volley):
@@ -125,8 +127,8 @@
                alt: { name: "Beam", cost: 1, cd: 0.6, shot: [K.SHOCK, 6400], kick: 70, feel: [8, 0.08, 60], sfx: ["laser", 0.8, 0.55], fx: "shock" } },
     bolt:    { name: "Lightning", ammo: 90, cd: 0.11, col: "#bfefff", shot: [K.BOLT, 5600], kick: 4, feel: [2, 0.03, 35], sfx: ["laser", 0.22, 1.7] },
     holy:    { name: "Holy bomb", ammo: 1, cd: 1.2, col: "#fff3b0", shot: [K.HOLY, 700], kick: 120, feel: [20, 0.3, 110], sfx: ["mine_drop", 1, 0.6] },
-    saw:     { name: "Ripper", ammo: 20, cd: 0.42, col: "#d6dde8", shot: [K.SAW, 1500], kick: 60, feel: [8, 0.08, 50], sfx: ["scatter", 0.55, 1.7],
-               alt: { name: "Explosive disc", cost: 1, cd: 0.65, shot: [K.SAW_ALT, 1300], kick: 90, feel: [12, 0.12, 65], sfx: ["p_ut_saw_alt", .9, 1] } },
+    // the Blood Blade: a red energy sword; each press a swing through the arc ahead, cutting whoever is in it
+    saw:     { name: "Blood Blade", ammo: 30, cd: 0.55, col: "#ff2a3c", shot: [K.SWORD, 0], sword: true, kick: -160, feel: [10, 0.14, 0], sfx: ["dash", 0.7, 1.6] },
     // alt: set your gamma orb off where it is now
     gamma:   { name: "Demonic Orb", ammo: 3, cd: 1.6, col: "#7dff8a", shot: [K.GAMMA, 420], kick: 220, feel: [24, 0.35, 130], sfx: ["shield_get", 1, 0.5], fx: "gamma",
                alt: { name: "Detonate", detonate: true, cost: 0, cd: 0.3, sfx: ["hit", 0.6, 0.6] } },
@@ -182,7 +184,7 @@
   Object.assign(WEAPONS.rocket, { shot: [K.ROCKET, 1260] }); WEAPONS.rocket.alt.shot = [K.ROCKET, 1260];
   Object.assign(WEAPONS.orb, { shot: [K.ORB, 650] });
   Object.assign(WEAPONS.shard, { shot: [K.SHARD, 3500] }); WEAPONS.shard.alt.shot = [K.FLAK, 1050];
-  Object.assign(WEAPONS.saw, { shot: [K.SAW, 1680] }); WEAPONS.saw.alt.shot = [K.SAW_ALT, 1680];
+  // (the saw's slot is the Blood Blade now: its swing is set where it is defined)
   Object.assign(WEAPONS.minigun, { cd: .1, jitter: .03375, shot: [K.BULLET, 6000] });   // (its pace is set by spin)
   Object.assign(WEAPONS.minigun.alt, { name: "Heavy shards", cost: 2, cd: .28, jitter: .01, shot: [K.BULLET_ALT, 2500] });
   Object.assign(WEAPONS.scatter, { cd: 1, shot: [K.PELLET, 1500] });
@@ -226,7 +228,7 @@
     x: { name: "Test range", label: "Test range", hint: "every gun, endless ammo", sandbox: true }
   };
   // the guns the test range hands out (the retired ones stay out), in gun-bar order
-  const SANDBOX_GUNS = ["fire", "gauntlet", "minigun", "scatter", "shard", "gren", "rocket", "laser", "orb", "rail", "saw", "mine", "gamma", "nuke", "holy"];
+  const SANDBOX_GUNS = ["fire", "gauntlet", "minigun", "scatter", "shard", "gren", "rocket", "laser", "orb", "rail", "saw", "mine", "gamma", "nuke", "holy"];   // (saw: the Blood Blade)
   const modeOf = code => MODES[codeOpts(code).mode] ? codeOpts(code).mode : "d";
   // match settings: round length (minutes) and a score that ends the round early (kills, or flags in CTF)
   const TIME_OPTS = { 2: 3, 3: 5, 4: 8, 5: 10, 6: 15 }, TIME_DEFAULT = "3";
@@ -300,7 +302,7 @@
     shield: "M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z",
     nuke: "M14.10 8.36L17.25 2.91A10.5 10.5 0 0 0 6.75 2.91L9.90 8.36A4.2 4.2 0 0 1 14.10 8.36ZM7.80 12.00L1.50 12.00A10.5 10.5 0 0 0 6.75 21.09L9.90 15.64A4.2 4.2 0 0 1 7.80 12.00ZM14.10 15.64L17.25 21.09A10.5 10.5 0 0 0 22.50 12.00L16.20 12.00A4.2 4.2 0 0 1 14.10 15.64ZM12 9.8a2.2 2.2 0 1 0 0.01 0Z",
     holy: "M12 10a6.5 6.5 0 1 0 0.01 0ZM12 1C6.5 1 3.5 2.4 3.5 4.2S6.5 7.4 12 7.4s8.5-1.4 8.5-3.2S17.5 1 12 1Zm0 1.7c4 0 6.4.8 6.4 1.5S16 5.7 12 5.7 5.6 4.9 5.6 4.2 8 2.7 12 2.7Z",
-    saw: "M23 12L19.67 14.27L21.53 17.5L17.51 17.8L17.5 21.53L13.87 19.78L12 23L9.73 19.67L6.5 21.53L6.2 17.51L2.47 17.5L4.22 13.87L1 12L4.33 9.73L2.47 6.5L6.49 6.2L6.5 2.47L10.13 4.22L12 1L14.27 4.33L17.5 2.47L17.8 6.49L21.53 6.5L19.78 10.13ZM12 9a3 3 0 1 0 0.01 0Z",
+    saw: "M20.5 1.5l2 2-11 12.5-3.5.5.5-3.5ZM7.5 14l2.5 2.5-1.5 1.5 3 3-1.5 1.5-3-3-2 2-1.5-1.5 2-2-3-3L4 13.5l3 3Z",   // the Blood Blade (the saw's old slot)
     gamma: "M12 2a10 10 0 1 0 .01 0ZM12 5l-3 5 3 2-4 6 8-6-3-2 3-5Z",
     tele: "M12 2a10 10 0 1 0 0.01 0ZM12 5a7 7 0 1 0 0.01 0ZM12 9.4a2.6 2.6 0 1 0 0.01 0Z",
     minigun: "M2 9h7v7H2ZM4 16h3v4H4ZM9 10h1v5H9ZM10 8.5h12v2H10ZM10 11.5h12v2H10ZM10 14.5h12v2H10Z",

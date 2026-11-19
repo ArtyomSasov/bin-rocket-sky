@@ -26,9 +26,9 @@ function runWeaponAuditChecks() {
     bodies=[{fixed:true,x:600,y:pistol.y,hw:20,hh:200,r:201}];updateShots(.016,now+16);
     ok(pistol.traced&&pistol.x<=580.01,'instant pistol respects cover');
     ok(WEAPONS.fire.alt.cd<WEAPONS.fire.cd&&WEAPONS.fire.alt.jitter>WEAPONS.fire.jitter,'pistol alt trades precision for rate');
-    reset();me.weapon='saw';me.arsenal.saw=2;shoot(now,true);const disc=shots.at(-1);
-    ok(disc.kind===K.SAW_ALT&&!SHOTS[disc.kind].bounce&&SPLASH[disc.kind],'explosive disc');
-    ok(me.arsenal.saw===1,'one ammo per disc');shoot(now,false);ok(!hasWeapon('saw'),'no unreachable recall slot after last disc');
+    reset();me.weapon='saw';me.arsenal.saw=2;shoot(now,false);const swing=shots.at(-1);
+    ok(swing&&swing.kind===K.SWORD&&SHOTS[K.SWORD].pierce&&SHOTS[K.SWORD].r>=100,'the Blood Blade swings through an arc');
+    ok(me.arsenal.saw===1,'one swing a charge');
     reset();me.weapon='shard';me.arsenal.shard=3;shoot(now,false);
     ok(shots.length===8&&shots.every(s=>s.kind===K.SHARD),'eight flak fragments');
     const s=shots[0],damage=shotDmg(s);s.bn=1;ok(shotDmg(s)<damage,'ricochets lose energy');

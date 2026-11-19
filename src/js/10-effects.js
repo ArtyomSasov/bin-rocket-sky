@@ -275,6 +275,37 @@
     }
     g.globalAlpha = 1;
   }
+  // ---------- the Blood Blade's swings: a red crescent sweeping round the bin that swung ----------
+  const SWING_MS = 200, slashes = [];
+  function swingStart(o, a) {
+    o.swingSide = -(o.swingSide || 1); o.swingAt = performance.now();
+    slashes.push({ o, a, side: o.swingSide, t: 0 });
+    if (slashes.length > 24) slashes.shift();
+    sfx("dash", 0.5, 1.8, o.x, o.y);
+  }
+  function updateSlashes(dt) { for (let i = slashes.length - 1; i >= 0; i--) if ((slashes[i].t += dt) > 0.32) slashes.splice(i, 1); }
+  function drawSlashes() {
+    if (!slashes.length) return;
+    g.save(); g.globalCompositeOperation = "lighter";
+    for (const sl of slashes) {
+      const o = sl.o, x = sx(o.x), y = sy(o.y), R = 150 * sizeOf(o.lv || 1), k = Math.min(1, sl.t / (SWING_MS / 1000)), fade = sl.t < SWING_MS / 1000 ? 1 : 1 - (sl.t - SWING_MS / 1000) / 0.12;
+      if (fade <= 0 || !onScreen(x, y, R + 40)) continue;
+      const a0 = sl.a - 1.25 * sl.side, a1 = a0 + 2.5 * sl.side * (1 - Math.pow(1 - k, 3));
+      // the crescent: a wide band swept from the bin out to the blade's reach, fading toward its tail, with a white-hot
+      // leading edge along the blade's tip
+      const n = 16, span = a1 - a0;
+      g.lineCap = "butt";
+      for (let i = 0; i < n; i++) {
+        const f0 = i / n, f1 = (i + 1) / n, al = Math.pow(f1, 1.6) * fade;
+        g.strokeStyle = `rgba(255,30,50,${0.42 * al})`; g.lineWidth = R * 0.5; g.beginPath(); g.arc(x, y, R * 0.55, a0 + span * f0, a0 + span * f1 + 0.01 * sl.side, sl.side < 0); g.stroke();
+        g.strokeStyle = `rgba(255,120,130,${0.6 * al})`; g.lineWidth = R * 0.14; g.beginPath(); g.arc(x, y, R * 0.76, a0 + span * f0, a0 + span * f1 + 0.01 * sl.side, sl.side < 0); g.stroke();
+        g.strokeStyle = `rgba(255,240,240,${0.9 * al})`; g.lineWidth = 3; g.beginPath(); g.arc(x, y, R * 0.82, a0 + span * f0, a0 + span * f1 + 0.01 * sl.side, sl.side < 0); g.stroke();
+      }
+      const ex = x + Math.cos(a1) * R * 0.8, ey = y + Math.sin(a1) * R * 0.8;   // the blade's tip, flaring
+      g.globalAlpha = 0.8 * fade; g.drawImage(dotSprite("#ff2a3c"), ex - 40, ey - 40, 80, 80); g.globalAlpha = 1;
+    }
+    g.restore();
+  }
   const oilDrops = [], oilStains = [];
   // a spray as blood sprays: mostly a fine spray of small drops, fast ones flung furthest, a few heavier drops, and
   // a mist hanging a moment where it burst
@@ -527,7 +558,7 @@
   // clean by a rail, 2 fried by electricity, 3 melted by plasma, 4 nailed (it flies on along the nail and is pinned to
   // the rock it meets), 5 burnt (it burns, chars and crumbles to ash), 6 sawn into four by a blade
   const DEATH_KINDS = 6;
-  const deathStyleOf = kind => kind === K.RAIL || kind === K.GAUSS ? 1
+  const deathStyleOf = kind => kind === K.RAIL || kind === K.GAUSS || kind === K.SWORD ? 1
     : kind === K.LASER || kind === K.BOLT || kind === K.GAMMA || kind === K.SHOCK || kind === K.PULSE ? 2 : kind === K.ORB ? 3
     : kind === K.NAIL || kind === K.SPIKE ? 4 : kind === K.FIRE ? 5 : kind === K.SAW || kind === K.MELEE ? 6 : 0;
   // pieces for a blast (2-4), a hulk sometimes for the rest

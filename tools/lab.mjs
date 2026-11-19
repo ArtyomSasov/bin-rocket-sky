@@ -89,6 +89,7 @@ try {
       combo: `explode(me.x + 330, me.y, 120, 640, "plasma")`,
       flak: `flakBurst({ kind: K.FLAK, id: 'fx' + Math.random(), owner: 'nobody', x: me.x + 330, y: me.y, vx: 0, vy: 0, life: 1, m: 1 })`,
       bin: `deathFx({ ...bots[0], x: me.x + 330, y: me.y, vx: 0, vy: 0, dead: false }, 3, 0, 0)`,
+      sword: `{ bots[0] && Object.assign(bots[0], { x: me.x + 120, y: me.y, dead: false, lives: 3 }); me.arsenal.saw = 30; cam.x = me.x; cam.y = me.y; selectWeapon("saw"); me.a = 0; fireCd = 0; shoot(performance.now(), false); setTimeout(() => { me.a = 0; fireCd = 0; shoot(performance.now(), false); }, 650); }`,
       railkill: `deathFx({ ...bots[0], x: me.x + 250, y: me.y, vx: 0, vy: 0, dead: false }, 2, 1, 0.2)`,
       binthrown: `deathFx({ ...bots[0], x: me.x + 150, y: me.y, vx: 0, vy: 0, dead: false }, 3, 0, 0.3)`,
       hits: `for (let k = 0; k < 4; k++) impact(${at(250)} + (k - 1.5) * 90, SHOTS[[K.BULLET, K.PELLET, K.RAIL, K.ROCKET][k]].col, k < 2 ? 1 : 2)`,

@@ -33,7 +33,7 @@
 
   // how someone else's shot sounds here (quieter with distance)
   // which gun a shot kind comes from, for a sound pack's gun sounds
-  const KIND_GUN = { [K.PULSE_BOLT]: "laser", [K.PISTOL]: "fire", [K.SAW]: "saw", [K.SAW_ALT]: "saw", [K.NUKE]: "nuke", [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
+  const KIND_GUN = { [K.SWORD]: "saw", [K.PULSE_BOLT]: "laser", [K.PISTOL]: "fire", [K.SAW]: "saw", [K.SAW_ALT]: "saw", [K.NUKE]: "nuke", [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
     [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.NAIL]: "nail", [K.SPIKE]: "nail", [K.GREN]: "gren", [K.HROCKET]: "rocket", [K.GAUSS]: "rail", [K.SHARD]: "shard", [K.FLAK]: "shard" };
   const shotSound = (kind, x, y, owner = "unknown") => {
     if (kind === K.PULSE_BOLT || kind === K.LASER || kind === K.BULLET || kind === K.BULLET_ALT) { if (continuousFire(owner, kind === K.LASER || kind === K.PULSE_BOLT ? "laser" : "minigun", x, y, performance.now(), kind === K.BULLET_ALT || kind === K.LASER)) return; }
@@ -430,7 +430,7 @@
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else if (kind === K.NAIL) nailSpray(s); else shots.push(s);
       if (kind === K.RAIL || kind === K.GAUSS) railBeam(s);
       if (kind === K.GAUSS && mine) { myRails.set(id, { x: s.x, y: s.y, charged: true, cut: !!s.cut }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value); }
-      if (kind === K.MELEE && mine) myMelee.add(id);   // for Humiliation
+      if ((kind === K.MELEE || kind === K.SWORD) && mine) myMelee.add(id);   // for Humiliation
       if ((kind === K.BULLET || kind === K.BULLET_ALT || kind === K.PISTOL) && onScreen(sx(p.x), sy(p.y), 200) && Math.random() < 0.7) {   // a spent casing spins off the side
         const sd = Math.random() < 0.5 ? 1 : -1, cx = -by * sd, cy = bx * sd, v = 140 + Math.random() * 120;
         puff(ox, oy, cx * v - bx * 60 + p.vx * 0.8, cy * v - by * 60 + p.vy * 0.8, 0.5 + Math.random() * 0.3, 1.8, "#e8c060");
@@ -544,6 +544,13 @@
     if (s.kind === K.PELLET) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
     if (s.kind === K.SLUG) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
     if (s.kind === K.SHARD) { sparkShower(s.x, s.y, s.vx / 1300, s.vy / 1300, 1.1); shake = Math.max(shake, 0.08); }
+    if (s.kind === K.SWORD) {   // the blade bites: red-hot sparks across the cut, a gush of oil, a jolt
+      const a = s.sa ?? 0;
+      sparkShower(s.x, s.y, -Math.sin(a), Math.cos(a), 1.6); sparkShower(s.x, s.y, Math.sin(a), -Math.cos(a), 1.6);
+      for (let k = 0; k < (lowQ ? 6 : 16); k++) { const b2 = a + (Math.random() - 0.5) * 2.4, v = 200 + Math.random() * 500; puff(s.x, s.y, Math.cos(b2) * v, Math.sin(b2) * v, 0.2 + Math.random() * 0.3, 1 + Math.random(), k % 2 ? "#ff3b4e" : "#ffd0d0", 1, 0.05); }
+      oilSplash(s.x, s.y, 12, 380, Math.cos(a) * 200, Math.sin(a) * 200);
+      shake = Math.max(shake, 0.18); hitStopUntil = Math.max(hitStopUntil, performance.now() + 50);
+    }
     // a slug on a bin's metal: sparks thrown back off it, white-hot flecks, a spit of oil; energy on it: embers of its
     // colour scattering off the hull
     const sp = Math.hypot(s.vx, s.vy) || 1, ux = s.vx / sp, uy = s.vy / sp;

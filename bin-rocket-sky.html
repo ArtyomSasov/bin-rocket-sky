@@ -728,7 +728,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   ];
   const tierOf = lv => TIERS.filter(t => lv >= t.from).pop();
   // shot kinds: what flies. The number is what goes over the network; everything per kind lives in SHOTS
-  const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10, HOLY: 11, SAW: 12, GAMMA: 13, BEACON: 14, TFRAG: 15, BULLET: 16, GAUSS: 17, SHOCK: 18, PULSE: 19, FLAK: 20, DET: 21, NAIL: 22, GREN: 23, MELEE: 24, SPIKE: 25, MDET: 26, HROCKET: 27, RECALL: 28, PISTOL: 29, SAW_ALT: 30, BULLET_ALT: 31, PULSE_BOLT: 32 };
+  const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10, HOLY: 11, SAW: 12, GAMMA: 13, BEACON: 14, TFRAG: 15, BULLET: 16, GAUSS: 17, SHOCK: 18, PULSE: 19, FLAK: 20, DET: 21, NAIL: 22, GREN: 23, MELEE: 24, SPIKE: 25, MDET: 26, HROCKET: 27, RECALL: 28, PISTOL: 29, SAW_ALT: 30, BULLET_ALT: 31, PULSE_BOLT: 32, SWORD: 33 };
   const MINE_R = 55, MINE_ARM = 0.7;   // mines go off when a bin comes this close, after arming
   // life: seconds; dmg: in lives (Lv 1 has 3 = 100%; pellets use pelletDmg, the nuke deals its damage in detonate);
   // r: extra hit radius; col: colour; carve: crater radius; shove: push on the bin it hits; sfx: [sound, volume, pitch] of someone else's shot;
@@ -770,7 +770,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     { name: "pistol round", life: 0.3, dmg: 0.3, r: 0, col: "#ffe8a8", carve: 4, shove: 20, sfx: ["p_ut_fire", .7, 1] },
     { name: "explosive disc", life: 1.5, dmg: .75, r: 8, col: "#ff9c50", carve: 30, shove: 250, sfx: ["p_ut_saw_alt", .8, 1] },
     { ...SHOTS[K.BULLET], name: "rapid minigun round", dmg: .08 },
-    { name: "pulse plasma", life: 1.05, dmg: .22, r: 7, col: "#a8ff55", carve: 9, shove: 45, sfx: ["p_ut_pulse_fire", .65, 1] }
+    { name: "pulse plasma", life: 1.05, dmg: .22, r: 7, col: "#a8ff55", carve: 9, shove: 45, sfx: ["p_ut_pulse_fire", .65, 1] },
+    // the Blood Blade's swing: everything in the arc ahead of it, each once (pierce), for a moment
+    { name: "blood blade", life: 0.1, dmg: 2.7, r: 110, col: "#ff2a3c", carve: 0, shove: 900, pierce: true, sfx: ["p_melee_hit", 0.9, 0.8] }
   );
   // weapons: pick-ups swap the fireball for a while. Each gun is described here, and the player and the bots fire it
   // the same way (see volley):
@@ -806,8 +808,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
                alt: { name: "Beam", cost: 1, cd: 0.6, shot: [K.SHOCK, 6400], kick: 70, feel: [8, 0.08, 60], sfx: ["laser", 0.8, 0.55], fx: "shock" } },
     bolt:    { name: "Lightning", ammo: 90, cd: 0.11, col: "#bfefff", shot: [K.BOLT, 5600], kick: 4, feel: [2, 0.03, 35], sfx: ["laser", 0.22, 1.7] },
     holy:    { name: "Holy bomb", ammo: 1, cd: 1.2, col: "#fff3b0", shot: [K.HOLY, 700], kick: 120, feel: [20, 0.3, 110], sfx: ["mine_drop", 1, 0.6] },
-    saw:     { name: "Ripper", ammo: 20, cd: 0.42, col: "#d6dde8", shot: [K.SAW, 1500], kick: 60, feel: [8, 0.08, 50], sfx: ["scatter", 0.55, 1.7],
-               alt: { name: "Explosive disc", cost: 1, cd: 0.65, shot: [K.SAW_ALT, 1300], kick: 90, feel: [12, 0.12, 65], sfx: ["p_ut_saw_alt", .9, 1] } },
+    // the Blood Blade: a red energy sword; each press a swing through the arc ahead, cutting whoever is in it
+    saw:     { name: "Blood Blade", ammo: 30, cd: 0.55, col: "#ff2a3c", shot: [K.SWORD, 0], sword: true, kick: -160, feel: [10, 0.14, 0], sfx: ["dash", 0.7, 1.6] },
     // alt: set your gamma orb off where it is now
     gamma:   { name: "Demonic Orb", ammo: 3, cd: 1.6, col: "#7dff8a", shot: [K.GAMMA, 420], kick: 220, feel: [24, 0.35, 130], sfx: ["shield_get", 1, 0.5], fx: "gamma",
                alt: { name: "Detonate", detonate: true, cost: 0, cd: 0.3, sfx: ["hit", 0.6, 0.6] } },
@@ -863,7 +865,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   Object.assign(WEAPONS.rocket, { shot: [K.ROCKET, 1260] }); WEAPONS.rocket.alt.shot = [K.ROCKET, 1260];
   Object.assign(WEAPONS.orb, { shot: [K.ORB, 650] });
   Object.assign(WEAPONS.shard, { shot: [K.SHARD, 3500] }); WEAPONS.shard.alt.shot = [K.FLAK, 1050];
-  Object.assign(WEAPONS.saw, { shot: [K.SAW, 1680] }); WEAPONS.saw.alt.shot = [K.SAW_ALT, 1680];
+  // (the saw's slot is the Blood Blade now: its swing is set where it is defined)
   Object.assign(WEAPONS.minigun, { cd: .1, jitter: .03375, shot: [K.BULLET, 6000] });   // (its pace is set by spin)
   Object.assign(WEAPONS.minigun.alt, { name: "Heavy shards", cost: 2, cd: .28, jitter: .01, shot: [K.BULLET_ALT, 2500] });
   Object.assign(WEAPONS.scatter, { cd: 1, shot: [K.PELLET, 1500] });
@@ -907,7 +909,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     x: { name: "Test range", label: "Test range", hint: "every gun, endless ammo", sandbox: true }
   };
   // the guns the test range hands out (the retired ones stay out), in gun-bar order
-  const SANDBOX_GUNS = ["fire", "gauntlet", "minigun", "scatter", "shard", "gren", "rocket", "laser", "orb", "rail", "saw", "mine", "gamma", "nuke", "holy"];
+  const SANDBOX_GUNS = ["fire", "gauntlet", "minigun", "scatter", "shard", "gren", "rocket", "laser", "orb", "rail", "saw", "mine", "gamma", "nuke", "holy"];   // (saw: the Blood Blade)
   const modeOf = code => MODES[codeOpts(code).mode] ? codeOpts(code).mode : "d";
   // match settings: round length (minutes) and a score that ends the round early (kills, or flags in CTF)
   const TIME_OPTS = { 2: 3, 3: 5, 4: 8, 5: 10, 6: 15 }, TIME_DEFAULT = "3";
@@ -981,7 +983,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     shield: "M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z",
     nuke: "M14.10 8.36L17.25 2.91A10.5 10.5 0 0 0 6.75 2.91L9.90 8.36A4.2 4.2 0 0 1 14.10 8.36ZM7.80 12.00L1.50 12.00A10.5 10.5 0 0 0 6.75 21.09L9.90 15.64A4.2 4.2 0 0 1 7.80 12.00ZM14.10 15.64L17.25 21.09A10.5 10.5 0 0 0 22.50 12.00L16.20 12.00A4.2 4.2 0 0 1 14.10 15.64ZM12 9.8a2.2 2.2 0 1 0 0.01 0Z",
     holy: "M12 10a6.5 6.5 0 1 0 0.01 0ZM12 1C6.5 1 3.5 2.4 3.5 4.2S6.5 7.4 12 7.4s8.5-1.4 8.5-3.2S17.5 1 12 1Zm0 1.7c4 0 6.4.8 6.4 1.5S16 5.7 12 5.7 5.6 4.9 5.6 4.2 8 2.7 12 2.7Z",
-    saw: "M23 12L19.67 14.27L21.53 17.5L17.51 17.8L17.5 21.53L13.87 19.78L12 23L9.73 19.67L6.5 21.53L6.2 17.51L2.47 17.5L4.22 13.87L1 12L4.33 9.73L2.47 6.5L6.49 6.2L6.5 2.47L10.13 4.22L12 1L14.27 4.33L17.5 2.47L17.8 6.49L21.53 6.5L19.78 10.13ZM12 9a3 3 0 1 0 0.01 0Z",
+    saw: "M20.5 1.5l2 2-11 12.5-3.5.5.5-3.5ZM7.5 14l2.5 2.5-1.5 1.5 3 3-1.5 1.5-3-3-2 2-1.5-1.5 2-2-3-3L4 13.5l3 3Z",   // the Blood Blade (the saw's old slot)
     gamma: "M12 2a10 10 0 1 0 .01 0ZM12 5l-3 5 3 2-4 6 8-6-3-2 3-5Z",
     tele: "M12 2a10 10 0 1 0 0.01 0ZM12 5a7 7 0 1 0 0.01 0ZM12 9.4a2.6 2.6 0 1 0 0.01 0Z",
     minigun: "M2 9h7v7H2ZM4 16h3v4H4ZM9 10h1v5H9ZM10 8.5h12v2H10ZM10 11.5h12v2H10ZM10 14.5h12v2H10Z",
@@ -4193,6 +4195,37 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     g.globalAlpha = 1;
   }
+  // ---------- the Blood Blade's swings: a red crescent sweeping round the bin that swung ----------
+  const SWING_MS = 200, slashes = [];
+  function swingStart(o, a) {
+    o.swingSide = -(o.swingSide || 1); o.swingAt = performance.now();
+    slashes.push({ o, a, side: o.swingSide, t: 0 });
+    if (slashes.length > 24) slashes.shift();
+    sfx("dash", 0.5, 1.8, o.x, o.y);
+  }
+  function updateSlashes(dt) { for (let i = slashes.length - 1; i >= 0; i--) if ((slashes[i].t += dt) > 0.32) slashes.splice(i, 1); }
+  function drawSlashes() {
+    if (!slashes.length) return;
+    g.save(); g.globalCompositeOperation = "lighter";
+    for (const sl of slashes) {
+      const o = sl.o, x = sx(o.x), y = sy(o.y), R = 150 * sizeOf(o.lv || 1), k = Math.min(1, sl.t / (SWING_MS / 1000)), fade = sl.t < SWING_MS / 1000 ? 1 : 1 - (sl.t - SWING_MS / 1000) / 0.12;
+      if (fade <= 0 || !onScreen(x, y, R + 40)) continue;
+      const a0 = sl.a - 1.25 * sl.side, a1 = a0 + 2.5 * sl.side * (1 - Math.pow(1 - k, 3));
+      // the crescent: a wide band swept from the bin out to the blade's reach, fading toward its tail, with a white-hot
+      // leading edge along the blade's tip
+      const n = 16, span = a1 - a0;
+      g.lineCap = "butt";
+      for (let i = 0; i < n; i++) {
+        const f0 = i / n, f1 = (i + 1) / n, al = Math.pow(f1, 1.6) * fade;
+        g.strokeStyle = `rgba(255,30,50,${0.42 * al})`; g.lineWidth = R * 0.5; g.beginPath(); g.arc(x, y, R * 0.55, a0 + span * f0, a0 + span * f1 + 0.01 * sl.side, sl.side < 0); g.stroke();
+        g.strokeStyle = `rgba(255,120,130,${0.6 * al})`; g.lineWidth = R * 0.14; g.beginPath(); g.arc(x, y, R * 0.76, a0 + span * f0, a0 + span * f1 + 0.01 * sl.side, sl.side < 0); g.stroke();
+        g.strokeStyle = `rgba(255,240,240,${0.9 * al})`; g.lineWidth = 3; g.beginPath(); g.arc(x, y, R * 0.82, a0 + span * f0, a0 + span * f1 + 0.01 * sl.side, sl.side < 0); g.stroke();
+      }
+      const ex = x + Math.cos(a1) * R * 0.8, ey = y + Math.sin(a1) * R * 0.8;   // the blade's tip, flaring
+      g.globalAlpha = 0.8 * fade; g.drawImage(dotSprite("#ff2a3c"), ex - 40, ey - 40, 80, 80); g.globalAlpha = 1;
+    }
+    g.restore();
+  }
   const oilDrops = [], oilStains = [];
   // a spray as blood sprays: mostly a fine spray of small drops, fast ones flung furthest, a few heavier drops, and
   // a mist hanging a moment where it burst
@@ -4445,7 +4478,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // clean by a rail, 2 fried by electricity, 3 melted by plasma, 4 nailed (it flies on along the nail and is pinned to
   // the rock it meets), 5 burnt (it burns, chars and crumbles to ash), 6 sawn into four by a blade
   const DEATH_KINDS = 6;
-  const deathStyleOf = kind => kind === K.RAIL || kind === K.GAUSS ? 1
+  const deathStyleOf = kind => kind === K.RAIL || kind === K.GAUSS || kind === K.SWORD ? 1
     : kind === K.LASER || kind === K.BOLT || kind === K.GAMMA || kind === K.SHOCK || kind === K.PULSE ? 2 : kind === K.ORB ? 3
     : kind === K.NAIL || kind === K.SPIKE ? 4 : kind === K.FIRE ? 5 : kind === K.SAW || kind === K.MELEE ? 6 : 0;
   // pieces for a blast (2-4), a hulk sometimes for the rest
@@ -4785,7 +4818,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
 
   // how someone else's shot sounds here (quieter with distance)
   // which gun a shot kind comes from, for a sound pack's gun sounds
-  const KIND_GUN = { [K.PULSE_BOLT]: "laser", [K.PISTOL]: "fire", [K.SAW]: "saw", [K.SAW_ALT]: "saw", [K.NUKE]: "nuke", [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
+  const KIND_GUN = { [K.SWORD]: "saw", [K.PULSE_BOLT]: "laser", [K.PISTOL]: "fire", [K.SAW]: "saw", [K.SAW_ALT]: "saw", [K.NUKE]: "nuke", [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
     [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.NAIL]: "nail", [K.SPIKE]: "nail", [K.GREN]: "gren", [K.HROCKET]: "rocket", [K.GAUSS]: "rail", [K.SHARD]: "shard", [K.FLAK]: "shard" };
   const shotSound = (kind, x, y, owner = "unknown") => {
     if (kind === K.PULSE_BOLT || kind === K.LASER || kind === K.BULLET || kind === K.BULLET_ALT) { if (continuousFire(owner, kind === K.LASER || kind === K.PULSE_BOLT ? "laser" : "minigun", x, y, performance.now(), kind === K.BULLET_ALT || kind === K.LASER)) return; }
@@ -5182,7 +5215,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else if (kind === K.NAIL) nailSpray(s); else shots.push(s);
       if (kind === K.RAIL || kind === K.GAUSS) railBeam(s);
       if (kind === K.GAUSS && mine) { myRails.set(id, { x: s.x, y: s.y, charged: true, cut: !!s.cut }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value); }
-      if (kind === K.MELEE && mine) myMelee.add(id);   // for Humiliation
+      if ((kind === K.MELEE || kind === K.SWORD) && mine) myMelee.add(id);   // for Humiliation
       if ((kind === K.BULLET || kind === K.BULLET_ALT || kind === K.PISTOL) && onScreen(sx(p.x), sy(p.y), 200) && Math.random() < 0.7) {   // a spent casing spins off the side
         const sd = Math.random() < 0.5 ? 1 : -1, cx = -by * sd, cy = bx * sd, v = 140 + Math.random() * 120;
         puff(ox, oy, cx * v - bx * 60 + p.vx * 0.8, cy * v - by * 60 + p.vy * 0.8, 0.5 + Math.random() * 0.3, 1.8, "#e8c060");
@@ -5296,6 +5329,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (s.kind === K.PELLET) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
     if (s.kind === K.SLUG) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
     if (s.kind === K.SHARD) { sparkShower(s.x, s.y, s.vx / 1300, s.vy / 1300, 1.1); shake = Math.max(shake, 0.08); }
+    if (s.kind === K.SWORD) {   // the blade bites: red-hot sparks across the cut, a gush of oil, a jolt
+      const a = s.sa ?? 0;
+      sparkShower(s.x, s.y, -Math.sin(a), Math.cos(a), 1.6); sparkShower(s.x, s.y, Math.sin(a), -Math.cos(a), 1.6);
+      for (let k = 0; k < (lowQ ? 6 : 16); k++) { const b2 = a + (Math.random() - 0.5) * 2.4, v = 200 + Math.random() * 500; puff(s.x, s.y, Math.cos(b2) * v, Math.sin(b2) * v, 0.2 + Math.random() * 0.3, 1 + Math.random(), k % 2 ? "#ff3b4e" : "#ffd0d0", 1, 0.05); }
+      oilSplash(s.x, s.y, 12, 380, Math.cos(a) * 200, Math.sin(a) * 200);
+      shake = Math.max(shake, 0.18); hitStopUntil = Math.max(hitStopUntil, performance.now() + 50);
+    }
     // a slug on a bin's metal: sparks thrown back off it, white-hot flecks, a spit of oil; energy on it: embers of its
     // colour scattering off the hull
     const sp = Math.hypot(s.vx, s.vy) || 1, ux = s.vx / sp, uy = s.vy / sp;
@@ -5926,7 +5966,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     gren: "Volley: three bouncing grenades to cover several routes; 3 ammo.",
     gauntlet: "Lunge: free, forward-only melee approach; 1.2 s recharge and 0.2 s protection. Dash uses movement direction and costs energy.",
     nail: "Spike: a fast, precise round that passes through multiple bins; 2 ammo. Walls still stop it.",
-    saw: "Ripper: primary discs ricochet; alternate discs explode on contact; 1 ammo.",
+    saw: "Blood Blade: each press swings the red energy sword through the arc ahead, cutting everyone in it; no alternate fire.",
     mine: "Detonate works with zero ammo while your mines are active.",
     gamma: "One slow orb controls a 280 px zone: green pulses drain nearby enemies. ALT detonates for up to 80 HP, including after the last ammo. Walls block damage.",
     laser: "Pulse Gun: rapid green plasma bolts; hold alternate fire for a short green beam, 1 ammo per tick. Cover blocks both modes.",
@@ -7479,6 +7519,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const w = botWeapon(b);
     if (w === "nuke") return td > 1200 && td < 2600;
     if (w === "holy") return td > 2100 && td < 3200;
+    if (WEAPONS[w]?.sword) return td < 230;   // (a blade: only at arm's length)
     return td < 950;
   }
   // fires once; returns the gun's reload time
@@ -8520,6 +8561,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         s.life = Math.max(1e-4, left);
       }
       if (s.kind === K.RECALL) { recallSaws(s); shots.splice(i, 1); continue; }
+      if (s.kind === K.SWORD && !s.swung) {   // a sword swing just made: its bin swings the blade, the crescent sweeps
+        s.swung = true; const sh = s.mine || (serverRun && s.owner === srv.id) ? me : remotes.get(s.owner) || botById.get(s.owner);
+        s.sa = Math.atan2(s.y - (sh ? sh.y : s.y), s.x - (sh ? sh.x : s.x));
+        if (sh) swingStart(sh, s.sa);
+      }
       if (s.kind === K.BULLET && !s.cased) {   // a minigun round just fired: its case flies out, and its gun's barrels are spinning
         s.cased = true; const sh = s.mine ? me : remotes.get(s.owner) || botById.get(s.owner);
         if (sh && Math.hypot(sh.x - s.x, sh.y - s.y) < 140) { ejectCasing(s.x, s.y, Math.atan2(s.vy, s.vx), sh.vx || 0, sh.vy || 0); if (sh !== me) sh.spinVis = Math.min(1, (sh.spinVis || 0) + 0.12); }
@@ -8916,7 +8962,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         else puff(p.x, p.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 0.8 + Math.random() * 0.6, 3 + Math.random() * 3, SMOKE_COLS[1], 2, 0, 0, 0.94, 0.3);
       }
     }
-    shockTick(now); updateOil(dt); updateChunks(dt); updateDrips(dt); updateCasings(dt); updateMelt(dt); jetBlast(dt);
+    shockTick(now); updateOil(dt); updateChunks(dt); updateDrips(dt); updateCasings(dt); updateMelt(dt); jetBlast(dt); updateSlashes(dt);
     for (let i = afterBlasts.length - 1; i >= 0; i--) if (now >= afterBlasts[i].at) {
       const b = afterBlasts[i]; afterBlasts.splice(i, 1);
       if (b.o) {   // a piece of a broken bin popping where it has flown to: a kick to it, sparks, a little fire
@@ -9200,7 +9246,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       energy = 100; energyRegenAt = 0; dashReadyAt = 0; lungeReady = 0;
       flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
       grabbed.clear(); myGrabs.length = 0; drops.clear(); gunDrops.clear(); myDrops.length = 0; myGunDrops.length = 0;
-      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; wallDrips.length = 0; casings.length = 0; meltLines.length = 0; afterBlasts.length = 0; shockQueue.length = 0;
+      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; wallDrips.length = 0; casings.length = 0; meltLines.length = 0; slashes.length = 0; afterBlasts.length = 0; shockQueue.length = 0;
       if (shownRound !== -1) {
         myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode);
         // Respawn after rebuilding: a repaired planet must not enclose a pilot in its old tunnel.
@@ -9524,7 +9570,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       return;
     }
     if (s.kind === K.PISTOL || s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.DET) return;   // beams are drawn as beams; a detonator isn't seen
-    if (s.kind === K.MELEE) return;   // a gauntlet blow: the blade on the bin is what you see
+    if (s.kind === K.MELEE || s.kind === K.SWORD) return;   // a blow, a swing: the blade on the bin (and its trail) is what you see
     if (s.kind === K.NAIL || s.kind === K.SPIKE) {   // a nail: a silver shaft with a dark head (a spike is longer and glows)
       const sp = s.kind === K.SPIKE, L = sp ? 34 : 16;
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx)); g.lineCap = "round";
@@ -10126,7 +10172,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
 
   // the weapon you carry is mounted on the wings, so everyone can see what is coming at them.
   // Drawn in art pixels; -y points the way the bin flies.
-  let gauntSpinFast = false, mountHeat = 0, barrelA = 0;   // my gauntlet whirls while it's on; my minigun's heat; its barrels' turn
+  let gauntSpinFast = false, mountHeat = 0, barrelA = 0, swingNow = -1, swingSide = 1;   // (swingNow: how far through a sword swing, 0..1; -1 none)   // my gauntlet whirls while it's on; my minigun's heat; its barrels' turn
   function drawMounts(weapon, s, now) {
     if (!weapon) return;
     const u = s / 320, mounts = mountsOf(weapon);
@@ -10202,11 +10248,16 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         g.restore();
         g.fillStyle = "#1d1630"; g.beginPath(); g.moveTo(-11, -74); g.quadraticCurveTo(0, -98, 11, -74); g.fill();
         g.fillStyle = "#ffe14d"; g.save(); g.translate(-8, -46); g.scale(16 / 24, 16 / 24); g.fill(ICON_PATHS.nuke, "evenodd"); g.restore();
-      } else if (weapon === "saw") {   // a blade on an arm
-        g.fillStyle = "#3b2d5c"; rrect(-6, -26, 12, 30, 4); g.fill();
-        g.save(); g.translate(0, -38); g.rotate(now / 60); g.fillStyle = "#d6dde8"; g.beginPath();
-        for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, r = k % 2 ? 10 : 15; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
-        g.closePath(); g.fill(); g.fillStyle = s.returning ? "#6fffe0" : "#5a6684"; g.beginPath(); g.arc(0, 0, 4, 0, 6.29); g.fill(); g.restore();
+      } else if (weapon === "saw") {   // the Blood Blade: a hilt, and a long blade of red energy with a white-hot edge, swung on a swing
+        const sw = swingNow, ang = sw >= 0 ? (-1.25 + 2.5 * (1 - Math.pow(1 - sw, 3))) * swingSide : -0.15;
+        g.save(); g.translate(0, -14); g.rotate(ang);
+        g.fillStyle = "#2a1f3d"; rrect(-4, -6, 8, 18, 3); g.fill(); g.fillStyle = "#8a2030"; g.fillRect(-10, -8, 20, 4);   // the hilt and guard
+        g.globalCompositeOperation = "lighter";
+        const L = 78, pulse = 0.8 + 0.2 * Math.sin(now / 90);
+        g.globalAlpha = 0.35 * pulse; g.fillStyle = "#ff1e32"; g.beginPath(); g.ellipse(0, -8 - L / 2, 11, L / 2 + 6, 0, 0, 6.29); g.fill();   // its glow
+        g.globalAlpha = 1; const bg = g.createLinearGradient(-5, 0, 5, 0); bg.addColorStop(0, "#ff1e32"); bg.addColorStop(0.5, "#ffe0e0"); bg.addColorStop(1, "#ff1e32");
+        g.fillStyle = bg; g.beginPath(); g.moveTo(-4.5, -8); g.lineTo(4.5, -8); g.lineTo(3, -8 - L); g.lineTo(0, -14 - L); g.lineTo(-3, -8 - L); g.closePath(); g.fill();
+        g.globalCompositeOperation = "source-over"; g.restore();
       } else if (weapon === "gamma") {   // a demonic orb mounted on the launcher
         g.fillStyle = "#3b2d5c"; rrect(-12, -20, 24, 26, 6); g.fill();
         drawDemonicOrb(0, -39, 18, now);
@@ -10408,6 +10459,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     g.save(); g.translate(x, y); g.rotate(pose.a); g.scale(pose.scaleX, 1);
     drawWings(lv, s);
     gauntSpinFast = isMe && !!me.gauntOn; mountHeat = isMe ? Math.max(spin, Math.min(1, me.heat || 0)) : 0;
+    { const sb = isMe ? me : b, k = sb.swingAt ? (now - sb.swingAt) / SWING_MS : 2; swingNow = k <= 1 ? k : -1; swingSide = sb.swingSide || 1; }
     // a minigun's barrels turn with its spin (mine: the trigger's spin-up; another's: how hard it has been firing)
     { const sv = isMe ? spin : (b.spinVis = Math.max(0, (b.spinVis || 0) - Math.min(0.1, (now - (b.spinT || now)) / 1000) * 1.2)), dtv = Math.min(0.1, (now - (b.barrelT || now)) / 1000);
       b.spinT = b.barrelT = now; b.barrelA = (b.barrelA || 0) + (0.4 + sv * sv * 30) * dtv; barrelA = b.barrelA; if (!isMe) mountHeat = Math.max(mountHeat, sv * 0.8); }
@@ -11418,6 +11470,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     drawGlow(now);
     drawBlackHole(now);   // lenses the world behind it; bots and text are drawn on top, undistorted
     drawPilots(now);
+    drawSlashes();
     drawAim(now);
     drawFlags(now);
     drawBlastFx(now);

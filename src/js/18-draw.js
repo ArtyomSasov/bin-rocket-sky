@@ -251,7 +251,7 @@
       return;
     }
     if (s.kind === K.PISTOL || s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.DET) return;   // beams are drawn as beams; a detonator isn't seen
-    if (s.kind === K.MELEE) return;   // a gauntlet blow: the blade on the bin is what you see
+    if (s.kind === K.MELEE || s.kind === K.SWORD) return;   // a blow, a swing: the blade on the bin (and its trail) is what you see
     if (s.kind === K.NAIL || s.kind === K.SPIKE) {   // a nail: a silver shaft with a dark head (a spike is longer and glows)
       const sp = s.kind === K.SPIKE, L = sp ? 34 : 16;
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx)); g.lineCap = "round";
@@ -853,7 +853,7 @@
 
   // the weapon you carry is mounted on the wings, so everyone can see what is coming at them.
   // Drawn in art pixels; -y points the way the bin flies.
-  let gauntSpinFast = false, mountHeat = 0, barrelA = 0;   // my gauntlet whirls while it's on; my minigun's heat; its barrels' turn
+  let gauntSpinFast = false, mountHeat = 0, barrelA = 0, swingNow = -1, swingSide = 1;   // (swingNow: how far through a sword swing, 0..1; -1 none)   // my gauntlet whirls while it's on; my minigun's heat; its barrels' turn
   function drawMounts(weapon, s, now) {
     if (!weapon) return;
     const u = s / 320, mounts = mountsOf(weapon);
@@ -929,11 +929,16 @@
         g.restore();
         g.fillStyle = "#1d1630"; g.beginPath(); g.moveTo(-11, -74); g.quadraticCurveTo(0, -98, 11, -74); g.fill();
         g.fillStyle = "#ffe14d"; g.save(); g.translate(-8, -46); g.scale(16 / 24, 16 / 24); g.fill(ICON_PATHS.nuke, "evenodd"); g.restore();
-      } else if (weapon === "saw") {   // a blade on an arm
-        g.fillStyle = "#3b2d5c"; rrect(-6, -26, 12, 30, 4); g.fill();
-        g.save(); g.translate(0, -38); g.rotate(now / 60); g.fillStyle = "#d6dde8"; g.beginPath();
-        for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, r = k % 2 ? 10 : 15; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
-        g.closePath(); g.fill(); g.fillStyle = s.returning ? "#6fffe0" : "#5a6684"; g.beginPath(); g.arc(0, 0, 4, 0, 6.29); g.fill(); g.restore();
+      } else if (weapon === "saw") {   // the Blood Blade: a hilt, and a long blade of red energy with a white-hot edge, swung on a swing
+        const sw = swingNow, ang = sw >= 0 ? (-1.25 + 2.5 * (1 - Math.pow(1 - sw, 3))) * swingSide : -0.15;
+        g.save(); g.translate(0, -14); g.rotate(ang);
+        g.fillStyle = "#2a1f3d"; rrect(-4, -6, 8, 18, 3); g.fill(); g.fillStyle = "#8a2030"; g.fillRect(-10, -8, 20, 4);   // the hilt and guard
+        g.globalCompositeOperation = "lighter";
+        const L = 78, pulse = 0.8 + 0.2 * Math.sin(now / 90);
+        g.globalAlpha = 0.35 * pulse; g.fillStyle = "#ff1e32"; g.beginPath(); g.ellipse(0, -8 - L / 2, 11, L / 2 + 6, 0, 0, 6.29); g.fill();   // its glow
+        g.globalAlpha = 1; const bg = g.createLinearGradient(-5, 0, 5, 0); bg.addColorStop(0, "#ff1e32"); bg.addColorStop(0.5, "#ffe0e0"); bg.addColorStop(1, "#ff1e32");
+        g.fillStyle = bg; g.beginPath(); g.moveTo(-4.5, -8); g.lineTo(4.5, -8); g.lineTo(3, -8 - L); g.lineTo(0, -14 - L); g.lineTo(-3, -8 - L); g.closePath(); g.fill();
+        g.globalCompositeOperation = "source-over"; g.restore();
       } else if (weapon === "gamma") {   // a demonic orb mounted on the launcher
         g.fillStyle = "#3b2d5c"; rrect(-12, -20, 24, 26, 6); g.fill();
         drawDemonicOrb(0, -39, 18, now);
@@ -1135,6 +1140,7 @@
     g.save(); g.translate(x, y); g.rotate(pose.a); g.scale(pose.scaleX, 1);
     drawWings(lv, s);
     gauntSpinFast = isMe && !!me.gauntOn; mountHeat = isMe ? Math.max(spin, Math.min(1, me.heat || 0)) : 0;
+    { const sb = isMe ? me : b, k = sb.swingAt ? (now - sb.swingAt) / SWING_MS : 2; swingNow = k <= 1 ? k : -1; swingSide = sb.swingSide || 1; }
     // a minigun's barrels turn with its spin (mine: the trigger's spin-up; another's: how hard it has been firing)
     { const sv = isMe ? spin : (b.spinVis = Math.max(0, (b.spinVis || 0) - Math.min(0.1, (now - (b.spinT || now)) / 1000) * 1.2)), dtv = Math.min(0.1, (now - (b.barrelT || now)) / 1000);
       b.spinT = b.barrelT = now; b.barrelA = (b.barrelA || 0) + (0.4 + sv * sv * 30) * dtv; barrelA = b.barrelA; if (!isMe) mountHeat = Math.max(mountHeat, sv * 0.8); }

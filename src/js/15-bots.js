@@ -79,6 +79,7 @@
     const w = botWeapon(b);
     if (w === "nuke") return td > 1200 && td < 2600;
     if (w === "holy") return td > 2100 && td < 3200;
+    if (WEAPONS[w]?.sword) return td < 230;   // (a blade: only at arm's length)
     return td < 950;
   }
   // fires once; returns the gun's reload time

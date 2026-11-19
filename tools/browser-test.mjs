@@ -303,7 +303,7 @@ try {
     assert.equal(await evaluate(lagB,`(()=>{const s=__t.shots.find(s=>s.id===${JSON.stringify(id)});return ${weapon==='saw'?'!!s?.returning':'!s || s.life<=0 || !!s.boom'};})()`),true,'remote '+weapon+' command');
   }
   console.log('PASS last gamma/mine commands reach the other browser');
-  for (const [weapon, alt, kind] of [['fire',false,29],['minigun',true,31],['saw',true,30],['laser',false,32],['laser',true,2]]) {
+  for (const [weapon, alt, kind] of [['fire',false,29],['minigun',true,31],['saw',false,33],['laser',false,32],['laser',true,2]]) {
     for(const p of [lagA,lagB]) await evaluate(p,'__t.isolate();__t.me.dead=false;__t.me.inv=1e15');
     const id=await evaluate(lagA,`__t.me.weapon=${JSON.stringify(weapon)};__t.me.arsenal[${JSON.stringify(weapon)}]=20;__t.shoot(performance.now(),${alt});__t.netSend(1,performance.now());__t.myShotLog.at(-1).d[0]`);
     await until(lagB,`__t.shots.some(s=>s.id===${JSON.stringify(id)}&&s.kind===${kind})`);
