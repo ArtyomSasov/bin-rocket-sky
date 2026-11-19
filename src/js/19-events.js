@@ -913,6 +913,19 @@
     catch (e) { if (g.reset) g.reset(); else g.restore(); applyView(); throw e; }   // a frame that failed half-way leaves nothing behind
     drawScreenFx(now);
   }
+  // flying oil: dark drops drawn out along their flight, a glint on each
+  function drawOil() {
+    for (const d of oilDrops) {
+      const x = sx(d.x), y = sy(d.y);
+      if (!onScreen(x, y, 20)) continue;
+      const sp = Math.hypot(d.vx, d.vy), L = Math.min(5, 1 + sp / 120), a = Math.atan2(d.vy, d.vx), f = 1 - d.t / d.life;
+      g.save(); g.translate(x, y); g.rotate(a); g.globalAlpha = 0.9 * Math.min(1, f * 3);
+      g.fillStyle = "#5a060c"; g.beginPath(); g.ellipse(0, 0, d.r * L, d.r, 0, 0, 6.29); g.fill();
+      g.fillStyle = "rgba(255,170,170,0.45)"; g.beginPath(); g.arc(d.r * L * 0.3, -d.r * 0.35, d.r * 0.35, 0, 6.29); g.fill();
+      g.restore();
+    }
+    g.globalAlpha = 1;
+  }
   function drawWorld(now) {
     // camera shake as "trauma" (Squirrel Eiserloh's camera talk): what is felt goes with its square, so small knocks
     // stay small and big ones hit hard, and it moves along smooth noise (a few sines out of step), not a new random
@@ -930,6 +943,8 @@
     drawEvents(now);
     drawPickups(now);
     drawWreckage(now);
+    drawChunks(now);
+    drawOil();
     drawGlow(now);
     drawBlackHole(now);   // lenses the world behind it; bots and text are drawn on top, undistorted
     drawPilots(now);

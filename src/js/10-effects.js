@@ -241,9 +241,53 @@
   }
   // a hurt bin smokes; on its last life it also throws sparks
   const damageOf = b => 1 - b.lives / maxLivesOf(b.lv || 1);
+  // ---------- oil: a bin's blood ----------
+  // A hit splashes it out in dark glossy drops; a bin badly hurt leaks it. A drop that lands on a station's deck leaves
+  // a stain there (a leaking bin a trail), kept for the round; in space the drops fly on and thin out
+  const oilDrops = [], oilStains = [];
+  function oilSplash(x, y, n, speed, ax = 0, ay = 0) {
+    for (let i = 0, m = Math.round(n * (lowQ ? 0.5 : 1)); i < m; i++) {
+      const a = Math.random() * 6.283, v = speed * (0.3 + Math.random());
+      oilDrops.push({ x, y, vx: Math.cos(a) * v + ax, vy: Math.sin(a) * v + ay, r: 1.4 + Math.random() * 2.6, life: 0.35 + Math.random() * 0.5, t: 0 });
+    }
+    if (oilDrops.length > 500) oilDrops.splice(0, oilDrops.length - 500);
+  }
+  // a stain spreads out to its size over a second and a half; a drop that came in fast leaves a long splat with
+  // a spatter of small drops ahead of it (vx, vy: how it was flying)
+  function oilStain(x, y, r, vx = 0, vy = 0) {
+    const sp = Math.hypot(vx, vy), stretch = 1 + Math.min(1.6, sp / 200);
+    oilStains.push({ x, y, r, rot: sp > 1 ? Math.atan2(vy, vx) : Math.random() * 6.28, sx: stretch * (0.8 + Math.random() * 0.4), born: performance.now(),
+      blobs: Array.from({ length: 4 + (Math.random() * 4 | 0) }, () => [(Math.random() - 0.3) * r * 1.6, (Math.random() - 0.5) * r * 0.9, r * (0.25 + Math.random() * 0.4)]),
+      spat: Array.from({ length: Math.min(6, sp / 60 | 0) }, () => [r * (1.4 + Math.random() * 1.8), (Math.random() - 0.5) * r * 0.8, 0.6 + Math.random() * 1.6]) });
+    if (oilStains.length > 400) oilStains.shift();
+  }
+  function updateOil(dt) {
+    const deck = stationMap();
+    for (let i = oilDrops.length - 1; i >= 0; i--) {
+      const d = oilDrops[i]; d.t += dt;
+      const k = Math.exp(-(deck ? 4 : 0.6) * dt); d.vx *= k; d.vy *= k; d.x += d.vx * dt; d.y += d.vy * dt;
+      // a drop flying into a wall or a planet splashes on it (painted on its face, as a scorch is)
+      const hit = Math.abs(d.vx) + Math.abs(d.vy) > 30 ? solidAny(d.x, d.y) : null;
+      if (hit && !hit.free) { oilOnBody(hit, d.x, d.y, d.r * 2.4, d.vx, d.vy); oilDrops.splice(i, 1); continue; }
+      if (d.t >= d.life) { if (deck && !solidAny(d.x, d.y)) oilStain(d.x, d.y, d.r * (2 + Math.random() * 2), d.vx, d.vy); oilDrops.splice(i, 1); }
+    }
+  }
+  // oil splashed on a body's face: a red-black splat drawn out the way it flew, with a run or two dripping down it
+  function oilOnBody(b, x, y, r, vx, vy) {
+    if (!b.q) return;
+    const [lx, ly] = toLocal(b, x, y), q = b.q, a = Math.atan2(vy, vx) - (b.a || 0);
+    q.save(); q.globalCompositeOperation = "source-atop"; q.translate(lx, ly); q.rotate(a);
+    q.fillStyle = "rgba(60,4,8,0.85)"; q.beginPath(); q.ellipse(0, 0, r * 1.6, r * 0.8, 0, 0, 6.29); q.fill();
+    q.fillStyle = "rgba(110,10,14,0.7)"; q.beginPath(); q.ellipse(-r * 0.2, -r * 0.15, r * 0.9, r * 0.4, 0, 0, 6.29); q.fill();
+    for (let k = 0; k < 3; k++) { q.beginPath(); q.arc(r * (1.8 + Math.random() * 1.6), (Math.random() - 0.5) * r, r * (0.15 + Math.random() * 0.25), 0, 6.29); q.fill(); }
+    q.restore();
+  }
   function damageFx(b, dt) {
+    // a fresh hit (hitAt moved on): a splash of oil
+    if (b.hitAt && b.hitAt !== b.oilHit) { b.oilHit = b.hitAt; oilSplash(b.x, b.y, 10, 260, (b.vx || 0) * 0.3, (b.vy || 0) * 0.3); }
     const dmg = damageOf(b);
     if (dmg <= 0) return;
+    if (dmg > 0.3 && Math.random() < (dmg - 0.2) * 9 * dt) oilSplash(b.x - Math.cos(b.a) * 20, b.y - Math.sin(b.a) * 20, 1, 40, (b.vx || 0) * 0.2, (b.vy || 0) * 0.2);   // a leak
     const sz = sizeOf(b.lv || 1), bx = Math.cos(b.a), by = Math.sin(b.a);
     if (Math.random() < dmg * (lowQ ? 10 : 26) * dt) {
       const ox = (Math.random() - 0.5) * 40 * sz, oy = (Math.random() - 0.5) * 40 * sz;
@@ -382,6 +426,7 @@
     }
     if (Math.hypot(b.x - me.x, b.y - me.y) < 1400) sfx("boom_bin", 1, 1, b.x, b.y) || boomSound(0.9, 1400, 0.35);
     shatter(b, n); breakupPops(n);
+    oilSplash(b.x, b.y, 34, 480, (b.vx || 0) * 0.3, (b.vy || 0) * 0.3);   // its oil, everywhere
     for (let k = 0; k < (lowQ ? 3 : 6); k++) {
       const a = Math.random() * 6.28, v = 60 + Math.random() * 200;
       addDebris(b.x, b.y, Math.cos(a) * v + (b.vx || 0) * 0.3, Math.sin(a) * v + (b.vy || 0) * 0.3, (4 + Math.random() * 7) * sz, k % 3 ? bodyCol : lidCol);

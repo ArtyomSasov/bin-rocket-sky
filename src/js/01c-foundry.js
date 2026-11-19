@@ -279,6 +279,21 @@
         g.globalAlpha = 1;
       }
     }
+    // oil on the deck: dark red pools spreading out to their size, lumpy at the edge, a spatter ahead of a fast one,
+    // and a wet sheen on top
+    const tNow = performance.now();
+    for (const o of oilStains) {
+      const x = sx(o.x), y = sy(o.y);
+      if (!onScreen(x, y, o.r * 4)) continue;
+      const grow = Math.min(1, 0.35 + (tNow - o.born) / 1500 * 0.65), r = o.r * grow;
+      g.save(); g.translate(x, y); g.rotate(o.rot);
+      g.fillStyle = "rgba(48,3,7,0.86)"; g.beginPath(); g.ellipse(0, 0, r * o.sx, r, 0, 0, 6.29); g.fill();
+      for (const [bx, by, br] of o.blobs) { g.beginPath(); g.arc(bx * grow, by * grow, br * grow, 0, 6.29); g.fill(); }
+      for (const [d, off, rr] of o.spat) { g.beginPath(); g.arc(d * o.sx * grow, off, rr, 0, 6.29); g.fill(); }
+      g.fillStyle = "rgba(150,20,26,0.35)"; g.beginPath(); g.ellipse(-r * 0.25, -r * 0.2, r * o.sx * 0.5, r * 0.35, 0, 0, 6.29); g.fill();
+      g.fillStyle = "rgba(255,200,200,0.14)"; g.beginPath(); g.ellipse(-r * 0.35, -r * 0.35, r * 0.22, r * 0.1, -0.4, 0, 6.29); g.fill();
+      g.restore();
+    }
     // burns on the deck: a dark blot with a ragged edge, embers in it glowing out over a few seconds
     for (const b of scorches) {
       const x = sx(b.x), y = sy(b.y), r = b.r;

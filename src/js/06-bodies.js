@@ -592,6 +592,53 @@
   // made of and what hit it. A slug or pellet: a pit, a puff of dust, chips, and off metal sparks. Energy (laser,
   // plasma, fire): a scorch burnt into it, embers and molten drops, a wisp of smoke. Something heavy (rockets,
   // grenades, the orbs, gauss): the breach, as a station wall's, in the body's own colours
+  // ---------- chunks: real pieces broken off a body's face ----------
+  // Cut from the body's own picture at the hit (a jagged polygon of it, turned as the body is turned), each flies
+  // off tumbling, bounces off what stands (bounceOff, by its weight), and on a station's deck skids to rest and stays
+  // for the round; in space it drifts away and fades after a while
+  const chunks = [];
+  function chunkOff(b, x, y, r, vx, vy) {
+    if (!b.cv || r < 2) return;
+    const S = Math.ceil(r * 2 + 2), c = document.createElement("canvas"); c.width = c.height = S;
+    const q = c.getContext("2d"), [lx, ly] = toLocal(b, x, y);
+    q.beginPath();   // its outline: a jagged polygon
+    for (let k = 0, n = 6 + (Math.random() * 3 | 0); k < n; k++) { const a = k / n * 6.283 + Math.random() * 0.5, rr = r * (0.55 + Math.random() * 0.45); q.lineTo(S / 2 + Math.cos(a) * rr, S / 2 + Math.sin(a) * rr); }
+    q.closePath(); q.clip();
+    q.drawImage(b.cv, S / 2 - lx, S / 2 - ly);   // (the body's picture in its own frame: the chunk keeps its look)
+    q.globalCompositeOperation = "source-atop"; q.fillStyle = "rgba(0,0,0,0.18)"; q.fillRect(0, S / 2, S, S / 2);   // shade underneath
+    chunks.push({ img: c, x, y, vx, vy, a: b.a || 0, spin: (Math.random() - 0.5) * 9, r, life: stationMap() ? Infinity : 14 + Math.random() * 8, t: 0, hot: performance.now() });
+    if (chunks.length > 160) chunks.shift();
+  }
+  function updateChunks(dt) {
+    const deck = stationMap(), drag = Math.exp(-(deck ? 2.2 : 0.05) * dt), spinDrag = Math.exp(-(deck ? 2.5 : 0.1) * dt);
+    for (let i = chunks.length - 1; i >= 0; i--) {
+      const c = chunks[i]; c.t += dt;
+      if (c.t > c.life) { chunks.splice(i, 1); continue; }
+      c.x += c.vx * dt; c.y += c.vy * dt; c.vx *= drag; c.vy *= drag; c.spin *= spinDrag; c.a += c.spin * dt;
+      if (Math.abs(c.vx) + Math.abs(c.vy) > 8) bounceOff(c, c.r * 0.7, 0.45, 0.02 * (c.r / 8) ** 2);
+      if (c.x < 0 || c.x > W) { c.vx = -c.vx * 0.5; c.x = clamp(c.x, 0, W); }
+      if (c.y < 0 || c.y > H) { c.vy = -c.vy * 0.5; c.y = clamp(c.y, 0, H); }
+    }
+  }
+  function drawChunks(now) {
+    for (const c of chunks) {
+      const x = sx(c.x), y = sy(c.y);
+      if (!onScreen(x, y, c.r * 2)) continue;
+      g.globalAlpha = c.life === Infinity ? 1 : Math.min(1, (c.life - c.t) / 2);
+      g.save(); g.translate(x, y); g.rotate(c.a); g.drawImage(c.img, -c.img.width / 2, -c.img.height / 2); g.restore();
+      const hot = 1 - (now - c.hot) / 1500;   // fresh off a blast it glows a moment
+      if (hot > 0 && c.r > 6) { g.globalCompositeOperation = "lighter"; g.globalAlpha = hot * 0.5; g.fillStyle = "#ff8a3c"; g.beginPath(); g.arc(x, y, c.r * 0.6, 0, 6.29); g.fill(); g.globalCompositeOperation = "source-over"; }
+    }
+    g.globalAlpha = 1;
+  }
+  // pieces off a hit: n of them, about r across, thrown out along the face's normal (and some through, from a breach)
+  function chunksOff(b, x, y, n, r, speed, through = 0) {
+    const [nx, ny] = normalAt(b, x, y), out = Math.atan2(ny, nx);
+    for (let i = 0; i < n; i++) {
+      const side = Math.random() < through ? out + Math.PI : out, a = side + (Math.random() - 0.5) * 1.8, v = speed * (0.5 + Math.random() * 0.8), rr = r * (0.5 + Math.random() * 0.7);
+      chunkOff(b, x + (Math.random() - 0.5) * r, y + (Math.random() - 0.5) * r, rr, Math.cos(a) * v, Math.sin(a) * v);
+    }
+  }
   let surfT = 0, surfN = 0;
   function surfaceHit(b, x, y, kind) {
     if (!b || b.dead) return;
@@ -599,7 +646,9 @@
     if (++surfN > (lowQ ? 3 : 8)) return;
     const S = SHOTS[kind] || {}, carve = S.carve || 0, mat = materialOf(b), [nx, ny] = normalAt(b, x, y), out = Math.atan2(ny, nx), q = lowQ ? 0.5 : 1;
     if (carve >= WALL_CARVE) {   // (rockets, grenades, mines, the orbs, gauss, the disc)
-      wallBreach(b, x, y, Math.max(carve, 40) * (b.wall ? WALL_GIVE : 1));
+      const big = Math.max(carve, 40) * (b.wall ? WALL_GIVE : 1);
+      chunksOff(b, x, y, Math.round((lowQ ? 3 : 7) + Math.random() * 3), big * 0.32, 380, b.wall ? 0.3 : 0.1);   // big pieces
+      wallBreach(b, x, y, big);
       if (b.wall) wallMark(b, x, y, Math.max(carve, 40) * WALL_GIVE, true); else scorchMark(b, x, y, Math.max(carve, 40) * 1.4);
       return;
     }
@@ -614,6 +663,7 @@
       impacts.push({ x, y, t: 0, r: 90, col: kind === K.FIRE ? "255,160,80" : rgbStr(S.col), dur: 0.35, soft: 0.35 });
       return;
     }
+    if (!lowQ && Math.random() < 0.7) chunksOff(b, x, y, 1 + (Math.random() < 0.35 ? 1 : 0), 3 + carve * 0.25, 260);   // a small piece or two
     pitMark(b, x, y, 2 + Math.min(4, carve * 0.25));
     const dust = mat === "metal" ? "rgb(140,136,132)" : bodyCol(b);
     for (let i = 0, m = Math.round(3 * q); i < m; i++) {   // dust
@@ -630,9 +680,17 @@
     }
   }
   const rgbStr = c => { const v = parseInt(String(c).slice(1, 7), 16) || 0xffffff; return `${v >> 16 & 255},${v >> 8 & 255},${v & 255}`; };
+  let carvingWall = false;
   function carveAt(b, x, y, rad, own) {
     if (b.dead) return 0;
     if (b.wall && rad < WALL_CARVE) return 0;   // (a light weapon only marks it: surfaceHit)
+    // a heavy hit on a station wall takes the crater out of every row of it that the crater reaches (it is one wall)
+    if (b.wall && !carvingWall) {
+      carvingWall = true;
+      const R = rad * WALL_GIVE + b.cs;
+      try { for (const o of [...bodies]) if (o !== b && o.wall && !o.dead && !o.free && Math.abs(x - o.x) < o.hw + R && Math.abs(y - o.y) < o.hh + R) carveAt(o, x, y, rad, own); }
+      finally { carvingWall = false; }
+    }
     const [lx0, ly0] = toLocal(b, x, y), lx = Math.round(lx0), ly = Math.round(ly0), r = Math.round(rad);
     const shared = own && !b.free, sq = shared ? ++carveSeq : 0;
     const n = carveLocal(b, lx, ly, r, true, shared ? carveRnd(lx, ly, r, sq) : Math.random);
@@ -772,7 +830,9 @@
     if (comps.length > 1) {
       let main = 0;
       comps.forEach((c, i) => { if (c.length > comps[main].length) main = i; });
-      comps.forEach((c, i) => { if (i !== main) breakAway(b, c); });
+      // a station wall is one wall to the eye, though it is built of one body per row: a part of it cut off from the
+      // rest of its row still stands (it holds to the rows above and below); only slivers fall away as rubble
+      comps.forEach((c, i) => { if (i !== main && (!b.wall || c.length < Math.max(24, b.mass0 * 0.06))) breakAway(b, c); });
       rebuildBodies();
     }
     if (b.prop && !b.free && !b.dead && b.mass < b.mass0 * 0.5) { collapseProp(b); return; }

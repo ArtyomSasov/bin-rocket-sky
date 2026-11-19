@@ -1415,6 +1415,21 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         g.globalAlpha = 1;
       }
     }
+    // oil on the deck: dark red pools spreading out to their size, lumpy at the edge, a spatter ahead of a fast one,
+    // and a wet sheen on top
+    const tNow = performance.now();
+    for (const o of oilStains) {
+      const x = sx(o.x), y = sy(o.y);
+      if (!onScreen(x, y, o.r * 4)) continue;
+      const grow = Math.min(1, 0.35 + (tNow - o.born) / 1500 * 0.65), r = o.r * grow;
+      g.save(); g.translate(x, y); g.rotate(o.rot);
+      g.fillStyle = "rgba(48,3,7,0.86)"; g.beginPath(); g.ellipse(0, 0, r * o.sx, r, 0, 0, 6.29); g.fill();
+      for (const [bx, by, br] of o.blobs) { g.beginPath(); g.arc(bx * grow, by * grow, br * grow, 0, 6.29); g.fill(); }
+      for (const [d, off, rr] of o.spat) { g.beginPath(); g.arc(d * o.sx * grow, off, rr, 0, 6.29); g.fill(); }
+      g.fillStyle = "rgba(150,20,26,0.35)"; g.beginPath(); g.ellipse(-r * 0.25, -r * 0.2, r * o.sx * 0.5, r * 0.35, 0, 0, 6.29); g.fill();
+      g.fillStyle = "rgba(255,200,200,0.14)"; g.beginPath(); g.ellipse(-r * 0.35, -r * 0.35, r * 0.22, r * 0.1, -0.4, 0, 6.29); g.fill();
+      g.restore();
+    }
     // burns on the deck: a dark blot with a ragged edge, embers in it glowing out over a few seconds
     for (const b of scorches) {
       const x = sx(b.x), y = sy(b.y), r = b.r;
@@ -2998,6 +3013,53 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // made of and what hit it. A slug or pellet: a pit, a puff of dust, chips, and off metal sparks. Energy (laser,
   // plasma, fire): a scorch burnt into it, embers and molten drops, a wisp of smoke. Something heavy (rockets,
   // grenades, the orbs, gauss): the breach, as a station wall's, in the body's own colours
+  // ---------- chunks: real pieces broken off a body's face ----------
+  // Cut from the body's own picture at the hit (a jagged polygon of it, turned as the body is turned), each flies
+  // off tumbling, bounces off what stands (bounceOff, by its weight), and on a station's deck skids to rest and stays
+  // for the round; in space it drifts away and fades after a while
+  const chunks = [];
+  function chunkOff(b, x, y, r, vx, vy) {
+    if (!b.cv || r < 2) return;
+    const S = Math.ceil(r * 2 + 2), c = document.createElement("canvas"); c.width = c.height = S;
+    const q = c.getContext("2d"), [lx, ly] = toLocal(b, x, y);
+    q.beginPath();   // its outline: a jagged polygon
+    for (let k = 0, n = 6 + (Math.random() * 3 | 0); k < n; k++) { const a = k / n * 6.283 + Math.random() * 0.5, rr = r * (0.55 + Math.random() * 0.45); q.lineTo(S / 2 + Math.cos(a) * rr, S / 2 + Math.sin(a) * rr); }
+    q.closePath(); q.clip();
+    q.drawImage(b.cv, S / 2 - lx, S / 2 - ly);   // (the body's picture in its own frame: the chunk keeps its look)
+    q.globalCompositeOperation = "source-atop"; q.fillStyle = "rgba(0,0,0,0.18)"; q.fillRect(0, S / 2, S, S / 2);   // shade underneath
+    chunks.push({ img: c, x, y, vx, vy, a: b.a || 0, spin: (Math.random() - 0.5) * 9, r, life: stationMap() ? Infinity : 14 + Math.random() * 8, t: 0, hot: performance.now() });
+    if (chunks.length > 160) chunks.shift();
+  }
+  function updateChunks(dt) {
+    const deck = stationMap(), drag = Math.exp(-(deck ? 2.2 : 0.05) * dt), spinDrag = Math.exp(-(deck ? 2.5 : 0.1) * dt);
+    for (let i = chunks.length - 1; i >= 0; i--) {
+      const c = chunks[i]; c.t += dt;
+      if (c.t > c.life) { chunks.splice(i, 1); continue; }
+      c.x += c.vx * dt; c.y += c.vy * dt; c.vx *= drag; c.vy *= drag; c.spin *= spinDrag; c.a += c.spin * dt;
+      if (Math.abs(c.vx) + Math.abs(c.vy) > 8) bounceOff(c, c.r * 0.7, 0.45, 0.02 * (c.r / 8) ** 2);
+      if (c.x < 0 || c.x > W) { c.vx = -c.vx * 0.5; c.x = clamp(c.x, 0, W); }
+      if (c.y < 0 || c.y > H) { c.vy = -c.vy * 0.5; c.y = clamp(c.y, 0, H); }
+    }
+  }
+  function drawChunks(now) {
+    for (const c of chunks) {
+      const x = sx(c.x), y = sy(c.y);
+      if (!onScreen(x, y, c.r * 2)) continue;
+      g.globalAlpha = c.life === Infinity ? 1 : Math.min(1, (c.life - c.t) / 2);
+      g.save(); g.translate(x, y); g.rotate(c.a); g.drawImage(c.img, -c.img.width / 2, -c.img.height / 2); g.restore();
+      const hot = 1 - (now - c.hot) / 1500;   // fresh off a blast it glows a moment
+      if (hot > 0 && c.r > 6) { g.globalCompositeOperation = "lighter"; g.globalAlpha = hot * 0.5; g.fillStyle = "#ff8a3c"; g.beginPath(); g.arc(x, y, c.r * 0.6, 0, 6.29); g.fill(); g.globalCompositeOperation = "source-over"; }
+    }
+    g.globalAlpha = 1;
+  }
+  // pieces off a hit: n of them, about r across, thrown out along the face's normal (and some through, from a breach)
+  function chunksOff(b, x, y, n, r, speed, through = 0) {
+    const [nx, ny] = normalAt(b, x, y), out = Math.atan2(ny, nx);
+    for (let i = 0; i < n; i++) {
+      const side = Math.random() < through ? out + Math.PI : out, a = side + (Math.random() - 0.5) * 1.8, v = speed * (0.5 + Math.random() * 0.8), rr = r * (0.5 + Math.random() * 0.7);
+      chunkOff(b, x + (Math.random() - 0.5) * r, y + (Math.random() - 0.5) * r, rr, Math.cos(a) * v, Math.sin(a) * v);
+    }
+  }
   let surfT = 0, surfN = 0;
   function surfaceHit(b, x, y, kind) {
     if (!b || b.dead) return;
@@ -3005,7 +3067,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (++surfN > (lowQ ? 3 : 8)) return;
     const S = SHOTS[kind] || {}, carve = S.carve || 0, mat = materialOf(b), [nx, ny] = normalAt(b, x, y), out = Math.atan2(ny, nx), q = lowQ ? 0.5 : 1;
     if (carve >= WALL_CARVE) {   // (rockets, grenades, mines, the orbs, gauss, the disc)
-      wallBreach(b, x, y, Math.max(carve, 40) * (b.wall ? WALL_GIVE : 1));
+      const big = Math.max(carve, 40) * (b.wall ? WALL_GIVE : 1);
+      chunksOff(b, x, y, Math.round((lowQ ? 3 : 7) + Math.random() * 3), big * 0.32, 380, b.wall ? 0.3 : 0.1);   // big pieces
+      wallBreach(b, x, y, big);
       if (b.wall) wallMark(b, x, y, Math.max(carve, 40) * WALL_GIVE, true); else scorchMark(b, x, y, Math.max(carve, 40) * 1.4);
       return;
     }
@@ -3020,6 +3084,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       impacts.push({ x, y, t: 0, r: 90, col: kind === K.FIRE ? "255,160,80" : rgbStr(S.col), dur: 0.35, soft: 0.35 });
       return;
     }
+    if (!lowQ && Math.random() < 0.7) chunksOff(b, x, y, 1 + (Math.random() < 0.35 ? 1 : 0), 3 + carve * 0.25, 260);   // a small piece or two
     pitMark(b, x, y, 2 + Math.min(4, carve * 0.25));
     const dust = mat === "metal" ? "rgb(140,136,132)" : bodyCol(b);
     for (let i = 0, m = Math.round(3 * q); i < m; i++) {   // dust
@@ -3036,9 +3101,17 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
   }
   const rgbStr = c => { const v = parseInt(String(c).slice(1, 7), 16) || 0xffffff; return `${v >> 16 & 255},${v >> 8 & 255},${v & 255}`; };
+  let carvingWall = false;
   function carveAt(b, x, y, rad, own) {
     if (b.dead) return 0;
     if (b.wall && rad < WALL_CARVE) return 0;   // (a light weapon only marks it: surfaceHit)
+    // a heavy hit on a station wall takes the crater out of every row of it that the crater reaches (it is one wall)
+    if (b.wall && !carvingWall) {
+      carvingWall = true;
+      const R = rad * WALL_GIVE + b.cs;
+      try { for (const o of [...bodies]) if (o !== b && o.wall && !o.dead && !o.free && Math.abs(x - o.x) < o.hw + R && Math.abs(y - o.y) < o.hh + R) carveAt(o, x, y, rad, own); }
+      finally { carvingWall = false; }
+    }
     const [lx0, ly0] = toLocal(b, x, y), lx = Math.round(lx0), ly = Math.round(ly0), r = Math.round(rad);
     const shared = own && !b.free, sq = shared ? ++carveSeq : 0;
     const n = carveLocal(b, lx, ly, r, true, shared ? carveRnd(lx, ly, r, sq) : Math.random);
@@ -3178,7 +3251,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (comps.length > 1) {
       let main = 0;
       comps.forEach((c, i) => { if (c.length > comps[main].length) main = i; });
-      comps.forEach((c, i) => { if (i !== main) breakAway(b, c); });
+      // a station wall is one wall to the eye, though it is built of one body per row: a part of it cut off from the
+      // rest of its row still stands (it holds to the rows above and below); only slivers fall away as rubble
+      comps.forEach((c, i) => { if (i !== main && (!b.wall || c.length < Math.max(24, b.mass0 * 0.06))) breakAway(b, c); });
       rebuildBodies();
     }
     if (b.prop && !b.free && !b.dead && b.mass < b.mass0 * 0.5) { collapseProp(b); return; }
@@ -3946,9 +4021,53 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   }
   // a hurt bin smokes; on its last life it also throws sparks
   const damageOf = b => 1 - b.lives / maxLivesOf(b.lv || 1);
+  // ---------- oil: a bin's blood ----------
+  // A hit splashes it out in dark glossy drops; a bin badly hurt leaks it. A drop that lands on a station's deck leaves
+  // a stain there (a leaking bin a trail), kept for the round; in space the drops fly on and thin out
+  const oilDrops = [], oilStains = [];
+  function oilSplash(x, y, n, speed, ax = 0, ay = 0) {
+    for (let i = 0, m = Math.round(n * (lowQ ? 0.5 : 1)); i < m; i++) {
+      const a = Math.random() * 6.283, v = speed * (0.3 + Math.random());
+      oilDrops.push({ x, y, vx: Math.cos(a) * v + ax, vy: Math.sin(a) * v + ay, r: 1.4 + Math.random() * 2.6, life: 0.35 + Math.random() * 0.5, t: 0 });
+    }
+    if (oilDrops.length > 500) oilDrops.splice(0, oilDrops.length - 500);
+  }
+  // a stain spreads out to its size over a second and a half; a drop that came in fast leaves a long splat with
+  // a spatter of small drops ahead of it (vx, vy: how it was flying)
+  function oilStain(x, y, r, vx = 0, vy = 0) {
+    const sp = Math.hypot(vx, vy), stretch = 1 + Math.min(1.6, sp / 200);
+    oilStains.push({ x, y, r, rot: sp > 1 ? Math.atan2(vy, vx) : Math.random() * 6.28, sx: stretch * (0.8 + Math.random() * 0.4), born: performance.now(),
+      blobs: Array.from({ length: 4 + (Math.random() * 4 | 0) }, () => [(Math.random() - 0.3) * r * 1.6, (Math.random() - 0.5) * r * 0.9, r * (0.25 + Math.random() * 0.4)]),
+      spat: Array.from({ length: Math.min(6, sp / 60 | 0) }, () => [r * (1.4 + Math.random() * 1.8), (Math.random() - 0.5) * r * 0.8, 0.6 + Math.random() * 1.6]) });
+    if (oilStains.length > 400) oilStains.shift();
+  }
+  function updateOil(dt) {
+    const deck = stationMap();
+    for (let i = oilDrops.length - 1; i >= 0; i--) {
+      const d = oilDrops[i]; d.t += dt;
+      const k = Math.exp(-(deck ? 4 : 0.6) * dt); d.vx *= k; d.vy *= k; d.x += d.vx * dt; d.y += d.vy * dt;
+      // a drop flying into a wall or a planet splashes on it (painted on its face, as a scorch is)
+      const hit = Math.abs(d.vx) + Math.abs(d.vy) > 30 ? solidAny(d.x, d.y) : null;
+      if (hit && !hit.free) { oilOnBody(hit, d.x, d.y, d.r * 2.4, d.vx, d.vy); oilDrops.splice(i, 1); continue; }
+      if (d.t >= d.life) { if (deck && !solidAny(d.x, d.y)) oilStain(d.x, d.y, d.r * (2 + Math.random() * 2), d.vx, d.vy); oilDrops.splice(i, 1); }
+    }
+  }
+  // oil splashed on a body's face: a red-black splat drawn out the way it flew, with a run or two dripping down it
+  function oilOnBody(b, x, y, r, vx, vy) {
+    if (!b.q) return;
+    const [lx, ly] = toLocal(b, x, y), q = b.q, a = Math.atan2(vy, vx) - (b.a || 0);
+    q.save(); q.globalCompositeOperation = "source-atop"; q.translate(lx, ly); q.rotate(a);
+    q.fillStyle = "rgba(60,4,8,0.85)"; q.beginPath(); q.ellipse(0, 0, r * 1.6, r * 0.8, 0, 0, 6.29); q.fill();
+    q.fillStyle = "rgba(110,10,14,0.7)"; q.beginPath(); q.ellipse(-r * 0.2, -r * 0.15, r * 0.9, r * 0.4, 0, 0, 6.29); q.fill();
+    for (let k = 0; k < 3; k++) { q.beginPath(); q.arc(r * (1.8 + Math.random() * 1.6), (Math.random() - 0.5) * r, r * (0.15 + Math.random() * 0.25), 0, 6.29); q.fill(); }
+    q.restore();
+  }
   function damageFx(b, dt) {
+    // a fresh hit (hitAt moved on): a splash of oil
+    if (b.hitAt && b.hitAt !== b.oilHit) { b.oilHit = b.hitAt; oilSplash(b.x, b.y, 10, 260, (b.vx || 0) * 0.3, (b.vy || 0) * 0.3); }
     const dmg = damageOf(b);
     if (dmg <= 0) return;
+    if (dmg > 0.3 && Math.random() < (dmg - 0.2) * 9 * dt) oilSplash(b.x - Math.cos(b.a) * 20, b.y - Math.sin(b.a) * 20, 1, 40, (b.vx || 0) * 0.2, (b.vy || 0) * 0.2);   // a leak
     const sz = sizeOf(b.lv || 1), bx = Math.cos(b.a), by = Math.sin(b.a);
     if (Math.random() < dmg * (lowQ ? 10 : 26) * dt) {
       const ox = (Math.random() - 0.5) * 40 * sz, oy = (Math.random() - 0.5) * 40 * sz;
@@ -4087,6 +4206,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     if (Math.hypot(b.x - me.x, b.y - me.y) < 1400) sfx("boom_bin", 1, 1, b.x, b.y) || boomSound(0.9, 1400, 0.35);
     shatter(b, n); breakupPops(n);
+    oilSplash(b.x, b.y, 34, 480, (b.vx || 0) * 0.3, (b.vy || 0) * 0.3);   // its oil, everywhere
     for (let k = 0; k < (lowQ ? 3 : 6); k++) {
       const a = Math.random() * 6.28, v = 60 + Math.random() * 200;
       addDebris(b.x, b.y, Math.cos(a) * v + (b.vx || 0) * 0.3, Math.sin(a) * v + (b.vy || 0) * 0.3, (4 + Math.random() * 7) * sz, k % 3 ? bodyCol : lidCol);
@@ -4682,8 +4802,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const [R0, hi, lo, push] = SPLASH[s.kind], m = s.m || 1;
     // blasts dig: grenades, mines and homing rockets that go off near rock bite craters out of it
     const dig = { [K.GREN]: 62, [K.MINE]: 58, [K.HROCKET]: 46 }[s.kind], own = s.mine || botById.has(s.owner);
+    if (dig && !s.surfFx) { const b = solidAny(s.x, s.y) || bodies.find(o => !o.dead && Math.hypot(o.x - s.x, o.y - s.y) - o.r < dig * 0.6); if (b) { s.surfFx = true; surfaceHit(b, s.x, s.y, s.kind); } }   // (the breach, seen by everyone; before the crater, so its pieces have a face to come from)
     if (dig) for (const b of [...bodies]) if (Math.hypot(b.x - s.x, b.y - s.y) - b.r < dig && (own || b.free)) carveAt(b, s.x, s.y, dig, own);
-    if (dig && !s.surfFx) { const b = solidAny(s.x, s.y) || bodies.find(o => !o.dead && Math.hypot(o.x - s.x, o.y - s.y) - o.r < dig * 0.6); if (b) { s.surfFx = true; surfaceHit(b, s.x, s.y, s.kind); } }   // (the breach, seen by everyone)
     const hit = (o, id, rad) => {
       const d = Math.hypot(o.x - s.x, o.y - s.y), R = R0 + rad;
       if (d > R || id === s.direct || !canHurt(s, o, id, true) || fixedCover(s.x, s.y, o.x, o.y)) return 0;
@@ -8079,9 +8199,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     s.px = s.x; s.py = s.y; s.x = ex; s.y = ey;
     if (pierce) carveBeam(s, s.cut || SHOTS[s.kind].carve);
     if (stop) {   // a beam ends on rock: it scorches a crater there
+      surfaceHit(stop.b, stop.x, stop.y, s.kind);   // (first: its pieces are cut from the face before the crater is)
       if (own || stop.b.free) carveAt(stop.b, stop.x, stop.y, SHOTS[s.kind].carve, own);
       impact(stop.x, stop.y, SHOTS[s.kind].col, 0.8);
-      surfaceHit(stop.b, stop.x, stop.y, s.kind);
     }
     if (s.kind === K.PISTOL) beams.push({ x1: s.px, y1: s.py, x2: s.x, y2: s.y, t: 0, pistol: true });
     if (s.kind === K.BULLET) {
@@ -8171,12 +8291,12 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (hb) {
         const own = s.mine || botById.has(s.owner), dig = own || hb.b.free;
         if (s.kind === K.RAIL || s.kind === K.GAUSS) {   // rail and gauss slugs bore a tunnel straight through and keep going
+          if (!s.surfFx) { s.surfFx = true; surfaceHit(hb.b, hb.x, hb.y, s.kind === K.GAUSS ? K.GAUSS : K.SLUG); }   // (a rail bores: chips where it goes in)
           if (dig) for (let f = 0; f <= 1.0001; f += 0.125) { const px = s.px + (s.x - s.px) * f, py = s.py + (s.y - s.py) * f; if (solidAt(hb.b, px, py)) carveAt(hb.b, px, py, SHOTS[s.kind].carve, own); }
           impact(hb.x, hb.y, SHOTS[s.kind].col, 0.8);
-          if (!s.surfFx) { s.surfFx = true; surfaceHit(hb.b, hb.x, hb.y, s.kind === K.GAUSS ? K.GAUSS : K.SLUG); }   // (a rail bores: chips where it goes in)
         } else if (bounce && s.bn < bounce) {   // shards and saws chip and ricochet; grenades just bounce
-          if (dig && s.kind !== K.GREN) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);
           if (s.kind !== K.GREN) surfaceHit(hb.b, hb.x, hb.y, K.PELLET);   // (a ricochet chips)
+          if (dig && s.kind !== K.GREN) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);
           const [nx, ny] = normalAt(hb.b, hb.x, hb.y), vn = s.vx * nx + s.vy * ny, keep = s.kind === K.GREN ? 0.6 : 0.85;
           if (s.kind === K.SAW) packPlay("p_ut_saw_ric", .7, s.x, s.y);
           if (vn < 0) { s.vx = (s.vx - 2 * vn * nx) * keep; s.vy = (s.vy - 2 * vn * ny) * keep; }
@@ -8185,8 +8305,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
           impact(s.x, s.y, SHOTS[s.kind].col, 0.5);
           if (s.kind === K.SHARD) shardRicochet(s);
         } else {
-          if (dig && SHOTS[s.kind].carve && s.kind !== K.MINE && s.kind !== K.SAW) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);   // only the mine attaches; an exhausted saw disappears
           if (s.kind !== K.MINE && !s.surfFx) { s.surfFx = true; surfaceHit(hb.b, hb.x, hb.y, s.kind); }
+          if (dig && SHOTS[s.kind].carve && s.kind !== K.MINE && s.kind !== K.SAW) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);   // only the mine attaches; an exhausted saw disappears
           if ((s.kind === K.BULLET || s.kind === K.PELLET) && now - ricAt > 90) { ricAt = now; packPlay("p_ric", 0.4, hb.x, hb.y); }   // whine off the rock
           if (s.kind === K.NAIL || s.kind === K.SPIKE) { stickNail(hb.b, hb.x, hb.y, Math.atan2(s.vy, s.vx), s.kind === K.SPIKE); audioCue("nailWall", hb.x, hb.y); }
           if (s.kind === K.MINE) {   // a prox mine sticks where it lands, just off the surface
@@ -8499,7 +8619,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         else puff(p.x, p.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 0.8 + Math.random() * 0.6, 3 + Math.random() * 3, SMOKE_COLS[1], 2, 0, 0, 0.94, 0.3);
       }
     }
-    shockTick(now);
+    shockTick(now); updateOil(dt); updateChunks(dt);
     for (let i = afterBlasts.length - 1; i >= 0; i--) if (now >= afterBlasts[i].at) {
       const b = afterBlasts[i]; afterBlasts.splice(i, 1);
       if (b.o) {   // a piece of a broken bin popping where it has flown to: a kick to it, sparks, a little fire
@@ -8772,7 +8892,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       energy = 100; energyRegenAt = 0; dashReadyAt = 0; lungeReady = 0;
       flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
       grabbed.clear(); myGrabs.length = 0; drops.clear(); gunDrops.clear(); myDrops.length = 0; myGunDrops.length = 0;
-      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; afterBlasts.length = 0; shockQueue.length = 0;
+      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; afterBlasts.length = 0; shockQueue.length = 0;
       if (shownRound !== -1) {
         myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode);
         // Respawn after rebuilding: a repaired planet must not enclose a pilot in its old tunnel.
@@ -10927,6 +11047,19 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     catch (e) { if (g.reset) g.reset(); else g.restore(); applyView(); throw e; }   // a frame that failed half-way leaves nothing behind
     drawScreenFx(now);
   }
+  // flying oil: dark drops drawn out along their flight, a glint on each
+  function drawOil() {
+    for (const d of oilDrops) {
+      const x = sx(d.x), y = sy(d.y);
+      if (!onScreen(x, y, 20)) continue;
+      const sp = Math.hypot(d.vx, d.vy), L = Math.min(5, 1 + sp / 120), a = Math.atan2(d.vy, d.vx), f = 1 - d.t / d.life;
+      g.save(); g.translate(x, y); g.rotate(a); g.globalAlpha = 0.9 * Math.min(1, f * 3);
+      g.fillStyle = "#5a060c"; g.beginPath(); g.ellipse(0, 0, d.r * L, d.r, 0, 0, 6.29); g.fill();
+      g.fillStyle = "rgba(255,170,170,0.45)"; g.beginPath(); g.arc(d.r * L * 0.3, -d.r * 0.35, d.r * 0.35, 0, 6.29); g.fill();
+      g.restore();
+    }
+    g.globalAlpha = 1;
+  }
   function drawWorld(now) {
     // camera shake as "trauma" (Squirrel Eiserloh's camera talk): what is felt goes with its square, so small knocks
     // stay small and big ones hit hard, and it moves along smooth noise (a few sines out of step), not a new random
@@ -10944,6 +11077,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     drawEvents(now);
     drawPickups(now);
     drawWreckage(now);
+    drawChunks(now);
+    drawOil();
     drawGlow(now);
     drawBlackHole(now);   // lenses the world behind it; bots and text are drawn on top, undistorted
     drawPilots(now);
