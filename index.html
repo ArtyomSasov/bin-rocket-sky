@@ -507,6 +507,12 @@ details.controls[open] .clist { margin-top: 8px; }
   body.playing .score .hpbar { width: 54px; }
   body.playing .altbtn { font-size: 10px; }
 }
+/* the game server's running games, offered above the steps of a new game */
+.srv-rooms { display: grid; gap: 6px; padding: 10px; border-radius: 12px; border: 1px solid #ffb43c; background: rgba(255,180,60,.08); }
+.srv-rooms[hidden] { display: none; }
+.srv-rooms > span { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #ffcf8a; }
+.srv-join { display: grid; gap: 2px; text-align: left; padding: 10px 14px; font-size: 15px; }
+.srv-join small { font: 600 12px var(--body); opacity: .8; }
 </style>
 
 <canvas id="c" tabindex="0" aria-label="Game arena"></canvas>
@@ -589,6 +595,7 @@ details.controls[open] .clist { margin-top: 8px; }
         <button type="button" role="tab" id="tabJoin" aria-selected="false">Join a friend</button>
       </div>
       <div class="pane" id="paneNew">
+        <div class="srv-rooms" id="srvRooms" hidden></div>
         <ol class="stepper" id="stepper" aria-label="Steps">
           <li><button type="button" data-step="0">Mode</button></li><li><button type="button" data-step="1">Map</button></li>
           <li><button type="button" data-step="2">Bots</button></li><li><button type="button" data-step="3">Play</button></li>
@@ -5444,6 +5451,25 @@ details.controls[open] .clist { margin-top: 8px; }
       return row;
     }));
     if (!list.length) { const p = document.createElement("p"); p.className = "codeline"; p.textContent = "No open games right now: start a new one, or type a friend's code."; el.append(p); }
+    renderServerRooms(list.filter(([, l]) => l.s).map(([, l]) => l));
+  }
+  // with the game server picked for a new game: the games already going on it, each a click away, above the steps
+  // (the server holds few rooms, so joining one is usually the way in), and their count on the server's button
+  function renderServerRooms(rooms) {
+    const box = document.getElementById("srvRooms"), btn = document.querySelector('#wherePick [data-v="srv"]');
+    if (btn) btn.textContent = rooms.length ? `Game server · ${rooms.length} on` : "Game server (beta)";
+    if (!box) return;
+    box.hidden = !serverRun || !rooms.length;
+    if (box.hidden) return;
+    const head = document.createElement("span"); head.textContent = rooms.length === 1 ? "A game is on the server now" : rooms.length + " games are on the server now";
+    box.replaceChildren(head, ...rooms.map(l => {
+      const c = l.c, b = document.createElement("button"); b.type = "button"; b.className = "go srv-join";
+      const t = document.createElement("b"); t.textContent = "Join: " + MODES[modeOf(c)].label + " · " + MAPS[mapThemeOf(c)].name + " · " + MAP_SIZES[mapOf(c)][1];
+      const s2 = document.createElement("small"); s2.textContent = l.n + (l.n === 1 ? " pilot" : " pilots") + (l.b ? " + " + l.b + " bots" : "") + " · " + c.toUpperCase();
+      b.append(t, s2);
+      b.addEventListener("click", () => { if (!chooseWhere("srv")) return; lobbyInput.value = c.toUpperCase(); lobbyInput.dispatchEvent(new Event("input")); document.getElementById("startForm").requestSubmit(); });
+      return b;
+    }));
   }
   // lobby choice (standalone hosting only)
   const standalone = !(window.claude && typeof window.claude.use === "function");
@@ -10890,6 +10916,7 @@ details.controls[open] .clist { margin-top: 8px; }
       offlineRun = v === "off"; localRun = v === "lan"; serverRun = v === "srv";
       for (const o of whereEl.children) o.setAttribute("aria-pressed", String(o.dataset.v === v));
       document.getElementById("lanStartBox").hidden = !localRun;
+      renderLobbies();   // (the server's running games show above the steps when the server is picked)
       syncGo();
     };
     segButtons(whereEl, [["on", "Online lobby"], ["srv", "Game server (beta)"], ["lan", "Local room"], ["off", "Offline with bots"]], offlineRun ? "off" : "on", v => { if (!offlineOnly) store.set("binrocket.where", v); pickWhere(v); });

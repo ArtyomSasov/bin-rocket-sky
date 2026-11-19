@@ -56,6 +56,25 @@
       return row;
     }));
     if (!list.length) { const p = document.createElement("p"); p.className = "codeline"; p.textContent = "No open games right now: start a new one, or type a friend's code."; el.append(p); }
+    renderServerRooms(list.filter(([, l]) => l.s).map(([, l]) => l));
+  }
+  // with the game server picked for a new game: the games already going on it, each a click away, above the steps
+  // (the server holds few rooms, so joining one is usually the way in), and their count on the server's button
+  function renderServerRooms(rooms) {
+    const box = document.getElementById("srvRooms"), btn = document.querySelector('#wherePick [data-v="srv"]');
+    if (btn) btn.textContent = rooms.length ? `Game server · ${rooms.length} on` : "Game server (beta)";
+    if (!box) return;
+    box.hidden = !serverRun || !rooms.length;
+    if (box.hidden) return;
+    const head = document.createElement("span"); head.textContent = rooms.length === 1 ? "A game is on the server now" : rooms.length + " games are on the server now";
+    box.replaceChildren(head, ...rooms.map(l => {
+      const c = l.c, b = document.createElement("button"); b.type = "button"; b.className = "go srv-join";
+      const t = document.createElement("b"); t.textContent = "Join: " + MODES[modeOf(c)].label + " · " + MAPS[mapThemeOf(c)].name + " · " + MAP_SIZES[mapOf(c)][1];
+      const s2 = document.createElement("small"); s2.textContent = l.n + (l.n === 1 ? " pilot" : " pilots") + (l.b ? " + " + l.b + " bots" : "") + " · " + c.toUpperCase();
+      b.append(t, s2);
+      b.addEventListener("click", () => { if (!chooseWhere("srv")) return; lobbyInput.value = c.toUpperCase(); lobbyInput.dispatchEvent(new Event("input")); document.getElementById("startForm").requestSubmit(); });
+      return b;
+    }));
   }
   // lobby choice (standalone hosting only)
   const standalone = !(window.claude && typeof window.claude.use === "function");

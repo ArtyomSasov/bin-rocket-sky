@@ -498,3 +498,9 @@ details.controls[open] .clist { margin-top: 8px; }
   body.playing .score .hpbar { width: 54px; }
   body.playing .altbtn { font-size: 10px; }
 }
+/* the game server's running games, offered above the steps of a new game */
+.srv-rooms { display: grid; gap: 6px; padding: 10px; border-radius: 12px; border: 1px solid #ffb43c; background: rgba(255,180,60,.08); }
+.srv-rooms[hidden] { display: none; }
+.srv-rooms > span { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #ffcf8a; }
+.srv-join { display: grid; gap: 2px; text-align: left; padding: 10px 14px; font-size: 15px; }
+.srv-join small { font: 600 12px var(--body); opacity: .8; }

@@ -178,6 +178,7 @@
       offlineRun = v === "off"; localRun = v === "lan"; serverRun = v === "srv";
       for (const o of whereEl.children) o.setAttribute("aria-pressed", String(o.dataset.v === v));
       document.getElementById("lanStartBox").hidden = !localRun;
+      renderLobbies();   // (the server's running games show above the steps when the server is picked)
       syncGo();
     };
     segButtons(whereEl, [["on", "Online lobby"], ["srv", "Game server (beta)"], ["lan", "Local room"], ["off", "Offline with bots"]], offlineRun ? "off" : "on", v => { if (!offlineOnly) store.set("binrocket.where", v); pickWhere(v); });
