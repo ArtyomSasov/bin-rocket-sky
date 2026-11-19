@@ -96,7 +96,7 @@
       const uvOf = (x, y) => [(x - cam.x) / vw + 0.5, 0.5 - (y - cam.y) / vh];
       return {
         // amount: smoke thickness; col: its colour (0..1); vx, vy: a push (world px/s); radial: a push straight out
-        splat(x, y, r, col, amount, vx = 0, vy = 0, radial = 0) { if (splats.length < 40) splats.push([x, y, r, col, amount, vx, vy, radial]); },
+        splat(x, y, r, col, amount, vx = 0, vy = 0, radial = 0) { if (splats.length < 64) splats.push([x, y, r, col, amount, vx, vy, radial]); },
         step(dt) {
           if (!ok) return false;
           const w = 192, h = Math.max(32, Math.round(192 * vh / vw));
@@ -115,8 +115,8 @@
           run(F.div, DIV, p => { use(5, V.r.t); gl.uniform1i(p.u("vel"), 5); });
           for (let i = 0; i < 16; i++) { run(F.press, PR.w, p => { use(5, PR.r.t); use(6, DIV.t); gl.uniform1i(p.u("pr"), 5); gl.uniform1i(p.u("dv"), 6); }); PR.swap(); }
           run(F.grad, V.w, p => { use(5, PR.r.t); use(6, V.r.t); gl.uniform1i(p.u("pr"), 5); gl.uniform1i(p.u("vel"), 6); }); V.swap();
-          run(F.advect, V.w, p => { use(5, V.r.t); gl.uniform1i(p.u("vel"), 5); gl.uniform1i(p.u("src"), 5); gl.uniform2f(p.u("shift"), shift[0], shift[1]); gl.uniform1f(p.u("dt"), dt); gl.uniform1f(p.u("keep"), Math.pow(0.35, dt)); }); V.swap();
-          run(F.advect, D.w, p => { use(5, V.r.t); use(6, D.r.t); gl.uniform1i(p.u("vel"), 5); gl.uniform1i(p.u("src"), 6); gl.uniform2f(p.u("shift"), shift[0], shift[1]); gl.uniform1f(p.u("dt"), dt); gl.uniform1f(p.u("keep"), Math.pow(0.42, dt)); }); D.swap();
+          run(F.advect, V.w, p => { use(5, V.r.t); gl.uniform1i(p.u("vel"), 5); gl.uniform1i(p.u("src"), 5); gl.uniform2f(p.u("shift"), shift[0], shift[1]); gl.uniform1f(p.u("dt"), dt); gl.uniform1f(p.u("keep"), Math.pow(0.5, dt)); }); V.swap();
+          run(F.advect, D.w, p => { use(5, V.r.t); use(6, D.r.t); gl.uniform1i(p.u("vel"), 5); gl.uniform1i(p.u("src"), 6); gl.uniform2f(p.u("shift"), shift[0], shift[1]); gl.uniform1f(p.u("dt"), dt); gl.uniform1f(p.u("keep"), Math.pow(0.6, dt)); }); D.swap();
           return true;
         },
         dye: () => D.r.t,
@@ -125,13 +125,20 @@
     } catch (e) { console.warn("fluid smoke off:", e.message); return null; } })();
     // what stirs and fills the fluid this frame: new blasts and fires (impacts that throw light), rockets, fast bins
     function feedFluid() {
+      // fires keep smoking while they burn; bins badly hurt smoke too
+      for (const m of impacts) if (m.flick && m.t >= 0 && m.t < m.dur) fluid.splat(m.x + (Math.random() - 0.5) * 40, m.y + (Math.random() - 0.5) * 40, 26, [0.2, 0.18, 0.18], 0.12, (Math.random() - 0.5) * 120, (Math.random() - 0.5) * 120);
+      const smoking = o => { if (!o.dead && o.lives !== undefined && damageOf(o) > 0.45) fluid.splat(o.x, o.y, 18, [0.22, 0.2, 0.22], 0.06 * damageOf(o), -(o.vx || 0) * 0.3, -(o.vy || 0) * 0.3); };
+      if (playing) smoking(me);
+      for (const r of remotes.values()) smoking(r);
+      for (const h of hulks) fluid.splat(h.x, h.y, 22, [0.2, 0.19, 0.2], 0.05, 0, 0);
       for (const m of impacts) {
         if (!m.soft || m.fluided || m.t < 0) continue;
         m.fluided = true;
         const big = m.r > 200, fire = !!m.flick;
-        fluid.splat(m.x, m.y, m.r * 0.35, fire ? [0.32, 0.27, 0.25] : [0.42, 0.4, 0.42], big ? 1.6 : 0.8, 0, 0, m.r * 3.2);
+        fluid.splat(m.x, m.y, m.r * 0.4, fire ? [0.26, 0.22, 0.21] : [0.34, 0.32, 0.34], big ? 3.2 : 1.6, 0, 0, m.r * 3.2);
       }
       for (const s of shots) if ((s.kind === K.ROCKET || s.kind === K.HROCKET || s.kind === K.NUKE) && s.life > 0) fluid.splat(s.x, s.y, 16, [0.5, 0.48, 0.5], 0.09, -s.vx * 0.25, -s.vy * 0.25);
+        else if (s.kind === K.GAMMA && s.life > 0) fluid.splat(s.x + (Math.random() - 0.5) * 30, s.y + (Math.random() - 0.5) * 30, 30, [0.12, 0.75, 0.25], 0.16, -s.vx * 0.4 + (Math.random() - 0.5) * 300, -s.vy * 0.4 + (Math.random() - 0.5) * 300);   // its green clouds
       const stir = o => { const sp = Math.hypot(o.vx || 0, o.vy || 0); if (sp > 160) fluid.splat(o.x, o.y, 34, null, 0, o.vx * 0.9, o.vy * 0.9); };
       if (playing && !me.dead) stir(me);
       for (const r of remotes.values()) if (!r.dead) stir(r);

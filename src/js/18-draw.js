@@ -381,28 +381,20 @@
       g.restore();
       return;
     }
-    if (s.kind === K.GAMMA) {   // a slow area-control orb: show the actual unobstructed zap boundary
-      g.save();
-      const phase = (now % (GAMMA_ZAP.every * 1000)) / (GAMMA_ZAP.every * 1000);
-      g.strokeStyle = "rgba(100,255,135,.22)"; g.lineWidth = 1.5;
-      for (let i = 0; i < 48; i++) {
-        const a = i / 48 * Math.PI * 2, mid = a + .045;
-        if (fixedCover(s.x, s.y, s.x + Math.cos(mid) * GAMMA_ZAP.r, s.y + Math.sin(mid) * GAMMA_ZAP.r)) continue;
-        g.beginPath(); g.arc(x, y, GAMMA_ZAP.r, a, a + .085); g.stroke();
-      }
-      g.strokeStyle = `rgba(100,255,135,${.3 * (1 - phase)})`;
-      g.beginPath(); g.arc(x, y, 38 + phase * 24, 0, 6.29); g.stroke();
-      if (s.mine && me.weapon === "gamma" && s.life > 0) {
-        g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.textAlign = "center"; g.fillStyle = "#b9ffbe";
-        g.fillText("ALT · DETONATE · " + s.life.toFixed(1) + "s", x, y - 52);
+    if (s.kind === K.GAMMA) {   // the demonic orb: a churning ball of hellfire in a shroud of green flame and smoke
+      const speed = Math.hypot(s.vx, s.vy) || 1, ux = s.vx / speed, uy = s.vy / speed;
+      g.save(); g.globalCompositeOperation = "lighter";
+      g.globalAlpha = 0.3; g.drawImage(dotSprite("#2cff5a"), x - 110, y - 110, 220, 220);
+      g.globalCompositeOperation = "source-over";   // (the shroud laid over, not added: it stays green, dark at its edges)
+      // the shroud: flame clouds turning round it both ways, streaming back along its flight
+      for (let i = 0; i < 10; i++) {
+        const a = now / (i % 2 ? 700 : -900) + i * 0.628, rr = 22 + (i % 3) * 10 + Math.sin(now / 230 + i) * 5, back = (i % 4) * 9;
+        const cx = x + Math.cos(a) * rr - ux * back, cy = y + Math.sin(a) * rr - uy * back, d = 46 + (i % 3) * 14;
+        g.globalAlpha = 0.7; g.save(); g.translate(cx, cy); g.rotate(now / 400 + i);
+        g.drawImage(fireSprite(3 + (i % 5), i & 3, DEMON_RAMP), -d / 2, -d / 2, d, d); g.restore();
       }
       g.restore();
-      const speed = Math.hypot(s.vx, s.vy) || 1;
-      for (let i = 3; i > 0; i--) {
-        const trail = 22 + i * 7; g.save(); g.globalAlpha = 0.14 / i;
-        g.drawImage(dotSprite("#35ff61"), x - s.vx / speed * i * 22 - trail, y - s.vy / speed * i * 22 - trail, trail * 2, trail * 2); g.restore();
-      }
-      drawDemonicOrb(x, y, 32 + Math.sin(now / 160) * 1.5, now);
+      drawDemonicOrb(x, y, 30 + Math.sin(now / 160) * 2, now);
       return;
     }
     if (s.kind === K.BEACON) {   // the teleporter's beacon: a cyan diamond with a beating ring

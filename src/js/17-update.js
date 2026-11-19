@@ -438,7 +438,7 @@
         if (Math.random() < stepDt * 12) puff(s.x, s.y, (Math.random() - .5) * 60, (Math.random() - .5) * 60, 0.4, 2, "#8ff0ff");
         continue;
       }
-      if (s.kind === K.GAMMA) gammaZap(s, stepDt, now);
+      // (the demonic orb no longer zaps what is near it: it hits, and bursts)
       if (s.kind === K.NUKE) {
         if (Math.random() < stepDt * 70) puff(s.x, s.y, -s.vx * 0.15 + (Math.random() - .5) * 50, -s.vy * 0.15 + (Math.random() - .5) * 50, 0.9, 3 + Math.random() * 3, Math.random() < 0.5 ? "#8a7fb0" : "#ffe14d");
         continue;

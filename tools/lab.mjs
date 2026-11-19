@@ -84,6 +84,8 @@ try {
       gren: `blastFx({ kind: K.GREN, x: me.x + 330, y: me.y })`,
       mine: `blastFx({ kind: K.MINE, x: me.x + 330, y: me.y })`,
       orb: `blastFx({ kind: K.ORB, x: me.x + 330, y: me.y })`,
+      gamma: `blastFx({ kind: K.GAMMA, x: me.x + 330, y: me.y })`,
+      gammafly: `shots.push({ id: 'g' + Math.random(), kind: K.GAMMA, x: me.x + 200, y: me.y, px: me.x + 200, py: me.y, vx: 60, vy: 0, life: 4, m: 1, owner: 'nobody', bn: 0 })`,
       combo: `explode(me.x + 330, me.y, 120, 640, "plasma")`,
       flak: `flakBurst({ kind: K.FLAK, id: 'fx' + Math.random(), owner: 'nobody', x: me.x + 330, y: me.y, vx: 0, vy: 0, life: 1, m: 1 })`,
       bin: `deathFx({ ...bots[0], x: me.x + 330, y: me.y, vx: 0, vy: 0, dead: false }, 3, 0, 0)`,

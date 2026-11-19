@@ -28,7 +28,9 @@
   const SMOKE_COLS = ["rgb(64,57,64)", "rgb(88,79,84)", "rgb(114,103,106)"];
   // energy (the shock orb, its combo): white-hot to electric blue to deep violet, no fire at all
   const PLASMA_RAMP = ["#ffffff", "#e8fbff", "#bdf0ff", "#86dcff", "#57b8ff", "#4a82f0", "#4a4fc8", "#2a2470"];
-  const rampOf = col => col === "plasma" ? PLASMA_RAMP : FIRE_RAMP;
+  // hellfire (the demonic orb): white-hot to acid green to a deep poisoned dark
+  const DEMON_RAMP = ["#ffffff", "#f2ffd0", "#c8ff7a", "#7dff5a", "#38e04a", "#1f9e3a", "#105a2a", "#062a16"];
+  const rampOf = col => col === "plasma" ? PLASMA_RAMP : col === "demon" ? DEMON_RAMP : FIRE_RAMP;
   const SPARK_COLS = ["#fff8e0", "#ffe08a", "#ffb64a"];
   // turbulent value noise (fractal, four octaves), for the inner texture of fire and smoke: billows, not smooth blobs
   function vnoise(x, y, s) {
@@ -42,7 +44,7 @@
   // a billowing ball of flame in one of the fixed shades (four shapes each): ragged turbulent edges, brighter where
   // it is thick, so a fireball reads as rolling fire rather than round glows. Made once, when first needed
   function fireSprite(i, v = 0, ramp = FIRE_RAMP) {
-    const key = i * 4 + (v & 3) + (ramp === PLASMA_RAMP ? 64 : 0);
+    const key = i * 4 + (v & 3) + (ramp === PLASMA_RAMP ? 64 : ramp === DEMON_RAMP ? 128 : 0);
     if (fireCache[key]) return fireCache[key];
     const S = 96, c = document.createElement("canvas"); c.width = c.height = S;
     const q = c.getContext("2d"), img = q.createImageData(S, S), [r0, g0, b0] = hex(ramp[i]), [r1, g1, b1] = hex(ramp[Math.max(0, i - 2)]);
@@ -640,6 +642,7 @@
   // pal "plasma": the same blast in energy (the shock orb and its combo): blue-white clouds, cold light, no smoke or chips
   const BLAST_PAL = {
     fire: { cloud: "fire", light: "255,176,96", sparks: SPARK_COLS, ember: "fire", ring: "255,246,230", dust: "rgb(150,138,142)", smoke: true },
+    demon: { cloud: "demon", light: "110,255,120", sparks: ["#f2ffd0", "#9dff6a", "#3bff6a"], ember: "demon", ring: "170,255,160", dust: "rgb(60,120,70)", smoke: false },
     plasma: { cloud: "plasma", light: "120,200,255", sparks: ["#ffffff", "#c8f4ff", "#7fdcff"], ember: "plasma", ring: "200,240,255", dust: "rgb(110,160,220)", smoke: false }
   };
   function explode(x, y, n, speed, pal = "fire") {

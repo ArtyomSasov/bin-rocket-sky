@@ -332,10 +332,12 @@
       if (near) { packPlay("p_boom_mine", 1, x, y) || sfx("boom_small", 1, 0.9, x, y); shake = Math.max(shake, 0.28 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
       return;
     }
-    if (s.kind === K.GAMMA) {
-      impacts.push({ x, y, t: 0, r: 155, col: "#b8ff91" });
-      rings.push({ x, y, t: 0, r: 270, col: "75,255,110", warp: true, dur: 0.6, w: 14 });
-      for (let k = 0; k < (lowQ ? 20 : 48); k++) { const a = Math.random() * 6.283, v = 140 + Math.random() * 500; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.45 + Math.random() * 0.6, 2 + Math.random() * 3, k % 3 ? "#58f77a" : "#d4ffad"); }
+    if (s.kind === K.GAMMA) {   // the demonic orb bursts: a ball of hellfire, a heavy warping shock wave, green lightning
+      explode(x, y, 90, 520, "demon");
+      rings.push({ x, y, t: 0, r: 420, col: "120,255,140", warp: true, dur: 0.75, w: 22, shock: 34 });
+      rings.push({ x, y, t: -0.08, r: 280, col: "60,255,110", warp: true, dur: 0.6, w: 12 });
+      impacts.push({ x, y, t: 0, r: 420, col: "110,255,120", dur: 0.9, soft: 0.7, flick: Math.random() * 6.28 });
+      for (let k = 0; k < (lowQ ? 4 : 9); k++) { const a = Math.random() * 6.283, d = 120 + Math.random() * 200; arcs.push({ x1: x, y1: y, x2: x + Math.cos(a) * d, y2: y + Math.sin(a) * d, t: 0, col: "140,255,150" }); }
       // The orb travels beyond the old 1400px gate; let the sound mixer handle distance.
       packPlay("p_boom_gamma", 1, x, y) || sfx("boom_small", 1, 0.8, x, y);
       if (near) shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400));
@@ -540,6 +542,16 @@
     if (s.kind === K.PELLET) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
     if (s.kind === K.SLUG) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
     if (s.kind === K.SHARD) { sparkShower(s.x, s.y, s.vx / 1300, s.vy / 1300, 1.1); shake = Math.max(shake, 0.08); }
+    // a slug on a bin's metal: sparks thrown back off it, white-hot flecks, a spit of oil; energy on it: embers of its
+    // colour scattering off the hull
+    const sp = Math.hypot(s.vx, s.vy) || 1, ux = s.vx / sp, uy = s.vy / sp;
+    if (s.kind === K.BULLET || s.kind === K.BULLET_ALT || s.kind === K.NAIL || s.kind === K.SPIKE || s.kind === K.GAUSS || s.kind === K.PELLET) {
+      sparkShower(s.x, s.y, -ux, -uy, s.kind === K.GAUSS ? 1.4 : 0.8);
+      for (let k = 0, m = lowQ ? 3 : 7; k < m; k++) { const a = Math.atan2(-uy, -ux) + (Math.random() - 0.5) * 2.2, v = 350 + Math.random() * 550; puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.12 + Math.random() * 0.2, 0.8 + Math.random() * 0.8, k % 3 ? "#fff1b8" : "#ffb04a", 1, 0.05, 0, 0.92); }
+      oilSplash(s.x, s.y, 3, 200, ux * 120, uy * 120);
+    } else if (s.kind === K.LASER || s.kind === K.PISTOL || s.kind === K.BOLT || s.kind === K.PULSE_BOLT || s.kind === K.SHOCK || s.kind === K.FIRE) {
+      for (let k = 0, m = lowQ ? 3 : 8; k < m; k++) { const a = Math.random() * 6.283, v = 120 + Math.random() * 300; puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.25 + Math.random() * 0.35, 1.2 + Math.random() * 1.2, k % 2 ? SHOTS[s.kind].col : "#ffffff", 5, 0, 0, 0.93); }
+    }
     impact(s.x, s.y, SHOTS[s.kind].col, s.kind === K.ROCKET || s.kind === K.RAIL ? 2 : 1);
   }
   // extra muzzle effects some guns have, on top of the flash and recoil every gun gets

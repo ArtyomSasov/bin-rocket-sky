@@ -3870,7 +3870,9 @@ details.controls[open] .clist { margin-top: 8px; }
   const SMOKE_COLS = ["rgb(64,57,64)", "rgb(88,79,84)", "rgb(114,103,106)"];
   // energy (the shock orb, its combo): white-hot to electric blue to deep violet, no fire at all
   const PLASMA_RAMP = ["#ffffff", "#e8fbff", "#bdf0ff", "#86dcff", "#57b8ff", "#4a82f0", "#4a4fc8", "#2a2470"];
-  const rampOf = col => col === "plasma" ? PLASMA_RAMP : FIRE_RAMP;
+  // hellfire (the demonic orb): white-hot to acid green to a deep poisoned dark
+  const DEMON_RAMP = ["#ffffff", "#f2ffd0", "#c8ff7a", "#7dff5a", "#38e04a", "#1f9e3a", "#105a2a", "#062a16"];
+  const rampOf = col => col === "plasma" ? PLASMA_RAMP : col === "demon" ? DEMON_RAMP : FIRE_RAMP;
   const SPARK_COLS = ["#fff8e0", "#ffe08a", "#ffb64a"];
   // turbulent value noise (fractal, four octaves), for the inner texture of fire and smoke: billows, not smooth blobs
   function vnoise(x, y, s) {
@@ -3884,7 +3886,7 @@ details.controls[open] .clist { margin-top: 8px; }
   // a billowing ball of flame in one of the fixed shades (four shapes each): ragged turbulent edges, brighter where
   // it is thick, so a fireball reads as rolling fire rather than round glows. Made once, when first needed
   function fireSprite(i, v = 0, ramp = FIRE_RAMP) {
-    const key = i * 4 + (v & 3) + (ramp === PLASMA_RAMP ? 64 : 0);
+    const key = i * 4 + (v & 3) + (ramp === PLASMA_RAMP ? 64 : ramp === DEMON_RAMP ? 128 : 0);
     if (fireCache[key]) return fireCache[key];
     const S = 96, c = document.createElement("canvas"); c.width = c.height = S;
     const q = c.getContext("2d"), img = q.createImageData(S, S), [r0, g0, b0] = hex(ramp[i]), [r1, g1, b1] = hex(ramp[Math.max(0, i - 2)]);
@@ -4482,6 +4484,7 @@ details.controls[open] .clist { margin-top: 8px; }
   // pal "plasma": the same blast in energy (the shock orb and its combo): blue-white clouds, cold light, no smoke or chips
   const BLAST_PAL = {
     fire: { cloud: "fire", light: "255,176,96", sparks: SPARK_COLS, ember: "fire", ring: "255,246,230", dust: "rgb(150,138,142)", smoke: true },
+    demon: { cloud: "demon", light: "110,255,120", sparks: ["#f2ffd0", "#9dff6a", "#3bff6a"], ember: "demon", ring: "170,255,160", dust: "rgb(60,120,70)", smoke: false },
     plasma: { cloud: "plasma", light: "120,200,255", sparks: ["#ffffff", "#c8f4ff", "#7fdcff"], ember: "plasma", ring: "200,240,255", dust: "rgb(110,160,220)", smoke: false }
   };
   function explode(x, y, n, speed, pal = "fire") {
@@ -4887,10 +4890,12 @@ details.controls[open] .clist { margin-top: 8px; }
       if (near) { packPlay("p_boom_mine", 1, x, y) || sfx("boom_small", 1, 0.9, x, y); shake = Math.max(shake, 0.28 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
       return;
     }
-    if (s.kind === K.GAMMA) {
-      impacts.push({ x, y, t: 0, r: 155, col: "#b8ff91" });
-      rings.push({ x, y, t: 0, r: 270, col: "75,255,110", warp: true, dur: 0.6, w: 14 });
-      for (let k = 0; k < (lowQ ? 20 : 48); k++) { const a = Math.random() * 6.283, v = 140 + Math.random() * 500; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.45 + Math.random() * 0.6, 2 + Math.random() * 3, k % 3 ? "#58f77a" : "#d4ffad"); }
+    if (s.kind === K.GAMMA) {   // the demonic orb bursts: a ball of hellfire, a heavy warping shock wave, green lightning
+      explode(x, y, 90, 520, "demon");
+      rings.push({ x, y, t: 0, r: 420, col: "120,255,140", warp: true, dur: 0.75, w: 22, shock: 34 });
+      rings.push({ x, y, t: -0.08, r: 280, col: "60,255,110", warp: true, dur: 0.6, w: 12 });
+      impacts.push({ x, y, t: 0, r: 420, col: "110,255,120", dur: 0.9, soft: 0.7, flick: Math.random() * 6.28 });
+      for (let k = 0; k < (lowQ ? 4 : 9); k++) { const a = Math.random() * 6.283, d = 120 + Math.random() * 200; arcs.push({ x1: x, y1: y, x2: x + Math.cos(a) * d, y2: y + Math.sin(a) * d, t: 0, col: "140,255,150" }); }
       // The orb travels beyond the old 1400px gate; let the sound mixer handle distance.
       packPlay("p_boom_gamma", 1, x, y) || sfx("boom_small", 1, 0.8, x, y);
       if (near) shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400));
@@ -5095,6 +5100,16 @@ details.controls[open] .clist { margin-top: 8px; }
     if (s.kind === K.PELLET) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
     if (s.kind === K.SLUG) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
     if (s.kind === K.SHARD) { sparkShower(s.x, s.y, s.vx / 1300, s.vy / 1300, 1.1); shake = Math.max(shake, 0.08); }
+    // a slug on a bin's metal: sparks thrown back off it, white-hot flecks, a spit of oil; energy on it: embers of its
+    // colour scattering off the hull
+    const sp = Math.hypot(s.vx, s.vy) || 1, ux = s.vx / sp, uy = s.vy / sp;
+    if (s.kind === K.BULLET || s.kind === K.BULLET_ALT || s.kind === K.NAIL || s.kind === K.SPIKE || s.kind === K.GAUSS || s.kind === K.PELLET) {
+      sparkShower(s.x, s.y, -ux, -uy, s.kind === K.GAUSS ? 1.4 : 0.8);
+      for (let k = 0, m = lowQ ? 3 : 7; k < m; k++) { const a = Math.atan2(-uy, -ux) + (Math.random() - 0.5) * 2.2, v = 350 + Math.random() * 550; puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.12 + Math.random() * 0.2, 0.8 + Math.random() * 0.8, k % 3 ? "#fff1b8" : "#ffb04a", 1, 0.05, 0, 0.92); }
+      oilSplash(s.x, s.y, 3, 200, ux * 120, uy * 120);
+    } else if (s.kind === K.LASER || s.kind === K.PISTOL || s.kind === K.BOLT || s.kind === K.PULSE_BOLT || s.kind === K.SHOCK || s.kind === K.FIRE) {
+      for (let k = 0, m = lowQ ? 3 : 8; k < m; k++) { const a = Math.random() * 6.283, v = 120 + Math.random() * 300; puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.25 + Math.random() * 0.35, 1.2 + Math.random() * 1.2, k % 2 ? SHOTS[s.kind].col : "#ffffff", 5, 0, 0, 0.93); }
+    }
     impact(s.x, s.y, SHOTS[s.kind].col, s.kind === K.ROCKET || s.kind === K.RAIL ? 2 : 1);
   }
   // extra muzzle effects some guns have, on top of the flash and recoil every gun gets
@@ -8331,7 +8346,7 @@ details.controls[open] .clist { margin-top: 8px; }
         if (Math.random() < stepDt * 12) puff(s.x, s.y, (Math.random() - .5) * 60, (Math.random() - .5) * 60, 0.4, 2, "#8ff0ff");
         continue;
       }
-      if (s.kind === K.GAMMA) gammaZap(s, stepDt, now);
+      // (the demonic orb no longer zaps what is near it: it hits, and bursts)
       if (s.kind === K.NUKE) {
         if (Math.random() < stepDt * 70) puff(s.x, s.y, -s.vx * 0.15 + (Math.random() - .5) * 50, -s.vy * 0.15 + (Math.random() - .5) * 50, 0.9, 3 + Math.random() * 3, Math.random() < 0.5 ? "#8a7fb0" : "#ffe14d");
         continue;
@@ -9405,28 +9420,20 @@ details.controls[open] .clist { margin-top: 8px; }
       g.restore();
       return;
     }
-    if (s.kind === K.GAMMA) {   // a slow area-control orb: show the actual unobstructed zap boundary
-      g.save();
-      const phase = (now % (GAMMA_ZAP.every * 1000)) / (GAMMA_ZAP.every * 1000);
-      g.strokeStyle = "rgba(100,255,135,.22)"; g.lineWidth = 1.5;
-      for (let i = 0; i < 48; i++) {
-        const a = i / 48 * Math.PI * 2, mid = a + .045;
-        if (fixedCover(s.x, s.y, s.x + Math.cos(mid) * GAMMA_ZAP.r, s.y + Math.sin(mid) * GAMMA_ZAP.r)) continue;
-        g.beginPath(); g.arc(x, y, GAMMA_ZAP.r, a, a + .085); g.stroke();
-      }
-      g.strokeStyle = `rgba(100,255,135,${.3 * (1 - phase)})`;
-      g.beginPath(); g.arc(x, y, 38 + phase * 24, 0, 6.29); g.stroke();
-      if (s.mine && me.weapon === "gamma" && s.life > 0) {
-        g.font = `700 ${12 * TS}px ` + DISPLAY_FONT; g.textAlign = "center"; g.fillStyle = "#b9ffbe";
-        g.fillText("ALT · DETONATE · " + s.life.toFixed(1) + "s", x, y - 52);
+    if (s.kind === K.GAMMA) {   // the demonic orb: a churning ball of hellfire in a shroud of green flame and smoke
+      const speed = Math.hypot(s.vx, s.vy) || 1, ux = s.vx / speed, uy = s.vy / speed;
+      g.save(); g.globalCompositeOperation = "lighter";
+      g.globalAlpha = 0.3; g.drawImage(dotSprite("#2cff5a"), x - 110, y - 110, 220, 220);
+      g.globalCompositeOperation = "source-over";   // (the shroud laid over, not added: it stays green, dark at its edges)
+      // the shroud: flame clouds turning round it both ways, streaming back along its flight
+      for (let i = 0; i < 10; i++) {
+        const a = now / (i % 2 ? 700 : -900) + i * 0.628, rr = 22 + (i % 3) * 10 + Math.sin(now / 230 + i) * 5, back = (i % 4) * 9;
+        const cx = x + Math.cos(a) * rr - ux * back, cy = y + Math.sin(a) * rr - uy * back, d = 46 + (i % 3) * 14;
+        g.globalAlpha = 0.7; g.save(); g.translate(cx, cy); g.rotate(now / 400 + i);
+        g.drawImage(fireSprite(3 + (i % 5), i & 3, DEMON_RAMP), -d / 2, -d / 2, d, d); g.restore();
       }
       g.restore();
-      const speed = Math.hypot(s.vx, s.vy) || 1;
-      for (let i = 3; i > 0; i--) {
-        const trail = 22 + i * 7; g.save(); g.globalAlpha = 0.14 / i;
-        g.drawImage(dotSprite("#35ff61"), x - s.vx / speed * i * 22 - trail, y - s.vy / speed * i * 22 - trail, trail * 2, trail * 2); g.restore();
-      }
-      drawDemonicOrb(x, y, 32 + Math.sin(now / 160) * 1.5, now);
+      drawDemonicOrb(x, y, 30 + Math.sin(now / 160) * 2, now);
       return;
     }
     if (s.kind === K.BEACON) {   // the teleporter's beacon: a cyan diamond with a beating ring
@@ -11399,7 +11406,7 @@ details.controls[open] .clist { margin-top: 8px; }
       const uvOf = (x, y) => [(x - cam.x) / vw + 0.5, 0.5 - (y - cam.y) / vh];
       return {
         // amount: smoke thickness; col: its colour (0..1); vx, vy: a push (world px/s); radial: a push straight out
-        splat(x, y, r, col, amount, vx = 0, vy = 0, radial = 0) { if (splats.length < 40) splats.push([x, y, r, col, amount, vx, vy, radial]); },
+        splat(x, y, r, col, amount, vx = 0, vy = 0, radial = 0) { if (splats.length < 64) splats.push([x, y, r, col, amount, vx, vy, radial]); },
         step(dt) {
           if (!ok) return false;
           const w = 192, h = Math.max(32, Math.round(192 * vh / vw));
@@ -11418,8 +11425,8 @@ details.controls[open] .clist { margin-top: 8px; }
           run(F.div, DIV, p => { use(5, V.r.t); gl.uniform1i(p.u("vel"), 5); });
           for (let i = 0; i < 16; i++) { run(F.press, PR.w, p => { use(5, PR.r.t); use(6, DIV.t); gl.uniform1i(p.u("pr"), 5); gl.uniform1i(p.u("dv"), 6); }); PR.swap(); }
           run(F.grad, V.w, p => { use(5, PR.r.t); use(6, V.r.t); gl.uniform1i(p.u("pr"), 5); gl.uniform1i(p.u("vel"), 6); }); V.swap();
-          run(F.advect, V.w, p => { use(5, V.r.t); gl.uniform1i(p.u("vel"), 5); gl.uniform1i(p.u("src"), 5); gl.uniform2f(p.u("shift"), shift[0], shift[1]); gl.uniform1f(p.u("dt"), dt); gl.uniform1f(p.u("keep"), Math.pow(0.35, dt)); }); V.swap();
-          run(F.advect, D.w, p => { use(5, V.r.t); use(6, D.r.t); gl.uniform1i(p.u("vel"), 5); gl.uniform1i(p.u("src"), 6); gl.uniform2f(p.u("shift"), shift[0], shift[1]); gl.uniform1f(p.u("dt"), dt); gl.uniform1f(p.u("keep"), Math.pow(0.42, dt)); }); D.swap();
+          run(F.advect, V.w, p => { use(5, V.r.t); gl.uniform1i(p.u("vel"), 5); gl.uniform1i(p.u("src"), 5); gl.uniform2f(p.u("shift"), shift[0], shift[1]); gl.uniform1f(p.u("dt"), dt); gl.uniform1f(p.u("keep"), Math.pow(0.5, dt)); }); V.swap();
+          run(F.advect, D.w, p => { use(5, V.r.t); use(6, D.r.t); gl.uniform1i(p.u("vel"), 5); gl.uniform1i(p.u("src"), 6); gl.uniform2f(p.u("shift"), shift[0], shift[1]); gl.uniform1f(p.u("dt"), dt); gl.uniform1f(p.u("keep"), Math.pow(0.6, dt)); }); D.swap();
           return true;
         },
         dye: () => D.r.t,
@@ -11428,13 +11435,20 @@ details.controls[open] .clist { margin-top: 8px; }
     } catch (e) { console.warn("fluid smoke off:", e.message); return null; } })();
     // what stirs and fills the fluid this frame: new blasts and fires (impacts that throw light), rockets, fast bins
     function feedFluid() {
+      // fires keep smoking while they burn; bins badly hurt smoke too
+      for (const m of impacts) if (m.flick && m.t >= 0 && m.t < m.dur) fluid.splat(m.x + (Math.random() - 0.5) * 40, m.y + (Math.random() - 0.5) * 40, 26, [0.2, 0.18, 0.18], 0.12, (Math.random() - 0.5) * 120, (Math.random() - 0.5) * 120);
+      const smoking = o => { if (!o.dead && o.lives !== undefined && damageOf(o) > 0.45) fluid.splat(o.x, o.y, 18, [0.22, 0.2, 0.22], 0.06 * damageOf(o), -(o.vx || 0) * 0.3, -(o.vy || 0) * 0.3); };
+      if (playing) smoking(me);
+      for (const r of remotes.values()) smoking(r);
+      for (const h of hulks) fluid.splat(h.x, h.y, 22, [0.2, 0.19, 0.2], 0.05, 0, 0);
       for (const m of impacts) {
         if (!m.soft || m.fluided || m.t < 0) continue;
         m.fluided = true;
         const big = m.r > 200, fire = !!m.flick;
-        fluid.splat(m.x, m.y, m.r * 0.35, fire ? [0.32, 0.27, 0.25] : [0.42, 0.4, 0.42], big ? 1.6 : 0.8, 0, 0, m.r * 3.2);
+        fluid.splat(m.x, m.y, m.r * 0.4, fire ? [0.26, 0.22, 0.21] : [0.34, 0.32, 0.34], big ? 3.2 : 1.6, 0, 0, m.r * 3.2);
       }
       for (const s of shots) if ((s.kind === K.ROCKET || s.kind === K.HROCKET || s.kind === K.NUKE) && s.life > 0) fluid.splat(s.x, s.y, 16, [0.5, 0.48, 0.5], 0.09, -s.vx * 0.25, -s.vy * 0.25);
+        else if (s.kind === K.GAMMA && s.life > 0) fluid.splat(s.x + (Math.random() - 0.5) * 30, s.y + (Math.random() - 0.5) * 30, 30, [0.12, 0.75, 0.25], 0.16, -s.vx * 0.4 + (Math.random() - 0.5) * 300, -s.vy * 0.4 + (Math.random() - 0.5) * 300);   // its green clouds
       const stir = o => { const sp = Math.hypot(o.vx || 0, o.vy || 0); if (sp > 160) fluid.splat(o.x, o.y, 34, null, 0, o.vx * 0.9, o.vy * 0.9); };
       if (playing && !me.dead) stir(me);
       for (const r of remotes.values()) if (!r.dead) stir(r);
