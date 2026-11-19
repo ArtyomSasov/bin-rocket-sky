@@ -1657,6 +1657,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // every black hole open now: the event's, and those the void bombs opened (each for its dur: it swells open in
   // the first eighth of a second and closes in its last sixth). v: a void bomb's
   const voids = [];
+  // a hole's reach and strength: a void bomb's reaches further and pulls harder than the event's, and eats wider
+  const holeReach = bh => bh.v ? 2600 : 1500, holePower = bh => bh.v ? 1.5 : 1;
   function holesNow() {
     const out = [], ev = eventAt(clockNow()), t = performance.now();
     if (ev.active && ev.type === "blackhole") out.push(blackHole(ev));
@@ -7695,7 +7697,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       for (const bh of holes) {   // and away from a black hole (the event's, a void bomb's)
         const hx = b.x - bh.x, hy = b.y - bh.y, hd = Math.hypot(hx, hy) || 1;
         if (hd < 900 && !human) { dx += hx / hd * 3 * (1 - hd / 900) * 2; dy += hy / hd * 3 * (1 - hd / 900) * 2; }
-        if (hd < 1500) { const acc = bh.k * 9e7 / (hd * hd + 1.5e4); b.vx -= hx / hd * acc * dt; b.vy -= hy / hd * acc * dt; }
+        if (hd < holeReach(bh)) { const acc = holePower(bh) * bh.k * 9e7 / (hd * hd + 1.5e4); b.vx -= hx / hd * acc * dt; b.vy -= hy / hd * acc * dt; }
         if (hd < 60 * bh.k) botHurt(b, 99, "x", now, true);
       }
       if (stationMap() && !human) {
@@ -10625,39 +10627,28 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const bannerEl = document.getElementById("eventBanner");
   let bannerAcc = 0;
 
-  function updateEvents(dt, now) {
-    if (stationMap()) { bannerEl.hidden = true; return; }
-    const ev = eventAt(clockNow());
-    bannerAcc += dt;
-    if (bannerAcc > 0.25) {
-      bannerAcc = 0;
-      const info = EV_INFO[ev.type];
-      if (ev.warn || ev.active) {
-        bannerEl.hidden = false;
-        bannerEl.style.setProperty("--ev", info.col);
-        bannerEl.textContent = ev.warn ? info.warn + " · " + Math.ceil(EV_START - ev.ph) + "…" : info.on + " · " + Math.ceil(EV_LEN - ev.et) + "s";
-        bannerEl.classList.toggle("warn", ev.warn);
-      } else bannerEl.hidden = true;
-    }
+  // every black hole open (the event's, a void bomb's) acts on the world, on any map: it bends and swallows shots,
+  // drags in everything loose, and bites away what stands near it
+  function holesTick(dt, now) {
     for (const bh of holesNow()) {
       // shots bend toward the hole and vanish at the horizon
       for (const s of shots) {
         const dx = bh.x - s.x, dy = bh.y - s.y, d = Math.hypot(dx, dy) || 1;
         if (d < 60 * bh.k) { s.life = 0; continue; }
-        if (d < 1500) { const acc = bh.k * 9e7 / (d * d + 1.5e4); s.vx += dx / d * acc * dt; s.vy += dy / d * acc * dt; }
+        if (d < holeReach(bh)) { const acc = holePower(bh) * bh.k * 9e7 / (d * d + 1.5e4); s.vx += dx / d * acc * dt; s.vy += dy / d * acc * dt; }
       }
       // loose rubble and flying wreckage fall in the same way, and whatever reaches the horizon is gone for good
-      const eat = HOLE_EAT * bh.k;
+      const eat = HOLE_EAT * bh.k * (bh.v ? 2.2 : 1), reach = holeReach(bh), pw = holePower(bh);
       // (and all the small stuff: smoke, sparks, chunks, cases, drops, spiralling in)
       for (const list of [parts, chunks, casings, oilDrops]) for (const o of list) {
         const dx = bh.x - o.x, dy = bh.y - o.y, d = Math.hypot(dx, dy) || 1;
-        if (d > 1600) continue;
-        const acc = bh.k * 6e7 / (d * d + 2e4); o.vx += (dx / d + dy / d * 0.6) * acc * dt; o.vy += (dy / d - dx / d * 0.6) * acc * dt;
+        if (d > reach + 100) continue;
+        const acc = pw * bh.k * 6e7 / (d * d + 2e4); o.vx += (dx / d + dy / d * 0.6) * acc * dt; o.vy += (dy / d - dx / d * 0.6) * acc * dt;
         if (d < eat && list === parts) o.life = Math.min(o.life, 0.05);
       }
       for (const list of [rubble, hulks, frags, debris]) for (let i = list.length - 1; i >= 0; i--) {
         const o = list[i], dx = bh.x - o.x, dy = bh.y - o.y, d = Math.hypot(dx, dy) || 1;
-        if (d < 1500) { const acc = bh.k * 4e7 / (d * d + 1.5e4); o.vx += (dx / d + dy / d * 0.35) * acc * dt; o.vy += (dy / d - dx / d * 0.35) * acc * dt; }
+        if (d < reach) { const acc = pw * bh.k * 4e7 / (d * d + 1.5e4); o.vx += (dx / d + dy / d * 0.35) * acc * dt; o.vy += (dy / d - dx / d * 0.35) * acc * dt; }
         if (d < eat + 20) {
           swallowFx(o.x, o.y, bh, list === rubble ? bodyCol(o) : "#c38bff");
           if (list === rubble) { o.dead = true; rebuildBodies(); } else list.splice(i, 1);
@@ -10682,6 +10673,23 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         }
       }
     }
+  }
+  function updateEvents(dt, now) {
+    holesTick(dt, now);
+    if (stationMap()) { bannerEl.hidden = true; return; }
+    const ev = eventAt(clockNow());
+    bannerAcc += dt;
+    if (bannerAcc > 0.25) {
+      bannerAcc = 0;
+      const info = EV_INFO[ev.type];
+      if (ev.warn || ev.active) {
+        bannerEl.hidden = false;
+        bannerEl.style.setProperty("--ev", info.col);
+        bannerEl.textContent = ev.warn ? info.warn + " · " + Math.ceil(EV_START - ev.ph) + "…" : info.on + " · " + Math.ceil(EV_LEN - ev.et) + "s";
+        bannerEl.classList.toggle("warn", ev.warn);
+      } else bannerEl.hidden = true;
+    }
+
     if (playing && !me.dead && roundLive) for (const bh of holesNow()) if (bh.v) holeOnMe(bh, dt, now);   // (a void bomb's hole, whatever the event)
     if (!ev.active || !playing || me.dead || !roundLive) return;   // events leave you alone during the results break
     const mr = 30 * sizeOf(me.lv);
@@ -10870,8 +10878,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   function holeOnMe(bh, dt, now) {
       const dx = bh.x - me.x, dy = bh.y - me.y, d = Math.hypot(dx, dy) || 1;
       // pull ~ 1/d^2: drifting is fine far out, under ~200 px only a boost gets you out, under ~140 px nothing does
-      if (d < 1500) {
-        const acc = bh.k * 9e7 / (d * d + 1.5e4);
+      if (d < holeReach(bh)) {
+        const acc = holePower(bh) * bh.k * 9e7 / (d * d + 1.5e4);
         me.vx += dx / d * acc * dt; me.vy += dy / d * acc * dt;
       }
       if (d < 60 * bh.k) {
@@ -11757,7 +11765,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       "varying vec2 v;uniform sampler2D m;uniform vec2 cam,view,world;uniform vec4 lp[16];uniform vec3 lc[16];uniform float lh[16];uniform float ls[16];uniform float n;void main(){" +
       "vec2 p=cam+vec2(v.x-.5,.5-v.y)*view;vec3 acc=vec3(0.);float heat=0.;float self=texture2D(m,p/world).a;" +
       "for(int i=0;i<16;i++){if(float(i)>=n)break;vec4 L=lp[i];vec2 d=L.xy-p;float r=length(d);if(r>L.z)continue;float a=1.-r/L.z;a*=a*L.w;" +
-      "float vis=1.;if(self<.5){vec2 st=d/r*min(r*.92,260.)/10.;for(int k=1;k<10;k++){vec2 q=p+st*float(k);if(length(L.xy-q)>ls[i]&&texture2D(m,q/world).a>.5){vis=0.;break;}}}" +
+      "float vis=1.;if(self<.5){vec2 st=d/r*min(r*.92,260.)/14.;for(int k=1;k<14;k++){vec2 q=p+st*float(k);if(length(L.xy-q)>ls[i]&&texture2D(m,q/world).a>.5){vis=0.;break;}}}" +
       "acc+=lc[i]*a*vis;float hz=1.-r/(L.z*.6);heat+=lh[i]*max(hz,0.)*max(hz,0.);}gl_FragColor=vec4(acc,min(heat,1.));}";
     // heat haze: where the light map says it is hot (its alpha), the picture shimmers (two waves out of step)
     // shock waves (up to 4: centre, radius, width, strength in the view's terms): the picture bends outward across each
@@ -11886,7 +11894,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const mask = document.createElement("canvas"), mq = mask.getContext("2d");
     let maskN = 0;
     function drawMask() {
-      const M = 384, k = M / Math.max(W, H);
+      const M = 768, k = M / Math.max(W, H);   // (fine enough for crisp shadows)
       if (mask.width !== Math.round(W * k) || mask.height !== Math.round(H * k)) { mask.width = Math.round(W * k); mask.height = Math.round(H * k); }
       mq.setTransform(1, 0, 0, 1, 0, 0); mq.clearRect(0, 0, mask.width, mask.height);
       for (const b of bodies) {
@@ -11983,11 +11991,12 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
           pass(P.blur, A1, w1, h1, p => { use(0, B1.t); gl.uniform1i(p.u("t"), 0); gl.uniform2f(p.u("d"), 0, 1 / h1); });
           pass(P.blur, B2, w2, h2, p => { use(0, A1.t); gl.uniform1i(p.u("t"), 0); gl.uniform2f(p.u("d"), 1 / w2, 0); });
           pass(P.blur, A2, w2, h2, p => { use(0, B2.t); gl.uniform1i(p.u("t"), 0); gl.uniform2f(p.u("d"), 0, 1 / h2); });
-          // the light map, a quarter of the size (soft enough as it is scaled up)
+          // the light map, at half the size (its shadows crisp enough)
           if (maskN++ % 3 === 0) drawMask();
           const nl = gatherLights(performance.now());
-          fit(LM, w1, h1);
-          pass(P.light, LM, w1, h1, p => { use(3, maskTex); gl.uniform1i(p.u("m"), 3); gl.uniform2f(p.u("cam"), cam.x, cam.y); gl.uniform2f(p.u("view"), vw, vh); gl.uniform2f(p.u("world"), W, H);
+          const wL = Math.max(1, W0 >> 1), hL = Math.max(1, H0 >> 1);
+          fit(LM, wL, hL);
+          pass(P.light, LM, wL, hL, p => { use(3, maskTex); gl.uniform1i(p.u("m"), 3); gl.uniform2f(p.u("cam"), cam.x, cam.y); gl.uniform2f(p.u("view"), vw, vh); gl.uniform2f(p.u("world"), W, H);
             gl.uniform1f(p.u("n"), nl); if (nl) { gl.uniform4fv(p.u("lp"), LP); gl.uniform3fv(p.u("lc"), LC); gl.uniform1fv(p.u("lh"), LH); gl.uniform1fv(p.u("ls"), LS); } });
           kick = Math.max(0, kick - dt * 3.5);
           const fl = fluid && settings.post !== "lite" ? (feedFluid(), fluid.step(dt)) : false;

@@ -197,7 +197,7 @@
       for (const bh of holes) {   // and away from a black hole (the event's, a void bomb's)
         const hx = b.x - bh.x, hy = b.y - bh.y, hd = Math.hypot(hx, hy) || 1;
         if (hd < 900 && !human) { dx += hx / hd * 3 * (1 - hd / 900) * 2; dy += hy / hd * 3 * (1 - hd / 900) * 2; }
-        if (hd < 1500) { const acc = bh.k * 9e7 / (hd * hd + 1.5e4); b.vx -= hx / hd * acc * dt; b.vy -= hy / hd * acc * dt; }
+        if (hd < holeReach(bh)) { const acc = holePower(bh) * bh.k * 9e7 / (hd * hd + 1.5e4); b.vx -= hx / hd * acc * dt; b.vy -= hy / hd * acc * dt; }
         if (hd < 60 * bh.k) botHurt(b, 99, "x", now, true);
       }
       if (stationMap() && !human) {

@@ -42,39 +42,28 @@
   const bannerEl = document.getElementById("eventBanner");
   let bannerAcc = 0;
 
-  function updateEvents(dt, now) {
-    if (stationMap()) { bannerEl.hidden = true; return; }
-    const ev = eventAt(clockNow());
-    bannerAcc += dt;
-    if (bannerAcc > 0.25) {
-      bannerAcc = 0;
-      const info = EV_INFO[ev.type];
-      if (ev.warn || ev.active) {
-        bannerEl.hidden = false;
-        bannerEl.style.setProperty("--ev", info.col);
-        bannerEl.textContent = ev.warn ? info.warn + " · " + Math.ceil(EV_START - ev.ph) + "…" : info.on + " · " + Math.ceil(EV_LEN - ev.et) + "s";
-        bannerEl.classList.toggle("warn", ev.warn);
-      } else bannerEl.hidden = true;
-    }
+  // every black hole open (the event's, a void bomb's) acts on the world, on any map: it bends and swallows shots,
+  // drags in everything loose, and bites away what stands near it
+  function holesTick(dt, now) {
     for (const bh of holesNow()) {
       // shots bend toward the hole and vanish at the horizon
       for (const s of shots) {
         const dx = bh.x - s.x, dy = bh.y - s.y, d = Math.hypot(dx, dy) || 1;
         if (d < 60 * bh.k) { s.life = 0; continue; }
-        if (d < 1500) { const acc = bh.k * 9e7 / (d * d + 1.5e4); s.vx += dx / d * acc * dt; s.vy += dy / d * acc * dt; }
+        if (d < holeReach(bh)) { const acc = holePower(bh) * bh.k * 9e7 / (d * d + 1.5e4); s.vx += dx / d * acc * dt; s.vy += dy / d * acc * dt; }
       }
       // loose rubble and flying wreckage fall in the same way, and whatever reaches the horizon is gone for good
-      const eat = HOLE_EAT * bh.k;
+      const eat = HOLE_EAT * bh.k * (bh.v ? 2.2 : 1), reach = holeReach(bh), pw = holePower(bh);
       // (and all the small stuff: smoke, sparks, chunks, cases, drops, spiralling in)
       for (const list of [parts, chunks, casings, oilDrops]) for (const o of list) {
         const dx = bh.x - o.x, dy = bh.y - o.y, d = Math.hypot(dx, dy) || 1;
-        if (d > 1600) continue;
-        const acc = bh.k * 6e7 / (d * d + 2e4); o.vx += (dx / d + dy / d * 0.6) * acc * dt; o.vy += (dy / d - dx / d * 0.6) * acc * dt;
+        if (d > reach + 100) continue;
+        const acc = pw * bh.k * 6e7 / (d * d + 2e4); o.vx += (dx / d + dy / d * 0.6) * acc * dt; o.vy += (dy / d - dx / d * 0.6) * acc * dt;
         if (d < eat && list === parts) o.life = Math.min(o.life, 0.05);
       }
       for (const list of [rubble, hulks, frags, debris]) for (let i = list.length - 1; i >= 0; i--) {
         const o = list[i], dx = bh.x - o.x, dy = bh.y - o.y, d = Math.hypot(dx, dy) || 1;
-        if (d < 1500) { const acc = bh.k * 4e7 / (d * d + 1.5e4); o.vx += (dx / d + dy / d * 0.35) * acc * dt; o.vy += (dy / d - dx / d * 0.35) * acc * dt; }
+        if (d < reach) { const acc = pw * bh.k * 4e7 / (d * d + 1.5e4); o.vx += (dx / d + dy / d * 0.35) * acc * dt; o.vy += (dy / d - dx / d * 0.35) * acc * dt; }
         if (d < eat + 20) {
           swallowFx(o.x, o.y, bh, list === rubble ? bodyCol(o) : "#c38bff");
           if (list === rubble) { o.dead = true; rebuildBodies(); } else list.splice(i, 1);
@@ -99,6 +88,23 @@
         }
       }
     }
+  }
+  function updateEvents(dt, now) {
+    holesTick(dt, now);
+    if (stationMap()) { bannerEl.hidden = true; return; }
+    const ev = eventAt(clockNow());
+    bannerAcc += dt;
+    if (bannerAcc > 0.25) {
+      bannerAcc = 0;
+      const info = EV_INFO[ev.type];
+      if (ev.warn || ev.active) {
+        bannerEl.hidden = false;
+        bannerEl.style.setProperty("--ev", info.col);
+        bannerEl.textContent = ev.warn ? info.warn + " · " + Math.ceil(EV_START - ev.ph) + "…" : info.on + " · " + Math.ceil(EV_LEN - ev.et) + "s";
+        bannerEl.classList.toggle("warn", ev.warn);
+      } else bannerEl.hidden = true;
+    }
+
     if (playing && !me.dead && roundLive) for (const bh of holesNow()) if (bh.v) holeOnMe(bh, dt, now);   // (a void bomb's hole, whatever the event)
     if (!ev.active || !playing || me.dead || !roundLive) return;   // events leave you alone during the results break
     const mr = 30 * sizeOf(me.lv);
@@ -287,8 +293,8 @@
   function holeOnMe(bh, dt, now) {
       const dx = bh.x - me.x, dy = bh.y - me.y, d = Math.hypot(dx, dy) || 1;
       // pull ~ 1/d^2: drifting is fine far out, under ~200 px only a boost gets you out, under ~140 px nothing does
-      if (d < 1500) {
-        const acc = bh.k * 9e7 / (d * d + 1.5e4);
+      if (d < holeReach(bh)) {
+        const acc = holePower(bh) * bh.k * 9e7 / (d * d + 1.5e4);
         me.vx += dx / d * acc * dt; me.vy += dy / d * acc * dt;
       }
       if (d < 60 * bh.k) {

@@ -31,7 +31,7 @@
       "varying vec2 v;uniform sampler2D m;uniform vec2 cam,view,world;uniform vec4 lp[16];uniform vec3 lc[16];uniform float lh[16];uniform float ls[16];uniform float n;void main(){" +
       "vec2 p=cam+vec2(v.x-.5,.5-v.y)*view;vec3 acc=vec3(0.);float heat=0.;float self=texture2D(m,p/world).a;" +
       "for(int i=0;i<16;i++){if(float(i)>=n)break;vec4 L=lp[i];vec2 d=L.xy-p;float r=length(d);if(r>L.z)continue;float a=1.-r/L.z;a*=a*L.w;" +
-      "float vis=1.;if(self<.5){vec2 st=d/r*min(r*.92,260.)/10.;for(int k=1;k<10;k++){vec2 q=p+st*float(k);if(length(L.xy-q)>ls[i]&&texture2D(m,q/world).a>.5){vis=0.;break;}}}" +
+      "float vis=1.;if(self<.5){vec2 st=d/r*min(r*.92,260.)/14.;for(int k=1;k<14;k++){vec2 q=p+st*float(k);if(length(L.xy-q)>ls[i]&&texture2D(m,q/world).a>.5){vis=0.;break;}}}" +
       "acc+=lc[i]*a*vis;float hz=1.-r/(L.z*.6);heat+=lh[i]*max(hz,0.)*max(hz,0.);}gl_FragColor=vec4(acc,min(heat,1.));}";
     // heat haze: where the light map says it is hot (its alpha), the picture shimmers (two waves out of step)
     // shock waves (up to 4: centre, radius, width, strength in the view's terms): the picture bends outward across each
@@ -160,7 +160,7 @@
     const mask = document.createElement("canvas"), mq = mask.getContext("2d");
     let maskN = 0;
     function drawMask() {
-      const M = 384, k = M / Math.max(W, H);
+      const M = 768, k = M / Math.max(W, H);   // (fine enough for crisp shadows)
       if (mask.width !== Math.round(W * k) || mask.height !== Math.round(H * k)) { mask.width = Math.round(W * k); mask.height = Math.round(H * k); }
       mq.setTransform(1, 0, 0, 1, 0, 0); mq.clearRect(0, 0, mask.width, mask.height);
       for (const b of bodies) {
@@ -257,11 +257,12 @@
           pass(P.blur, A1, w1, h1, p => { use(0, B1.t); gl.uniform1i(p.u("t"), 0); gl.uniform2f(p.u("d"), 0, 1 / h1); });
           pass(P.blur, B2, w2, h2, p => { use(0, A1.t); gl.uniform1i(p.u("t"), 0); gl.uniform2f(p.u("d"), 1 / w2, 0); });
           pass(P.blur, A2, w2, h2, p => { use(0, B2.t); gl.uniform1i(p.u("t"), 0); gl.uniform2f(p.u("d"), 0, 1 / h2); });
-          // the light map, a quarter of the size (soft enough as it is scaled up)
+          // the light map, at half the size (its shadows crisp enough)
           if (maskN++ % 3 === 0) drawMask();
           const nl = gatherLights(performance.now());
-          fit(LM, w1, h1);
-          pass(P.light, LM, w1, h1, p => { use(3, maskTex); gl.uniform1i(p.u("m"), 3); gl.uniform2f(p.u("cam"), cam.x, cam.y); gl.uniform2f(p.u("view"), vw, vh); gl.uniform2f(p.u("world"), W, H);
+          const wL = Math.max(1, W0 >> 1), hL = Math.max(1, H0 >> 1);
+          fit(LM, wL, hL);
+          pass(P.light, LM, wL, hL, p => { use(3, maskTex); gl.uniform1i(p.u("m"), 3); gl.uniform2f(p.u("cam"), cam.x, cam.y); gl.uniform2f(p.u("view"), vw, vh); gl.uniform2f(p.u("world"), W, H);
             gl.uniform1f(p.u("n"), nl); if (nl) { gl.uniform4fv(p.u("lp"), LP); gl.uniform3fv(p.u("lc"), LC); gl.uniform1fv(p.u("lh"), LH); gl.uniform1fv(p.u("ls"), LS); } });
           kick = Math.max(0, kick - dt * 3.5);
           const fl = fluid && settings.post !== "lite" ? (feedFluid(), fluid.step(dt)) : false;
