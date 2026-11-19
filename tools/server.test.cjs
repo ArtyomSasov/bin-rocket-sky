@@ -219,3 +219,22 @@ test('a player’s network report is taken as numbers only; nonsense in it chang
   assert.equal((await ws.next(m => m.t === 'pong' && m.c === 7)).c, 7, 'still served');
   ws.close();
 });
+
+test('a full server lets a new game in by closing a room nobody is in', { skip }, async () => {
+  // fill every room, then empty them: the rooms stay open a minute, yet a new code still gets a room
+  const open = [];
+  for (let k = 0; open.length < 4 && k < 8; k++) {
+    const ws = client({ 'x-forwarded-for': '10.9.0.' + k }); await ws.opened;
+    ws.sendJ({ t: 'join', code: 'm1d0ofull' + k, name: 'Filler' });
+    const m = await ws.next(m => m.t === 'welcome' || m.t === 'error');
+    if (m.t === 'welcome') open.push(ws); else ws.close();
+  }
+  for (const ws of open) ws.close();
+  await new Promise(r => setTimeout(r, 300));
+  const ws = client({ 'x-forwarded-for': '10.9.1.1' }); await ws.opened;
+  ws.sendJ({ t: 'join', code: 'm1d0onew', name: 'Newcomer' });
+  const m = await ws.next(m => m.t === 'welcome' || m.t === 'error');
+  assert.equal(m.t, 'welcome', 'refused: ' + m.reason);
+  ws.close();
+});
+

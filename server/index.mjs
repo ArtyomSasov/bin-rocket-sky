@@ -23,6 +23,7 @@ import { rtcReady, openRtc, rtcShutdown } from "./rtc.mjs";
 const env = (k, d) => (process.env[k] === undefined ? d : process.env[k]);
 const PORT = +env("PORT", 8080);
 const MAX_ROOMS = +env("MAX_ROOMS", 2);           // each match holds ~150-260 MB (its maps' canvases)
+const ROOM_MEM_MB = +env("ROOM_MEM_MB", 0);       // past MAX_ROOMS, another room opens while the process uses less than this (0: never)
 const MAX_PLAYERS = +env("MAX_PLAYERS", 16);      // per room; bots fill the rest up to 24
 const PER_IP = +env("PER_IP", 6);                 // open connections from one address
 const ROOM_IDLE_MS = +env("ROOM_IDLE_MS", 60000); // an empty room is kept this long for someone to come back
@@ -69,18 +70,17 @@ function broadcast(room, now) {
   let packet;
   try { packet = room.match.packet(now); } catch (e) { log("packet failed", room.code, e.stack); return; }
   if (!room.clients.size) return;   // built anyway: it is also how the pilots see each other
-  const data = JSON.stringify({ t: "snap", ...packet });
-  let plain = null;   // the snapshot as the JSON carries it, for the binary delta streams
+  let data = null, plain = null;   // the snapshot as JSON text and as plain values, each made once and only if needed
   for (const ws of room.clients) {
     if (ws.readyState !== 1 || ws.bufferedAmount >= 512 * 1024) continue;   // a stalled client skips snapshots
-    if (!ws.delta) { ws.send(data); continue; }   // an older page: the whole snapshot as JSON
+    if (!ws.delta) { ws.send(data ||= JSON.stringify({ t: "snap", ...packet })); continue; }   // an older page: the whole snapshot as JSON
     try {
-      plain ||= JSON.parse(data);
+      plain ||= JSON.parse(data ||= JSON.stringify({ t: "snap", ...packet }));   // (the engine's own JSON is the quickest way to plain values)
       const bytes = deltaFrame(ws.delta, plain, ws.pid);
       if (ws.rtc?.usable() && ws.rtc.send(bytes)) ws.rtcUsed = true;   // the data channel while it works
       else ws.send(bytes, { binary: true });
     }
-    catch (e) { log("delta failed", room.code, e.stack); ws.delta = null; ws.send(data); }
+    catch (e) { log("delta failed", room.code, e.stack); ws.delta = null; ws.send(data ||= JSON.stringify({ t: "snap", ...packet })); }
   }
 }
 // rooms nobody has been in for a while are closed
@@ -207,7 +207,11 @@ wss.on("connection", (ws, req) => {
       if (!CODE.test(code)) { send(ws, { t: "error", reason: "bad code" }); ws.close(1008); return; }
       let r = rooms.get(code);
       if (!r) {
-        if (rooms.size >= MAX_ROOMS) { send(ws, { t: "error", reason: "server full" }); ws.close(1013); return; }
+        // full? An empty room (kept a minute for someone to come back) gives way to a new game at once; past that,
+        // another room opens while the memory allows it; only then is the server full
+        if (rooms.size >= MAX_ROOMS) for (const o of [...rooms.values()]) if (!o.clients.size) { closeRoom(o); if (rooms.size < MAX_ROOMS) break; }
+        const memOk = ROOM_MEM_MB > 0 && process.memoryUsage().rss / 1e6 < ROOM_MEM_MB;
+        if (rooms.size >= MAX_ROOMS && !memOk) { send(ws, { t: "error", reason: "server full" }); ws.close(1013); return; }
         // one address opens few rooms at a time, so nobody can take every room for themselves
         if ([...rooms.values()].filter(o => o.opener === addr).length >= ROOMS_PER_IP) { send(ws, { t: "error", reason: "you already have a room" }); ws.close(1013); return; }
         r = openRoom(code, m.bots, m.level); r.opener = addr; r.pub = m.pub === true;

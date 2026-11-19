@@ -172,6 +172,10 @@
     else if (o.regenWait <= 0) o.energy = Math.min(100, o.energy + 22 * dt);
     const f = flyPilot(o, st.x, st.y, boosting, !!c.brake, dt, o.mt * 1000, boosting || o.dashFx > 0);
     f.dashed = dashed; f.lit = lit;
+    // the state ends each command in hundredths, on both sides alike (as Gaffer on Games quantizes): the server sends
+    // exactly what it flies on from, small numbers the deltas shorten, and a replay from it is still exact
+    for (const k of MOVE_STATE) if (k !== "padAt") o[k] = Math.round(o[k] * 100) / 100;
+    st.x = Math.round(st.x * 1e4) / 1e4; st.y = Math.round(st.y * 1e4) / 1e4;
     return f;
   }
   // a player's command queue starts afresh (a respawn, a new round): nothing old is flown again or owed, and the
