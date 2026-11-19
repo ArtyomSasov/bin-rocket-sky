@@ -912,7 +912,14 @@
     drawScreenFx(now);
   }
   function drawWorld(now) {
-    if (shake > 0) g.translate((Math.random() - .5) * shake * 40, (Math.random() - .5) * shake * 40);
+    // camera shake as "trauma" (Squirrel Eiserloh's camera talk): what is felt goes with its square, so small knocks
+    // stay small and big ones hit hard, and it moves along smooth noise (a few sines out of step), not a new random
+    // jolt every frame; a slight roll with it
+    if (shake > 0) {
+      const t = Math.min(1, shake), k = t * t, s = now / 1000, n = (a, b, c) => (Math.sin(s * a) + Math.sin(s * b + 1.7) * 0.6 + Math.sin(s * c + 4.1) * 0.3) / 1.9;
+      g.translate(n(41, 67, 97) * k * 34, n(53, 79, 113) * k * 34);
+      if (k > 0.02) { const c = g.getTransform().inverse().transformPoint({ x: g.canvas.width / 2, y: g.canvas.height / 2 }); g.translate(c.x, c.y); g.rotate(n(23, 37, 59) * k * 0.035); g.translate(-c.x, -c.y); }   // (round the middle of the screen)
+    }
     g.translate(-camKick.x, -camKick.y);
     drawSky(now);
     drawWalls(now);

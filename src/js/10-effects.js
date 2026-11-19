@@ -331,12 +331,36 @@
       b.vx += dx / d * f; b.vy += dy / d * f; b.va += (hash(Math.round(b.x), Math.round(b.y), 3) - 0.5) * f / 150;
       b.hotUntil = Math.max(b.hotUntil || 0, performance.now() + 500);
     }
+    // wrecks, pieces and debris: pushed when the shock front gets to them (it runs out at SHOCK_SPEED), and by their
+    // weight: a hulk is heavy, a big piece of a bin less, a scrap of debris light
+    const now = performance.now();
     for (const list of [hulks, frags, debris]) for (const o of list) {
       const dx = o.x - x, dy = o.y - y, d = Math.hypot(dx, dy);
       if (d < 1 || d > r) continue;
-      const f = power * (1 - d / r);
-      o.vx += dx / d * f; o.vy += dy / d * f;
-      if ("spin" in o) o.spin += (Math.random() - 0.5) * f / 200; else o.vr += (Math.random() - 0.5) * f / 100;
+      const kg = list === hulks ? 3 : list === frags ? Math.max(0.6, (o.s || 40) / 60) : 0.5;
+      const f = power * (1 - d / r) / Math.sqrt(kg);
+      shockQueue.push({ at: now + d / SHOCK_SPEED * 1000, o, vx: dx / d * f, vy: dy / d * f, sp: (Math.random() - 0.5) * f / 200 });
+    }
+    if (shockQueue.length > 400) shockQueue.splice(0, shockQueue.length - 400);
+  }
+  const SHOCK_SPEED = 1800;   // px/s: how fast a blast's shock front runs out (its ring and the pushes keep the same pace)
+  const shockQueue = [];
+  function shockTick(now) {
+    for (let i = shockQueue.length - 1; i >= 0; i--) {
+      const e = shockQueue[i];
+      if (now < e.at) continue;
+      shockQueue.splice(i, 1);
+      const o = e.o; o.vx += e.vx; o.vy += e.vy;
+      if ("spin" in o) o.spin += e.sp; else o.vr = (o.vr || 0) + e.sp * 2;
+    }
+  }
+  // a bin's breakup goes on after the blast (as a ship's in a strategy game's scripted death): a piece or two still
+  // holding fuel pops a moment later, wherever it has flown, with a spray of sparks
+  function breakupPops(n) {
+    const pieces = frags.slice(-n);
+    for (let k = 0, m = Math.min(pieces.length, lowQ ? 1 : 2 + (Math.random() < 0.4 ? 1 : 0)); k < m; k++) {
+      const o = pieces[Math.floor(Math.random() * pieces.length)];
+      afterBlasts.push({ at: performance.now() + 180 + k * 160 + Math.random() * 200, o, speed: 160 + Math.random() * 60, pop: true });
     }
   }
   function binExplosion(b, n) {
@@ -350,7 +374,7 @@
       puff(b.x + Math.cos(a2) * 26 * sz, b.y + Math.sin(a2) * 26 * sz, Math.cos(a) * v, Math.sin(a) * v, 0.7 + Math.random() * 0.5, (14 + Math.random() * 10) * sz, FIRE_RAMP[0], 4, 0, 0, 0.9, 0.15 + Math.random() * 0.2);
     }
     if (Math.hypot(b.x - me.x, b.y - me.y) < 1400) sfx("boom_bin", 1, 1, b.x, b.y) || boomSound(0.9, 1400, 0.35);
-    shatter(b, n);
+    shatter(b, n); breakupPops(n);
     for (let k = 0; k < (lowQ ? 3 : 6); k++) {
       const a = Math.random() * 6.28, v = 60 + Math.random() * 200;
       addDebris(b.x, b.y, Math.cos(a) * v + (b.vx || 0) * 0.3, Math.sin(a) * v + (b.vy || 0) * 0.3, (4 + Math.random() * 7) * sz, k % 3 ? bodyCol : lidCol);

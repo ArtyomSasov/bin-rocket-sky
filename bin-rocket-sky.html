@@ -3870,12 +3870,36 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       b.vx += dx / d * f; b.vy += dy / d * f; b.va += (hash(Math.round(b.x), Math.round(b.y), 3) - 0.5) * f / 150;
       b.hotUntil = Math.max(b.hotUntil || 0, performance.now() + 500);
     }
+    // wrecks, pieces and debris: pushed when the shock front gets to them (it runs out at SHOCK_SPEED), and by their
+    // weight: a hulk is heavy, a big piece of a bin less, a scrap of debris light
+    const now = performance.now();
     for (const list of [hulks, frags, debris]) for (const o of list) {
       const dx = o.x - x, dy = o.y - y, d = Math.hypot(dx, dy);
       if (d < 1 || d > r) continue;
-      const f = power * (1 - d / r);
-      o.vx += dx / d * f; o.vy += dy / d * f;
-      if ("spin" in o) o.spin += (Math.random() - 0.5) * f / 200; else o.vr += (Math.random() - 0.5) * f / 100;
+      const kg = list === hulks ? 3 : list === frags ? Math.max(0.6, (o.s || 40) / 60) : 0.5;
+      const f = power * (1 - d / r) / Math.sqrt(kg);
+      shockQueue.push({ at: now + d / SHOCK_SPEED * 1000, o, vx: dx / d * f, vy: dy / d * f, sp: (Math.random() - 0.5) * f / 200 });
+    }
+    if (shockQueue.length > 400) shockQueue.splice(0, shockQueue.length - 400);
+  }
+  const SHOCK_SPEED = 1800;   // px/s: how fast a blast's shock front runs out (its ring and the pushes keep the same pace)
+  const shockQueue = [];
+  function shockTick(now) {
+    for (let i = shockQueue.length - 1; i >= 0; i--) {
+      const e = shockQueue[i];
+      if (now < e.at) continue;
+      shockQueue.splice(i, 1);
+      const o = e.o; o.vx += e.vx; o.vy += e.vy;
+      if ("spin" in o) o.spin += e.sp; else o.vr = (o.vr || 0) + e.sp * 2;
+    }
+  }
+  // a bin's breakup goes on after the blast (as a ship's in a strategy game's scripted death): a piece or two still
+  // holding fuel pops a moment later, wherever it has flown, with a spray of sparks
+  function breakupPops(n) {
+    const pieces = frags.slice(-n);
+    for (let k = 0, m = Math.min(pieces.length, lowQ ? 1 : 2 + (Math.random() < 0.4 ? 1 : 0)); k < m; k++) {
+      const o = pieces[Math.floor(Math.random() * pieces.length)];
+      afterBlasts.push({ at: performance.now() + 180 + k * 160 + Math.random() * 200, o, speed: 160 + Math.random() * 60, pop: true });
     }
   }
   function binExplosion(b, n) {
@@ -3889,7 +3913,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       puff(b.x + Math.cos(a2) * 26 * sz, b.y + Math.sin(a2) * 26 * sz, Math.cos(a) * v, Math.sin(a) * v, 0.7 + Math.random() * 0.5, (14 + Math.random() * 10) * sz, FIRE_RAMP[0], 4, 0, 0, 0.9, 0.15 + Math.random() * 0.2);
     }
     if (Math.hypot(b.x - me.x, b.y - me.y) < 1400) sfx("boom_bin", 1, 1, b.x, b.y) || boomSound(0.9, 1400, 0.35);
-    shatter(b, n);
+    shatter(b, n); breakupPops(n);
     for (let k = 0; k < (lowQ ? 3 : 6); k++) {
       const a = Math.random() * 6.28, v = 60 + Math.random() * 200;
       addDebris(b.x, b.y, Math.cos(a) * v + (b.vx || 0) * 0.3, Math.sin(a) * v + (b.vy || 0) * 0.3, (4 + Math.random() * 7) * sz, k % 3 ? bodyCol : lidCol);
@@ -8231,7 +8255,17 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         else puff(p.x, p.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 0.8 + Math.random() * 0.6, 3 + Math.random() * 3, SMOKE_COLS[1], 2, 0, 0, 0.94, 0.3);
       }
     }
-    for (let i = afterBlasts.length - 1; i >= 0; i--) if (now >= afterBlasts[i].at) { const b = afterBlasts[i]; afterBlasts.splice(i, 1); explode(b.x, b.y, 14, b.speed); }
+    shockTick(now);
+    for (let i = afterBlasts.length - 1; i >= 0; i--) if (now >= afterBlasts[i].at) {
+      const b = afterBlasts[i]; afterBlasts.splice(i, 1);
+      if (b.o) {   // a piece of a broken bin popping where it has flown to: a kick to it, sparks, a little fire
+        if (!frags.includes(b.o)) continue;
+        const o = b.o, a = Math.random() * 6.28;
+        explode(o.x, o.y, 12, b.speed); sparkShower(o.x, o.y, Math.cos(a), Math.sin(a), 0.9);
+        o.vx += Math.cos(a) * 120; o.vy += Math.sin(a) * 120; o.spin += (Math.random() - 0.5) * 4;
+        shake = Math.max(shake, Math.hypot(o.x - me.x, o.y - me.y) < 900 ? 0.12 : 0);
+      } else explode(b.x, b.y, 14, b.speed);
+    }
     const partCap = lowQ ? MAX_PARTS / 3 : MAX_PARTS;
     if (parts.length > partCap) parts.splice(0, parts.length - partCap);
     updateMelts(dt);
@@ -8493,7 +8527,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       energy = 100; energyRegenAt = 0; dashReadyAt = 0; lungeReady = 0;
       flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
       grabbed.clear(); myGrabs.length = 0; drops.clear(); gunDrops.clear(); myDrops.length = 0; myGunDrops.length = 0;
-      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; afterBlasts.length = 0;
+      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; afterBlasts.length = 0; shockQueue.length = 0;
       if (shownRound !== -1) {
         myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode);
         // Respawn after rebuilding: a repaired planet must not enclose a pilot in its old tunnel.
@@ -10647,7 +10681,14 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     drawScreenFx(now);
   }
   function drawWorld(now) {
-    if (shake > 0) g.translate((Math.random() - .5) * shake * 40, (Math.random() - .5) * shake * 40);
+    // camera shake as "trauma" (Squirrel Eiserloh's camera talk): what is felt goes with its square, so small knocks
+    // stay small and big ones hit hard, and it moves along smooth noise (a few sines out of step), not a new random
+    // jolt every frame; a slight roll with it
+    if (shake > 0) {
+      const t = Math.min(1, shake), k = t * t, s = now / 1000, n = (a, b, c) => (Math.sin(s * a) + Math.sin(s * b + 1.7) * 0.6 + Math.sin(s * c + 4.1) * 0.3) / 1.9;
+      g.translate(n(41, 67, 97) * k * 34, n(53, 79, 113) * k * 34);
+      if (k > 0.02) { const c = g.getTransform().inverse().transformPoint({ x: g.canvas.width / 2, y: g.canvas.height / 2 }); g.translate(c.x, c.y); g.rotate(n(23, 37, 59) * k * 0.035); g.translate(-c.x, -c.y); }   // (round the middle of the screen)
+    }
     g.translate(-camKick.x, -camKick.y);
     drawSky(now);
     drawWalls(now);
