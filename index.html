@@ -834,7 +834,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     triple:  { name: "Triple shot", ammo: 24, cd: 0.3, col: "#ffb43c", shot: [K.FIRE, 1000], spread: [-0.2, 0, 0.2], kick: 25, feel: [7, 0.07, 50], sfx: ["triple", 0.7],
                alt: { name: "Focus", cost: 1, cd: 0.3, shot: [K.FIRE, 1050], spread: [-0.035, 0, 0.035], kick: 60, feel: [10, 0.13, 80], sfx: ["triple", 0.8, 0.9] } },
     // Pulse Gun: fast plasma spheres; alternate short beam respects cover.
-    laser:   { name: "Pulse Gun", ammo: 120, cd: 0.12, col: "#a8ff55", shot: [K.PULSE_BOLT, 1500], kick: 6, feel: [3, 0.03, 30], sfx: ["p_ut_pulse_fire", .75, 1],
+    laser:   { name: "Pulse Gun", ammo: 120, cd: 0.12, col: "#a8ff55", shot: [K.PULSE_BOLT, 1500], kick: 6, feel: [3, 0.03, 30], sfx: ["p_ut_pulse_fire", .75, 1], fx: "pulse",
                alt: { name: "Plasma beam", cost: 1, cd: 0.08, shot: [K.LASER, 5600], kick: 6, feel: [2, 0.02, 28], sfx: ["p_ut_pulse_bolt", .6, 1] } },
     // rockets as in Quake: straight and fast (about 2.4x a bin's speed), dodgeable by reading them; alt three slow homing ones
     rocket:  { name: "Rocket launcher", ammo: 10, cd: 0.8, col: "#ff5a6e", shot: [K.ROCKET, 1350], kick: 120, feel: [12, 0.16, 70], sfx: ["rocket", 0.8],
@@ -2111,8 +2111,57 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     boom_small: [0.8, [55, 0.5, 0.9]], boom_bin: [0.8, [45, 0.8, 1]], boom_big: [0.8, [38, 1.2, 1]], boom_low: [0.85, [32, 1.4, 1]],
     chunk: [0.8, [60, 0.4, 0.8]], hit: [0.7, [90, 0.12, 0.6]], crash: [0.75, [70, 0.22, 0.7]], ram: [0.75, [65, 0.25, 0.8]]
   };
-  // Dedicated sci-fi thrust loop; no rocket-flight loop or oscillators.
+  // ---------- a jet fighter's engine, made here ----------
+  // Three layers: the roar (brown noise through a low filter that opens with the throttle), the turbine's whine (two
+  // detuned tones gliding up with the throttle, a third of an octave apart) and, on boost, the afterburner (a deep
+  // rumble of noise with a crackling top, coming in fast). Lighting the afterburner kicks with a rising whoosh and a
+  // low thump (jetIgnite)
+  let jet = null;
+  function jetBuild() {
+    const len = audio.sampleRate * 2, b = audio.createBuffer(1, len, audio.sampleRate), d = b.getChannelData(0);
+    let last = 0; for (let i = 0; i < len; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.5; }   // brown noise
+    const b2 = audio.createBuffer(1, len, audio.sampleRate), d2 = b2.getChannelData(0);
+    for (let i = 0; i < len; i++) d2[i] = (Math.random() * 2 - 1) * (Math.random() < 0.03 ? 1 : 0.3);   // crackle
+    const src = (buf) => { const s = audio.createBufferSource(); s.buffer = buf; s.loop = true; s.start(); return s; };
+    const out = audio.createGain(); out.gain.value = 0; out.connect(engineBus || sfxBus);
+    const roar = src(b), roarF = audio.createBiquadFilter(), roarG = audio.createGain(); roarF.type = "lowpass"; roarF.frequency.value = 300; roarF.Q.value = 0.7; roarG.gain.value = 0.5;
+    roar.connect(roarF).connect(roarG).connect(out);
+    const w1 = audio.createOscillator(), w2 = audio.createOscillator(), wF = audio.createBiquadFilter(), wG = audio.createGain();
+    w1.type = "sawtooth"; w2.type = "triangle"; w1.frequency.value = 420; w2.frequency.value = 530; wF.type = "bandpass"; wF.frequency.value = 1400; wF.Q.value = 2; wG.gain.value = 0.02;
+    w1.connect(wF); w2.connect(wF); wF.connect(wG).connect(out); w1.start(); w2.start();
+    const ab = src(b), abF = audio.createBiquadFilter(), abG = audio.createGain(); abF.type = "lowpass"; abF.frequency.value = 900; abG.gain.value = 0;
+    ab.connect(abF).connect(abG).connect(out);
+    const cr = src(b2), crF = audio.createBiquadFilter(), crG = audio.createGain(); crF.type = "bandpass"; crF.frequency.value = 2500; crF.Q.value = 0.9; crG.gain.value = 0;
+    cr.connect(crF).connect(crG).connect(out);
+    jet = { out, roarF, roarG, w1, w2, wF, wG, abG, abF, crG, lastBoost: 0 };
+  }
+  function jetIgnite(level = 1) {
+    if (!audio || !sfxBus) return;
+    const t = audio.currentTime, d = 0.7, n = audio.createBufferSource(), b = audio.createBuffer(1, audio.sampleRate * d | 0, audio.sampleRate), x = b.getChannelData(0);
+    for (let i = 0; i < x.length; i++) x[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * Math.min(1, i / (x.length * 0.25))) * Math.pow(1 - i / x.length, 1.5);
+    n.buffer = b; const f = audio.createBiquadFilter(); f.type = "bandpass"; f.Q.value = 0.9; f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(3200, t + d * 0.6);
+    const v = audio.createGain(); v.gain.value = 0.35 * level; n.connect(f).connect(v).connect(engineBus || sfxBus); n.start(t);
+    const o = audio.createOscillator(), ov = audio.createGain(); o.type = "sine"; o.frequency.setValueAtTime(70, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.35);
+    ov.gain.setValueAtTime(0.4 * level, t); ov.gain.exponentialRampToValueAtTime(0.001, t + 0.4); o.connect(ov).connect(engineBus || sfxBus); o.start(t); o.stop(t + 0.42);
+  }
   function engineHum(speed, thrust, boost, now, active = true) {
+    if (!audio || !sfxBus) return;
+    const on = active && !document.hidden && settings.engine !== "off";
+    if (!jet) { if (!on) return; jetBuild(); }
+    const power = Math.max(0, Math.min(1, thrust)), ab = Math.max(0, Math.min(1, boost)), t = audio.currentTime, sp = Math.min(1, speed / 1000);
+    if (ab > 0.5 && jet.lastBoost <= 0.5) jetIgnite();
+    jet.lastBoost = ab;
+    const idle = on ? 0.18 : 0, level = on ? Math.max(idle, Math.max(power, sp * 0.4)) : 0;
+    jet.out.gain.setTargetAtTime(on ? 0.5 : 0, t, 0.12);
+    jet.roarF.frequency.setTargetAtTime(220 + 1500 * level + 1200 * ab, t, 0.15); jet.roarG.gain.setTargetAtTime(0.25 + 0.55 * level, t, 0.12);
+    const wf = 380 + 900 * level + 500 * ab;   // the turbine spooling up
+    jet.w1.frequency.setTargetAtTime(wf, t, 0.35); jet.w2.frequency.setTargetAtTime(wf * 1.26, t, 0.35); jet.wF.frequency.setTargetAtTime(wf * 2.4, t, 0.35);
+    jet.wG.gain.setTargetAtTime(0.012 + 0.03 * level, t, 0.2);
+    jet.abG.gain.setTargetAtTime(0.9 * ab, t, ab > 0.5 ? 0.04 : 0.25); jet.abF.frequency.setTargetAtTime(600 + 900 * ab, t, 0.1);
+    jet.crG.gain.setTargetAtTime(0.05 * ab, t, 0.06);
+    return;
+  }
+  function engineHumOld(speed, thrust, boost, now, active = true) {
     if (!audio || !sfxBus) return;
     const power = Math.max(0, Math.min(1, thrust)), afterburner = Math.max(0, Math.min(1, boost));
     const on = active && !document.hidden && settings.engine !== "off" && (speed > 4 || power > 0.03);
@@ -5057,7 +5106,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
 
   // ---------- fire & damage ----------
   // shots leave from the tip of the gun drawn on the wing (left and right in turn), not from the middle of the bin
-  const mountsOf = w => w === "laser" || w === "gauntlet" ? [[160, 96]] : ["nuke", "holy", "void", "bolt", "gamma", "tele", "gauss", "gauntlet"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // (the pistols: one in each hand, fired in turn)   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
+  const mountsOf = w => w === "laser" || w === "gauntlet" ? [[160, 96]] : ["nuke", "holy", "void", "bolt", "gamma", "tele", "gauss", "gauntlet", "saw"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // (the pistols: one in each hand, fired in turn)   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
   const BARREL = { fire: 44, laser: 60, rocket: 50, triple: 42, nuke: 96, holy: 30, saw: 40, gamma: 44, tele: 28, minigun: 58, gauss: 80, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48, nail: 54, gren: 44, gauntlet: 34 };   // tip, in mount units
   // the tip of a pilot's gun (any pilot: me, a bot, a player's pilot on the server, which fires from the same tips),
   // the wing guns taking turns (p.gunSide)
@@ -5592,7 +5641,14 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   }
   // what every client shows where a shot lands on a bin
   function shotBurst(s) {
-    if (s.kind === K.PULSE_BOLT) { if (!s.impactSound) { s.impactSound = true; packPlay("p_ut_pulse_explode", .6, s.x, s.y); } return; }
+    if (s.kind === K.PULSE_BOLT) {   // a bolt bursts: a splash of green plasma, a ring, a spray of hot motes
+      if (!s.impactSound) { s.impactSound = true; packPlay("p_ut_pulse_explode", .6, s.x, s.y); }
+      impacts.push({ x: s.x, y: s.y, t: 0, r: 46, col: "#d8ff9a", dur: 0.14 });
+      impacts.push({ x: s.x, y: s.y, t: 0, r: 120, col: "130,255,90", dur: 0.3, soft: 0.45 });
+      rings.push({ x: s.x, y: s.y, t: 0, r: 70, col: "170,255,110", dur: 0.22, w: 4 });
+      for (let k = 0; k < (lowQ ? 4 : 11); k++) { const a = Math.random() * 6.283, v = 120 + Math.random() * 380; puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.2 + Math.random() * 0.3, 1.2 + Math.random() * 1.4, k % 3 ? "#9dff5a" : "#f2ffd0", k % 2 ? 1 : 5, 0.04, 0, 0.92); }
+      return;
+    }
     if (s.kind === K.FLAK) { flakBurst(s); return; }
     if (s.kind === K.MINE) { blastFx(s); return; }
     if (SPLASH[s.kind]) blastFx(s);
@@ -5623,6 +5679,11 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   }
   // extra muzzle effects some guns have, on top of the flash and recoil every gun gets
   const MUZZLE_FX = {
+    pulse(m) {   // the Pulse Gun: a green flash at the emitter with each bolt, a ring and a few motes of plasma
+      const a = me.a;
+      impacts.push({ x: m.x + Math.cos(a) * 8, y: m.y + Math.sin(a) * 8, t: 0, r: 26 + Math.random() * 10, col: "#c8ff7a", dur: 0.09 });
+      for (let k = 0; k < (lowQ ? 2 : 5); k++) { const b = a + (Math.random() - 0.5) * 0.9, v = 200 + Math.random() * 300; puff(m.x, m.y, Math.cos(b) * v, Math.sin(b) * v, 0.15 + Math.random() * 0.15, 1.2 + Math.random(), k % 2 ? "#e8ffc0" : "#7dff4a", 5, 0, 0, 0.9); }
+    },
     mini(m) {   // the minigun: a tongue of flame from the barrels with each round, and now and then a spark
       const a = me.a, ca = Math.cos(a), sa = Math.sin(a);
       impacts.push({ x: m.x + ca * 6, y: m.y + sa * 6, t: 0, r: 12 + Math.random() * 9, col: Math.random() < 0.5 ? "#ffcf6a" : "#ff9a3c" });
@@ -8872,6 +8933,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         s.life = Math.max(1e-4, left);
       }
       if (s.kind === K.RECALL) { recallSaws(s); shots.splice(i, 1); continue; }
+      if (s.kind === K.PULSE_BOLT && s.life > 0 && Math.random() < (lowQ ? 0.35 : 0.8)) puff(s.x, s.y, s.vx * 0.05 + (Math.random() - 0.5) * 60, s.vy * 0.05 + (Math.random() - 0.5) * 60, 0.18 + Math.random() * 0.2, 1 + Math.random(), Math.random() < 0.5 ? "#9dff5a" : "#e8ffc0", 5, 0, 0, 0.9);   // its trail of motes
       if (s.kind === K.SWORD) {   // a sword swing: its bin swings the blade, the crescent sweeps, and the blade cuts as it goes
         const sh = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
         if (!sh || sh.dead) { s.life = 0; shots.splice(i, 1); continue; }
@@ -9848,13 +9910,17 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       hg.addColorStop(0, "rgba(195,139,255,0.55)"); hg.addColorStop(1, "rgba(195,139,255,0)");
       g.fillStyle = hg; g.beginPath(); g.arc(x, y, 26, 0, 6.29); g.fill();
     }
-    if (s.kind === K.PULSE_BOLT) {   // a pulse bolt: a churning knot of green plasma, a streak of glow behind it
+    if (s.kind === K.PULSE_BOLT) {   // a pulse bolt: a crackling ball of green plasma in a shell of arcs, a long streak behind
       const a = Math.atan2(s.vy, s.vx);
       g.save(); g.translate(x, y); g.rotate(a); g.globalCompositeOperation = "lighter";
-      g.globalAlpha = 0.5; g.drawImage(dotSprite("#62ff2a"), -70, -14, 80, 28);   // the streak
-      g.globalAlpha = 0.9; g.drawImage(dotSprite("#80ff30"), -26, -20, 52, 40);
-      g.rotate(now / 70 + s.x * 0.01); g.globalAlpha = 0.85; g.drawImage(fireSprite(2 + ((now / 50) | 0) % 3, (s.x | 0) & 3, DEMON_RAMP), -16, -16, 32, 32);
-      g.globalAlpha = 1; g.fillStyle = "#f2ffd8"; g.beginPath(); g.arc(0, 0, 4.5, 0, 6.29); g.fill();
+      g.globalAlpha = 0.45; g.drawImage(dotSprite("#4dff1e"), -110, -16, 120, 32);   // the long streak
+      g.globalAlpha = 0.8; g.drawImage(dotSprite("#7dff3a"), -60, -10, 70, 20);
+      g.globalAlpha = 0.9; g.drawImage(dotSprite("#9dff5a"), -30, -26, 60, 52);   // the glow
+      g.save(); g.rotate(now / 60 + s.x * 0.01); g.globalAlpha = 0.95; g.drawImage(fireSprite(2 + ((now / 40) | 0) % 3, (s.x | 0) & 3, DEMON_RAMP), -20, -20, 40, 40); g.restore();
+      // a shell of little arcs crackling round it
+      g.strokeStyle = "rgba(220,255,180,0.9)"; g.lineWidth = 1.3;
+      for (let k = 0; k < 3; k++) { let an = now / 30 + k * 2.1 + s.x, r = 9; g.beginPath(); g.moveTo(Math.cos(an) * r, Math.sin(an) * r); for (let n = 0; n < 3; n++) { an += 0.5 + Math.random() * 0.4; r = 12 + Math.random() * 7; g.lineTo(Math.cos(an) * r, Math.sin(an) * r); } g.stroke(); }
+      g.globalAlpha = 1; g.fillStyle = "#ffffff"; g.beginPath(); g.arc(0, 0, 5.5, 0, 6.29); g.fill();
       g.restore(); return;
     }
     if (s.kind === K.ORB) {   // plasma orb: a big crackling ball, a wide glow, spinning rings and arcs licking out
@@ -10617,7 +10683,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       } else if (weapon === "saw") {   // the Blood Blade: a hilt, and a long blade of red energy with a white-hot edge, swung on a swing
         // wound up (held): drawn back over the shoulder, further and brighter as the wind-up fills; swinging: sweeping
         const wind = isWinding ? windNow : 0, sw = swingNow, ang = sw >= 0 ? (-SWING_ARC / 2 + SWING_ARC * swingEase(sw)) * swingSide : wind > 0 ? -0.15 - 1.9 * swingEase(wind) : -0.15;
-        g.save(); g.translate(0, -14); g.rotate(ang);
+        g.save(); g.translate(0, -14); g.rotate(ang); g.scale(1.7, 1.7);   // (a long blade: it reaches far past the bin)
         g.fillStyle = "#2a1f3d"; rrect(-4, -6, 8, 18, 3); g.fill(); g.fillStyle = "#8a2030"; g.fillRect(-10, -8, 20, 4);   // the hilt and guard
         g.globalCompositeOperation = "lighter";
         const L = 78 * (1 + wind * 0.15), pulse = (0.8 + 0.2 * Math.sin(now / (90 - wind * 60))) * (1 + wind * 0.8);

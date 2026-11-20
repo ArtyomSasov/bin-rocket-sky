@@ -1,6 +1,6 @@
   // ---------- fire & damage ----------
   // shots leave from the tip of the gun drawn on the wing (left and right in turn), not from the middle of the bin
-  const mountsOf = w => w === "laser" || w === "gauntlet" ? [[160, 96]] : ["nuke", "holy", "void", "bolt", "gamma", "tele", "gauss", "gauntlet"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // (the pistols: one in each hand, fired in turn)   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
+  const mountsOf = w => w === "laser" || w === "gauntlet" ? [[160, 96]] : ["nuke", "holy", "void", "bolt", "gamma", "tele", "gauss", "gauntlet", "saw"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // (the pistols: one in each hand, fired in turn)   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
   const BARREL = { fire: 44, laser: 60, rocket: 50, triple: 42, nuke: 96, holy: 30, saw: 40, gamma: 44, tele: 28, minigun: 58, gauss: 80, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48, nail: 54, gren: 44, gauntlet: 34 };   // tip, in mount units
   // the tip of a pilot's gun (any pilot: me, a bot, a player's pilot on the server, which fires from the same tips),
   // the wing guns taking turns (p.gunSide)
@@ -535,7 +535,14 @@
   }
   // what every client shows where a shot lands on a bin
   function shotBurst(s) {
-    if (s.kind === K.PULSE_BOLT) { if (!s.impactSound) { s.impactSound = true; packPlay("p_ut_pulse_explode", .6, s.x, s.y); } return; }
+    if (s.kind === K.PULSE_BOLT) {   // a bolt bursts: a splash of green plasma, a ring, a spray of hot motes
+      if (!s.impactSound) { s.impactSound = true; packPlay("p_ut_pulse_explode", .6, s.x, s.y); }
+      impacts.push({ x: s.x, y: s.y, t: 0, r: 46, col: "#d8ff9a", dur: 0.14 });
+      impacts.push({ x: s.x, y: s.y, t: 0, r: 120, col: "130,255,90", dur: 0.3, soft: 0.45 });
+      rings.push({ x: s.x, y: s.y, t: 0, r: 70, col: "170,255,110", dur: 0.22, w: 4 });
+      for (let k = 0; k < (lowQ ? 4 : 11); k++) { const a = Math.random() * 6.283, v = 120 + Math.random() * 380; puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.2 + Math.random() * 0.3, 1.2 + Math.random() * 1.4, k % 3 ? "#9dff5a" : "#f2ffd0", k % 2 ? 1 : 5, 0.04, 0, 0.92); }
+      return;
+    }
     if (s.kind === K.FLAK) { flakBurst(s); return; }
     if (s.kind === K.MINE) { blastFx(s); return; }
     if (SPLASH[s.kind]) blastFx(s);
@@ -566,6 +573,11 @@
   }
   // extra muzzle effects some guns have, on top of the flash and recoil every gun gets
   const MUZZLE_FX = {
+    pulse(m) {   // the Pulse Gun: a green flash at the emitter with each bolt, a ring and a few motes of plasma
+      const a = me.a;
+      impacts.push({ x: m.x + Math.cos(a) * 8, y: m.y + Math.sin(a) * 8, t: 0, r: 26 + Math.random() * 10, col: "#c8ff7a", dur: 0.09 });
+      for (let k = 0; k < (lowQ ? 2 : 5); k++) { const b = a + (Math.random() - 0.5) * 0.9, v = 200 + Math.random() * 300; puff(m.x, m.y, Math.cos(b) * v, Math.sin(b) * v, 0.15 + Math.random() * 0.15, 1.2 + Math.random(), k % 2 ? "#e8ffc0" : "#7dff4a", 5, 0, 0, 0.9); }
+    },
     mini(m) {   // the minigun: a tongue of flame from the barrels with each round, and now and then a spark
       const a = me.a, ca = Math.cos(a), sa = Math.sin(a);
       impacts.push({ x: m.x + ca * 6, y: m.y + sa * 6, t: 0, r: 12 + Math.random() * 9, col: Math.random() < 0.5 ? "#ffcf6a" : "#ff9a3c" });

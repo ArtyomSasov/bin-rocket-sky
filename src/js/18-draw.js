@@ -198,13 +198,17 @@
       hg.addColorStop(0, "rgba(195,139,255,0.55)"); hg.addColorStop(1, "rgba(195,139,255,0)");
       g.fillStyle = hg; g.beginPath(); g.arc(x, y, 26, 0, 6.29); g.fill();
     }
-    if (s.kind === K.PULSE_BOLT) {   // a pulse bolt: a churning knot of green plasma, a streak of glow behind it
+    if (s.kind === K.PULSE_BOLT) {   // a pulse bolt: a crackling ball of green plasma in a shell of arcs, a long streak behind
       const a = Math.atan2(s.vy, s.vx);
       g.save(); g.translate(x, y); g.rotate(a); g.globalCompositeOperation = "lighter";
-      g.globalAlpha = 0.5; g.drawImage(dotSprite("#62ff2a"), -70, -14, 80, 28);   // the streak
-      g.globalAlpha = 0.9; g.drawImage(dotSprite("#80ff30"), -26, -20, 52, 40);
-      g.rotate(now / 70 + s.x * 0.01); g.globalAlpha = 0.85; g.drawImage(fireSprite(2 + ((now / 50) | 0) % 3, (s.x | 0) & 3, DEMON_RAMP), -16, -16, 32, 32);
-      g.globalAlpha = 1; g.fillStyle = "#f2ffd8"; g.beginPath(); g.arc(0, 0, 4.5, 0, 6.29); g.fill();
+      g.globalAlpha = 0.45; g.drawImage(dotSprite("#4dff1e"), -110, -16, 120, 32);   // the long streak
+      g.globalAlpha = 0.8; g.drawImage(dotSprite("#7dff3a"), -60, -10, 70, 20);
+      g.globalAlpha = 0.9; g.drawImage(dotSprite("#9dff5a"), -30, -26, 60, 52);   // the glow
+      g.save(); g.rotate(now / 60 + s.x * 0.01); g.globalAlpha = 0.95; g.drawImage(fireSprite(2 + ((now / 40) | 0) % 3, (s.x | 0) & 3, DEMON_RAMP), -20, -20, 40, 40); g.restore();
+      // a shell of little arcs crackling round it
+      g.strokeStyle = "rgba(220,255,180,0.9)"; g.lineWidth = 1.3;
+      for (let k = 0; k < 3; k++) { let an = now / 30 + k * 2.1 + s.x, r = 9; g.beginPath(); g.moveTo(Math.cos(an) * r, Math.sin(an) * r); for (let n = 0; n < 3; n++) { an += 0.5 + Math.random() * 0.4; r = 12 + Math.random() * 7; g.lineTo(Math.cos(an) * r, Math.sin(an) * r); } g.stroke(); }
+      g.globalAlpha = 1; g.fillStyle = "#ffffff"; g.beginPath(); g.arc(0, 0, 5.5, 0, 6.29); g.fill();
       g.restore(); return;
     }
     if (s.kind === K.ORB) {   // plasma orb: a big crackling ball, a wide glow, spinning rings and arcs licking out
@@ -967,7 +971,7 @@
       } else if (weapon === "saw") {   // the Blood Blade: a hilt, and a long blade of red energy with a white-hot edge, swung on a swing
         // wound up (held): drawn back over the shoulder, further and brighter as the wind-up fills; swinging: sweeping
         const wind = isWinding ? windNow : 0, sw = swingNow, ang = sw >= 0 ? (-SWING_ARC / 2 + SWING_ARC * swingEase(sw)) * swingSide : wind > 0 ? -0.15 - 1.9 * swingEase(wind) : -0.15;
-        g.save(); g.translate(0, -14); g.rotate(ang);
+        g.save(); g.translate(0, -14); g.rotate(ang); g.scale(1.7, 1.7);   // (a long blade: it reaches far past the bin)
         g.fillStyle = "#2a1f3d"; rrect(-4, -6, 8, 18, 3); g.fill(); g.fillStyle = "#8a2030"; g.fillRect(-10, -8, 20, 4);   // the hilt and guard
         g.globalCompositeOperation = "lighter";
         const L = 78 * (1 + wind * 0.15), pulse = (0.8 + 0.2 * Math.sin(now / (90 - wind * 60))) * (1 + wind * 0.8);

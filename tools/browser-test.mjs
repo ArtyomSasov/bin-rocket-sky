@@ -15,7 +15,7 @@ execFileSync(process.execPath, ['tools/build-audio-preview.mjs'], { cwd: root })
 const gameplayChecks = await readFile(join(root, "tools/gameplay-checks.js"), "utf8");
 const audioChecks = await readFile(join(root, "tools/audio-render-checks.js"), "utf8");
 const weaponChecks = await readFile(join(root, "tools/weapon-audit-checks.js"), "utf8");
-const hook = gameplayChecks + audioChecks + weaponChecks + `window.__t = {get activeBlasts(){return blastVoices}, renderArsenalPreview, runWeaponAuditChecks, checkContinuousAudio, metricsReport, checkAudioRender, keys, update, runGameplayChecks, renderDemonicPreview, WEAPONS, renderVfxPreview, renderWeapon, renderTele, renderShield, ampHud, settings, packHas, packBuf, engineHum, packLoops, K, SHOTS, hitPose, targetHit, recordHitPose, updateShots, volley, net, netSend, gotPing,
+const hook = gameplayChecks + audioChecks + weaponChecks + `window.__t = {get activeBlasts(){return blastVoices}, get jet(){return jet}, renderArsenalPreview, runWeaponAuditChecks, checkContinuousAudio, metricsReport, checkAudioRender, keys, update, runGameplayChecks, renderDemonicPreview, WEAPONS, renderVfxPreview, renderWeapon, renderTele, renderShield, ampHud, settings, packHas, packBuf, engineHum, packLoops, K, SHOTS, hitPose, targetHit, recordHitPose, updateShots, volley, net, netSend, gotPing,
  checkDemonicAudio(){const original=audio.createBufferSource;let heard=0;audio.createBufferSource=function(){const src=original.call(audio),start=src.start.bind(src);src.start=(...args)=>{if(src.buffer===packBuf.p_user_demonic_explosion[0])heard++;return start(...args);};return src;};
  try {bodies=[];det=[];shots.length=0;me.x=100;me.y=100;me.inv=1e15;
  const far=volley(me,performance.now(),WEAPONS.gamma,{x:1700,y:100});far.life=0;updateShots(0.016,performance.now());
@@ -193,17 +193,13 @@ try {
   await until(combat,'__t.activeBlasts===0',10000);
   assert.equal(await evaluate(combat,'__t.checkDemonicAudio()'),2,'the supplied explosion starts on distant expiry and manual detonation');
   const decoded = await evaluate(combat, 'Object.fromEntries(["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine"].map(k=>[k,+__t.packBuf[k][0].duration.toFixed(2)]))');
-  await evaluate(combat, '__t.settings.engine="on";__t.engineHum(500,1,1,performance.now())');
-  assert.equal(await evaluate(combat, '__t.packLoops.engine?.ev'), 'p_ship_engine');
-  assert.equal(await evaluate(combat, '__t.packLoops.engine.src.buffer===__t.packBuf.p_ship_engine[0]'),true);
-  await evaluate(combat, '__t.engineHum(500,1,0,performance.now())');await until(combat,'__t.packLoops.engine.g.gain.value>0.4 && __t.packLoops.engine.g.gain.value<0.45',3000);
-  const engineLevel=await evaluate(combat,'({gain:__t.packLoops.engine.g.gain.value,pitch:__t.packLoops.engine.src.playbackRate.value})');
-  assert.ok(engineLevel.gain>0.4 && engineLevel.gain<0.45,'engine thrust is audible');
-  assert.ok(engineLevel.pitch>0.96 && engineLevel.pitch<1.12,'recorded timbre is preserved');
-  await evaluate(combat, '__t.engineHum(800,1.4,2,performance.now())');await until(combat,'__t.packLoops.engine.g.gain.value>0.56',3000);
-  assert.ok(await evaluate(combat,'__t.packLoops.engine.g.gain.value>0.56'),'boost is louder');
-  await evaluate(combat, '__t.engineHum(0,0,0,performance.now())');
-  assert.equal(await evaluate(combat, '!!__t.packLoops.engine'), false);
+  // the engine, a jet made here: roar, turbine whine, afterburner on boost, silent when it should be
+  await evaluate(combat, '__t.settings.engine="on";__t.engineHum(500,1,0,performance.now())');
+  await until(combat, '!!__t.jet && __t.jet.out.gain.value>0.4', 3000);
+  const roar0 = await evaluate(combat, '__t.jet.roarF.frequency.value');
+  await evaluate(combat, '__t.engineHum(800,1.4,1,performance.now())'); await until(combat, '__t.jet.abG.gain.value>0.5', 3000);
+  assert.ok(await evaluate(combat, '__t.jet.roarF.frequency.value') > roar0, 'boost opens up the roar');
+  await evaluate(combat, '__t.engineHum(0,0,0,performance.now(),false)'); await until(combat, '__t.jet.out.gain.value<0.05', 3000);
   console.log('PASS decoded supplemental audio, supplied voices and engine start/stop',decoded);
   const rendered = await evaluate(combat,'__t.checkAudioRender()');
   console.log('Audio render measurements',JSON.stringify(rendered));
@@ -213,9 +209,9 @@ try {
   for(const shot of rendered.shots) assert.equal(shot.channels, 2, 'preserve source stereo: '+shot.name);
   assert.ok(rendered.battle.peak < 1, 'dense weapon mix stays below full scale');
   await evaluate(combat, '__t.isolate();__t.me.dead=false;__t.me.vx=__t.me.vy=__t.me.thrust=0;__t.keys.add("KeyW");for(let i=0;i<30;i++)__t.update(1/60,performance.now()+i*16.67)');
-  assert.equal(await evaluate(combat,'__t.packLoops.engine?.ev'),'p_ship_engine','movement input starts the new engine through the real game update');
+  await until(combat,'!!__t.jet && __t.jet.out.gain.value>0.3',3000);   // movement input starts the engine through the real game update
   await evaluate(combat,'__t.keys.clear();__t.hurt(performance.now(),99,true);__t.me.respawnAt=1e15;__t.update(1/60,performance.now());');
-  assert.equal(await evaluate(combat,'!!__t.packLoops.engine'),false,'death stops the engine through the real game update');
+  await until(combat,'__t.jet.out.gain.value<0.05',3000);   // death stops the engine through the real game update
   await evaluate(combat,'__t.me.dead=false');
 
   await evaluate(combat, '__t.me.weapon="gamma";__t.me.teleN=99;__t.me.shield=3;__t.me.ampUntil=performance.now()+20000;__t.renderWeapon();__t.renderTele();__t.renderShield();__t.ampHud(performance.now())');

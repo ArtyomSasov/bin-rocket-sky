@@ -82,24 +82,22 @@ test('rocket uses UT and grenade keeps Quake while the demonic orb plays its own
   assert.deepEqual(events,['p_boom_rocket','p_quake_grenade_boom','p_boom_gamma']);
 });
 
-test('spaceship engine responds to thrust, boost and wall contact; stops when inactive', () => {
-  let available = true;
-  const c = {audio:{currentTime:0},sfxBus:{},settings:{engine:'on'},document:{hidden:false},packLoops:{},
-    packHas:event=>available && event==='p_ship_engine', packLoop(slot,event) {
-      c.packLoops[slot] = event ? {ev:event,src:{playbackRate:{setTargetAtTime:v=>c.pitch=v}},g:{gain:{setTargetAtTime:v=>c.volume=v}}} : null;
-    }};
-  vm.createContext(c);const source=read('05-sound.js');
-  vm.runInContext(source.slice(source.indexOf('  function engineHum'),source.indexOf('  function loadSfx')),c);
-  c.engineHum(500,0,0,0);const coast=c.volume;
-  c.engineHum(500,1,0,0);const thrust=c.volume;
-  assert.equal(c.packLoops.engine.ev,'p_ship_engine');assert.ok(thrust>coast*5);assert.ok(c.pitch>=0.96&&c.pitch<=1.12);
-  c.engineHum(800,1.4,2,0);assert.ok(c.volume>thrust);assert.ok(c.volume<0.65);assert.ok(c.pitch<=1.160001);
-  c.engineHum(0,1,0,0);assert.ok(c.packLoops.engine,'thrust against a wall is audible');
-  c.engineHum(0,0,0,0);assert.equal(c.packLoops.engine,null);
-  for(const reason of ['inactive','hidden','off','unloaded']) {
-    c.document.hidden=reason==='hidden';c.settings.engine=reason==='off'?'off':'on';available=reason!=='unloaded';
-    c.engineHum(800,1,1,0,reason!=='inactive');assert.equal(c.packLoops.engine,null,reason);
-  }
+test('the jet engine is made here: it roars up with the throttle, lights its afterburner on boost and falls silent when it should', () => {
+  const param = v => ({ value: v, setValueAtTime(x) { this.value = x; }, setTargetAtTime(x) { this.value = x; }, exponentialRampToValueAtTime(x) { this.value = x; } });
+  const node = extra => ({ connect(x) { return x; }, start() {}, stop() {}, ...extra });
+  const audio = { currentTime: 0, sampleRate: 8000,
+    createBuffer: (n, len) => ({ getChannelData: () => new Float32Array(len) }), createBufferSource: () => node({ loop: false }),
+    createGain: () => node({ gain: param(1) }), createBiquadFilter: () => node({ type: '', frequency: param(0), Q: param(1) }),
+    createOscillator: () => node({ type: '', frequency: param(0) }) };
+  const c = { audio, sfxBus: {}, engineBus: {}, settings: { engine: 'on' }, document: { hidden: false }, Math };
+  vm.createContext(c); const source = read('05-sound.js');
+  vm.runInContext(source.slice(source.indexOf('  let jet = null;'), source.indexOf('  function engineHumOld')) + '\nglobalThis.engineHum=engineHum; globalThis.jetOf=()=>jet;', c);
+  c.engineHum(0, 0, 0, 0); const idle = c.jetOf().roarF.frequency.value;
+  c.engineHum(500, 1, 0, 0); assert.ok(c.jetOf().roarF.frequency.value > idle, 'the throttle opens the roar'); assert.ok(c.jetOf().out.gain.value > 0.3);
+  assert.equal(c.jetOf().abG.gain.value, 0, 'no afterburner off boost');
+  c.engineHum(800, 1.4, 1, 0); assert.ok(c.jetOf().abG.gain.value > 0.5, 'boost lights the afterburner');
+  c.engineHum(800, 1, 0, 0, false); assert.equal(c.jetOf().out.gain.value, 0, 'silent when inactive');
+  c.settings.engine = 'off'; c.engineHum(800, 1, 0, 0); assert.equal(c.jetOf().out.gain.value, 0, 'silent when switched off');
 });
 
 test('Fight waits for the supplied Q3 recording even when the old fallback decoded first', () => {
