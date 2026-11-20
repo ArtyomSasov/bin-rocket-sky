@@ -5,6 +5,19 @@ import { loadGame } from "./headless.mjs";
 
 // Runs inside the game's scope. Function declarations there are ordinary bindings, so the server replaces the
 // purely visual and audio ones with no-ops; the rules that decide outcomes stay untouched.
+// BRS_HITLOG=1 (a tool's switch, never on in a match): every check of a player's laser-pistol shot against a pilot
+// near its line, as one "HITLOG {...}" line on stdout (tools/hits.mjs lines them up with what the screen showed)
+const HITLOG = `
+  { const th0 = targetHit;
+    targetHit = (s, o) => { const r = th0(s, o);
+      if (s.kind === K.PISTOL && botById.get(s.owner)?.input && o.id !== s.owner) {
+        const p = hitPose(s, o), dx = s.x - s.px, dy = s.y - s.py, L = Math.hypot(dx, dy) || 1, perp = ((p.x - s.px) * dy - (p.y - s.py) * dx) / L, along = ((p.x - s.px) * dx + (p.y - s.py) * dy) / L;
+        if (r || Math.abs(perp) < 90 && along > -90 && along < L + 90) console.log("HITLOG " + JSON.stringify({ t: Date.now(), id: s.id, r, perp: Math.round(perp), along: Math.round(along), L: Math.round(L),
+          rad: Math.round(binR(p.lv) + shotRadius(s)), rew: Math.round(performance.now() - (s.hitTime || performance.now())), hist: p !== o, dead: !!p.dead, life: +s.life.toFixed(3) }));
+      }
+      return r; };
+  }
+`;
 const BRIDGE = `
   puff = sparkShower = smoke = impact = explode = swallowFx = dashBurst = afterburner = trailFrom = damageFx = deathFx =
     announce = audioCue = sfx = packPlay = packLoop = feedPush = wallMark = wallBreach = surfaceHit = scorchMark = pitMark = chunkOff = oilOnBody = oilSplash = rebuildSolidGrid = ejectCasing = railMelt = wreckBlows = jetBlast = swingStart = bakeDecal = emitPlume = bladeSwing = bladeClash = bladeHumSet = () => false;
@@ -120,7 +133,7 @@ export function cleanInput(i = {}) {
 }
 
 export function createMatch({ code = "m1d0c", bots = 0, level = "normal" } = {}) {
-  const game = loadGame(BRIDGE);
+  const game = loadGame(BRIDGE + (process.env.BRS_HITLOG ? HITLOG : ""));
   const sim = game.__sim;
   sim.start(code, bots, level);
   return {

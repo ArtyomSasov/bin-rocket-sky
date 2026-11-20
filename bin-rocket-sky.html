@@ -7684,6 +7684,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     // invulnerable (a dash, a respawn) at the moment shown: the server judges my shots at that moment, not at the
     // newest state's (which is ahead of what I see)
     r.shownInv = !!(t >= (b?.t ?? Infinity) ? b.iv : a.iv);
+    // where it was shown, moment by moment: a hitscan shot (the laser pistol, bullets) flies a few frames, and the
+    // server meets it all the way with the target where it stood when the shot was fired (hitPose); judged here
+    // against the target flying on, a shot shown hitting a moving pilot was one the server missed
+    recordHitPose(r, performance.now());
   }
   // my shot reaching someone on my screen: its hit is shown now (spark, number, sound), as Overwatch and CS do; the
   // damage is still the server's call, which comes a round trip later. Over a long round trip the guess is too often
