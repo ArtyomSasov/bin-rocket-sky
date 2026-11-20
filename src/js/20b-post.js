@@ -41,14 +41,14 @@
     // heat haze: where the light map says it is hot (its alpha), the picture shimmers (two waves out of step)
     // shock waves (up to 4: centre, radius, width, strength in the view's terms): the picture bends outward across each
     // ring as through a lens, a little blurred and split in colour at its edge
-    const COMP = "precision mediump float;varying vec2 v;uniform sampler2D t,b1,b2,lm,dye;uniform float bl,ca,vig,sat,dbg,amb,time,fl,asp,wn;uniform vec4 wv[4];uniform float ww[4];void main(){" +
-      "float h=texture2D(lm,v).a;vec2 u=v+vec2(sin(v.y*140.+time*9.)+sin(v.y*67.-time*5.)*.6,cos(v.x*120.+time*8.)*.8)*h*.0016;" +
+    const COMP = "precision mediump float;varying vec2 v;uniform sampler2D t,b1,b2,lm,dye;uniform float bl,ca,vig,sat,dbg,amb,time,fl,asp,wn,lon;uniform vec4 wv[4];uniform float ww[4];void main(){" +
+      "float h=texture2D(lm,v).a*lon;vec2 u=v+vec2(sin(v.y*140.+time*9.)+sin(v.y*67.-time*5.)*.6,cos(v.x*120.+time*8.)*.8)*h*.0016;" +
       "float wsum=0.;for(int i=0;i<4;i++){if(float(i)>=wn)break;vec2 d=v-wv[i].xy;d.x*=asp;float L=length(d);float k=exp(-pow((L-wv[i].z)/ww[i],2.))*wv[i].w;u-=normalize(d+1e-5)*vec2(1./asp,1.)*k;wsum+=k;}" +
       "vec2 o=(v-.5)*ca+vec2(wsum*.6);vec3 c=vec3(texture2D(t,u+o).r,texture2D(t,u).g,texture2D(t,u-o).b);" +
       "if(wsum>.002){c=(c+texture2D(t,u+vec2(wsum*1.5,0.)).rgb+texture2D(t,u-vec2(0.,wsum*1.5)).rgb)/3.;}" +
-      "vec3 L=texture2D(lm,v).rgb;c=c*(amb+L*1.8)+L*.22;if(dbg>.5)c=L+texture2D(t,v).rgb*.15;" +
+      "vec3 L=texture2D(lm,v).rgb*lon;c=c*(mix(1.,amb,lon)+L*1.8)+L*.22;if(dbg>.5)c=L+texture2D(t,v).rgb*.15;" +
       // the smoke (the fluid's dye: its colour premultiplied, its thickness in alpha), lit as the world is
-      "if(fl>.5){vec4 s=texture2D(dye,v);float a=clamp(s.a,0.,1.)*.82;vec3 sc=s.rgb/max(s.a,.001);c=mix(c,sc*(amb*.9+L*1.6),a);}" +
+      "if(fl>.5){vec4 s=texture2D(dye,v);float a=clamp(s.a,0.,1.)*.82;vec3 sc=s.rgb/max(s.a,.001);c=mix(c,sc*(mix(1.,amb,lon)*.9+L*1.6),a);}" +
       "c+=(texture2D(b1,v).rgb*.9+texture2D(b2,v).rgb*1.1)*bl;" +
       "float l=dot(c,vec3(.299,.587,.114));c=mix(vec3(l),c,sat);c=(c-.5)*1.04+.5;" +
       "float r=length((v-.5)*vec2(1.,.8));c*=1.-vig*smoothstep(.45,.95,r);" +
@@ -236,7 +236,12 @@
     const use = (unit, t) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); };
     let lost = false;
     el.addEventListener("webglcontextlost", e => { e.preventDefault(); lost = true; }, false);
-    let on = false, kick = 0, failed = false, tooSlow = false;
+    let on = false, kick = 0, failed = false;
+    // On Auto, when the game runs slow the layer gives up a part at a time, the dearest first, every 2 s it stays slow:
+    // the smoke, then the light and shadows, then the glow, then the whole layer. Once given up a part stays off
+    // (switching it back on would only slow the game again)
+    let autoStep = 0, slowSince = 0, smokeLive = false;
+    const part = (name, step) => settings[name] !== "off" && (settings.post !== "auto" || autoStep < step);
     function show(v) { if (v === on) return; on = v; el.style.display = v ? "block" : "none"; cv.style.opacity = v ? "0" : ""; }
     show(false);
     const waves = [];
@@ -244,15 +249,21 @@
     return {
       // a big hit or blast splits the colours a moment (k: 0..1)
       kick(k) { kick = Math.max(kick, k); },
+      get autoStep() { return autoStep; },   // how much Auto has given up (0: nothing, 4: the whole layer)
       // a blast's smoke rolling out through the fluid
-      burst(x, y, r, col, amount, radial) { if (fluid) { fluid.splat(x, y, r, col, amount, 0, 0, radial); for (let k = 0; k < 6; k++) { const a = k / 6 * 6.283; fluid.splat(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, r * 0.5, col, amount * 0.4, Math.cos(a) * radial * 0.25, Math.sin(a) * radial * 0.25); } } },
+      burst(x, y, r, col, amount, radial) { if (fluid && smokeLive) { fluid.splat(x, y, r, col, amount, 0, 0, radial); for (let k = 0; k < 6; k++) { const a = k / 6 * 6.283; fluid.splat(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, r * 0.5, col, amount * 0.4, Math.cos(a) * radial * 0.25, Math.sin(a) * radial * 0.25); } } },
       // a shock wave bending the picture: out to reach (world px) over dur seconds, strength in the view's terms
       wave(x, y, reach, dur, strength) { waves.push({ x, y, reach, dur, s: strength, t0: performance.now() }); if (waves.length > 4) waves.shift(); },
       frame(dt) {
-        // (on Auto, once the game has run slow it stays off: switching it back on would only slow it again)
-        if (lowQ && settings.post === "auto") tooSlow = true;
-        const want = !lost && !failed && settings.post !== "off" && (settings.post === "on" || !tooSlow);
-        if (!want) { show(false); return; }
+        if (settings.post === "auto" && lowQ && autoStep < 4) {
+          const t = performance.now();
+          if (settings.fx === "low") autoStep = 4;   // light effects asked for: none of it
+          else if (!slowSince) slowSince = t;
+          else if (t - slowSince > 2000) { autoStep++; slowSince = t; }
+        } else slowSince = 0;
+        const glowOn = part("glow", 3), lightOn = part("light", 2), smokeOn = part("smoke", 1);
+        const want = !lost && !failed && settings.post !== "off" && (settings.post === "on" || autoStep < 4) && (glowOn || lightOn || smokeOn);
+        if (!want) { smokeLive = false; show(false); return; }
         const W0 = cv.width, H0 = cv.height;
         if (el.width !== W0 || el.height !== H0) { el.width = W0; el.height = H0; }
         try {
@@ -260,20 +271,24 @@
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv);
           const w1 = Math.max(1, W0 >> 2), h1 = Math.max(1, H0 >> 2), w2 = Math.max(1, W0 >> 3), h2 = Math.max(1, H0 >> 3);
           fit(A1, w1, h1); fit(B1, w1, h1); fit(A2, w2, h2); fit(B2, w2, h2);
+          if (glowOn) {
           pass(P.bright, A1, w1, h1, p => { use(0, frameTex); gl.uniform1i(p.u("t"), 0); gl.uniform2f(p.u("px"), 2 / W0, 2 / H0); });
           pass(P.blur, B1, w1, h1, p => { use(0, A1.t); gl.uniform1i(p.u("t"), 0); gl.uniform2f(p.u("d"), 1 / w1, 0); });
           pass(P.blur, A1, w1, h1, p => { use(0, B1.t); gl.uniform1i(p.u("t"), 0); gl.uniform2f(p.u("d"), 0, 1 / h1); });
           pass(P.blur, B2, w2, h2, p => { use(0, A1.t); gl.uniform1i(p.u("t"), 0); gl.uniform2f(p.u("d"), 1 / w2, 0); });
           pass(P.blur, A2, w2, h2, p => { use(0, B2.t); gl.uniform1i(p.u("t"), 0); gl.uniform2f(p.u("d"), 0, 1 / h2); });
+          }
           // the light map, at half the size (its shadows crisp enough)
-          if (maskN++ % 3 === 0) drawMask();
-          const nl = gatherLights(performance.now());
+          if (lightOn && maskN++ % 3 === 0) drawMask();
+          const nl = lightOn ? gatherLights(performance.now()) : 0;
+          if (!lightOn) bladeLights.length = 0;
           const wL = Math.max(1, W0 >> (COARSE ? 2 : 1)), hL = Math.max(1, H0 >> (COARSE ? 2 : 1));   // (a phone: the light at a quarter, its fill rate is the cost)
           fit(LM, wL, hL);
-          pass(P.light, LM, wL, hL, p => { use(3, maskTex); gl.uniform1i(p.u("m"), 3); gl.uniform2f(p.u("cam"), cam.x, cam.y); gl.uniform2f(p.u("view"), vw, vh); gl.uniform2f(p.u("world"), W, H);
+          if (lightOn) pass(P.light, LM, wL, hL, p => { use(3, maskTex); gl.uniform1i(p.u("m"), 3); gl.uniform2f(p.u("cam"), cam.x, cam.y); gl.uniform2f(p.u("view"), vw, vh); gl.uniform2f(p.u("world"), W, H);
             gl.uniform1f(p.u("n"), nl); if (nl) { gl.uniform4fv(p.u("lp"), LP); gl.uniform3fv(p.u("lc"), LC); gl.uniform1fv(p.u("lh"), LH); gl.uniform1fv(p.u("ls"), LS); } });
           kick = Math.max(0, kick - dt * 3.5);
-          const fl = fluid && settings.post !== "lite" ? (feedFluid(), fluid.step(dt)) : false;
+          smokeLive = smokeOn;
+          const fl = fluid && smokeOn ? (feedFluid(), fluid.step(dt)) : false;
           const ca = Math.min(0.012, 0.0015 + kick * 0.01 + flash * 0.006);
           // the waves in the view: where each ring is now
           const tw = performance.now(); let nw = 0;
@@ -284,7 +299,7 @@
           }
           pass(P.comp, null, W0, H0, p => {
             gl.uniform1f(p.u("wn"), nw); gl.uniform1f(p.u("asp"), vw / vh); if (nw) { gl.uniform4fv(p.u("wv"), WV); gl.uniform1fv(p.u("ww"), WW); } use(0, frameTex); use(1, A1.t); use(2, A2.t); use(4, LM.t); gl.uniform1i(p.u("t"), 0); gl.uniform1i(p.u("b1"), 1); gl.uniform1i(p.u("b2"), 2); gl.uniform1i(p.u("lm"), 4); if (fl) { use(7, fluid.dye()); gl.uniform1i(p.u("dye"), 7); } gl.uniform1f(p.u("fl"), fl ? 1 : 0); gl.uniform1f(p.u("dbg"), window.__lightMap ? 1 : 0); gl.uniform1f(p.u("amb"), stationMap() ? 0.56 : 0.86); gl.uniform1f(p.u("time"), (performance.now() / 1000) % 1000);   // (a station a little darker, so its lights tell)   // (__lightMap: the light alone, for checking it)
-            gl.uniform1f(p.u("bl"), 0.6); gl.uniform1f(p.u("ca"), ca); gl.uniform1f(p.u("vig"), playing ? 0.32 : 0.22); gl.uniform1f(p.u("sat"), 1.08); });
+            gl.uniform1f(p.u("bl"), glowOn ? 0.6 : 0); gl.uniform1f(p.u("lon"), lightOn ? 1 : 0); gl.uniform1f(p.u("ca"), ca); gl.uniform1f(p.u("vig"), playing ? 0.32 : 0.22); gl.uniform1f(p.u("sat"), 1.08); });
           show(true);
         } catch (e) { failed = true; show(false); console.warn("post effects off:", e.message); }
       }

@@ -222,6 +222,15 @@
   segButtons(document.getElementById("setRes"), [["auto", "Auto"], [1, "100%"], [0.75, "75%"], [0.5, "50%"]], settings.res, pickRes);
   segButtons(document.getElementById("setFx"), [["high", "Full"], ["low", "Light"]], settings.fx, v => { settings.fx = v; saveSettings(); if (v === "high") lowQ = false; });
   segButtons(document.getElementById("setPost"), [["auto", "Auto"], ["on", "On"], ["off", "Off"]], settings.post, v => { settings.post = v; saveSettings(); });
+  {   // its parts, each on or off by itself
+    const el = document.getElementById("setParts");
+    for (const [k, label] of [["light", "Light & shadows"], ["smoke", "Smoke"], ["glow", "Glow"]]) {
+      const b = document.createElement("button"); b.type = "button"; b.textContent = label;
+      b.setAttribute("aria-pressed", String(settings[k] !== "off"));
+      b.addEventListener("click", () => { settings[k] = settings[k] === "off" ? "on" : "off"; b.setAttribute("aria-pressed", String(settings[k] !== "off")); saveSettings(); });
+      el.appendChild(b);
+    }
+  }
   document.getElementById("postPick").hidden = !post;   // (no WebGL here: nothing to choose)
   segButtons(document.getElementById("setMouse"), [["aim", "Aims"], ["steer", "Steers"]], settings.mouse, v => { settings.mouse = v; saveSettings(); if (v === "steer" && aimLocked()) document.exitPointerLock(); });
   document.getElementById("mousePick").hidden = COARSE;
