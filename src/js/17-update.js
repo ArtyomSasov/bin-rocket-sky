@@ -450,7 +450,7 @@
         if (!s.trigAt && SHOTS[K.MINE].life - s.life >= MINE_ARM) {   // armed: an enemy coming within reach sets it ticking
           let near = canHurt(s, me, "me") && playing && Math.hypot(me.x - s.x, me.y - s.y) < 150;
           if (!near) for (const [rid, r] of remotes) if (canHurt(s, r, rid) && Math.hypot(r.x - s.x, r.y - s.y) < 150 + binR(r.lv || 1) * 0.5) { near = true; break; }
-          if (near) { s.trigAt = now + 250; packPlay("p_tick_mine", 0.8, s.x, s.y) || sfx("hit", 0.4, 2.4, s.x, s.y); }
+          if (near) { s.trigAt = now + 250; packPlay("p_tick_mine", 0.8, s.x, s.y); }
         }
       }
       if (s.kind === K.GREN) { const k = Math.exp(-0.7 * stepDt); s.vx *= k; s.vy *= k; }   // a grenade slows as it flies
@@ -622,7 +622,7 @@
     }
     smoke(k.x, k.y, lowQ ? 4 : 10, 60, 1.6);
     impact(k.x, k.y, "#d9c8ff", 1.2);
-    sfx("chunk", 0.7, 0.9, k.x, k.y) || blip(300, 0.2, "square");
+    sfx("chunk", 0.7, 0.9, k.x, k.y);
   }
   function updateJunk(dt, now) {
     for (let i = 0; i < ROCKS; i++) {
@@ -762,7 +762,7 @@
         floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: sp.name, gold: !!sp.big });
         for (let k = 0; k < 26; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 200; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, sp.col); }
         impacts.push({ x: c.x, y: c.y, t: 0, r: 70, col: sp.col });
-        if (!sfx(sp.heal ? "heal" : "shield_get", 0.8)) [523, 784].forEach((f, j) => setTimeout(() => blip(f, 0.14, "triangle"), j * 70));
+        sfx(sp.heal ? "heal" : "shield_get", 0.8);
       }
     }
     // Overdrive
@@ -800,7 +800,7 @@
           const key = COARSE ? "" : " · press " + weaponKey(c.type);
           floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: had ? "+AMMO " + w.name.toUpperCase() : w.name.toUpperCase() + key, gold: true });
           for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 220; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, w.col); }
-          if (!(c.type === "nuke" ? packPlay("p_ut_nuke_pick", .9) : sfx("weapon_get", 0.8))) [440, 660, 880].forEach((f, j) => setTimeout(() => blip(f, 0.1, "square"), j * 60));
+          if (c.type === "nuke") packPlay("p_ut_nuke_pick", .9); else sfx("weapon_get", 0.8);
         }
       }
     }
@@ -918,7 +918,7 @@
         h.vx -= nx * j / mh; h.vy -= ny * j / mh; h.spin += (Math.random() - 0.5) * 2 * Math.min(1, j / 200);
         impact(me.x - dx / 2, me.y - dy / 2, "#d9c8ff", Math.min(1.2, 0.3 + j / 250));
         if (j > 250) sparkShower(me.x - dx / 2, me.y - dy / 2, -dy, dx, 0.8);
-        sfx("crash", Math.min(0.6, 0.15 + j / 600)) || blip(180, 0.15, "square");
+        sfx("crash", Math.min(0.6, 0.15 + j / 600));
       }
     }
     for (let i = frags.length - 1; i >= 0; i--) {
@@ -1086,7 +1086,7 @@
     if (isTeams() ? teamTotals().lead === 0 : comparePlayers(rows[0], rows[1]) === 0) return;
     const top = rows[0];
     const won = isTeams() ? (teamTotals().lead || 0) * (me.tm === 0 ? 1 : -1) > 0 : top.me && stats.kills > 0;
-    setTimeout(() => { const line = won ? (stats.deaths === 0 ? "v_flawless" : "v_win") : "v_lose"; packPlay(line, 1) || sfx(line, 1); }, 600);
+    setTimeout(() => { const line = won ? (stats.deaths === 0 ? "v_flawless" : "v_win") : "v_lose"; sfx(line, 1); }, 600);
   }
   let decidedRound = -1;
   // the best score in the lobby, in the unit the limit counts: kills, team kills, or flags

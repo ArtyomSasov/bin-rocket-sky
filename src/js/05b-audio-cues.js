@@ -62,7 +62,7 @@
     if (voiceActive || !audio || !voiceBus || document.hidden) return;
     while (voiceQueue.length && voiceQueue[0].expires < performance.now()) voiceQueue.shift();
     if (!voiceQueue.length) return;
-    const item = voiceQueue[0], buffer = packBuf[item.name]?.[0] || (item.name === "v_fight" ? null : sfxBuf[item.name]);
+    const item = voiceQueue[0], buffer = packKnows(item.name) ? packBuf[item.name]?.[0] : sfxBuf[item.name];
     if (!buffer) { voiceTimer = setTimeout(pumpVoice, 100); return; }
     voiceQueue.shift();
     const src = audio.createBufferSource(), gain = audio.createGain(); src.buffer = buffer;

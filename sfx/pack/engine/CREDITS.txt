@@ -1,16 +1,6 @@
 Flight effects updated 2026-11-17. Designed effects, not claimed as field recordings.
 
-jet-thrust.wav (stereo PCM 48 kHz / 16 bit):
-- Rocket Engine by theMinesAreShakin, CC0.
-  https://opengameart.org/content/rocket-engine
-  https://opengameart.org/sites/default/files/rocket_engine.001.wav
-- Jet Engine Takeoff by dklon, CC BY 3.0.
-  https://opengameart.org/content/jet-engine-takeoff
-  https://opengameart.org/sites/default/files/engine_takeoff.wav
-  https://creativecommons.org/licenses/by/3.0/
-  Rocket gain .85, jet gain .65; jet 0.4–1.8s, 120ms loop crossfade.
-  Jet linearly resampled to 48 kHz, combined stereo loop crossfade 50ms.
-  Peak ceiling .9, no pitch shift or compression.
+(jet-thrust.wav was removed 2026-11-20: the engine is synthesized in the game.)
 
 warp-dash.wav:
 - WarpDrive_02.wav by Little Robot Sound Factory, CC BY 3.0.

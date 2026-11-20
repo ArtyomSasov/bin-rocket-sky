@@ -21,7 +21,7 @@ async function checkAudioRender() {
       s.buffer = buffer; s.loop = loop; g.gain.value = gain;
       s.connect(g).connect(output); s.start(at);
     };
-    if (engine) play(packBuf.p_ship_engine[0], 0.425, bus.engine, 0, true);
+    if (engine) { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sawtooth'; o.frequency.value = 70; g.gain.value = 0.3; o.connect(g).connect(bus.engine); o.start(); }   // a steady stand-in for the synthesized jet
     const legacyGain = { p_user_fire: 0.75, p_user_demonic: 0.7, p_user_autocannon: 0.8 };
     for (const [name, at, volume = 1] of events) play(packBuf[name][0], volume * ((legacy && legacyGain[name]) || USER_SOUND_GAIN[name] || 1), name.startsWith('p_user_') ? bus.presence : bus.effects, at);
     return ctx.startRendering();

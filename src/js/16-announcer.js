@@ -76,32 +76,10 @@
   function myKillAnnounce(now) {
     multi = now - lastKillAt < 4000 ? multi + 1 : 1;
     lastKillAt = now;
-    if (!packPlay("p_kill", 0.55)) [784, 988, 1175].forEach((f, i) => setTimeout(() => blip(f, 0.16, "triangle"), i * 70));
+    packPlay("p_kill", 0.55);
     const m = multi >= 2 ? MULTI[Math.min(multi, MULTI.length - 1)] : "", sp = spreeOf(stats.streak);
     if (m) announce(m, multi + " kills", "#ffd36b", multi);
     if (sp) setTimeout(() => announce(sp[0], stats.streak + " kills without dying", "#c38bff", Math.min(6, stats.streak - 1)), m ? 1500 : 0);
-  }
-  // Fallback announcer sting when the recorded cue is unavailable: a sub-bass hit, a brass-like chord swelling in a big hall, higher for bigger streaks
-  function sting(level) {
-    if (packPlay("p_sting", 0.65) || !audio) return;
-    const t = audio.currentTime;
-    const hall = getHall();
-    boomSound(1.4, 260, 0.5);
-    const sub = audio.createOscillator(), sv = audio.createGain();
-    sub.type = "sine"; sub.frequency.setValueAtTime(90, t); sub.frequency.exponentialRampToValueAtTime(38, t + 0.9);
-    sv.gain.setValueAtTime(0.45, t); sv.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
-    sub.connect(sv).connect(audio.destination); sub.start(t); sub.stop(t + 1.2);
-    const root = 98 * Math.pow(2, Math.min(level, 6) * 2 / 12);   // each streak step lifts the chord a whole tone
-    for (const [ratio, delay] of [[1, 0], [1.5, 0.05], [2, 0.1], [2.52, 0.15]]) {
-      for (const det of [-6, 6]) {
-        const o = audio.createOscillator(), f = audio.createBiquadFilter(), v = audio.createGain(), s0 = t + delay;
-        o.type = "sawtooth"; o.frequency.value = root * ratio; o.detune.value = det;
-        f.type = "lowpass"; f.frequency.setValueAtTime(400, s0); f.frequency.linearRampToValueAtTime(2400, s0 + 0.35); f.frequency.exponentialRampToValueAtTime(500, s0 + 1.8);
-        v.gain.setValueAtTime(0.0001, s0); v.gain.exponentialRampToValueAtTime(0.035, s0 + 0.12); v.gain.exponentialRampToValueAtTime(0.0001, s0 + 1.9);
-        o.connect(f).connect(v); v.connect(audio.destination); v.connect(hall);
-        o.start(s0); o.stop(s0 + 2);
-      }
-    }
   }
   function announce(text, sub, col, level = 1, silent = false) {
     annEl.innerHTML = `<b>${esc(text)}</b>${sub ? `<span>${esc(sub)}</span>` : ""}`;
@@ -111,8 +89,8 @@
     // lines and Overdrive by meaning; otherwise a recorded cue with the on-screen title.
     const key = /has the .* flag$|^YOU HAVE THE FLAG$/i.test(text) ? "a_flagtaken" : / team scores!$/i.test(text) ? "a_flagcap"
       : text === "BEYOND GODLIKE" ? "a_holyshit" : "a_" + text.toLowerCase().replace(/[^a-z]/g, "");
-    if (!silent && !packHas(key)) sting(level);   // a cue only where the pack has no voice for the line
+    if (!silent && !packKnows(key)) packPlay("p_sting", 0.65);   // a cue only where the pack has no voice for the line
     const voice = { "ULTRA KILL": "v_multikill", "MULTI KILL": "v_multikill", "RAMPAGE": "v_multikill", "QUAD DAMAGE": "v_powerup" }[text];
-    if (!silent || packHas(key)) { if (!packPlay(key, 1) && voice) sfx(voice, 1); }
+    if (!silent || packKnows(key)) { if (!packPlay(key, 1) && voice) sfx(voice, 1); }
   }
 

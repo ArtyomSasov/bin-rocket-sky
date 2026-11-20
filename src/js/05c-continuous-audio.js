@@ -4,7 +4,7 @@
   function continuousFire(owner, weapon, x, y, now = performance.now(), alt = false) {
     if (!audio || document.hidden) return false;
     const event = weapon === "minigun" ? (alt ? "p_ut_mini_alt" : "p_ut_mini_fire") : (alt ? "p_loop_laser" : "p_ut_pulse_fire");
-    if (!packHas(event)) return false;
+    if (!packKnows(event)) return false;
     const distance = Math.hypot(x - me.x, y - me.y);
     if (distance > 1800) return true;
     const old = firingSounds.get(owner);

@@ -12,7 +12,7 @@ function setup() {
       const src = { ...node(), playbackRate: { value: 0 }, start() { started.push(src); }, stop() { this.onended?.(); } }; return src;
     } }, voiceBus: node(), mixBus: { gain: { setTargetAtTime: n => gainTargets.push(n) } },
     packBuf: { a_firstblood: [{ name: 'first' }], a_doublekill: [{ name: 'double' }], v_win: [{ name: 'win' }] }, sfxBuf: {},
-    setTimeout: f => { timers.push(f); return timers.length; }, clearTimeout() {}, sfx: () => true };
+    setTimeout: f => { timers.push(f); return timers.length; }, clearTimeout() {}, sfx: () => true, packKnows: n => /^(a_|v_)/.test(n) };
   vm.createContext(c); vm.runInContext(read('05b-audio-cues.js'), c);
   return { c, started, gainTargets, timers, listeners };
 }
@@ -55,16 +55,16 @@ test('primary fire, boost, collisions and large blasts select the replacement re
     createGain() { return { gain: {}, connect() { return this; } }; }
   }, packBuf: Object.fromEntries(['p_ut_fire', 'p_ut_rocket_fire', 'p_ut_rocket_boom', 'p_ut_nuke_boom', 'p_ut_mini_fire', 'p_ut_flak_fire', 'p_ut_flak_boom', 'p_user_demonic', 'p_user_demonic_explosion', 'p_user_cannon', 'p_user_autocannon', 'p_user_explosion', 'p_user_massive', 'p_burst_minigun', 'p_fire_rocket', 'p_fire_gren', 'p_boom_rocket', 'p_boom_mine', 'p_warp', 'p_metal'].map(k => [k, [k]])),
     sfxBuf: { boom_low: 'low' }, SFX_TUNE: {}, sfxBus: {}, userBus: {}, engineBus: {}, priorityBus:{}, priorityVoices:0, heavyBus: {}, sfxVoices: 0, blastVoices: 0, me:{x:0,y:0},
-    document: { hidden: false }, setTimeout: f => later.push(f), queueVoice() {} };
+    document: { hidden: false, addEventListener() {} }, setTimeout: f => later.push(f), queueVoice() {} };
   const source = read('05-sound.js'); vm.createContext(c);
-  vm.runInContext(source.slice(source.indexOf('  const SOUND_OVERRIDE'), source.indexOf('  // the holy bomb')), c);
+  vm.runInContext(source.slice(source.indexOf('  const packListed'), source.indexOf('  // ---------- the energy blades')) + '\nfor (const k in packBuf) packListed.add(k);', c);
   c.sfx('fire'); c.sfx('dash'); c.sfx('crash'); c.sfx('crash');
   assert.deepEqual(played, ['p_ut_fire', 'p_warp', 'p_metal']);
   for (const event of ['p_death', 'p_boom_nuke', 'p_boom_holy', 'p_fire_gamma', 'p_boom_gamma', 'p_fire_minigun', 'p_fire_rocket', 'p_fire_gren', 'p_fire_shard', 'p_boom_shard', 'p_boom_rocket', 'p_boom_mine']) c.sfx(event);
   assert.deepEqual(played.slice(3), ['p_user_explosion', 'p_ut_nuke_boom', 'p_user_massive', 'p_user_demonic', 'p_user_demonic_explosion', 'p_ut_mini_fire', 'p_ut_rocket_fire', 'p_fire_gren', 'p_ut_flak_fire', 'p_ut_flak_boom', 'p_ut_rocket_boom', 'p_boom_mine']);
   assert.equal(later.length, 0, 'custom explosion tails are not covered with the old extra layers');
-  delete c.packBuf.p_ut_rocket_fire;c.packBuf.p_fire_rocket = ['original rocket']; c.sfx('p_fire_rocket');
-  assert.equal(played.at(-1), 'original rocket', 'retain the supplied old pack while the replacement loads');
+  const before = played.length; c.packBuf.p_ut_rocket_fire = []; c.packBuf.p_fire_rocket = ['original rocket']; c.sfx('p_fire_rocket');
+  assert.equal(played.length, before, 'while its own sound loads, an event stays silent rather than play another');
   c.sfxVoices=29;c.blastVoices=0;
   c.sfx('p_boom_gamma',1,1,1700,0);
   assert.equal(played.at(-1),'p_user_demonic_explosion','a distant demonic blast survives the ordinary voice limit');
@@ -91,7 +91,7 @@ test('the jet engine is made here: it roars up with the throttle, lights its aft
     createOscillator: () => node({ type: '', frequency: param(0) }) };
   const c = { audio, sfxBus: {}, engineBus: {}, settings: { engine: 'on' }, document: { hidden: false }, Math };
   vm.createContext(c); const source = read('05-sound.js');
-  vm.runInContext(source.slice(source.indexOf('  let jet = null;'), source.indexOf('  function engineHumOld')) + '\nglobalThis.engineHum=engineHum; globalThis.jetOf=()=>jet;', c);
+  vm.runInContext(source.slice(source.indexOf('  let jet = null;'), source.indexOf('  function loadSfx')) + '\nglobalThis.engineHum=engineHum; globalThis.jetOf=()=>jet;', c);
   c.engineHum(0, 0, 0, 0); const idle = c.jetOf().roarF.frequency.value;
   c.engineHum(500, 1, 0, 0); assert.ok(c.jetOf().roarF.frequency.value > idle, 'the throttle opens the roar'); assert.ok(c.jetOf().out.gain.value > 0.3);
   assert.equal(c.jetOf().abG.gain.value, 0, 'no afterburner off boost');
@@ -111,7 +111,7 @@ test('Fight waits for the supplied Q3 recording even when the old fallback decod
 
 test('audio loads the page manifest without consulting a stale cached pack index', async () => {
   const requested = [], loaded = {};
-  const c = { window: { BRS_PACK_FILES: ['ut/default-weapon-fire.wav', 'engine/jet-thrust.wav'] },
+  const c = { window: { BRS_PACK_FILES: ['ut/default-weapon-fire.wav', 'engine/warp-dash.wav'] },
     packBuf: loaded, packEventFor: p => p,
     fetch: async url => { requested.push(url); return { ok: true, arrayBuffer: async () => url }; },
     audio: { decodeAudioData: async value => value } };
@@ -119,6 +119,6 @@ test('audio loads the page manifest without consulting a stale cached pack index
   const source = read('05-sound.js');
   vm.runInContext(source.slice(source.indexOf('  function loadPack()'), source.indexOf('  const packHas')), c);
   c.loadPack(); await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(requested, ['sfx/pack/ut/default-weapon-fire.wav', 'sfx/pack/engine/jet-thrust.wav']);
+  assert.deepEqual(requested, ['sfx/pack/ut/default-weapon-fire.wav', 'sfx/pack/engine/warp-dash.wav']);
   assert.equal(Object.keys(loaded).length, 2);
 });

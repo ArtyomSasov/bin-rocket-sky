@@ -271,7 +271,7 @@
       if (performance.now() - (gunFx.get(k) ?? -1e9) < 3000) { gunFx.delete(k); continue; }   // shown at once when I flew through it
       const had = k in old, key = COARSE ? "" : " · press " + weaponKey(k);
       floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: had ? "+AMMO " + WEAPONS[k].name.toUpperCase() : WEAPONS[k].name.toUpperCase() + key, gold: true });
-      if (!(k === "nuke" ? packPlay("p_ut_nuke_pick", .9) : sfx("weapon_get", 0.8))) blip(660, 0.1, "square");
+      if (k === "nuke") packPlay("p_ut_nuke_pick", .9); else sfx("weapon_get", 0.8);
     }
     me.arsenal = ar;
     if (!(me.weapon in ar)) { const w = WEAPON_KEYS[wp]; me.weapon = w in ar ? w : Object.keys(ar)[0] || "fire"; }
@@ -376,7 +376,7 @@
       if (type === "tele") floaters.push({ x, y: y - 20, t: 0, txt: "TELEPORTER" + (COARSE ? "" : " · press T"), gold: true });
       else floaters.push({ x, y: y - 20, t: 0, txt: trophy ? "TROPHY · " + w.name.toUpperCase() : me.arsenal[type] ? "+AMMO " + w.name.toUpperCase() : w.name.toUpperCase() + (COARSE ? "" : " · press " + weaponKey(type)), gold: true });
       burst(x, y, w.col);
-      if (!(type === "nuke" ? packPlay("p_ut_nuke_pick", .9) : sfx("weapon_get", 0.8))) blip(660, 0.1, "square");
+      if (type === "nuke") packPlay("p_ut_nuke_pick", .9); else sfx("weapon_get", 0.8);
     };
     if (!MODES[MODE].only) {
       for (const c of world.picks) {
@@ -399,7 +399,7 @@
       take(c.key, null);
       floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: sp.name, gold: !!sp.big });
       burst(c.x, c.y, sp.col, 26); impacts.push({ x: c.x, y: c.y, t: 0, r: 70, col: sp.col });
-      if (!sfx(sp.heal ? "heal" : "shield_get", 0.8)) blip(784, 0.14, "triangle");
+      sfx(sp.heal ? "heal" : "shield_get", 0.8);
     }
   }
   // the server's taken keys: what I took here is confirmed; what it still has not taken after a while comes back

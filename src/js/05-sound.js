@@ -1,22 +1,10 @@
   // ---------- sound ----------
-  // filtered noise bursts for explosions
-  let noiseBuf = null;
-  function boomSound(dur, freq, vol) {
-    if (!audio) return;
-    if (!noiseBuf) {
-      noiseBuf = audio.createBuffer(1, audio.sampleRate * 2.5, audio.sampleRate);
-      const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    }
-    const src = audio.createBufferSource(), f = audio.createBiquadFilter(), v = audio.createGain(), t = audio.currentTime;
-    src.buffer = noiseBuf; f.type = "lowpass"; f.frequency.setValueAtTime(freq, t); f.frequency.exponentialRampToValueAtTime(60, t + dur);
-    v.gain.setValueAtTime(vol, t); v.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    src.connect(f).connect(v).connect(audio.destination); src.start(t); src.stop(t + dur);
-  }
+  let noiseBuf = null;   // white noise (the blades' whoosh and crackle)
   // recorded sound effects (CC0, from OpenGameArt: Kenney, rubberduck, zer0sol, bart), loaded after the first click.
-  // sfx() returns false while a sound isn't loaded, so the caller can play its synthesized stand-in instead
-  const SFX_NAMES = ["fire", "triple", "laser", "rocket", "scatter", "pump", "rail", "mine_drop", "boom_small", "boom_bin", "boom_big", "boom_low",
-    "chunk", "hit", "crash", "ram", "shield_hit", "shield_get", "heal", "weapon_get", "dash", "level_up",
-    "v_fight", "v_prepare", "v_multikill", "v_flawless", "v_win", "v_lose", "v_levelup", "v_powerup"];   // v_*: Kenney's CC0 voice-over packs
+  // Only those the sound pack doesn't voice (SOUND_OVERRIDE / its announcer): every event has one sound, never a stand-in
+  const SFX_NAMES = ["laser", "rocket", "scatter", "pump", "rail", "mine_drop", "boom_low",
+    "hit", "shield_hit", "shield_get", "heal", "weapon_get", "level_up",
+    "v_multikill", "v_levelup", "v_powerup"];   // v_*: Kenney's CC0 voice-over packs
   const SFX_MP3 = new Set(["rail"]);   // rail.mp3: made by the game's author
   const sfxBuf = {};
   let sfxBus = null, heavyBus = null, mixBus = null, voiceBus = null, engineBus = null, userBus = null, priorityBus = null, priorityVoices = 0, sfxVoices = 0, tailVoices = 0, blastVoices = 0, hall = null;
@@ -106,19 +94,6 @@
     jet.crG.gain.setTargetAtTime(0.05 * ab, t, 0.06);
     return;
   }
-  function engineHumOld(speed, thrust, boost, now, active = true) {
-    if (!audio || !sfxBus) return;
-    const power = Math.max(0, Math.min(1, thrust)), afterburner = Math.max(0, Math.min(1, boost));
-    const on = active && !document.hidden && settings.engine !== "off" && (speed > 4 || power > 0.03);
-    packLoop("engine", on && packHas("p_ship_engine") ? "p_ship_engine" : null, 0);
-    const loop = packLoops.engine;
-    if (!loop) return;
-    // A restrained pitch range preserves the identity of the supplied recording.
-    const pitch = 0.96 + Math.min(0.08, speed / 9000) + power * 0.04 + afterburner * 0.08;
-    const volume = 0.065 + power * 0.36 + afterburner * 0.16;
-    loop.src.playbackRate.setTargetAtTime(pitch, audio.currentTime, 0.18);
-    loop.g.gain.setTargetAtTime(volume, audio.currentTime, 0.08);
-  }
   function loadSfx() {
     if (!audio || sfxBus) return;
     const buses = createSoundMix(audio);
@@ -134,7 +109,7 @@
     lows.connect(room).connect(getHall());
     // the one-file game carries its sounds inside (window.BRS_SFX, data: URLs); the page fetches them from sfx/
     for (const n of SFX_NAMES) fetch((window.BRS_SFX && window.BRS_SFX[n]) || "sfx/" + n + (SFX_MP3.has(n) ? ".mp3" : ".wav")).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
-      .then(b => audio.decodeAudioData(b)).then(b => { sfxBuf[n] = b; }).catch(() => {});   // missing file: the synth sound stays
+      .then(b => audio.decodeAudioData(b)).then(b => { sfxBuf[n] = b; }).catch(() => {});
     loadPack();
   }
   // ---- the game's sound pack (sfx/pack: the author's weapon sounds and announcer voice). Each file is matched to a game
@@ -177,7 +152,7 @@
     p_user_demonic: ["user/demonic-shot.wav"], p_user_fire: ["user/demonic-shot-short.wav"],
     p_user_cannon: ["user/explosive-canon.wav"], p_user_autocannon: ["user/autocannon.wav"],
     p_user_explosion: ["user/explosion-rumb.wav"], p_user_massive: ["user/massive-explosion.wav", "user/explosive-nuke-or-holybomb.wav"],
-    p_user_engine: ["user/engine-working.wav"], p_ship_engine: ["engine/jet-thrust.wav"], p_warp: ["engine/warp-dash.wav"], p_user_demonic_explosion: ["user/demonic-explosions.wav"],
+    p_warp: ["engine/warp-dash.wav"], p_user_demonic_explosion: ["user/demonic-explosions.wav"],
     p_metal: ["physical/metal_1.wav", "physical/metal_10.wav", "physical/metal_20.wav"],
     p_blast: ["physical/bang_04.ogg", "physical/bang_05.ogg"],
     p_blast_heavy: ["physical/cannon_01.ogg", "physical/cannon_02.ogg"],
@@ -226,14 +201,19 @@
   function loadPack() {
     const add = (path, src) => {
       const ev = packEventFor(path);
+      if (ev) packListed.add(ev);
       if (ev) fetch(src).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)).then(b => audio.decodeAudioData(b)).then(b => { (packBuf[ev] = packBuf[ev] || []).push(b); }).catch(() => {});
     };
     if (window.BRS_PACK) { for (const [p, d] of Object.entries(window.BRS_PACK)) add(p, d); return; }
     const manifest = window.BRS_PACK_FILES ? Promise.resolve(window.BRS_PACK_FILES) : fetch("sfx/pack/index.json").then(r => r.json());
     manifest.then(list => { for (const p of list) add(p, "sfx/pack/" + p.split("/").map(encodeURIComponent).join("/")); }).catch(() => {});
   }
+  const packListed = new Set();   // events the pack has a file for (known from its list, before anything is decoded)
+  const packKnows = ev => packListed.has(SOUND_OVERRIDE[ev]) || packListed.has(ev);
   const packHas = ev => !!(packBuf[SOUND_OVERRIDE[ev]]?.length || packBuf[ev]?.length);
-  function packPlay(ev, vol = 1, x, y) { return ev && packHas(ev) ? sfx(ev, vol, 1, x, y) : false; }
+  // plays the pack's sound for the event; true when the pack has one (even if it is still loading: then it stays silent
+  // rather than sound like something else), false when the event isn't the pack's, so the caller plays its own
+  function packPlay(ev, vol = 1, x, y) { if (!ev || !packKnows(ev)) return false; sfx(ev, vol, 1, x, y); return true; }
   // looping pack sounds in two slots: "hum" (the gun in your hands) and "beam" (the laser while it fires)
   const packLoops = {};
   function packLoop(slot, ev, vol = 0.3) {
@@ -276,8 +256,8 @@
       if (audio.currentTime - (impactTimes.get(name) ?? -Infinity) < 0.065) return true;
       impactTimes.set(name, audio.currentTime);
     }
-    const replacement = SOUND_OVERRIDE[name];
-    const pk = packBuf[replacement] || packBuf[name], b = pk && pk.length ? pk[(Math.random() * pk.length) | 0] : sfxBuf[name], tune = pk && pk.length ? null : SFX_TUNE[name];   // a pack's own sound plays as it is
+    const replacement = packListed.has(SOUND_OVERRIDE[name]) ? SOUND_OVERRIDE[name] : undefined;
+    const pk = packKnows(name) ? packBuf[replacement || name] : null, b = pk ? pk.length && pk[(Math.random() * pk.length) | 0] : sfxBuf[name], tune = pk ? null : SFX_TUNE[name];   // a pack's own sound plays as it is
     if (!audio || !b) return false;
     const userSound = packBuf[replacement]?.length && USER_SOUND_GAIN[replacement];
     if (userSound) vol *= userSound;
@@ -329,38 +309,6 @@
       v.gain.linearRampToValueAtTime(0, audio.currentTime + 0.22); src.stop(audio.currentTime + 0.23);
     }
     return true;
-  }
-  // the holy bomb's choir, synthesized: four sung syllables "Hal-le-lu-jah", each a D-major-ish chord of detuned
-  // saw voices through two vowel formant filters (a, e, u, a), with vibrato and the hall's echo. Heard map-wide,
-  // quieter far away
-  const CHOIR = [   // [seconds, chord in Hz, formants of the vowel]
-    [0.55, [146.8, 293.7, 370, 440], [800, 1150]],
-    [0.3, [146.8, 293.7, 370, 440], [450, 1900]],
-    [0.25, [196, 293.7, 392, 493.9], [350, 650]],
-    [1.3, [220, 293.7, 370, 587.3], [800, 1150]]
-  ];
-  let choirUntil = 0;   // one choir at a time
-  function choir(x, y) {
-    if (!audio || audio.currentTime < choirUntil) return;
-    const vol = 0.22 * (1 - Math.min(0.7, Math.hypot(x - me.x, y - me.y) / 6000));
-    const out = audio.createGain(); out.gain.value = vol;
-    out.connect(audio.destination); out.connect(getHall());
-    let t = audio.currentTime + 0.05;
-    for (const [dur, chord, [f1, f2]] of CHOIR) {
-      const syl = audio.createGain(), end = t + dur;
-      syl.gain.setValueAtTime(0.0001, t); syl.gain.exponentialRampToValueAtTime(1, t + 0.07);
-      syl.gain.setValueAtTime(1, end - 0.08); syl.gain.exponentialRampToValueAtTime(0.0001, end + 0.12);
-      for (const f of [f1, f2]) { const bp = audio.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = f; bp.Q.value = 6; syl.connect(bp).connect(out); }
-      const lfo = audio.createOscillator(), depth = audio.createGain();
-      lfo.frequency.value = 5.2; depth.gain.value = 4;
-      lfo.connect(depth); lfo.start(t); lfo.stop(end + 0.15);
-      for (const f of chord) for (const det of [-7, 6]) {
-        const o = audio.createOscillator(); o.type = "sawtooth"; o.frequency.value = f; o.detune.value = det;
-        depth.connect(o.detune); o.connect(syl); o.start(t); o.stop(end + 0.15);
-      }
-      t = end;
-    }
-    choirUntil = t;
   }
   // ---------- the energy blades' voice, made here (no recording): a lightsaber's ----------
   // The hum: a projector-motor drone (two saws a hair apart, beating, over a sub an octave down) with a TV-tube buzz on
@@ -439,13 +387,5 @@
       const o = audio.createOscillator(), v = audio.createGain(); o.frequency.value = f * (0.97 + Math.random() * 0.06);
       v.gain.setValueAtTime(a, t); v.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); o.connect(v).connect(out); o.start(t); o.stop(t + 0.31);
     }
-  }
-  function blip(f, dur, type) {
-    if (!audio) return;
-    const o = audio.createOscillator(), v = audio.createGain(), t = audio.currentTime;
-    o.type = type || "triangle";
-    o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 1.9, t + dur);
-    v.gain.setValueAtTime(0.12, t); v.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    o.connect(v).connect(audio.destination); o.start(t); o.stop(t + dur);
   }
 

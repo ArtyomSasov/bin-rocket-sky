@@ -279,7 +279,7 @@
       done.add(best.id);
       arcs.push({ x1: x, y1: y, x2: t.x, y2: t.y, t: 0 });
       impact(t.x, t.y, "#bfefff", 1);
-      packPlay("p_hit_laser", 0.5, t.x, t.y) || sfx("laser", 0.35, 2.2, t.x, t.y);
+      packPlay("p_hit_laser", 0.5, t.x, t.y);
       const dmg = (laser ? 0.1 : CHAIN_DMG * (1 - j * 0.25)) * (s.m || 1), cid = s.id + "c" + j;
       metricChild(s.id, cid);
       if (best.id === "me") { if (hurt(now, dmg, false, K.BOLT, a)) { pushCapped(hitBy, cid, 12); if (me.dead) { meKilled(cid); killedBy(s.owner); } } }
@@ -332,7 +332,7 @@
     const x = s.x, y = s.y, near = Math.hypot(x - me.x, y - me.y) < 1400;
     if (s.kind === K.MINE) {   // a mine: a hard orange blast and a shock ring
       explode(x, y, 60, 340);
-      if (near) { packPlay("p_boom_mine", 1, x, y) || sfx("boom_small", 1, 0.9, x, y); shake = Math.max(shake, 0.28 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
+      if (near) { packPlay("p_boom_mine", 1, x, y); shake = Math.max(shake, 0.28 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
       return;
     }
     if (s.kind === K.GAMMA) {   // the demonic orb bursts: a ball of hellfire, a heavy warping shock wave, green lightning
@@ -342,7 +342,7 @@
       impacts.push({ x, y, t: 0, r: 420, col: "110,255,120", dur: 0.9, soft: 0.7, flick: Math.random() * 6.28 });
       for (let k = 0; k < (lowQ ? 4 : 9); k++) { const a = Math.random() * 6.283, d = 120 + Math.random() * 200; arcs.push({ x1: x, y1: y, x2: x + Math.cos(a) * d, y2: y + Math.sin(a) * d, t: 0, col: "140,255,150" }); }
       // The orb travels beyond the old 1400px gate; let the sound mixer handle distance.
-      packPlay("p_boom_gamma", 1, x, y) || sfx("boom_small", 1, 0.8, x, y);
+      packPlay("p_boom_gamma", 1, x, y);
       if (near) shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400));
       return;
     }
@@ -350,7 +350,7 @@
       explode(x, y, 26, 230);
       impacts.push({ x, y, t: 0, r: 110, col: "255,140,50", dur: 0.8, soft: 0.5, flick: Math.random() * 6.28 });
       for (let k = 0; k < (lowQ ? 4 : 10); k++) { const a = Math.random() * 6.283, v = 80 + Math.random() * 260; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.6 + Math.random() * 0.8, 1 + Math.random() * 1.2, k % 2 ? "#ffb43c" : "#ff6a1f", 5, 0, (Math.random() - 0.5) * 3, 0.95); }
-      if (near) { packPlay("p_blast", 0.45, x, y) || sfx("boom_small", 0.5, 1.3, x, y); shake = Math.max(shake, 0.08 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
+      if (near) { packPlay("p_blast", 0.45, x, y); shake = Math.max(shake, 0.08 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
       return;
     }
     if (s.kind === K.ORB) {   // plasma: a blue-white ball of energy, a warping shock ring, crackling sparks, a sizzle
@@ -360,11 +360,11 @@
       rings.push({ x, y, t: -0.06, r: 170, col: "255,255,255", dur: 0.35, w: 6 });
       for (let k = 0; k < (lowQ ? 18 : 48); k++) { const a = Math.random() * 6.283, v = 150 + Math.random() * 520; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.35 + Math.random() * 0.5, 1.2 + Math.random() * 1.6, k % 3 ? "#9fe8ff" : "#ffffff", 1, 0.05); }
       for (let k = 0; k < 4; k++) { const a = Math.random() * 6.283; arcs.push({ x1: x, y1: y, x2: x + Math.cos(a) * 140, y2: y + Math.sin(a) * 140, t: 0 }); }
-      if (near && !packPlay("p_boom_orb", 1, x, y)) { sfx("boom_small", 0.9, 1.35, x, y); sfx("shield_hit", 0.8, 0.6, x, y); }
+      if (near) packPlay("p_boom_orb", 1, x, y);
       if (near) { shake = Math.max(shake, 0.25 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
     } else {   // rocket: a fat fireball with a warping shock ring and smoke
       explode(x, y, 80, 420);
-      if (near) { packPlay(s.kind === K.GREN ? "p_quake_grenade_boom" : "p_boom_rocket", 1, x, y) || sfx("boom_small", 1, 0.95, x, y); shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
+      if (near) { packPlay(s.kind === K.GREN ? "p_quake_grenade_boom" : "p_boom_rocket", 1, x, y); shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
     }
   }
   let hitTickAt = 0;
@@ -493,7 +493,7 @@
   }
   // a grenade hits rock or the fence: it clinks and rolls off
   function grenBounce(s) {
-    if (Math.hypot(s.vx, s.vy) > 80 && performance.now() - (s.clinkAt || 0) > 90) { s.clinkAt = performance.now(); packPlay("p_bounce_gren", 0.7, s.x, s.y) || sfx("mine_drop", 0.5, 1.3, s.x, s.y); }
+    if (Math.hypot(s.vx, s.vy) > 80 && performance.now() - (s.clinkAt || 0) > 90) { s.clinkAt = performance.now(); packPlay("p_bounce_gren", 0.7, s.x, s.y); }
   }
   // a flak shell bursts: five shards all round, the same on every screen (their ids follow from the shell's)
   function flakBurst(s) {
@@ -508,7 +508,7 @@
     if (onScreen(sx(s.x), sy(s.y), 300)) {
       explode(s.x, s.y, 45, 380);
     }
-    packPlay("p_boom_shard", 0.8, s.x, s.y) || sfx("boom_small", 0.8, 1.3, s.x, s.y);
+    packPlay("p_boom_shard", 0.8, s.x, s.y);
   }
   // a mine detonator: every armed mine of that pilot goes off now
   function detonateMines(d) {
@@ -539,7 +539,7 @@
     if (!onScreen(sx(s.x), sy(s.y), 200)) return;
     sparkShower(s.x, s.y, s.vx / 1300, s.vy / 1300, 0.5 + s.bn * 0.15);
     impacts.push({ x: s.x, y: s.y, t: 0, r: 30 + s.bn * 10, col: "#ffd27a" });
-    packPlay("p_ric", 0.5, s.x, s.y) || sfx("hit", 0.35, 2 + s.bn * 0.2, s.x, s.y);
+    packPlay("p_ric", 0.5, s.x, s.y);
   }
   // what every client shows where a shot lands on a bin
   function shotBurst(s) {
@@ -554,7 +554,10 @@
     if (s.kind === K.FLAK) { flakBurst(s); return; }
     if (s.kind === K.MINE) { blastFx(s); return; }
     if (SPLASH[s.kind]) blastFx(s);
-    else packPlay(s.kind === K.SHARD ? "p_ric" : s.kind === K.BULLET ? "p_hit_bullet" : s.kind === K.LASER || s.kind === K.BOLT ? "p_hit_laser" : s.kind === K.NAIL || s.kind === K.SPIKE ? "p_hit_nail" : s.kind === K.RAIL ? "p_boom_orb" : "", 0.6, s.x, s.y) || sfx("hit", 0.55, 1.1, s.x, s.y);
+    else {
+      const ev = s.kind === K.SHARD ? "p_ric" : s.kind === K.BULLET ? "p_hit_bullet" : s.kind === K.LASER || s.kind === K.BOLT ? "p_hit_laser" : s.kind === K.NAIL || s.kind === K.SPIKE ? "p_hit_nail" : s.kind === K.RAIL ? "p_boom_orb" : "";
+      if (ev) packPlay(ev, 0.6, s.x, s.y); else sfx("hit", 0.55, 1.1, s.x, s.y);
+    }
     if (s.kind === K.RAIL) sparkShower(s.x, s.y, s.vx / 4200, s.vy / 4200, 1.2);
     if (s.kind === K.PELLET) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
     if (s.kind === K.SLUG) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
@@ -599,7 +602,7 @@
       miniHeat = Math.min(1, miniHeat + 0.05);
     },
     blast(m) {   // scatter gun: flash, a cone of fire and smoke, then the pump racking
-      setTimeout(() => { if (!sfx("pump", 0.6)) { blip(420, 0.05, "square"); setTimeout(() => blip(300, 0.06, "square"), 90); } }, 260);
+      setTimeout(() => sfx("pump", 0.6), 260);
       impacts.push({ x: m.x, y: m.y, t: 0, r: 70, col: "#ffd27a" });
       for (let k = 0; k < 22; k++) { const a = me.a + (Math.random() - 0.5) * 0.7, v = 250 + Math.random() * 500; puff(m.x, m.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.2 + Math.random() * 0.25, 2 + Math.random() * 2.5, FIRE_COLS[k % 4]); }
       smoke(m.x, m.y, 8, 120, 1.2);
@@ -703,7 +706,7 @@
       : k === "laser" ? continuousFire("me", "laser", me.x, me.y, now, !!alt)
       : k === "saw" && !alt ? true   // (the Blood Blade's swing sounds as it swings: swingStart)
       : packPlay(alt ? ALT_SOUND[k] || "" : k === "holy" ? "p_fire_gren" : "p_fire_" + k, 0.9);
-    if (!packed) sfx(name, vol, w.charge ? pitch * (1.3 - 0.4 * mul) : pitch) || blip(160, 0.1, "sawtooth");   // a fuller charge sounds deeper
+    if (!packed) sfx(name, vol, w.charge ? pitch * (1.3 - 0.4 * mul) : pitch);   // a fuller charge sounds deeper
     if (pat.fx) MUZZLE_FX[pat.fx](muzzle);
     shotFeel(k, muzzle, pat.kick * (w.charge ? mul : 1), ...pat.feel);
     if (pat.guided && !serverRun) startGuide(muzzle);
@@ -752,7 +755,7 @@
       const was = charge;
       charge = Math.min(1, charge + dt / w.charge);
       if (w.sword) bladeHumSet(charge);   // (the blade hums as it winds up)
-      else if (Math.floor(was * 6) !== Math.floor(charge * 6)) sfx("p_charge", 0.3, 0.8 + charge * 0.5) || blip(300 + charge * 500, 0.06, "sine");   // a rising whine
+      else if (Math.floor(was * 6) !== Math.floor(charge * 6)) sfx("p_charge", 0.3, 0.8 + charge * 0.5);   // a rising whine
       if (charge === 1 && was < 1) impacts.push({ x: me.x, y: me.y, t: 0, r: 60, col: w.col });
       return false;
     }
@@ -910,7 +913,7 @@
       const b = a + Math.PI + (Math.random() - 0.5) * 1.2, v = 120 + Math.random() * 220;
       puff(me.x, me.y, Math.cos(b) * v, Math.sin(b) * v, 0.45, 2.4, k % 2 ? "#bff9ff" : "#ffffff");
     }
-    sfx("dash", 0.8) || blip(520, 0.12, "triangle");
+    sfx("dash", 0.8);
   }
   let killer = "";
   function killedBy(owner) {
@@ -960,7 +963,7 @@
     if (railCharge > 0) { railCharge = 0; audioCue("chargeCancel"); }
     cancelRocketLoad(); stopContinuous("me");
     me.weapon = k; fireCd = Math.max(fireCd, 0.15);
-    packPlay("p_change", 0.6) || blip(520, 0.05, "square");
+    packPlay("p_change", 0.6);
     renderWeapon();
   }
   function cycleWeapon(dir) {
@@ -1006,7 +1009,7 @@
     s.rot = (s.rot || 0) + dt * (0.6 + Math.hypot(s.vx, s.vy) / 90);   // it tumbles as it flies, slowly as it settles
     if (!s.sang && s.life < BOMBS[K.HOLY].sing) {   // its sound, heard map-wide (quieter far away), ending with the blast
       s.sang = true;
-      if (!packPlay("p_holy", 1 - Math.min(0.7, Math.hypot(s.x - me.x, s.y - me.y) / 6000))) choir(s.x, s.y);
+      packPlay("p_holy", 1 - Math.min(0.7, Math.hypot(s.x - me.x, s.y - me.y) / 6000));
     }
     if (Math.random() < dt * (s.sang ? 60 : 25)) {
       const a = Math.random() * 6.28, v = 40 + Math.random() * 120;
@@ -1036,7 +1039,7 @@
         const near = 1 - d / w.max;
         shake = Math.max(shake, 0.3 + 1.3 * near);
         camKick.x += (me.x - w.x) / (d || 1) * 40 * near; camKick.y += (me.y - w.y) / (d || 1) * 40 * near;
-        sfx("boom_low", 0.3 + 0.7 * near, w.holy ? 0.9 : 1.2) || boomSound(1.2, 300, 0.4 * near + 0.1);
+        sfx("boom_low", 0.3 + 0.7 * near, w.holy ? 0.9 : 1.2);
       }
       for (const b of bots) if (!b.dead && (d = swept(b)) >= 0) push(b, d, 1);
       for (const b of rubble) if ((d = swept(b)) >= 0) push(b, d, Math.max(1, Math.sqrt(b.mass / 200)));
@@ -1077,11 +1080,7 @@
     rings.push({ x, y, t: -0.12, r: R * 0.95, col: holy ? "255,236,160" : "255,190,110", warp: true, dur: 1.2, w: 34 });
     rings.push({ x, y, t: -0.3, r: R * 1.8, col: "255,220,180", dur: 1.6, w: 14 });
     explode(x, y, Math.round(140 * q), 1300);
-    const customBomb = packPlay(holy ? "p_boom_holy" : "p_boom_nuke", 1, x, y);
-    if (!customBomb) {
-      if (!sfx("boom_big", 1, holy ? 0.8 : 1, x, y)) boomSound(2.6, 700, 0.6);
-      sfx("boom_low", 1, holy ? 0.5 : 0.6, x, y);
-    }
+    packPlay(holy ? "p_boom_holy" : "p_boom_nuke", 1, x, y);
     for (let k = 0; k < (holy ? 200 : 120) * q; k++) {   // long glowing streaks thrown out with the blast
       const a = Math.random() * 6.28, v = 700 + Math.random() * (holy ? 1600 : 1100);
       puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 1.2 + Math.random() * 1.2, 2 + Math.random() * 2, Math.random() < 0.5 ? (holy ? "#ffe9a0" : "#ffb43c") : "#fff2c0", 1, 0.06);
@@ -1094,7 +1093,6 @@
       const a = Math.random() * 6.283, v = 80 + Math.random() * 700;
       puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 1.5 + Math.random() * 2.5, 1.5 + Math.random() * 2.5, k % 3 ? "#ffe9a0" : "#ffffff", 0, 0, (Math.random() - 0.5) * 0.6, 0.97);
     }
-    if (!customBomb) packPlay("p_death", 1) || boomSound(2.2, 120, 0.8);
     if (canHurt(s, me, "me", true) && d < bombReach(bm) && !fixedCover(x, y, me.x, me.y)) {   // your own bomb too: get clear of it
       hurtMe(s, now, bombDmg(bm, d), s.kind, 0, d < bm.kill);
     }
@@ -1133,7 +1131,7 @@
       dmg = Math.round((dmg - absorbed) * 1000) / 1000;   // no float dust left behind
       shieldHitAt = now; renderShield();
       impacts.push({ x: me.x, y: me.y, t: 0, r: 90 * sizeOf(me.lv), col: "#6fc2ff" });
-      sfx("shield_hit", 0.8) || blip(640, 0.12, "triangle");
+      sfx("shield_hit", 0.8);
       if (dmg <= 0) { me.hazardAt = now + 600; shake = Math.max(shake, 0.15); return true; }
     }
     me.lives = Math.max(0, Math.round((me.lives - dmg) * 1000) / 1000);
@@ -1141,7 +1139,7 @@
     hurtFlash = Math.min(1, hurtFlash + 0.35 + dmg * 0.4);
     me.hazardAt = now + 600; shake = Math.max(shake, 0.12 + Math.min(0.3, dmg * 0.2));
     renderHearts(true);
-    sfx("hit", 1, 0.85) || blip(110, 0.3, "square");
+    sfx("hit", 1, 0.85);
     if (me.lives <= 0) {
       stats.deaths++; stats.streak = 0;
       me.ds = deathPiecesOf(kind);   // pieces the bin breaks into: 1 = intact dead hulk, 2-4 = shattered (always pieces for a blast)
@@ -1154,7 +1152,7 @@
       me.lv = levelAfterDeath(me.lv); me.xp = XP_STEPS[me.lv - 1];   // no progression penalty
       baseArsenal(); me.ampUntil = 0; me.fc = -1; renderWeapon();   // its guns are lost with it (and a carried flag goes home)
       renderLevel();
-      packPlay("p_death", 0.7) || blip(60, 0.6, "sawtooth");
+      packPlay("p_death", 0.7);
     } else explode(me.x, me.y, 18, 180);
     return true;
   }

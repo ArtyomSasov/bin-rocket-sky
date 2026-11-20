@@ -121,7 +121,7 @@
           impact(s.x, s.y, "#ffb43c", 1.5);
           me.score += 2; showScore();
           floaters.push({ x: m.x, y: m.y, t: 0, txt: "+2", gold: false });
-          explode(m.x, m.y, 26, 240); sfx("chunk", 0.5, 1.2, m.x, m.y) || blip(320, 0.15, "square");
+          explode(m.x, m.y, 26, 240); sfx("chunk", 0.5, 1.2, m.x, m.y);
           break;
         }
         if (grabbed.has(m.key)) continue;
@@ -141,12 +141,12 @@
           if (!s.mine || s.life <= 0 || SHOTS[s.kind].inert || !segHit(s, p.x, p.y, 48)) continue;
           s.life = 0;
           const h = (ufoHits.get(key) || 0) + shotDmg(s) / DMG_UNIT; ufoHits.set(key, h);
-          impact(s.x, s.y, "#7dffb0", 1); packPlay("p_hit_bullet", 0.5, s.x, s.y) || blip(260, 0.08, "square");
+          impact(s.x, s.y, "#7dffb0", 1); packPlay("p_hit_bullet", 0.5, s.x, s.y);
           if (h >= UFO_HP) {
             grabbed.add(key); pushCapped(myGrabs, key, 40);
             me.score += 15; showScore();
             floaters.push({ x: p.x, y: p.y, t: 0, txt: "UFO +15", gold: true });
-            explode(p.x, p.y, 80, 340); sfx("boom_bin", 1, 1.1, p.x, p.y) || blip(90, 0.5, "sawtooth");
+            explode(p.x, p.y, 80, 340); sfx("boom_bin", 1, 1.1, p.x, p.y);
             gainXp(5, now);
             break;
           }

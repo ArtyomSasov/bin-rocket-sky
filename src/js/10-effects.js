@@ -771,7 +771,7 @@
       const a = Math.random() * 6.28, v = 30 + Math.random() * 90;
       puff(b.x + Math.cos(a2) * 26 * sz, b.y + Math.sin(a2) * 26 * sz, Math.cos(a) * v, Math.sin(a) * v, 0.7 + Math.random() * 0.5, (14 + Math.random() * 10) * sz, FIRE_RAMP[0], 4, 0, 0, 0.9, 0.15 + Math.random() * 0.2);
     }
-    if (Math.hypot(b.x - me.x, b.y - me.y) < 1400) sfx("boom_bin", 1, 1, b.x, b.y) || boomSound(0.9, 1400, 0.35);
+    if (Math.hypot(b.x - me.x, b.y - me.y) < 1400) sfx("boom_bin", 1, 1, b.x, b.y);
     shatter(b, n); breakupPops(n);
     oilSplash(b.x, b.y, 34, 480, (b.vx || 0) * 0.3, (b.vy || 0) * 0.3);   // its oil, everywhere
     for (let k = 0; k < (lowQ ? 3 : 6); k++) {
@@ -828,7 +828,7 @@
     h.nailA = da; h.vx = Math.cos(da) * 620 + (b.vx || 0) * 0.3; h.vy = Math.sin(da) * 620 + (b.vy || 0) * 0.3; h.spin = 0;
     h.nails = Array.from({ length: 3 }, (_, k) => ({ off: (k - 1) * 0.22 + (Math.random() - 0.5) * 0.1, len: 0.5 + Math.random() * 0.2 }));
     sparkShower(b.x, b.y, Math.cos(da), Math.sin(da), 1.2);
-    packPlay("p_hit_nail", 0.9, b.x, b.y) || sfx("hit", 0.7, 1.6, b.x, b.y);
+    packPlay("p_hit_nail", 0.9, b.x, b.y);
   }
   // burnt: the hulk burns for a few seconds, chars black, then crumbles to ash
   function burnDeath(b) {

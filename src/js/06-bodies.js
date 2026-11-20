@@ -998,7 +998,7 @@
     shove(p.x, p.y, R * 4, 1200);
     const d = Math.hypot(me.x - p.x, me.y - p.y);
     if (d < 2600) { shake = Math.max(shake, 1.2 * (1 - d / 2600)); flash = Math.max(flash, 0.7 * (1 - d / 2600)); }
-    if (!sfx("boom_big", 1, 0.8, p.x, p.y)) { boomSound(2.4, 500, 0.6); blip(35, 1.8, "sawtooth"); }
+    sfx("boom_big", 1, 0.8, p.x, p.y);
     sfx("boom_low", 1, 0.75, p.x, p.y);
     feedPush("A planet was blown apart!");
     if (d < 2600) announce("PLANET DESTROYED", "", "#ffb070");
