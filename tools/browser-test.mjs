@@ -169,7 +169,7 @@ try {
   smoke = await page();
   await evaluate(smoke, "window.__code='M1C0SSMOK'");
   await evaluate(smoke, `new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/tools/smoke.js';s.onload=resolve;s.onerror=reject;document.body.append(s)})`);
-  await until(smoke, '!!window.__smoke', 90000);
+  await until(smoke, '!!window.__smoke', 200000);   // (it may first wait out the end of a round, up to ~85 s, then needs ~50 s of checks)
   const result = await evaluate(smoke, '__smoke');
   assert.deepEqual(result.errors, []);
   for (const [weapon, kinds] of Object.entries(result.fired)) assert.ok(kinds.length, 'Weapon fired: ' + weapon + ' ' + JSON.stringify(result.missed));

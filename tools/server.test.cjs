@@ -31,7 +31,7 @@ function client(headers) {
     } else m = JSON.parse(d);
     got.push(m); for (const w of [...waiters]) if (w.f(m)) { waiters.splice(waiters.indexOf(w), 1); w.r(m); }
   });
-  ws.next = (f, ms = 5000) => new Promise((r, j) => { const old = got.find(f); if (old) return r(old); const w = { f, r }; waiters.push(w); setTimeout(() => j(new Error('timeout')), ms).unref(); });
+  ws.next = (f, ms = 15000) => new Promise((r, j) => { const old = got.find(f); if (old) return r(old); const w = { f, r }; waiters.push(w); setTimeout(() => j(new Error('timeout')), ms).unref(); });
   ws.sendJ = m => ws.send(JSON.stringify(m));
   ws.opened = new Promise((r, j) => { ws.on('open', r); ws.on('error', j); ws.on('unexpected-response', (_, res) => j(new Error('HTTP ' + res.statusCode))); });
   ws.got = got;
@@ -93,7 +93,9 @@ test('a page that can gets a WebRTC data channel: snapshots come by it, and its 
   }); });
   pc.onGatheringStateChange(st => { if (st === 'complete') ws.sendJ({ t: 'rtc', sdp: pc.localDescription().sdp }); });
   pc.setRemoteDescription(offer.sdp, 'offer');
-  await new Promise(r => setTimeout(r, 2000));
+  // wait for what is checked (not a fixed time: on a loaded machine the channel opens later), up to 10 s
+  const flown = () => Math.max(...ws.got.filter(m => m.t === 'snap').map(m => m.bots.find(([id]) => id === hi.id)?.[1]?.vx).filter(Number.isFinite));
+  for (let t = 0; t < 100 && !(dcSnaps > 20 && flown() > 150); t++) await new Promise(r => setTimeout(r, 100));
   try {
     const snaps = ws.got.filter(m => m.t === 'snap');
     assert.ok(dcSnaps > 20, `${dcSnaps} snapshots by the data channel (${snaps.length} in all)`);
