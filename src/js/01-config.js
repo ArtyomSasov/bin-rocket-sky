@@ -367,6 +367,47 @@
 
   const img = new Image(); img.src = window.BRS_SPRITE || "bot.png";   // the one-file game carries the sprite inside
   const holyImg = new Image(); holyImg.src = window.BRS_HOLY || "holy.png";   // the holy bomb's skin
+  // the bin's hull, detailed: drawn once onto the art in the hull's own colours (darker and lighter teal), so the
+  // look's recolouring still finds and tints it. In the art's pixels (320 x 320, the bin seen three-quarter on)
+  function detailBin(q) {
+    const face = (ox, oy, ux, uy, vx, vy) => q.setTransform(ux, uy, vx, vy, ox, oy);   // a face of the hull: (0,0)-(1,1) across it
+    const dark = a => `rgba(8,72,74,${a})`, lite = a => `rgba(190,255,246,${a})`;
+    q.save();
+    // the front: corner ribs pressed in down both edges, a band under the lid with two hinge knuckles, bolts
+    face(80, 77, 138, 19, -15, 73);
+    q.lineCap = "round";
+    for (const u of [0.07, 0.13, 0.87, 0.93]) {
+      q.lineWidth = 0.022; q.strokeStyle = dark(0.45); q.beginPath(); q.moveTo(u, 0.16); q.lineTo(u, 0.9); q.stroke();
+      q.lineWidth = 0.012; q.strokeStyle = lite(0.35); q.beginPath(); q.moveTo(u + 0.016, 0.17); q.lineTo(u + 0.016, 0.9); q.stroke();
+    }
+    q.fillStyle = dark(0.38); q.fillRect(0.02, 0.0, 0.96, 0.075);
+    q.fillStyle = lite(0.3); q.fillRect(0.02, 0.075, 0.96, 0.018);
+    for (const u of [0.22, 0.72]) {
+      q.fillStyle = dark(0.55); q.beginPath(); q.roundRect(u, -0.01, 0.07, 0.1, 0.02); q.fill();
+      q.fillStyle = lite(0.45); q.beginPath(); q.roundRect(u + 0.008, 0.0, 0.054, 0.025, 0.01); q.fill();
+    }
+    for (const [u, v] of [[0.035, 0.14], [0.965, 0.14], [0.035, 0.93], [0.965, 0.93]]) {
+      q.fillStyle = dark(0.6); q.beginPath(); q.arc(u, v, 0.022, 0, 6.283); q.fill();
+      q.fillStyle = lite(0.6); q.beginPath(); q.arc(u - 0.006, v - 0.008, 0.009, 0, 6.283); q.fill();
+    }
+    // the right side: three vent slits
+    face(220, 92, 26, -6, -3, 66);
+    for (const v of [0.3, 0.45, 0.6]) {
+      q.fillStyle = dark(0.6); q.beginPath(); q.roundRect(0.18, v, 0.64, 0.07, 0.03); q.fill();
+      q.fillStyle = lite(0.35); q.fillRect(0.2, v + 0.07, 0.6, 0.02);
+    }
+    // the rim round the nozzle, front: a plate with the recycling arrows embossed
+    face(64, 150, 152, 16, -1, 22);
+    q.fillStyle = dark(0.3); q.beginPath(); q.roundRect(0.38, 0.12, 0.24, 0.76, 0.07); q.fill();
+    q.translate(0.5, 0.5); q.scale(1, 152 / 22 * 0.13); q.lineWidth = 0.026; q.strokeStyle = lite(0.8);
+    for (let k = 0; k < 3; k++) {   // three chasing arrows
+      const a0 = k * 2.094 - 1.4, a1 = a0 + 1.5, r = 0.075;
+      q.beginPath(); q.arc(0, 0, r, a0, a1); q.stroke();
+      const ex = Math.cos(a1) * r, ey = Math.sin(a1) * r, tx = -Math.sin(a1), ty = Math.cos(a1);
+      q.fillStyle = lite(0.75); q.beginPath(); q.moveTo(ex + tx * 0.025, ey + ty * 0.025); q.lineTo(ex - ty * 0.02, ey + tx * 0.02); q.lineTo(ex + ty * 0.02, ey - tx * 0.02); q.fill();
+    }
+    q.restore();
+  }
   // the art with its painted flame removed: our animated fire is drawn behind it from the nozzle
   let body = null;
   img.onload = () => {
@@ -378,6 +419,8 @@
       if (r > 150 && r - b > 70 && r >= gg) px[i + 3] = 0;
     }
     cx2.putImageData(d, 0, 0);
+    const k = document.createElement("canvas"); k.width = c.width; k.height = c.height;   // the hull's detail, laid only where the hull is
+    try { detailBin(k.getContext("2d")); cx2.globalCompositeOperation = "source-atop"; cx2.drawImage(k, 0, 0); cx2.globalCompositeOperation = "source-over"; } catch {}   // (an old browser: the plain art)
     body = c;
   };
   const COARSE = matchMedia("(pointer: coarse)").matches;
