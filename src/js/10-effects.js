@@ -30,7 +30,9 @@
   const PLASMA_RAMP = ["#ffffff", "#e8fbff", "#bdf0ff", "#86dcff", "#57b8ff", "#4a82f0", "#4a4fc8", "#2a2470"];
   // hellfire (the demonic orb): white-hot to acid green to a deep poisoned dark
   const DEMON_RAMP = ["#ffffff", "#f2ffd0", "#c8ff7a", "#7dff5a", "#38e04a", "#1f9e3a", "#105a2a", "#062a16"];
-  const rampOf = col => col === "plasma" ? PLASMA_RAMP : col === "demon" ? DEMON_RAMP : FIRE_RAMP;
+  // the demonic orb's burst: white-hot to blood red to black
+  const HELL_RAMP = ["#ffffff", "#ffd8c8", "#ff8a6a", "#ff3a2a", "#c8101e", "#7a0614", "#3a0208", "#120004"];
+  const rampOf = col => col === "plasma" ? PLASMA_RAMP : col === "demon" ? DEMON_RAMP : col === "hell" ? HELL_RAMP : FIRE_RAMP;
   const SPARK_COLS = ["#fff8e0", "#ffe08a", "#ffb64a"];
   // turbulent value noise (fractal, four octaves), for the inner texture of fire and smoke: billows, not smooth blobs
   function vnoise(x, y, s) {
@@ -44,7 +46,7 @@
   // a billowing ball of flame in one of the fixed shades (four shapes each): ragged turbulent edges, brighter where
   // it is thick, so a fireball reads as rolling fire rather than round glows. Made once, when first needed
   function fireSprite(i, v = 0, ramp = FIRE_RAMP) {
-    const key = i * 4 + (v & 3) + (ramp === PLASMA_RAMP ? 64 : ramp === DEMON_RAMP ? 128 : 0);
+    const key = i * 4 + (v & 3) + (ramp === PLASMA_RAMP ? 64 : ramp === DEMON_RAMP ? 128 : ramp === HELL_RAMP ? 192 : 0);
     if (fireCache[key]) return fireCache[key];
     const S = 96, c = document.createElement("canvas"); c.width = c.height = S;
     const q = c.getContext("2d"), img = q.createImageData(S, S), [r0, g0, b0] = hex(ramp[i]), [r1, g1, b1] = hex(ramp[Math.max(0, i - 2)]);
@@ -482,7 +484,6 @@
     if (victim) { scars.push({ o: victim, lx: x - victim.x, ly: y - victim.y, oa: victim.a || 0, a: a - (victim.a || 0), t: 0, len: 46 * sc, col }); if (scars.length > 24) scars.shift(); }
     impacts.push({ x, y, t: 0, r: 34 * sc, col: "#ffffff", dur: 0.08 });
     impacts.push({ x, y, t: 0, r: 170 * sc, col, dur: 0.35, soft: 0.55, fluided: true });   // (light only: no smoke cloud)
-    rings.push({ x, y, t: 0, r: 120 * sc, col, dur: 0.28, w: 5, warp: true, bare: true });   // the air bends round the cut, no ring drawn
     for (const d of [-1, 1]) {   // molten droplets flung along the stroke, both ways, most the way it was going
       for (let k = 0, n = Math.round((d > 0 ? 22 : 9) * q * sc); k < n; k++) {
         const b2 = a + (d > 0 ? 0 : Math.PI) + (Math.random() - 0.5) * 0.7, v = 300 + Math.random() * 700;
@@ -1035,6 +1036,7 @@
   const BLAST_PAL = {
     fire: { cloud: "fire", light: "255,176,96", sparks: SPARK_COLS, ember: "fire", ring: "255,246,230", dust: "rgb(150,138,142)", smoke: true },
     demon: { cloud: "demon", light: "110,255,120", sparks: ["#ff4a3c", "#9dff6a", "#ff2a3c"], ember: "demon", ring: "170,255,160", dust: "rgb(60,120,70)", smoke: false },
+    hell: { cloud: "hell", light: "200,20,40", sparks: ["#ff2a3c", "#ff7a4a", "#3a0208"], ember: "hell", ring: "120,10,24", dust: "rgb(40,8,12)", smoke: true },
     plasma: { cloud: "plasma", light: "120,200,255", sparks: ["#ffffff", "#c8f4ff", "#7fdcff"], ember: "plasma", ring: "200,240,255", dust: "rgb(110,160,220)", smoke: false }
   };
   function explode(x, y, n, speed, pal = "fire") {

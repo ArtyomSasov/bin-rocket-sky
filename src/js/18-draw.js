@@ -163,35 +163,37 @@
     g.restore(); g.globalAlpha = 1;
   }
 
+  // the demonic orb: a round clot of black smoke churning on itself, a dull blood-red heart beating deep inside,
+  // its edge never still (smoke curling off it), no spikes, no cracks
   function drawDemonicOrb(x, y, radius, now) {
     g.save(); g.translate(x, y); g.scale(radius / 32, radius / 32);
-    g.globalAlpha *= 0.35; g.drawImage(dotSprite("#36ef56"), -90, -90, 180, 180); g.globalAlpha = 1;
-    // a dark, scorched shell (black and blood red) split by cracks of sickly green fire
-    const skin = g.createRadialGradient(-8, -10, 1, 0, 0, 34);
-    skin.addColorStop(0, "#ff6a4a"); skin.addColorStop(0.22, "#8a1424"); skin.addColorStop(0.55, "#2a0c12");
-    skin.addColorStop(0.85, "#0c0a08"); skin.addColorStop(1, "#000000");
-    g.fillStyle = skin; g.beginPath(); g.arc(0, 0, 32, 0, Math.PI * 2); g.fill();
-    g.save(); g.beginPath(); g.arc(0, 0, 31, 0, Math.PI * 2); g.clip();
-    g.rotate(now / 1700);
-    // Dark moving fissures around a molten core, with green fire escaping the surface.
-    for (let i = 0; i < 7; i++) {
-      g.save(); g.rotate(i * Math.PI * 2 / 7);
-      const bend = Math.sin(now / 340 + i * 2) * 5;
-      g.strokeStyle = "#000000"; g.lineWidth = 3.5;
-      g.beginPath(); g.moveTo(10, -3); g.bezierCurveTo(18, -9 + bend, 17, 12, 25, 8); g.lineTo(36, bend); g.stroke();
-      g.strokeStyle = "#7dff5a"; g.lineWidth = 1.6;
-      g.beginPath(); g.moveTo(15, -7 + bend); g.quadraticCurveTo(22, -13, 33, -7); g.stroke(); g.restore();
+    const beat = 0.8 + 0.2 * Math.pow(Math.abs(Math.sin(now / 300)), 6);   // its heart beats, slow and heavy
+    // the heart's glow bleeding out through the smoke
+    g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.28 * beat; g.drawImage(dotSprite("#9a0a1c"), -70, -70, 140, 140);
+    g.globalCompositeOperation = "source-over"; g.globalAlpha = 1;
+    // the body: a dark ball, darkest at its rim
+    const body = g.createRadialGradient(0, 0, 4, 0, 0, 34);
+    body.addColorStop(0, "rgba(60,6,12,1)"); body.addColorStop(0.45, "rgba(16,3,6,0.96)"); body.addColorStop(0.72, "rgba(6,2,4,0.75)"); body.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = body; g.beginPath(); g.arc(0, 0, 34, 0, 6.29); g.fill();
+    // wisps torn off its edge: each drifts out, swells and thins away, and another rises in its place
+    for (let i = 0; i < 8; i++) {
+      const k = ((now / 1400 + i * 0.37) % 1), a = i * 0.785 + now / 2600 + Math.sin(i * 3.1) * 0.5, rr = 26 + k * 22, d = 9 + k * 14;
+      const cx = Math.cos(a) * rr, cy = Math.sin(a) * rr, sm = g.createRadialGradient(cx, cy, 0, cx, cy, d);
+      sm.addColorStop(0, "rgba(8,3,5," + (0.6 * (1 - k)).toFixed(3) + ")"); sm.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = sm; g.beginPath(); g.arc(cx, cy, d, 0, 6.29); g.fill();
     }
-    g.restore();
-    const beat = 0.75 + 0.25 * Math.pow(Math.abs(Math.sin(now / 260)), 6);   // its heart beats, slow and heavy
-    const core = g.createRadialGradient(-2, -2, 0, 0, 0, 15 * beat);
-    core.addColorStop(0, "#ffe8d8"); core.addColorStop(0.3, "#ff4a3c"); core.addColorStop(1, "#8a001800");
-    g.fillStyle = core; g.beginPath(); g.arc(0, 0, 15 * beat, 0, Math.PI * 2); g.fill();
-    for (let i = 0; i < 6; i++) {
-      const a = i * Math.PI / 3 + now / 1300, tip = 39 + Math.sin(now / 110 + i) * 5;
-      g.save(); g.rotate(a); g.fillStyle = "#5cff6a60"; g.beginPath(); g.moveTo(27, -5);
-      g.quadraticCurveTo(tip, -10, tip + 4, 3); g.quadraticCurveTo(33, -2, 28, 6); g.closePath(); g.fill(); g.restore();
+    // smoke churning on it: soft dark lobes turning both ways, swelling and shrinking, some poking past the rim
+    for (let i = 0; i < 11; i++) {
+      const a = now / (i % 2 ? 900 : -1150) + i * 0.571, rr = 10 + (i % 4) * 7 + Math.sin(now / 410 + i * 1.7) * 5;
+      const cx = Math.cos(a) * rr, cy = Math.sin(a) * rr, d = 13 + (i % 3) * 5 + Math.sin(now / 260 + i) * 2.5;
+      const sm = g.createRadialGradient(cx, cy, 0, cx, cy, d), red = i % 3 === 0;
+      sm.addColorStop(0, red ? "rgba(48,6,12,0.75)" : "rgba(4,2,3,0.8)"); sm.addColorStop(0.65, red ? "rgba(26,3,8,0.35)" : "rgba(8,3,5,0.35)"); sm.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = sm; g.beginPath(); g.arc(cx, cy, d, 0, 6.29); g.fill();
     }
+    // the heart, seen deep in the smoke
+    const core = g.createRadialGradient(0, 0, 0, 0, 0, 13 * beat);
+    core.addColorStop(0, "rgba(255,110,80," + (0.7 * beat).toFixed(3) + ")"); core.addColorStop(0.35, "rgba(200,14,34,0.55)"); core.addColorStop(1, "rgba(90,0,16,0)");
+    g.globalCompositeOperation = "lighter"; g.fillStyle = core; g.beginPath(); g.arc(0, 0, 13 * beat, 0, 6.29); g.fill();
     g.restore();
   }
   function drawShot(s, x, y, now) {
@@ -415,15 +417,13 @@
       const dk = g.createRadialGradient(x, y, 20, x, y, 190);   // it darkens the space round it, as if it drinks the light
       dk.addColorStop(0, "rgba(0,0,0,0.6)"); dk.addColorStop(0.55, "rgba(6,0,4,0.32)"); dk.addColorStop(1, "rgba(0,0,0,0)");
       g.fillStyle = dk; g.beginPath(); g.arc(x, y, 190, 0, 6.29); g.fill();
-      g.globalCompositeOperation = "lighter";
-      g.globalAlpha = 0.1; g.drawImage(dotSprite("#2cff5a"), x - 110, y - 110, 220, 220);
-      g.globalCompositeOperation = "source-over";   // (the shroud laid over, not added: it stays green, dark at its edges)
-      // the shroud: flame clouds turning round it both ways, streaming back along its flight
-      for (let i = 0; i < 10; i++) {
-        const a = now / (i % 2 ? 700 : -900) + i * 0.628, rr = 22 + (i % 3) * 10 + Math.sin(now / 230 + i) * 5, back = (i % 4) * 9;
-        const cx = x + Math.cos(a) * rr - ux * back, cy = y + Math.sin(a) * rr - uy * back, d = 46 + (i % 3) * 14;
-        g.globalAlpha = 0.3; g.save(); g.translate(cx, cy); g.rotate(now / 400 + i);
-        g.drawImage(fireSprite(5 + (i % 3), i & 3, DEMON_RAMP), -d / 2, -d / 2, d, d); g.restore();   // (the darker greens of its fire)
+      // the shroud: dark smoke turning round it both ways and dragged back along its flight
+      for (let i = 0; i < 9; i++) {
+        const a = now / (i % 2 ? 760 : -980) + i * 0.698, rr = 30 + (i % 3) * 9 + Math.sin(now / 250 + i) * 5, back = (i % 4) * 11;
+        const cx = x + Math.cos(a) * rr - ux * back, cy = y + Math.sin(a) * rr - uy * back, d = 26 + (i % 3) * 10;
+        const sm = g.createRadialGradient(cx, cy, 0, cx, cy, d);
+        sm.addColorStop(0, i % 4 ? "rgba(10,4,6,0.55)" : "rgba(40,6,12,0.5)"); sm.addColorStop(1, "rgba(0,0,0,0)");
+        g.globalAlpha = 1; g.fillStyle = sm; g.beginPath(); g.arc(cx, cy, d, 0, 6.29); g.fill();
       }
       for (let i = 0; i < 6; i++) {   // black smoke coiling through the flame
         const a = now / (i % 2 ? -520 : 610) + i * 1.047, rr = 26 + (i % 3) * 8, cx = x + Math.cos(a) * rr - ux * 14, cy = y + Math.sin(a) * rr - uy * 14, d = 30 + (i % 2) * 12;

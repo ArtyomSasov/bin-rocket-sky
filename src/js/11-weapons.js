@@ -340,12 +340,11 @@
       if (near) { packPlay("p_boom_mine", 1, x, y); shake = Math.max(shake, 0.28 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
       return;
     }
-    if (s.kind === K.GAMMA) {   // the demonic orb bursts: a ball of hellfire, a heavy warping shock wave, green lightning
-      explode(x, y, 90, 520, "demon");
-      rings.push({ x, y, t: 0, r: 420, col: "120,255,140", warp: true, dur: 0.75, w: 22, shock: 34 });
-      rings.push({ x, y, t: -0.08, r: 280, col: "60,255,110", warp: true, dur: 0.6, w: 12 });
-      impacts.push({ x, y, t: 0, r: 420, col: "110,255,120", dur: 0.9, soft: 0.7, flick: Math.random() * 6.28 });
-      for (let k = 0; k < (lowQ ? 4 : 9); k++) { const a = Math.random() * 6.283, d = 120 + Math.random() * 200; arcs.push({ x1: x, y1: y, x2: x + Math.cos(a) * d, y2: y + Math.sin(a) * d, t: 0, col: "140,255,150" }); }
+    if (s.kind === K.GAMMA) {   // the demonic orb bursts: blood-red hellfire into black smoke, a heavy warping shock wave, red lightning
+      explode(x, y, 90, 520, "hell");
+      rings.push({ x, y, t: 0, r: 420, col: "90,0,14", warp: true, dur: 0.8, w: 22, shock: 34 });
+      impacts.push({ x, y, t: 0, r: 380, col: "170,10,30", dur: 0.9, soft: 0.6, flick: Math.random() * 6.28 });
+      for (let k = 0; k < (lowQ ? 4 : 9); k++) { const a = Math.random() * 6.283, d = 120 + Math.random() * 200; arcs.push({ x1: x, y1: y, x2: x + Math.cos(a) * d, y2: y + Math.sin(a) * d, t: 0, col: "255,50,60" }); }
       // and it leaves a pall of black smoke, crimson embers spitting out of it
       for (let k = 0; k < (lowQ ? 10 : 26); k++) { const a = Math.random() * 6.283, v = 40 + Math.random() * 260; puff(x + Math.cos(a) * 30, y + Math.sin(a) * 30, Math.cos(a) * v, Math.sin(a) * v, 1.6 + Math.random() * 1.6, 22 + Math.random() * 26, k % 3 ? "#0a0507" : "#240810", 2, 0, (Math.random() - 0.5) * 0.8, 0.95); }
       for (let k = 0; k < (lowQ ? 6 : 18); k++) { const a = Math.random() * 6.283, v = 200 + Math.random() * 600; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.5 + Math.random() * 0.7, 1.4 + Math.random() * 1.6, k % 2 ? "#ff2a3c" : "#ff7a4a", 5, 0, 0, 0.93); }
@@ -630,8 +629,7 @@
       // The supplied cannon shot has its own body; an extra bass blast masks its attack.
       setTimeout(() => sfx("pump", 0.6, 1.25), 330);
     },
-    pulse(m) {   // the laser's pulse: a wide cyan wave rolls out of the gun
-      rings.push({ x: m.x, y: m.y, t: 0, r: 140, col: "125,249,255", warp: true, dur: 0.3, w: 10 });
+    pulse(m) {   // the laser's pulse: a spray of cyan sparks out of the gun (no ring: it read as circles round the bin)
       for (let k = 0; k < 24; k++) { const a = me.a + (Math.random() - 0.5) * 1.3, v = 300 + Math.random() * 600; puff(m.x, m.y, Math.cos(a) * v + me.vx, Math.sin(a) * v + me.vy, 0.25, 2, k % 2 ? "#bff9ff" : "#ffffff"); }
     },
     shock(m) { rings.push({ x: m.x, y: m.y, t: 0, r: 60, col: "200,160,255", dur: 0.25, w: 5 }); impacts.push({ x: m.x, y: m.y, t: 0, r: 45, col: "#c9a4ff" }); },
