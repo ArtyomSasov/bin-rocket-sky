@@ -7,7 +7,8 @@
 // client -> server   { t: "join", code, name, bots, level }   first message; joins or creates the room
 //                    (join's pub: true lists the room in /rooms, for the lobby browser)
 //                    { t: "in", mx, my, aim, fire, alt, boost, brake, dash, tele, w, s }   the player's controls, sent as they change (s: their number)
-//                    { t: "net", p, j, s, g, f }   every 10 s: round trip, jitter, stalls, worst gap (ms), frames a second
+//                    { t: "net", p, j, s, g, f, h }   every 10 s: round trip, jitter, stalls, worst gap (ms), frames a second,
+//                    h: [hits shown at once, of them confirmed by the server, confirmed hits that were not shown]
 //                    { t: "ping", c }
 // server -> client   { t: "welcome", id, code, tickHz, sendHz, serverTime }
 //                    { t: "snap", ...a lobby host's state (see sim.mjs packet) }, or for a page that joined with
@@ -211,9 +212,10 @@ wss.on("connection", (ws, req) => {
     }
     // how the connection is doing on the player's side, every 10 s (numbers only): summed for the log at leave
     if (m.t === "net") {
-      const n = (v, max) => Number.isFinite(v) ? Math.max(0, Math.min(max, v)) : 0, a = ws.net || (ws.net = { n: 0, p: 0, j: 0, s: 0, g: 0, f: 0 });
+      const n = (v, max) => Number.isFinite(v) ? Math.max(0, Math.min(max, v)) : 0, a = ws.net || (ws.net = { n: 0, p: 0, j: 0, s: 0, g: 0, f: 0, hs: 0, hc: 0, hn: 0 });
       if (a.n >= 8640) return;   // (a day of reports is plenty)
       a.n++; a.p += n(m.p, 5000); a.j += n(m.j, 5000); a.s += n(m.s, 300); a.g = Math.max(a.g, n(m.g, 60000)); a.f += n(m.f, 300);
+      if (Array.isArray(m.h)) { a.hs += n(m.h[0], 1000); a.hc += n(m.h[1], 1000); a.hn += n(m.h[2], 1000); }   // hits shown at once, of them confirmed, confirmed but not shown
       return;
     }
     if (m.t === "join" && !room) {
@@ -251,7 +253,7 @@ wss.on("connection", (ws, req) => {
     if (!room.clients.size) room.emptySince = performance.now();
     log("leave", room.code, id, "players", room.clients.size);
     const a = ws.net;   // the player's network, for deciding what to improve: averages over their stay
-    if (a?.n) log("net", id, `${a.n * 10}s`, "ping", Math.round(a.p / a.n), "jitter", Math.round(a.j / a.n), "stalls/min", +(a.s / (a.n / 6)).toFixed(1), "worst gap", Math.round(a.g), "fps", Math.round(a.f / a.n), "cmd repeats", rep, ws.rtcUsed ? "webrtc" : "websocket");
+    if (a?.n) log("net", id, `${a.n * 10}s`, "ping", Math.round(a.p / a.n), "jitter", Math.round(a.j / a.n), "stalls/min", +(a.s / (a.n / 6)).toFixed(1), "worst gap", Math.round(a.g), "fps", Math.round(a.f / a.n), "hits shown", a.hs, "confirmed", a.hs ? Math.round(100 * a.hc / a.hs) + "%" : "-", "unshown", a.hn, "cmd repeats", rep, ws.rtcUsed ? "webrtc" : "websocket");
   });
 });
 // connections that stopped answering, and players who stopped playing, are dropped (their pilot leaves with them):

@@ -17,7 +17,7 @@
   const srv = { ws: null, id: "", tag: "", sendHz: 30, dashN: 0, teleN: 0, lastIn: "", lastInAt: 0, deadSeen: false, joined: false, err: "", pred: [], pseq: 0,
     seq: 0, sent: new Map(), hist: [], cx: 0, cy: 0, vox: 0, voy: 0, seqOff: 0, cmds: [], cs: 0, sentCs: 0, acc: 0,   // my flight commands (pilotMove)   // seqOff: the server's shot numbers less mine (for the spread)
     jit: 0, interp: 70, hits: [],
-    lastSnapAt: 0, stalls: [], maxGap: 0, report: { stalls: 0, maxGap: 0 } };   // how the snapshots arrive (the network indicator)   // arrival jitter and the delay others are shown at (ms); my hits shown before the server's word   // my numbered controls, my flight as predicted here, and the correction still to ease in
+    lastSnapAt: 0, stalls: [], maxGap: 0, report: { stalls: 0, maxGap: 0, hs: 0, hc: 0, hn: 0 } };   // how the snapshots arrive (the network indicator)   // arrival jitter and the delay others are shown at (ms); my hits shown before the server's word   // my numbered controls, my flight as predicted here, and the correction still to ease in
   // the pilot the server flies for me: its own shots are mine, never a threat to me
   const mySrvShot = s => serverRun && !!srv.id && s.owner === srv.id;
   function serverStart(code) {
@@ -49,8 +49,8 @@
     // every 10 s the server hears how the connection is doing here (numbers only), for its own summary of the network
     setInterval(() => {
       if (ws.readyState !== 1 || !srv.joined) return;
-      ws.send(JSON.stringify({ t: "net", p: Math.round(myPing || 0), j: Math.round(srv.jit), s: srv.report.stalls, g: Math.round(srv.report.maxGap), f: Math.round(1 / (frameAvg || 1 / 60)) }));
-      srv.report = { stalls: 0, maxGap: 0 };
+      ws.send(JSON.stringify({ t: "net", p: Math.round(myPing || 0), j: Math.round(srv.jit), s: srv.report.stalls, g: Math.round(srv.report.maxGap), f: Math.round(1 / (frameAvg || 1 / 60)), h: [srv.report.hs, srv.report.hc, srv.report.hn] }));
+      srv.report = { stalls: 0, maxGap: 0, hs: 0, hc: 0, hn: 0 };
     }, 10000);
     setInterval(sendControls, 1000 / 30);
   }
@@ -349,7 +349,7 @@
     let owed = 0; for (const h of srv.hits) if (h.rid === rid && now - h.at < keep) owed += h.dmg || 0;
     if (Number.isFinite(r.lives) && r.lives + (r.shield || 0) - owed <= 0) return;
     hitConfirm({ ...s, mine: true }, r.lv, r.x, r.y, r);
-    srv.hits.push({ rid, at: now, dmg: shotDmg(s) });
+    srv.hits.push({ rid, at: now, dmg: shotDmg(s) }); srv.report.hs++;   // (hs: hits shown at once; hc: of them, confirmed; hn: confirmed hits not shown)
     if (srv.hits.length > 64) srv.hits.shift();
   }
   // the server confirms a hit of mine on rid: true if it was shown already (its effects then stay quiet)
@@ -357,8 +357,8 @@
     const now = performance.now(), keep = 400 + (myPing || 100) * 2;
     while (srv.hits.length && now - srv.hits[0].at > keep) srv.hits.shift();
     const i = srv.hits.findIndex(h => h.rid === rid);
-    if (i < 0) return false;
-    srv.hits.splice(i, 1);
+    if (i < 0) { srv.report.hn++; return false; }
+    srv.hits.splice(i, 1); srv.report.hc++;
     return true;
   }
   // Flying through a crate, a trophy or a medkit takes it here at once: it vanishes with its sound and its words,
