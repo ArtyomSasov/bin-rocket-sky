@@ -3,9 +3,14 @@
   const mountsOf = w => w === "laser" || w === "gauntlet" ? [[160, 96]] : ["nuke", "holy", "void", "bolt", "gamma", "tele", "gauss", "gauntlet", "saw"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // (the pistols: one in each hand, fired in turn)   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
   const BARREL = { fire: 44, laser: 60, rocket: 50, triple: 42, nuke: 96, holy: 30, saw: 40, gamma: 44, tele: 28, minigun: 58, gauss: 80, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48, nail: 54, gren: 44, gauntlet: 34 };   // tip, in mount units
   // the tip of a pilot's gun (any pilot: me, a bot, a player's pilot on the server, which fires from the same tips),
-  // the wing guns taking turns (p.gunSide)
+  // the wing guns taking turns (p.gunSide). A player's shot fired by a flight command takes its hand from that
+  // command's number (jk) and the gun's cooldown, which the screen and the server both know: counted shot by shot,
+  // one shot fired on one side only (a refused trigger, a round's start) swapped the hands for good, and the server
+  // then missed what the screen showed hitting with the other hand's edge
   function muzzleOf(p, weapon) {
-    const ms = mountsOf(weapon), [mx, my] = ms[(p.gunSide = (p.gunSide || 0) + 1) % ms.length];
+    const jk = p === me ? (serverRun ? srv.jk : undefined) : p.jk, cd = p === me ? fireCd : p.fireCd;
+    const side = Number.isSafeInteger(jk) && cd > 0 ? Math.floor(jk / Math.max(1, Math.round(cd / CMD_DT))) : (p.gunSide = (p.gunSide || 0) + 1);
+    const ms = mountsOf(weapon), [mx, my] = ms[side % ms.length];
     const S = BOT * sizeOf(p.lv || 1), t = (BARREL[weapon] ?? 44) * S / 320 * 1.35, R = p.a + Math.PI / 2 - SPRITE_TILT;
     // sprite frame: the mount, then along its tilted barrel; then into the world the way drawBot rotates the bin
     const lx = (mx / 320 - 0.5) * S + Math.sin(SPRITE_TILT) * t, ly = (my / 320 - 0.5) * S - Math.cos(SPRITE_TILT) * t;

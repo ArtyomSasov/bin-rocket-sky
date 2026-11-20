@@ -52,8 +52,10 @@
     }
   }
   function botXp(b) { b.lv = 1; b.xp = 0; }
-  function botHurt(b, dmg, shotId, now, force, kind = -1, ang = 0) {
-    if (b.dead || (!force && now < b.inv) || !roundLive) return;
+  // past: a player's hitscan shot judged where the bot was when they fired (lag compensation): its invulnerability
+  // then was checked there (targetHit); one it gained since (a dash) does not take the hit back
+  function botHurt(b, dmg, shotId, now, force, kind = -1, ang = 0, past = false) {
+    if (b.dead || (!force && !past && now < b.inv) || !roundLive) return;
     const absorbed = force ? 0 : absorbArmor(b, dmg);
     dmg -= absorbed;
     if (!shotId.startsWith(b.tag + ".")) metricDamage(shotId, absorbed + Math.min(b.lives, dmg), b.lives <= dmg);
@@ -351,7 +353,7 @@
           shotBurst(s); hitConfirm(s, b.lv, b.x, b.y, remotes.get(b.id)); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
           if (s.kind === K.BOLT || s.kind === K.LASER) boltChain(s, b.x, b.y, b.id, now);
           if (s.kind === K.NAIL || s.kind === K.SPIKE) b.pinnedUntil = now + 1000;
-          botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx));
+          botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx), invNow);
         }
       }
     }

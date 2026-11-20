@@ -54,7 +54,7 @@ try {
     window.__rd = { skip: 0, skipHb: 0, seen: 0, rds: new Set(), mine: stats.round }; const acr0 = applyCombatReports;
     applyCombatReports = (id, p, r) => { __rd.seen++; for (const k of Array.isArray(p.hb) ? p.hb : []) { if (typeof k !== 'string') continue; const m = k.startsWith(myTag + '.'); if (!m) { __rd.notMine = (__rd.notMine || 0) + 1; (__rd.nm = __rd.nm || new Set()).add(k.split('.')[0] + '/' + myTag); } else if (credited.has(id + ':' + k)) __rd.dup = (__rd.dup || 0) + 1; else __rd.fresh = (__rd.fresh || 0) + 1; } if (p.rd !== stats.round) { __rd.skip++; if (Array.isArray(p.hb) && p.hb.length) __rd.skipHb++; __rd.rds.add(p.rd + '/' + stats.round); } return acr0(id, p, r); };
     window.__log = []; const fx0 = serverHitFx, sh0 = serverHitShown;
-    serverHitFx = (s, rid, r) => { const n = srv.hits.length; fx0(s, rid, r); if (srv.hits.length > n) __log.push({ rid, at: performance.now(), kind: s.kind, lives: r.lives, inv: !!r.inv, dead: !!r.dead, ok: false }); };
+    serverHitFx = (s, rid, r) => { const n = srv.hits.length; fx0(s, rid, r); if (srv.hits.length > n) { const v = Math.hypot(s.vx, s.vy) || 1, ux = s.vx / v, uy = s.vy / v, side = Math.sign((s.ox - me.x) * Math.sin(me.a) - (s.oy - me.y) * Math.cos(me.a)), perp = Math.round((r.x - s.ox) * uy - (r.y - s.oy) * ux); __log.push({ rid, at: performance.now(), kind: s.kind, side, perp, lives: r.lives, inv: !!r.inv, dead: !!r.dead, ok: false }); } };
     serverHitShown = rid => { const ok = sh0(rid); if (ok) { const e = __log.find(e => e.rid === rid && !e.ok); if (e) { e.ok = true; e.lag = Math.round(performance.now() - e.at); } } return ok; };
     window.__ctl = setInterval(() => { const r = [...remotes.values()].find(r => r.name === 'Target'); keys.delete('KeyW'); keys.delete('KeyS'); keys.delete('KeyA'); keys.delete('KeyD'); keys.delete('KeyF');
       if (!r || me.dead || r.dead) return; const dx = r.x - me.x, dy = r.y - me.y, d = Math.hypot(dx, dy);
@@ -69,7 +69,9 @@ try {
   console.log('RESULT', JSON.stringify(r), 'confirmed', r.hs ? Math.round(100 * r.hc / r.hs) + '%' : '-');
   console.log('errors', errs);
   console.log('RD', JSON.stringify(await A(`({ ...__rd, rds: [...__rd.rds], nm: [...(__rd.nm || [])], credSize: credited.size })`)));
-  console.log('UNCONFIRMED', JSON.stringify(await A(`__log.filter(e => !e.ok).map(e => ({ kind: e.kind, lives: e.lives, inv: e.inv, dead: e.dead }))`)));
+  console.log('UNCONFIRMED', JSON.stringify(await A(`__log.filter(e => !e.ok).map(e => ({ kind: e.kind, side: e.side, perp: e.perp, lives: e.lives, inv: e.inv, dead: e.dead }))`)));
+  console.log('BY SIDE', JSON.stringify(await A(`[-1, 1].map(sd => { const l = __log.filter(e => e.side === sd); return { side: sd, shown: l.length, ok: l.filter(e => e.ok).length }; })`)));
+  console.log('BY EDGE', JSON.stringify(await A(`[[0, 15], [15, 30], [30, 45], [45, 999]].map(([a, b]) => { const l = __log.filter(e => Math.abs(e.perp) >= a && Math.abs(e.perp) < b); return { perp: a + '-' + b, shown: l.length, ok: l.filter(e => e.ok).length }; })`)));
   console.log('confirm lag ms', JSON.stringify(await A(`__log.filter(e => e.ok).map(e => e.lag).sort((a,b)=>a-b)`)));
 } finally { chrome.kill(); web.close(); game.kill(); proxy.close(); }
 console.log(glog.split('\n').filter(l => / net /.test(l)).join('\n'));
