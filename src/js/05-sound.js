@@ -313,6 +313,47 @@
     }
     choirUntil = t;
   }
+  // ---------- the energy blade's voice, made here (no recording): a low buzzing hum, a swing's rising whoosh, a clash ----------
+  // a hum while it is wound up (held), lower when barely, rising as the wind-up fills
+  let bladeHum = null;
+  function bladeHumSet(level) {
+    if (!audio || !sfxBus) return;
+    if (level <= 0) { if (bladeHum) { const h = bladeHum; bladeHum = null; h.v.gain.setTargetAtTime(0, audio.currentTime, 0.04); setTimeout(() => { try { h.o1.stop(); h.o2.stop(); } catch {} }, 300); } return; }
+    if (!bladeHum) {
+      const o1 = audio.createOscillator(), o2 = audio.createOscillator(), f = audio.createBiquadFilter(), v = audio.createGain();
+      o1.type = "sawtooth"; o2.type = "sawtooth"; o1.frequency.value = 88; o2.frequency.value = 90.5; f.type = "lowpass"; f.frequency.value = 600; v.gain.value = 0;
+      o1.connect(f); o2.connect(f); f.connect(v).connect(sfxBus); o1.start(); o2.start();
+      bladeHum = { o1, o2, f, v };
+    }
+    const t = audio.currentTime;
+    bladeHum.v.gain.setTargetAtTime(0.05 + 0.07 * level, t, 0.03); bladeHum.f.frequency.setTargetAtTime(500 + 1400 * level, t, 0.05);
+    bladeHum.o1.frequency.setTargetAtTime(88 + 30 * level, t, 0.05); bladeHum.o2.frequency.setTargetAtTime(90.5 + 31 * level, t, 0.05);
+  }
+  // the swing: a buzzing tone sweeping up and back down with a rush of air, louder for a fuller swing
+  function bladeSwing(power = 1, pan = 0) {
+    if (!audio || !sfxBus) return;
+    const t = audio.currentTime, d = 0.38, o = audio.createOscillator(), o2 = audio.createOscillator(), f = audio.createBiquadFilter(), v = audio.createGain(), p = audio.createStereoPanner ? audio.createStereoPanner() : null;
+    o.type = "sawtooth"; o2.type = "square";
+    o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(240, t + d * 0.45); o.frequency.exponentialRampToValueAtTime(110, t + d);
+    o2.frequency.setValueAtTime(97, t); o2.frequency.exponentialRampToValueAtTime(250, t + d * 0.45); o2.frequency.exponentialRampToValueAtTime(112, t + d);
+    f.type = "bandpass"; f.Q.value = 1.2; f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(2600, t + d * 0.45); f.frequency.exponentialRampToValueAtTime(700, t + d);
+    v.gain.setValueAtTime(0.001, t); v.gain.exponentialRampToValueAtTime(0.16 * (0.5 + power * 0.5), t + d * 0.35); v.gain.exponentialRampToValueAtTime(0.001, t + d);
+    const n = audio.createBufferSource(), nb = audio.createBuffer(1, audio.sampleRate * d | 0, audio.sampleRate), nd = nb.getChannelData(0);
+    for (let i = 0; i < nd.length; i++) nd[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / nd.length);
+    n.buffer = nb; const nf = audio.createBiquadFilter(); nf.type = "bandpass"; nf.frequency.value = 1800; nf.Q.value = 0.8; const nv = audio.createGain(); nv.gain.value = 0.12 * power;
+    if (p) { p.pan.value = clamp(pan, -1, 1); v.connect(p).connect(sfxBus); nv.connect(p); } else { v.connect(sfxBus); nv.connect(sfxBus); }
+    o.connect(f); o2.connect(f); f.connect(v); n.connect(nf).connect(nv);
+    o.start(t); o2.start(t); n.start(t); o.stop(t + d); o2.stop(t + d);
+  }
+  // the clash: the blade biting into something, a sharp crackling burst
+  function bladeClash(pan = 0) {
+    if (!audio || !sfxBus) return;
+    const t = audio.currentTime, d = 0.22, n = audio.createBufferSource(), b = audio.createBuffer(1, audio.sampleRate * d | 0, audio.sampleRate), x = b.getChannelData(0);
+    for (let i = 0; i < x.length; i++) x[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / x.length, 3) * (Math.random() < 0.2 ? 1 : 0.4);
+    n.buffer = b; const f = audio.createBiquadFilter(); f.type = "highpass"; f.frequency.value = 1500; const v = audio.createGain(); v.gain.value = 0.3;
+    const o = audio.createOscillator(); o.type = "sawtooth"; o.frequency.setValueAtTime(620, t); o.frequency.exponentialRampToValueAtTime(180, t + d); const ov = audio.createGain(); ov.gain.setValueAtTime(0.12, t); ov.gain.exponentialRampToValueAtTime(0.001, t + d);
+    n.connect(f).connect(v).connect(sfxBus); o.connect(ov).connect(sfxBus); n.start(t); o.start(t); o.stop(t + d);
+  }
   function blip(f, dur, type) {
     if (!audio) return;
     const o = audio.createOscillator(), v = audio.createGain(), t = audio.currentTime;

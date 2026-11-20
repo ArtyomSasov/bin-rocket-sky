@@ -59,8 +59,9 @@
     if (m.t === "ping") { lanSendTo(peer, JSON.stringify({ t: "pong", v: m.v })); return; }
     if (m.t === "pong") { if (Number.isFinite(m.v)) gotPing(performance.now() - m.v); return; }
     if (m.t === "chat") {   // a chat line: from the pilot this channel speaks for; the host passes it on
-      if (typeof m.m !== "string" || typeof m.i !== "string" || m.i === lan.myId || m.m.length > 600) return;
-      if (lan.host) { if (peer.id && peer.id !== m.i) return; for (const o of lan.peers) if (o !== peer) lanSendTo(o, data); }
+      if (typeof m.m !== "string" || typeof m.i !== "string" || !/^p[a-z0-9]{1,12}$/.test(m.i) || m.i === lan.myId || m.m.length > 600) return;
+      // (the host passes on only lines from the pilot a guest's channel is known to speak for: nobody can speak as another)
+      if (lan.host) { if (!peer.id || peer.id !== m.i) return; for (const o of lan.peers) if (o !== peer) lanSendTo(o, data); }
       const r = remotes.get(m.i); if (r) chatShow(r.name || "Pilot", m.m, false, m.i);
       return;
     }

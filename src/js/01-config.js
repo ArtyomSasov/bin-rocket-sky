@@ -135,7 +135,8 @@
     bolt:    { name: "Lightning", ammo: 90, cd: 0.11, col: "#bfefff", shot: [K.BOLT, 5600], kick: 4, feel: [2, 0.03, 35], sfx: ["laser", 0.22, 1.7] },
     holy:    { name: "Holy bomb", ammo: 1, cd: 1.2, col: "#fff3b0", shot: [K.HOLY, 700], kick: 120, feel: [20, 0.3, 110], sfx: ["mine_drop", 1, 0.6] },
     // the Blood Blade: a red energy sword; each press a swing through the arc ahead, cutting whoever is in it
-    saw:     { name: "Blood Blade", ammo: 30, cd: 0.75, col: "#ff2a3c", shot: [K.SWORD, 300], sword: true, kick: -160, feel: [10, 0.14, 0], sfx: ["dash", 0.7, 1.6] },
+    // (charge: hold to wind it up, let go to strike; a full wind-up, 0.45 s, strikes at full strength)
+    saw:     { name: "Blood Blade", ammo: 30, cd: 0.75, charge: 0.45, col: "#ff2a3c", shot: [K.SWORD, 300], sword: true, kick: -160, feel: [10, 0.14, 0], sfx: ["dash", 0.7, 1.6] },
     // alt: set your gamma orb off where it is now
     gamma:   { name: "Demonic Orb", ammo: 3, cd: 1.6, col: "#7dff8a", shot: [K.GAMMA, 420], kick: 220, feel: [24, 0.35, 130], sfx: ["shield_get", 1, 0.5], fx: "gamma",
                alt: { name: "Detonate", detonate: true, cost: 0, cd: 0.3, sfx: ["hit", 0.6, 0.6] } },

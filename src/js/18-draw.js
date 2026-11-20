@@ -556,7 +556,7 @@
   // the engine's throat: a tight, very bright cone of light out of the nozzle (a third of the old flame's length; the
   // plume of particles carries the fire beyond it), blue-white on boost, flickering fast; a glow round the nozzle
   function drawCore(len, wid, now, tier, boost, seed) {
-    const t = now / 1000, L = len * 0.42 * (0.9 + 0.1 * Math.sin(t * 61 + seed) + 0.05 * Math.sin(t * 97 + seed * 2)), w = wid * 0.62;
+    const t = now / 1000, L = len * (boost ? 0.42 : 0.5) * (0.9 + 0.1 * Math.sin(t * 61 + seed) + 0.05 * Math.sin(t * 97 + seed * 2)), w = wid * 0.7;
     if (L < 1) return;
     g.globalCompositeOperation = "lighter";
     const core = boost ? "215,235,255" : `${tier.core}`, mid = `${tier.mid}`;
@@ -565,9 +565,15 @@
       gr.addColorStop(0, `rgba(${c},${al})`); gr.addColorStop(1, `rgba(${c},0)`);
       g.fillStyle = gr; g.beginPath(); g.moveTo(-w * wf / 2, 0); g.quadraticCurveTo(-w * wf * 0.45, L * lf * 0.5, 0, L * lf); g.quadraticCurveTo(w * wf * 0.45, L * lf * 0.5, w * wf / 2, 0); g.closePath(); g.fill();
     }
-    const hg = g.createRadialGradient(0, 0, 0, 0, 0, wid * 1.3);
-    hg.addColorStop(0, `rgba(${core},0.6)`); hg.addColorStop(1, `rgba(${mid},0)`);
-    g.fillStyle = hg; g.beginPath(); g.arc(0, 0, wid * 1.3, 0, 6.29); g.fill();
+    if (boost) for (let i = 1; i <= 4; i++) {   // shock diamonds: bright knots standing in the jet
+      const yj = L * (0.18 + i * 0.17), r = w * (0.34 - i * 0.05);
+      g.globalAlpha = 0.75 - i * 0.12; g.fillStyle = "#eef8ff";
+      g.beginPath(); g.moveTo(0, yj - r * 2.2); g.lineTo(r, yj); g.lineTo(0, yj + r * 2.2); g.lineTo(-r, yj); g.closePath(); g.fill();
+    }
+    g.globalAlpha = 1;
+    const hg = g.createRadialGradient(0, 0, 0, 0, 0, wid * 1.5);
+    hg.addColorStop(0, `rgba(${core},0.75)`); hg.addColorStop(1, `rgba(${mid},0)`);
+    g.fillStyle = hg; g.beginPath(); g.arc(0, 0, wid * 1.5, 0, 6.29); g.fill();
     g.globalCompositeOperation = "source-over";
   }
   function drawFlame(len, wid, now, seed, tier, bend = 0, billow = 0) {
@@ -882,7 +888,7 @@
 
   // the weapon you carry is mounted on the wings, so everyone can see what is coming at them.
   // Drawn in art pixels; -y points the way the bin flies.
-  let gauntSpinFast = false, mountHeat = 0, barrelA = 0, swingNow = -1, swingSide = 1;   // (swingNow: how far through a sword swing, 0..1; -1 none)   // my gauntlet whirls while it's on; my minigun's heat; its barrels' turn
+  let gauntSpinFast = false, mountHeat = 0, barrelA = 0, swingNow = -1, swingSide = 1, isWinding = false, windNow = 0;   // (swingNow: how far through a sword swing, 0..1; -1 none)   // my gauntlet whirls while it's on; my minigun's heat; its barrels' turn
   function drawMounts(weapon, s, now) {
     if (!weapon) return;
     const u = s / 320, mounts = mountsOf(weapon);
@@ -959,11 +965,12 @@
         g.fillStyle = "#1d1630"; g.beginPath(); g.moveTo(-11, -74); g.quadraticCurveTo(0, -98, 11, -74); g.fill();
         g.fillStyle = "#ffe14d"; g.save(); g.translate(-8, -46); g.scale(16 / 24, 16 / 24); g.fill(ICON_PATHS.nuke, "evenodd"); g.restore();
       } else if (weapon === "saw") {   // the Blood Blade: a hilt, and a long blade of red energy with a white-hot edge, swung on a swing
-        const sw = swingNow, ang = sw >= 0 ? (-SWING_ARC / 2 + SWING_ARC * swingEase(sw)) * swingSide : -0.15;
+        // wound up (held): drawn back over the shoulder, further and brighter as the wind-up fills; swinging: sweeping
+        const wind = isWinding ? windNow : 0, sw = swingNow, ang = sw >= 0 ? (-SWING_ARC / 2 + SWING_ARC * swingEase(sw)) * swingSide : wind > 0 ? -0.15 - 1.9 * swingEase(wind) : -0.15;
         g.save(); g.translate(0, -14); g.rotate(ang);
         g.fillStyle = "#2a1f3d"; rrect(-4, -6, 8, 18, 3); g.fill(); g.fillStyle = "#8a2030"; g.fillRect(-10, -8, 20, 4);   // the hilt and guard
         g.globalCompositeOperation = "lighter";
-        const L = 78, pulse = 0.8 + 0.2 * Math.sin(now / 90);
+        const L = 78 * (1 + wind * 0.15), pulse = (0.8 + 0.2 * Math.sin(now / (90 - wind * 60))) * (1 + wind * 0.8);
         g.globalAlpha = 0.35 * pulse; g.fillStyle = "#ff1e32"; g.beginPath(); g.ellipse(0, -8 - L / 2, 11, L / 2 + 6, 0, 0, 6.29); g.fill();   // its glow
         g.globalAlpha = 1; const bg = g.createLinearGradient(-5, 0, 5, 0); bg.addColorStop(0, "#ff1e32"); bg.addColorStop(0.5, "#ffe0e0"); bg.addColorStop(1, "#ff1e32");
         g.fillStyle = bg; g.beginPath(); g.moveTo(-4.5, -8); g.lineTo(4.5, -8); g.lineTo(3, -8 - L); g.lineTo(0, -14 - L); g.lineTo(-3, -8 - L); g.closePath(); g.fill();
@@ -1179,7 +1186,8 @@
     g.save(); g.translate(x, y); g.rotate(pose.a); g.scale(pose.scaleX, 1);
     drawWings(lv, s);
     gauntSpinFast = isMe && !!me.gauntOn; mountHeat = isMe ? Math.max(spin, Math.min(1, me.heat || 0)) : 0;
-    { const sb = isMe ? me : b, k = sb.swingAt ? (now - sb.swingAt) / SWING_MS : 2; swingNow = k <= 1 ? k : -1; swingSide = sb.swingSide || 1; }
+    { const sb = isMe ? me : b, k = sb.swingAt ? (now - sb.swingAt) / SWING_MS : 2; swingNow = k <= 1 ? k : -1; swingSide = sb.swingSide || 1;
+      isWinding = isMe && me.weapon === "saw" && charge > 0; windNow = isWinding ? charge : 0; }
     // a minigun's barrels turn with its spin (mine: the trigger's spin-up; another's: how hard it has been firing)
     { const sv = isMe ? spin : (b.spinVis = Math.max(0, (b.spinVis || 0) - Math.min(0.1, (now - (b.spinT || now)) / 1000) * 1.2)), dtv = Math.min(0.1, (now - (b.barrelT || now)) / 1000);
       b.spinT = b.barrelT = now; b.barrelA = (b.barrelA || 0) + (0.4 + sv * sv * 30) * dtv; barrelA = b.barrelA; if (!isMe) mountHeat = Math.max(mountHeat, sv * 0.8); }

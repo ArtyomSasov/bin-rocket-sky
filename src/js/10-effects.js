@@ -257,7 +257,9 @@
   function plumeColsOf(pal, boost) {
     const q = c => (c[0] >> 4 << 4) + "," + (c[1] >> 4 << 4) + "," + (c[2] >> 4 << 4), key = q(pal.core) + "|" + q(pal.mid) + "|" + q(pal.outer) + (boost ? "b" : "");
     let c = plumeCols.get(key);
-    if (!c) { c = [boost ? "rgb(215,235,255)" : `rgb(${q(pal.core)})`, `rgb(${q(pal.core)})`, `rgb(${q(pal.mid)})`, `rgb(${q(pal.outer)})`, "rgb(120,30,14)"]; plumeCols.set(key, c); }
+    if (!c) { c = [boost ? "rgb(215,235,255)" : `rgb(${q(pal.core)})`, `rgb(${q(pal.core)})`, `rgb(${q(pal.mid)})`, `rgb(${q(pal.outer)})`, "rgb(120,30,14)"];
+      c.own = pal !== TIERS[0] && !(pal.outer[0] > 200 && pal.outer[1] < 120 && pal.outer[2] < 80);   // (an orange fire uses real flame; other colours their glow)
+      plumeCols.set(key, c); }
     return c;
   }
   function emitPlume(b, dt, boost) {
@@ -267,7 +269,7 @@
       if (j.power < 0.05) continue;
       const rate = (j.main ? (boost ? 220 : 100) : 40) * Math.min(1.4, j.power) * q;
       const n = emissionCount(b, j.main ? "plumeMain" : "plumeSide", rate, dt);
-      const wid = j.size * (j.main ? 0.2 : 0.1) * Math.sqrt(j.power) * (boost ? 1.45 : 1), speed = (boost ? 1150 : 640) * Math.sqrt(Math.min(1.4, j.power));
+      const wid = j.size * (j.main ? 0.22 : 0.1) * Math.sqrt(j.power) * (boost ? 1.25 : 1), speed = (boost ? 1150 : 640) * Math.sqrt(Math.min(1.4, j.power));
       for (let k = 0; k < n; k++) {
         const age = Math.random() * dt, a = j.a + (Math.random() - 0.5) * (boost ? 0.1 : 0.2), sp = speed * (0.8 + Math.random() * 0.4);
         const vx = (b.vx || 0) * 0.85 + Math.cos(a) * sp, vy = (b.vy || 0) * 0.85 + Math.sin(a) * sp;
@@ -288,15 +290,33 @@
       p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= drag; p.vy *= drag;
     }
   }
+  // Drawn as fire is: each particle a puff of turbulent flame (the blasts' noise-textured flame), stretched along its
+  // flight and turned with it. Young ones are added (light: a blinding jet), older ones laid over (body: an orange and
+  // red flame with ragged edges that turns to smoke). A flame the bin wears in its own colours keeps its glow sprites
   function drawPlume() {
     if (!plume.length) return;
-    g.save(); g.globalCompositeOperation = "lighter";
-    for (const p of plume) {
-      const x = sx(p.x), y = sy(p.y), f = p.t / p.life, r = (p.s0 + (p.s1 - p.s0) * Math.sqrt(f)) * 1.25;
-      if (x < -r || y < -r || x > vw + r || y > vh + r) continue;
-      const ci = f < 0.06 ? 0 : f < 0.16 ? 1 : f < 0.4 ? 2 : f < 0.7 ? 3 : 4;
-      g.globalAlpha = Math.pow(1 - f, 1.5) * (p.boost ? 0.32 : 0.28) * (0.8 + 0.2 * Math.sin(p.wob + p.t * 40));   // (additive: thin layers, many of them, flickering)
-      g.drawImage(dotSprite(p.c[ci]), x - r, y - r, r * 2, r * 2);
+    g.save();
+    for (const pass of [0, 1]) {   // 0: the cooler body laid over; 1: the hot jet added on top
+      g.globalCompositeOperation = pass ? "lighter" : "source-over";
+      for (const p of plume) {
+        const f = p.t / p.life;
+        if ((f < 0.35) !== !!pass) continue;
+        const x = sx(p.x), y = sy(p.y), r = (p.s0 + (p.s1 - p.s0) * Math.sqrt(f)) * 1.35;
+        if (x < -r * 2 || y < -r * 2 || x > vw + r * 2 || y > vh + r * 2) continue;
+        const sp = Math.hypot(p.vx, p.vy), st = Math.min(2.6, 1 + sp / 900), a = Math.atan2(p.vy, p.vx);
+        const flick = 0.82 + 0.18 * Math.sin(p.wob + p.t * 45);
+        g.save(); g.translate(x, y); g.rotate(a);
+        if (p.c.own) {   // (a coloured flame: its glow)
+          g.globalAlpha = Math.pow(1 - f, 1.5) * 0.35 * flick; const ci = f < 0.1 ? 0 : f < 0.25 ? 1 : f < 0.5 ? 2 : f < 0.78 ? 3 : 4;
+          g.drawImage(dotSprite(p.c[ci]), -r * st, -r, r * 2 * st, r * 2);
+        } else {
+          // the shade: white-hot at the nozzle (blue-white on boost), then yellow, orange, red, dark
+          const shade = Math.min(7, Math.floor(f * 8.5) + (p.boost ? (f < 0.05 ? 0 : 1) : 1)), ramp = p.boost && f < 0.12 ? PLASMA_RAMP : FIRE_RAMP;
+          g.globalAlpha = (pass ? (p.boost ? 0.26 : 0.4) * (1 - f / 0.35) : 0.7 * Math.pow(1 - (f - 0.35) / 0.65, 1.2)) * flick;
+          g.drawImage(fireSprite(shade, (p.wob * 3) | 0, ramp), -r * st, -r, r * 2 * st, r * 2);
+        }
+        g.restore();
+      }
     }
     g.restore();
   }
@@ -365,7 +385,8 @@
     o.swingSide = side; o.swingAt = performance.now();
     slashes.push({ o, a, side: o.swingSide, t: 0 });
     if (slashes.length > 24) slashes.shift();
-    sfx("dash", 0.5, 1.8, o.x, o.y);
+    const dist = Math.hypot(o.x - me.x, o.y - me.y);
+    if (dist < 1600) bladeSwing(1 - dist / 1600, clamp((o.x - me.x) / 900, -1, 1));
   }
   function updateSlashes(dt) { for (let i = slashes.length - 1; i >= 0; i--) if ((slashes[i].t += dt) > SWING_MS / 1000 + 0.15) slashes.splice(i, 1); }
   function drawSlashes() {

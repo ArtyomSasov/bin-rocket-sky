@@ -409,6 +409,18 @@
         if (!sh || sh.dead) { s.life = 0; shots.splice(i, 1); continue; }
         if (!s.swung) { s.swung = true; s.sa = Math.atan2(s.vy, s.vx); s.side = swingSideOf(s); swingStart(sh, s.sa, s.side); }
         s.vx = s.vy = 0; s.traced = true; swordSweep(s, sh);   // (traced: its line is set here, not flown)
+        // the blade cuts what it sweeps through: rock, walls, crates (a narrow cut along it), with sparks where it bites
+        if (s.lastCut === undefined || now - s.lastCut > 25) {
+          s.lastCut = now;
+          const own = s.mine || botById.has(s.owner) || (serverRun && s.owner === srv.id);
+          for (let f = 0.35; f <= 1.0001; f += 0.13) {
+            const px = s.px + (s.x - s.px) * f, py = s.py + (s.y - s.py) * f, b = solidAny(px, py);
+            if (!b) continue;
+            if (own || b.free) carveAt(b, px, py, 16, own);
+            if (Math.random() < 0.6) sparkShower(px, py, -(s.y - s.py), s.x - s.px, 0.5);
+            if (!s.clanged) { s.clanged = true; bladeClash(); }
+          }
+        }
       }
       if (s.kind === K.BULLET && !s.cased) {   // a minigun round just fired: its case flies out, and its gun's barrels are spinning
         s.cased = true; const sh = s.mine ? me : remotes.get(s.owner) || botById.get(s.owner);

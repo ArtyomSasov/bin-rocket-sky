@@ -31,7 +31,12 @@
       "varying vec2 v;uniform sampler2D m;uniform vec2 cam,view,world;uniform vec4 lp[16];uniform vec3 lc[16];uniform float lh[16];uniform float ls[16];uniform float n;void main(){" +
       "vec2 p=cam+vec2(v.x-.5,.5-v.y)*view;vec3 acc=vec3(0.);float heat=0.;float self=texture2D(m,p/world).a;" +
       "for(int i=0;i<16;i++){if(float(i)>=n)break;vec4 L=lp[i];vec2 d=L.xy-p;float r=length(d);if(r>L.z)continue;float a=1.-r/L.z;a*=a*L.w;" +
-      "float vis=1.;if(self<.5){vec2 st=d/r*min(r*.92,260.)/14.;for(int k=1;k<14;k++){vec2 q=p+st*float(k);if(length(L.xy-q)>ls[i]&&texture2D(m,q/world).a>.5){vis=0.;break;}}}" +
+      // soft shadows: along the way to the light, what stands there darkens the point the more the closer it is (a
+      // shadow is deep at the foot of a wall and thins out away from it, no hard end), the map sampled smoothly, the
+      // steps shifted a little from pixel to pixel so no bands show
+      "float vis=1.;if(self<.5){float span=min(r*.92,320.);vec2 dir=d/max(r,1.);float jt=fract(sin(dot(v,vec2(12.9898,78.233)))*43758.5453);float occ=0.;" +
+      "for(int k=1;k<16;k++){float t=(float(k)-jt)/15.*span;vec2 q=p+dir*t;if(length(L.xy-q)>ls[i]){occ=max(occ,texture2D(m,q/world).a*pow(1.-t/span,1.4));}}" +
+      "vis=1.-smoothstep(.05,.9,occ)*.9;}" +
       "acc+=lc[i]*a*vis;float hz=1.-r/(L.z*.6);heat+=lh[i]*max(hz,0.)*max(hz,0.);}gl_FragColor=vec4(acc,min(heat,1.));}";
     // heat haze: where the light map says it is hot (its alpha), the picture shimmers (two waves out of step)
     // shock waves (up to 4: centre, radius, width, strength in the view's terms): the picture bends outward across each

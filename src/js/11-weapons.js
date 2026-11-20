@@ -544,8 +544,9 @@
     if (s.kind === K.PELLET) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
     if (s.kind === K.SLUG) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
     if (s.kind === K.SHARD) { sparkShower(s.x, s.y, s.vx / 1300, s.vy / 1300, 1.1); shake = Math.max(shake, 0.08); }
-    if (s.kind === K.SWORD) {   // the blade bites: red-hot sparks across the cut, a gush of oil, a jolt
+    if (s.kind === K.SWORD) {   // the blade bites: red-hot sparks across the cut, a gush of oil, a jolt, its clash
       const a = s.sa ?? 0;
+      bladeClash(clamp((s.x - me.x) / 900, -1, 1));
       sparkShower(s.x, s.y, -Math.sin(a), Math.cos(a), 1.6); sparkShower(s.x, s.y, Math.sin(a), -Math.cos(a), 1.6);
       for (let k = 0; k < (lowQ ? 6 : 16); k++) { const b2 = a + (Math.random() - 0.5) * 2.4, v = 200 + Math.random() * 500; puff(s.x, s.y, Math.cos(b2) * v, Math.sin(b2) * v, 0.2 + Math.random() * 0.3, 1 + Math.random(), k % 2 ? "#ff3b4e" : "#ffd0d0", 1, 0.05); }
       oilSplash(s.x, s.y, 12, 380, Math.cos(a) * 200, Math.sin(a) * 200);
@@ -724,11 +725,13 @@
     if (held && playing && !me.dead) {
       const was = charge;
       charge = Math.min(1, charge + dt / w.charge);
-      if (Math.floor(was * 6) !== Math.floor(charge * 6)) sfx("p_charge", 0.3, 0.8 + charge * 0.5) || blip(300 + charge * 500, 0.06, "sine");   // a rising whine
+      if (w.sword) bladeHumSet(charge);   // (the blade hums as it winds up)
+      else if (Math.floor(was * 6) !== Math.floor(charge * 6)) sfx("p_charge", 0.3, 0.8 + charge * 0.5) || blip(300 + charge * 500, 0.06, "sine");   // a rising whine
       if (charge === 1 && was < 1) impacts.push({ x: me.x, y: me.y, t: 0, r: 60, col: w.col });
       return false;
     }
     if (charge > 0 && ready) shoot(now, false, Math.max(0.25, charge));
+    if (charge > 0 && w.sword) bladeHumSet(0);
     charge = 0;
     return false;
   }
