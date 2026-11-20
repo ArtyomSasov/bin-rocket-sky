@@ -107,10 +107,8 @@
     const room = audio.createGain(); room.gain.value = 0.18;
     heavyBus.connect(drive).connect(lows).connect(mixBus);
     lows.connect(room).connect(getHall());
-    // the one-file game carries its sounds inside (window.BRS_SFX, data: URLs); the page fetches them from sfx/
-    for (const n of SFX_NAMES) fetch((window.BRS_SFX && window.BRS_SFX[n]) || "sfx/" + n + (SFX_MP3.has(n) ? ".mp3" : ".wav")).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
-      .then(b => audio.decodeAudioData(b)).then(b => { sfxBuf[n] = b; }).catch(() => {});
-    loadPack();
+    preloadSounds();   // (already under way since the page opened, unless it couldn't decode before a click)
+    audioUp(audio);
   }
   // ---- the game's sound pack (sfx/pack: the author's weapon sounds and announcer voice). Each file is matched to a game
   // event by its path (a Quake III-style weapons tree) or, for the announcer, by a word in its name; where the pack has
@@ -198,15 +196,41 @@
     return null;
   }
   const packBuf = {};   // event -> its decoded variants (one is picked at random)
+  // ---- loading: every sound is fetched and decoded as soon as the page opens. An offline context decodes without
+  // waiting for the first click (browsers keep a real one silent until then) and its buffers play in the real one.
+  // loadState counts the files for the start screen's progress bar (loadWatch: called on every step)
+  const loadState = { total: 0, done: 0, failed: 0 }, loadWatchers = [];
+  const loadTick = () => { for (const f of loadWatchers) f(loadState); };
+  const loadWatch = f => { loadWatchers.push(f); f(loadState); };
+  let audioUp, decoder = null, preloading = false;
+  const audioReady = new Promise(r => { audioUp = r; });
+  const decodeWith = bytes => decoder ? decoder.decodeAudioData(bytes) : audioReady.then(a => a.decodeAudioData(bytes));
+  function loadTrack(src, store) {
+    loadState.total++; loadTick();
+    return fetch(src).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)).then(decodeWith).then(store)
+      .catch(() => { loadState.failed++; }).finally(() => { loadState.done++; loadTick(); });
+  }
+  function preloadSounds() {
+    if (preloading || typeof fetch !== "function") return;
+    preloading = true;
+    const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    try { if (Offline) decoder = new Offline(2, 1, 48000); } catch {}
+    // the one-file game carries its sounds inside (window.BRS_SFX, data: URLs); the page fetches them from sfx/
+    for (const n of SFX_NAMES) loadTrack((window.BRS_SFX && window.BRS_SFX[n]) || "sfx/" + n + (SFX_MP3.has(n) ? ".mp3" : ".wav"), b => { sfxBuf[n] = b; });
+    loadPack();
+  }
   function loadPack() {
     const add = (path, src) => {
       const ev = packEventFor(path);
-      if (ev) packListed.add(ev);
-      if (ev) fetch(src).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)).then(b => audio.decodeAudioData(b)).then(b => { (packBuf[ev] = packBuf[ev] || []).push(b); }).catch(() => {});
+      if (!ev) return;
+      packListed.add(ev);
+      loadTrack(src, b => { (packBuf[ev] = packBuf[ev] || []).push(b); });
     };
     if (window.BRS_PACK) { for (const [p, d] of Object.entries(window.BRS_PACK)) add(p, d); return; }
+    loadState.total++;   // (the list itself)
     const manifest = window.BRS_PACK_FILES ? Promise.resolve(window.BRS_PACK_FILES) : fetch("sfx/pack/index.json").then(r => r.json());
-    manifest.then(list => { for (const p of list) add(p, "sfx/pack/" + p.split("/").map(encodeURIComponent).join("/")); }).catch(() => {});
+    manifest.then(list => { for (const p of list) add(p, "sfx/pack/" + p.split("/").map(encodeURIComponent).join("/")); })
+      .catch(() => { loadState.failed++; }).finally(() => { loadState.done++; loadTick(); });
   }
   const packListed = new Set();   // events the pack has a file for (known from its list, before anything is decoded)
   const packKnows = ev => packListed.has(SOUND_OVERRIDE[ev]) || packListed.has(ev);

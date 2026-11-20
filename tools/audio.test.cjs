@@ -117,8 +117,9 @@ test('audio loads the page manifest without consulting a stale cached pack index
     audio: { decodeAudioData: async value => value } };
   vm.createContext(c);
   const source = read('05-sound.js');
-  vm.runInContext(source.slice(source.indexOf('  function loadPack()'), source.indexOf('  const packHas')), c);
-  c.loadPack(); await new Promise(resolve => setImmediate(resolve));
+  vm.runInContext(source.slice(source.indexOf('  // ---- loading:'), source.indexOf('  const packHas')) + '\nglobalThis.audioOn = () => audioUp(audio); globalThis.loaded = () => loadState;', c);
+  c.audioOn(); c.loadPack(); for (let i = 0; i < 4; i++) await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual({ ...c.loaded() }, { total: 3, done: 3, failed: 0 }, 'the list and both files counted for the progress bar');
   assert.deepEqual(requested, ['sfx/pack/ut/default-weapon-fire.wav', 'sfx/pack/engine/warp-dash.wav']);
   assert.equal(Object.keys(loaded).length, 2);
 });

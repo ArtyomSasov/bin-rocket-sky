@@ -481,6 +481,17 @@ body:not(.playing) .match-hud { display: none; }
 .stepnav { width: 100%; display: flex; gap: 8px; }
 .stepnav .ghost { flex: 0 0 auto; padding-inline: 18px; }
 .stepnav .go { flex: 1; }
+/* loading: a thin bar under Take off while the sounds and pictures load; the button stays usable, marked as such */
+.loadbar { position: relative; width: 100%; height: 22px; margin-top: 8px; border-radius: 11px; overflow: hidden;
+  background: rgba(255, 255, 255, 0.07); border: 1px solid var(--line); transition: opacity 0.6s, height 0.4s, margin 0.4s; }
+.loadbar i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, var(--teal-deep), var(--teal));
+  box-shadow: 0 0 12px var(--teal); transition: width 0.25s ease-out; }
+.loadbar span { position: relative; display: block; text-align: center; font: 700 12px/20px var(--body); color: var(--ink);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
+.loadbar.done i { background: linear-gradient(90deg, var(--teal-deep), #7dffb0); }
+.loadbar.warn i { background: linear-gradient(90deg, #b5562a, var(--flame)); }
+.loadbar.gone { opacity: 0; height: 0; margin-top: 0; border-width: 0; }
+.go.loading::after { content: "sounds still loading"; display: block; font: 600 11px var(--body); opacity: 0.75; margin-top: 1px; }
 details.controls { width: 100%; text-align: left; display: grid; gap: 8px; }
 details.controls[open] .clist { margin-top: 8px; }
 .where .segs button { flex: 1 1 auto; }
@@ -714,6 +725,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       <button type="button" class="go" id="stepNext">Next</button>
       <button type="submit" class="go" id="goBtn">Take off</button>
     </div>
+    <div class="loadbar" id="loadBar" role="progressbar" aria-label="Loading sounds and pictures" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i><span id="loadText">Loading sounds…</span></div>
     <details class="controls"><summary id="ctrlTitle">Controls</summary><dl class="clist" id="clist"></dl></details>
     <a class="dl" id="dlGame" href="bin-rocket-sky.html" download="bin-rocket-sky.html">Download the game as one file (plays with no internet)</a>
   </form>
@@ -2164,10 +2176,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const room = audio.createGain(); room.gain.value = 0.18;
     heavyBus.connect(drive).connect(lows).connect(mixBus);
     lows.connect(room).connect(getHall());
-    // the one-file game carries its sounds inside (window.BRS_SFX, data: URLs); the page fetches them from sfx/
-    for (const n of SFX_NAMES) fetch((window.BRS_SFX && window.BRS_SFX[n]) || "sfx/" + n + (SFX_MP3.has(n) ? ".mp3" : ".wav")).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
-      .then(b => audio.decodeAudioData(b)).then(b => { sfxBuf[n] = b; }).catch(() => {});
-    loadPack();
+    preloadSounds();   // (already under way since the page opened, unless it couldn't decode before a click)
+    audioUp(audio);
   }
   // ---- the game's sound pack (sfx/pack: the author's weapon sounds and announcer voice). Each file is matched to a game
   // event by its path (a Quake III-style weapons tree) or, for the announcer, by a word in its name; where the pack has
@@ -2255,15 +2265,41 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     return null;
   }
   const packBuf = {};   // event -> its decoded variants (one is picked at random)
+  // ---- loading: every sound is fetched and decoded as soon as the page opens. An offline context decodes without
+  // waiting for the first click (browsers keep a real one silent until then) and its buffers play in the real one.
+  // loadState counts the files for the start screen's progress bar (loadWatch: called on every step)
+  const loadState = { total: 0, done: 0, failed: 0 }, loadWatchers = [];
+  const loadTick = () => { for (const f of loadWatchers) f(loadState); };
+  const loadWatch = f => { loadWatchers.push(f); f(loadState); };
+  let audioUp, decoder = null, preloading = false;
+  const audioReady = new Promise(r => { audioUp = r; });
+  const decodeWith = bytes => decoder ? decoder.decodeAudioData(bytes) : audioReady.then(a => a.decodeAudioData(bytes));
+  function loadTrack(src, store) {
+    loadState.total++; loadTick();
+    return fetch(src).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)).then(decodeWith).then(store)
+      .catch(() => { loadState.failed++; }).finally(() => { loadState.done++; loadTick(); });
+  }
+  function preloadSounds() {
+    if (preloading || typeof fetch !== "function") return;
+    preloading = true;
+    const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    try { if (Offline) decoder = new Offline(2, 1, 48000); } catch {}
+    // the one-file game carries its sounds inside (window.BRS_SFX, data: URLs); the page fetches them from sfx/
+    for (const n of SFX_NAMES) loadTrack((window.BRS_SFX && window.BRS_SFX[n]) || "sfx/" + n + (SFX_MP3.has(n) ? ".mp3" : ".wav"), b => { sfxBuf[n] = b; });
+    loadPack();
+  }
   function loadPack() {
     const add = (path, src) => {
       const ev = packEventFor(path);
-      if (ev) packListed.add(ev);
-      if (ev) fetch(src).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)).then(b => audio.decodeAudioData(b)).then(b => { (packBuf[ev] = packBuf[ev] || []).push(b); }).catch(() => {});
+      if (!ev) return;
+      packListed.add(ev);
+      loadTrack(src, b => { (packBuf[ev] = packBuf[ev] || []).push(b); });
     };
     if (window.BRS_PACK) { for (const [p, d] of Object.entries(window.BRS_PACK)) add(p, d); return; }
+    loadState.total++;   // (the list itself)
     const manifest = window.BRS_PACK_FILES ? Promise.resolve(window.BRS_PACK_FILES) : fetch("sfx/pack/index.json").then(r => r.json());
-    manifest.then(list => { for (const p of list) add(p, "sfx/pack/" + p.split("/").map(encodeURIComponent).join("/")); }).catch(() => {});
+    manifest.then(list => { for (const p of list) add(p, "sfx/pack/" + p.split("/").map(encodeURIComponent).join("/")); })
+      .catch(() => { loadState.failed++; }).finally(() => { loadState.done++; loadTick(); });
   }
   const packListed = new Set();   // events the pack has a file for (known from its list, before anything is decoded)
   const packKnows = ev => packListed.has(SOUND_OVERRIDE[ev]) || packListed.has(ev);
@@ -12834,6 +12870,35 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   });
   chatIn.addEventListener("blur", () => { if (!chatIn.hidden) chatClose(); });
   document.getElementById("chatBtn").addEventListener("click", e => { e.stopPropagation(); chatOpen(); });   // (a touch screen has no T)
+
+  // ---------- loading ----------
+  // the sounds and pictures start loading as the page opens; a bar under Take off shows how far, and the button says
+  // the sounds are still loading (it works all the same: they come in as they are ready)
+  if (window.OfflineAudioContext || window.webkitOfflineAudioContext) preloadSounds();
+  {
+    const bar = document.getElementById("loadBar"), fill = bar.querySelector("i"), text = document.getElementById("loadText");
+    const pics = { total: 0, done: 0 };
+    let shown = -1, finished = false;
+    const show = st => {
+      const total = st.total + pics.total, done = st.done + pics.done, ready = (preloading || audio) && done >= total && total > 0;
+      const pct = total ? Math.round(100 * done / total) : 0;
+      goBtn.classList.toggle("loading", !ready);
+      if (pct === shown && !ready) return;
+      shown = pct; fill.style.width = (ready ? 100 : pct) + "%"; bar.setAttribute("aria-valuenow", ready ? 100 : pct);
+      if (!ready) { text.textContent = (preloading || audio) ? `Loading sounds… ${pct}%  (${done}/${total})` : "Sounds load with your first click"; return; }
+      if (finished) return;
+      finished = true;
+      bar.classList.add(st.failed ? "warn" : "done");
+      text.textContent = st.failed ? `Ready · ${st.failed} sound${st.failed > 1 ? "s" : ""} could not load` : "All sounds ready";
+      if (!st.failed) setTimeout(() => bar.classList.add("gone"), 1800);
+    };
+    for (const im of [img, holyImg]) if (!im.complete) {
+      pics.total++;
+      const ok = () => { pics.done++; show(loadState); };
+      im.addEventListener("load", ok, { once: true }); im.addEventListener("error", ok, { once: true });
+    }
+    loadWatch(show);
+  }
 })();
 </script>
 </body></html>

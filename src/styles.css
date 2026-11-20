@@ -472,6 +472,17 @@ body:not(.playing) .match-hud { display: none; }
 .stepnav { width: 100%; display: flex; gap: 8px; }
 .stepnav .ghost { flex: 0 0 auto; padding-inline: 18px; }
 .stepnav .go { flex: 1; }
+/* loading: a thin bar under Take off while the sounds and pictures load; the button stays usable, marked as such */
+.loadbar { position: relative; width: 100%; height: 22px; margin-top: 8px; border-radius: 11px; overflow: hidden;
+  background: rgba(255, 255, 255, 0.07); border: 1px solid var(--line); transition: opacity 0.6s, height 0.4s, margin 0.4s; }
+.loadbar i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, var(--teal-deep), var(--teal));
+  box-shadow: 0 0 12px var(--teal); transition: width 0.25s ease-out; }
+.loadbar span { position: relative; display: block; text-align: center; font: 700 12px/20px var(--body); color: var(--ink);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
+.loadbar.done i { background: linear-gradient(90deg, var(--teal-deep), #7dffb0); }
+.loadbar.warn i { background: linear-gradient(90deg, #b5562a, var(--flame)); }
+.loadbar.gone { opacity: 0; height: 0; margin-top: 0; border-width: 0; }
+.go.loading::after { content: "sounds still loading"; display: block; font: 600 11px var(--body); opacity: 0.75; margin-top: 1px; }
 details.controls { width: 100%; text-align: left; display: grid; gap: 8px; }
 details.controls[open] .clist { margin-top: 8px; }
 .where .segs button { flex: 1 1 auto; }
