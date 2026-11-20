@@ -246,6 +246,60 @@
         0.16 + Math.random() * 0.22, (2 + Math.random() * 3) * sizeOf(b.lv || 1), "#ffd23f", k % 5 === 0 ? 1 : 3);
     }
   }
+  // ---------- the engine's exhaust: a plume of flame, built afresh ----------
+  // As a rocket's: hundreds of small hot gas particles leave each nozzle every second, fast along the jet on top of the
+  // bin's own speed, and then live in the world on their own: as the bin turns the plume curls behind it, at speed it
+  // stretches out, at rest it stands short and full. Each cools as it goes, from the palette's white-hot core (the bin's
+  // tier or the flame it wears) through its middle and outer colours to a dull red, swelling as it cools, and some leave
+  // a wisp of smoke. On boost it pours out twice as thick, faster and hotter, and the core turns blue-white
+  const plume = [];   // { x, y, vx, vy, t, life, s0, s1, c: [core, mid, outer], boost }
+  const plumeCols = new Map();   // a palette's colours as sprite keys (quantized, so a rainbow flame keeps the cache small)
+  function plumeColsOf(pal, boost) {
+    const q = c => (c[0] >> 4 << 4) + "," + (c[1] >> 4 << 4) + "," + (c[2] >> 4 << 4), key = q(pal.core) + "|" + q(pal.mid) + "|" + q(pal.outer) + (boost ? "b" : "");
+    let c = plumeCols.get(key);
+    if (!c) { c = [boost ? "rgb(215,235,255)" : `rgb(${q(pal.core)})`, `rgb(${q(pal.core)})`, `rgb(${q(pal.mid)})`, `rgb(${q(pal.outer)})`, "rgb(120,30,14)"]; plumeCols.set(key, c); }
+    return c;
+  }
+  function emitPlume(b, dt, boost) {
+    if (dt <= 0) return;
+    const jets = exhaustJets(b, performance.now()), pal = b.flamePal || tierOf(b.lv || 1), cols = plumeColsOf(pal, boost), q = lowQ ? 0.45 : 1;
+    for (const j of jets) {
+      if (j.power < 0.05) continue;
+      const rate = (j.main ? (boost ? 220 : 100) : 40) * Math.min(1.4, j.power) * q;
+      const n = emissionCount(b, j.main ? "plumeMain" : "plumeSide", rate, dt);
+      const wid = j.size * (j.main ? 0.2 : 0.1) * Math.sqrt(j.power) * (boost ? 1.45 : 1), speed = (boost ? 1150 : 640) * Math.sqrt(Math.min(1.4, j.power));
+      for (let k = 0; k < n; k++) {
+        const age = Math.random() * dt, a = j.a + (Math.random() - 0.5) * (boost ? 0.1 : 0.2), sp = speed * (0.8 + Math.random() * 0.4);
+        const vx = (b.vx || 0) * 0.85 + Math.cos(a) * sp, vy = (b.vy || 0) * 0.85 + Math.sin(a) * sp;
+        plume.push({ x: j.x - (b.vx || 0) * age + vx * age * 0.15, y: j.y - (b.vy || 0) * age + vy * age * 0.15, vx, vy, t: age,
+          life: (boost ? 0.3 : 0.2) * (0.7 + Math.random() * 0.6) * (j.main ? 1 : 0.6), s0: wid * 0.35, s1: wid * (boost ? 1.5 : 1.25), c: cols, boost, wob: Math.random() * 6.28 });
+      }
+    }
+    if (plume.length > 2600) plume.splice(0, plume.length - 2600);
+  }
+  function updatePlume(dt) {
+    const drag = Math.exp(-2.6 * dt);
+    for (let i = plume.length - 1; i >= 0; i--) {
+      const p = plume[i]; p.t += dt;
+      if (p.t >= p.life) {
+        if (Math.random() < (lowQ ? 0.03 : 0.08)) puff(p.x, p.y, p.vx * 0.15, p.vy * 0.15, 0.7 + Math.random() * 0.6, p.s1 * 0.5, SMOKE_COLS[2], 2, 0, 0, 0.94);   // a wisp of smoke
+        plume[i] = plume[plume.length - 1]; plume.pop(); continue;
+      }
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= drag; p.vy *= drag;
+    }
+  }
+  function drawPlume() {
+    if (!plume.length) return;
+    g.save(); g.globalCompositeOperation = "lighter";
+    for (const p of plume) {
+      const x = sx(p.x), y = sy(p.y), f = p.t / p.life, r = (p.s0 + (p.s1 - p.s0) * Math.sqrt(f)) * 1.25;
+      if (x < -r || y < -r || x > vw + r || y > vh + r) continue;
+      const ci = f < 0.06 ? 0 : f < 0.16 ? 1 : f < 0.4 ? 2 : f < 0.7 ? 3 : 4;
+      g.globalAlpha = Math.pow(1 - f, 1.5) * (p.boost ? 0.32 : 0.28) * (0.8 + 0.2 * Math.sin(p.wob + p.t * 40));   // (additive: thin layers, many of them, flickering)
+      g.drawImage(dotSprite(p.c[ci]), x - r, y - r, r * 2, r * 2);
+    }
+    g.restore();
+  }
   // dash: a flash and a hot ring at the nozzle, sparks thrown back
   function dashBurst(b) {
     const jet = exhaustJets({ ...b, thrust: Math.max(1, b.thrust || 0) }, performance.now()).sort((a, b) => b.power - a.power)[0];

@@ -553,6 +553,23 @@
   }
 
   // live engine fire. Local frame: nozzle at the origin, +y points out of the engine.
+  // the engine's throat: a tight, very bright cone of light out of the nozzle (a third of the old flame's length; the
+  // plume of particles carries the fire beyond it), blue-white on boost, flickering fast; a glow round the nozzle
+  function drawCore(len, wid, now, tier, boost, seed) {
+    const t = now / 1000, L = len * 0.42 * (0.9 + 0.1 * Math.sin(t * 61 + seed) + 0.05 * Math.sin(t * 97 + seed * 2)), w = wid * 0.62;
+    if (L < 1) return;
+    g.globalCompositeOperation = "lighter";
+    const core = boost ? "215,235,255" : `${tier.core}`, mid = `${tier.mid}`;
+    for (const [lf, wf, c, al] of [[1, 1, mid, 0.55], [0.75, 0.6, core, 0.9], [0.45, 0.32, "255,255,255", 1]]) {
+      const gr = g.createLinearGradient(0, 0, 0, L * lf);
+      gr.addColorStop(0, `rgba(${c},${al})`); gr.addColorStop(1, `rgba(${c},0)`);
+      g.fillStyle = gr; g.beginPath(); g.moveTo(-w * wf / 2, 0); g.quadraticCurveTo(-w * wf * 0.45, L * lf * 0.5, 0, L * lf); g.quadraticCurveTo(w * wf * 0.45, L * lf * 0.5, w * wf / 2, 0); g.closePath(); g.fill();
+    }
+    const hg = g.createRadialGradient(0, 0, 0, 0, 0, wid * 1.3);
+    hg.addColorStop(0, `rgba(${core},0.6)`); hg.addColorStop(1, `rgba(${mid},0)`);
+    g.fillStyle = hg; g.beginPath(); g.arc(0, 0, wid * 1.3, 0, 6.29); g.fill();
+    g.globalCompositeOperation = "source-over";
+  }
   function drawFlame(len, wid, now, seed, tier, bend = 0, billow = 0) {
     const t = now / 1000;
     g.globalCompositeOperation = "lighter";
@@ -1128,12 +1145,13 @@
     const burst = isMe ? Math.max(0, 1 - (now - me.dashAt) / 350) : bf === 2 ? 1 : 0;
     const sputter = Number.isFinite(b.lives) && damageOf(b) > 0.6 ? 0.65 + 0.35 * Math.abs(Math.sin(now / 47 + b.x)) : 1;
     const pal = bf ? { outer: firePal.outer, mid: firePal.mid, core: [255, 255, 255] } : firePal;
+    if (isMe) me.flamePal = firePal; else b.flamePal = firePal;   // (the plume's particles take its colours: emitPlume)
     for (const j of exhaustJets(b, now)) {
       g.save(); g.translate(x + j.x - b.x, y + j.y - b.y); g.rotate(j.a - Math.PI / 2);
       const power = j.power * sputter, len = s * (j.main ? 0.65 : 0.4) * power * (1 + (bf ? 1.7 : 0) + burst * 0.8);
       const wid = s * (j.main ? 0.24 : 0.12) * Math.sqrt(power) * (bf ? 1.5 : 1);
       const lat = (b.vx || 0) * Math.sin(j.a) - (b.vy || 0) * Math.cos(j.a), bend = clamp(lat * 0.05, -wid * 1.4, wid * 1.4);
-      drawFlame(len, wid, now, (b.hue || 0) * 0.1 + (j.main ? 0 : 3), pal, bend, fl || lowQ || !j.main ? 0 : bf ? 6 : power > 0.3 ? 2 : 0);
+      drawCore(len, wid, now, pal, bf, (b.hue || 0) * 0.1 + (j.main ? 0 : 3));   // (the plume itself is its particles: drawPlume)
       if (bf && power > 0.4 && !lowQ) { // shock diamonds stay in the jet, behind its white-hot throat
         g.globalCompositeOperation = "lighter";
         for (let i = 1; i <= 3; i++) {

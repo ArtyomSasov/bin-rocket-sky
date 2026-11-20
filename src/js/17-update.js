@@ -342,7 +342,7 @@
     viewZoom += (vzT - viewZoom) * (1 - Math.exp(-(vzT < viewZoom ? 2.2 : 1.4) * dt));
     applyView();
     engineHum(Math.hypot(me.vx, me.vy), drift ? 0 : me.thrust, me.boostFx, now, playing && roundLive && !me.dead);
-    if (!me.dead) { trailFrom(me, 0.6 + me.thrust * 1.6 + me.boostFx * 1.5, dt); if (playing) damageFx(me, dt); afterburner(me, me.boostFx, dt); }
+    if (!me.dead) { trailFrom(me, 0.6 + me.thrust * 1.6 + me.boostFx * 1.5, dt); if (playing) damageFx(me, dt); emitPlume(me, dt, me.boostFx > 0); }
   }
   // every shot in flight: homing, ricochets, digging into bodies, hitting me (I decide) or reaching others
   let ricAt = 0, whizAt = 0;
@@ -650,7 +650,7 @@
       r.a = lerpAng(r.a, r.ta, 1 - Math.exp(-14 * dt));
       }
       if (r.dead) continue;
-      if (Math.abs(r.x - me.x) < vw / 2 + 300 && Math.abs(r.y - me.y) < vh / 2 + 300) { trailFrom(r, 0.6 + r.thrust * 1.4 + (r.boost || 0) * 1.5, dt); damageFx(r, dt); afterburner(r, r.boost || 0, dt); }
+      if (Math.abs(r.x - me.x) < vw / 2 + 300 && Math.abs(r.y - me.y) < vh / 2 + 300) { trailFrom(r, 0.6 + r.thrust * 1.4 + (r.boost || 0) * 1.5, dt); damageFx(r, dt); emitPlume(r, dt, (r.boost || 0) > 0); }
       // boop
       const dx = wrapD(me.x - r.x, W), dy = wrapD(me.y - r.y, H), d = Math.hypot(dx, dy);
       // touching another pilot's bin: struck by weight (binContacts' rules), only my bin moved here (theirs is theirs,
@@ -812,7 +812,7 @@
         else puff(p.x, p.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 0.8 + Math.random() * 0.6, 3 + Math.random() * 3, SMOKE_COLS[1], 2, 0, 0, 0.94, 0.3);
       }
     }
-    shockTick(now); updateOil(dt); updateChunks(dt); updateDrips(dt); updateCasings(dt); updateMelt(dt); jetBlast(dt); updateSlashes(dt);
+    shockTick(now); updateOil(dt); updateChunks(dt); updateDrips(dt); updateCasings(dt); updateMelt(dt); jetBlast(dt); updateSlashes(dt); updatePlume(dt);
     for (let i = afterBlasts.length - 1; i >= 0; i--) if (now >= afterBlasts[i].at) {
       const b = afterBlasts[i]; afterBlasts.splice(i, 1);
       if (b.o) {   // a piece of a broken bin popping where it has flown to: a kick to it, sparks, a little fire

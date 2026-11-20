@@ -980,6 +980,7 @@
     drawEvents(now);
     drawPickups(now);
     drawWreckage(now);
+    drawPlume();
     drawChunks(now);
     drawMelt();
     drawCasings();
