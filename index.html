@@ -1296,9 +1296,26 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const foundryPoint = (x, y) => ({ x: (x + 0.5) * W / FOUNDRY_N, y: (y + 0.5) * H / FOUNDRY_N });
   const stationMap = () => !!MAPS[mapThemeOf(worldCode)].station;
   const foundryCell = p => [clamp(Math.floor(p.x / W * FOUNDRY_N), 0, 20), clamp(Math.floor(p.y / H * FOUNDRY_N), 0, 20)];
+  // A cell a bin can get through: open by the plan, or an inner wall blown wide open there (its middle and four points
+  // round it clear of what still stands). Looked up afresh every half second, as walls go
+  let passCache = null, passAt = -1e9;
+  function passable(x, y) {
+    if (foundryOpen(x, y)) return true;
+    if (x <= 0 || y <= 0 || x >= FOUNDRY_N - 1 || y >= FOUNDRY_N - 1) return false;   // (the hull never gives)
+    const now = performance.now();
+    if (!passCache || now - passAt > 500) { passCache = new Map(); passAt = now; }
+    const k = y * FOUNDRY_N + x;
+    let v = passCache.get(k);
+    if (v === undefined) {
+      const c = foundryPoint(x, y), u = W / FOUNDRY_N * 0.28;
+      v = [[0, 0], [u, 0], [-u, 0], [0, u], [0, -u]].every(([dx, dy]) => !solidAny(c.x + dx, c.y + dy));
+      passCache.set(k, v);
+    }
+    return v;
+  }
   function foundryRoute(from, to) {
     const start = foundryCell(from), end = foundryCell(to), key = (x, y) => y * FOUNDRY_N + x;
-    if (!foundryOpen(...start) || !foundryOpen(...end)) return null;
+    if (!passable(...start) || !passable(...end)) return null;
     const queue = [start], seen = new Map([[key(...start), null]]);
     for (let i = 0; i < queue.length; i++) {
       const [x, y] = queue[i];
@@ -1309,7 +1326,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       }
       for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
         const nx = x + dx, ny = y + dy, k = key(nx, ny);
-        if (!foundryOpen(nx, ny) || seen.has(k)) continue;
+        if (!passable(nx, ny) || seen.has(k)) continue;
         seen.set(k, [x, y]); queue.push([nx, ny]);
       }
     }
@@ -6809,6 +6826,12 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (!m || typeof m !== "object") return;
     if (m.t === "ping") { lanSendTo(peer, JSON.stringify({ t: "pong", v: m.v })); return; }
     if (m.t === "pong") { if (Number.isFinite(m.v)) gotPing(performance.now() - m.v); return; }
+    if (m.t === "chat") {   // a chat line: from the pilot this channel speaks for; the host passes it on
+      if (typeof m.m !== "string" || typeof m.i !== "string" || m.i === lan.myId || m.m.length > 600) return;
+      if (lan.host) { if (peer.id && peer.id !== m.i) return; for (const o of lan.peers) if (o !== peer) lanSendTo(o, data); }
+      const r = remotes.get(m.i); if (r) chatShow(r.name || "Pilot", m.m, false, m.i);
+      return;
+    }
     if (typeof m.i !== "string" || !/^p[a-z0-9]{1,12}$/.test(m.i) || m.i === lan.myId || !m.p) return;
     if (lan.host) {   // a guest speaks only for itself; the host passes it on to everyone else
       if (!peer.id) peer.id = m.i; else if (peer.id !== m.i) return;
@@ -6861,6 +6884,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   function lanStart(code) {
     lan.code = code; lan.host = !lan.guest;
     net.send = lanSend;
+    net.chat = text => { const data = JSON.stringify({ t: "chat", i: lan.myId, m: text }); for (const peer of lan.peers) lanSendTo(peer, data); };
     net.hz = 20;   // straight to the devices in the room, no broker's message budget: 20 states a second instead of 8
     document.getElementById("boardTitle").textContent = "Local room · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
     if (lan.host) { const b = document.getElementById("lanAdd"); b.hidden = false; b.onclick = () => lanDialog("host"); }

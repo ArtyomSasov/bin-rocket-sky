@@ -50,7 +50,7 @@ test('late joins and reconnects adopt the running clock; malformed clocks are ig
 
 test('station corridors (Foundry, Cargo Deck) are connected, symmetric and routes stay in open cells', () => {
   for (const theme of ['f', 'k', 'h', 'v']) {
-    const c = { W: 4200, H: 4200, worldCode: 'm0' + theme, mapThemeOf: code => code.slice(-1), clamp: (x, a, b) => Math.max(a, Math.min(b, x)) };
+    const c = { W: 4200, H: 4200, worldCode: 'm0' + theme, mapThemeOf: code => code.slice(-1), clamp: (x, a, b) => Math.max(a, Math.min(b, x)), performance }; c.solidAny = (x, y) => c.foundryOpen(Math.floor(x / 200), Math.floor(y / 200)) ? null : {};   // (the walls as planned: none broken)
     vm.createContext(c); vm.runInContext(read('01c-foundry.js') + '\nglobalThis.foundryOpen=foundryOpen; globalThis.foundryPoint=foundryPoint; globalThis.foundryRoute=foundryRoute;', c);
     const open = [];
     for (let y = 0; y < 21; y++) for (let x = 0; x < 21; x++) {

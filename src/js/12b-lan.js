@@ -58,6 +58,12 @@
     if (!m || typeof m !== "object") return;
     if (m.t === "ping") { lanSendTo(peer, JSON.stringify({ t: "pong", v: m.v })); return; }
     if (m.t === "pong") { if (Number.isFinite(m.v)) gotPing(performance.now() - m.v); return; }
+    if (m.t === "chat") {   // a chat line: from the pilot this channel speaks for; the host passes it on
+      if (typeof m.m !== "string" || typeof m.i !== "string" || m.i === lan.myId || m.m.length > 600) return;
+      if (lan.host) { if (peer.id && peer.id !== m.i) return; for (const o of lan.peers) if (o !== peer) lanSendTo(o, data); }
+      const r = remotes.get(m.i); if (r) chatShow(r.name || "Pilot", m.m, false, m.i);
+      return;
+    }
     if (typeof m.i !== "string" || !/^p[a-z0-9]{1,12}$/.test(m.i) || m.i === lan.myId || !m.p) return;
     if (lan.host) {   // a guest speaks only for itself; the host passes it on to everyone else
       if (!peer.id) peer.id = m.i; else if (peer.id !== m.i) return;
@@ -110,6 +116,7 @@
   function lanStart(code) {
     lan.code = code; lan.host = !lan.guest;
     net.send = lanSend;
+    net.chat = text => { const data = JSON.stringify({ t: "chat", i: lan.myId, m: text }); for (const peer of lan.peers) lanSendTo(peer, data); };
     net.hz = 20;   // straight to the devices in the room, no broker's message budget: 20 states a second instead of 8
     document.getElementById("boardTitle").textContent = "Local room · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
     if (lan.host) { const b = document.getElementById("lanAdd"); b.hidden = false; b.onclick = () => lanDialog("host"); }
