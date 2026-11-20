@@ -1805,6 +1805,10 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const voids = [];
   // a hole's reach and strength: a void bomb's reaches further and pulls harder than the event's, and eats wider
   const holeReach = bh => bh.v ? 3600 : 1500, holePower = bh => bh.v ? 4.5 : 1;   // (a void bomb's: a boost gets a bin out from 450 px, not from 300)
+  // the pull (px/s^2) at d from a hole's middle: ~1/d^2 near it; a void bomb's also has a long reach (~1/d) that
+  // drags the whole arena toward it: under ~600 px not even a boost gets a bin out, at 1000 px only a boost does,
+  // at 2000 px it still pulls as hard as a bin's own thrust
+  const holeAcc = (bh, d) => holePower(bh) * bh.k * 9e7 / (d * d + 1.5e4) + (bh.v ? bh.k * 1.6e6 / (d + 300) : 0);
   function holesNow() {
     const out = [], ev = eventAt(clockNow()), t = performance.now();
     if (ev.active && ev.type === "blackhole") out.push(blackHole(ev));
@@ -8227,7 +8231,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       for (const bh of holes) {   // and away from a black hole (the event's, a void bomb's)
         const hx = b.x - bh.x, hy = b.y - bh.y, hd = Math.hypot(hx, hy) || 1;
         if (hd < 900 && !human) { dx += hx / hd * 3 * (1 - hd / 900) * 2; dy += hy / hd * 3 * (1 - hd / 900) * 2; }
-        if (hd < holeReach(bh)) { const acc = holePower(bh) * bh.k * 9e7 / (hd * hd + 1.5e4); b.vx -= hx / hd * acc * dt; b.vy -= hy / hd * acc * dt; }
+        if (hd < holeReach(bh)) { const acc = holeAcc(bh, hd); b.vx -= hx / hd * acc * dt; b.vy -= hy / hd * acc * dt; }
         if (hd < 60 * bh.k) botHurt(b, 99, "x", now, true);
       }
       if (stationMap() && !human) {
@@ -11303,20 +11307,20 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       for (const s of shots) {
         const dx = bh.x - s.x, dy = bh.y - s.y, d = Math.hypot(dx, dy) || 1;
         if (d < 60 * bh.k) { s.life = 0; continue; }
-        if (d < holeReach(bh)) { const acc = holePower(bh) * bh.k * 9e7 / (d * d + 1.5e4); s.vx += dx / d * acc * dt; s.vy += dy / d * acc * dt; }
+        if (d < holeReach(bh)) { const acc = holeAcc(bh, d); s.vx += dx / d * acc * dt; s.vy += dy / d * acc * dt; }
       }
       // loose rubble and flying wreckage fall in the same way, and whatever reaches the horizon is gone for good
-      const eat = HOLE_EAT * bh.k * (bh.v ? 2.2 : 1), reach = holeReach(bh), pw = holePower(bh);
+      const eat = HOLE_EAT * bh.k * (bh.v ? 2.2 : 1), reach = holeReach(bh);
       // (and all the small stuff: smoke, sparks, chunks, cases, drops, spiralling in)
       for (const list of [parts, chunks, casings, oilDrops]) for (const o of list) {
         const dx = bh.x - o.x, dy = bh.y - o.y, d = Math.hypot(dx, dy) || 1;
         if (d > reach + 100) continue;
-        const acc = pw * bh.k * 6e7 / (d * d + 2e4); o.vx += (dx / d + dy / d * 0.6) * acc * dt; o.vy += (dy / d - dx / d * 0.6) * acc * dt;
+        const acc = holeAcc(bh, d) * 0.7; o.vx += (dx / d + dy / d * 0.6) * acc * dt; o.vy += (dy / d - dx / d * 0.6) * acc * dt;
         if (d < eat && list === parts) o.life = Math.min(o.life, 0.05);
       }
       for (const list of [rubble, hulks, frags, debris]) for (let i = list.length - 1; i >= 0; i--) {
         const o = list[i], dx = bh.x - o.x, dy = bh.y - o.y, d = Math.hypot(dx, dy) || 1;
-        if (d < reach) { const acc = pw * bh.k * 4e7 / (d * d + 1.5e4); o.vx += (dx / d + dy / d * 0.35) * acc * dt; o.vy += (dy / d - dx / d * 0.35) * acc * dt; }
+        if (d < reach) { const acc = holeAcc(bh, d) * (bh.v ? 1.2 : 0.45); o.vx += (dx / d + dy / d * 0.35) * acc * dt; o.vy += (dy / d - dx / d * 0.35) * acc * dt; }
         if (d < eat + 20) {
           swallowFx(o.x, o.y, bh, list === rubble ? bodyCol(o) : "#c38bff");
           if (list === rubble) { o.dead = true; rebuildBodies(); } else list.splice(i, 1);
@@ -11547,7 +11551,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       const dx = bh.x - me.x, dy = bh.y - me.y, d = Math.hypot(dx, dy) || 1;
       // pull ~ 1/d^2: drifting is fine far out, under ~200 px only a boost gets you out, under ~140 px nothing does
       if (d < holeReach(bh)) {
-        const acc = holePower(bh) * bh.k * 9e7 / (d * d + 1.5e4);
+        const acc = holeAcc(bh, d);
         me.vx += dx / d * acc * dt; me.vy += dy / d * acc * dt;
       }
       if (d < 60 * bh.k) {

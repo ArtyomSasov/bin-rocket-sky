@@ -50,20 +50,20 @@
       for (const s of shots) {
         const dx = bh.x - s.x, dy = bh.y - s.y, d = Math.hypot(dx, dy) || 1;
         if (d < 60 * bh.k) { s.life = 0; continue; }
-        if (d < holeReach(bh)) { const acc = holePower(bh) * bh.k * 9e7 / (d * d + 1.5e4); s.vx += dx / d * acc * dt; s.vy += dy / d * acc * dt; }
+        if (d < holeReach(bh)) { const acc = holeAcc(bh, d); s.vx += dx / d * acc * dt; s.vy += dy / d * acc * dt; }
       }
       // loose rubble and flying wreckage fall in the same way, and whatever reaches the horizon is gone for good
-      const eat = HOLE_EAT * bh.k * (bh.v ? 2.2 : 1), reach = holeReach(bh), pw = holePower(bh);
+      const eat = HOLE_EAT * bh.k * (bh.v ? 2.2 : 1), reach = holeReach(bh);
       // (and all the small stuff: smoke, sparks, chunks, cases, drops, spiralling in)
       for (const list of [parts, chunks, casings, oilDrops]) for (const o of list) {
         const dx = bh.x - o.x, dy = bh.y - o.y, d = Math.hypot(dx, dy) || 1;
         if (d > reach + 100) continue;
-        const acc = pw * bh.k * 6e7 / (d * d + 2e4); o.vx += (dx / d + dy / d * 0.6) * acc * dt; o.vy += (dy / d - dx / d * 0.6) * acc * dt;
+        const acc = holeAcc(bh, d) * 0.7; o.vx += (dx / d + dy / d * 0.6) * acc * dt; o.vy += (dy / d - dx / d * 0.6) * acc * dt;
         if (d < eat && list === parts) o.life = Math.min(o.life, 0.05);
       }
       for (const list of [rubble, hulks, frags, debris]) for (let i = list.length - 1; i >= 0; i--) {
         const o = list[i], dx = bh.x - o.x, dy = bh.y - o.y, d = Math.hypot(dx, dy) || 1;
-        if (d < reach) { const acc = pw * bh.k * 4e7 / (d * d + 1.5e4); o.vx += (dx / d + dy / d * 0.35) * acc * dt; o.vy += (dy / d - dx / d * 0.35) * acc * dt; }
+        if (d < reach) { const acc = holeAcc(bh, d) * (bh.v ? 1.2 : 0.45); o.vx += (dx / d + dy / d * 0.35) * acc * dt; o.vy += (dy / d - dx / d * 0.35) * acc * dt; }
         if (d < eat + 20) {
           swallowFx(o.x, o.y, bh, list === rubble ? bodyCol(o) : "#c38bff");
           if (list === rubble) { o.dead = true; rebuildBodies(); } else list.splice(i, 1);
@@ -294,7 +294,7 @@
       const dx = bh.x - me.x, dy = bh.y - me.y, d = Math.hypot(dx, dy) || 1;
       // pull ~ 1/d^2: drifting is fine far out, under ~200 px only a boost gets you out, under ~140 px nothing does
       if (d < holeReach(bh)) {
-        const acc = holePower(bh) * bh.k * 9e7 / (d * d + 1.5e4);
+        const acc = holeAcc(bh, d);
         me.vx += dx / d * acc * dt; me.vy += dy / d * acc * dt;
       }
       if (d < 60 * bh.k) {

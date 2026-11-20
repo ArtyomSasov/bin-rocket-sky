@@ -97,6 +97,10 @@
   const voids = [];
   // a hole's reach and strength: a void bomb's reaches further and pulls harder than the event's, and eats wider
   const holeReach = bh => bh.v ? 3600 : 1500, holePower = bh => bh.v ? 4.5 : 1;   // (a void bomb's: a boost gets a bin out from 450 px, not from 300)
+  // the pull (px/s^2) at d from a hole's middle: ~1/d^2 near it; a void bomb's also has a long reach (~1/d) that
+  // drags the whole arena toward it: under ~600 px not even a boost gets a bin out, at 1000 px only a boost does,
+  // at 2000 px it still pulls as hard as a bin's own thrust
+  const holeAcc = (bh, d) => holePower(bh) * bh.k * 9e7 / (d * d + 1.5e4) + (bh.v ? bh.k * 1.6e6 / (d + 300) : 0);
   function holesNow() {
     const out = [], ev = eventAt(clockNow()), t = performance.now();
     if (ev.active && ev.type === "blackhole") out.push(blackHole(ev));
