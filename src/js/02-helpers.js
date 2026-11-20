@@ -96,7 +96,7 @@
   // the first eighth of a second and closes in its last sixth). v: a void bomb's
   const voids = [];
   // a hole's reach and strength: a void bomb's reaches further and pulls harder than the event's, and eats wider
-  const holeReach = bh => bh.v ? 3200 : 1500, holePower = bh => bh.v ? 2.6 : 1;
+  const holeReach = bh => bh.v ? 3600 : 1500, holePower = bh => bh.v ? 4.5 : 1;   // (a void bomb's: a boost gets a bin out from 450 px, not from 300)
   function holesNow() {
     const out = [], ev = eventAt(clockNow()), t = performance.now();
     if (ev.active && ev.type === "blackhole") out.push(blackHole(ev));

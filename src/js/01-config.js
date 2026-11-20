@@ -94,7 +94,7 @@
     // (the swing lasts its life; the blade, a line from the bin out to its tip, sweeps the arc and cuts what it passes through)
     { name: "blood blade", life: 0.35, dmg: 2.7, r: 20, col: "#ff2a3c", carve: 0, shove: 900, pierce: true, sfx: ["p_melee_hit", 0.9, 0.8] },
     // the void bomb: a slow dark orb that opens a black hole where it bursts
-    { name: "void bomb", life: 4, dmg: 0, r: 14, col: "#b06bff", carve: 0, shove: 0, sfx: ["rocket", 1, 0.4] }
+    { name: "void bomb", life: 1.4, dmg: 0, r: 14, col: "#b06bff", carve: 0, shove: 0, sfx: ["rocket", 1, 0.4] }
   );
   // weapons: pick-ups swap the fireball for a while. Each gun is described here, and the player and the bots fire it
   // the same way (see volley):
@@ -117,7 +117,7 @@
                alt: { name: "Load rockets", load: true, cost: 1, cd: 0.9, shot: [K.ROCKET, 1350], kick: 200, feel: [18, 0.23, 96], sfx: ["rocket", 1, 0.8] } },
     // the void bomb: where it bursts (on whatever it touches, or at the end of its flight) a black hole opens for six
     // seconds, dragging in bins, shots, wrecks, rock and smoke, and eating what reaches it
-    void:    { name: "Void Bomb", ammo: 1, cd: 1.2, col: "#b06bff", shot: [K.VOID, 420], kick: 140, feel: [26, 0.4, 110], sfx: ["rocket", 1, 0.4] },
+    void:    { name: "Void Bomb", ammo: 1, cd: 1.2, col: "#b06bff", shot: [K.VOID, 1000], kick: 140, feel: [26, 0.4, 110], sfx: ["rocket", 1, 0.4] },
     nuke:    { name: "Nuke", ammo: 1, cd: 1.0, col: "#ffe14d", shot: [K.NUKE, 360], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.6],
                alt: { name: "Guided", cost: 1, cd: 1.0, shot: [K.NUKE, 420], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.5], guided: true } },
     scatter: { name: "Scatter gun", ammo: 16, cd: 0.7, col: "#ffd27a", shot: [K.PELLET, 1250], kick: 260, feel: [22, 0.3, 90], sfx: ["scatter", 1, 0.85], fx: "blast",

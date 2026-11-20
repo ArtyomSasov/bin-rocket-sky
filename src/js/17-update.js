@@ -437,6 +437,7 @@
         }
       }
       if (s.kind === K.GREN) { const k = Math.exp(-0.7 * stepDt); s.vx *= k; s.vy *= k; }   // a grenade slows as it flies
+      if (s.kind === K.VOID) { const k = Math.exp(-1.6 * stepDt); s.vx *= k; s.vy *= k; }   // the void bomb too, and bursts where it is after 1.4 s (about 560 px)
       if (s.kind === K.NUKE) { const v = Math.hypot(s.vx, s.vy), nv = Math.min(720, v + 260 * stepDt); s.vx *= nv / v; s.vy *= nv / v; }
       if (!s.traced) { s.px = s.x; s.py = s.y; s.x += s.vx * stepDt; s.y += s.vy * stepDt; }   // a traced beam already spans its whole line
       if (!s.traced && !pierces(s) && !SHOTS[s.kind].inert && s.kind !== K.MINE) {

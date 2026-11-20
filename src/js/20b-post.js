@@ -103,7 +103,8 @@
         splat(x, y, r, col, amount, vx = 0, vy = 0, radial = 0) { if (splats.length < 64) splats.push([x, y, r, col, amount, vx, vy, radial]); },
         step(dt) {
           if (!ok) return false;
-          const w = 192, h = Math.max(32, Math.round(192 * vh / vw));
+          // (a phone or tablet: a coarser fluid, cheaper on its GPU; it looks much the same, being soft)
+          const w = COARSE ? 128 : 192, h = Math.max(32, Math.round(w * vh / vw));
           if (w !== W1 || h !== H1) { W1 = w; H1 = h; for (const o of [V.r, V.w, D.r, D.w, PR.r, PR.w, DIV, CURL]) if (!size(o, w, h)) { ok = false; return false; } }
           const shift = lastCx === null ? [0, 0] : [(cam.x - lastCx) / vw, -(cam.y - lastCy) / vh]; lastCx = cam.x; lastCy = cam.y;
           const cell = vw / W1;   // world px per cell
@@ -117,7 +118,7 @@
           run(F.curl, CURL, p => { use(5, V.r.t); gl.uniform1i(p.u("vel"), 5); });
           run(F.vort, V.w, p => { use(5, V.r.t); use(6, CURL.t); gl.uniform1i(p.u("vel"), 5); gl.uniform1i(p.u("cu"), 6); gl.uniform1f(p.u("dt"), dt); gl.uniform1f(p.u("amt"), 22); }); V.swap();
           run(F.div, DIV, p => { use(5, V.r.t); gl.uniform1i(p.u("vel"), 5); });
-          for (let i = 0; i < 16; i++) { run(F.press, PR.w, p => { use(5, PR.r.t); use(6, DIV.t); gl.uniform1i(p.u("pr"), 5); gl.uniform1i(p.u("dv"), 6); }); PR.swap(); }
+          for (let i = 0, n = COARSE ? 10 : 16; i < n; i++) { run(F.press, PR.w, p => { use(5, PR.r.t); use(6, DIV.t); gl.uniform1i(p.u("pr"), 5); gl.uniform1i(p.u("dv"), 6); }); PR.swap(); }
           run(F.grad, V.w, p => { use(5, PR.r.t); use(6, V.r.t); gl.uniform1i(p.u("pr"), 5); gl.uniform1i(p.u("vel"), 6); }); V.swap();
           run(F.advect, V.w, p => { use(5, V.r.t); gl.uniform1i(p.u("vel"), 5); gl.uniform1i(p.u("src"), 5); gl.uniform2f(p.u("shift"), shift[0], shift[1]); gl.uniform1f(p.u("dt"), dt); gl.uniform1f(p.u("keep"), Math.pow(0.5, dt)); }); V.swap();
           run(F.advect, D.w, p => { use(5, V.r.t); use(6, D.r.t); gl.uniform1i(p.u("vel"), 5); gl.uniform1i(p.u("src"), 6); gl.uniform2f(p.u("shift"), shift[0], shift[1]); gl.uniform1f(p.u("dt"), dt); gl.uniform1f(p.u("keep"), Math.pow(0.6, dt)); }); D.swap();
@@ -130,13 +131,13 @@
     // what stirs and fills the fluid this frame: new blasts and fires (impacts that throw light), rockets, fast bins
     function feedFluid() {
       // a black hole drinks the smoke in, swirling
-      for (const bh of holesNow()) if (bh.k > 0.05) { fluid.splat(bh.x, bh.y, 260 * bh.k, null, 0, 0, 0, -1400 * bh.k); fluid.splat(bh.x + 200, bh.y, 120, [0.3, 0.12, 0.45], 0.03 * bh.k, 0, -900 * bh.k); fluid.splat(bh.x - 200, bh.y, 120, [0.3, 0.12, 0.45], 0.03 * bh.k, 0, 900 * bh.k); }
+      for (const bh of holesNow()) if (bh.k > 0.05) { fluid.splat(bh.x, bh.y, (bh.v ? 420 : 260) * bh.k, null, 0, 0, 0, -(bh.v ? 3000 : 1400) * bh.k); fluid.splat(bh.x + 200, bh.y, 120, [0.3, 0.12, 0.45], 0.03 * bh.k, 0, -900 * bh.k); fluid.splat(bh.x - 200, bh.y, 120, [0.3, 0.12, 0.45], 0.03 * bh.k, 0, 900 * bh.k); }
       // fires keep smoking while they burn; bins badly hurt smoke too
       for (const m of impacts) if (m.flick && m.t >= 0 && m.t < m.dur) fluid.splat(m.x + (Math.random() - 0.5) * 40, m.y + (Math.random() - 0.5) * 40, 26, [0.2, 0.18, 0.18], 0.12, (Math.random() - 0.5) * 120, (Math.random() - 0.5) * 120);
       const smoking = o => { if (!o.dead && o.lives !== undefined && damageOf(o) > 0.45) fluid.splat(o.x, o.y, 18, [0.22, 0.2, 0.22], 0.06 * damageOf(o), -(o.vx || 0) * 0.3, -(o.vy || 0) * 0.3); };
       if (playing) smoking(me);
       for (const r of remotes.values()) smoking(r);
-      for (const h of hulks) fluid.splat(h.x, h.y, 22, [0.2, 0.19, 0.2], 0.05, 0, 0);
+      const tH = performance.now(); for (const h of hulks) if (tH - h.born < 8000) fluid.splat(h.x, h.y, 22, [0.2, 0.19, 0.2], 0.05 * (1 - (tH - h.born) / 8000), 0, 0);   // (a wreck smokes for its first seconds, not all round)
       for (const m of impacts) {
         if (!m.soft || m.fluided || m.t < 0) continue;
         m.fluided = true;
@@ -260,7 +261,7 @@
           // the light map, at half the size (its shadows crisp enough)
           if (maskN++ % 3 === 0) drawMask();
           const nl = gatherLights(performance.now());
-          const wL = Math.max(1, W0 >> 1), hL = Math.max(1, H0 >> 1);
+          const wL = Math.max(1, W0 >> (COARSE ? 2 : 1)), hL = Math.max(1, H0 >> (COARSE ? 2 : 1));   // (a phone: the light at a quarter, its fill rate is the cost)
           fit(LM, wL, hL);
           pass(P.light, LM, wL, hL, p => { use(3, maskTex); gl.uniform1i(p.u("m"), 3); gl.uniform2f(p.u("cam"), cam.x, cam.y); gl.uniform2f(p.u("view"), vw, vh); gl.uniform2f(p.u("world"), W, H);
             gl.uniform1f(p.u("n"), nl); if (nl) { gl.uniform4fv(p.u("lp"), LP); gl.uniform3fv(p.u("lc"), LC); gl.uniform1fv(p.u("lh"), LH); gl.uniform1fv(p.u("ls"), LS); } });

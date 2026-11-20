@@ -333,3 +333,4 @@
     else if (e.key === "Escape") { e.preventDefault(); chatClose(); }
   });
   chatIn.addEventListener("blur", () => { if (!chatIn.hidden) chatClose(); });
+  document.getElementById("chatBtn").addEventListener("click", e => { e.stopPropagation(); chatOpen(); });   // (a touch screen has no T)

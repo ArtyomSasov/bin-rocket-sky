@@ -575,6 +575,13 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   body.playing .chat { bottom: calc(62px + env(safe-area-inset-bottom, 0px)); }
   body.playing .status { bottom: calc(62px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* touch screens: the kill feed under the mini map (which is top right there), the arsenal scrolled with a finger */
+@media (max-width: 1050px), (pointer: coarse) { body.playing .feed { top: calc(var(--hud-bottom, 60px) + 130px); } }
+@media (pointer: coarse) { body.playing .slot { touch-action: pan-x; } body.playing .minimap { top: calc(var(--hud-bottom, 60px) + 8px); right: max(10px, env(safe-area-inset-right, 0px)); left: auto; width: 104px; height: 104px; } }
+.hud-tools #chatBtn { display: none; }
+@media (pointer: coarse) { body.playing .hud-tools #chatBtn { display: inline-block; } }
+@media (max-width: 700px) { body.playing .announce { top: calc(var(--hud-bottom, 60px) + 120px); } body.playing .announce b { font-size: 28px; } }
 </style>
 
 <canvas id="c" tabindex="0" aria-label="Game arena"></canvas>
@@ -591,7 +598,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
 <div class="event" id="eventBanner" hidden></div>
 <div class="match-hud"><div class="match-header">
 <div class="match-clock chip" id="roundInfo" role="timer" aria-label="Round timer">Round 1 · 5:00</div>
-<div class="hud-tools"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><button type="button" id="scoreBtn" aria-controls="scoreboard" aria-expanded="false">Scores <span>Tab</span></button></div>
+<div class="hud-tools"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><button type="button" id="chatBtn" aria-label="Chat">Chat</button><button type="button" id="scoreBtn" aria-controls="scoreboard" aria-expanded="false">Scores <span>Tab</span></button></div>
 </div>
 <div class="score chip"><b id="score">0</b><span>points</span><span class="lv"><b id="lvNum">ENERGY</b><span class="xpbar nrg" title="Boost energy"><i id="nrgFill"></i></span></span><span class="hp" id="hearts" role="img" aria-label="Health 100%"><span class="hpbar"><i id="hpFill"></i></span><b id="hpNum">100%</b></span><span class="shieldchip" id="shieldChip" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z"/></svg><b id="shieldNum">0</b></span><span class="ampchip" id="ampChip" hidden></span><span class="telechip" id="teleChip" hidden></span><span class="wpn" id="wpn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg>Enforcer</span></div>
 </div>
@@ -811,7 +818,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     // (the swing lasts its life; the blade, a line from the bin out to its tip, sweeps the arc and cuts what it passes through)
     { name: "blood blade", life: 0.35, dmg: 2.7, r: 20, col: "#ff2a3c", carve: 0, shove: 900, pierce: true, sfx: ["p_melee_hit", 0.9, 0.8] },
     // the void bomb: a slow dark orb that opens a black hole where it bursts
-    { name: "void bomb", life: 4, dmg: 0, r: 14, col: "#b06bff", carve: 0, shove: 0, sfx: ["rocket", 1, 0.4] }
+    { name: "void bomb", life: 1.4, dmg: 0, r: 14, col: "#b06bff", carve: 0, shove: 0, sfx: ["rocket", 1, 0.4] }
   );
   // weapons: pick-ups swap the fireball for a while. Each gun is described here, and the player and the bots fire it
   // the same way (see volley):
@@ -834,7 +841,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
                alt: { name: "Load rockets", load: true, cost: 1, cd: 0.9, shot: [K.ROCKET, 1350], kick: 200, feel: [18, 0.23, 96], sfx: ["rocket", 1, 0.8] } },
     // the void bomb: where it bursts (on whatever it touches, or at the end of its flight) a black hole opens for six
     // seconds, dragging in bins, shots, wrecks, rock and smoke, and eating what reaches it
-    void:    { name: "Void Bomb", ammo: 1, cd: 1.2, col: "#b06bff", shot: [K.VOID, 420], kick: 140, feel: [26, 0.4, 110], sfx: ["rocket", 1, 0.4] },
+    void:    { name: "Void Bomb", ammo: 1, cd: 1.2, col: "#b06bff", shot: [K.VOID, 1000], kick: 140, feel: [26, 0.4, 110], sfx: ["rocket", 1, 0.4] },
     nuke:    { name: "Nuke", ammo: 1, cd: 1.0, col: "#ffe14d", shot: [K.NUKE, 360], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.6],
                alt: { name: "Guided", cost: 1, cd: 1.0, shot: [K.NUKE, 420], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.5], guided: true } },
     scatter: { name: "Scatter gun", ammo: 16, cd: 0.7, col: "#ffd27a", shot: [K.PELLET, 1250], kick: 260, feel: [22, 0.3, 90], sfx: ["scatter", 1, 0.85], fx: "blast",
@@ -1712,7 +1719,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // the first eighth of a second and closes in its last sixth). v: a void bomb's
   const voids = [];
   // a hole's reach and strength: a void bomb's reaches further and pulls harder than the event's, and eats wider
-  const holeReach = bh => bh.v ? 3200 : 1500, holePower = bh => bh.v ? 2.6 : 1;
+  const holeReach = bh => bh.v ? 3600 : 1500, holePower = bh => bh.v ? 4.5 : 1;   // (a void bomb's: a boost gets a bin out from 450 px, not from 300)
   function holesNow() {
     const out = [], ev = eventAt(clockNow()), t = performance.now();
     if (ev.active && ev.type === "blackhole") out.push(blackHole(ev));
@@ -8807,6 +8814,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         }
       }
       if (s.kind === K.GREN) { const k = Math.exp(-0.7 * stepDt); s.vx *= k; s.vy *= k; }   // a grenade slows as it flies
+      if (s.kind === K.VOID) { const k = Math.exp(-1.6 * stepDt); s.vx *= k; s.vy *= k; }   // the void bomb too, and bursts where it is after 1.4 s (about 560 px)
       if (s.kind === K.NUKE) { const v = Math.hypot(s.vx, s.vy), nv = Math.min(720, v + 260 * stepDt); s.vx *= nv / v; s.vy *= nv / v; }
       if (!s.traced) { s.px = s.x; s.py = s.y; s.x += s.vx * stepDt; s.y += s.vy * stepDt; }   // a traced beam already spans its whole line
       if (!s.traced && !pierces(s) && !SHOTS[s.kind].inert && s.kind !== K.MINE) {
@@ -12019,7 +12027,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         splat(x, y, r, col, amount, vx = 0, vy = 0, radial = 0) { if (splats.length < 64) splats.push([x, y, r, col, amount, vx, vy, radial]); },
         step(dt) {
           if (!ok) return false;
-          const w = 192, h = Math.max(32, Math.round(192 * vh / vw));
+          // (a phone or tablet: a coarser fluid, cheaper on its GPU; it looks much the same, being soft)
+          const w = COARSE ? 128 : 192, h = Math.max(32, Math.round(w * vh / vw));
           if (w !== W1 || h !== H1) { W1 = w; H1 = h; for (const o of [V.r, V.w, D.r, D.w, PR.r, PR.w, DIV, CURL]) if (!size(o, w, h)) { ok = false; return false; } }
           const shift = lastCx === null ? [0, 0] : [(cam.x - lastCx) / vw, -(cam.y - lastCy) / vh]; lastCx = cam.x; lastCy = cam.y;
           const cell = vw / W1;   // world px per cell
@@ -12033,7 +12042,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
           run(F.curl, CURL, p => { use(5, V.r.t); gl.uniform1i(p.u("vel"), 5); });
           run(F.vort, V.w, p => { use(5, V.r.t); use(6, CURL.t); gl.uniform1i(p.u("vel"), 5); gl.uniform1i(p.u("cu"), 6); gl.uniform1f(p.u("dt"), dt); gl.uniform1f(p.u("amt"), 22); }); V.swap();
           run(F.div, DIV, p => { use(5, V.r.t); gl.uniform1i(p.u("vel"), 5); });
-          for (let i = 0; i < 16; i++) { run(F.press, PR.w, p => { use(5, PR.r.t); use(6, DIV.t); gl.uniform1i(p.u("pr"), 5); gl.uniform1i(p.u("dv"), 6); }); PR.swap(); }
+          for (let i = 0, n = COARSE ? 10 : 16; i < n; i++) { run(F.press, PR.w, p => { use(5, PR.r.t); use(6, DIV.t); gl.uniform1i(p.u("pr"), 5); gl.uniform1i(p.u("dv"), 6); }); PR.swap(); }
           run(F.grad, V.w, p => { use(5, PR.r.t); use(6, V.r.t); gl.uniform1i(p.u("pr"), 5); gl.uniform1i(p.u("vel"), 6); }); V.swap();
           run(F.advect, V.w, p => { use(5, V.r.t); gl.uniform1i(p.u("vel"), 5); gl.uniform1i(p.u("src"), 5); gl.uniform2f(p.u("shift"), shift[0], shift[1]); gl.uniform1f(p.u("dt"), dt); gl.uniform1f(p.u("keep"), Math.pow(0.5, dt)); }); V.swap();
           run(F.advect, D.w, p => { use(5, V.r.t); use(6, D.r.t); gl.uniform1i(p.u("vel"), 5); gl.uniform1i(p.u("src"), 6); gl.uniform2f(p.u("shift"), shift[0], shift[1]); gl.uniform1f(p.u("dt"), dt); gl.uniform1f(p.u("keep"), Math.pow(0.6, dt)); }); D.swap();
@@ -12046,13 +12055,13 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     // what stirs and fills the fluid this frame: new blasts and fires (impacts that throw light), rockets, fast bins
     function feedFluid() {
       // a black hole drinks the smoke in, swirling
-      for (const bh of holesNow()) if (bh.k > 0.05) { fluid.splat(bh.x, bh.y, 260 * bh.k, null, 0, 0, 0, -1400 * bh.k); fluid.splat(bh.x + 200, bh.y, 120, [0.3, 0.12, 0.45], 0.03 * bh.k, 0, -900 * bh.k); fluid.splat(bh.x - 200, bh.y, 120, [0.3, 0.12, 0.45], 0.03 * bh.k, 0, 900 * bh.k); }
+      for (const bh of holesNow()) if (bh.k > 0.05) { fluid.splat(bh.x, bh.y, (bh.v ? 420 : 260) * bh.k, null, 0, 0, 0, -(bh.v ? 3000 : 1400) * bh.k); fluid.splat(bh.x + 200, bh.y, 120, [0.3, 0.12, 0.45], 0.03 * bh.k, 0, -900 * bh.k); fluid.splat(bh.x - 200, bh.y, 120, [0.3, 0.12, 0.45], 0.03 * bh.k, 0, 900 * bh.k); }
       // fires keep smoking while they burn; bins badly hurt smoke too
       for (const m of impacts) if (m.flick && m.t >= 0 && m.t < m.dur) fluid.splat(m.x + (Math.random() - 0.5) * 40, m.y + (Math.random() - 0.5) * 40, 26, [0.2, 0.18, 0.18], 0.12, (Math.random() - 0.5) * 120, (Math.random() - 0.5) * 120);
       const smoking = o => { if (!o.dead && o.lives !== undefined && damageOf(o) > 0.45) fluid.splat(o.x, o.y, 18, [0.22, 0.2, 0.22], 0.06 * damageOf(o), -(o.vx || 0) * 0.3, -(o.vy || 0) * 0.3); };
       if (playing) smoking(me);
       for (const r of remotes.values()) smoking(r);
-      for (const h of hulks) fluid.splat(h.x, h.y, 22, [0.2, 0.19, 0.2], 0.05, 0, 0);
+      const tH = performance.now(); for (const h of hulks) if (tH - h.born < 8000) fluid.splat(h.x, h.y, 22, [0.2, 0.19, 0.2], 0.05 * (1 - (tH - h.born) / 8000), 0, 0);   // (a wreck smokes for its first seconds, not all round)
       for (const m of impacts) {
         if (!m.soft || m.fluided || m.t < 0) continue;
         m.fluided = true;
@@ -12176,7 +12185,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
           // the light map, at half the size (its shadows crisp enough)
           if (maskN++ % 3 === 0) drawMask();
           const nl = gatherLights(performance.now());
-          const wL = Math.max(1, W0 >> 1), hL = Math.max(1, H0 >> 1);
+          const wL = Math.max(1, W0 >> (COARSE ? 2 : 1)), hL = Math.max(1, H0 >> (COARSE ? 2 : 1));   // (a phone: the light at a quarter, its fill rate is the cost)
           fit(LM, wL, hL);
           pass(P.light, LM, wL, hL, p => { use(3, maskTex); gl.uniform1i(p.u("m"), 3); gl.uniform2f(p.u("cam"), cam.x, cam.y); gl.uniform2f(p.u("view"), vw, vh); gl.uniform2f(p.u("world"), W, H);
             gl.uniform1f(p.u("n"), nl); if (nl) { gl.uniform4fv(p.u("lp"), LP); gl.uniform3fv(p.u("lc"), LC); gl.uniform1fv(p.u("lh"), LH); gl.uniform1fv(p.u("ls"), LS); } });
@@ -12533,6 +12542,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     else if (e.key === "Escape") { e.preventDefault(); chatClose(); }
   });
   chatIn.addEventListener("blur", () => { if (!chatIn.hidden) chatClose(); });
+  document.getElementById("chatBtn").addEventListener("click", e => { e.stopPropagation(); chatOpen(); });   // (a touch screen has no T)
 })();
 </script>
 </body></html>

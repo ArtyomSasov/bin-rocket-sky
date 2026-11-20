@@ -566,3 +566,10 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   body.playing .chat { bottom: calc(62px + env(safe-area-inset-bottom, 0px)); }
   body.playing .status { bottom: calc(62px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* touch screens: the kill feed under the mini map (which is top right there), the arsenal scrolled with a finger */
+@media (max-width: 1050px), (pointer: coarse) { body.playing .feed { top: calc(var(--hud-bottom, 60px) + 130px); } }
+@media (pointer: coarse) { body.playing .slot { touch-action: pan-x; } body.playing .minimap { top: calc(var(--hud-bottom, 60px) + 8px); right: max(10px, env(safe-area-inset-right, 0px)); left: auto; width: 104px; height: 104px; } }
+.hud-tools #chatBtn { display: none; }
+@media (pointer: coarse) { body.playing .hud-tools #chatBtn { display: inline-block; } }
+@media (max-width: 700px) { body.playing .announce { top: calc(var(--hud-bottom, 60px) + 120px); } body.playing .announce b { font-size: 28px; } }
