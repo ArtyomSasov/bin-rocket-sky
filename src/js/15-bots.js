@@ -84,10 +84,10 @@
     return td < 950;
   }
   // fires once; returns the gun's reload time
-  function botFire(b, now) {
+  function botFire(b, now, mul = 1) {
     const w = botWeapon(b), pat = WEAPONS[w];
     if (w === "gamma" && shots.some(s => s.owner === b.id && s.kind === K.GAMMA && s.life > 0 && !s.boom)) return .3;
-    const gun = muzzleOf(b, w), s = volley(b, now, pat, gun, w === "bolt" ? boltLock(b, gun) : undefined);   // from its gun's tip
+    const gun = muzzleOf(b, w), s = volley(b, now, pat, gun, w === "bolt" ? boltLock(b, gun) : undefined, mul);   // from its gun's tip
     if (w === "orb") b.orb = s;   // a bot can set its orb off with the beam (see updateBots)
     shotSound(pat.shot[0], b.x, b.y, b.id);
     b.vx -= Math.cos(b.a) * 25; b.vy -= Math.sin(b.a) * 25;
@@ -104,7 +104,7 @@
       if (b.dead) {
         if (now < b.respawnAt) continue;
         clearArmor(b);
-        Object.assign(b, { dead: false, lives: maxLivesOf(b.lv), inv: now + 2000, ...spawnPoint(b.tm), vx: 0, vy: 0 });
+        Object.assign(b, { dead: false, lives: maxLivesOf(b.lv), inv: now + 2000, ...spawnPoint(b.tm), vx: 0, vy: 0, charge: 0 });
         resetCmds(b);
       }
       const human = b.input;   // flown by a player: the AI below only steers the others
@@ -317,6 +317,11 @@
         }
       }
       if (human) { if (!b.cq) pilotTriggers(b, dt, now); }   // (a pilot flown by commands has its trigger with each command, above)
+      else if (botWeapon(b) === "saw" && roundLive && (b.charge > 0 || tgt && botInRange(b, td) && Math.abs(angD(aimA - b.a)) < 0.6 + b.L.aim && b.fireCd <= 0)) {
+        // the Blood Blade: wound back first (seen by everyone), then swung at full strength
+        b.charge = Math.min(1, (b.charge || 0) + dt / WEAPONS.saw.charge);
+        if (b.charge >= 1) { botFire(b, now, b.charge); b.charge = 0; b.fireCd = Math.max(b.L.cd, WEAPONS.saw.cd * 1.3) * (0.7 + Math.random() * 0.6); }
+      }
       else if (tgt && roundLive && botInRange(b, td) && Math.abs(angD(aimA - b.a)) < 0.22 + b.L.aim && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
         const md = MODES[MODE];
         b.fireCd = (md.botCd ? b.L.cd * md.botCd : cd < 0.15 ? cd * 2 : Math.max(b.L.cd, cd * 1.3)) * (0.7 + Math.random() * 0.6); }
@@ -412,7 +417,8 @@
         q: ++b.q, rd: stats.round, ts: Date.now(), x: Math.round(b.x), y: Math.round(b.y), vx: Math.round(b.vx), vy: Math.round(b.vy), a: +b.a.toFixed(2),
         t: b.stick && Math.hypot(b.stick.x, b.stick.y) > 0.3 ? 1 : 0, td: b.stick ? +Math.atan2(b.stick.y, b.stick.x).toFixed(2) : undefined, b: now - (b.dashAt || 0) < 350 ? 2 : b.boosting ? 1 : 0, d: b.dead ? 1 : 0, i: now < b.inv ? 1 : 0, ds: b.dead ? b.ds : 0, dk: b.dead ? b.dk || 0 : 0, da: b.dead ? +(b.da || 0).toFixed(2) : 0,
         l: Math.max(0, Math.round(b.lives * 100) / 100), hb: b.hitBy, ko: b.koBy, f: b.shotLog.slice(-9).map(e => e.d),
-        tm: b.tm ?? -1, fc: b.fc ?? -1, cp: [stats.round, b.caps || 0], tg: b.tag
+        tm: b.tm ?? -1, fc: b.fc ?? -1, cp: [stats.round, b.caps || 0], tg: b.tag,
+        bw: b.charge > 0 && !b.dead && botWeapon(b) === "saw" ? +b.charge.toFixed(2) : undefined   // its Blood Blade wound up this far
       };
       m.sh = b.shield || 0;
       m.am = b.ampUntil > now ? Math.ceil((b.ampUntil - now) / 1000) : 0;   // Quad damage: the seconds it has left

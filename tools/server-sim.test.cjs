@@ -470,3 +470,23 @@ test('a player\u2019s guided nuke turns on the server by their stick, and blows 
   } finally { m.dispose(); }
 });
 
+
+test('the Blood Blade wind-up is in the snapshot while a player holds it (others see it drawn back), and gone once it swings', { skip }, async () => {
+  const { createMatch } = await sim();
+  const m = createMatch({ code: 'm1d0o' });
+  m.game.__simTerrain.empty();
+  try {
+    const id = m.addPilot('Blade');
+    run(m, 0.1);
+    const b = m.game.__simBot(id), w = m.game.__simConst.WEAPON_KEYS.indexOf('saw');
+    b.arsenal.saw = 30; b.weapon = 'saw';
+    const wind = () => m.packet(clock).bots.find(([pid]) => pid === id)[1].bw;
+    run(m, 0.2, () => m.input(id, { aim: 0, fire: true, w }));
+    const half = wind();
+    assert.ok(half > 0.2 && half < 0.8, 'part wound: ' + half);
+    run(m, 0.4, () => m.input(id, { aim: 0, fire: true, w }));
+    assert.equal(wind(), 1, 'fully wound');
+    run(m, 0.1, () => m.input(id, { aim: 0, fire: false, w }));
+    assert.equal(wind(), undefined, 'swung: nothing wound');
+  } finally { m.dispose(); }
+});

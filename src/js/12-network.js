@@ -192,6 +192,7 @@
       const dead = p.d === 1;
       if (dead && !r.dead) deathFx(r, p.ds, Number.isInteger(p.dk) && p.dk >= 0 && p.dk <= DEATH_KINDS ? p.dk : 0, num(p.da, 0));
       r.dead = dead; r.inv = p.i === 1;
+      r.wind = Number.isFinite(p.bw) && !dead ? clamp(p.bw, 0, 1) : 0;   // their Blood Blade's wind-up
     }
     if (typeof p.tg === "string" && /^[a-z0-9]{1,8}$/.test(p.tg)) r.tag = p.tg;
     if (Array.isArray(p.bc) && Number.isInteger(p.bc[0]) && p.bc[0] > 0 && p.bc[0] <= MAX_BOTS && BOT_LEVELS[p.bc[1]] && !/^pb/.test(id)) lobbyBots = { host: id, n: p.bc[0], level: p.bc[1] };

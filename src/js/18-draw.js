@@ -1238,7 +1238,7 @@
     if (hat) drawHat(hat, s, now);
     g.restore();
     { const wpn = isMe ? me.weapon : b.weapon;   // a blade in hand: held outside the hull, over it
-      if (wpn === "saw" || wpn === "gauntlet") drawBlade(isMe ? me : b, x, y, wpn === "saw", isMe && wpn === "saw" ? charge : 0, now); }
+      if (wpn === "saw" || wpn === "gauntlet") drawBlade(isMe ? me : b, x, y, wpn === "saw", wpn !== "saw" ? 0 : isMe ? charge : b.charge || b.wind || 0, now); }
     orbit(true);
     g.globalAlpha = 1;
 
