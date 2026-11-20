@@ -525,6 +525,56 @@ details.controls[open] .clist { margin-top: 8px; }
 .chat-line.old { opacity: 0; }
 .chat.open .chat-line.old { opacity: .85; }
 .chat-in { pointer-events: auto; font: 600 15px var(--body); color: #fff; background: rgba(14,10,28,.88); border: 1px solid #5ad1ff; border-radius: 10px; padding: 8px 11px; outline: none; }
+
+/* ---------- compact game HUD: one tight row on top, small corners, nothing over anything ---------- */
+body.playing .match-hud .score { padding: 5px 10px; gap: 6px; flex-wrap: nowrap; align-items: center; }
+body.playing .score > b { font-size: 22px; line-height: 1; }
+body.playing .score > span:not([class]) { display: none; }   /* ("points": the number speaks for itself) */
+body.playing .lv { gap: 2px; margin-left: 2px; }
+body.playing .lv b { font-size: 10px; letter-spacing: .06em; }
+body.playing .hp .hpbar { width: 64px; height: 7px; }
+body.playing .hp b { font-size: 12px; }
+body.playing .wpn { font-size: 11px; padding: 2px 6px; margin-left: 2px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.playing .ampchip { font-size: 11px; padding: 2px 6px; margin-left: 2px; }
+body.playing .match-clock { padding: 6px 12px; font-size: 13px; }
+body.playing .hud-tools .gear { width: 30px; height: 30px; padding: 5px; }
+body.playing .hud-tools button { padding: 5px 8px; font-size: 12px; }
+/* the event and the big announcements: one under the other, never on top of each other */
+body.playing .event { padding: 5px 12px; font-size: 13px; }
+body.playing .announce { top: calc(var(--hud-bottom, 60px) + 56px); }
+body.playing .announce b { font-size: clamp(26px, 4.2vw, 40px); }
+body.playing .announce span { font-size: 13px; }
+/* the arsenal lower and slimmer; the connection a small chip in the bottom-right corner */
+body.playing .arsenal { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); gap: 3px; padding: 3px; }
+body.playing .slot { width: 38px; height: 38px; }
+body.playing .slot svg { width: 17px; height: 17px; }
+body.playing .slot i { font-size: 8px; }
+body.playing .status { left: auto; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); justify-content: flex-end; }
+body.playing .status .chip { padding: 4px 9px; font-size: 11px; }
+body.playing .minimap { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); width: 120px; height: 120px; }
+body.playing .chat { bottom: calc(10px + 120px + 10px + env(safe-area-inset-bottom, 0px)); }
+body.playing .feed { top: calc(var(--hud-bottom, 60px) + 6px); font-size: 12px; }
+@media (max-width: 900px) { body.playing .status { bottom: calc(60px + env(safe-area-inset-bottom, 0px)); } }
+@media (pointer: coarse) { body.playing .arsenal { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); } body.playing .minimap { bottom: auto; } body.playing .chat { bottom: auto; top: calc(var(--hud-bottom, 60px) + 130px); } }
+body.playing .hp, body.playing .wpn, body.playing .hp b { white-space: nowrap; }
+body.playing .wpn { display: inline-block; }
+body.playing .wpn svg { vertical-align: -2px; margin-right: 4px; }
+@media (max-width: 700px) {
+  body.playing .arsenal { max-width: calc(100vw - 20px); overflow-x: auto; scrollbar-width: none; justify-content: flex-start; }
+  body.playing .arsenal::-webkit-scrollbar { display: none; }
+  body.playing .slot { flex: 0 0 auto; }
+  body.playing .minimap { bottom: auto; left: auto; right: max(10px, env(safe-area-inset-right, 0px)); top: calc(var(--hud-bottom, 60px) + 8px); width: 96px; height: 96px; }
+  body.playing .chat { bottom: calc(60px + env(safe-area-inset-bottom, 0px)); width: calc(100vw - 20px); }
+  body.playing .event { top: calc(var(--hud-bottom, 60px) + 8px); left: 10px; right: 116px; transform: none; max-width: none; font-size: 12px; }
+  body.playing .wpn { display: none; }
+  body.playing .status { bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
+}
+body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+@media (max-width: 1050px) and (min-width: 701px) {
+  body.playing .minimap { bottom: auto; left: auto; right: max(12px, env(safe-area-inset-right, 0px)); top: calc(var(--hud-bottom, 60px) + 8px); width: 110px; height: 110px; }
+  body.playing .chat { bottom: calc(62px + env(safe-area-inset-bottom, 0px)); }
+  body.playing .status { bottom: calc(62px + env(safe-area-inset-bottom, 0px)); }
+}
 </style>
 
 <canvas id="c" tabindex="0" aria-label="Game arena"></canvas>
