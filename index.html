@@ -593,6 +593,11 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
 .hud-tools #chatBtn { display: none; }
 @media (pointer: coarse) { body.playing .hud-tools #chatBtn { display: inline-block; } }
 @media (max-width: 700px) { body.playing .announce { top: calc(var(--hud-bottom, 60px) + 120px); } body.playing .announce b { font-size: 28px; } }
+/* a phone: Back / Next / Take off stay at the bottom of the screen while the form scrolls under them */
+@media (max-width: 600px), (max-height: 600px) {
+  .stepnav { position: sticky; bottom: -16px; z-index: 2; margin-inline: -14px; width: calc(100% + 28px); padding: 10px 14px 14px;
+    background: linear-gradient(to bottom, rgba(30, 21, 58, 0), rgba(30, 21, 58, 0.94) 30%); }
+}
 </style>
 
 <canvas id="c" tabindex="0" aria-label="Game arena"></canvas>
@@ -633,7 +638,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     <div class="pick"><span>Crosshair</span><div class="segs" id="setAim" role="group" aria-label="Crosshair"></div>
       <div class="segs" id="setAimCol" role="group" aria-label="Crosshair colour"></div></div>
     <details><summary>Weapon controls</summary><p id="weaponHint"></p><small>Fixed slots: 1–9, 0; Alt+1–6 for additional weapons. Q/E cycles carried weapons. Hold Tab: scores.</small></details>
-    <details class="audio-credits"><summary>Audio credits</summary><p>Spaceship engine: <a href="https://opengameart.org/content/rocket-engine" target="_blank" rel="noopener">theMinesAreShakin</a> (CC0) and <a href="https://opengameart.org/content/jet-engine-takeoff" target="_blank" rel="noopener">dklon</a> (<a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>; layered and looped). Warp dash: <a href="https://opengameart.org/content/sci-fi-sound-effects-library" target="_blank" rel="noopener">Little Robot Sound Factory</a>, CC BY 3.0 (trimmed and faded). Additional effects: Kenney, rubberduck, zer0sol and bart (CC0). Additional recorded announcer: <a href="https://opengameart.org/content/warlord-video-game-announcer" target="_blank" rel="noopener">Warlord</a> and <a href="https://opengameart.org/content/dragon-announcer-audio-pack" target="_blank" rel="noopener">Dragon</a> by VoiceBosch, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>; source recordings unchanged. Existing weapon and announcer pack supplied by the game's author. Railgun recording by the game's author.</p></details>
+    <details class="audio-credits"><summary>Audio credits</summary><p>The engine and the energy blades are synthesized in the game. Warp dash: <a href="https://opengameart.org/content/sci-fi-sound-effects-library" target="_blank" rel="noopener">Little Robot Sound Factory</a>, CC BY 3.0 (trimmed and faded). Additional effects: Kenney, rubberduck, zer0sol and bart (CC0). Additional recorded announcer: <a href="https://opengameart.org/content/warlord-video-game-announcer" target="_blank" rel="noopener">Warlord</a> and <a href="https://opengameart.org/content/dragon-announcer-audio-pack" target="_blank" rel="noopener">Dragon</a> by VoiceBosch, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>; source recordings unchanged. Existing weapon and announcer pack supplied by the game's author. Railgun recording by the game's author.</p></details>
     <button type="button" class="ghost" id="exportWeapons">Export weapon match stats</button>
     <button type="button" class="go" id="setDone">Back to the game</button>
     <button type="button" class="ghost menu-only" id="setLeave">Leave to the start screen</button>
@@ -6158,7 +6163,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     return WEAPONS[me.weapon].name + (Number.isFinite(n) ? " · " + n : "") + (me.overheat && alt && alt.heat ? " · OVERHEATED" : "") + (count ? " · ACTIVE " + count : "") + (me.weapon === "mine" && count ? " · ARMED " + armed : "")
       + (Number.isFinite(n) && n <= Math.max(1, Math.ceil(WEAPONS[me.weapon].ammo * 0.15)) ? " · LOW AMMO" : "")
       + (me.weapon === "gauntlet" ? (performance.now() >= lungeReady ? " · LUNGE READY" : " · LUNGE " + Math.ceil((lungeReady - performance.now()) / 100) / 10 + "s") : "")
-      + (alt ? " · " + (COARSE ? "ALT: " : "right click: ") + alt.name + " [" + (alt.load ? "1–3" : alt.cost) + " ammo]" : "")
+      + (alt ? " · " + (COARSE ? "ALT: " : "RMB: ") + alt.name + " [" + (alt.load ? "1–3" : alt.cost) + " ammo]" : "")
       + (me.weapon === "rocket" ? " · LOADED " + rocketLoad + "/3 · release ALT to fire" : ""); };
   // after a shot: just the numbers of that gun
   function renderAmmo(k) {
@@ -6461,7 +6466,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     gauntlet: "Lunge: free, forward-only melee approach; 1.2 s recharge and 0.2 s protection. Dash uses movement direction and costs energy.",
     nail: "Spike: a fast, precise round that passes through multiple bins; 2 ammo. Walls still stop it.",
     void: "Void Bomb: a slow dark orb; where it bursts a black hole opens for six seconds and drags everything in. Get clear.",
-    saw: "Blood Blade: each press swings the red energy sword through the arc ahead, cutting everyone in it; no alternate fire.",
+    saw: "Blood Blade: hold to wind the red blade back over your shoulder, let go to sweep it through the arc ahead; the fuller the wind-up, the harder it cuts, through rock and walls too. No alternate fire.",
     mine: "Detonate works with zero ammo while your mines are active.",
     gamma: "One slow orb controls a 280 px zone: green pulses drain nearby enemies. ALT detonates for up to 80 HP, including after the last ammo. Walls block damage.",
     laser: "Pulse Gun: rapid green plasma bolts; hold alternate fire for a short green beam, 1 ammo per tick. Cover blocks both modes.",

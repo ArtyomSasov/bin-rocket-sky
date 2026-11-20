@@ -51,7 +51,7 @@
     gauntlet: "Lunge: free, forward-only melee approach; 1.2 s recharge and 0.2 s protection. Dash uses movement direction and costs energy.",
     nail: "Spike: a fast, precise round that passes through multiple bins; 2 ammo. Walls still stop it.",
     void: "Void Bomb: a slow dark orb; where it bursts a black hole opens for six seconds and drags everything in. Get clear.",
-    saw: "Blood Blade: each press swings the red energy sword through the arc ahead, cutting everyone in it; no alternate fire.",
+    saw: "Blood Blade: hold to wind the red blade back over your shoulder, let go to sweep it through the arc ahead; the fuller the wind-up, the harder it cuts, through rock and walls too. No alternate fire.",
     mine: "Detonate works with zero ammo while your mines are active.",
     gamma: "One slow orb controls a 280 px zone: green pulses drain nearby enemies. ALT detonates for up to 80 HP, including after the last ammo. Walls block damage.",
     laser: "Pulse Gun: rapid green plasma bolts; hold alternate fire for a short green beam, 1 ammo per tick. Cover blocks both modes.",

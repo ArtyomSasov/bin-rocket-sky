@@ -928,7 +928,7 @@
     return WEAPONS[me.weapon].name + (Number.isFinite(n) ? " · " + n : "") + (me.overheat && alt && alt.heat ? " · OVERHEATED" : "") + (count ? " · ACTIVE " + count : "") + (me.weapon === "mine" && count ? " · ARMED " + armed : "")
       + (Number.isFinite(n) && n <= Math.max(1, Math.ceil(WEAPONS[me.weapon].ammo * 0.15)) ? " · LOW AMMO" : "")
       + (me.weapon === "gauntlet" ? (performance.now() >= lungeReady ? " · LUNGE READY" : " · LUNGE " + Math.ceil((lungeReady - performance.now()) / 100) / 10 + "s") : "")
-      + (alt ? " · " + (COARSE ? "ALT: " : "right click: ") + alt.name + " [" + (alt.load ? "1–3" : alt.cost) + " ammo]" : "")
+      + (alt ? " · " + (COARSE ? "ALT: " : "RMB: ") + alt.name + " [" + (alt.load ? "1–3" : alt.cost) + " ammo]" : "")
       + (me.weapon === "rocket" ? " · LOADED " + rocketLoad + "/3 · release ALT to fire" : ""); };
   // after a shot: just the numbers of that gun
   function renderAmmo(k) {
