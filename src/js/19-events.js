@@ -988,7 +988,7 @@
     drawGlow(now);
     drawBlackHole(now);   // lenses the world behind it; bots and text are drawn on top, undistorted
     drawPilots(now);
-    drawSlashes();
+    drawCuts();
     drawAim(now);
     drawFlags(now);
     drawBlastFx(now);

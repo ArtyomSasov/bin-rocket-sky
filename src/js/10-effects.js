@@ -267,14 +267,17 @@
     const jets = exhaustJets(b, performance.now()), pal = b.flamePal || tierOf(b.lv || 1), cols = plumeColsOf(pal, boost), q = lowQ ? 0.45 : 1;
     for (const j of jets) {
       if (j.power < 0.05) continue;
-      const rate = (j.main ? (boost ? 220 : 100) : 40) * Math.min(1.4, j.power) * q;
+      // the jet itself is drawn on the bin (drawJet); these are the flame licks torn off its end, which live in the
+      // world and so curl away behind a turning bin, cooling to smoke
+      const rate = (j.main ? (boost ? 70 : 30) : 10) * Math.min(1.4, j.power) * q;
       const n = emissionCount(b, j.main ? "plumeMain" : "plumeSide", rate, dt);
-      const wid = j.size * (j.main ? 0.22 : 0.1) * Math.sqrt(j.power) * (boost ? 1.25 : 1), speed = (boost ? 1150 : 640) * Math.sqrt(Math.min(1.4, j.power));
+      const wid = j.size * (j.main ? 0.22 : 0.1) * Math.sqrt(j.power) * (boost ? 1.25 : 1), speed = (boost ? 900 : 480) * Math.sqrt(Math.min(1.4, j.power));
+      const reach = j.size * (j.main ? 0.65 : 0.4) * j.power * (boost ? 2.7 : 1) * (boost ? 1.2 : 1.55);   // how far out the drawn jet ends
       for (let k = 0; k < n; k++) {
-        const age = Math.random() * dt, a = j.a + (Math.random() - 0.5) * (boost ? 0.1 : 0.2), sp = speed * (0.8 + Math.random() * 0.4);
+        const age = Math.random() * dt, a = j.a + (Math.random() - 0.5) * (boost ? 0.12 : 0.25), sp = speed * (0.8 + Math.random() * 0.4), at = reach * (0.55 + Math.random() * 0.35);
         const vx = (b.vx || 0) * 0.85 + Math.cos(a) * sp, vy = (b.vy || 0) * 0.85 + Math.sin(a) * sp;
-        plume.push({ x: j.x - (b.vx || 0) * age + vx * age * 0.15, y: j.y - (b.vy || 0) * age + vy * age * 0.15, vx, vy, t: age,
-          life: (boost ? 0.3 : 0.2) * (0.7 + Math.random() * 0.6) * (j.main ? 1 : 0.6), s0: wid * 0.35, s1: wid * (boost ? 1.5 : 1.25), c: cols, boost, wob: Math.random() * 6.28 });
+        plume.push({ x: j.x + Math.cos(a) * at - (b.vx || 0) * age + vx * age * 0.15, y: j.y + Math.sin(a) * at - (b.vy || 0) * age + vy * age * 0.15, vx, vy, t: age,
+          life: (boost ? 0.28 : 0.24) * (0.7 + Math.random() * 0.6) * (j.main ? 1 : 0.6), s0: wid * 0.3, s1: wid * (boost ? 0.7 : 0.6), c: cols, boost, wob: Math.random() * 6.28 });
       }
     }
     if (plume.length > 2600) plume.splice(0, plume.length - 2600);
@@ -311,8 +314,8 @@
           g.drawImage(dotSprite(p.c[ci]), -r * st, -r, r * 2 * st, r * 2);
         } else {
           // the shade: white-hot at the nozzle (blue-white on boost), then yellow, orange, red, dark
-          const shade = Math.min(7, Math.floor(f * 8.5) + (p.boost ? (f < 0.05 ? 0 : 1) : 1)), ramp = p.boost && f < 0.12 ? PLASMA_RAMP : FIRE_RAMP;
-          g.globalAlpha = (pass ? (p.boost ? 0.26 : 0.4) * (1 - f / 0.35) : 0.7 * Math.pow(1 - (f - 0.35) / 0.65, 1.2)) * flick;
+          const shade = Math.min(7, 2 + Math.floor(f * 6.5)), ramp = FIRE_RAMP;   // (torn off the jet's end: already orange, cooling to red)
+          g.globalAlpha = (pass ? 0.3 * (1 - f / 0.35) : 0.38 * Math.pow(1 - (f - 0.35) / 0.65, 1.5)) * flick;
           g.drawImage(fireSprite(shade, (p.wob * 3) | 0, ramp), -r * st, -r, r * 2 * st, r * 2);
         }
         g.restore();
@@ -369,45 +372,143 @@
     }
     g.globalAlpha = 1;
   }
-  // ---------- the Blood Blade's swings: a red crescent sweeping round the bin that swung ----------
-  // A swing: SWING_ARC radians swept in SWORD_LIFE seconds, from one side of the aim to the other, the side set by the
-  // shot's own number (so every screen and the server swing it alike). The blade reaches BLADE_REACH from the bin
-  const SWING_MS = 350, SWING_ARC = 2.5, BLADE_REACH = 165;
-  const swingSideOf = s => { let h = 0; for (let i = 0; i < s.id.length; i++) h = h * 31 + s.id.charCodeAt(i) | 0; return h & 1 ? 1 : -1; };
+  // ---------- the energy blades: the Blood Blade (heavy, red, wound up) and the Saber (the melee everyone carries) ----------
+  // Both are held in the right hand, outside the hull: at rest along the right flank pointing ahead; wound up, drawn
+  // back over the right shoulder; a swing sweeps round the front from right to left (the Saber's next one back again),
+  // the hilt circling just outside the bin and the blade pointing outward, so it never passes through the bin.
+  // A Blood Blade swing: SWING_ARC radians swept in SWING_MS, centred on the aim; the blade reaches BLADE_REACH
+  const SWING_MS = 350, SWING_ARC = 2.5, BLADE_REACH = 165, SABER_MS = 200, SABER_REACH = 150;
+  const swingSideOf = () => -1;   // (right-handed: from the right round to the left, on every screen and the server alike)
   const swingEase = k => 1 - Math.pow(1 - k, 2.2);
   // where the blade is now: from the bin's edge out to its tip, swept round as the swing goes (owner: the bin swinging)
   function swordSweep(s, owner) {
     const k = Math.min(1, 1 - s.life / SHOTS[K.SWORD].life), a = s.sa - SWING_ARC / 2 * s.side + SWING_ARC * s.side * swingEase(k), r0 = binR(owner.lv || 1) * 0.6;
     s.px = owner.x + Math.cos(a) * r0; s.py = owner.y + Math.sin(a) * r0; s.x = owner.x + Math.cos(a) * BLADE_REACH; s.y = owner.y + Math.sin(a) * BLADE_REACH;
   }
-  const slashes = [];
   function swingStart(o, a, side) {
-    o.swingSide = side; o.swingAt = performance.now();
-    slashes.push({ o, a, side: o.swingSide, t: 0 });
-    if (slashes.length > 24) slashes.shift();
+    o.swingSide = side; o.swingAt = performance.now(); o.swingMs = SWING_MS;
     const dist = Math.hypot(o.x - me.x, o.y - me.y);
-    if (dist < 1600) bladeSwing(1 - dist / 1600, clamp((o.x - me.x) / 900, -1, 1));
+    if (dist < 1600) bladeSwing(1 - dist / 1600, clamp((o.x - me.x) / 900, -1, 1), true);
   }
-  function updateSlashes(dt) { for (let i = slashes.length - 1; i >= 0; i--) if ((slashes[i].t += dt) > SWING_MS / 1000 + 0.15) slashes.splice(i, 1); }
-  function drawSlashes() {
-    if (!slashes.length) return;
-    g.save(); g.globalCompositeOperation = "lighter";
-    for (const sl of slashes) {
-      const o = sl.o, x = sx(o.x), y = sy(o.y), R = 150 * sizeOf(o.lv || 1), k = Math.min(1, sl.t / (SWING_MS / 1000)), fade = sl.t < SWING_MS / 1000 ? 1 : 1 - (sl.t - SWING_MS / 1000) / 0.12;
-      if (fade <= 0 || !onScreen(x, y, R + 40)) continue;
-      const a0 = sl.a - SWING_ARC / 2 * sl.side, a1 = a0 + SWING_ARC * sl.side * swingEase(k);
-      // the crescent: a wide band swept from the bin out to the blade's reach, fading toward its tail, with a white-hot
-      // leading edge along the blade's tip
-      const n = 16, span = a1 - a0;
-      g.lineCap = "butt";
+  // a Saber swing: forehand from the right, or, right after one, backhand from the left where the last one ended
+  function saberSwing(o, now = performance.now()) {
+    if (now - (o.swingAt || 0) < SABER_MS * 0.85) return;
+    const back = o.swingMs === SABER_MS && o.swingSide === -1 && now - o.swingAt < SABER_MS + 420;
+    o.swingSide = back ? 1 : -1; o.swingAt = now; o.swingMs = SABER_MS;
+    const dist = Math.hypot(o.x - me.x, o.y - me.y);
+    if (dist < 1400) bladeSwing(0.75 * (1 - dist / 1400), clamp((o.x - me.x) / 900, -1, 1));
+  }
+  // the blade's pose round its bin: hilt at angle ph from the aim (+: to the right), blade pointing at ps from the aim;
+  // tr: where the swing was a moment ago (for its smear), lit: how bright
+  function bladePose(b, heavy, wind, now) {
+    const REST = [1.4, 0.26], ms = b.swingMs || SWING_MS, k = b.swingAt ? (now - b.swingAt) / ms : 9, side = b.swingSide || -1;
+    const arc = heavy ? SWING_ARC : SWING_ARC * 0.9, lead = heavy ? 0.5 : 0.15, hold = heavy ? 0.25 : 0.45 * SABER_MS / ms, rec = heavy ? 0.6 : 1.2;
+    const at = e => { const f0 = arc / 2 + lead, ph = -side * (f0 + (-arc / 2 - f0) * e); return [ph, ph - side * (heavy ? 1.1 - 0.95 * e : 0.5 - 0.4 * e)]; };
+    if (k >= 0 && k <= 1) { const e = swingEase(k), [ph, ps] = at(e), [p0] = at(swingEase(Math.max(0, k - 0.32))); return { ph, ps, tr: p0, lit: 1.35 - 0.35 * k, k }; }
+    if (k > 1 && k < 1 + hold + rec) {   // after it: held a moment where it ended, then brought back to rest
+      const [ph, ps] = at(1), f = clamp((k - 1 - hold) / rec, 0, 1), sm = f * f * (3 - 2 * f);
+      return { ph: ph + (REST[0] - ph) * sm, ps: ps + (REST[1] - ps) * sm, lit: 1 };
+    }
+    const w = swingEase(wind);   // at rest, or wound up over the right shoulder
+    return { ph: REST[0] + 0.85 * w, ps: REST[1] + 2.75 * w, lit: 1 + 0.9 * w };
+  }
+  const bladeLights = [];   // this frame's light thrown by blades (gatherLights takes them)
+  // the blade on its bin (x, y: the bin on screen), drawn over it: a hilt of dark metal and a beam of light in its
+  // colour with a white-hot core, quivering; mid-swing a smear of light follows it round
+  function drawBlade(b, x, y, heavy, wind, now) {
+    const P = bladePose(b, heavy, wind, now), sz = sizeOf(b.lv || 1), A = b.a, rh = binR(b.lv || 1) + 4;
+    const col = heavy ? "255,40,60" : "70,175,255", L = (heavy ? BLADE_REACH - rh * 0.6 : SABER_REACH - rh * 0.7) * (1 + wind * 0.08);
+    const flick = 0.9 + 0.06 * Math.sin(now / 17 + (b.hue || 0)) + 0.04 * Math.sin(now / 7.3), lit = P.lit * flick;
+    const ha = A + P.ph, hx = x + Math.cos(ha) * rh, hy = y + Math.sin(ha) * rh, da = A + P.ps, ux = Math.cos(da), uy = Math.sin(da), tx = hx + ux * L, ty = hy + uy * L;
+    g.save(); g.lineCap = "round";
+    if (P.tr !== undefined && !lowQ) {   // the smear: a fan of light from where the blade was to where it is, brightest at the blade
+      g.globalCompositeOperation = "lighter";
+      const n = 10, side = b.swingSide || -1;
       for (let i = 0; i < n; i++) {
-        const f0 = i / n, f1 = (i + 1) / n, al = Math.pow(f1, 1.6) * fade;
-        g.strokeStyle = `rgba(255,30,50,${0.42 * al})`; g.lineWidth = R * 0.5; g.beginPath(); g.arc(x, y, R * 0.55, a0 + span * f0, a0 + span * f1 + 0.01 * sl.side, sl.side < 0); g.stroke();
-        g.strokeStyle = `rgba(255,120,130,${0.6 * al})`; g.lineWidth = R * 0.14; g.beginPath(); g.arc(x, y, R * 0.76, a0 + span * f0, a0 + span * f1 + 0.01 * sl.side, sl.side < 0); g.stroke();
-        g.strokeStyle = `rgba(255,240,240,${0.9 * al})`; g.lineWidth = 3; g.beginPath(); g.arc(x, y, R * 0.82, a0 + span * f0, a0 + span * f1 + 0.01 * sl.side, sl.side < 0); g.stroke();
+        const f0 = i / n, f1 = (i + 1) / n, p0 = P.tr + (P.ph - P.tr) * f0, p1 = P.tr + (P.ph - P.tr) * f1, al = Math.pow(f1, 2) * 0.32 * lit;
+        const q = ph => { const h = A + ph, d = A + ph - side * 0.12; return [x + Math.cos(h) * rh, y + Math.sin(h) * rh, x + Math.cos(h) * rh + Math.cos(d) * L, y + Math.sin(h) * rh + Math.sin(d) * L]; };
+        const [ax0, ay0, bx0, by0] = q(p0), [ax1, ay1, bx1, by1] = q(p1);
+        const gr = g.createLinearGradient(ax1, ay1, bx1, by1); gr.addColorStop(0, `rgba(${col},0)`); gr.addColorStop(0.35, `rgba(${col},${al * 0.6})`); gr.addColorStop(1, `rgba(255,255,255,${al})`);
+        g.fillStyle = gr; g.beginPath(); g.moveTo(ax0, ay0); g.lineTo(bx0, by0); g.lineTo(bx1, by1); g.lineTo(ax1, ay1); g.closePath(); g.fill();
       }
-      const ex = x + Math.cos(a1) * R * 0.8, ey = y + Math.sin(a1) * R * 0.8;   // the blade's tip, flaring
-      g.globalAlpha = 0.8 * fade; g.drawImage(dotSprite("#ff2a3c"), ex - 40, ey - 40, 80, 80); g.globalAlpha = 1;
+    }
+    // the hilt: back from the emitter toward the bin
+    g.globalCompositeOperation = "source-over";
+    const hl = 17 * sz, bx = hx - ux * hl, by = hy - uy * hl;
+    g.strokeStyle = "#1c2028"; g.lineWidth = 7.5 * sz; g.beginPath(); g.moveTo(bx, by); g.lineTo(hx, hy); g.stroke();
+    g.strokeStyle = "#a9b4c4"; g.lineWidth = 5 * sz; g.beginPath(); g.moveTo(bx + ux * hl * 0.1, by + uy * hl * 0.1); g.lineTo(hx - ux * hl * 0.45, hy - uy * hl * 0.45); g.stroke();
+    g.strokeStyle = "#3a4250"; g.lineWidth = 6.5 * sz; g.beginPath(); g.moveTo(hx - ux * hl * 0.3, hy - uy * hl * 0.3); g.lineTo(hx, hy); g.stroke();
+    g.strokeStyle = heavy ? "#ff4050" : "#5ad0ff"; g.lineWidth = 2; g.beginPath(); g.moveTo(hx - ux * hl * 0.6 - uy * 3 * sz, hy - uy * hl * 0.6 + ux * 3 * sz); g.lineTo(hx - ux * hl * 0.6 + uy * 3 * sz, hy - uy * hl * 0.6 - ux * 3 * sz); g.stroke();   // its switch
+    // the beam: a wide soft glow, a coloured body, a white core, a hot emitter and a rounded tip
+    g.globalCompositeOperation = "lighter";
+    for (const [w, c, al] of [[26, col, 0.13], [14, col, 0.38], [8, col, 0.8], [3.6, "255,255,255", 0.95]]) {
+      g.strokeStyle = `rgba(${c},${Math.min(1, al * lit)})`; g.lineWidth = w * sz * (1 + wind * 0.25); g.beginPath(); g.moveTo(hx, hy); g.lineTo(tx, ty); g.stroke();
+    }
+    g.globalAlpha = Math.min(1, 0.7 * lit); g.drawImage(dotSprite(`rgb(${col})`), hx - 16 * sz, hy - 16 * sz, 32 * sz, 32 * sz); g.globalAlpha = 1;
+    if (wind > 0.98 && !lowQ) {   // wound up full: arcs crackle along it
+      g.strokeStyle = "rgba(255,220,225,0.85)"; g.lineWidth = 1.4;
+      for (let k = 0; k < 2; k++) { g.beginPath(); for (let i = 0; i <= 6; i++) { const f = i / 6, o = (Math.random() - 0.5) * 14 * sz; g.lineTo(hx + ux * L * f - uy * o, hy + uy * L * f + ux * o); } g.stroke(); }
+    }
+    g.restore();
+    const mx = (hx + tx) / 2, my = (hy + ty) / 2;   // world point of its middle, for the light it throws
+    bladeLights.push([b.x + (mx - x), b.y + (my - y), heavy ? 230 : 190, 0.35 * lit + (P.tr !== undefined ? 0.2 : 0), `rgb(${col})`]);
+  }
+  // ---------- a blade's hit: the "wow" ----------
+  // The world stops for a beat; a cut of light flashes across the target along the stroke and slowly closes; a star
+  // glint flares on it; a shock ring warps the space round it; molten droplets and sparks spray along the stroke and
+  // fall away glowing; the cut leaves a glowing scar on the hull it struck that cools and fades
+  const cuts = [], scars = [];
+  function bladeHitFx(x, y, a, heavy, victim) {
+    const col = heavy ? "255,40,60" : "70,175,255", hex = heavy ? "#ff3048" : "#4ab4ff", sc = heavy ? 1.35 : 1, q = lowQ ? 0.45 : 1;
+    cuts.push({ x, y, a, t: 0, len: 190 * sc, col, heavy });
+    if (cuts.length > 16) cuts.shift();
+    if (victim) { scars.push({ o: victim, lx: x - victim.x, ly: y - victim.y, oa: victim.a || 0, a: a - (victim.a || 0), t: 0, len: 46 * sc, col }); if (scars.length > 24) scars.shift(); }
+    impacts.push({ x, y, t: 0, r: 34 * sc, col: "#ffffff", dur: 0.08 });
+    impacts.push({ x, y, t: 0, r: 170 * sc, col, dur: 0.35, soft: 0.55, fluided: true });   // (light only: no smoke cloud)
+    rings.push({ x, y, t: 0, r: 120 * sc, col, dur: 0.28, w: 5, warp: true });
+    for (const d of [-1, 1]) {   // molten droplets flung along the stroke, both ways, most the way it was going
+      for (let k = 0, n = Math.round((d > 0 ? 22 : 9) * q * sc); k < n; k++) {
+        const b2 = a + (d > 0 ? 0 : Math.PI) + (Math.random() - 0.5) * 0.7, v = 300 + Math.random() * 700;
+        puff(x, y, Math.cos(b2) * v, Math.sin(b2) * v, 0.25 + Math.random() * 0.35, 1.2 + Math.random() * 1.2, k % 3 ? "#ffffff" : hex, 1, 0.04, (Math.random() - 0.5) * 3, 0.92);
+      }
+    }
+    for (let k = 0, n = Math.round(14 * q * sc); k < n; k++) {   // glowing motes that hang and drift a moment
+      const b2 = Math.random() * 6.283, v = 40 + Math.random() * 220;
+      puff(x, y, Math.cos(b2) * v, Math.sin(b2) * v, 0.6 + Math.random() * 0.7, 1.4 + Math.random() * 1.6, k % 2 ? hex : "#ffffff", 5, 0, (Math.random() - 0.5) * 4, 0.95);
+    }
+    for (let k = 0; k < (lowQ ? 2 : 4); k++) { const b2 = Math.random() * 6.283, v = 30 + Math.random() * 60; puff(x, y, Math.cos(b2) * v, Math.sin(b2) * v, 0.9 + Math.random() * 0.6, 8 + Math.random() * 8, SMOKE_COLS[1], 2, 0, 0, 0.94, 0.6); }   // a wisp of burnt smoke
+  }
+  function updateCuts(dt) {
+    for (let i = cuts.length - 1; i >= 0; i--) if ((cuts[i].t += dt) > 0.42) cuts.splice(i, 1);
+    for (let i = scars.length - 1; i >= 0; i--) { const s = scars[i]; if ((s.t += dt) > 1.6 || s.o.dead) { scars.splice(i, 1); continue; }
+      if (Math.random() < dt * 14 * (1 - s.t / 1.6)) { const ca = Math.cos((s.o.a || 0) - s.oa), sa = Math.sin((s.o.a || 0) - s.oa); puff(s.o.x + s.lx * ca - s.ly * sa, s.o.y + s.lx * sa + s.ly * ca, (Math.random() - 0.5) * 60, (Math.random() - 0.5) * 60, 0.4 + Math.random() * 0.4, 0.9 + Math.random() * 0.8, "#ffd08a", 5, 0, (Math.random() - 0.5) * 3, 0.95); } }
+  }
+  function drawCuts() {
+    if (!cuts.length && !scars.length) return;
+    g.save(); g.globalCompositeOperation = "lighter"; g.lineCap = "round";
+    for (const c of cuts) {   // the cut of light: shoots out along the stroke in 50 ms, then thins and closes from its ends
+      const x = sx(c.x), y = sy(c.y);
+      if (!onScreen(x, y, c.len)) continue;
+      const open = Math.min(1, c.t / 0.05), close = Math.max(0, (c.t - 0.05) / 0.37), half = c.len / 2 * open * (1 - 0.55 * close * close), fade = 1 - close;
+      const ux = Math.cos(c.a), uy = Math.sin(c.a), x0 = x - ux * half, y0 = y - uy * half, x1 = x + ux * half, y1 = y + uy * half;
+      for (const [w, cc, al] of [[22, c.col, 0.16], [9, c.col, 0.5], [3, "255,255,255", 1]]) {
+        const gr = g.createLinearGradient(x0, y0, x1, y1); gr.addColorStop(0, `rgba(${cc},0)`); gr.addColorStop(0.5, `rgba(${cc},${al * fade})`); gr.addColorStop(1, `rgba(${cc},0)`);
+        g.strokeStyle = gr; g.lineWidth = w * (c.heavy ? 1.3 : 1) * (1 - 0.6 * close); g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+      }
+      if (c.t < 0.2) {   // the glint: a four-pointed star, its long arms along and across the cut
+        const k = 1 - c.t / 0.2, R = (c.heavy ? 110 : 80) * (0.6 + 0.4 * open) * k;
+        g.save(); g.translate(x, y); g.rotate(c.a + 0.785);
+        for (const [rx, ry] of [[R, R * 0.06], [R * 0.06, R * 0.7]]) { const gr = g.createRadialGradient(0, 0, 0, 0, 0, Math.max(rx, ry)); gr.addColorStop(0, `rgba(255,255,255,${0.95 * k})`); gr.addColorStop(0.3, `rgba(${c.col},${0.6 * k})`); gr.addColorStop(1, `rgba(${c.col},0)`); g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, rx, ry, 0, 0, 6.29); g.fill(); }
+        g.restore();
+        g.globalAlpha = k; g.drawImage(dotSprite("#ffffff"), x - 22, y - 22, 44, 44); g.globalAlpha = 1;
+      }
+    }
+    for (const s of scars) {   // the scar on the hull: white-hot at first, cooling through orange to a dull red, then gone
+      const o = s.o, da = (o.a || 0) - s.oa, ca = Math.cos(da), sa = Math.sin(da), x = sx(o.x + s.lx * ca - s.ly * sa), y = sy(o.y + s.lx * sa + s.ly * ca);
+      if (!onScreen(x, y, 80)) continue;
+      const k = s.t / 1.6, a = s.a + (o.a || 0), ux = Math.cos(a) * s.len / 2, uy = Math.sin(a) * s.len / 2;
+      const hot = k < 0.15 ? "255,250,235" : k < 0.45 ? "255,170,70" : "220,60,30";
+      for (const [w, al] of [[9, 0.25], [3.2, 0.95]]) { g.strokeStyle = `rgba(${hot},${al * (1 - k)})`; g.lineWidth = w; g.beginPath(); g.moveTo(x - ux, y - uy); g.lineTo(x + ux, y + uy); g.stroke(); }
     }
     g.restore();
   }
@@ -747,7 +848,7 @@
       });
     for (let k = 0; k < (lowQ ? 20 : 60); k++) { const a2 = Math.random() * 6.283, v = 200 + Math.random() * 500; puff(b.x, b.y, Math.cos(a2) * v, Math.sin(a2) * v, 0.3 + Math.random() * 0.5, 1 + Math.random() * 1.4, k % 3 ? "#ffd27a" : "#ffffff", 1, 0.05); }
     impacts.push({ x: b.x, y: b.y, t: 0, r: 90 * sz, col: "#ffcf5a" });
-    packPlay("p_melee_hit", 1, b.x, b.y) || sfx("hit", 0.8, 0.8, b.x, b.y);
+    bladeClash(clamp((b.x - me.x) / 900, -1, 1));
   }
   // the sprite square cut by two lines through its middle at right angles (angle a, sprite frame): four pieces
   function quarterSprite(a) {

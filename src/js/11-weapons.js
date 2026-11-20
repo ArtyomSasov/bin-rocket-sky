@@ -36,12 +36,13 @@
   const KIND_GUN = { [K.SWORD]: "saw", [K.PULSE_BOLT]: "laser", [K.PISTOL]: "fire", [K.SAW]: "saw", [K.SAW_ALT]: "saw", [K.NUKE]: "nuke", [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
     [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.NAIL]: "nail", [K.SPIKE]: "nail", [K.GREN]: "gren", [K.HROCKET]: "rocket", [K.GAUSS]: "rail", [K.SHARD]: "shard", [K.FLAK]: "shard" };
   const shotSound = (kind, x, y, owner = "unknown") => {
-    if (kind === K.PULSE_BOLT || kind === K.LASER || kind === K.BULLET || kind === K.BULLET_ALT) { if (continuousFire(owner, kind === K.LASER || kind === K.PULSE_BOLT ? "laser" : "minigun", x, y, performance.now(), kind === K.BULLET_ALT || kind === K.LASER)) return; }
-    if (kind !== K.PULSE_BOLT && kind !== K.LASER && kind !== K.BULLET && kind !== K.BULLET_ALT) stopContinuous(owner);
+    if (kind === K.BULLET_ALT) { stopContinuous(owner); packPlay("p_user_autocannon", 0.5, x, y); return; }   // an explosive round: each one a heavy thump
+    if (kind === K.PULSE_BOLT || kind === K.LASER || kind === K.BULLET) { if (continuousFire(owner, kind === K.LASER || kind === K.PULSE_BOLT ? "laser" : "minigun", x, y, performance.now(), kind === K.BULLET_ALT || kind === K.LASER)) return; }
+    if (kind !== K.PULSE_BOLT && kind !== K.LASER && kind !== K.BULLET) stopContinuous(owner);
     if (kind === K.SAW_ALT || kind === K.FLAK) { packPlay(kind === K.SAW_ALT ? "p_ut_saw_alt" : "p_ut_flak_alt", .8, x, y); return; }
     if (kind === K.SHOCK) { audioCue("shockBeam", x, y); return; }
     if (kind === K.PULSE) { audioCue("laserPulse", x, y); return; }
-    if (kind === K.MELEE && packPlay("p_melee_hit", 0.9, x, y)) return;
+    if (kind === K.MELEE || kind === K.SWORD) return;   // a blade's swing sounds as its bin swings it (saberSwing, swingStart)
     if (KIND_GUN[kind] && packPlay("p_fire_" + KIND_GUN[kind], 0.75, x, y)) return;
     const [name, vol, pitch] = SHOTS[kind].sfx; sfx(name, vol, pitch, x, y);
   };
@@ -345,6 +346,13 @@
       if (near) shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400));
       return;
     }
+    if (s.kind === K.BULLET_ALT) {   // an explosive round: a small hard burst of fire, burning embers, a patch of flame that flickers out
+      explode(x, y, 26, 230);
+      impacts.push({ x, y, t: 0, r: 110, col: "255,140,50", dur: 0.8, soft: 0.5, flick: Math.random() * 6.28 });
+      for (let k = 0; k < (lowQ ? 4 : 10); k++) { const a = Math.random() * 6.283, v = 80 + Math.random() * 260; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.6 + Math.random() * 0.8, 1 + Math.random() * 1.2, k % 2 ? "#ffb43c" : "#ff6a1f", 5, 0, (Math.random() - 0.5) * 3, 0.95); }
+      if (near) { packPlay("p_blast", 0.45, x, y) || sfx("boom_small", 0.5, 1.3, x, y); shake = Math.max(shake, 0.08 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
+      return;
+    }
     if (s.kind === K.ORB) {   // plasma: a blue-white ball of energy, a warping shock ring, crackling sparks, a sizzle
       explode(x, y, 45, 300, "plasma");
       impacts.push({ x, y, t: 0, r: 170, col: "#bff4ff" });
@@ -551,13 +559,18 @@
     if (s.kind === K.PELLET) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
     if (s.kind === K.SLUG) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
     if (s.kind === K.SHARD) { sparkShower(s.x, s.y, s.vx / 1300, s.vy / 1300, 1.1); shake = Math.max(shake, 0.08); }
-    if (s.kind === K.SWORD) {   // the blade bites: red-hot sparks across the cut, a gush of oil, a jolt, its clash
-      const a = s.sa ?? 0;
+    if (s.kind === K.SWORD || s.kind === K.MELEE) {   // a blade bites: the cut of light, the glint, the warp, the spray, its clash
+      const heavy = s.kind === K.SWORD, own = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
+      // the stroke's way at the hit: across the line from its bin, the way the swing goes
+      const ra = own ? Math.atan2(s.y - own.y, s.x - own.x) : Math.atan2(s.vy, s.vx), a = ra + (own?.swingSide || -1) * Math.PI / 2;
+      let victim = null, vd = 90;
+      for (const o of [me, ...remotes.values()]) if (o !== own && !o.dead && Math.hypot(o.x - s.x, o.y - s.y) < vd) { vd = Math.hypot(o.x - s.x, o.y - s.y); victim = o; }
       bladeClash(clamp((s.x - me.x) / 900, -1, 1));
-      sparkShower(s.x, s.y, -Math.sin(a), Math.cos(a), 1.6); sparkShower(s.x, s.y, Math.sin(a), -Math.cos(a), 1.6);
-      for (let k = 0; k < (lowQ ? 6 : 16); k++) { const b2 = a + (Math.random() - 0.5) * 2.4, v = 200 + Math.random() * 500; puff(s.x, s.y, Math.cos(b2) * v, Math.sin(b2) * v, 0.2 + Math.random() * 0.3, 1 + Math.random(), k % 2 ? "#ff3b4e" : "#ffd0d0", 1, 0.05); }
-      oilSplash(s.x, s.y, 12, 380, Math.cos(a) * 200, Math.sin(a) * 200);
-      shake = Math.max(shake, 0.18); hitStopUntil = Math.max(hitStopUntil, performance.now() + 50);
+      bladeHitFx(s.x, s.y, a, heavy, victim);
+      oilSplash(s.x, s.y, heavy ? 12 : 6, 380, Math.cos(a) * 220, Math.sin(a) * 220);
+      const near = Math.hypot(s.x - me.x, s.y - me.y) < 700;
+      if (near) { shake = Math.max(shake, heavy ? 0.26 : 0.16); hitStopUntil = Math.max(hitStopUntil, performance.now() + (heavy ? 85 : 55)); }
+      return;
     }
     // a slug on a bin's metal: sparks thrown back off it, white-hot flecks, a spit of oil; energy on it: embers of its
     // colour scattering off the hull
@@ -650,18 +663,15 @@
       for (const [rid, r] of remotes) if (!r.dead && !mates(r, me) && Math.hypot(r.x - nx, r.y - ny) < reach + binR(r.lv || 1) - 20) { target = r; break; }
       if (!target) { fireCd = 0.05; return; }
       fireCd = w.cd;
-      volley(me, now, w, { x: nx, y: ny });
-      packPlay("p_melee_hit", 1) || sfx(...w.sfx);
+      volley(me, now, w, { x: nx, y: ny });   // (the swing, its hit and their sounds: saberSwing, shotBurst)
       shotFeel("gauntlet", { x: nx, y: ny }, 0, ...w.feel);
-      sparkShower(nx, ny, Math.cos(me.a), Math.sin(me.a), 2.2); sparkShower(nx, ny, -Math.sin(me.a), Math.cos(me.a), 1.2); sparkShower(nx, ny, Math.sin(me.a), -Math.cos(me.a), 1.2);
-      impacts.push({ x: nx, y: ny, t: 0, r: 60, col: "#ffcf5a" });
       return;
     }
     if (alt && pat.lunge) {   // lunge: a burst forward with the blade out
       if (now < lungeReady) { rejectFire("LUNGE RECHARGING", now); return; }
       lungeReady = now + 1200; me.lungeUntil = now + 450;
       me.vx += Math.cos(me.a) * 950; me.vy += Math.sin(me.a) * 950; me.inv = Math.max(me.inv, now + 200);
-      dashBurst(me); packPlay("p_melee_run", 0.8) || sfx(...pat.sfx);
+      dashBurst(me); me.swingAt = 0; saberSwing(me, now);
       return;
     }
     if (alt && pat.minedet) {   // set off every mine of mine, on every screen
@@ -688,8 +698,10 @@
     if (k === "laser" && alt) { me.linkHeld = now - (me.linkAt || 0) < 200 ? (me.linkHeld || 0) + (now - me.linkAt) / 1000 : 0; me.linkAt = now; mul *= linkHeatOf(me.linkHeld); }   // (the link beam heats up held on)
     const muzzle = volley(me, now, pat, gun, (k === "bolt" && !alt || k === "laser" && alt) ? boltLock(me, gun) : undefined, mul);
     const [name, vol, pitch] = pat.sfx;
-    const packed = alt && k === "orb" ? audioCue("shockBeam") : k === "minigun" ? continuousFire("me", "minigun", me.x, me.y, now, !!alt)
+    const packed = alt && k === "orb" ? audioCue("shockBeam") : k === "minigun" && alt ? (stopContinuous("me"), packPlay("p_user_autocannon", 0.7))
+      : k === "minigun" ? continuousFire("me", "minigun", me.x, me.y, now, false)
       : k === "laser" ? continuousFire("me", "laser", me.x, me.y, now, !!alt)
+      : k === "saw" && !alt ? true   // (the Blood Blade's swing sounds as it swings: swingStart)
       : packPlay(alt ? ALT_SOUND[k] || "" : k === "holy" ? "p_fire_gren" : "p_fire_" + k, 0.9);
     if (!packed) sfx(name, vol, w.charge ? pitch * (1.3 - 0.4 * mul) : pitch) || blip(160, 0.1, "sawtooth");   // a fuller charge sounds deeper
     if (pat.fx) MUZZLE_FX[pat.fx](muzzle);
@@ -702,7 +714,7 @@
     if (k !== "tele" && !serverRun) spend(k, alt ? pat.cost : 1);   // on the server, ammo is its count   // the teleporter spends a charge on the jump, not on the throw
   }
   // ---- the minigun spins up while the trigger is held; the charge cannon charges while held and fires on release
-  let spin = 0, charge = 0, railCharge = 0;   // railCharge: the railgun's alt, held
+  let spin = 0, charge = 0, railCharge = 0, gauntHum = false;   // railCharge: the railgun's alt, held
   let miniHeat = 0;   // how hot the minigun's barrels are: they smoke for a while after it stops
   const MINI_SMOKE = ["rgb(150,152,165)", "rgb(170,170,182)", "rgb(130,132,148)"];
   function triggerTick(dt, now, ready, held) {
@@ -725,14 +737,16 @@
     if (!beam && me.weapon === "laser" && firingSounds.has("me")) stopContinuous("me");
     if (((!held && !altAutomatic) || !alive || !roundLive) && firingSounds.has("me")) stopContinuous("me");
     me.gauntOn = alive && me.weapon === "gauntlet" && (held || now < (me.lungeUntil || 0));
-    if (me.gauntOn) {   // the blade grinds whatever rock it touches: sparks fly and it bites in
-      const nx = me.x + Math.cos(me.a) * (binR(me.lv) + 14), ny = me.y + Math.sin(me.a) * (binR(me.lv) + 14), b = solidAny(nx, ny);
+    if (me.gauntOn) {   // the Saber, held: it swings back and forth (a blow lands on whoever is in reach: shoot), and
+      // burns into whatever rock or wall it touches, spitting sparks
+      if (now - (me.swingAt || 0) >= WEAPONS.gauntlet.cd * 1000) saberSwing(me, now);
+      const nx = me.x + Math.cos(me.a) * (binR(me.lv) + 30), ny = me.y + Math.sin(me.a) * (binR(me.lv) + 30), b = solidAny(nx, ny);
       if (b) {
         if (Math.random() < 0.8) sparkShower(nx, ny, -Math.cos(me.a) + (Math.random() - 0.5), -Math.sin(me.a) + (Math.random() - 0.5), 0.9);
-        if (now - (me.grindAt || 0) > 140) { me.grindAt = now; carveAt(b, nx, ny, 12, true); packPlay("p_melee_hit", 0.5, nx, ny); }
+        if (now - (me.grindAt || 0) > 140) { me.grindAt = now; carveAt(b, nx, ny, 12, true); bladeClash(0, true); }
       }
     }
-    packLoop("melee", me.gauntOn ? "p_melee_run" : null, 0.55);
+    if (me.weapon === "gauntlet" || gauntHum) { gauntHum = me.gauntOn; if (me.weapon !== "saw") bladeHumSet(me.gauntOn ? 0.3 : 0); }   // its hum while it is out
     if (!w.charge) { charge = 0; return held && ready; }
     if (held && playing && !me.dead) {
       const was = charge;

@@ -31,15 +31,15 @@ function runGameplayChecks() {
   check('last projectile step hits once, including a frame longer than remaining life',()=>{
     shots.length=0;me.x=200;me.y=600;me.inv=0;me.shield=0;me.lives=10;me.hitHistory=[];
     const s=shot(K.BULLET_ALT,100,600,2600);s.mine=false;s.owner='testpeer';s.life=0.04;shots.push(s);
-    updateShots(0.05,performance.now());ok(Math.abs(me.lives-8.86)<.001,'terminal step still deals damage');
-    updateShots(0,performance.now());ok(Math.abs(me.lives-8.86)<.001,'paused frame cannot repeat damage');
+    updateShots(0.05,performance.now());ok(Math.abs(me.lives-(10-SHOTS[K.BULLET_ALT].dmg))<.001,'terminal step still deals damage');
+    updateShots(0,performance.now());ok(Math.abs(me.lives-(10-SHOTS[K.BULLET_ALT].dmg))<.001,'paused frame cannot repeat damage');
     shots.length=0;me.x=100;me.y=600;
   });
   check('delayed fast rounds sweep history and cannot skip a wall',()=>{
     shots.length=0;me.x=400;me.y=600;me.inv=0;me.shield=0;me.lives=10;me.hitHistory=[];
     const now=performance.now();recordHitPose(me,now-260);recordHitPose(me,now);
     const s=shot(K.BULLET_ALT,100,600,2600);s.mine=false;s.owner='testpeer';s.catchup=0.2;shots.push(s);
-    updateShots(0.016,now);ok(Math.abs(me.lives-8.86)<.001,'catch-up hits during historical flight');
+    updateShots(0.016,now);ok(Math.abs(me.lives-(10-SHOTS[K.BULLET_ALT].dmg))<.001,'catch-up hits during historical flight');
     shots.length=0;me.lives=10;const wall=makeBody(220,600);bodies=[wall];
     const blocked=shot(K.BULLET_ALT,40,600,2600);blocked.mine=false;blocked.owner='testpeer';blocked.catchup=0.2;shots.push(blocked);
     updateShots(0.016,now);ok(me.lives===10,'wall blocks catch-up');

@@ -156,7 +156,7 @@
         const sp = Math.hypot(o.vx || 0, o.vy || 0), boost = o === me ? me.boostFx > 0 : (o.boost || 0) > 0, th = o === me ? me.thrust || 0 : o.thrust || 0;
         if (sp > 160) fluid.splat(o.x, o.y, 34, null, 0, o.vx * 0.9, o.vy * 0.9);
         if (th > 0.2 || boost) { const a = (o.a || 0) + Math.PI, bx = o.x + Math.cos(a) * 40, by = o.y + Math.sin(a) * 40;
-          fluid.splat(bx, by, boost ? 22 : 14, [0.36, 0.34, 0.36], boost ? 0.1 : 0.025, Math.cos(a) * (boost ? 500 : 220), Math.sin(a) * (boost ? 500 : 220)); }
+          fluid.splat(bx, by, boost ? 16 : 12, [0.3, 0.28, 0.3], boost ? 0.018 : 0.008, Math.cos(a) * (boost ? 500 : 220), Math.sin(a) * (boost ? 500 : 220)); }   // (a thin haze: a thick one fogs the screen white on a long boost)
       };
       if (playing && !me.dead) stir(me);
       for (const r of remotes.values()) if (!r.dead) stir(r);
@@ -215,7 +215,7 @@
         const boost = b === me ? me.boostFx > 0 : (b.boost || 0) > 0, th = b.thrust || 0;
         if (th < 0.2 && !boost) continue;
         const j = exhaustJets(b, now).find(o => o.main); if (!j) continue;
-        add(j.x + Math.cos(j.a) * 40, j.y + Math.sin(j.a) * 40, boost ? 340 : 200, boost ? 0.7 : 0.3 * Math.min(1, th), boost ? "#ffd9a0" : "#ff9a4a", boost ? 0.25 : 0, 45);
+        add(j.x + Math.cos(j.a) * 50, j.y + Math.sin(j.a) * 50, boost ? 280 : 200, boost ? 0.42 : 0.26 * Math.min(1, th), boost ? "#ffc890" : "#ff9a4a", boost ? 0.3 : 0.1, 45);
       }
       // a shot's muzzle flash lights its surroundings for its first moment (not shadowed by its own shooter)
       for (const s of shots) { const age = SHOTS[s.kind].life - s.life; if (age >= 0 && age < 0.05 && !SHOTS[s.kind].inert) add(s.x, s.y, 190, 0.55 * (1 - age / 0.05), SHOTS[s.kind].col, 0, 70); }
@@ -224,6 +224,8 @@
         const k = m.t / (m.dur || 0.22), fl = m.flick ? (1 - k) * (0.7 + 0.3 * Math.sin(now / 37 + m.flick) * Math.sin(now / 61 + m.flick * 2)) : (1 - k) * (1 - k);
         add(m.x, m.y, m.r * (0.8 + 0.4 * k) * 1.4, fl * m.soft * 1.2, m.col, m.flick ? (1 - k) * 1.2 : (1 - k) * 0.6);   // (a fire shimmers longest)
       }
+      for (const L of bladeLights) add(...L, 0.1, 30);   // energy blades in hand
+      bladeLights.length = 0;
       for (const s of shots) { const L = SHOT_LIGHT[s.kind]; if (L && s.life > 0) add(s.x, s.y, L[0], L[1], SHOTS[s.kind].col, L[2] || 0, 30); }
       list.sort((a, b) => b[7] - a[7]);
       const n = Math.min(16, list.length);

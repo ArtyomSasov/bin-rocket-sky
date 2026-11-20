@@ -405,6 +405,10 @@
       }
       if (s.kind === K.RECALL) { recallSaws(s); shots.splice(i, 1); continue; }
       if (s.kind === K.PULSE_BOLT && s.life > 0 && Math.random() < (lowQ ? 0.35 : 0.8)) puff(s.x, s.y, s.vx * 0.05 + (Math.random() - 0.5) * 60, s.vy * 0.05 + (Math.random() - 0.5) * 60, 0.18 + Math.random() * 0.2, 1 + Math.random(), Math.random() < 0.5 ? "#9dff5a" : "#e8ffc0", 5, 0, 0, 0.9);   // its trail of motes
+      if (s.kind === K.MELEE && !s.swung) {   // a Saber blow: its pilot swings the blade (if it isn't mid-swing already)
+        s.swung = true; const sh = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
+        if (sh && !sh.dead) saberSwing(sh, now);
+      }
       if (s.kind === K.SWORD) {   // a sword swing: its bin swings the blade, the crescent sweeps, and the blade cuts as it goes
         const sh = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
         if (!sh || sh.dead) { s.life = 0; shots.splice(i, 1); continue; }
@@ -419,7 +423,7 @@
             if (!b) continue;
             if (own || b.free) carveAt(b, px, py, 16, own);
             if (Math.random() < 0.6) sparkShower(px, py, -(s.y - s.py), s.x - s.px, 0.5);
-            if (!s.clanged) { s.clanged = true; bladeClash(); }
+            if (!s.clanged) { s.clanged = true; bladeClash(clamp((px - me.x) / 900, -1, 1), true); }
           }
         }
       }
@@ -826,7 +830,7 @@
         else puff(p.x, p.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 0.8 + Math.random() * 0.6, 3 + Math.random() * 3, SMOKE_COLS[1], 2, 0, 0, 0.94, 0.3);
       }
     }
-    shockTick(now); updateOil(dt); updateChunks(dt); updateDrips(dt); updateCasings(dt); updateMelt(dt); jetBlast(dt); updateSlashes(dt); updatePlume(dt);
+    shockTick(now); updateOil(dt); updateChunks(dt); updateDrips(dt); updateCasings(dt); updateMelt(dt); jetBlast(dt); updateCuts(dt); updatePlume(dt);
     for (let i = afterBlasts.length - 1; i >= 0; i--) if (now >= afterBlasts[i].at) {
       const b = afterBlasts[i]; afterBlasts.splice(i, 1);
       if (b.o) {   // a piece of a broken bin popping where it has flown to: a kick to it, sparks, a little fire
@@ -1110,7 +1114,7 @@
       energy = 100; energyRegenAt = 0; dashReadyAt = 0; lungeReady = 0;
       flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
       grabbed.clear(); myGrabs.length = 0; drops.clear(); gunDrops.clear(); myDrops.length = 0; myGunDrops.length = 0;
-      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; wallDrips.length = 0; casings.length = 0; meltLines.length = 0; slashes.length = 0; voids.length = 0; decalTiles.clear(); afterBlasts.length = 0; shockQueue.length = 0;
+      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; wallDrips.length = 0; casings.length = 0; meltLines.length = 0; cuts.length = 0; scars.length = 0; voids.length = 0; decalTiles.clear(); afterBlasts.length = 0; shockQueue.length = 0;
       if (shownRound !== -1) {
         myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode);
         // Respawn after rebuilding: a repaired planet must not enclose a pilot in its old tunnel.

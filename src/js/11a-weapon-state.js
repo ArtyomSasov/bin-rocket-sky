@@ -44,7 +44,7 @@
   const ALT_HINTS = {
     fire: "Laser pistol: instant accurate red beams; alternate fire is faster with wider spread. Unlimited starting ammo.",
     rocket: "Hold alternate fire to load one rocket every 0.45 s, up to three. Release for a straight salvo; ammo cost equals rockets loaded.",
-    minigun: "Primary: 14 HP hitscan bullets, 10/s. Alternate: large 38 HP Stinger shards, one every 0.28 s; primary costs 1 ammo, alternate costs 2.",
+    minigun: "Primary: 14 HP bullets, winding up from 5/s to 20/s over 2.2 s of held fire. Alternate: explosive incendiary rounds, 16 HP and a 24 HP blast of fire where each lands, about 4.5/s; primary costs 1 ammo, alternate costs 2.",
     scatter: "Slug: longer range and a stronger push than the close-range pellet fan; 2 ammo.",
     shard: "Flak shell: a lofted shell explodes for up to 70 HP and releases five shards on impact or landing; 1 ammo.",
     gren: "Volley: three bouncing grenades to cover several routes; 3 ammo.",

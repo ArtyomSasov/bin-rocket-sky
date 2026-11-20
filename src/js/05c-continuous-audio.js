@@ -22,8 +22,15 @@
     if (!loop) { firingSounds.delete(owner); return false; }
     Object.assign(firingSounds.get(owner), { last: now, x, y, distance, alt });
     loop.g.gain.setTargetAtTime((owner === "me" ? .4 : .18) * Math.max(0, 1 - distance / 1800), audio.currentTime, .015);
+    miniPitch(owner, weapon, loop);
     if (loop.pan) loop.pan.pan.value = Math.max(-.85, Math.min(.85, (x - me.x) / 1000));
     return true;
+  }
+  // a minigun's roar rises as its barrels spin up: slow and low at first, high and dense at full speed
+  function miniPitch(id, weapon, loop) {
+    if (weapon !== "minigun" || !loop.src || typeof botById === "undefined") return;   // (the standalone sound preview has no pilots)
+    const p = id === "me" ? me : botById.get(id) || remotes.get(id), sp = id === "me" ? spin : p ? (botById.has(id) ? p.spin : p.spinVis) || 0 : 0;
+    loop.src.playbackRate.setTargetAtTime(0.72 + 0.5 * sp, audio.currentTime, 0.05);
   }
   function stopContinuous(owner) {
     const state = firingSounds.get(owner);
@@ -37,6 +44,7 @@
       if (!playing || !roundLive || document.hidden || !pilot || pilot.dead || (id === "me" && pilot.weapon !== state.weapon) || now - state.last > (state.weapon === "laser" || state.alt ? 400 : id === "me" ? 190 : 350)) { stopContinuous(id); continue; }
       const loop = packLoops["fire:" + id];
       if (!loop) { firingSounds.delete(id); continue; }
+      miniPitch(id, state.weapon, loop);
       state.x = pilot.x; state.y = pilot.y; state.distance = Math.hypot(pilot.x - me.x, pilot.y - me.y);
       loop.g.gain.setTargetAtTime((id === "me" ? .4 : .18) * Math.max(0, 1 - state.distance / 1800), audio.currentTime, .035);
       if (loop.pan) loop.pan.pan.value = Math.max(-.85, Math.min(.85, (pilot.x - me.x) / 1000));

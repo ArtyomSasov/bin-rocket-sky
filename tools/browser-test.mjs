@@ -275,7 +275,7 @@ try {
   const bullet=await evaluate(lagA,'__t.volley(__t.me,performance.now(),{shot:[__t.K.BULLET_ALT,2600]},{x:100,y:600}).id');
   await evaluate(lagA,'__t.netSend(1,performance.now())');
   await until(lagB,`__t.seenShots.has(${JSON.stringify(bullet)})`,3000);
-  assert.equal(await evaluate(lagB,'__t.recordHitPose(__t.me,performance.now());__t.updateShots(0.016,performance.now());__t.me.lives'),8.86,'delayed heavy bullet catches up and hits');
+  assert.ok(Math.abs(await evaluate(lagB,'__t.recordHitPose(__t.me,performance.now());__t.updateShots(0.016,performance.now());__t.me.lives')-(10-await evaluate(lagB,'__t.SHOTS[__t.K.BULLET_ALT].dmg')))<1e-9,'delayed heavy bullet catches up and hits');
   await evaluate(lagB,'__t.netSend(1,performance.now())');
   await until(lagA,`__t.stats.hits===${hitsBefore+1}`,3000);
   await evaluate(lagB,'__t.netSend(1,performance.now())');await wait(300);

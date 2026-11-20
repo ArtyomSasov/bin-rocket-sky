@@ -46,11 +46,13 @@ test('progression cannot change health or hitbox; superweapons retain explicit s
   assert.equal(run('bombDmg(BOMBS[K.NUKE], BOMBS[K.NUKE].wave[0])'), 0);
   assert.equal(run('bombReach(BOMBS[K.NUKE])'), run('BOMBS[K.NUKE].wave[0]'));
 });
-test('source damage relationships and Stinger alternate cadence match their intended roles', () => {
+test('source damage relationships and the minigun\'s explosive alternate match their intended roles', () => {
   const { run } = setup();
   assert.equal(run('SHOTS[K.PISTOL].dmg'), .51);
-  assert.equal(run('SHOTS[K.BULLET_ALT].dmg'), 1.14);
-  assert.equal(run('WEAPONS.minigun.alt.cd'), .28);
+  assert.ok(Math.abs(run('SHOTS[K.BULLET_ALT].dmg') - .48) < 1e-9);   // an explosive round: 16 HP direct...
+  assert.ok(Math.abs(run('SPLASH[K.BULLET_ALT][1]') - .72) < 1e-9);   // ...and a 24 HP blast where it lands
+  assert.equal(run('WEAPONS.minigun.alt.cd'), .22);
+  assert.equal(run('WEAPONS.minigun.spin.join()'), '0.2,0.05,2.2');   // the primary winds up over 2.2 s
   assert.ok(run('WEAPONS.minigun.alt.cd > WEAPONS.minigun.cd'));
   assert.equal(run('SHOTS[K.GREN].dmg'), 3);
   assert.equal(run('SHOTS[K.MELEE].dmg'), 1.5);

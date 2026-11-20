@@ -3,7 +3,8 @@
 // fires its primary and its alt at them. The report says, per gun and mode: shots fired, damage dealt, the sounds
 // heard and whether the page threw; a screenshot is taken mid-fire and just after.
 //   BROWSER_PATH=/path/to/chrome node tools/lab.mjs [gun,gun,...]        (OUT=dir for the screenshots; W/H: viewport)
-// FX=1 node tools/lab.mjs [rocket,gren,mine,flak,bin,hits,spark,nuke,holy]: each blast photographed as it unfolds, then a stress test
+// FX=1 node tools/lab.mjs [rocket,gren,mine,flak,bin,hits,spark,nuke,holy,sword,saber,engine,boost]: each effect photographed as it unfolds
+// (engine/boost: flying under thrust / on boost, then turning; sword/saber: the blades swung at a dummy), then a stress test
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { spawn, execFileSync } from 'node:child_process';
@@ -75,7 +76,7 @@ try {
   for (let i = 0; i < 80 && !(await ev('__e("playing && roundLive")')); i++) await wait(100);
   await ev('__e("bots.length || addBots(3, \\"easy\\")")');   // the test range brings no bots: three dummies
   // keep the field empty and the dummies parked, every frame
-  await ev(`(() => { const E = __e; E('__lab.clear()'); E('me.x = 1200; me.y = 1200; me.inv = 1e15'); setInterval(() => { E('__lab.clear()'); E('me.vx = me.vy = 0; me.a = 0; me.inv = 1e15'); E('__lab.park(' + (window.__dist || 520) + ')'); }, 16); })()`);
+  await ev(`(() => { const E = __e; E('__lab.clear()'); E('me.x = 1200; me.y = 1200; me.inv = 1e15'); setInterval(() => { E('__lab.clear()'); if (window.__free) { E('me.inv = 1e15'); return; } E('me.vx = me.vy = 0; me.a = 0; me.inv = 1e15'); E('__lab.park(' + (window.__dist || 520) + ')'); }, 16); })()`);
   const report = [];
   if (process.env.FX) {   // FX=1: each blast set off once in front of me, photographed as it unfolds; then a stress test
     const at = (x = 330, y = 0) => `me.x + ${x}, me.y + ${y}`;
@@ -91,11 +92,15 @@ try {
       bin: `deathFx({ ...bots[0], x: me.x + 330, y: me.y, vx: 0, vy: 0, dead: false }, 3, 0, 0)`,
       void: `{ const h = hurtMe; hurtMe = () => {}; try { me.inv = 1e15; for (const b of bots) Object.assign(b, { x: me.x + 700 + Math.random() * 300, y: me.y + (Math.random() - 0.5) * 500, dead: false }); detonate({ kind: K.VOID, x: me.x + 500, y: me.y, mine: false, id: 'v1' }, performance.now()); for (let k = 0; k < 6; k++) explode(me.x + 300 + k * 60, me.y + 200, 30, 300); } finally { hurtMe = h; } }`,
       pulse: `{ bots[0] && Object.assign(bots[0], { x: me.x + 420, y: me.y, dead: false, lives: 30 }); cam.x = me.x + 200; cam.y = me.y; me.arsenal.laser = 999; selectWeapon("laser"); me.a = 0; let n = 0; const iv = setInterval(() => { me.a = 0; fireCd = 0; shoot(performance.now(), n > 6); if (++n > 30) clearInterval(iv); }, 70); }`,
-      sword: `{ me.x += 330; bots[0] && Object.assign(bots[0], { x: me.x + 130, y: me.y + 20, dead: false, lives: 3 }); me.arsenal.saw = 30; selectWeapon("saw"); me.a = 0; fireCd = 0; charge = 0.01; const iv = setInterval(() => { me.a = 0; charge = Math.min(1, charge + 0.06); }, 25); setTimeout(() => { clearInterval(iv); fireCd = 0; shoot(performance.now(), false, charge); charge = 0; }, 520); }`,
+      sword: `{ window.__dist = 125; me.x = W * 0.3; me.y = H * 0.3; cam.x = me.x; cam.y = me.y; bots[0] && Object.assign(bots[0], { lives: 3 }); me.arsenal.saw = 30; selectWeapon("saw"); fireCd = 0; charge = 0; keys.add("KeyF"); setTimeout(() => keys.delete("KeyF"), 520); }`,
       railkill: `deathFx({ ...bots[0], x: me.x + 250, y: me.y, vx: 0, vy: 0, dead: false }, 2, 1, 0.2)`,
       binthrown: `deathFx({ ...bots[0], x: me.x + 150, y: me.y, vx: 0, vy: 0, dead: false }, 3, 0, 0.3)`,
       hits: `for (let k = 0; k < 4; k++) impact(${at(250)} + (k - 1.5) * 90, SHOTS[[K.BULLET, K.PELLET, K.RAIL, K.ROCKET][k]].col, k < 2 ? 1 : 2)`,
       hitsfrozen: `for (let k = 0; k < 4; k++) impact(${at(250)} + (k - 1.5) * 90, SHOTS[[K.BULLET, K.PELLET, K.RAIL, K.ROCKET][k]].col, k < 2 ? 1 : 2); update(0.03, performance.now()); hitStopUntil = performance.now() + 600`,
+      // the engine: flying up under thrust, then a turn; boost: the same on afterburner (the crop follows the bin)
+      engine: `{ window.__free = 1; me.x = W / 2; me.y = H / 2 + 600; me.vx = me.vy = 0; me.a = -Math.PI / 2; keys.add("KeyW"); setTimeout(() => keys.add("KeyD"), 900); setTimeout(() => { keys.clear(); window.__free = 0; }, 2900); }`,
+      boost: `{ window.__free = 1; me.x = W / 2; me.y = H / 2 + 600; me.vx = me.vy = 0; me.a = -Math.PI / 2; energy = 100; keys.add("KeyW"); keys.add("ShiftLeft"); boostDownAt = performance.now() - 1000; setTimeout(() => keys.add("KeyD"), 900); setTimeout(() => { keys.clear(); window.__free = 0; }, 2900); }`,
+      saber: `{ window.__dist = 110; me.x = W * 0.3; me.y = H * 0.3; cam.x = me.x + 330; cam.y = me.y; bots[0] && Object.assign(bots[0], { x: me.x + 120, y: me.y + 10, dead: false, lives: 3 }); selectWeapon("gauntlet"); me.a = 0; keys.add("KeyF"); setTimeout(() => keys.delete("KeyF"), 1500); }`,
       spark: `sparkShower(${at(330)}, -1, 0, 1)`,
       nuke: `{ const h = hurtMe; hurtMe = () => {}; try { detonate({ kind: K.NUKE, x: me.x + 250, y: me.y, mine: false }, performance.now()); } finally { hurtMe = h; } }`,
       holy: `{ const h = hurtMe; hurtMe = () => {}; try { detonate({ kind: K.HOLY, x: me.x + 250, y: me.y, mine: false }, performance.now()); } finally { hurtMe = h; } }`,
@@ -105,25 +110,26 @@ try {
     if (process.env.POST) await ev(`__e('settings.post = "${process.env.POST}"')`);   // (POST=on: the WebGL look even when headless is slow)
     for (const name of pick) {
       await ev(`__e('parts.length = impacts.length = rings.length = booms.length = waves.length = debris.length = frags.length = hulks.length = 0')`);
-      await wait(300);
-      const t0 = Date.now(), times = name === 'nuke' || name === 'holy' ? [80, 400, 1000, 2000, 3500] : [40, 150, 400, 900, 1800, 2800];
+      await ev('window.__dist = 4000; window.__free = 0'); await wait(300);
+      const t0 = Date.now(), times = name === 'nuke' || name === 'holy' ? [80, 400, 1000, 2000, 3500] : name === 'sword' ? [150, 420, 570, 620, 700, 1100] : name === 'saber' ? [60, 140, 260, 420, 560, 900] : [40, 150, 400, 900, 1800, 2800];
       await ev(`__e(${JSON.stringify(FX[name])})`);
       let peak = 0;
-      const big = name === 'nuke' || name === 'holy', cx = await ev(`__e("sx(me.x + ${big ? 250 : 330}) * innerWidth / vw")`), cy = await ev(`__e("sy(me.y) * innerWidth / vw")`), frames = [];
+      const cxs = [], cys = [], big = name === 'nuke' || name === 'holy', follow = name === 'engine' || name === 'boost', blade = name === 'sword' || name === 'saber', cx = await ev(`__e("sx(me.x + ${big ? 250 : follow ? 0 : blade ? 70 : 330}) * innerWidth / vw")`), cy = await ev(`__e("sy(me.y) * innerWidth / vw")`), frames = [];
       for (const t of times) {
         await wait(Math.max(0, t - (Date.now() - t0)));
         peak = Math.max(peak, await ev('__e("parts.length")'));
         frames.push((await send('Page.captureScreenshot', { format: 'png' }, sessionId)).data);
+        if (follow || blade) { cxs.push(await ev(`__e("sx(me.x + ${blade ? 70 : 0}) * innerWidth / vw")`)); cys.push(await ev(`__e("sy(me.y + ${follow ? 90 : 0}) * innerWidth / vw")`)); }
       }
       // one contact sheet per blast: the frames cropped round it, in time order, labelled
       const png = await ev(`(async () => {
-        const fr = ${JSON.stringify(frames)}, ts = ${JSON.stringify(times)}, cw = ${big ? 1280 : 520}, ch = ${big ? 640 : 400}, sc = ${big ? 0.28 : 0.7}, w = cw * sc, h = ch * sc;
+        const fr = ${JSON.stringify(frames)}, cxs = ${JSON.stringify(cxs)}, cys = ${JSON.stringify(cys)}, ts = ${JSON.stringify(times)}, cw = ${big ? 1280 : blade ? 380 : follow ? 300 : 520}, ch = ${big ? 640 : blade ? 290 : follow ? 300 : 400}, sc = ${big ? 0.28 : blade ? 0.96 : follow ? 1.2 : 0.7}, w = cw * sc, h = ch * sc;
         const c = document.createElement('canvas'); c.width = w * 3; c.height = h * Math.ceil(fr.length / 3); const q = c.getContext('2d');
         q.fillStyle = '#000'; q.fillRect(0, 0, c.width, c.height); q.font = '14px sans-serif'; q.fillStyle = '#fff';
         for (let i = 0; i < fr.length; i++) {
           const im = new Image(); im.src = 'data:image/png;base64,' + fr[i]; await im.decode();
           const dpr = im.width / innerWidth, X = (i % 3) * w, Y = Math.floor(i / 3) * h;
-          q.drawImage(im, (${cx} - cw / 2) * dpr, (${cy} - ch / 2) * dpr, cw * dpr, ch * dpr, X, Y, w, h);
+          q.drawImage(im, ((cxs[i] ?? ${cx}) - cw / 2) * dpr, ((cys[i] ?? ${cy}) - ch / 2) * dpr, cw * dpr, ch * dpr, X, Y, w, h);
           q.strokeStyle = '#444'; q.strokeRect(X, Y, w, h); q.fillText(ts[i] + ' ms', X + 6, Y + 18);
         }
         return c.toDataURL('image/png').split(',')[1]; })()`);

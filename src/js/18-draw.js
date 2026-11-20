@@ -417,16 +417,16 @@
       return;
     }
     if (s.kind === K.BULLET || s.kind === K.BULLET_ALT) {
-      const heavy = s.kind === K.BULLET_ALT, L = heavy ? 64 : 56;   // a long hot tracer with a glow round it
+      const heavy = s.kind === K.BULLET_ALT, L = heavy ? 70 : 56;   // a long hot tracer with a glow round it (an explosive round: fatter, burning red-orange)
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx)); g.globalCompositeOperation = "lighter";
       const tail = g.createLinearGradient(-L, 0, 3, 0);
-      tail.addColorStop(0, heavy ? "#4593ff00" : "#ff6a1000");
-      tail.addColorStop(0.6, heavy ? "#6fb4ff88" : "#ffa03a99");
-      tail.addColorStop(1, heavy ? "#a5dcff" : "#ffe08a");
-      if (!lowQ) { g.strokeStyle = heavy ? "rgba(90,160,255,0.25)" : "rgba(255,150,50,0.28)"; g.lineWidth = heavy ? 16 : 11; g.lineCap = "round"; g.beginPath(); g.moveTo(-L * 0.7, 0); g.lineTo(2, 0); g.stroke(); }
+      tail.addColorStop(0, heavy ? "#ff200000" : "#ff6a1000");
+      tail.addColorStop(0.6, heavy ? "#ff4a14aa" : "#ffa03a99");
+      tail.addColorStop(1, heavy ? "#ffb060" : "#ffe08a");
+      if (!lowQ) { g.strokeStyle = heavy ? "rgba(255,80,20,0.32)" : "rgba(255,150,50,0.28)"; g.lineWidth = heavy ? 16 : 11; g.lineCap = "round"; g.beginPath(); g.moveTo(-L * 0.7, 0); g.lineTo(2, 0); g.stroke(); }
       g.strokeStyle = tail; g.lineWidth = heavy ? 7 : 4.5; g.lineCap = "round";
       g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
-      g.fillStyle = heavy ? "#ecfaff" : "#fff8dc";
+      g.fillStyle = heavy ? "#fff0c8" : "#fff8dc";
       g.beginPath(); g.ellipse(0, 0, heavy ? 9 : 6, heavy ? 4.5 : 2.6, 0, 0, 6.29); g.fill();
       g.restore(); return;
     }
@@ -556,28 +556,89 @@
     g.restore();
   }
 
-  // live engine fire. Local frame: nozzle at the origin, +y points out of the engine.
-  // the engine's throat: a tight, very bright cone of light out of the nozzle (a third of the old flame's length; the
-  // plume of particles carries the fire beyond it), blue-white on boost, flickering fast; a glow round the nozzle
-  function drawCore(len, wid, now, tier, boost, seed) {
-    const t = now / 1000, L = len * (boost ? 0.42 : 0.5) * (0.9 + 0.1 * Math.sin(t * 61 + seed) + 0.05 * Math.sin(t * 97 + seed * 2)), w = wid * 0.7;
-    if (L < 1) return;
-    g.globalCompositeOperation = "lighter";
-    const core = boost ? "215,235,255" : `${tier.core}`, mid = `${tier.mid}`;
-    for (const [lf, wf, c, al] of [[1, 1, mid, 0.55], [0.75, 0.6, core, 0.9], [0.45, 0.32, "255,255,255", 1]]) {
-      const gr = g.createLinearGradient(0, 0, 0, L * lf);
-      gr.addColorStop(0, `rgba(${c},${al})`); gr.addColorStop(1, `rgba(${c},0)`);
-      g.fillStyle = gr; g.beginPath(); g.moveTo(-w * wf / 2, 0); g.quadraticCurveTo(-w * wf * 0.45, L * lf * 0.5, 0, L * lf); g.quadraticCurveTo(w * wf * 0.45, L * lf * 0.5, w * wf / 2, 0); g.closePath(); g.fill();
+  // ---------- live engine fire: a jet of flame, drawn as fire flows ----------
+  // Local frame: nozzle at the origin, +y points out of the engine. The jet is a strip of turbulent flame texture (noise
+  // stretched along the flow, tileable along it) scrolled outward every frame so the fire visibly pours out of the
+  // nozzle, cut to a flame's shape (narrow at the throat, swelling, then tapering into ragged tongues) and coloured
+  // from hot to cool along it; it bends as the bin turns. Two layers: the outer flame (the palette's mid to outer
+  // colours, cooling to a dark red) and the inner core (white to its core colour), short and bright. On boost the
+  // core goes blue-white and long, shock diamonds stand in it and the flame roars out twice as far
+  const JW = 48, JH = 192;
+  let jetTex = null, jetMasks = null, jetCanvas = null;
+  function jetNoise() {   // turbulent streaks, tileable along y: value noise on a lattice that wraps in y
+    const c = document.createElement("canvas"); c.width = JW; c.height = JH;
+    const q = c.getContext("2d"), img = q.createImageData(JW, JH), h = (i, j, o) => { const v = Math.sin(i * 127.1 + j * 311.7 + o * 74.7) * 43758.5453; return v - Math.floor(v); };
+    const vn = (x, y, py, o) => { const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi, ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy), w = j => ((j % py) + py) % py;
+      const a = h(xi, w(yi), o), b = h(xi + 1, w(yi), o), c2 = h(xi, w(yi + 1), o), d = h(xi + 1, w(yi + 1), o); return a + (b - a) * ux + (c2 - a) * uy + (a - b - c2 + d) * ux * uy; };
+    for (let y = 0; y < JH; y++) for (let x = 0; x < JW; x++) {
+      const u = x / JW, v = y / JH;
+      let n = 0, amp = 0.55, fx = 7, py = 5;
+      for (let o = 0; o < 4; o++) { n += vn(u * fx, v * py, py, o) * amp; amp *= 0.5; fx *= 2.1; py *= 2; }
+      const k = Math.max(0, Math.min(1, (n - 0.18) / 0.42)), o4 = (y * JW + x) * 4;
+      img.data[o4] = img.data[o4 + 1] = img.data[o4 + 2] = 255; img.data[o4 + 3] = 255 * k * k * (3 - 2 * k);
     }
-    if (boost) for (let i = 1; i <= 4; i++) {   // shock diamonds: bright knots standing in the jet
-      const yj = L * (0.18 + i * 0.17), r = w * (0.34 - i * 0.05);
-      g.globalAlpha = 0.75 - i * 0.12; g.fillStyle = "#eef8ff";
-      g.beginPath(); g.moveTo(0, yj - r * 2.2); g.lineTo(r, yj); g.lineTo(0, yj + r * 2.2); g.lineTo(-r, yj); g.closePath(); g.fill();
+    q.putImageData(img, 0, 0); return c;
+  }
+  function jetMask(core) {   // the flame's shape as alpha: soft-edged, swelling from the throat, tapering out
+    const c = document.createElement("canvas"); c.width = JW; c.height = JH;
+    const q = c.getContext("2d"), img = q.createImageData(JW, JH);
+    for (let y = 0; y < JH; y++) for (let x = 0; x < JW; x++) {
+      const v = y / JH, u = Math.abs(x / (JW - 1) - 0.5) * 2;
+      const hw = core ? 0.62 * Math.pow(1 - v, 1.1) * (0.75 + 0.25 * Math.min(1, v / 0.1)) : (0.6 + 0.4 * Math.sin(Math.min(1, v / 0.22) * Math.PI / 2)) * Math.pow(1 - v, 0.65);
+      const e = Math.max(0, Math.min(1, (hw - u) / Math.max(0.05, hw * (core ? 0.6 : 0.75))));
+      const along = Math.min(1, v / 0.03) * Math.pow(1 - v, core ? 0.5 : 0.35), o4 = (y * JW + x) * 4;
+      img.data[o4] = img.data[o4 + 1] = img.data[o4 + 2] = 255; img.data[o4 + 3] = 255 * e * e * (3 - 2 * e) * along;
+    }
+    q.putImageData(img, 0, 0); return c;
+  }
+  // one layer, built in the scratch canvas: two sheets of flowing noise, cut to the mask, coloured along the flow
+  function jetLayer(core, flow, seed, stops) {
+    if (!jetTex) { jetTex = jetNoise(); jetMasks = [jetMask(false), jetMask(true)]; jetCanvas = document.createElement("canvas"); jetCanvas.width = JW; jetCanvas.height = JH; }
+    const q = jetCanvas.getContext("2d");
+    q.globalCompositeOperation = "copy"; q.globalAlpha = 1;
+    const sheet = (off, flip) => { const o = ((off % 1) + 1) % 1 * JH; q.save(); if (flip) { q.translate(JW, 0); q.scale(-1, 1); } q.drawImage(jetTex, 0, -JH + o); q.globalCompositeOperation = "source-over"; q.drawImage(jetTex, 0, o); q.restore(); };
+    sheet(flow + seed, false);
+    q.globalCompositeOperation = "lighter"; q.globalAlpha = 0.7; { const o = (((flow * 1.37 + seed * 3.1) % 1) + 1) % 1 * JH; q.save(); q.translate(JW, 0); q.scale(-1, 1); q.drawImage(jetTex, 0, -JH + o); q.drawImage(jetTex, 0, o); q.restore(); }
+    q.globalAlpha = 1; q.globalCompositeOperation = "destination-in"; q.drawImage(jetMasks[core ? 1 : 0], 0, 0);
+    q.globalCompositeOperation = "source-in";
+    const gr = q.createLinearGradient(0, 0, 0, JH); for (const [f, c] of stops) gr.addColorStop(f, c);
+    q.fillStyle = gr; q.fillRect(0, 0, JW, JH);
+    return jetCanvas;
+  }
+  // the layer drawn along the jet's bent path, in slices: L long, Wd wide at its widest, the tip bent sideways by bend
+  function jetDraw(cv, L, Wd, bend) {
+    const N = 6;
+    for (let i = 0; i < N; i++) {
+      const t0 = i / N, t1 = (i + 1) / N, x0 = bend * t0 * t0, x1 = bend * t1 * t1, y0 = L * t0, y1 = L * t1, ang = Math.atan2(x1 - x0, y1 - y0);
+      g.save(); g.translate(x0, y0); g.rotate(-ang);
+      g.drawImage(cv, 0, JH * t0, JW, JH / N + 0.5, -Wd / 2, 0, Wd, Math.hypot(x1 - x0, y1 - y0) + 0.8);
+      g.restore();
+    }
+  }
+  const rgba = (c, a) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+  function drawJet(len, wid, now, pal, boost, seed, bend, power) {
+    const t = now / 1000, fl = 0.93 + 0.05 * Math.sin(t * 53 + seed) + 0.03 * Math.sin(t * 89 + seed * 2.3);
+    const L = len * (boost ? 1.2 : 1.6) * fl, Wd = wid * (boost ? 2.1 : 2.3);
+    if (L < 2) return;
+    const core = boost ? [205, 228, 255] : pal.core, mid = pal.mid, outer = pal.outer, ember = [outer[0] * 0.55, outer[1] * 0.3, outer[2] * 0.3];
+    const speed = boost ? 4.2 : 2.6;   // how many jet-lengths of fire pour out per second (the texture's flow)
+    g.globalCompositeOperation = "lighter";
+    // the outer flame: from the palette's middle through its outer colour to a dull ember red, fading out
+    g.globalAlpha = Math.min(1, 0.55 + 0.4 * power);
+    jetDraw(jetLayer(false, -t * speed, seed * 0.13, [[0, rgba(mid, 0.9)], [0.25, rgba(mid, 0.85)], [0.5, rgba(outer, 0.75)], [0.8, rgba(ember, 0.55)], [1, rgba(ember, 0)]]), L, Wd, bend);
+    // the inner core: short, white-hot to its core colour (blue-white on boost)
+    g.globalAlpha = Math.min(1, 0.7 + 0.3 * power);
+    jetDraw(jetLayer(true, -t * speed * 1.4, seed * 0.29 + 0.5, [[0, "rgba(255,255,255,1)"], [0.3, rgba(core, 0.95)], [0.7, rgba(mid, 0.6)], [1, rgba(mid, 0)]]), L * (boost ? 0.62 : 0.5), Wd * 0.55, bend * 0.5);
+    g.globalAlpha = 1;
+    if (boost && !lowQ) for (let i = 1; i <= 4; i++) {   // shock diamonds: bright knots standing in the core
+      const f = 0.1 + i * 0.12, yj = L * f, xj = bend * f * f, r = Wd * (0.12 - i * 0.015);
+      g.globalAlpha = (0.6 - i * 0.11) * fl; g.fillStyle = "#eef6ff";
+      g.beginPath(); g.ellipse(xj, yj, r, r * 2.4, 0, 0, 6.29); g.fill();
     }
     g.globalAlpha = 1;
-    const hg = g.createRadialGradient(0, 0, 0, 0, 0, wid * 1.5);
-    hg.addColorStop(0, `rgba(${core},0.75)`); hg.addColorStop(1, `rgba(${mid},0)`);
-    g.fillStyle = hg; g.beginPath(); g.arc(0, 0, wid * 1.5, 0, 6.29); g.fill();
+    const hr = Wd * (boost ? 0.6 : 0.5), hg = g.createRadialGradient(0, 2, 0, 0, 2, hr);   // the throat's glow
+    hg.addColorStop(0, rgba(core, boost ? 0.5 : 0.4)); hg.addColorStop(1, rgba(mid, 0));
+    g.fillStyle = hg; g.beginPath(); g.arc(0, 2, hr, 0, 6.29); g.fill();
     g.globalCompositeOperation = "source-over";
   }
   function drawFlame(len, wid, now, seed, tier, bend = 0, billow = 0) {
@@ -892,7 +953,7 @@
 
   // the weapon you carry is mounted on the wings, so everyone can see what is coming at them.
   // Drawn in art pixels; -y points the way the bin flies.
-  let gauntSpinFast = false, mountHeat = 0, barrelA = 0, swingNow = -1, swingSide = 1, isWinding = false, windNow = 0;   // (swingNow: how far through a sword swing, 0..1; -1 none)   // my gauntlet whirls while it's on; my minigun's heat; its barrels' turn
+  let mountHeat = 0, barrelA = 0;   // my minigun's heat; its barrels' turn   (the blades are drawn on their own: drawBlade)
   function drawMounts(weapon, s, now) {
     if (!weapon) return;
     const u = s / 320, mounts = mountsOf(weapon);
@@ -968,17 +1029,6 @@
         g.restore();
         g.fillStyle = "#1d1630"; g.beginPath(); g.moveTo(-11, -74); g.quadraticCurveTo(0, -98, 11, -74); g.fill();
         g.fillStyle = "#ffe14d"; g.save(); g.translate(-8, -46); g.scale(16 / 24, 16 / 24); g.fill(ICON_PATHS.nuke, "evenodd"); g.restore();
-      } else if (weapon === "saw") {   // the Blood Blade: a hilt, and a long blade of red energy with a white-hot edge, swung on a swing
-        // wound up (held): drawn back over the shoulder, further and brighter as the wind-up fills; swinging: sweeping
-        const wind = isWinding ? windNow : 0, sw = swingNow, ang = sw >= 0 ? (-SWING_ARC / 2 + SWING_ARC * swingEase(sw)) * swingSide : wind > 0 ? -0.15 - 1.9 * swingEase(wind) : -0.15;
-        g.save(); g.translate(0, -14); g.rotate(ang); g.scale(1.7, 1.7);   // (a long blade: it reaches far past the bin)
-        g.fillStyle = "#2a1f3d"; rrect(-4, -6, 8, 18, 3); g.fill(); g.fillStyle = "#8a2030"; g.fillRect(-10, -8, 20, 4);   // the hilt and guard
-        g.globalCompositeOperation = "lighter";
-        const L = 78 * (1 + wind * 0.15), pulse = (0.8 + 0.2 * Math.sin(now / (90 - wind * 60))) * (1 + wind * 0.8);
-        g.globalAlpha = 0.35 * pulse; g.fillStyle = "#ff1e32"; g.beginPath(); g.ellipse(0, -8 - L / 2, 11, L / 2 + 6, 0, 0, 6.29); g.fill();   // its glow
-        g.globalAlpha = 1; const bg = g.createLinearGradient(-5, 0, 5, 0); bg.addColorStop(0, "#ff1e32"); bg.addColorStop(0.5, "#ffe0e0"); bg.addColorStop(1, "#ff1e32");
-        g.fillStyle = bg; g.beginPath(); g.moveTo(-4.5, -8); g.lineTo(4.5, -8); g.lineTo(3, -8 - L); g.lineTo(0, -14 - L); g.lineTo(-3, -8 - L); g.closePath(); g.fill();
-        g.globalCompositeOperation = "source-over"; g.restore();
       } else if (weapon === "gamma") {   // a demonic orb mounted on the launcher
         g.fillStyle = "#3b2d5c"; rrect(-12, -20, 24, 26, 6); g.fill();
         drawDemonicOrb(0, -39, 18, now);
@@ -1012,22 +1062,6 @@
         g.fillStyle = "#26301e"; for (let i = 0; i < 6; i++) { const a = i * 1.047; g.beginPath(); g.arc(Math.cos(a) * 7, -16 + Math.sin(a) * 7, 2.4, 0, 6.29); g.fill(); }
         g.fillStyle = "#6b6f80"; rrect(-7, -44, 14, 18, 3); g.fill();
         g.fillStyle = "#8fd06a"; g.fillRect(-7, -44, 14, 3);
-      } else if (weapon === "gauntlet") {   // the gauntlet: a big toothed blade on the nose, whirling while the trigger is held
-        g.fillStyle = "#3b2d5c"; rrect(-8, -26, 16, 30, 4); g.fill();
-        g.save(); g.translate(0, -62); g.scale(1.7, 1.7); g.rotate(now / (gauntSpinFast ? 12 : 160));   // big, so you see what does the damage
-        if (gauntSpinFast) {   // a blur of steel
-          g.globalCompositeOperation = "lighter";
-          const bl = g.createRadialGradient(0, 0, 10, 0, 0, 36); bl.addColorStop(0, "rgba(220,228,240,0.05)"); bl.addColorStop(0.75, "rgba(220,228,240,0.45)"); bl.addColorStop(1, "rgba(255,200,120,0)");
-          g.fillStyle = bl; g.beginPath(); g.arc(0, 0, 36, 0, 6.29); g.fill(); g.globalCompositeOperation = "source-over";
-        }
-        g.fillStyle = "#e3e8f0"; g.strokeStyle = "#6b7488"; g.lineWidth = 1.5; g.beginPath();
-        for (let i = 0; i < 32; i++) { const r = i % 2 ? 22 : 31, a = i / 32 * 6.283 + (i % 2 ? 0.05 : 0); i ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(r, 0); }
-        g.closePath(); g.fill(); g.stroke();
-        g.fillStyle = "#8a93ad"; for (let i = 0; i < 4; i++) { const a = i * 1.571; g.beginPath(); g.arc(Math.cos(a) * 13, Math.sin(a) * 13, 3.2, 0, 6.29); g.fill(); }   // holes, so the spin reads
-        g.fillStyle = "#3b2d5c"; g.beginPath(); g.arc(0, 0, 7, 0, 6.29); g.fill();
-        g.fillStyle = "#ffcf5a"; g.beginPath(); g.arc(0, 0, 3, 0, 6.29); g.fill();
-        if (gauntSpinFast) { g.globalCompositeOperation = "lighter"; g.strokeStyle = "rgba(255,210,130,0.75)"; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 31, 0, 6.29); g.stroke(); g.globalCompositeOperation = "source-over"; }
-        g.restore();
       } else if (weapon === "holy") {   // the golden orb held up on a short post, halo above
         g.fillStyle = "#3b2d5c"; rrect(-5, -26, 10, 30, 3); g.fill();
         const og = g.createRadialGradient(-5, -44, 2, 0, -40, 17);
@@ -1155,22 +1189,13 @@
     const bf = isMe ? me.boostFx : b.boost || 0;
     const burst = isMe ? Math.max(0, 1 - (now - me.dashAt) / 350) : bf === 2 ? 1 : 0;
     const sputter = Number.isFinite(b.lives) && damageOf(b) > 0.6 ? 0.65 + 0.35 * Math.abs(Math.sin(now / 47 + b.x)) : 1;
-    const pal = bf ? { outer: firePal.outer, mid: firePal.mid, core: [255, 255, 255] } : firePal;
     if (isMe) me.flamePal = firePal; else b.flamePal = firePal;   // (the plume's particles take its colours: emitPlume)
     for (const j of exhaustJets(b, now)) {
       g.save(); g.translate(x + j.x - b.x, y + j.y - b.y); g.rotate(j.a - Math.PI / 2);
       const power = j.power * sputter, len = s * (j.main ? 0.65 : 0.4) * power * (1 + (bf ? 1.7 : 0) + burst * 0.8);
       const wid = s * (j.main ? 0.24 : 0.12) * Math.sqrt(power) * (bf ? 1.5 : 1);
-      const lat = (b.vx || 0) * Math.sin(j.a) - (b.vy || 0) * Math.cos(j.a), bend = clamp(lat * 0.05, -wid * 1.4, wid * 1.4);
-      drawCore(len, wid, now, pal, bf, (b.hue || 0) * 0.1 + (j.main ? 0 : 3));   // (the plume itself is its particles: drawPlume)
-      if (bf && power > 0.4 && !lowQ) { // shock diamonds stay in the jet, behind its white-hot throat
-        g.globalCompositeOperation = "lighter";
-        for (let i = 1; i <= 3; i++) {
-          const yj = len * i * 0.19, r = wid * (0.16 - i * 0.025);
-          g.globalAlpha = (0.55 - i * 0.1) * (0.8 + Math.sin(now / 55 + i) * 0.2);
-          g.fillStyle = "#c5efff"; g.beginPath(); g.moveTo(0, yj - r * 2); g.lineTo(r, yj); g.lineTo(0, yj + r * 2); g.lineTo(-r, yj); g.closePath(); g.fill();
-        }
-      }
+      const lat = (b.vx || 0) * Math.sin(j.a) - (b.vy || 0) * Math.cos(j.a), bend = clamp(lat * 0.09, -wid * 3, wid * 3);
+      drawJet(len, wid, now, firePal, !!bf, (b.hue || 0) * 0.1 + (j.main ? 0 : 3) + (b.x || 0) * 0.001, bend, power);   // (the fire beyond it: its particles, drawPlume)
       if (j.main) {   // the main engine's bell: dark metal, its rim glowing hot with the burn (white-hot on boost)
         g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
         const bw = Math.max(9, wid * 0.85), bl = bw * 0.7, mg = g.createLinearGradient(-bw, 0, bw, 0);
@@ -1189,9 +1214,7 @@
     }
     g.save(); g.translate(x, y); g.rotate(pose.a); g.scale(pose.scaleX, 1);
     drawWings(lv, s);
-    gauntSpinFast = isMe && !!me.gauntOn; mountHeat = isMe ? Math.max(spin, Math.min(1, me.heat || 0)) : 0;
-    { const sb = isMe ? me : b, k = sb.swingAt ? (now - sb.swingAt) / SWING_MS : 2; swingNow = k <= 1 ? k : -1; swingSide = sb.swingSide || 1;
-      isWinding = isMe && me.weapon === "saw" && charge > 0; windNow = isWinding ? charge : 0; }
+    mountHeat = isMe ? Math.max(spin, Math.min(1, me.heat || 0)) : 0;
     // a minigun's barrels turn with its spin (mine: the trigger's spin-up; another's: how hard it has been firing)
     { const sv = isMe ? spin : (b.spinVis = Math.max(0, (b.spinVis || 0) - Math.min(0.1, (now - (b.spinT || now)) / 1000) * 1.2)), dtv = Math.min(0.1, (now - (b.barrelT || now)) / 1000);
       b.spinT = b.barrelT = now; b.barrelA = (b.barrelA || 0) + (0.4 + sv * sv * 30) * dtv; barrelA = b.barrelA; if (!isMe) mountHeat = Math.max(mountHeat, sv * 0.8); }
@@ -1214,6 +1237,8 @@
     if (Number.isFinite(b.lives)) drawDamage(damageOf(b), s, now, x);
     if (hat) drawHat(hat, s, now);
     g.restore();
+    { const wpn = isMe ? me.weapon : b.weapon;   // a blade in hand: held outside the hull, over it
+      if (wpn === "saw" || wpn === "gauntlet") drawBlade(isMe ? me : b, x, y, wpn === "saw", isMe && wpn === "saw" ? charge : 0, now); }
     orbit(true);
     g.globalAlpha = 1;
 

@@ -155,7 +155,7 @@
                alt: { name: "Spike", cost: 2, cd: 1.0, shot: [K.SPIKE, 2600], kick: 200, feel: [16, 0.22, 80], sfx: ["rail", 0.6, 1.6] } },
     gren:    { name: "Grenade launcher", ammo: 10, cd: 0.8, col: "#8fd06a", shot: [K.GREN, 900], kick: 140, feel: [14, 0.18, 80], sfx: ["mine_drop", 0.9, 0.7],
                alt: { name: "Volley", cost: 3, cd: 1.5, shot: [K.GREN, 850], spread: [-0.25, 0, 0.25], kick: 260, feel: [20, 0.28, 100], sfx: ["mine_drop", 1, 0.6] } },
-    gauntlet: { name: "Gauntlet", ammo: Infinity, cd: 0.4, col: "#ffcf5a", shot: [K.MELEE, 0], melee: true, kick: 0, feel: [6, 0.1, 0], sfx: ["hit", 0.7, 0.7],
+    gauntlet: { name: "Saber", ammo: Infinity, cd: 0.4, col: "#ffcf5a", shot: [K.MELEE, 0], melee: true, kick: 0, feel: [6, 0.1, 0], sfx: ["hit", 0.7, 0.7],
                alt: { name: "Lunge", cost: 0, cd: 0, lunge: true, sfx: ["dash", 0.8] } },
     shard:   { name: "Flak Cannon", ammo: 14, cd: 0.8, col: "#ff9a3c", shot: [K.SHARD, 1500], kick: 340, feel: [28, 0.42, 130], sfx: ["scatter", 1, 0.7], fx: "shard",
                alt: { name: "Flak shell", cost: 1, cd: 0.95, shot: [K.FLAK, 1100], kick: 220, feel: [20, 0.28, 110], sfx: ["scatter", 1, 0.55], fx: "shard" } }
@@ -180,7 +180,7 @@
   balanceShot(K.SAW, { dmg: HP(30) });
   balanceShot(K.SAW_ALT, { dmg: HP(34) });
   balanceShot(K.BULLET, { dmg: HP(14), life: .5 });
-  balanceShot(K.BULLET_ALT, { name: "Stinger shard", dmg: HP(38), life: 1.4, r: 7, col: "#94caff" });
+  balanceShot(K.BULLET_ALT, { name: "explosive round", dmg: HP(16), life: 0.9, r: 6, col: "#ff7a2a", carve: 14, shove: 60 });   // bursts where it lands: SPLASH
   balanceShot(K.PELLET, { dmg: HP(10), life: 0.6 });   // real pellets in flight (not hitscan): ~900 px of reach
   balanceShot(K.SLUG, { dmg: HP(60), life: 1.4 });
   balanceShot(K.GREN, { dmg: HP(100) });
@@ -196,8 +196,10 @@
   Object.assign(WEAPONS.orb, { shot: [K.ORB, 650] });
   Object.assign(WEAPONS.shard, { shot: [K.SHARD, 3500] }); WEAPONS.shard.alt.shot = [K.FLAK, 1050];
   // (the saw's slot is the Blood Blade now: its swing is set where it is defined)
-  Object.assign(WEAPONS.minigun, { cd: .1, jitter: .03375, shot: [K.BULLET, 6000] });   // (its pace is set by spin)
-  Object.assign(WEAPONS.minigun.alt, { name: "Heavy shards", cost: 2, cd: .28, jitter: .01, shot: [K.BULLET_ALT, 2500] });
+  // its pace is set by spin: slow at first, winding up over 2.2 s of held fire to a roar (the sound rises with it)
+  Object.assign(WEAPONS.minigun, { cd: .1, jitter: .03375, shot: [K.BULLET, 6000], spin: [0.2, 0.05, 2.2] });
+  // alt: explosive incendiary rounds, slower and heavier, each bursting into a small blast of fire where it lands
+  Object.assign(WEAPONS.minigun.alt, { name: "Explosive rounds", cost: 2, cd: .22, jitter: .02, kick: 40, feel: [6, 0.06, 60], shot: [K.BULLET_ALT, 2200] });
   Object.assign(WEAPONS.scatter, { cd: 1, shot: [K.PELLET, 1500] });
   balanceShot(K.RAIL, { dmg: HP(100) });   // Quake 3's railgun: 100
   WEAPONS.rail.cd = 1.8; WEAPONS.gren.shot = [K.GREN, 1225];
@@ -208,7 +210,7 @@
   let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
-  const SPLASH = { [K.FLAK]: [210, HP(70), 0, 400], [K.SAW_ALT]: [252, HP(34), 0, 350], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [280, HP(80), 0, 600] };
+  const SPLASH = { [K.BULLET_ALT]: [100, HP(24), 0, 170], [K.FLAK]: [210, HP(70), 0, 400], [K.SAW_ALT]: [252, HP(34), 0, 350], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [280, HP(80), 0, 600] };
   const GAMMA_ZAP = { r: 280, every: 0.45, dmg: HP(6) };   // the gamma orb zaps every enemy this close as it flies
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
   // a station's inner wall gives only to heavy weapons (a crater of WALL_CARVE or more: rockets, grenades, mines, the
@@ -321,7 +323,7 @@
     gauss: "M2 10.5h4v3H2ZM8.5 10.5h2v3h-2ZM13 10.5h2v3h-2ZM17.5 10.5H22v3h-4.5ZM6 7h2.5v10H6ZM10.5 7H13v10h-2.5ZM15 7h2.5v10H15Z",
     nail: "M2 9h10v7H2ZM5 16h3v4H5ZM6 4h4v5H6ZM12 10.5h6v4h-6ZM18 12h3l1.5.5-1.5.5h-3Z",
     gren: "M2 10h7v6H2ZM4 16h3v4H4ZM13.5 7.5a4.5 4.5 0 1 0 0.01 0ZM18 10.5h4v3h-4Z",
-    gauntlet: "M12 1l2.2 4.2L19 4l-1.2 4.8L22 11l-4.2 2.2L19 18l-4.8-1.2L12 21l-2.2-4.2L5 18l1.2-4.8L2 11l4.2-2.2L5 4l4.8 1.2ZM12 8a3 3 0 1 0 0.01 0Z"
+    gauntlet: "M20 2.5l1.5 1.5-11.2 11.2-1.5-1.5ZM8.3 14.7l1.5 1.5-1.6 1.6 1 1-1.4 1.4-1-1-2.6 2.6-1.4-1.4 2.6-2.6-1-1 1.4-1.4 1 1Z"   // the Saber
   };
   const ICON_PATHS = Object.fromEntries(Object.entries(ICONS).map(([k, d]) => [k, new Path2D(d)]));
   const FIRE_KEYS = ["Space", "KeyF", "KeyJ", "Enter"];

@@ -893,7 +893,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
                alt: { name: "Spike", cost: 2, cd: 1.0, shot: [K.SPIKE, 2600], kick: 200, feel: [16, 0.22, 80], sfx: ["rail", 0.6, 1.6] } },
     gren:    { name: "Grenade launcher", ammo: 10, cd: 0.8, col: "#8fd06a", shot: [K.GREN, 900], kick: 140, feel: [14, 0.18, 80], sfx: ["mine_drop", 0.9, 0.7],
                alt: { name: "Volley", cost: 3, cd: 1.5, shot: [K.GREN, 850], spread: [-0.25, 0, 0.25], kick: 260, feel: [20, 0.28, 100], sfx: ["mine_drop", 1, 0.6] } },
-    gauntlet: { name: "Gauntlet", ammo: Infinity, cd: 0.4, col: "#ffcf5a", shot: [K.MELEE, 0], melee: true, kick: 0, feel: [6, 0.1, 0], sfx: ["hit", 0.7, 0.7],
+    gauntlet: { name: "Saber", ammo: Infinity, cd: 0.4, col: "#ffcf5a", shot: [K.MELEE, 0], melee: true, kick: 0, feel: [6, 0.1, 0], sfx: ["hit", 0.7, 0.7],
                alt: { name: "Lunge", cost: 0, cd: 0, lunge: true, sfx: ["dash", 0.8] } },
     shard:   { name: "Flak Cannon", ammo: 14, cd: 0.8, col: "#ff9a3c", shot: [K.SHARD, 1500], kick: 340, feel: [28, 0.42, 130], sfx: ["scatter", 1, 0.7], fx: "shard",
                alt: { name: "Flak shell", cost: 1, cd: 0.95, shot: [K.FLAK, 1100], kick: 220, feel: [20, 0.28, 110], sfx: ["scatter", 1, 0.55], fx: "shard" } }
@@ -918,7 +918,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   balanceShot(K.SAW, { dmg: HP(30) });
   balanceShot(K.SAW_ALT, { dmg: HP(34) });
   balanceShot(K.BULLET, { dmg: HP(14), life: .5 });
-  balanceShot(K.BULLET_ALT, { name: "Stinger shard", dmg: HP(38), life: 1.4, r: 7, col: "#94caff" });
+  balanceShot(K.BULLET_ALT, { name: "explosive round", dmg: HP(16), life: 0.9, r: 6, col: "#ff7a2a", carve: 14, shove: 60 });   // bursts where it lands: SPLASH
   balanceShot(K.PELLET, { dmg: HP(10), life: 0.6 });   // real pellets in flight (not hitscan): ~900 px of reach
   balanceShot(K.SLUG, { dmg: HP(60), life: 1.4 });
   balanceShot(K.GREN, { dmg: HP(100) });
@@ -934,8 +934,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   Object.assign(WEAPONS.orb, { shot: [K.ORB, 650] });
   Object.assign(WEAPONS.shard, { shot: [K.SHARD, 3500] }); WEAPONS.shard.alt.shot = [K.FLAK, 1050];
   // (the saw's slot is the Blood Blade now: its swing is set where it is defined)
-  Object.assign(WEAPONS.minigun, { cd: .1, jitter: .03375, shot: [K.BULLET, 6000] });   // (its pace is set by spin)
-  Object.assign(WEAPONS.minigun.alt, { name: "Heavy shards", cost: 2, cd: .28, jitter: .01, shot: [K.BULLET_ALT, 2500] });
+  // its pace is set by spin: slow at first, winding up over 2.2 s of held fire to a roar (the sound rises with it)
+  Object.assign(WEAPONS.minigun, { cd: .1, jitter: .03375, shot: [K.BULLET, 6000], spin: [0.2, 0.05, 2.2] });
+  // alt: explosive incendiary rounds, slower and heavier, each bursting into a small blast of fire where it lands
+  Object.assign(WEAPONS.minigun.alt, { name: "Explosive rounds", cost: 2, cd: .22, jitter: .02, kick: 40, feel: [6, 0.06, 60], shot: [K.BULLET_ALT, 2200] });
   Object.assign(WEAPONS.scatter, { cd: 1, shot: [K.PELLET, 1500] });
   balanceShot(K.RAIL, { dmg: HP(100) });   // Quake 3's railgun: 100
   WEAPONS.rail.cd = 1.8; WEAPONS.gren.shot = [K.GREN, 1225];
@@ -946,7 +948,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
-  const SPLASH = { [K.FLAK]: [210, HP(70), 0, 400], [K.SAW_ALT]: [252, HP(34), 0, 350], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [280, HP(80), 0, 600] };
+  const SPLASH = { [K.BULLET_ALT]: [100, HP(24), 0, 170], [K.FLAK]: [210, HP(70), 0, 400], [K.SAW_ALT]: [252, HP(34), 0, 350], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [280, HP(80), 0, 600] };
   const GAMMA_ZAP = { r: 280, every: 0.45, dmg: HP(6) };   // the gamma orb zaps every enemy this close as it flies
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
   // a station's inner wall gives only to heavy weapons (a crater of WALL_CARVE or more: rockets, grenades, mines, the
@@ -1059,7 +1061,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     gauss: "M2 10.5h4v3H2ZM8.5 10.5h2v3h-2ZM13 10.5h2v3h-2ZM17.5 10.5H22v3h-4.5ZM6 7h2.5v10H6ZM10.5 7H13v10h-2.5ZM15 7h2.5v10H15Z",
     nail: "M2 9h10v7H2ZM5 16h3v4H5ZM6 4h4v5H6ZM12 10.5h6v4h-6ZM18 12h3l1.5.5-1.5.5h-3Z",
     gren: "M2 10h7v6H2ZM4 16h3v4H4ZM13.5 7.5a4.5 4.5 0 1 0 0.01 0ZM18 10.5h4v3h-4Z",
-    gauntlet: "M12 1l2.2 4.2L19 4l-1.2 4.8L22 11l-4.2 2.2L19 18l-4.8-1.2L12 21l-2.2-4.2L5 18l1.2-4.8L2 11l4.2-2.2L5 4l4.8 1.2ZM12 8a3 3 0 1 0 0.01 0Z"
+    gauntlet: "M20 2.5l1.5 1.5-11.2 11.2-1.5-1.5ZM8.3 14.7l1.5 1.5-1.6 1.6 1 1-1.4 1.4-1-1-2.6 2.6-1.4-1.4 2.6-2.6-1-1 1.4-1.4 1 1Z"   // the Saber
   };
   const ICON_PATHS = Object.fromEntries(Object.entries(ICONS).map(([k, d]) => [k, new Path2D(d)]));
   const FIRE_KEYS = ["Space", "KeyF", "KeyJ", "Enter"];
@@ -2431,46 +2433,83 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     choirUntil = t;
   }
-  // ---------- the energy blade's voice, made here (no recording): a low buzzing hum, a swing's rising whoosh, a clash ----------
-  // a hum while it is wound up (held), lower when barely, rising as the wind-up fills
+  // ---------- the energy blades' voice, made here (no recording): a lightsaber's ----------
+  // The hum: a projector-motor drone (two saws a hair apart, beating, over a sub an octave down) with a TV-tube buzz on
+  // top, slightly wavering. The swing: that hum Doppler-bent up and back as the blade cuts past, swelling and opening
+  // with a breath of air. The clash: a white crack, a spitting electric crackle and the hum shrieking up and dying back
+  const bladeNoise = () => { if (!noiseBuf) { noiseBuf = audio.createBuffer(1, audio.sampleRate * 2.5, audio.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; } return noiseBuf; };
+  let buzzCurve = null;
+  const bladeBuzz = () => { if (!buzzCurve) { buzzCurve = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; buzzCurve[i] = Math.tanh(x * 3.2) * 0.9 + 0.1 * Math.sign(x) * Math.pow(Math.abs(x), 0.3); } } const w = audio.createWaveShaper(); w.curve = buzzCurve; return w; };
+  function bladeOut(pan) {   // a voice's way out, panned where it is
+    const p = audio.createStereoPanner ? audio.createStereoPanner() : null;
+    if (!p) return sfxBus;
+    p.pan.value = clamp(pan || 0, -1, 1); p.connect(sfxBus); return p;
+  }
+  // a hum voice: base pitch f; returns its oscillators and the filter and gain to shape it
+  function humVoice(f, out) {
+    const o1 = audio.createOscillator(), o2 = audio.createOscillator(), o3 = audio.createOscillator(), mix = audio.createGain(), sh = bladeBuzz(), lp = audio.createBiquadFilter(), pk = audio.createBiquadFilter(), v = audio.createGain();
+    o1.type = "sawtooth"; o2.type = "sawtooth"; o3.type = "square";
+    o1.frequency.value = f; o2.frequency.value = f * 1.014; o3.frequency.value = f / 2;
+    const g3 = audio.createGain(); g3.gain.value = 0.35;
+    o1.connect(mix); o2.connect(mix); o3.connect(g3).connect(mix); mix.gain.value = 0.55;
+    pk.type = "peaking"; pk.frequency.value = 240; pk.Q.value = 1.4; pk.gain.value = 9;
+    lp.type = "lowpass"; lp.frequency.value = 1100; lp.Q.value = 0.9; v.gain.value = 0;
+    mix.connect(sh).connect(pk).connect(lp).connect(v).connect(out);
+    const lfo = audio.createOscillator(), lg = audio.createGain(); lfo.frequency.value = 0.7 + Math.random() * 0.6; lg.gain.value = f * 0.012;   // the waver
+    lfo.connect(lg); lg.connect(o1.frequency); lg.connect(o2.frequency);
+    return { os: [o1, o2, o3, lfo], o1, o2, o3, lp, v };
+  }
+  // the hum while a blade is out (level 0..1: barely lit .. wound up full); 0 puts it away
   let bladeHum = null;
   function bladeHumSet(level) {
     if (!audio || !sfxBus) return;
-    if (level <= 0) { if (bladeHum) { const h = bladeHum; bladeHum = null; h.v.gain.setTargetAtTime(0, audio.currentTime, 0.04); setTimeout(() => { try { h.o1.stop(); h.o2.stop(); } catch {} }, 300); } return; }
-    if (!bladeHum) {
-      const o1 = audio.createOscillator(), o2 = audio.createOscillator(), f = audio.createBiquadFilter(), v = audio.createGain();
-      o1.type = "sawtooth"; o2.type = "sawtooth"; o1.frequency.value = 88; o2.frequency.value = 90.5; f.type = "lowpass"; f.frequency.value = 600; v.gain.value = 0;
-      o1.connect(f); o2.connect(f); f.connect(v).connect(sfxBus); o1.start(); o2.start();
-      bladeHum = { o1, o2, f, v };
-    }
+    if (level <= 0) { if (bladeHum) { const h = bladeHum; bladeHum = null; h.v.gain.setTargetAtTime(0, audio.currentTime, 0.05); setTimeout(() => { try { h.os.forEach(o => o.stop()); } catch {} }, 400); } return; }
     const t = audio.currentTime;
-    bladeHum.v.gain.setTargetAtTime(0.05 + 0.07 * level, t, 0.03); bladeHum.f.frequency.setTargetAtTime(500 + 1400 * level, t, 0.05);
-    bladeHum.o1.frequency.setTargetAtTime(88 + 30 * level, t, 0.05); bladeHum.o2.frequency.setTargetAtTime(90.5 + 31 * level, t, 0.05);
+    if (!bladeHum) { bladeHum = humVoice(90, sfxBus); bladeHum.os.forEach(o => o.start(t)); }
+    bladeHum.v.gain.setTargetAtTime(0.045 + 0.06 * level, t, 0.04); bladeHum.lp.frequency.setTargetAtTime(900 + 1600 * level, t, 0.06);
+    const f = 90 + 26 * level; bladeHum.o1.frequency.setTargetAtTime(f, t, 0.06); bladeHum.o2.frequency.setTargetAtTime(f * 1.014, t, 0.06); bladeHum.o3.frequency.setTargetAtTime(f / 2, t, 0.06);
   }
-  // the swing: a buzzing tone sweeping up and back down with a rush of air, louder for a fuller swing
-  function bladeSwing(power = 1, pan = 0) {
+  // the swing: "vwhoom", the hum Doppler-bent up as the blade sweeps past and down after it, louder for a fuller swing
+  function bladeSwing(power = 1, pan = 0, heavy = false) {
     if (!audio || !sfxBus) return;
-    const t = audio.currentTime, d = 0.38, o = audio.createOscillator(), o2 = audio.createOscillator(), f = audio.createBiquadFilter(), v = audio.createGain(), p = audio.createStereoPanner ? audio.createStereoPanner() : null;
-    o.type = "sawtooth"; o2.type = "square";
-    o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(240, t + d * 0.45); o.frequency.exponentialRampToValueAtTime(110, t + d);
-    o2.frequency.setValueAtTime(97, t); o2.frequency.exponentialRampToValueAtTime(250, t + d * 0.45); o2.frequency.exponentialRampToValueAtTime(112, t + d);
-    f.type = "bandpass"; f.Q.value = 1.2; f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(2600, t + d * 0.45); f.frequency.exponentialRampToValueAtTime(700, t + d);
-    v.gain.setValueAtTime(0.001, t); v.gain.exponentialRampToValueAtTime(0.16 * (0.5 + power * 0.5), t + d * 0.35); v.gain.exponentialRampToValueAtTime(0.001, t + d);
-    const n = audio.createBufferSource(), nb = audio.createBuffer(1, audio.sampleRate * d | 0, audio.sampleRate), nd = nb.getChannelData(0);
-    for (let i = 0; i < nd.length; i++) nd[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / nd.length);
-    n.buffer = nb; const nf = audio.createBiquadFilter(); nf.type = "bandpass"; nf.frequency.value = 1800; nf.Q.value = 0.8; const nv = audio.createGain(); nv.gain.value = 0.12 * power;
-    if (p) { p.pan.value = clamp(pan, -1, 1); v.connect(p).connect(sfxBus); nv.connect(p); } else { v.connect(sfxBus); nv.connect(sfxBus); }
-    o.connect(f); o2.connect(f); f.connect(v); n.connect(nf).connect(nv);
-    o.start(t); o2.start(t); n.start(t); o.stop(t + d); o2.stop(t + d);
+    const t = audio.currentTime, d = heavy ? 0.5 : 0.36, pk = d * 0.42, out = bladeOut(pan), h = humVoice(heavy ? 78 : 96, out), up = heavy ? 1.9 : 1.75;
+    for (const [o, m] of [[h.o1, 1], [h.o2, 1.014], [h.o3, 0.5]]) { const f0 = (heavy ? 78 : 96) * m; o.frequency.cancelScheduledValues(t); o.frequency.setValueAtTime(f0 * 0.92, t); o.frequency.exponentialRampToValueAtTime(f0 * up, t + pk); o.frequency.exponentialRampToValueAtTime(f0 * 0.8, t + d); }
+    h.lp.frequency.setValueAtTime(700, t); h.lp.frequency.exponentialRampToValueAtTime(4200, t + pk); h.lp.frequency.exponentialRampToValueAtTime(600, t + d);
+    const vol = (heavy ? 0.24 : 0.19) * (0.45 + 0.55 * power);
+    h.v.gain.setValueAtTime(0.0001, t); h.v.gain.exponentialRampToValueAtTime(vol, t + pk); h.v.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    h.os.forEach(o => { o.start(t); o.stop(t + d + 0.02); });
+    const n = audio.createBufferSource(), bf = audio.createBiquadFilter(), nv = audio.createGain();   // the air it cuts
+    n.buffer = bladeNoise(); bf.type = "bandpass"; bf.Q.value = 1.6; bf.frequency.setValueAtTime(500, t); bf.frequency.exponentialRampToValueAtTime(2400, t + pk); bf.frequency.exponentialRampToValueAtTime(700, t + d);
+    nv.gain.setValueAtTime(0.0001, t); nv.gain.exponentialRampToValueAtTime(0.09 * power, t + pk); nv.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    n.connect(bf).connect(nv).connect(out); n.start(t, Math.random() * 2); n.stop(t + d);
   }
-  // the clash: the blade biting into something, a sharp crackling burst
-  function bladeClash(pan = 0) {
+  // the clash: the blade striking a pilot or biting rock and steel. A white crack, the crackle of spitting energy, and
+  // the hum shrieking up and dropping back with a gritty ring; burn: the quieter sizzle of it cutting through something
+  function bladeClash(pan = 0, burn = false) {
     if (!audio || !sfxBus) return;
-    const t = audio.currentTime, d = 0.22, n = audio.createBufferSource(), b = audio.createBuffer(1, audio.sampleRate * d | 0, audio.sampleRate), x = b.getChannelData(0);
-    for (let i = 0; i < x.length; i++) x[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / x.length, 3) * (Math.random() < 0.2 ? 1 : 0.4);
-    n.buffer = b; const f = audio.createBiquadFilter(); f.type = "highpass"; f.frequency.value = 1500; const v = audio.createGain(); v.gain.value = 0.3;
-    const o = audio.createOscillator(); o.type = "sawtooth"; o.frequency.setValueAtTime(620, t); o.frequency.exponentialRampToValueAtTime(180, t + d); const ov = audio.createGain(); ov.gain.setValueAtTime(0.12, t); ov.gain.exponentialRampToValueAtTime(0.001, t + d);
-    n.connect(f).connect(v).connect(sfxBus); o.connect(ov).connect(sfxBus); n.start(t); o.start(t); o.stop(t + d);
+    const t = audio.currentTime, out = bladeOut(pan), k = burn ? 0.45 : 1, d = burn ? 0.22 : 0.42;
+    // the crack
+    const n = audio.createBufferSource(), hp = audio.createBiquadFilter(), nv = audio.createGain();
+    n.buffer = bladeNoise(); hp.type = "highpass"; hp.frequency.value = 900; nv.gain.setValueAtTime(0.42 * k, t); nv.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+    n.connect(hp).connect(nv).connect(out); n.start(t, Math.random() * 2); n.stop(t + 0.08);
+    // the crackle: noise chopped into spits by a fast random square gate
+    const len = audio.sampleRate * d | 0, cb = audio.createBuffer(1, len, audio.sampleRate), x = cb.getChannelData(0);
+    for (let i = 0, on = 0; i < len; i++) { if (i % 90 === 0) on = Math.random() < 0.45 - 0.3 * i / len ? 1 : 0.08; x[i] = (Math.random() * 2 - 1) * on * Math.pow(1 - i / len, 1.6); }
+    const c = audio.createBufferSource(), bp = audio.createBiquadFilter(), cv = audio.createGain();
+    c.buffer = cb; bp.type = "bandpass"; bp.frequency.value = 2600; bp.Q.value = 0.7; cv.gain.value = 0.5 * k;
+    c.connect(bp).connect(cv).connect(out); c.start(t);
+    // the hum shrieking: up a fifth and more at the hit, gritty with a ring modulator, falling back
+    const h = humVoice(burn ? 120 : 110, out), rm = audio.createGain(), ro = audio.createOscillator();
+    ro.type = "square"; ro.frequency.value = 31 + Math.random() * 12; rm.gain.value = 0.65; const rg = audio.createGain(); rg.gain.value = 0.35; ro.connect(rg).connect(rm.gain);
+    h.v.disconnect(); h.v.connect(rm).connect(out);
+    for (const [o, m] of [[h.o1, 1], [h.o2, 1.014], [h.o3, 0.5]]) { const f0 = (burn ? 120 : 110) * m; o.frequency.setValueAtTime(f0 * 2.1, t); o.frequency.exponentialRampToValueAtTime(f0 * 0.85, t + d); }
+    h.lp.frequency.setValueAtTime(5200, t); h.lp.frequency.exponentialRampToValueAtTime(800, t + d);
+    h.v.gain.setValueAtTime(0.32 * k, t); h.v.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    h.os.forEach(o => { o.start(t); o.stop(t + d + 0.02); }); ro.start(t); ro.stop(t + d + 0.02);
+    if (!burn) for (const [f, a] of [[1870, 0.05], [2730, 0.035], [3960, 0.025]]) {   // a brief metallic ring on a solid hit
+      const o = audio.createOscillator(), v = audio.createGain(); o.frequency.value = f * (0.97 + Math.random() * 0.06);
+      v.gain.setValueAtTime(a, t); v.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); o.connect(v).connect(out); o.start(t); o.stop(t + 0.31);
+    }
   }
   function blip(f, dur, type) {
     if (!audio) return;
@@ -2623,8 +2662,15 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (!loop) { firingSounds.delete(owner); return false; }
     Object.assign(firingSounds.get(owner), { last: now, x, y, distance, alt });
     loop.g.gain.setTargetAtTime((owner === "me" ? .4 : .18) * Math.max(0, 1 - distance / 1800), audio.currentTime, .015);
+    miniPitch(owner, weapon, loop);
     if (loop.pan) loop.pan.pan.value = Math.max(-.85, Math.min(.85, (x - me.x) / 1000));
     return true;
+  }
+  // a minigun's roar rises as its barrels spin up: slow and low at first, high and dense at full speed
+  function miniPitch(id, weapon, loop) {
+    if (weapon !== "minigun" || !loop.src || typeof botById === "undefined") return;   // (the standalone sound preview has no pilots)
+    const p = id === "me" ? me : botById.get(id) || remotes.get(id), sp = id === "me" ? spin : p ? (botById.has(id) ? p.spin : p.spinVis) || 0 : 0;
+    loop.src.playbackRate.setTargetAtTime(0.72 + 0.5 * sp, audio.currentTime, 0.05);
   }
   function stopContinuous(owner) {
     const state = firingSounds.get(owner);
@@ -2638,6 +2684,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (!playing || !roundLive || document.hidden || !pilot || pilot.dead || (id === "me" && pilot.weapon !== state.weapon) || now - state.last > (state.weapon === "laser" || state.alt ? 400 : id === "me" ? 190 : 350)) { stopContinuous(id); continue; }
       const loop = packLoops["fire:" + id];
       if (!loop) { firingSounds.delete(id); continue; }
+      miniPitch(id, state.weapon, loop);
       state.x = pilot.x; state.y = pilot.y; state.distance = Math.hypot(pilot.x - me.x, pilot.y - me.y);
       loop.g.gain.setTargetAtTime((id === "me" ? .4 : .18) * Math.max(0, 1 - state.distance / 1800), audio.currentTime, .035);
       if (loop.pan) loop.pan.pan.value = Math.max(-.85, Math.min(.85, (pilot.x - me.x) / 1000));
@@ -4397,14 +4444,17 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const jets = exhaustJets(b, performance.now()), pal = b.flamePal || tierOf(b.lv || 1), cols = plumeColsOf(pal, boost), q = lowQ ? 0.45 : 1;
     for (const j of jets) {
       if (j.power < 0.05) continue;
-      const rate = (j.main ? (boost ? 220 : 100) : 40) * Math.min(1.4, j.power) * q;
+      // the jet itself is drawn on the bin (drawJet); these are the flame licks torn off its end, which live in the
+      // world and so curl away behind a turning bin, cooling to smoke
+      const rate = (j.main ? (boost ? 70 : 30) : 10) * Math.min(1.4, j.power) * q;
       const n = emissionCount(b, j.main ? "plumeMain" : "plumeSide", rate, dt);
-      const wid = j.size * (j.main ? 0.22 : 0.1) * Math.sqrt(j.power) * (boost ? 1.25 : 1), speed = (boost ? 1150 : 640) * Math.sqrt(Math.min(1.4, j.power));
+      const wid = j.size * (j.main ? 0.22 : 0.1) * Math.sqrt(j.power) * (boost ? 1.25 : 1), speed = (boost ? 900 : 480) * Math.sqrt(Math.min(1.4, j.power));
+      const reach = j.size * (j.main ? 0.65 : 0.4) * j.power * (boost ? 2.7 : 1) * (boost ? 1.2 : 1.55);   // how far out the drawn jet ends
       for (let k = 0; k < n; k++) {
-        const age = Math.random() * dt, a = j.a + (Math.random() - 0.5) * (boost ? 0.1 : 0.2), sp = speed * (0.8 + Math.random() * 0.4);
+        const age = Math.random() * dt, a = j.a + (Math.random() - 0.5) * (boost ? 0.12 : 0.25), sp = speed * (0.8 + Math.random() * 0.4), at = reach * (0.55 + Math.random() * 0.35);
         const vx = (b.vx || 0) * 0.85 + Math.cos(a) * sp, vy = (b.vy || 0) * 0.85 + Math.sin(a) * sp;
-        plume.push({ x: j.x - (b.vx || 0) * age + vx * age * 0.15, y: j.y - (b.vy || 0) * age + vy * age * 0.15, vx, vy, t: age,
-          life: (boost ? 0.3 : 0.2) * (0.7 + Math.random() * 0.6) * (j.main ? 1 : 0.6), s0: wid * 0.35, s1: wid * (boost ? 1.5 : 1.25), c: cols, boost, wob: Math.random() * 6.28 });
+        plume.push({ x: j.x + Math.cos(a) * at - (b.vx || 0) * age + vx * age * 0.15, y: j.y + Math.sin(a) * at - (b.vy || 0) * age + vy * age * 0.15, vx, vy, t: age,
+          life: (boost ? 0.28 : 0.24) * (0.7 + Math.random() * 0.6) * (j.main ? 1 : 0.6), s0: wid * 0.3, s1: wid * (boost ? 0.7 : 0.6), c: cols, boost, wob: Math.random() * 6.28 });
       }
     }
     if (plume.length > 2600) plume.splice(0, plume.length - 2600);
@@ -4441,8 +4491,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
           g.drawImage(dotSprite(p.c[ci]), -r * st, -r, r * 2 * st, r * 2);
         } else {
           // the shade: white-hot at the nozzle (blue-white on boost), then yellow, orange, red, dark
-          const shade = Math.min(7, Math.floor(f * 8.5) + (p.boost ? (f < 0.05 ? 0 : 1) : 1)), ramp = p.boost && f < 0.12 ? PLASMA_RAMP : FIRE_RAMP;
-          g.globalAlpha = (pass ? (p.boost ? 0.26 : 0.4) * (1 - f / 0.35) : 0.7 * Math.pow(1 - (f - 0.35) / 0.65, 1.2)) * flick;
+          const shade = Math.min(7, 2 + Math.floor(f * 6.5)), ramp = FIRE_RAMP;   // (torn off the jet's end: already orange, cooling to red)
+          g.globalAlpha = (pass ? 0.3 * (1 - f / 0.35) : 0.38 * Math.pow(1 - (f - 0.35) / 0.65, 1.5)) * flick;
           g.drawImage(fireSprite(shade, (p.wob * 3) | 0, ramp), -r * st, -r, r * 2 * st, r * 2);
         }
         g.restore();
@@ -4499,45 +4549,143 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     g.globalAlpha = 1;
   }
-  // ---------- the Blood Blade's swings: a red crescent sweeping round the bin that swung ----------
-  // A swing: SWING_ARC radians swept in SWORD_LIFE seconds, from one side of the aim to the other, the side set by the
-  // shot's own number (so every screen and the server swing it alike). The blade reaches BLADE_REACH from the bin
-  const SWING_MS = 350, SWING_ARC = 2.5, BLADE_REACH = 165;
-  const swingSideOf = s => { let h = 0; for (let i = 0; i < s.id.length; i++) h = h * 31 + s.id.charCodeAt(i) | 0; return h & 1 ? 1 : -1; };
+  // ---------- the energy blades: the Blood Blade (heavy, red, wound up) and the Saber (the melee everyone carries) ----------
+  // Both are held in the right hand, outside the hull: at rest along the right flank pointing ahead; wound up, drawn
+  // back over the right shoulder; a swing sweeps round the front from right to left (the Saber's next one back again),
+  // the hilt circling just outside the bin and the blade pointing outward, so it never passes through the bin.
+  // A Blood Blade swing: SWING_ARC radians swept in SWING_MS, centred on the aim; the blade reaches BLADE_REACH
+  const SWING_MS = 350, SWING_ARC = 2.5, BLADE_REACH = 165, SABER_MS = 200, SABER_REACH = 150;
+  const swingSideOf = () => -1;   // (right-handed: from the right round to the left, on every screen and the server alike)
   const swingEase = k => 1 - Math.pow(1 - k, 2.2);
   // where the blade is now: from the bin's edge out to its tip, swept round as the swing goes (owner: the bin swinging)
   function swordSweep(s, owner) {
     const k = Math.min(1, 1 - s.life / SHOTS[K.SWORD].life), a = s.sa - SWING_ARC / 2 * s.side + SWING_ARC * s.side * swingEase(k), r0 = binR(owner.lv || 1) * 0.6;
     s.px = owner.x + Math.cos(a) * r0; s.py = owner.y + Math.sin(a) * r0; s.x = owner.x + Math.cos(a) * BLADE_REACH; s.y = owner.y + Math.sin(a) * BLADE_REACH;
   }
-  const slashes = [];
   function swingStart(o, a, side) {
-    o.swingSide = side; o.swingAt = performance.now();
-    slashes.push({ o, a, side: o.swingSide, t: 0 });
-    if (slashes.length > 24) slashes.shift();
+    o.swingSide = side; o.swingAt = performance.now(); o.swingMs = SWING_MS;
     const dist = Math.hypot(o.x - me.x, o.y - me.y);
-    if (dist < 1600) bladeSwing(1 - dist / 1600, clamp((o.x - me.x) / 900, -1, 1));
+    if (dist < 1600) bladeSwing(1 - dist / 1600, clamp((o.x - me.x) / 900, -1, 1), true);
   }
-  function updateSlashes(dt) { for (let i = slashes.length - 1; i >= 0; i--) if ((slashes[i].t += dt) > SWING_MS / 1000 + 0.15) slashes.splice(i, 1); }
-  function drawSlashes() {
-    if (!slashes.length) return;
-    g.save(); g.globalCompositeOperation = "lighter";
-    for (const sl of slashes) {
-      const o = sl.o, x = sx(o.x), y = sy(o.y), R = 150 * sizeOf(o.lv || 1), k = Math.min(1, sl.t / (SWING_MS / 1000)), fade = sl.t < SWING_MS / 1000 ? 1 : 1 - (sl.t - SWING_MS / 1000) / 0.12;
-      if (fade <= 0 || !onScreen(x, y, R + 40)) continue;
-      const a0 = sl.a - SWING_ARC / 2 * sl.side, a1 = a0 + SWING_ARC * sl.side * swingEase(k);
-      // the crescent: a wide band swept from the bin out to the blade's reach, fading toward its tail, with a white-hot
-      // leading edge along the blade's tip
-      const n = 16, span = a1 - a0;
-      g.lineCap = "butt";
+  // a Saber swing: forehand from the right, or, right after one, backhand from the left where the last one ended
+  function saberSwing(o, now = performance.now()) {
+    if (now - (o.swingAt || 0) < SABER_MS * 0.85) return;
+    const back = o.swingMs === SABER_MS && o.swingSide === -1 && now - o.swingAt < SABER_MS + 420;
+    o.swingSide = back ? 1 : -1; o.swingAt = now; o.swingMs = SABER_MS;
+    const dist = Math.hypot(o.x - me.x, o.y - me.y);
+    if (dist < 1400) bladeSwing(0.75 * (1 - dist / 1400), clamp((o.x - me.x) / 900, -1, 1));
+  }
+  // the blade's pose round its bin: hilt at angle ph from the aim (+: to the right), blade pointing at ps from the aim;
+  // tr: where the swing was a moment ago (for its smear), lit: how bright
+  function bladePose(b, heavy, wind, now) {
+    const REST = [1.4, 0.26], ms = b.swingMs || SWING_MS, k = b.swingAt ? (now - b.swingAt) / ms : 9, side = b.swingSide || -1;
+    const arc = heavy ? SWING_ARC : SWING_ARC * 0.9, lead = heavy ? 0.5 : 0.15, hold = heavy ? 0.25 : 0.45 * SABER_MS / ms, rec = heavy ? 0.6 : 1.2;
+    const at = e => { const f0 = arc / 2 + lead, ph = -side * (f0 + (-arc / 2 - f0) * e); return [ph, ph - side * (heavy ? 1.1 - 0.95 * e : 0.5 - 0.4 * e)]; };
+    if (k >= 0 && k <= 1) { const e = swingEase(k), [ph, ps] = at(e), [p0] = at(swingEase(Math.max(0, k - 0.32))); return { ph, ps, tr: p0, lit: 1.35 - 0.35 * k, k }; }
+    if (k > 1 && k < 1 + hold + rec) {   // after it: held a moment where it ended, then brought back to rest
+      const [ph, ps] = at(1), f = clamp((k - 1 - hold) / rec, 0, 1), sm = f * f * (3 - 2 * f);
+      return { ph: ph + (REST[0] - ph) * sm, ps: ps + (REST[1] - ps) * sm, lit: 1 };
+    }
+    const w = swingEase(wind);   // at rest, or wound up over the right shoulder
+    return { ph: REST[0] + 0.85 * w, ps: REST[1] + 2.75 * w, lit: 1 + 0.9 * w };
+  }
+  const bladeLights = [];   // this frame's light thrown by blades (gatherLights takes them)
+  // the blade on its bin (x, y: the bin on screen), drawn over it: a hilt of dark metal and a beam of light in its
+  // colour with a white-hot core, quivering; mid-swing a smear of light follows it round
+  function drawBlade(b, x, y, heavy, wind, now) {
+    const P = bladePose(b, heavy, wind, now), sz = sizeOf(b.lv || 1), A = b.a, rh = binR(b.lv || 1) + 4;
+    const col = heavy ? "255,40,60" : "70,175,255", L = (heavy ? BLADE_REACH - rh * 0.6 : SABER_REACH - rh * 0.7) * (1 + wind * 0.08);
+    const flick = 0.9 + 0.06 * Math.sin(now / 17 + (b.hue || 0)) + 0.04 * Math.sin(now / 7.3), lit = P.lit * flick;
+    const ha = A + P.ph, hx = x + Math.cos(ha) * rh, hy = y + Math.sin(ha) * rh, da = A + P.ps, ux = Math.cos(da), uy = Math.sin(da), tx = hx + ux * L, ty = hy + uy * L;
+    g.save(); g.lineCap = "round";
+    if (P.tr !== undefined && !lowQ) {   // the smear: a fan of light from where the blade was to where it is, brightest at the blade
+      g.globalCompositeOperation = "lighter";
+      const n = 10, side = b.swingSide || -1;
       for (let i = 0; i < n; i++) {
-        const f0 = i / n, f1 = (i + 1) / n, al = Math.pow(f1, 1.6) * fade;
-        g.strokeStyle = `rgba(255,30,50,${0.42 * al})`; g.lineWidth = R * 0.5; g.beginPath(); g.arc(x, y, R * 0.55, a0 + span * f0, a0 + span * f1 + 0.01 * sl.side, sl.side < 0); g.stroke();
-        g.strokeStyle = `rgba(255,120,130,${0.6 * al})`; g.lineWidth = R * 0.14; g.beginPath(); g.arc(x, y, R * 0.76, a0 + span * f0, a0 + span * f1 + 0.01 * sl.side, sl.side < 0); g.stroke();
-        g.strokeStyle = `rgba(255,240,240,${0.9 * al})`; g.lineWidth = 3; g.beginPath(); g.arc(x, y, R * 0.82, a0 + span * f0, a0 + span * f1 + 0.01 * sl.side, sl.side < 0); g.stroke();
+        const f0 = i / n, f1 = (i + 1) / n, p0 = P.tr + (P.ph - P.tr) * f0, p1 = P.tr + (P.ph - P.tr) * f1, al = Math.pow(f1, 2) * 0.32 * lit;
+        const q = ph => { const h = A + ph, d = A + ph - side * 0.12; return [x + Math.cos(h) * rh, y + Math.sin(h) * rh, x + Math.cos(h) * rh + Math.cos(d) * L, y + Math.sin(h) * rh + Math.sin(d) * L]; };
+        const [ax0, ay0, bx0, by0] = q(p0), [ax1, ay1, bx1, by1] = q(p1);
+        const gr = g.createLinearGradient(ax1, ay1, bx1, by1); gr.addColorStop(0, `rgba(${col},0)`); gr.addColorStop(0.35, `rgba(${col},${al * 0.6})`); gr.addColorStop(1, `rgba(255,255,255,${al})`);
+        g.fillStyle = gr; g.beginPath(); g.moveTo(ax0, ay0); g.lineTo(bx0, by0); g.lineTo(bx1, by1); g.lineTo(ax1, ay1); g.closePath(); g.fill();
       }
-      const ex = x + Math.cos(a1) * R * 0.8, ey = y + Math.sin(a1) * R * 0.8;   // the blade's tip, flaring
-      g.globalAlpha = 0.8 * fade; g.drawImage(dotSprite("#ff2a3c"), ex - 40, ey - 40, 80, 80); g.globalAlpha = 1;
+    }
+    // the hilt: back from the emitter toward the bin
+    g.globalCompositeOperation = "source-over";
+    const hl = 17 * sz, bx = hx - ux * hl, by = hy - uy * hl;
+    g.strokeStyle = "#1c2028"; g.lineWidth = 7.5 * sz; g.beginPath(); g.moveTo(bx, by); g.lineTo(hx, hy); g.stroke();
+    g.strokeStyle = "#a9b4c4"; g.lineWidth = 5 * sz; g.beginPath(); g.moveTo(bx + ux * hl * 0.1, by + uy * hl * 0.1); g.lineTo(hx - ux * hl * 0.45, hy - uy * hl * 0.45); g.stroke();
+    g.strokeStyle = "#3a4250"; g.lineWidth = 6.5 * sz; g.beginPath(); g.moveTo(hx - ux * hl * 0.3, hy - uy * hl * 0.3); g.lineTo(hx, hy); g.stroke();
+    g.strokeStyle = heavy ? "#ff4050" : "#5ad0ff"; g.lineWidth = 2; g.beginPath(); g.moveTo(hx - ux * hl * 0.6 - uy * 3 * sz, hy - uy * hl * 0.6 + ux * 3 * sz); g.lineTo(hx - ux * hl * 0.6 + uy * 3 * sz, hy - uy * hl * 0.6 - ux * 3 * sz); g.stroke();   // its switch
+    // the beam: a wide soft glow, a coloured body, a white core, a hot emitter and a rounded tip
+    g.globalCompositeOperation = "lighter";
+    for (const [w, c, al] of [[26, col, 0.13], [14, col, 0.38], [8, col, 0.8], [3.6, "255,255,255", 0.95]]) {
+      g.strokeStyle = `rgba(${c},${Math.min(1, al * lit)})`; g.lineWidth = w * sz * (1 + wind * 0.25); g.beginPath(); g.moveTo(hx, hy); g.lineTo(tx, ty); g.stroke();
+    }
+    g.globalAlpha = Math.min(1, 0.7 * lit); g.drawImage(dotSprite(`rgb(${col})`), hx - 16 * sz, hy - 16 * sz, 32 * sz, 32 * sz); g.globalAlpha = 1;
+    if (wind > 0.98 && !lowQ) {   // wound up full: arcs crackle along it
+      g.strokeStyle = "rgba(255,220,225,0.85)"; g.lineWidth = 1.4;
+      for (let k = 0; k < 2; k++) { g.beginPath(); for (let i = 0; i <= 6; i++) { const f = i / 6, o = (Math.random() - 0.5) * 14 * sz; g.lineTo(hx + ux * L * f - uy * o, hy + uy * L * f + ux * o); } g.stroke(); }
+    }
+    g.restore();
+    const mx = (hx + tx) / 2, my = (hy + ty) / 2;   // world point of its middle, for the light it throws
+    bladeLights.push([b.x + (mx - x), b.y + (my - y), heavy ? 230 : 190, 0.35 * lit + (P.tr !== undefined ? 0.2 : 0), `rgb(${col})`]);
+  }
+  // ---------- a blade's hit: the "wow" ----------
+  // The world stops for a beat; a cut of light flashes across the target along the stroke and slowly closes; a star
+  // glint flares on it; a shock ring warps the space round it; molten droplets and sparks spray along the stroke and
+  // fall away glowing; the cut leaves a glowing scar on the hull it struck that cools and fades
+  const cuts = [], scars = [];
+  function bladeHitFx(x, y, a, heavy, victim) {
+    const col = heavy ? "255,40,60" : "70,175,255", hex = heavy ? "#ff3048" : "#4ab4ff", sc = heavy ? 1.35 : 1, q = lowQ ? 0.45 : 1;
+    cuts.push({ x, y, a, t: 0, len: 190 * sc, col, heavy });
+    if (cuts.length > 16) cuts.shift();
+    if (victim) { scars.push({ o: victim, lx: x - victim.x, ly: y - victim.y, oa: victim.a || 0, a: a - (victim.a || 0), t: 0, len: 46 * sc, col }); if (scars.length > 24) scars.shift(); }
+    impacts.push({ x, y, t: 0, r: 34 * sc, col: "#ffffff", dur: 0.08 });
+    impacts.push({ x, y, t: 0, r: 170 * sc, col, dur: 0.35, soft: 0.55, fluided: true });   // (light only: no smoke cloud)
+    rings.push({ x, y, t: 0, r: 120 * sc, col, dur: 0.28, w: 5, warp: true });
+    for (const d of [-1, 1]) {   // molten droplets flung along the stroke, both ways, most the way it was going
+      for (let k = 0, n = Math.round((d > 0 ? 22 : 9) * q * sc); k < n; k++) {
+        const b2 = a + (d > 0 ? 0 : Math.PI) + (Math.random() - 0.5) * 0.7, v = 300 + Math.random() * 700;
+        puff(x, y, Math.cos(b2) * v, Math.sin(b2) * v, 0.25 + Math.random() * 0.35, 1.2 + Math.random() * 1.2, k % 3 ? "#ffffff" : hex, 1, 0.04, (Math.random() - 0.5) * 3, 0.92);
+      }
+    }
+    for (let k = 0, n = Math.round(14 * q * sc); k < n; k++) {   // glowing motes that hang and drift a moment
+      const b2 = Math.random() * 6.283, v = 40 + Math.random() * 220;
+      puff(x, y, Math.cos(b2) * v, Math.sin(b2) * v, 0.6 + Math.random() * 0.7, 1.4 + Math.random() * 1.6, k % 2 ? hex : "#ffffff", 5, 0, (Math.random() - 0.5) * 4, 0.95);
+    }
+    for (let k = 0; k < (lowQ ? 2 : 4); k++) { const b2 = Math.random() * 6.283, v = 30 + Math.random() * 60; puff(x, y, Math.cos(b2) * v, Math.sin(b2) * v, 0.9 + Math.random() * 0.6, 8 + Math.random() * 8, SMOKE_COLS[1], 2, 0, 0, 0.94, 0.6); }   // a wisp of burnt smoke
+  }
+  function updateCuts(dt) {
+    for (let i = cuts.length - 1; i >= 0; i--) if ((cuts[i].t += dt) > 0.42) cuts.splice(i, 1);
+    for (let i = scars.length - 1; i >= 0; i--) { const s = scars[i]; if ((s.t += dt) > 1.6 || s.o.dead) { scars.splice(i, 1); continue; }
+      if (Math.random() < dt * 14 * (1 - s.t / 1.6)) { const ca = Math.cos((s.o.a || 0) - s.oa), sa = Math.sin((s.o.a || 0) - s.oa); puff(s.o.x + s.lx * ca - s.ly * sa, s.o.y + s.lx * sa + s.ly * ca, (Math.random() - 0.5) * 60, (Math.random() - 0.5) * 60, 0.4 + Math.random() * 0.4, 0.9 + Math.random() * 0.8, "#ffd08a", 5, 0, (Math.random() - 0.5) * 3, 0.95); } }
+  }
+  function drawCuts() {
+    if (!cuts.length && !scars.length) return;
+    g.save(); g.globalCompositeOperation = "lighter"; g.lineCap = "round";
+    for (const c of cuts) {   // the cut of light: shoots out along the stroke in 50 ms, then thins and closes from its ends
+      const x = sx(c.x), y = sy(c.y);
+      if (!onScreen(x, y, c.len)) continue;
+      const open = Math.min(1, c.t / 0.05), close = Math.max(0, (c.t - 0.05) / 0.37), half = c.len / 2 * open * (1 - 0.55 * close * close), fade = 1 - close;
+      const ux = Math.cos(c.a), uy = Math.sin(c.a), x0 = x - ux * half, y0 = y - uy * half, x1 = x + ux * half, y1 = y + uy * half;
+      for (const [w, cc, al] of [[22, c.col, 0.16], [9, c.col, 0.5], [3, "255,255,255", 1]]) {
+        const gr = g.createLinearGradient(x0, y0, x1, y1); gr.addColorStop(0, `rgba(${cc},0)`); gr.addColorStop(0.5, `rgba(${cc},${al * fade})`); gr.addColorStop(1, `rgba(${cc},0)`);
+        g.strokeStyle = gr; g.lineWidth = w * (c.heavy ? 1.3 : 1) * (1 - 0.6 * close); g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+      }
+      if (c.t < 0.2) {   // the glint: a four-pointed star, its long arms along and across the cut
+        const k = 1 - c.t / 0.2, R = (c.heavy ? 110 : 80) * (0.6 + 0.4 * open) * k;
+        g.save(); g.translate(x, y); g.rotate(c.a + 0.785);
+        for (const [rx, ry] of [[R, R * 0.06], [R * 0.06, R * 0.7]]) { const gr = g.createRadialGradient(0, 0, 0, 0, 0, Math.max(rx, ry)); gr.addColorStop(0, `rgba(255,255,255,${0.95 * k})`); gr.addColorStop(0.3, `rgba(${c.col},${0.6 * k})`); gr.addColorStop(1, `rgba(${c.col},0)`); g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, rx, ry, 0, 0, 6.29); g.fill(); }
+        g.restore();
+        g.globalAlpha = k; g.drawImage(dotSprite("#ffffff"), x - 22, y - 22, 44, 44); g.globalAlpha = 1;
+      }
+    }
+    for (const s of scars) {   // the scar on the hull: white-hot at first, cooling through orange to a dull red, then gone
+      const o = s.o, da = (o.a || 0) - s.oa, ca = Math.cos(da), sa = Math.sin(da), x = sx(o.x + s.lx * ca - s.ly * sa), y = sy(o.y + s.lx * sa + s.ly * ca);
+      if (!onScreen(x, y, 80)) continue;
+      const k = s.t / 1.6, a = s.a + (o.a || 0), ux = Math.cos(a) * s.len / 2, uy = Math.sin(a) * s.len / 2;
+      const hot = k < 0.15 ? "255,250,235" : k < 0.45 ? "255,170,70" : "220,60,30";
+      for (const [w, al] of [[9, 0.25], [3.2, 0.95]]) { g.strokeStyle = `rgba(${hot},${al * (1 - k)})`; g.lineWidth = w; g.beginPath(); g.moveTo(x - ux, y - uy); g.lineTo(x + ux, y + uy); g.stroke(); }
     }
     g.restore();
   }
@@ -4877,7 +5025,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       });
     for (let k = 0; k < (lowQ ? 20 : 60); k++) { const a2 = Math.random() * 6.283, v = 200 + Math.random() * 500; puff(b.x, b.y, Math.cos(a2) * v, Math.sin(a2) * v, 0.3 + Math.random() * 0.5, 1 + Math.random() * 1.4, k % 3 ? "#ffd27a" : "#ffffff", 1, 0.05); }
     impacts.push({ x: b.x, y: b.y, t: 0, r: 90 * sz, col: "#ffcf5a" });
-    packPlay("p_melee_hit", 1, b.x, b.y) || sfx("hit", 0.8, 0.8, b.x, b.y);
+    bladeClash(clamp((b.x - me.x) / 900, -1, 1));
   }
   // the sprite square cut by two lines through its middle at right angles (angle a, sprite frame): four pieces
   function quarterSprite(a) {
@@ -5156,12 +5304,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const KIND_GUN = { [K.SWORD]: "saw", [K.PULSE_BOLT]: "laser", [K.PISTOL]: "fire", [K.SAW]: "saw", [K.SAW_ALT]: "saw", [K.NUKE]: "nuke", [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
     [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.NAIL]: "nail", [K.SPIKE]: "nail", [K.GREN]: "gren", [K.HROCKET]: "rocket", [K.GAUSS]: "rail", [K.SHARD]: "shard", [K.FLAK]: "shard" };
   const shotSound = (kind, x, y, owner = "unknown") => {
-    if (kind === K.PULSE_BOLT || kind === K.LASER || kind === K.BULLET || kind === K.BULLET_ALT) { if (continuousFire(owner, kind === K.LASER || kind === K.PULSE_BOLT ? "laser" : "minigun", x, y, performance.now(), kind === K.BULLET_ALT || kind === K.LASER)) return; }
-    if (kind !== K.PULSE_BOLT && kind !== K.LASER && kind !== K.BULLET && kind !== K.BULLET_ALT) stopContinuous(owner);
+    if (kind === K.BULLET_ALT) { stopContinuous(owner); packPlay("p_user_autocannon", 0.5, x, y); return; }   // an explosive round: each one a heavy thump
+    if (kind === K.PULSE_BOLT || kind === K.LASER || kind === K.BULLET) { if (continuousFire(owner, kind === K.LASER || kind === K.PULSE_BOLT ? "laser" : "minigun", x, y, performance.now(), kind === K.BULLET_ALT || kind === K.LASER)) return; }
+    if (kind !== K.PULSE_BOLT && kind !== K.LASER && kind !== K.BULLET) stopContinuous(owner);
     if (kind === K.SAW_ALT || kind === K.FLAK) { packPlay(kind === K.SAW_ALT ? "p_ut_saw_alt" : "p_ut_flak_alt", .8, x, y); return; }
     if (kind === K.SHOCK) { audioCue("shockBeam", x, y); return; }
     if (kind === K.PULSE) { audioCue("laserPulse", x, y); return; }
-    if (kind === K.MELEE && packPlay("p_melee_hit", 0.9, x, y)) return;
+    if (kind === K.MELEE || kind === K.SWORD) return;   // a blade's swing sounds as its bin swings it (saberSwing, swingStart)
     if (KIND_GUN[kind] && packPlay("p_fire_" + KIND_GUN[kind], 0.75, x, y)) return;
     const [name, vol, pitch] = SHOTS[kind].sfx; sfx(name, vol, pitch, x, y);
   };
@@ -5465,6 +5614,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (near) shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400));
       return;
     }
+    if (s.kind === K.BULLET_ALT) {   // an explosive round: a small hard burst of fire, burning embers, a patch of flame that flickers out
+      explode(x, y, 26, 230);
+      impacts.push({ x, y, t: 0, r: 110, col: "255,140,50", dur: 0.8, soft: 0.5, flick: Math.random() * 6.28 });
+      for (let k = 0; k < (lowQ ? 4 : 10); k++) { const a = Math.random() * 6.283, v = 80 + Math.random() * 260; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.6 + Math.random() * 0.8, 1 + Math.random() * 1.2, k % 2 ? "#ffb43c" : "#ff6a1f", 5, 0, (Math.random() - 0.5) * 3, 0.95); }
+      if (near) { packPlay("p_blast", 0.45, x, y) || sfx("boom_small", 0.5, 1.3, x, y); shake = Math.max(shake, 0.08 * (1 - Math.hypot(x - me.x, y - me.y) / 1400)); }
+      return;
+    }
     if (s.kind === K.ORB) {   // plasma: a blue-white ball of energy, a warping shock ring, crackling sparks, a sizzle
       explode(x, y, 45, 300, "plasma");
       impacts.push({ x, y, t: 0, r: 170, col: "#bff4ff" });
@@ -5671,13 +5827,18 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (s.kind === K.PELLET) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
     if (s.kind === K.SLUG) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
     if (s.kind === K.SHARD) { sparkShower(s.x, s.y, s.vx / 1300, s.vy / 1300, 1.1); shake = Math.max(shake, 0.08); }
-    if (s.kind === K.SWORD) {   // the blade bites: red-hot sparks across the cut, a gush of oil, a jolt, its clash
-      const a = s.sa ?? 0;
+    if (s.kind === K.SWORD || s.kind === K.MELEE) {   // a blade bites: the cut of light, the glint, the warp, the spray, its clash
+      const heavy = s.kind === K.SWORD, own = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
+      // the stroke's way at the hit: across the line from its bin, the way the swing goes
+      const ra = own ? Math.atan2(s.y - own.y, s.x - own.x) : Math.atan2(s.vy, s.vx), a = ra + (own?.swingSide || -1) * Math.PI / 2;
+      let victim = null, vd = 90;
+      for (const o of [me, ...remotes.values()]) if (o !== own && !o.dead && Math.hypot(o.x - s.x, o.y - s.y) < vd) { vd = Math.hypot(o.x - s.x, o.y - s.y); victim = o; }
       bladeClash(clamp((s.x - me.x) / 900, -1, 1));
-      sparkShower(s.x, s.y, -Math.sin(a), Math.cos(a), 1.6); sparkShower(s.x, s.y, Math.sin(a), -Math.cos(a), 1.6);
-      for (let k = 0; k < (lowQ ? 6 : 16); k++) { const b2 = a + (Math.random() - 0.5) * 2.4, v = 200 + Math.random() * 500; puff(s.x, s.y, Math.cos(b2) * v, Math.sin(b2) * v, 0.2 + Math.random() * 0.3, 1 + Math.random(), k % 2 ? "#ff3b4e" : "#ffd0d0", 1, 0.05); }
-      oilSplash(s.x, s.y, 12, 380, Math.cos(a) * 200, Math.sin(a) * 200);
-      shake = Math.max(shake, 0.18); hitStopUntil = Math.max(hitStopUntil, performance.now() + 50);
+      bladeHitFx(s.x, s.y, a, heavy, victim);
+      oilSplash(s.x, s.y, heavy ? 12 : 6, 380, Math.cos(a) * 220, Math.sin(a) * 220);
+      const near = Math.hypot(s.x - me.x, s.y - me.y) < 700;
+      if (near) { shake = Math.max(shake, heavy ? 0.26 : 0.16); hitStopUntil = Math.max(hitStopUntil, performance.now() + (heavy ? 85 : 55)); }
+      return;
     }
     // a slug on a bin's metal: sparks thrown back off it, white-hot flecks, a spit of oil; energy on it: embers of its
     // colour scattering off the hull
@@ -5770,18 +5931,15 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       for (const [rid, r] of remotes) if (!r.dead && !mates(r, me) && Math.hypot(r.x - nx, r.y - ny) < reach + binR(r.lv || 1) - 20) { target = r; break; }
       if (!target) { fireCd = 0.05; return; }
       fireCd = w.cd;
-      volley(me, now, w, { x: nx, y: ny });
-      packPlay("p_melee_hit", 1) || sfx(...w.sfx);
+      volley(me, now, w, { x: nx, y: ny });   // (the swing, its hit and their sounds: saberSwing, shotBurst)
       shotFeel("gauntlet", { x: nx, y: ny }, 0, ...w.feel);
-      sparkShower(nx, ny, Math.cos(me.a), Math.sin(me.a), 2.2); sparkShower(nx, ny, -Math.sin(me.a), Math.cos(me.a), 1.2); sparkShower(nx, ny, Math.sin(me.a), -Math.cos(me.a), 1.2);
-      impacts.push({ x: nx, y: ny, t: 0, r: 60, col: "#ffcf5a" });
       return;
     }
     if (alt && pat.lunge) {   // lunge: a burst forward with the blade out
       if (now < lungeReady) { rejectFire("LUNGE RECHARGING", now); return; }
       lungeReady = now + 1200; me.lungeUntil = now + 450;
       me.vx += Math.cos(me.a) * 950; me.vy += Math.sin(me.a) * 950; me.inv = Math.max(me.inv, now + 200);
-      dashBurst(me); packPlay("p_melee_run", 0.8) || sfx(...pat.sfx);
+      dashBurst(me); me.swingAt = 0; saberSwing(me, now);
       return;
     }
     if (alt && pat.minedet) {   // set off every mine of mine, on every screen
@@ -5808,8 +5966,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (k === "laser" && alt) { me.linkHeld = now - (me.linkAt || 0) < 200 ? (me.linkHeld || 0) + (now - me.linkAt) / 1000 : 0; me.linkAt = now; mul *= linkHeatOf(me.linkHeld); }   // (the link beam heats up held on)
     const muzzle = volley(me, now, pat, gun, (k === "bolt" && !alt || k === "laser" && alt) ? boltLock(me, gun) : undefined, mul);
     const [name, vol, pitch] = pat.sfx;
-    const packed = alt && k === "orb" ? audioCue("shockBeam") : k === "minigun" ? continuousFire("me", "minigun", me.x, me.y, now, !!alt)
+    const packed = alt && k === "orb" ? audioCue("shockBeam") : k === "minigun" && alt ? (stopContinuous("me"), packPlay("p_user_autocannon", 0.7))
+      : k === "minigun" ? continuousFire("me", "minigun", me.x, me.y, now, false)
       : k === "laser" ? continuousFire("me", "laser", me.x, me.y, now, !!alt)
+      : k === "saw" && !alt ? true   // (the Blood Blade's swing sounds as it swings: swingStart)
       : packPlay(alt ? ALT_SOUND[k] || "" : k === "holy" ? "p_fire_gren" : "p_fire_" + k, 0.9);
     if (!packed) sfx(name, vol, w.charge ? pitch * (1.3 - 0.4 * mul) : pitch) || blip(160, 0.1, "sawtooth");   // a fuller charge sounds deeper
     if (pat.fx) MUZZLE_FX[pat.fx](muzzle);
@@ -5822,7 +5982,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (k !== "tele" && !serverRun) spend(k, alt ? pat.cost : 1);   // on the server, ammo is its count   // the teleporter spends a charge on the jump, not on the throw
   }
   // ---- the minigun spins up while the trigger is held; the charge cannon charges while held and fires on release
-  let spin = 0, charge = 0, railCharge = 0;   // railCharge: the railgun's alt, held
+  let spin = 0, charge = 0, railCharge = 0, gauntHum = false;   // railCharge: the railgun's alt, held
   let miniHeat = 0;   // how hot the minigun's barrels are: they smoke for a while after it stops
   const MINI_SMOKE = ["rgb(150,152,165)", "rgb(170,170,182)", "rgb(130,132,148)"];
   function triggerTick(dt, now, ready, held) {
@@ -5845,14 +6005,16 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (!beam && me.weapon === "laser" && firingSounds.has("me")) stopContinuous("me");
     if (((!held && !altAutomatic) || !alive || !roundLive) && firingSounds.has("me")) stopContinuous("me");
     me.gauntOn = alive && me.weapon === "gauntlet" && (held || now < (me.lungeUntil || 0));
-    if (me.gauntOn) {   // the blade grinds whatever rock it touches: sparks fly and it bites in
-      const nx = me.x + Math.cos(me.a) * (binR(me.lv) + 14), ny = me.y + Math.sin(me.a) * (binR(me.lv) + 14), b = solidAny(nx, ny);
+    if (me.gauntOn) {   // the Saber, held: it swings back and forth (a blow lands on whoever is in reach: shoot), and
+      // burns into whatever rock or wall it touches, spitting sparks
+      if (now - (me.swingAt || 0) >= WEAPONS.gauntlet.cd * 1000) saberSwing(me, now);
+      const nx = me.x + Math.cos(me.a) * (binR(me.lv) + 30), ny = me.y + Math.sin(me.a) * (binR(me.lv) + 30), b = solidAny(nx, ny);
       if (b) {
         if (Math.random() < 0.8) sparkShower(nx, ny, -Math.cos(me.a) + (Math.random() - 0.5), -Math.sin(me.a) + (Math.random() - 0.5), 0.9);
-        if (now - (me.grindAt || 0) > 140) { me.grindAt = now; carveAt(b, nx, ny, 12, true); packPlay("p_melee_hit", 0.5, nx, ny); }
+        if (now - (me.grindAt || 0) > 140) { me.grindAt = now; carveAt(b, nx, ny, 12, true); bladeClash(0, true); }
       }
     }
-    packLoop("melee", me.gauntOn ? "p_melee_run" : null, 0.55);
+    if (me.weapon === "gauntlet" || gauntHum) { gauntHum = me.gauntOn; if (me.weapon !== "saw") bladeHumSet(me.gauntOn ? 0.3 : 0); }   // its hum while it is out
     if (!w.charge) { charge = 0; return held && ready; }
     if (held && playing && !me.dead) {
       const was = charge;
@@ -6332,7 +6494,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const ALT_HINTS = {
     fire: "Laser pistol: instant accurate red beams; alternate fire is faster with wider spread. Unlimited starting ammo.",
     rocket: "Hold alternate fire to load one rocket every 0.45 s, up to three. Release for a straight salvo; ammo cost equals rockets loaded.",
-    minigun: "Primary: 14 HP hitscan bullets, 10/s. Alternate: large 38 HP Stinger shards, one every 0.28 s; primary costs 1 ammo, alternate costs 2.",
+    minigun: "Primary: 14 HP bullets, winding up from 5/s to 20/s over 2.2 s of held fire. Alternate: explosive incendiary rounds, 16 HP and a 24 HP blast of fire where each lands, about 4.5/s; primary costs 1 ammo, alternate costs 2.",
     scatter: "Slug: longer range and a stronger push than the close-range pellet fan; 2 ammo.",
     shard: "Flak shell: a lofted shell explodes for up to 70 HP and releases five shards on impact or landing; 1 ammo.",
     gren: "Volley: three bouncing grenades to cover several routes; 3 ammo.",
@@ -8948,6 +9110,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       }
       if (s.kind === K.RECALL) { recallSaws(s); shots.splice(i, 1); continue; }
       if (s.kind === K.PULSE_BOLT && s.life > 0 && Math.random() < (lowQ ? 0.35 : 0.8)) puff(s.x, s.y, s.vx * 0.05 + (Math.random() - 0.5) * 60, s.vy * 0.05 + (Math.random() - 0.5) * 60, 0.18 + Math.random() * 0.2, 1 + Math.random(), Math.random() < 0.5 ? "#9dff5a" : "#e8ffc0", 5, 0, 0, 0.9);   // its trail of motes
+      if (s.kind === K.MELEE && !s.swung) {   // a Saber blow: its pilot swings the blade (if it isn't mid-swing already)
+        s.swung = true; const sh = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
+        if (sh && !sh.dead) saberSwing(sh, now);
+      }
       if (s.kind === K.SWORD) {   // a sword swing: its bin swings the blade, the crescent sweeps, and the blade cuts as it goes
         const sh = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
         if (!sh || sh.dead) { s.life = 0; shots.splice(i, 1); continue; }
@@ -8962,7 +9128,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
             if (!b) continue;
             if (own || b.free) carveAt(b, px, py, 16, own);
             if (Math.random() < 0.6) sparkShower(px, py, -(s.y - s.py), s.x - s.px, 0.5);
-            if (!s.clanged) { s.clanged = true; bladeClash(); }
+            if (!s.clanged) { s.clanged = true; bladeClash(clamp((px - me.x) / 900, -1, 1), true); }
           }
         }
       }
@@ -9369,7 +9535,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         else puff(p.x, p.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 0.8 + Math.random() * 0.6, 3 + Math.random() * 3, SMOKE_COLS[1], 2, 0, 0, 0.94, 0.3);
       }
     }
-    shockTick(now); updateOil(dt); updateChunks(dt); updateDrips(dt); updateCasings(dt); updateMelt(dt); jetBlast(dt); updateSlashes(dt); updatePlume(dt);
+    shockTick(now); updateOil(dt); updateChunks(dt); updateDrips(dt); updateCasings(dt); updateMelt(dt); jetBlast(dt); updateCuts(dt); updatePlume(dt);
     for (let i = afterBlasts.length - 1; i >= 0; i--) if (now >= afterBlasts[i].at) {
       const b = afterBlasts[i]; afterBlasts.splice(i, 1);
       if (b.o) {   // a piece of a broken bin popping where it has flown to: a kick to it, sparks, a little fire
@@ -9653,7 +9819,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       energy = 100; energyRegenAt = 0; dashReadyAt = 0; lungeReady = 0;
       flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
       grabbed.clear(); myGrabs.length = 0; drops.clear(); gunDrops.clear(); myDrops.length = 0; myGunDrops.length = 0;
-      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; wallDrips.length = 0; casings.length = 0; meltLines.length = 0; slashes.length = 0; voids.length = 0; decalTiles.clear(); afterBlasts.length = 0; shockQueue.length = 0;
+      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; wallDrips.length = 0; casings.length = 0; meltLines.length = 0; cuts.length = 0; scars.length = 0; voids.length = 0; decalTiles.clear(); afterBlasts.length = 0; shockQueue.length = 0;
       if (shownRound !== -1) {
         myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode);
         // Respawn after rebuilding: a repaired planet must not enclose a pilot in its old tunnel.
@@ -10143,16 +10309,16 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       return;
     }
     if (s.kind === K.BULLET || s.kind === K.BULLET_ALT) {
-      const heavy = s.kind === K.BULLET_ALT, L = heavy ? 64 : 56;   // a long hot tracer with a glow round it
+      const heavy = s.kind === K.BULLET_ALT, L = heavy ? 70 : 56;   // a long hot tracer with a glow round it (an explosive round: fatter, burning red-orange)
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx)); g.globalCompositeOperation = "lighter";
       const tail = g.createLinearGradient(-L, 0, 3, 0);
-      tail.addColorStop(0, heavy ? "#4593ff00" : "#ff6a1000");
-      tail.addColorStop(0.6, heavy ? "#6fb4ff88" : "#ffa03a99");
-      tail.addColorStop(1, heavy ? "#a5dcff" : "#ffe08a");
-      if (!lowQ) { g.strokeStyle = heavy ? "rgba(90,160,255,0.25)" : "rgba(255,150,50,0.28)"; g.lineWidth = heavy ? 16 : 11; g.lineCap = "round"; g.beginPath(); g.moveTo(-L * 0.7, 0); g.lineTo(2, 0); g.stroke(); }
+      tail.addColorStop(0, heavy ? "#ff200000" : "#ff6a1000");
+      tail.addColorStop(0.6, heavy ? "#ff4a14aa" : "#ffa03a99");
+      tail.addColorStop(1, heavy ? "#ffb060" : "#ffe08a");
+      if (!lowQ) { g.strokeStyle = heavy ? "rgba(255,80,20,0.32)" : "rgba(255,150,50,0.28)"; g.lineWidth = heavy ? 16 : 11; g.lineCap = "round"; g.beginPath(); g.moveTo(-L * 0.7, 0); g.lineTo(2, 0); g.stroke(); }
       g.strokeStyle = tail; g.lineWidth = heavy ? 7 : 4.5; g.lineCap = "round";
       g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
-      g.fillStyle = heavy ? "#ecfaff" : "#fff8dc";
+      g.fillStyle = heavy ? "#fff0c8" : "#fff8dc";
       g.beginPath(); g.ellipse(0, 0, heavy ? 9 : 6, heavy ? 4.5 : 2.6, 0, 0, 6.29); g.fill();
       g.restore(); return;
     }
@@ -10282,28 +10448,89 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     g.restore();
   }
 
-  // live engine fire. Local frame: nozzle at the origin, +y points out of the engine.
-  // the engine's throat: a tight, very bright cone of light out of the nozzle (a third of the old flame's length; the
-  // plume of particles carries the fire beyond it), blue-white on boost, flickering fast; a glow round the nozzle
-  function drawCore(len, wid, now, tier, boost, seed) {
-    const t = now / 1000, L = len * (boost ? 0.42 : 0.5) * (0.9 + 0.1 * Math.sin(t * 61 + seed) + 0.05 * Math.sin(t * 97 + seed * 2)), w = wid * 0.7;
-    if (L < 1) return;
-    g.globalCompositeOperation = "lighter";
-    const core = boost ? "215,235,255" : `${tier.core}`, mid = `${tier.mid}`;
-    for (const [lf, wf, c, al] of [[1, 1, mid, 0.55], [0.75, 0.6, core, 0.9], [0.45, 0.32, "255,255,255", 1]]) {
-      const gr = g.createLinearGradient(0, 0, 0, L * lf);
-      gr.addColorStop(0, `rgba(${c},${al})`); gr.addColorStop(1, `rgba(${c},0)`);
-      g.fillStyle = gr; g.beginPath(); g.moveTo(-w * wf / 2, 0); g.quadraticCurveTo(-w * wf * 0.45, L * lf * 0.5, 0, L * lf); g.quadraticCurveTo(w * wf * 0.45, L * lf * 0.5, w * wf / 2, 0); g.closePath(); g.fill();
+  // ---------- live engine fire: a jet of flame, drawn as fire flows ----------
+  // Local frame: nozzle at the origin, +y points out of the engine. The jet is a strip of turbulent flame texture (noise
+  // stretched along the flow, tileable along it) scrolled outward every frame so the fire visibly pours out of the
+  // nozzle, cut to a flame's shape (narrow at the throat, swelling, then tapering into ragged tongues) and coloured
+  // from hot to cool along it; it bends as the bin turns. Two layers: the outer flame (the palette's mid to outer
+  // colours, cooling to a dark red) and the inner core (white to its core colour), short and bright. On boost the
+  // core goes blue-white and long, shock diamonds stand in it and the flame roars out twice as far
+  const JW = 48, JH = 192;
+  let jetTex = null, jetMasks = null, jetCanvas = null;
+  function jetNoise() {   // turbulent streaks, tileable along y: value noise on a lattice that wraps in y
+    const c = document.createElement("canvas"); c.width = JW; c.height = JH;
+    const q = c.getContext("2d"), img = q.createImageData(JW, JH), h = (i, j, o) => { const v = Math.sin(i * 127.1 + j * 311.7 + o * 74.7) * 43758.5453; return v - Math.floor(v); };
+    const vn = (x, y, py, o) => { const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi, ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy), w = j => ((j % py) + py) % py;
+      const a = h(xi, w(yi), o), b = h(xi + 1, w(yi), o), c2 = h(xi, w(yi + 1), o), d = h(xi + 1, w(yi + 1), o); return a + (b - a) * ux + (c2 - a) * uy + (a - b - c2 + d) * ux * uy; };
+    for (let y = 0; y < JH; y++) for (let x = 0; x < JW; x++) {
+      const u = x / JW, v = y / JH;
+      let n = 0, amp = 0.55, fx = 7, py = 5;
+      for (let o = 0; o < 4; o++) { n += vn(u * fx, v * py, py, o) * amp; amp *= 0.5; fx *= 2.1; py *= 2; }
+      const k = Math.max(0, Math.min(1, (n - 0.18) / 0.42)), o4 = (y * JW + x) * 4;
+      img.data[o4] = img.data[o4 + 1] = img.data[o4 + 2] = 255; img.data[o4 + 3] = 255 * k * k * (3 - 2 * k);
     }
-    if (boost) for (let i = 1; i <= 4; i++) {   // shock diamonds: bright knots standing in the jet
-      const yj = L * (0.18 + i * 0.17), r = w * (0.34 - i * 0.05);
-      g.globalAlpha = 0.75 - i * 0.12; g.fillStyle = "#eef8ff";
-      g.beginPath(); g.moveTo(0, yj - r * 2.2); g.lineTo(r, yj); g.lineTo(0, yj + r * 2.2); g.lineTo(-r, yj); g.closePath(); g.fill();
+    q.putImageData(img, 0, 0); return c;
+  }
+  function jetMask(core) {   // the flame's shape as alpha: soft-edged, swelling from the throat, tapering out
+    const c = document.createElement("canvas"); c.width = JW; c.height = JH;
+    const q = c.getContext("2d"), img = q.createImageData(JW, JH);
+    for (let y = 0; y < JH; y++) for (let x = 0; x < JW; x++) {
+      const v = y / JH, u = Math.abs(x / (JW - 1) - 0.5) * 2;
+      const hw = core ? 0.62 * Math.pow(1 - v, 1.1) * (0.75 + 0.25 * Math.min(1, v / 0.1)) : (0.6 + 0.4 * Math.sin(Math.min(1, v / 0.22) * Math.PI / 2)) * Math.pow(1 - v, 0.65);
+      const e = Math.max(0, Math.min(1, (hw - u) / Math.max(0.05, hw * (core ? 0.6 : 0.75))));
+      const along = Math.min(1, v / 0.03) * Math.pow(1 - v, core ? 0.5 : 0.35), o4 = (y * JW + x) * 4;
+      img.data[o4] = img.data[o4 + 1] = img.data[o4 + 2] = 255; img.data[o4 + 3] = 255 * e * e * (3 - 2 * e) * along;
+    }
+    q.putImageData(img, 0, 0); return c;
+  }
+  // one layer, built in the scratch canvas: two sheets of flowing noise, cut to the mask, coloured along the flow
+  function jetLayer(core, flow, seed, stops) {
+    if (!jetTex) { jetTex = jetNoise(); jetMasks = [jetMask(false), jetMask(true)]; jetCanvas = document.createElement("canvas"); jetCanvas.width = JW; jetCanvas.height = JH; }
+    const q = jetCanvas.getContext("2d");
+    q.globalCompositeOperation = "copy"; q.globalAlpha = 1;
+    const sheet = (off, flip) => { const o = ((off % 1) + 1) % 1 * JH; q.save(); if (flip) { q.translate(JW, 0); q.scale(-1, 1); } q.drawImage(jetTex, 0, -JH + o); q.globalCompositeOperation = "source-over"; q.drawImage(jetTex, 0, o); q.restore(); };
+    sheet(flow + seed, false);
+    q.globalCompositeOperation = "lighter"; q.globalAlpha = 0.7; { const o = (((flow * 1.37 + seed * 3.1) % 1) + 1) % 1 * JH; q.save(); q.translate(JW, 0); q.scale(-1, 1); q.drawImage(jetTex, 0, -JH + o); q.drawImage(jetTex, 0, o); q.restore(); }
+    q.globalAlpha = 1; q.globalCompositeOperation = "destination-in"; q.drawImage(jetMasks[core ? 1 : 0], 0, 0);
+    q.globalCompositeOperation = "source-in";
+    const gr = q.createLinearGradient(0, 0, 0, JH); for (const [f, c] of stops) gr.addColorStop(f, c);
+    q.fillStyle = gr; q.fillRect(0, 0, JW, JH);
+    return jetCanvas;
+  }
+  // the layer drawn along the jet's bent path, in slices: L long, Wd wide at its widest, the tip bent sideways by bend
+  function jetDraw(cv, L, Wd, bend) {
+    const N = 6;
+    for (let i = 0; i < N; i++) {
+      const t0 = i / N, t1 = (i + 1) / N, x0 = bend * t0 * t0, x1 = bend * t1 * t1, y0 = L * t0, y1 = L * t1, ang = Math.atan2(x1 - x0, y1 - y0);
+      g.save(); g.translate(x0, y0); g.rotate(-ang);
+      g.drawImage(cv, 0, JH * t0, JW, JH / N + 0.5, -Wd / 2, 0, Wd, Math.hypot(x1 - x0, y1 - y0) + 0.8);
+      g.restore();
+    }
+  }
+  const rgba = (c, a) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+  function drawJet(len, wid, now, pal, boost, seed, bend, power) {
+    const t = now / 1000, fl = 0.93 + 0.05 * Math.sin(t * 53 + seed) + 0.03 * Math.sin(t * 89 + seed * 2.3);
+    const L = len * (boost ? 1.2 : 1.6) * fl, Wd = wid * (boost ? 2.1 : 2.3);
+    if (L < 2) return;
+    const core = boost ? [205, 228, 255] : pal.core, mid = pal.mid, outer = pal.outer, ember = [outer[0] * 0.55, outer[1] * 0.3, outer[2] * 0.3];
+    const speed = boost ? 4.2 : 2.6;   // how many jet-lengths of fire pour out per second (the texture's flow)
+    g.globalCompositeOperation = "lighter";
+    // the outer flame: from the palette's middle through its outer colour to a dull ember red, fading out
+    g.globalAlpha = Math.min(1, 0.55 + 0.4 * power);
+    jetDraw(jetLayer(false, -t * speed, seed * 0.13, [[0, rgba(mid, 0.9)], [0.25, rgba(mid, 0.85)], [0.5, rgba(outer, 0.75)], [0.8, rgba(ember, 0.55)], [1, rgba(ember, 0)]]), L, Wd, bend);
+    // the inner core: short, white-hot to its core colour (blue-white on boost)
+    g.globalAlpha = Math.min(1, 0.7 + 0.3 * power);
+    jetDraw(jetLayer(true, -t * speed * 1.4, seed * 0.29 + 0.5, [[0, "rgba(255,255,255,1)"], [0.3, rgba(core, 0.95)], [0.7, rgba(mid, 0.6)], [1, rgba(mid, 0)]]), L * (boost ? 0.62 : 0.5), Wd * 0.55, bend * 0.5);
+    g.globalAlpha = 1;
+    if (boost && !lowQ) for (let i = 1; i <= 4; i++) {   // shock diamonds: bright knots standing in the core
+      const f = 0.1 + i * 0.12, yj = L * f, xj = bend * f * f, r = Wd * (0.12 - i * 0.015);
+      g.globalAlpha = (0.6 - i * 0.11) * fl; g.fillStyle = "#eef6ff";
+      g.beginPath(); g.ellipse(xj, yj, r, r * 2.4, 0, 0, 6.29); g.fill();
     }
     g.globalAlpha = 1;
-    const hg = g.createRadialGradient(0, 0, 0, 0, 0, wid * 1.5);
-    hg.addColorStop(0, `rgba(${core},0.75)`); hg.addColorStop(1, `rgba(${mid},0)`);
-    g.fillStyle = hg; g.beginPath(); g.arc(0, 0, wid * 1.5, 0, 6.29); g.fill();
+    const hr = Wd * (boost ? 0.6 : 0.5), hg = g.createRadialGradient(0, 2, 0, 0, 2, hr);   // the throat's glow
+    hg.addColorStop(0, rgba(core, boost ? 0.5 : 0.4)); hg.addColorStop(1, rgba(mid, 0));
+    g.fillStyle = hg; g.beginPath(); g.arc(0, 2, hr, 0, 6.29); g.fill();
     g.globalCompositeOperation = "source-over";
   }
   function drawFlame(len, wid, now, seed, tier, bend = 0, billow = 0) {
@@ -10618,7 +10845,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
 
   // the weapon you carry is mounted on the wings, so everyone can see what is coming at them.
   // Drawn in art pixels; -y points the way the bin flies.
-  let gauntSpinFast = false, mountHeat = 0, barrelA = 0, swingNow = -1, swingSide = 1, isWinding = false, windNow = 0;   // (swingNow: how far through a sword swing, 0..1; -1 none)   // my gauntlet whirls while it's on; my minigun's heat; its barrels' turn
+  let mountHeat = 0, barrelA = 0;   // my minigun's heat; its barrels' turn   (the blades are drawn on their own: drawBlade)
   function drawMounts(weapon, s, now) {
     if (!weapon) return;
     const u = s / 320, mounts = mountsOf(weapon);
@@ -10694,17 +10921,6 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         g.restore();
         g.fillStyle = "#1d1630"; g.beginPath(); g.moveTo(-11, -74); g.quadraticCurveTo(0, -98, 11, -74); g.fill();
         g.fillStyle = "#ffe14d"; g.save(); g.translate(-8, -46); g.scale(16 / 24, 16 / 24); g.fill(ICON_PATHS.nuke, "evenodd"); g.restore();
-      } else if (weapon === "saw") {   // the Blood Blade: a hilt, and a long blade of red energy with a white-hot edge, swung on a swing
-        // wound up (held): drawn back over the shoulder, further and brighter as the wind-up fills; swinging: sweeping
-        const wind = isWinding ? windNow : 0, sw = swingNow, ang = sw >= 0 ? (-SWING_ARC / 2 + SWING_ARC * swingEase(sw)) * swingSide : wind > 0 ? -0.15 - 1.9 * swingEase(wind) : -0.15;
-        g.save(); g.translate(0, -14); g.rotate(ang); g.scale(1.7, 1.7);   // (a long blade: it reaches far past the bin)
-        g.fillStyle = "#2a1f3d"; rrect(-4, -6, 8, 18, 3); g.fill(); g.fillStyle = "#8a2030"; g.fillRect(-10, -8, 20, 4);   // the hilt and guard
-        g.globalCompositeOperation = "lighter";
-        const L = 78 * (1 + wind * 0.15), pulse = (0.8 + 0.2 * Math.sin(now / (90 - wind * 60))) * (1 + wind * 0.8);
-        g.globalAlpha = 0.35 * pulse; g.fillStyle = "#ff1e32"; g.beginPath(); g.ellipse(0, -8 - L / 2, 11, L / 2 + 6, 0, 0, 6.29); g.fill();   // its glow
-        g.globalAlpha = 1; const bg = g.createLinearGradient(-5, 0, 5, 0); bg.addColorStop(0, "#ff1e32"); bg.addColorStop(0.5, "#ffe0e0"); bg.addColorStop(1, "#ff1e32");
-        g.fillStyle = bg; g.beginPath(); g.moveTo(-4.5, -8); g.lineTo(4.5, -8); g.lineTo(3, -8 - L); g.lineTo(0, -14 - L); g.lineTo(-3, -8 - L); g.closePath(); g.fill();
-        g.globalCompositeOperation = "source-over"; g.restore();
       } else if (weapon === "gamma") {   // a demonic orb mounted on the launcher
         g.fillStyle = "#3b2d5c"; rrect(-12, -20, 24, 26, 6); g.fill();
         drawDemonicOrb(0, -39, 18, now);
@@ -10738,22 +10954,6 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         g.fillStyle = "#26301e"; for (let i = 0; i < 6; i++) { const a = i * 1.047; g.beginPath(); g.arc(Math.cos(a) * 7, -16 + Math.sin(a) * 7, 2.4, 0, 6.29); g.fill(); }
         g.fillStyle = "#6b6f80"; rrect(-7, -44, 14, 18, 3); g.fill();
         g.fillStyle = "#8fd06a"; g.fillRect(-7, -44, 14, 3);
-      } else if (weapon === "gauntlet") {   // the gauntlet: a big toothed blade on the nose, whirling while the trigger is held
-        g.fillStyle = "#3b2d5c"; rrect(-8, -26, 16, 30, 4); g.fill();
-        g.save(); g.translate(0, -62); g.scale(1.7, 1.7); g.rotate(now / (gauntSpinFast ? 12 : 160));   // big, so you see what does the damage
-        if (gauntSpinFast) {   // a blur of steel
-          g.globalCompositeOperation = "lighter";
-          const bl = g.createRadialGradient(0, 0, 10, 0, 0, 36); bl.addColorStop(0, "rgba(220,228,240,0.05)"); bl.addColorStop(0.75, "rgba(220,228,240,0.45)"); bl.addColorStop(1, "rgba(255,200,120,0)");
-          g.fillStyle = bl; g.beginPath(); g.arc(0, 0, 36, 0, 6.29); g.fill(); g.globalCompositeOperation = "source-over";
-        }
-        g.fillStyle = "#e3e8f0"; g.strokeStyle = "#6b7488"; g.lineWidth = 1.5; g.beginPath();
-        for (let i = 0; i < 32; i++) { const r = i % 2 ? 22 : 31, a = i / 32 * 6.283 + (i % 2 ? 0.05 : 0); i ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(r, 0); }
-        g.closePath(); g.fill(); g.stroke();
-        g.fillStyle = "#8a93ad"; for (let i = 0; i < 4; i++) { const a = i * 1.571; g.beginPath(); g.arc(Math.cos(a) * 13, Math.sin(a) * 13, 3.2, 0, 6.29); g.fill(); }   // holes, so the spin reads
-        g.fillStyle = "#3b2d5c"; g.beginPath(); g.arc(0, 0, 7, 0, 6.29); g.fill();
-        g.fillStyle = "#ffcf5a"; g.beginPath(); g.arc(0, 0, 3, 0, 6.29); g.fill();
-        if (gauntSpinFast) { g.globalCompositeOperation = "lighter"; g.strokeStyle = "rgba(255,210,130,0.75)"; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 31, 0, 6.29); g.stroke(); g.globalCompositeOperation = "source-over"; }
-        g.restore();
       } else if (weapon === "holy") {   // the golden orb held up on a short post, halo above
         g.fillStyle = "#3b2d5c"; rrect(-5, -26, 10, 30, 3); g.fill();
         const og = g.createRadialGradient(-5, -44, 2, 0, -40, 17);
@@ -10881,22 +11081,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const bf = isMe ? me.boostFx : b.boost || 0;
     const burst = isMe ? Math.max(0, 1 - (now - me.dashAt) / 350) : bf === 2 ? 1 : 0;
     const sputter = Number.isFinite(b.lives) && damageOf(b) > 0.6 ? 0.65 + 0.35 * Math.abs(Math.sin(now / 47 + b.x)) : 1;
-    const pal = bf ? { outer: firePal.outer, mid: firePal.mid, core: [255, 255, 255] } : firePal;
     if (isMe) me.flamePal = firePal; else b.flamePal = firePal;   // (the plume's particles take its colours: emitPlume)
     for (const j of exhaustJets(b, now)) {
       g.save(); g.translate(x + j.x - b.x, y + j.y - b.y); g.rotate(j.a - Math.PI / 2);
       const power = j.power * sputter, len = s * (j.main ? 0.65 : 0.4) * power * (1 + (bf ? 1.7 : 0) + burst * 0.8);
       const wid = s * (j.main ? 0.24 : 0.12) * Math.sqrt(power) * (bf ? 1.5 : 1);
-      const lat = (b.vx || 0) * Math.sin(j.a) - (b.vy || 0) * Math.cos(j.a), bend = clamp(lat * 0.05, -wid * 1.4, wid * 1.4);
-      drawCore(len, wid, now, pal, bf, (b.hue || 0) * 0.1 + (j.main ? 0 : 3));   // (the plume itself is its particles: drawPlume)
-      if (bf && power > 0.4 && !lowQ) { // shock diamonds stay in the jet, behind its white-hot throat
-        g.globalCompositeOperation = "lighter";
-        for (let i = 1; i <= 3; i++) {
-          const yj = len * i * 0.19, r = wid * (0.16 - i * 0.025);
-          g.globalAlpha = (0.55 - i * 0.1) * (0.8 + Math.sin(now / 55 + i) * 0.2);
-          g.fillStyle = "#c5efff"; g.beginPath(); g.moveTo(0, yj - r * 2); g.lineTo(r, yj); g.lineTo(0, yj + r * 2); g.lineTo(-r, yj); g.closePath(); g.fill();
-        }
-      }
+      const lat = (b.vx || 0) * Math.sin(j.a) - (b.vy || 0) * Math.cos(j.a), bend = clamp(lat * 0.09, -wid * 3, wid * 3);
+      drawJet(len, wid, now, firePal, !!bf, (b.hue || 0) * 0.1 + (j.main ? 0 : 3) + (b.x || 0) * 0.001, bend, power);   // (the fire beyond it: its particles, drawPlume)
       if (j.main) {   // the main engine's bell: dark metal, its rim glowing hot with the burn (white-hot on boost)
         g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
         const bw = Math.max(9, wid * 0.85), bl = bw * 0.7, mg = g.createLinearGradient(-bw, 0, bw, 0);
@@ -10915,9 +11106,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     g.save(); g.translate(x, y); g.rotate(pose.a); g.scale(pose.scaleX, 1);
     drawWings(lv, s);
-    gauntSpinFast = isMe && !!me.gauntOn; mountHeat = isMe ? Math.max(spin, Math.min(1, me.heat || 0)) : 0;
-    { const sb = isMe ? me : b, k = sb.swingAt ? (now - sb.swingAt) / SWING_MS : 2; swingNow = k <= 1 ? k : -1; swingSide = sb.swingSide || 1;
-      isWinding = isMe && me.weapon === "saw" && charge > 0; windNow = isWinding ? charge : 0; }
+    mountHeat = isMe ? Math.max(spin, Math.min(1, me.heat || 0)) : 0;
     // a minigun's barrels turn with its spin (mine: the trigger's spin-up; another's: how hard it has been firing)
     { const sv = isMe ? spin : (b.spinVis = Math.max(0, (b.spinVis || 0) - Math.min(0.1, (now - (b.spinT || now)) / 1000) * 1.2)), dtv = Math.min(0.1, (now - (b.barrelT || now)) / 1000);
       b.spinT = b.barrelT = now; b.barrelA = (b.barrelA || 0) + (0.4 + sv * sv * 30) * dtv; barrelA = b.barrelA; if (!isMe) mountHeat = Math.max(mountHeat, sv * 0.8); }
@@ -10940,6 +11129,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (Number.isFinite(b.lives)) drawDamage(damageOf(b), s, now, x);
     if (hat) drawHat(hat, s, now);
     g.restore();
+    { const wpn = isMe ? me.weapon : b.weapon;   // a blade in hand: held outside the hull, over it
+      if (wpn === "saw" || wpn === "gauntlet") drawBlade(isMe ? me : b, x, y, wpn === "saw", isMe && wpn === "saw" ? charge : 0, now); }
     orbit(true);
     g.globalAlpha = 1;
 
@@ -11952,7 +12143,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     drawGlow(now);
     drawBlackHole(now);   // lenses the world behind it; bots and text are drawn on top, undistorted
     drawPilots(now);
-    drawSlashes();
+    drawCuts();
     drawAim(now);
     drawFlags(now);
     drawBlastFx(now);
@@ -12271,7 +12462,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         const sp = Math.hypot(o.vx || 0, o.vy || 0), boost = o === me ? me.boostFx > 0 : (o.boost || 0) > 0, th = o === me ? me.thrust || 0 : o.thrust || 0;
         if (sp > 160) fluid.splat(o.x, o.y, 34, null, 0, o.vx * 0.9, o.vy * 0.9);
         if (th > 0.2 || boost) { const a = (o.a || 0) + Math.PI, bx = o.x + Math.cos(a) * 40, by = o.y + Math.sin(a) * 40;
-          fluid.splat(bx, by, boost ? 22 : 14, [0.36, 0.34, 0.36], boost ? 0.1 : 0.025, Math.cos(a) * (boost ? 500 : 220), Math.sin(a) * (boost ? 500 : 220)); }
+          fluid.splat(bx, by, boost ? 16 : 12, [0.3, 0.28, 0.3], boost ? 0.018 : 0.008, Math.cos(a) * (boost ? 500 : 220), Math.sin(a) * (boost ? 500 : 220)); }   // (a thin haze: a thick one fogs the screen white on a long boost)
       };
       if (playing && !me.dead) stir(me);
       for (const r of remotes.values()) if (!r.dead) stir(r);
@@ -12330,7 +12521,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         const boost = b === me ? me.boostFx > 0 : (b.boost || 0) > 0, th = b.thrust || 0;
         if (th < 0.2 && !boost) continue;
         const j = exhaustJets(b, now).find(o => o.main); if (!j) continue;
-        add(j.x + Math.cos(j.a) * 40, j.y + Math.sin(j.a) * 40, boost ? 340 : 200, boost ? 0.7 : 0.3 * Math.min(1, th), boost ? "#ffd9a0" : "#ff9a4a", boost ? 0.25 : 0, 45);
+        add(j.x + Math.cos(j.a) * 50, j.y + Math.sin(j.a) * 50, boost ? 280 : 200, boost ? 0.42 : 0.26 * Math.min(1, th), boost ? "#ffc890" : "#ff9a4a", boost ? 0.3 : 0.1, 45);
       }
       // a shot's muzzle flash lights its surroundings for its first moment (not shadowed by its own shooter)
       for (const s of shots) { const age = SHOTS[s.kind].life - s.life; if (age >= 0 && age < 0.05 && !SHOTS[s.kind].inert) add(s.x, s.y, 190, 0.55 * (1 - age / 0.05), SHOTS[s.kind].col, 0, 70); }
@@ -12339,6 +12530,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         const k = m.t / (m.dur || 0.22), fl = m.flick ? (1 - k) * (0.7 + 0.3 * Math.sin(now / 37 + m.flick) * Math.sin(now / 61 + m.flick * 2)) : (1 - k) * (1 - k);
         add(m.x, m.y, m.r * (0.8 + 0.4 * k) * 1.4, fl * m.soft * 1.2, m.col, m.flick ? (1 - k) * 1.2 : (1 - k) * 0.6);   // (a fire shimmers longest)
       }
+      for (const L of bladeLights) add(...L, 0.1, 30);   // energy blades in hand
+      bladeLights.length = 0;
       for (const s of shots) { const L = SHOT_LIGHT[s.kind]; if (L && s.life > 0) add(s.x, s.y, L[0], L[1], SHOTS[s.kind].col, L[2] || 0, 30); }
       list.sort((a, b) => b[7] - a[7]);
       const n = Math.min(16, list.length);
