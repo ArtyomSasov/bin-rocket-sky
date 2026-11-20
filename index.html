@@ -726,7 +726,7 @@ details.controls[open] .clist { margin-top: 8px; }
     { name: "laser",     life: 0.125, dmg: 0.19, r: 0,     col: "#7df9ff", carve: 10, shove: 0,   sfx: ["laser", 0.2, 1] },
     { name: "nuke",      life: 6,    dmg: 0,    r: 0,      col: "#ffe14d", carve: 0,  shove: 0,   sfx: ["rocket", 0.6, 0.6], inert: true },
     { name: "pellet",    life: 0.64, dmg: 0,    r: 0,      col: "#ffd27a", carve: 9,  shove: 150, sfx: ["scatter", 0.6, 1] },
-    { name: "rail slug", life: 0.7,  dmg: 3,    r: 0,      col: "#e9c8ff", carve: 14, shove: 650, sfx: ["rail", 0.6, 1], pierce: true },
+    { name: "rail slug", life: 0.7,  dmg: 3,    r: 0,      col: "#ffd6a8", carve: 14, shove: 650, sfx: ["rail", 0.6, 1], pierce: true },
     { name: "mine",      life: 30,   dmg: 1.7,  r: MINE_R, col: "#ff6b3c", carve: 50, shove: 0,   sfx: ["mine_drop", 0.6, 1] },
     { name: "plasma",    life: 4.2,  dmg: 1.4,  r: 30,     col: "#6fd8ff", carve: 60, shove: 300, sfx: ["shield_get", 0.6, 1.1] },
     { name: "lightning", life: 0.15, dmg: 0.22, r: 0,      col: "#bfefff", carve: 6,  shove: 0,   sfx: ["laser", 0.2, 1.7] },
@@ -772,7 +772,7 @@ details.controls[open] .clist { margin-top: 8px; }
   //   jitter: random spread (rad); charge: seconds to charge fully while held, it fires on release
   const WEAPONS = {
     // the starting gun: a laser pistol (the Enforcer's damage and pace, a red beam and the pulse gun's sound, pitched up)
-    fire:    { name: "Laser pistol", ammo: Infinity, cd: 0.28, col: "#ff3b4e", shot: [K.PISTOL, 6000], jitter: 0.01, kick: 25, feel: [5, 0.05, 40], sfx: ["p_ut_pulse_fire", 0.7, 1.25],
+    fire:    { name: "Laser pistol", ammo: Infinity, cd: 0.28, col: "#ff3b4e", shot: [K.PISTOL, 6000], jitter: 0.01, kick: 25, feel: [5, 0.05, 40], sfx: ["p_ut_fire", 0.75, 1],
                alt: { name: "Rapid fire", cost: 0, cd: 0.16, shot: [K.PISTOL, 6000], jitter: 0.085, kick: 35, feel: [6, 0.06, 45], sfx: ["p_ut_pulse_fire", 0.7, 1.4] } },
     triple:  { name: "Triple shot", ammo: 24, cd: 0.3, col: "#ffb43c", shot: [K.FIRE, 1000], spread: [-0.2, 0, 0.2], kick: 25, feel: [7, 0.07, 50], sfx: ["triple", 0.7],
                alt: { name: "Focus", cost: 1, cd: 0.3, shot: [K.FIRE, 1050], spread: [-0.035, 0, 0.035], kick: 60, feel: [10, 0.13, 80], sfx: ["triple", 0.8, 0.9] } },
@@ -797,6 +797,7 @@ details.controls[open] .clist { margin-top: 8px; }
                alt: { name: "Detonate", minedet: true, cost: 0, cd: 0.5, sfx: ["hit", 0.6, 0.6] } },
     // the shock orb: a continuously travelling ball; its alt fire is a beam, and the beam through a ball sets off a combo
     orb:     { name: "Shock orb", ammo: 12, cd: 0.85, col: "#6fd8ff", shot: [K.ORB, 420], kick: 140, feel: [16, 0.18, 110], sfx: ["shield_get", 1, 0.9], fx: "plasma",
+               quickAlt: true,   // (its beam has its own cooldown: it fires at once after an orb, to set the orb off)
                alt: { name: "Beam", cost: 1, cd: 0.6, shot: [K.SHOCK, 6400], kick: 70, feel: [8, 0.08, 60], sfx: ["laser", 0.8, 0.55], fx: "shock" } },
     bolt:    { name: "Lightning", ammo: 90, cd: 0.11, col: "#bfefff", shot: [K.BOLT, 5600], kick: 4, feel: [2, 0.03, 35], sfx: ["laser", 0.22, 1.7] },
     holy:    { name: "Holy bomb", ammo: 1, cd: 1.2, col: "#fff3b0", shot: [K.HOLY, 700], kick: 120, feel: [20, 0.3, 110], sfx: ["mine_drop", 1, 0.6] },
@@ -1401,6 +1402,38 @@ details.controls[open] .clist { margin-top: 8px; }
     floorCache.set(st, c);
     return c;
   }
+  // a pool of oil, round (0, 0): dark red, lumpy at the edge, a spatter and spines ahead of a fast one, runs crawling
+  // out, and a wet sheen on top (grow: how far it has spread)
+  function drawStain(q, o, grow, tNow) {
+    const r = o.r * grow;
+    q.save(); q.rotate(o.rot);
+    q.fillStyle = "rgba(48,3,7,0.86)"; q.beginPath(); q.ellipse(0, 0, r * o.sx, r, 0, 0, 6.29); q.fill();
+    for (const [bx, by, br] of o.blobs) { q.beginPath(); q.arc(bx * grow, by * grow, br * grow, 0, 6.29); q.fill(); }
+    for (const [d, off, rr] of o.spat) { q.beginPath(); q.arc(d * o.sx * grow, off, rr, 0, 6.29); q.fill(); }
+    q.strokeStyle = "rgba(48,3,7,0.8)"; q.lineCap = "round";
+    for (const [a, L, w] of o.spines || []) { q.lineWidth = w; q.beginPath(); q.moveTo(Math.cos(a) * r * o.sx * 0.8, Math.sin(a) * r * 0.8); q.lineTo(Math.cos(a) * L * o.sx * grow, Math.sin(a) * L * grow); q.stroke(); }
+    for (const [a, L, w, T] of o.runs || []) {
+      const k = Math.min(1, Math.sqrt((tNow - o.born) / T)), ex = Math.cos(a) * (r + L * k), ey = Math.sin(a) * (r + L * k);
+      q.lineWidth = w * 2; q.beginPath(); q.moveTo(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7); q.quadraticCurveTo(ex * 0.6 + Math.sin(a * 3) * 4, ey * 0.6, ex, ey); q.stroke();
+      q.beginPath(); q.arc(ex, ey, w * 1.4, 0, 6.29); q.fill();
+    }
+    q.fillStyle = "rgba(150,20,26,0.35)"; q.beginPath(); q.ellipse(-r * 0.25, -r * 0.2, r * o.sx * 0.5, r * 0.35, 0, 0, 6.29); q.fill();
+    q.fillStyle = "rgba(255,200,200,0.14)"; q.beginPath(); q.ellipse(-r * 0.35, -r * 0.35, r * 0.22, r * 0.1, -0.4, 0, 6.29); q.fill();
+    q.restore();
+  }
+  // a burn on the deck, round (0, 0): a dark blot with a ragged edge, embers in it glowing out over six seconds
+  function drawBurn(q, b, age, now) {
+    const r = b.r, gr = q.createRadialGradient(0, 0, 0, 0, 0, r);
+    gr.addColorStop(0, "rgba(8,6,6,0.75)"); gr.addColorStop(0.55, "rgba(12,9,8,0.5)"); gr.addColorStop(1, "rgba(12,9,8,0)");
+    q.fillStyle = gr; q.beginPath();
+    for (let k = 0; k < 14; k++) { const a = k / 14 * 6.283, rr = r * (0.8 + 0.2 * Math.sin(b.seed + k * 2.3)); q.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+    q.fill();
+    if (age > 0 && age < 6) {
+      q.globalCompositeOperation = "lighter"; q.globalAlpha = 0.6 * (1 - age / 6) * (0.8 + 0.2 * Math.sin(now / 90 + b.seed));
+      for (let k = 0; k < 7; k++) { const a = b.seed + k * 0.9, d = r * (0.15 + 0.5 * ((k * 37 % 10) / 10)); q.drawImage(dotSprite(k % 2 ? "#ff7a26" : "#ffab3d"), Math.cos(a) * d - 6, Math.sin(a) * d - 6, 12, 12); }
+      q.globalAlpha = 1; q.globalCompositeOperation = "source-over";
+    }
+  }
   function drawFoundry(now) {
     const st = station();
     g.fillStyle = st.void; g.fillRect(0, 0, vw, vh);
@@ -1425,42 +1458,23 @@ details.controls[open] .clist { margin-top: 8px; }
         g.globalAlpha = 1;
       }
     }
-    // oil on the deck: dark red pools spreading out to their size, lumpy at the edge, a spatter ahead of a fast one,
-    // and a wet sheen on top
+    // what has settled on the deck (finished pools and burns, chunks and cases come to rest) is baked into tiles
+    // (decals): one picture per tile, however much has piled up; only what still moves or spreads is drawn piece by piece
+    drawDecals();
     const tNow = performance.now();
-    for (const o of oilStains) {
+    for (let i = oilStains.length - 1; i >= 0; i--) {
+      const o = oilStains[i], done = tNow - o.born > o.settle;
+      if (done) { bakeDecal(o.x, o.y, o.r * 6, q => drawStain(q, o, 1, tNow)); oilStains.splice(i, 1); continue; }
       const x = sx(o.x), y = sy(o.y);
       if (!onScreen(x, y, o.r * 4)) continue;
-      const grow = Math.min(1, 0.35 + (tNow - o.born) / 1500 * 0.65), r = o.r * grow;
-      g.save(); g.translate(x, y); g.rotate(o.rot);
-      g.fillStyle = "rgba(48,3,7,0.86)"; g.beginPath(); g.ellipse(0, 0, r * o.sx, r, 0, 0, 6.29); g.fill();
-      for (const [bx, by, br] of o.blobs) { g.beginPath(); g.arc(bx * grow, by * grow, br * grow, 0, 6.29); g.fill(); }
-      for (const [d, off, rr] of o.spat) { g.beginPath(); g.arc(d * o.sx * grow, off, rr, 0, 6.29); g.fill(); }
-      g.strokeStyle = "rgba(48,3,7,0.8)"; g.lineCap = "round";
-      for (const [a, L, w] of o.spines || []) { g.lineWidth = w; g.beginPath(); g.moveTo(Math.cos(a) * r * o.sx * 0.8, Math.sin(a) * r * 0.8); g.lineTo(Math.cos(a) * L * o.sx * grow, Math.sin(a) * L * grow); g.stroke(); }
-      for (const [a, L, w, T] of o.runs || []) {   // runs crawling out of the pool, slower and slower
-        const k = Math.min(1, Math.sqrt((tNow - o.born) / T)), ex = Math.cos(a) * (r + L * k), ey = Math.sin(a) * (r + L * k);
-        g.lineWidth = w * 2; g.beginPath(); g.moveTo(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7); g.quadraticCurveTo(ex * 0.6 + Math.sin(a * 3) * 4, ey * 0.6, ex, ey); g.stroke();
-        g.beginPath(); g.arc(ex, ey, w * 1.4, 0, 6.29); g.fill();
-      }
-      g.fillStyle = "rgba(150,20,26,0.35)"; g.beginPath(); g.ellipse(-r * 0.25, -r * 0.2, r * o.sx * 0.5, r * 0.35, 0, 0, 6.29); g.fill();
-      g.fillStyle = "rgba(255,200,200,0.14)"; g.beginPath(); g.ellipse(-r * 0.35, -r * 0.35, r * 0.22, r * 0.1, -0.4, 0, 6.29); g.fill();
-      g.restore();
+      g.save(); g.translate(x, y); drawStain(g, o, Math.min(1, 0.35 + (tNow - o.born) / 1500 * 0.65), tNow); g.restore();
     }
-    // burns on the deck: a dark blot with a ragged edge, embers in it glowing out over a few seconds
-    for (const b of scorches) {
-      const x = sx(b.x), y = sy(b.y), r = b.r;
-      if (!onScreen(x, y, r)) continue;
-      const age = (now - b.born) / 1000, gr = g.createRadialGradient(x, y, 0, x, y, r);
-      gr.addColorStop(0, "rgba(8,6,6,0.75)"); gr.addColorStop(0.55, "rgba(12,9,8,0.5)"); gr.addColorStop(1, "rgba(12,9,8,0)");
-      g.fillStyle = gr; g.beginPath();
-      for (let k = 0; k < 14; k++) { const a = k / 14 * 6.283, rr = r * (0.8 + 0.2 * Math.sin(b.seed + k * 2.3)); g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
-      g.fill();
-      if (age < 6) {
-        g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.6 * (1 - age / 6) * (0.8 + 0.2 * Math.sin(now / 90 + b.seed));
-        for (let k = 0; k < 7; k++) { const a = b.seed + k * 0.9, d = r * (0.15 + 0.5 * ((k * 37 % 10) / 10)); g.drawImage(dotSprite(k % 2 ? "#ff7a26" : "#ffab3d"), x + Math.cos(a) * d - 6, y + Math.sin(a) * d - 6, 12, 12); }
-        g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
-      }
+    for (let i = scorches.length - 1; i >= 0; i--) {
+      const b = scorches[i], age = (now - b.born) / 1000;
+      if (age >= 6) { bakeDecal(b.x, b.y, b.r, q => drawBurn(q, b, 0, 0)); scorches.splice(i, 1); continue; }
+      const x = sx(b.x), y = sy(b.y);
+      if (!onScreen(x, y, b.r)) continue;
+      g.save(); g.translate(x, y); drawBurn(g, b, age, now); g.restore();
     }
     if (st.reactor) drawReactor(now, unit);
     if (st.lift) drawLift(now, unit);
@@ -1648,7 +1662,7 @@ details.controls[open] .clist { margin-top: 8px; }
   // the first eighth of a second and closes in its last sixth). v: a void bomb's
   const voids = [];
   // a hole's reach and strength: a void bomb's reaches further and pulls harder than the event's, and eats wider
-  const holeReach = bh => bh.v ? 2600 : 1500, holePower = bh => bh.v ? 1.5 : 1;
+  const holeReach = bh => bh.v ? 3200 : 1500, holePower = bh => bh.v ? 2.6 : 1;
   function holesNow() {
     const out = [], ev = eventAt(clockNow()), t = performance.now();
     if (ev.active && ev.type === "blackhole") out.push(blackHole(ev));
@@ -2167,7 +2181,7 @@ details.controls[open] .clist { margin-top: 8px; }
   }
   document.addEventListener("visibilitychange", () => { if (document.hidden) { for (const slot of Object.keys(packLoops)) packLoop(slot, null); } });
   // x, y: where it happens (quieter with distance, silent past ~2200); rate: pitch, with a little random spread
-  const SOUND_OVERRIDE = { fire: "p_ut_fire", p_fire_fire: "p_ut_pulse_fire", triple: "p_user_fire", crash: "p_metal", ram: "p_metal", dash: "p_warp",
+  const SOUND_OVERRIDE = { fire: "p_ut_fire", p_fire_fire: "p_ut_fire", triple: "p_user_fire", crash: "p_metal", ram: "p_metal", dash: "p_warp",
     p_fire_gamma: "p_user_demonic", p_fire_minigun: "p_ut_mini_fire",
     p_fire_rocket: "p_ut_rocket_fire", p_boom_rocket: "p_ut_rocket_boom", p_fly_rocket: "p_ut_rocket_fly", p_change: "p_ut_draw",
     p_fire_laser: "p_ut_pulse_fire", p_loop_laser: "p_ut_pulse_bolt", p_stop_laser: "p_ut_pulse_down",
@@ -3070,7 +3084,11 @@ details.controls[open] .clist { margin-top: 8px; }
       const c = chunks[i]; c.t += dt;
       if (c.t > c.life) { chunks.splice(i, 1); continue; }
       c.x += c.vx * dt; c.y += c.vy * dt; c.vx *= drag; c.vy *= drag; c.spin *= spinDrag; c.a += c.spin * dt;
-      if (Math.abs(c.vx) + Math.abs(c.vy) > 8) bounceOff(c, c.r * 0.7, 0.45, 0.02 * (c.r / 8) ** 2);
+      if (Math.abs(c.vx) + Math.abs(c.vy) > 8) { bounceOff(c, c.r * 0.7, 0.45, 0.02 * (c.r / 8) ** 2); c.still = 0; }
+      else if (deck && (c.still = (c.still || 0) + dt) > 1.2) {   // come to rest on the deck: baked into it (one less to draw)
+        bakeDecal(c.x, c.y, c.r * 1.5, q => { q.rotate(c.a); q.drawImage(c.img, -c.img.width / 2, -c.img.height / 2); });
+        chunks.splice(i, 1); continue;
+      }
       if (c.x < 0 || c.x > W) { c.vx = -c.vx * 0.5; c.x = clamp(c.x, 0, W); }
       if (c.y < 0 || c.y > H) { c.vy = -c.vy * 0.5; c.y = clamp(c.y, 0, H); }
     }
@@ -4212,6 +4230,10 @@ details.controls[open] .clist { margin-top: 8px; }
       const ox = c.x, oy = c.y;
       c.x += c.vx * dt; c.y += c.vy * dt; c.vx *= drag; c.vy *= drag; c.spin *= Math.exp(-(deck ? 3 : 0.2) * dt); c.a += c.spin * dt;
       if (solidCell(c.x, c.y) && bounceSmall(c, ox, oy, 0.4) && Math.hypot(c.vx, c.vy) > 60 && Math.random() < 0.3) sfx("hit", 0.08, 3.2, c.x, c.y);   // a clink
+      if (deck && Math.abs(c.vx) + Math.abs(c.vy) < 4 && c.t > 1.5) {   // lying still on the deck: baked into it
+        bakeDecal(c.x, c.y, 6, q => { q.rotate(c.a); q.fillStyle = "#c9962e"; q.fillRect(-3.5, -1.4, 7, 2.8); q.fillStyle = "#ffe08a"; q.fillRect(-3.5, -1.4, 7, 1); q.fillStyle = "#7a5718"; q.fillRect(2.6, -1.6, 1.2, 3.2); });
+        casings.splice(i, 1);
+      }
     }
   }
   function drawCasings() {
@@ -4312,6 +4334,25 @@ details.controls[open] .clist { margin-top: 8px; }
   }
   // a stain spreads out to its size over a second and a half; a drop that came in fast leaves a long splat with
   // a spatter of small drops ahead of it (vx, vy: how it was flying)
+  // ---------- decals: what has settled on a station's deck, baked into tiles ----------
+  // 512 px tiles of the world at half resolution, made only where something has settled; each is one drawImage a frame
+  const DECAL_T = 512, DECAL_RES = 0.5, decalTiles = new Map();
+  function bakeDecal(x, y, r, paint) {
+    for (let ty = Math.floor((y - r) / DECAL_T); ty <= Math.floor((y + r) / DECAL_T); ty++) for (let tx = Math.floor((x - r) / DECAL_T); tx <= Math.floor((x + r) / DECAL_T); tx++) {
+      const key = tx * 1000 + ty;
+      let t = decalTiles.get(key);
+      if (!t) { const c = document.createElement("canvas"); c.width = c.height = DECAL_T * DECAL_RES; t = { c, q: c.getContext("2d"), tx, ty }; decalTiles.set(key, t); }
+      t.q.setTransform(DECAL_RES, 0, 0, DECAL_RES, (x - tx * DECAL_T) * DECAL_RES, (y - ty * DECAL_T) * DECAL_RES);
+      paint(t.q);
+    }
+  }
+  function drawDecals() {
+    for (const t of decalTiles.values()) {
+      const x = sx(t.tx * DECAL_T), y = sy(t.ty * DECAL_T);
+      if (x > vw || y > vh || x + DECAL_T < 0 || y + DECAL_T < 0) continue;
+      g.drawImage(t.c, x, y, DECAL_T, DECAL_T);
+    }
+  }
   function oilStain(x, y, r, vx = 0, vy = 0) {
     const sp = Math.hypot(vx, vy), stretch = 1 + Math.min(1.6, sp / 200);
     oilStains.push({ x, y, r, rot: sp > 1 ? Math.atan2(vy, vx) : Math.random() * 6.28, sx: stretch * (0.8 + Math.random() * 0.4), born: performance.now(),
@@ -4320,6 +4361,7 @@ details.controls[open] .clist { margin-top: 8px; }
       // thin spines thrown out ahead (a fast drop), and runs crawling slowly out of a big pool over a few seconds
       spines: Array.from({ length: Math.min(7, 1 + sp / 80 | 0) }, () => [(Math.random() - 0.5) * 1.3, r * (1.2 + Math.random() * 1.6), 0.5 + Math.random() * 0.9]),
       runs: r > 7 ? Array.from({ length: 1 + (Math.random() * 3 | 0) }, () => [Math.random() * 6.283, r * (1.5 + Math.random() * 3), 1 + Math.random() * 1.6, 2000 + Math.random() * 3000]) : [] });
+    const o = oilStains[oilStains.length - 1]; o.settle = Math.max(1600, ...o.runs.map(rn => rn[3])) + 200;   // (when it is done spreading: baked)
     if (oilStains.length > 400) oilStains.shift();
   }
   function updateOil(dt) {
@@ -4824,7 +4866,7 @@ details.controls[open] .clist { margin-top: 8px; }
 
   // ---------- fire & damage ----------
   // shots leave from the tip of the gun drawn on the wing (left and right in turn), not from the middle of the bin
-  const mountsOf = w => w === "fire" ? [[256, 150]] : w === "laser" || w === "gauntlet" ? [[160, 96]] : ["nuke", "holy", "bolt", "gamma", "tele", "gauss", "gauntlet"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
+  const mountsOf = w => w === "laser" || w === "gauntlet" ? [[160, 96]] : ["nuke", "holy", "void", "bolt", "gamma", "tele", "gauss", "gauntlet"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // (the pistols: one in each hand, fired in turn)   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
   const BARREL = { fire: 44, laser: 60, rocket: 50, triple: 42, nuke: 96, holy: 30, saw: 40, gamma: 44, tele: 28, minigun: 58, gauss: 80, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48, nail: 54, gren: 44, gauntlet: 34 };   // tip, in mount units
   // the tip of a pilot's gun (any pilot: me, a bot, a player's pilot on the server, which fires from the same tips),
   // the wing guns taking turns (p.gunSide)
@@ -5493,6 +5535,7 @@ details.controls[open] .clist { margin-top: 8px; }
       if (me.heat >= 1) { me.overheat = true; floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: "OVERHEAT", gold: false }); sfx("shield_hit", 0.7, 0.6); }
     }
     const cdMul = MODES[MODE].cdMul || 1;
+    if (alt && w.quickAlt) { me.altCd = pat.cd; fireCd = Math.max(fireCd, 0.15); } else
     fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
     const gun = muzzleAt(k);   // (the server fires a player's pilot from the same gun tips)
     if (k === "laser" && alt) { me.linkHeld = now - (me.linkAt || 0) < 200 ? (me.linkHeld || 0) + (now - me.linkAt) / 1000 : 0; me.linkAt = now; mul *= linkHeatOf(me.linkHeld); }   // (the link beam heats up held on)
@@ -6242,7 +6285,7 @@ details.controls[open] .clist { margin-top: 8px; }
     if (age > 1200) return;
     const lag = clamp(age, 0, REWIND_MS);
     // m: Quad damage (x4) and the crown (x1.25), or the charge cannon's charge (0.25..1); anything else is ignored
-    const kind = f[5], m = kind === K.GAUSS && Number.isFinite(f[6]) ? clamp(f[6], 0.25, 5) : kind === K.LASER && Number.isFinite(f[6]) ? clamp(f[6], 1, LINK_HEAT * QUAD * 1.25) : [QUAD, 1.25, QUAD * 1.25].includes(f[6]) ? f[6] : 1;   // (a link beam heats up to LINK_HEAT)
+    const kind = f[5], m = kind === K.GAUSS && Number.isFinite(f[6]) ? clamp(f[6], 0.25, 5) : kind === K.LASER && Number.isFinite(f[6]) ? clamp(f[6], 1, LINK_HEAT * (remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now() ? QUAD * 1.25 : 1.25)) : [QUAD, 1.25, QUAD * 1.25].includes(f[6]) ? f[6] : 1;   // (a link beam heats up to LINK_HEAT; Quad only if the shooter is seen to carry it)
     const x = clamp(num(f[1], 0), 0, W), y = clamp(num(f[2], 0), 0, H);
     // Keep an age bound relative to the newest state as well as to this packet.
     if (!fresh && Number.isFinite(peer.lastTs) && peer.lastTs - f[9] > 1200) return;
@@ -7768,7 +7811,7 @@ details.controls[open] .clist { margin-top: 8px; }
             // the trigger as this command held it, aimed as it was aimed, before the command's flight, as the player's
             // screen fires before it flies its frame (Source and Overwatch fire from the user command the same way)
             b.a = c.aim; human.fire = !!c.fire; human.alt = !!c.alt;
-            b.fireCd -= CMD_DT;   // (the cooldown runs by commands too, as on the player's screen)
+            b.fireCd -= CMD_DT; b.altCd = (b.altCd || 0) - CMD_DT;   // (the cooldowns run by commands too, as on the player's screen)
             b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; b.viewAt = c.va > 0 ? c.va : -1; b.jk = c.jk; pilotTriggers(b, CMD_DT, now); b.cmdWait = b.viewAt = -1; b.jk = undefined;
             const g = pilotMove(b, c);
             f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
@@ -7804,7 +7847,7 @@ details.controls[open] .clist { margin-top: 8px; }
       if (b.y < 40 || b.y > H - 40) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 40, H - 40); }
       }
       // shoot when the nose points at the target (where it will be)
-      if (!b.cq) b.fireCd -= dt;   // (a player flown by commands: by each command, above)
+      if (!b.cq) { b.fireCd -= dt; b.altCd = (b.altCd || 0) - dt; }   // (a player flown by commands: by each command, above)
       // shock combo: once its orb hangs near the target, a bot shoots the orb with the beam (harder bots do it more)
       if (b.orb && (b.orb.life <= 0 || !shots.includes(b.orb))) b.orb = null;
       if (!human && b.orb && tgt && botWeapon(b) === "orb" && SHOTS[K.ORB].life - b.orb.life > 0.5 && Math.hypot(tgt.x - b.orb.x, tgt.y - b.orb.y) < 260
@@ -8033,6 +8076,8 @@ details.controls[open] .clist { margin-top: 8px; }
       if (b.charge > 0 && ready) pilotShoot(b, now, k, false, Math.max(0.25, b.charge));
       b.charge = 0;
     }
+    // (a quick alt has its own cooldown: the shock beam right after an orb)
+    if (w.quickAlt && i.alt && alt && live && (b.altCd || 0) <= 0) { pilotShoot(b, now, k, true); return; }
     if (!ready) return;
     if (i.alt && alt && !alt.load && !alt.charge) pilotShoot(b, now, k, true);
     else if ((i.fire && !w.charge) || (k === "gauntlet" && now < (b.lungeUntil || 0))) pilotShoot(b, now, k, false);   // a lunge lands blows too
@@ -8075,6 +8120,7 @@ details.controls[open] .clist { margin-top: 8px; }
     }
     if (alt && pat.cutter) pat = { ...pat, cut: Math.round(24 + 48 * b.cutCharge) };
     const cdMul = MODES[MODE].cdMul || 1;
+    if (alt && w.quickAlt) { b.altCd = pat.cd; b.fireCd = Math.max(b.fireCd, 0.15); } else
     b.fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * b.spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
     const gun = muzzleOf(b, k);   // from the gun's tip, as the player's screen fires it
     const shot = volley(b, now, pat, gun, (k === "bolt" && !alt) || (k === "laser" && alt) ? boltLock(b, gun) : undefined, mul);
@@ -8229,7 +8275,7 @@ details.controls[open] .clist { margin-top: 8px; }
   }
   // the trigger, for dt seconds: cooldown, charge, rocket loading, and the shots it lets go
   function fireTick(dt, now, held, altHeld) {
-    fireCd -= dt;
+    fireCd -= dt; me.altCd = (me.altCd || 0) - dt;
     const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided && (!serverRun || srv.joined);   // on the server my shots are only shown (12c-server.js)
     const altW = WEAPONS[me.weapon].alt;
     rocketLoadTick(dt, now, altHeld, ready);
@@ -8244,7 +8290,8 @@ details.controls[open] .clist { margin-top: 8px; }
       }
     } else railCharge = 0;
     me.heat = Math.max(0, (me.heat || 0) - 0.45 * dt); if (me.overheat && me.heat < 0.3) { me.overheat = false; renderAmmo(me.weapon); audioCue("ready"); }
-    if (ready && altHeld && altW && !altW.charge && !altW.load) { triggerTick(dt, now, false, held); shoot(now, true); }
+    const altReady = WEAPONS[me.weapon].quickAlt ? playing && roundLive && !me.dead && !guided && (!serverRun || srv.joined) && me.altCd <= 0 : ready;
+    if (altReady && altHeld && altW && !altW.charge && !altW.load) { triggerTick(dt, now, false, held); shoot(now, true); }
     else if (triggerTick(dt, now, ready && fireCd <= 0 && !(altHeld && (altW?.charge || altW?.load)) && railCharge === 0, held) || (ready && me.weapon === "gauntlet" && now < (me.lungeUntil || 0))) shoot(now);   // a lunge lands blows too
   }
   // controls: respawn when due, fire, read the stick / keys / mouse, boost energy
@@ -8671,7 +8718,13 @@ details.controls[open] .clist { margin-top: 8px; }
         if (Math.random() < stepDt * 12) puff(s.x, s.y, (Math.random() - .5) * 60, (Math.random() - .5) * 60, 0.4, 2, "#8ff0ff");
         continue;
       }
-      // (the demonic orb no longer zaps what is near it: it hits, and bursts)
+      // the demonic orb draws every bin near it gently in (not its own): 900 px round it, strongest close up; a pull a
+      // bin can fly out of, but one that bends a fight round it. The same on the server (its pilots) and my own bin here
+      if (s.kind === K.GAMMA && s.life > 0) {
+        const pull = (o, isOwner) => { if (isOwner || o.dead) return; const dx = s.x - o.x, dy = s.y - o.y, d = Math.hypot(dx, dy); if (d < 900 && d > 30) { const acc = 520 * (1 - d / 900); o.vx += dx / d * acc * stepDt; o.vy += dy / d * acc * stepDt; } };
+        for (const b of bots) pull(b, b.id === s.owner);
+        if (playing && !me.dead) pull(me, s.mine || (serverRun && s.owner === srv.id));
+      }
       if (s.kind === K.NUKE) {
         if (Math.random() < stepDt * 70) puff(s.x, s.y, -s.vx * 0.15 + (Math.random() - .5) * 50, -s.vy * 0.15 + (Math.random() - .5) * 50, 0.9, 3 + Math.random() * 3, Math.random() < 0.5 ? "#8a7fb0" : "#ffe14d");
         continue;
@@ -8738,7 +8791,7 @@ details.controls[open] .clist { margin-top: 8px; }
       } else if (s.kind === K.SAW) {
         if (Math.random() < stepDt * 45) puff(s.x, s.y, -s.vx * 0.05, -s.vy * 0.05, 0.22, 2, s.returning ? "#6fffe0" : "#d6dde8");
       } else if (s.kind === K.RAIL) {   // the slug leaves a glowing wake along its whole path
-        for (let k = 0; k < 4; k++) { const f = Math.random(); puff(s.px + (s.x - s.px) * f, s.py + (s.y - s.py) * f, (Math.random() - .5) * 30, (Math.random() - .5) * 30, 0.5 + Math.random() * 0.4, 1.6 + Math.random() * 1.6, k % 2 ? "#e9c8ff" : "#ffffff"); }
+        for (let k = 0; k < 4; k++) { const f = Math.random(); puff(s.px + (s.x - s.px) * f, s.py + (s.y - s.py) * f, (Math.random() - .5) * 30, (Math.random() - .5) * 30, 0.5 + Math.random() * 0.4, 1.6 + Math.random() * 1.6, k % 2 ? "#ffb070" : "#ffffff"); }
       } else if (s.kind === K.ORB) {   // a plasma wake: glowing motes peeling off, and crackle
         if (Math.random() < stepDt * (lowQ ? 40 : 90)) puff(s.x + (Math.random() - .5) * 30, s.y + (Math.random() - .5) * 30, -s.vx * 0.15 + (Math.random() - .5) * 60, -s.vy * 0.15 + (Math.random() - .5) * 60, 0.5 + Math.random() * 0.4, 2.5 + Math.random() * 3, Math.random() < 0.6 ? "#6fd8ff" : "#ffffff");
       } else if (s.kind === K.SHARD) {   // a hot trail that grows with every ricochet
@@ -9309,7 +9362,7 @@ details.controls[open] .clist { margin-top: 8px; }
       energy = 100; energyRegenAt = 0; dashReadyAt = 0; lungeReady = 0;
       flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
       grabbed.clear(); myGrabs.length = 0; drops.clear(); gunDrops.clear(); myDrops.length = 0; myGunDrops.length = 0;
-      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; wallDrips.length = 0; casings.length = 0; meltLines.length = 0; slashes.length = 0; voids.length = 0; afterBlasts.length = 0; shockQueue.length = 0;
+      hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; wallDrips.length = 0; casings.length = 0; meltLines.length = 0; slashes.length = 0; voids.length = 0; decalTiles.clear(); afterBlasts.length = 0; shockQueue.length = 0;
       if (shownRound !== -1) {
         myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode);
         // Respawn after rebuilding: a repaired planet must not enclose a pilot in its old tunnel.
@@ -11317,9 +11370,9 @@ details.controls[open] .clist { margin-top: 8px; }
       g.lineCap = "round"; g.lineJoin = "round";
       if (kc > 0) {
         const bw = b.cut ? b.cut / 15 : b.big ? 1.9 : 1;   // the charged slug: wider and blue
-        g.strokeStyle = b.big ? `rgba(90,150,255,${0.4 * kc})` : `rgba(190,120,255,${0.35 * kc})`; g.lineWidth = (26 * kc + 4) * bw;
+        g.strokeStyle = `rgba(255,${b.big ? 110 : 130},50,${0.38 * kc})`; g.lineWidth = (26 * kc + 4) * bw;   // (white-hot, orange round it: a slug that melts what it goes through)
         g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
-        g.strokeStyle = b.big ? `rgba(170,210,255,${0.85 * kc})` : `rgba(233,200,255,${0.8 * kc})`; g.lineWidth = (8 * kc + 1) * bw;
+        g.strokeStyle = `rgba(255,${b.big ? 200 : 215},150,${0.85 * kc})`; g.lineWidth = (8 * kc + 1) * bw;
         g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
         g.strokeStyle = `rgba(255,255,255,${kc})`; g.lineWidth = 2.5 * kc + 0.5;
         g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
@@ -11330,7 +11383,7 @@ details.controls[open] .clist { margin-top: 8px; }
       const d0 = Math.max(0, Math.min(...ds) - 40), d1 = Math.min(L, Math.max(...ds) + 40), step = lowQ ? 10 : 5;
       const side = (px, py) => (px - x1) * -ny + (py - y1) * nx, ss = [side(0, 0), side(vw, 0), side(0, vh), side(vw, vh)];
       if (Math.min(...ss) > r + 40 || Math.max(...ss) < -r - 40) continue;   // the whole screen is off to one side of the trail
-      for (const [ph, col] of [[0, "217,168,255"], [Math.PI, "255,230,255"]]) {
+      for (const [ph, col] of [[0, "255,160,80"], [Math.PI, "255,230,200"]]) {
         g.strokeStyle = `rgba(${col},${0.75 * k})`; g.lineWidth = 2 * k + 0.6;
         g.beginPath();
         for (let d = d0; d <= d1; d += step) {

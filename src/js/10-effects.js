@@ -279,6 +279,10 @@
       const ox = c.x, oy = c.y;
       c.x += c.vx * dt; c.y += c.vy * dt; c.vx *= drag; c.vy *= drag; c.spin *= Math.exp(-(deck ? 3 : 0.2) * dt); c.a += c.spin * dt;
       if (solidCell(c.x, c.y) && bounceSmall(c, ox, oy, 0.4) && Math.hypot(c.vx, c.vy) > 60 && Math.random() < 0.3) sfx("hit", 0.08, 3.2, c.x, c.y);   // a clink
+      if (deck && Math.abs(c.vx) + Math.abs(c.vy) < 4 && c.t > 1.5) {   // lying still on the deck: baked into it
+        bakeDecal(c.x, c.y, 6, q => { q.rotate(c.a); q.fillStyle = "#c9962e"; q.fillRect(-3.5, -1.4, 7, 2.8); q.fillStyle = "#ffe08a"; q.fillRect(-3.5, -1.4, 7, 1); q.fillStyle = "#7a5718"; q.fillRect(2.6, -1.6, 1.2, 3.2); });
+        casings.splice(i, 1);
+      }
     }
   }
   function drawCasings() {
@@ -379,6 +383,25 @@
   }
   // a stain spreads out to its size over a second and a half; a drop that came in fast leaves a long splat with
   // a spatter of small drops ahead of it (vx, vy: how it was flying)
+  // ---------- decals: what has settled on a station's deck, baked into tiles ----------
+  // 512 px tiles of the world at half resolution, made only where something has settled; each is one drawImage a frame
+  const DECAL_T = 512, DECAL_RES = 0.5, decalTiles = new Map();
+  function bakeDecal(x, y, r, paint) {
+    for (let ty = Math.floor((y - r) / DECAL_T); ty <= Math.floor((y + r) / DECAL_T); ty++) for (let tx = Math.floor((x - r) / DECAL_T); tx <= Math.floor((x + r) / DECAL_T); tx++) {
+      const key = tx * 1000 + ty;
+      let t = decalTiles.get(key);
+      if (!t) { const c = document.createElement("canvas"); c.width = c.height = DECAL_T * DECAL_RES; t = { c, q: c.getContext("2d"), tx, ty }; decalTiles.set(key, t); }
+      t.q.setTransform(DECAL_RES, 0, 0, DECAL_RES, (x - tx * DECAL_T) * DECAL_RES, (y - ty * DECAL_T) * DECAL_RES);
+      paint(t.q);
+    }
+  }
+  function drawDecals() {
+    for (const t of decalTiles.values()) {
+      const x = sx(t.tx * DECAL_T), y = sy(t.ty * DECAL_T);
+      if (x > vw || y > vh || x + DECAL_T < 0 || y + DECAL_T < 0) continue;
+      g.drawImage(t.c, x, y, DECAL_T, DECAL_T);
+    }
+  }
   function oilStain(x, y, r, vx = 0, vy = 0) {
     const sp = Math.hypot(vx, vy), stretch = 1 + Math.min(1.6, sp / 200);
     oilStains.push({ x, y, r, rot: sp > 1 ? Math.atan2(vy, vx) : Math.random() * 6.28, sx: stretch * (0.8 + Math.random() * 0.4), born: performance.now(),
@@ -387,6 +410,7 @@
       // thin spines thrown out ahead (a fast drop), and runs crawling slowly out of a big pool over a few seconds
       spines: Array.from({ length: Math.min(7, 1 + sp / 80 | 0) }, () => [(Math.random() - 0.5) * 1.3, r * (1.2 + Math.random() * 1.6), 0.5 + Math.random() * 0.9]),
       runs: r > 7 ? Array.from({ length: 1 + (Math.random() * 3 | 0) }, () => [Math.random() * 6.283, r * (1.5 + Math.random() * 3), 1 + Math.random() * 1.6, 2000 + Math.random() * 3000]) : [] });
+    const o = oilStains[oilStains.length - 1]; o.settle = Math.max(1600, ...o.runs.map(rn => rn[3])) + 200;   // (when it is done spreading: baked)
     if (oilStains.length > 400) oilStains.shift();
   }
   function updateOil(dt) {

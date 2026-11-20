@@ -727,9 +727,9 @@
       g.lineCap = "round"; g.lineJoin = "round";
       if (kc > 0) {
         const bw = b.cut ? b.cut / 15 : b.big ? 1.9 : 1;   // the charged slug: wider and blue
-        g.strokeStyle = b.big ? `rgba(90,150,255,${0.4 * kc})` : `rgba(190,120,255,${0.35 * kc})`; g.lineWidth = (26 * kc + 4) * bw;
+        g.strokeStyle = `rgba(255,${b.big ? 110 : 130},50,${0.38 * kc})`; g.lineWidth = (26 * kc + 4) * bw;   // (white-hot, orange round it: a slug that melts what it goes through)
         g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
-        g.strokeStyle = b.big ? `rgba(170,210,255,${0.85 * kc})` : `rgba(233,200,255,${0.8 * kc})`; g.lineWidth = (8 * kc + 1) * bw;
+        g.strokeStyle = `rgba(255,${b.big ? 200 : 215},150,${0.85 * kc})`; g.lineWidth = (8 * kc + 1) * bw;
         g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
         g.strokeStyle = `rgba(255,255,255,${kc})`; g.lineWidth = 2.5 * kc + 0.5;
         g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
@@ -740,7 +740,7 @@
       const d0 = Math.max(0, Math.min(...ds) - 40), d1 = Math.min(L, Math.max(...ds) + 40), step = lowQ ? 10 : 5;
       const side = (px, py) => (px - x1) * -ny + (py - y1) * nx, ss = [side(0, 0), side(vw, 0), side(0, vh), side(vw, vh)];
       if (Math.min(...ss) > r + 40 || Math.max(...ss) < -r - 40) continue;   // the whole screen is off to one side of the trail
-      for (const [ph, col] of [[0, "217,168,255"], [Math.PI, "255,230,255"]]) {
+      for (const [ph, col] of [[0, "255,160,80"], [Math.PI, "255,230,200"]]) {
         g.strokeStyle = `rgba(${col},${0.75 * k})`; g.lineWidth = 2 * k + 0.6;
         g.beginPath();
         for (let d = d0; d <= d1; d += step) {

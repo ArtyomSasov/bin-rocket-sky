@@ -617,7 +617,11 @@
       const c = chunks[i]; c.t += dt;
       if (c.t > c.life) { chunks.splice(i, 1); continue; }
       c.x += c.vx * dt; c.y += c.vy * dt; c.vx *= drag; c.vy *= drag; c.spin *= spinDrag; c.a += c.spin * dt;
-      if (Math.abs(c.vx) + Math.abs(c.vy) > 8) bounceOff(c, c.r * 0.7, 0.45, 0.02 * (c.r / 8) ** 2);
+      if (Math.abs(c.vx) + Math.abs(c.vy) > 8) { bounceOff(c, c.r * 0.7, 0.45, 0.02 * (c.r / 8) ** 2); c.still = 0; }
+      else if (deck && (c.still = (c.still || 0) + dt) > 1.2) {   // come to rest on the deck: baked into it (one less to draw)
+        bakeDecal(c.x, c.y, c.r * 1.5, q => { q.rotate(c.a); q.drawImage(c.img, -c.img.width / 2, -c.img.height / 2); });
+        chunks.splice(i, 1); continue;
+      }
       if (c.x < 0 || c.x > W) { c.vx = -c.vx * 0.5; c.x = clamp(c.x, 0, W); }
       if (c.y < 0 || c.y > H) { c.vy = -c.vy * 0.5; c.y = clamp(c.y, 0, H); }
     }

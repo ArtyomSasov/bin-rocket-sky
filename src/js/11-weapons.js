@@ -1,6 +1,6 @@
   // ---------- fire & damage ----------
   // shots leave from the tip of the gun drawn on the wing (left and right in turn), not from the middle of the bin
-  const mountsOf = w => w === "fire" ? [[256, 150]] : w === "laser" || w === "gauntlet" ? [[160, 96]] : ["nuke", "holy", "bolt", "gamma", "tele", "gauss", "gauntlet"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
+  const mountsOf = w => w === "laser" || w === "gauntlet" ? [[160, 96]] : ["nuke", "holy", "void", "bolt", "gamma", "tele", "gauss", "gauntlet"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // (the pistols: one in each hand, fired in turn)   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
   const BARREL = { fire: 44, laser: 60, rocket: 50, triple: 42, nuke: 96, holy: 30, saw: 40, gamma: 44, tele: 28, minigun: 58, gauss: 80, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48, nail: 54, gren: 44, gauntlet: 34 };   // tip, in mount units
   // the tip of a pilot's gun (any pilot: me, a bot, a player's pilot on the server, which fires from the same tips),
   // the wing guns taking turns (p.gunSide)
@@ -669,6 +669,7 @@
       if (me.heat >= 1) { me.overheat = true; floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: "OVERHEAT", gold: false }); sfx("shield_hit", 0.7, 0.6); }
     }
     const cdMul = MODES[MODE].cdMul || 1;
+    if (alt && w.quickAlt) { me.altCd = pat.cd; fireCd = Math.max(fireCd, 0.15); } else
     fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
     const gun = muzzleAt(k);   // (the server fires a player's pilot from the same gun tips)
     if (k === "laser" && alt) { me.linkHeld = now - (me.linkAt || 0) < 200 ? (me.linkHeld || 0) + (now - me.linkAt) / 1000 : 0; me.linkAt = now; mul *= linkHeatOf(me.linkHeld); }   // (the link beam heats up held on)

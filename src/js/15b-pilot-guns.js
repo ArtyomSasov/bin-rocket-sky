@@ -101,6 +101,8 @@
       if (b.charge > 0 && ready) pilotShoot(b, now, k, false, Math.max(0.25, b.charge));
       b.charge = 0;
     }
+    // (a quick alt has its own cooldown: the shock beam right after an orb)
+    if (w.quickAlt && i.alt && alt && live && (b.altCd || 0) <= 0) { pilotShoot(b, now, k, true); return; }
     if (!ready) return;
     if (i.alt && alt && !alt.load && !alt.charge) pilotShoot(b, now, k, true);
     else if ((i.fire && !w.charge) || (k === "gauntlet" && now < (b.lungeUntil || 0))) pilotShoot(b, now, k, false);   // a lunge lands blows too
@@ -143,6 +145,7 @@
     }
     if (alt && pat.cutter) pat = { ...pat, cut: Math.round(24 + 48 * b.cutCharge) };
     const cdMul = MODES[MODE].cdMul || 1;
+    if (alt && w.quickAlt) { b.altCd = pat.cd; b.fireCd = Math.max(b.fireCd, 0.15); } else
     b.fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * b.spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
     const gun = muzzleOf(b, k);   // from the gun's tip, as the player's screen fires it
     const shot = volley(b, now, pat, gun, (k === "bolt" && !alt) || (k === "laser" && alt) ? boltLock(b, gun) : undefined, mul);

@@ -255,6 +255,38 @@
     floorCache.set(st, c);
     return c;
   }
+  // a pool of oil, round (0, 0): dark red, lumpy at the edge, a spatter and spines ahead of a fast one, runs crawling
+  // out, and a wet sheen on top (grow: how far it has spread)
+  function drawStain(q, o, grow, tNow) {
+    const r = o.r * grow;
+    q.save(); q.rotate(o.rot);
+    q.fillStyle = "rgba(48,3,7,0.86)"; q.beginPath(); q.ellipse(0, 0, r * o.sx, r, 0, 0, 6.29); q.fill();
+    for (const [bx, by, br] of o.blobs) { q.beginPath(); q.arc(bx * grow, by * grow, br * grow, 0, 6.29); q.fill(); }
+    for (const [d, off, rr] of o.spat) { q.beginPath(); q.arc(d * o.sx * grow, off, rr, 0, 6.29); q.fill(); }
+    q.strokeStyle = "rgba(48,3,7,0.8)"; q.lineCap = "round";
+    for (const [a, L, w] of o.spines || []) { q.lineWidth = w; q.beginPath(); q.moveTo(Math.cos(a) * r * o.sx * 0.8, Math.sin(a) * r * 0.8); q.lineTo(Math.cos(a) * L * o.sx * grow, Math.sin(a) * L * grow); q.stroke(); }
+    for (const [a, L, w, T] of o.runs || []) {
+      const k = Math.min(1, Math.sqrt((tNow - o.born) / T)), ex = Math.cos(a) * (r + L * k), ey = Math.sin(a) * (r + L * k);
+      q.lineWidth = w * 2; q.beginPath(); q.moveTo(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7); q.quadraticCurveTo(ex * 0.6 + Math.sin(a * 3) * 4, ey * 0.6, ex, ey); q.stroke();
+      q.beginPath(); q.arc(ex, ey, w * 1.4, 0, 6.29); q.fill();
+    }
+    q.fillStyle = "rgba(150,20,26,0.35)"; q.beginPath(); q.ellipse(-r * 0.25, -r * 0.2, r * o.sx * 0.5, r * 0.35, 0, 0, 6.29); q.fill();
+    q.fillStyle = "rgba(255,200,200,0.14)"; q.beginPath(); q.ellipse(-r * 0.35, -r * 0.35, r * 0.22, r * 0.1, -0.4, 0, 6.29); q.fill();
+    q.restore();
+  }
+  // a burn on the deck, round (0, 0): a dark blot with a ragged edge, embers in it glowing out over six seconds
+  function drawBurn(q, b, age, now) {
+    const r = b.r, gr = q.createRadialGradient(0, 0, 0, 0, 0, r);
+    gr.addColorStop(0, "rgba(8,6,6,0.75)"); gr.addColorStop(0.55, "rgba(12,9,8,0.5)"); gr.addColorStop(1, "rgba(12,9,8,0)");
+    q.fillStyle = gr; q.beginPath();
+    for (let k = 0; k < 14; k++) { const a = k / 14 * 6.283, rr = r * (0.8 + 0.2 * Math.sin(b.seed + k * 2.3)); q.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+    q.fill();
+    if (age > 0 && age < 6) {
+      q.globalCompositeOperation = "lighter"; q.globalAlpha = 0.6 * (1 - age / 6) * (0.8 + 0.2 * Math.sin(now / 90 + b.seed));
+      for (let k = 0; k < 7; k++) { const a = b.seed + k * 0.9, d = r * (0.15 + 0.5 * ((k * 37 % 10) / 10)); q.drawImage(dotSprite(k % 2 ? "#ff7a26" : "#ffab3d"), Math.cos(a) * d - 6, Math.sin(a) * d - 6, 12, 12); }
+      q.globalAlpha = 1; q.globalCompositeOperation = "source-over";
+    }
+  }
   function drawFoundry(now) {
     const st = station();
     g.fillStyle = st.void; g.fillRect(0, 0, vw, vh);
@@ -279,42 +311,23 @@
         g.globalAlpha = 1;
       }
     }
-    // oil on the deck: dark red pools spreading out to their size, lumpy at the edge, a spatter ahead of a fast one,
-    // and a wet sheen on top
+    // what has settled on the deck (finished pools and burns, chunks and cases come to rest) is baked into tiles
+    // (decals): one picture per tile, however much has piled up; only what still moves or spreads is drawn piece by piece
+    drawDecals();
     const tNow = performance.now();
-    for (const o of oilStains) {
+    for (let i = oilStains.length - 1; i >= 0; i--) {
+      const o = oilStains[i], done = tNow - o.born > o.settle;
+      if (done) { bakeDecal(o.x, o.y, o.r * 6, q => drawStain(q, o, 1, tNow)); oilStains.splice(i, 1); continue; }
       const x = sx(o.x), y = sy(o.y);
       if (!onScreen(x, y, o.r * 4)) continue;
-      const grow = Math.min(1, 0.35 + (tNow - o.born) / 1500 * 0.65), r = o.r * grow;
-      g.save(); g.translate(x, y); g.rotate(o.rot);
-      g.fillStyle = "rgba(48,3,7,0.86)"; g.beginPath(); g.ellipse(0, 0, r * o.sx, r, 0, 0, 6.29); g.fill();
-      for (const [bx, by, br] of o.blobs) { g.beginPath(); g.arc(bx * grow, by * grow, br * grow, 0, 6.29); g.fill(); }
-      for (const [d, off, rr] of o.spat) { g.beginPath(); g.arc(d * o.sx * grow, off, rr, 0, 6.29); g.fill(); }
-      g.strokeStyle = "rgba(48,3,7,0.8)"; g.lineCap = "round";
-      for (const [a, L, w] of o.spines || []) { g.lineWidth = w; g.beginPath(); g.moveTo(Math.cos(a) * r * o.sx * 0.8, Math.sin(a) * r * 0.8); g.lineTo(Math.cos(a) * L * o.sx * grow, Math.sin(a) * L * grow); g.stroke(); }
-      for (const [a, L, w, T] of o.runs || []) {   // runs crawling out of the pool, slower and slower
-        const k = Math.min(1, Math.sqrt((tNow - o.born) / T)), ex = Math.cos(a) * (r + L * k), ey = Math.sin(a) * (r + L * k);
-        g.lineWidth = w * 2; g.beginPath(); g.moveTo(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7); g.quadraticCurveTo(ex * 0.6 + Math.sin(a * 3) * 4, ey * 0.6, ex, ey); g.stroke();
-        g.beginPath(); g.arc(ex, ey, w * 1.4, 0, 6.29); g.fill();
-      }
-      g.fillStyle = "rgba(150,20,26,0.35)"; g.beginPath(); g.ellipse(-r * 0.25, -r * 0.2, r * o.sx * 0.5, r * 0.35, 0, 0, 6.29); g.fill();
-      g.fillStyle = "rgba(255,200,200,0.14)"; g.beginPath(); g.ellipse(-r * 0.35, -r * 0.35, r * 0.22, r * 0.1, -0.4, 0, 6.29); g.fill();
-      g.restore();
+      g.save(); g.translate(x, y); drawStain(g, o, Math.min(1, 0.35 + (tNow - o.born) / 1500 * 0.65), tNow); g.restore();
     }
-    // burns on the deck: a dark blot with a ragged edge, embers in it glowing out over a few seconds
-    for (const b of scorches) {
-      const x = sx(b.x), y = sy(b.y), r = b.r;
-      if (!onScreen(x, y, r)) continue;
-      const age = (now - b.born) / 1000, gr = g.createRadialGradient(x, y, 0, x, y, r);
-      gr.addColorStop(0, "rgba(8,6,6,0.75)"); gr.addColorStop(0.55, "rgba(12,9,8,0.5)"); gr.addColorStop(1, "rgba(12,9,8,0)");
-      g.fillStyle = gr; g.beginPath();
-      for (let k = 0; k < 14; k++) { const a = k / 14 * 6.283, rr = r * (0.8 + 0.2 * Math.sin(b.seed + k * 2.3)); g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
-      g.fill();
-      if (age < 6) {
-        g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.6 * (1 - age / 6) * (0.8 + 0.2 * Math.sin(now / 90 + b.seed));
-        for (let k = 0; k < 7; k++) { const a = b.seed + k * 0.9, d = r * (0.15 + 0.5 * ((k * 37 % 10) / 10)); g.drawImage(dotSprite(k % 2 ? "#ff7a26" : "#ffab3d"), x + Math.cos(a) * d - 6, y + Math.sin(a) * d - 6, 12, 12); }
-        g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
-      }
+    for (let i = scorches.length - 1; i >= 0; i--) {
+      const b = scorches[i], age = (now - b.born) / 1000;
+      if (age >= 6) { bakeDecal(b.x, b.y, b.r, q => drawBurn(q, b, 0, 0)); scorches.splice(i, 1); continue; }
+      const x = sx(b.x), y = sy(b.y);
+      if (!onScreen(x, y, b.r)) continue;
+      g.save(); g.translate(x, y); drawBurn(g, b, age, now); g.restore();
     }
     if (st.reactor) drawReactor(now, unit);
     if (st.lift) drawLift(now, unit);

@@ -267,7 +267,7 @@
             // the trigger as this command held it, aimed as it was aimed, before the command's flight, as the player's
             // screen fires before it flies its frame (Source and Overwatch fire from the user command the same way)
             b.a = c.aim; human.fire = !!c.fire; human.alt = !!c.alt;
-            b.fireCd -= CMD_DT;   // (the cooldown runs by commands too, as on the player's screen)
+            b.fireCd -= CMD_DT; b.altCd = (b.altCd || 0) - CMD_DT;   // (the cooldowns run by commands too, as on the player's screen)
             b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; b.viewAt = c.va > 0 ? c.va : -1; b.jk = c.jk; pilotTriggers(b, CMD_DT, now); b.cmdWait = b.viewAt = -1; b.jk = undefined;
             const g = pilotMove(b, c);
             f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
@@ -303,7 +303,7 @@
       if (b.y < 40 || b.y > H - 40) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 40, H - 40); }
       }
       // shoot when the nose points at the target (where it will be)
-      if (!b.cq) b.fireCd -= dt;   // (a player flown by commands: by each command, above)
+      if (!b.cq) { b.fireCd -= dt; b.altCd = (b.altCd || 0) - dt; }   // (a player flown by commands: by each command, above)
       // shock combo: once its orb hangs near the target, a bot shoots the orb with the beam (harder bots do it more)
       if (b.orb && (b.orb.life <= 0 || !shots.includes(b.orb))) b.orb = null;
       if (!human && b.orb && tgt && botWeapon(b) === "orb" && SHOTS[K.ORB].life - b.orb.life > 0.5 && Math.hypot(tgt.x - b.orb.x, tgt.y - b.orb.y) < 260
