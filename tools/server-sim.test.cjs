@@ -337,7 +337,7 @@ test('every gun fires for a player on the server, and the test range hands a pla
     const id = m.addPilot('Gunner');
     run(m, 0.1);
     const b = m.game.__simBot(id), guns = Object.keys(b.arsenal);
-    for (const g of ['fire', 'gauntlet', 'minigun', 'scatter', 'shard', 'gren', 'rocket', 'laser', 'orb', 'rail', 'saw', 'mine', 'gamma', 'nuke', 'holy']) assert.ok(guns.includes(g), 'carries ' + g);
+    for (const g of ['fire', 'minigun', 'scatter', 'shard', 'gren', 'rocket', 'laser', 'orb', 'rail', 'saw', 'mine', 'gamma', 'nuke', 'holy']) assert.ok(guns.includes(g), 'carries ' + g);
     assert.ok(!guns.includes('tele'), 'no teleporter: it is retired');
     for (const g of guns) {
       if (g === 'gauntlet') continue;   // a blow needs a bin within reach
@@ -488,5 +488,47 @@ test('the Blood Blade wind-up is in the snapshot while a player holds it (others
     assert.equal(wind(), 1, 'fully wound');
     run(m, 0.1, () => m.input(id, { aim: 0, fire: false, w }));
     assert.equal(wind(), undefined, 'swung: nothing wound');
+  } finally { m.dispose(); }
+});
+
+test('everyone carries the one sword, and its blade bites what it touches even unswung (a touch every 0.45 s)', { skip }, async () => {
+  const { createMatch } = await sim();
+  const m = createMatch({ code: 'm1d0o' });
+  m.game.__simTerrain.empty();
+  try {
+    const a = m.addPilot('Blade'), v = m.addPilot('Victim');
+    run(m, 0.1);
+    const A = m.game.__simBot(a), V = m.game.__simBot(v), w = m.game.__simConst.WEAPON_KEYS.indexOf('saw');
+    assert.ok(A.arsenal.saw === Infinity && !('gauntlet' in A.arsenal), 'the sword, not the Saber');
+    const put = () => {   // the victim held on the resting blade, halfway along it
+      Object.assign(A, { x: 2000, y: 2000, vx: 0, vy: 0, a: 0, inv: 0 });
+      const ha = 1.4, rh = 34 + 4, hx = A.x + Math.cos(ha) * rh, hy = A.y + Math.sin(ha) * rh;
+      Object.assign(V, { x: hx + Math.cos(0.26) * 45, y: hy + Math.sin(0.26) * 45, vx: 0, vy: 0, inv: 0 });
+    };
+    m.input(a, { w, aim: 0 }); run(m, 0.2, put);
+    const hp = V.lives;
+    run(m, 1, () => { put(); m.input(a, { w, aim: 0 }); });
+    assert.ok(V.lives < hp, `the touched bin loses health: ${hp} -> ${V.lives}`);
+    assert.ok(hp - V.lives <= 0.3 * 3 + 1e-6, 'at most a touch every 0.45 s: ' + (hp - V.lives));
+  } finally { m.dispose(); }
+});
+
+test('the scatter gun\'s hook bites into a bin and hauls its pilot there', { skip }, async () => {
+  const { createMatch } = await sim();
+  const m = createMatch({ code: 'm1d0o' });
+  m.game.__simTerrain.empty();
+  try {
+    const a = m.addPilot('Hooker'), v = m.addPilot('Prey');
+    run(m, 0.1);
+    const A = m.game.__simBot(a), V = m.game.__simBot(v), w = m.game.__simConst.WEAPON_KEYS.indexOf('scatter');
+    A.arsenal.scatter = 10; A.weapon = 'scatter';
+    const hold = () => { Object.assign(V, { x: 2600, y: 2000, vx: 0, vy: 0 }); };
+    Object.assign(A, { x: 2000, y: 2000, vx: 0, vy: 0, a: 0 }); hold();
+    m.input(a, { w, aim: 0 }); run(m, 0.1, hold);
+    Object.assign(A, { x: 2000, y: 2000, vx: 0, vy: 0, a: 0 });
+    let closest = Infinity;
+    run(m, 1.2, () => { hold(); m.input(a, { w, aim: 0, alt: true }); closest = Math.min(closest, Math.hypot(A.x - V.x, A.y - V.y)); });
+    assert.ok(closest < 200, 'hauled to its prey: ' + Math.round(closest));
+    assert.equal(A.arsenal.scatter, 10, 'the hook costs no ammo');
   } finally { m.dispose(); }
 });

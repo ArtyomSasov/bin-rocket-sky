@@ -28,7 +28,7 @@
       planets: [...ringRocks(0.27, [18, 36, 54, 72, 108, 126, 144, 162], 72),
         ["rock", 0.12, 0.12, 110, 0], ["rock", 0.22, 0.07, 70, 0], ["rock", 0.07, 0.23, 75, 0], ["rock", 0.86, 0.12, 90, 0], ["rock", 0.5, 0.13, 85, 0], ["rock", 0.43, 0.43, 55, 0]],
       wrecks: [],
-      guns: [["shard", 0.5, 0.38], ["saw", 0.33, 0.1], ["minigun", 0.88, 0.3], ["scatter", 0.77, 0.5], ["laser", 0.5, 0.24], ["rail", 0.95, 0.05]],
+      guns: [["shard", 0.5, 0.38], ["nail", 0.33, 0.1], ["minigun", 0.88, 0.3], ["scatter", 0.77, 0.5], ["laser", 0.5, 0.24], ["rail", 0.95, 0.05]],
       supplies: [["med", 0.37, 0.37], ["shield", 0.8, 0.07], ["bigmed", 0.91, 0.41]],
       amp: [0.5, 0.5], nuke: [0.5, 0.04], holy: [0.5, 0.96], pads: [[0.5, 0.18, 90]] },
     // Drydocks: rows of moored hulls above and below, two ring stations either side of the moonbase in the middle
@@ -43,7 +43,7 @@
       planets: [["rock", 0.9, 0.31, 100, 0]],
       wrecks: [["tower", 0.3, 0.16, 0], ["tower", 0.5, 0.16, 0], ["tower", 0.7, 0.16, 0], ["tower", 0.3, 0.34, 0], ["tower", 0.7, 0.34, 0],
         ["hull", 0.5, 0.5, 0], ["crates", 0.1, 0.12]],
-      guns: [["rocket", 0.4, 0.26], ["orb", 0.5, 0.32], ["scatter", 0.2, 0.25], ["saw", 0.6, 0.05], ["laser", 0.25, 0.45], ["rail", 0.95, 0.05]],
+      guns: [["rocket", 0.4, 0.26], ["orb", 0.5, 0.32], ["scatter", 0.2, 0.25], ["nail", 0.6, 0.05], ["laser", 0.25, 0.45], ["rail", 0.95, 0.05]],
       supplies: [["med", 0.4, 0.1], ["bigmed", 0.64, 0.42], ["shield", 0.8, 0.26]],
       amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.39], pads: [[0.22, 0.56, 0]] },
     // Orrery: the sun in the middle, two giants with two moons each, two small hot worlds on the axis
@@ -57,7 +57,7 @@
     w: { name: "The Tip",
       planets: [["rock", 0.5, 0.5, 190, 0]],
       wrecks: [["truck", 0.27, 0.17, 0], ["truck", 0.5, 0.16, 0], ["truck", 0.73, 0.17, 0], ["wheelie", 0.35, 0.36, 0], ["bales", 0.1, 0.1], ["skip", 0.85, 0.33, 0]],
-      guns: [["scatter", 0.5, 0.3], ["mine", 0.2, 0.32], ["saw", 0.93, 0.18], ["shard", 0.4, 0.05], ["laser", 0.2, 0.43], ["minigun", 0.67, 0.4]],
+      guns: [["scatter", 0.5, 0.3], ["mine", 0.2, 0.32], ["nail", 0.93, 0.18], ["shard", 0.4, 0.05], ["laser", 0.2, 0.43], ["minigun", 0.67, 0.4]],
       supplies: [["med", 0.6, 0.27], ["bigmed", 0.05, 0.25], ["shield", 0.62, 0.06]],
       amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.38], pads: [[0.22, 0.56, 0]] },
     // Duel: almost empty. Two ice pillars on the line between the bases, two stations above and below the centre

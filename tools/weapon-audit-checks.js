@@ -65,7 +65,7 @@ function runWeaponAuditChecks() {
   check('fixed keys work with sparse inventory and Test range; refusal explains cost', () => {
     reset();me.arsenal.rail=3;me.arsenal.gamma=1;
     dispatchEvent(new KeyboardEvent('keydown',{code:'Digit9'}));ok(me.weapon==='rail','fixed rail key');
-    dispatchEvent(new KeyboardEvent('keydown',{code:'Digit4',altKey:true}));ok(me.weapon==='gamma','fixed extended key');
+    dispatchEvent(new KeyboardEvent('keydown',{code:'Digit3',altKey:true}));ok(me.weapon==='gamma','fixed extended key');
     me.weapon='gren';me.arsenal.gren=2;rejectAt=-Infinity;shoot(now,true);
     ok(floaters.at(-1).txt==='NEED 3 AMMO','alt reason');ok(me.arsenal.gren===2,'rejected alt is free');
     keys.clear();

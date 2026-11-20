@@ -3,10 +3,10 @@
   // the input picks one, and both triggers and the teleporter work by the rules shoot() keeps for the local pilot
   // (11-weapons.js). What only a screen can do fires in its plain form: a guided nuke flies straight.
   //   input: { w: the gun's index in WEAPON_KEYS, fire, alt: the triggers held, tele: a counter, +1 per press }
-  const PILOT_FALLBACK = ["fire", "nuke", "holy", "tele", "gauntlet"];   // never switched to when a gun runs dry
+  const PILOT_FALLBACK = ["fire", "nuke", "holy", "tele", "saw"];   // never switched to when a gun runs dry
   function pilotArm(b) {
     const o = MODES[MODE].only;
-    b.arsenal = o ? { [o]: Infinity } : { fire: Infinity, gauntlet: Infinity }; b.weapon = o || "fire";
+    b.arsenal = o ? { [o]: Infinity } : { fire: Infinity, saw: Infinity }; b.weapon = o || "fire";
     Object.assign(b, { teleN: 0, rocketLoad: 0, loadFor: 0, spin: 0, charge: 0, cutCharge: 0, heat: 0, overheat: false });
     if (MODES[MODE].sandbox) for (const k of SANDBOX_GUNS) b.arsenal[k] = Infinity;   // the test range: everything, for ever (as baseArsenal)
   }
@@ -78,6 +78,7 @@
     }
     if (i.tele > (b.teleDone || 0)) { b.teleDone = i.tele; pilotTele(b, now); }
     const k = only || b.weapon, w = WEAPONS[k], alt = w.alt, live = roundLive && !b.dead, ready = live && b.fireCd <= 0;
+    if (k === "saw" && live) bladeTouch(b, now, b.charge || 0, bots.map(o => [o.id, o]));
     b.heat = Math.max(0, b.heat - 0.45 * dt); if (b.overheat && b.heat < 0.3) b.overheat = false;
     b.spin = w.spin && i.fire && live ? Math.min(1, b.spin + dt / w.spin[2]) : Math.max(0, b.spin - dt * 1.5);
     // rockets, as rocketLoadTick has them: the press loads one, holding loads another every ROCKET_LOAD seconds; when
@@ -148,6 +149,7 @@
     if (alt && w.quickAlt) { b.altCd = pat.cd; b.fireCd = Math.max(b.fireCd, 0.15); } else
     b.fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * b.spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
     const gun = muzzleOf(b, k);   // from the gun's tip, as the player's screen fires it
+    if (k === "laser" && alt) { b.linkHeld = now - (b.linkAt || 0) < 400 ? (b.linkHeld || 0) + (now - b.linkAt) / 1000 : 0; b.linkAt = now; mul *= linkHeatOf(b.linkHeld); }   // (its beam heats held on, as a player's screen has it)
     const shot = volley(b, now, pat, gun, (k === "bolt" && !alt) || (k === "laser" && alt) ? boltLock(b, gun) : undefined, mul);
     if (pat.guided && shot) { shot.life = SHOTS[K.NUKE].life; b.guide = { shot, gb: b.input.gb || 0 }; }   // steered by the player from now on
     const kick = (pat.kick || 0) * (w.charge ? mul : 1);

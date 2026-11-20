@@ -377,13 +377,30 @@
   // back over the right shoulder; a swing sweeps round the front from right to left (the Saber's next one back again),
   // the hilt circling just outside the bin and the blade pointing outward, so it never passes through the bin.
   // A Blood Blade swing: SWING_ARC radians swept in SWING_MS, centred on the aim; the blade reaches BLADE_REACH
-  const SWING_MS = 350, SWING_ARC = 2.5, BLADE_REACH = 165, SABER_MS = 200, SABER_REACH = 150;
+  const SWING_MS = 350, SWING_ARC = 2.5, BLADE_REACH = 125, SABER_MS = 200, SABER_REACH = 150;
   const swingSideOf = () => -1;   // (right-handed: from the right round to the left, on every screen and the server alike)
   const swingEase = k => 1 - Math.pow(1 - k, 2.2);
   // where the blade is now: from the bin's edge out to its tip, swept round as the swing goes (owner: the bin swinging)
   function swordSweep(s, owner) {
     const k = Math.min(1, 1 - s.life / SHOTS[K.SWORD].life), a = s.sa - SWING_ARC / 2 * s.side + SWING_ARC * s.side * swingEase(k), r0 = binR(owner.lv || 1) * 0.6;
     s.px = owner.x + Math.cos(a) * r0; s.py = owner.y + Math.sin(a) * r0; s.x = owner.x + Math.cos(a) * BLADE_REACH; s.y = owner.y + Math.sin(a) * BLADE_REACH;
+  }
+  // the Blood Blade bites whatever it touches, swung or not: at rest or wound up, a bin its beam lies across takes a
+  // touch (K.MELEE, a small blow) every 0.45 s. Judged where its owner is judged (my screen; a server pilot on the
+  // server), so the hit goes the way every hit goes. targets: [id, bin] pairs to try
+  const TOUCH_MS = 450;
+  function bladeTouch(b, now, wind, targets) {
+    if (b.swingAt && now - b.swingAt < (b.swingMs || SWING_MS)) return;   // mid-swing the swing itself cuts
+    const P = bladePose(b, true, wind, now), rh = binR(b.lv || 1) + 4, L = (BLADE_REACH - rh * 0.6) * (1 + wind * 0.08);
+    const ha = b.a + P.ph, hx = b.x + Math.cos(ha) * rh, hy = b.y + Math.sin(ha) * rh, da = b.a + P.ps, ux = Math.cos(da), uy = Math.sin(da);
+    const seen = b.touched || (b.touched = new Map());
+    for (const [id, o] of targets) {
+      if (!o || o === b || o.dead || mates(o, b) || now - (seen.get(id) || 0) < TOUCH_MS) continue;
+      const t = clamp((o.x - hx) * ux + (o.y - hy) * uy, 0, L), cx = hx + ux * t, cy = hy + uy * t;
+      if (Math.hypot(o.x - cx, o.y - cy) > binR(o.lv || 1) * 0.9) continue;
+      seen.set(id, now);
+      volley(b, now, WEAPONS.gauntlet, { x: cx, y: cy });
+    }
   }
   function swingStart(o, a, side) {
     o.swingSide = side; o.swingAt = performance.now(); o.swingMs = SWING_MS;
@@ -465,7 +482,7 @@
     if (victim) { scars.push({ o: victim, lx: x - victim.x, ly: y - victim.y, oa: victim.a || 0, a: a - (victim.a || 0), t: 0, len: 46 * sc, col }); if (scars.length > 24) scars.shift(); }
     impacts.push({ x, y, t: 0, r: 34 * sc, col: "#ffffff", dur: 0.08 });
     impacts.push({ x, y, t: 0, r: 170 * sc, col, dur: 0.35, soft: 0.55, fluided: true });   // (light only: no smoke cloud)
-    rings.push({ x, y, t: 0, r: 120 * sc, col, dur: 0.28, w: 5, warp: true });
+    rings.push({ x, y, t: 0, r: 120 * sc, col, dur: 0.28, w: 5, warp: true, bare: true });   // the air bends round the cut, no ring drawn
     for (const d of [-1, 1]) {   // molten droplets flung along the stroke, both ways, most the way it was going
       for (let k = 0, n = Math.round((d > 0 ? 22 : 9) * q * sc); k < n; k++) {
         const b2 = a + (d > 0 ? 0 : Math.PI) + (Math.random() - 0.5) * 0.7, v = 300 + Math.random() * 700;
@@ -1017,7 +1034,7 @@
   // pal "plasma": the same blast in energy (the shock orb and its combo): blue-white clouds, cold light, no smoke or chips
   const BLAST_PAL = {
     fire: { cloud: "fire", light: "255,176,96", sparks: SPARK_COLS, ember: "fire", ring: "255,246,230", dust: "rgb(150,138,142)", smoke: true },
-    demon: { cloud: "demon", light: "110,255,120", sparks: ["#f2ffd0", "#9dff6a", "#3bff6a"], ember: "demon", ring: "170,255,160", dust: "rgb(60,120,70)", smoke: false },
+    demon: { cloud: "demon", light: "110,255,120", sparks: ["#ff4a3c", "#9dff6a", "#ff2a3c"], ember: "demon", ring: "170,255,160", dust: "rgb(60,120,70)", smoke: false },
     plasma: { cloud: "plasma", light: "120,200,255", sparks: ["#ffffff", "#c8f4ff", "#7fdcff"], ember: "plasma", ring: "200,240,255", dust: "rgb(110,160,220)", smoke: false }
   };
   function explode(x, y, n, speed, pal = "fire") {

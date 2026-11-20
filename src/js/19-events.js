@@ -761,12 +761,12 @@
       beamSeen.add(b.who);
       const x1 = sx(b.x1), y1 = sy(b.y1), x2 = sx(b.x2), y2 = sy(b.y2), L = Math.hypot(x2 - x1, y2 - y1) || 1;
       if (!onScreen((x1 + x2) / 2, (y1 + y2) / 2, L / 2 + 60)) continue;
-      const now = performance.now(), k = Math.max(0, 1 - b.t / ((b.shock ? 0.35 : LASER_T) * 1.4)), nx = (x2 - x1) / L, ny = (y2 - y1) / L;
-      const ht = b.heat || 0, [glow, body, arc] = b.shock ? ["150,100,255", "201,164,255", "235,220,255"] : ht > 0.5 ? ["140,255,90", "220,255,170", "255,255,220"] : ["65,220,25", "155,255,80", "220,255,160"];
+      const now = performance.now(), k = !b.shock && b.t < 0.27 ? 1 : Math.max(0, 1 - b.t / ((b.shock ? 0.35 : LASER_T) * 1.4)), nx = (x2 - x1) / L, ny = (y2 - y1) / L;
+      const ht = b.heat || 0, [glow, body, arc] = b.shock ? ["150,100,255", "201,164,255", "235,220,255"] : ht > 0.8 ? ["255,230,120", "255,250,210", "255,255,240"] : ht > 0.45 ? ["160,255,80", "225,255,170", "255,255,220"] : ["65,220,25", "155,255,80", "220,255,160"];   // (heating: green, lime, then yellow-white)
       g.lineCap = "round"; g.lineJoin = "round";
       const line = (w, c) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
-      const flick = 0.85 + 0.15 * Math.sin(now / 23 + b.seed);
-      const hw = 1 + ht * 0.9;   // (a heated link beam: thicker and whiter)
+      const flick = 0.92 + 0.08 * Math.sin(now / 23 + b.seed);
+      const hw = 0.75 + ht * 1.5;   // (a heated link beam: from thin to twice as thick, and whiter)
       line((b.shock ? 22 : 34) * k * flick * hw + 6, `rgba(${glow},${(0.16 + ht * 0.12) * k})`);
       line((b.shock ? 10 : 15) * k * flick * hw + 2, `rgba(${glow},${(0.35 + ht * 0.2) * k})`);
       line((b.shock ? 4 : 6) * k * hw + 1, `rgba(${body},${0.9 * k})`);
@@ -822,6 +822,7 @@
       if (q.warp && !lowQ && k < 0.9 && onScreen(x, y, q.r)) {
         g.globalCompositeOperation = "source-over"; refractRing(x, y, q.r * e, 24, 1 - k); g.globalCompositeOperation = "lighter";
       }
+      if (q.bare) continue;   // (only the air bending: no ring drawn)
       g.strokeStyle = `rgba(${q.col},${0.7 * (1 - k)})`; g.lineWidth = (q.w || 10) * (1 - k) + 1.5;
       g.beginPath(); g.arc(x, y, q.r * e, 0, 6.29); g.stroke();
     }

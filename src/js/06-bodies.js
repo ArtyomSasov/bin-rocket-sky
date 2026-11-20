@@ -778,7 +778,7 @@
     if (!n) return 0;
     const q = b.q;
     q.save(); q.lineCap = "round"; q.beginPath(); q.moveTo(x1, y1); q.lineTo(x2, y2);
-    q.globalCompositeOperation = "source-atop"; q.strokeStyle = "rgba(160,100,255,0.65)"; q.lineWidth = rad * 2 + 7; q.stroke();
+    q.globalCompositeOperation = "source-atop"; q.strokeStyle = "rgba(24,16,14,0.55)"; q.lineWidth = rad * 2 + 5; q.stroke();   // (its lips scorched dark: the glow is the melt, which cools away)
     q.globalCompositeOperation = "destination-out"; q.lineWidth = rad * 2; q.stroke(); q.restore();
     sweepOrphans(b, i0 - 1, i1 + 1, j0 - 1, j1 + 1);
     b.mass -= n; b.dirty = true;

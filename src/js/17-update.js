@@ -27,6 +27,7 @@
     const altReady = WEAPONS[me.weapon].quickAlt ? playing && roundLive && !me.dead && !guided && (!serverRun || srv.joined) && me.altCd <= 0 : ready;
     if (altReady && altHeld && altW && !altW.charge && !altW.load) { triggerTick(dt, now, false, held); shoot(now, true); }
     else if (triggerTick(dt, now, ready && fireCd <= 0 && !(altHeld && (altW?.charge || altW?.load)) && railCharge === 0, held) || (ready && me.weapon === "gauntlet" && now < (me.lungeUntil || 0))) shoot(now);   // a lunge lands blows too
+    if (me.weapon === "saw" && playing && roundLive && !me.dead && !serverRun) bladeTouch(me, now, charge, remotes);   // (on the server, the server judges it)
   }
   // controls: respawn when due, fire, read the stick / keys / mouse, boost energy
   function steerAndShoot(dt, now) {
@@ -388,6 +389,40 @@
     s.life = Math.min(s.life, 1e-4);   // one frame of hits, then gone
   }
   const spotHeard = new Set();
+  // the hook: it flies until it bites into something solid or a bin (not its own), then holds there (following a bin)
+  // and hauls its pilot in, up to 0.9 s or until the pilot is there. Hauled where the pilot's flight is decided: my
+  // own on my screen (and foreseen on the server's game), a server pilot's on the server. Returns true when it is done
+  const HOOK_PULL = 1900, HOOK_HOLD = 0.9;
+  function hookStep(s, dt, now) {
+    const mineHere = s.mine || (serverRun && s.owner === srv.id), sh = mineHere ? me : botById.get(s.owner) || remotes.get(s.owner);
+    if (!sh || sh.dead) return true;
+    if (!s.latch) {
+      const nx = s.x + s.vx * dt, ny = s.y + s.vy * dt, len = Math.hypot(nx - s.x, ny - s.y), n = Math.max(1, Math.ceil(len / 10));
+      for (let k = 1; k <= n; k++) {
+        const px = s.x + (nx - s.x) * k / n, py = s.y + (ny - s.y) * k / n;
+        let o = null;
+        for (const [rid, r] of remotes) if (rid !== s.owner && !r.dead && Math.hypot(r.x - px, r.y - py) < binR(r.lv || 1) + 4) { o = [rid, r]; break; }
+        if (!o && !mineHere && playing && !me.dead && Math.hypot(me.x - px, me.y - py) < binR(me.lv) + 4) o = ["me", me];
+        if (o || solidAny(px, py)) {
+          s.latch = o ? { id: o[0], dx: px - o[1].x, dy: py - o[1].y } : { x: px, y: py }; s.x = px; s.y = py; s.vx = s.vy = 0; s.held = 0; s.life = 1;
+          sparkShower(px, py, -(nx - s.x), -(ny - s.y), 0.6); impact(px, py, "#dfe6f0", 0.6);
+          if (Math.hypot(px - me.x, py - me.y) < 1800) packPlay("p_metal", 0.7, px, py);
+          return false;
+        }
+      }
+      s.x = nx; s.y = ny;
+      return s.expireAfterStep;   // (missed: reeled back in)
+    }
+    const L = s.latch, o = L.id === undefined ? null : L.id === "me" ? me : remotes.get(L.id) || botById.get(L.id);
+    if (L.id !== undefined && (!o || o.dead)) return true;
+    if (o) { s.x = o.x + L.dx * 0.6; s.y = o.y + L.dy * 0.6; }   // (a bin: held to it as it moves)
+    s.held += dt; s.life = 1; s.expireAfterStep = false;
+    const dx = s.x - sh.x, dy = s.y - sh.y, d = Math.hypot(dx, dy) || 1;
+    if (d < binR(sh.lv || 1) + (o ? binR(o.lv || 1) + 10 : 30) || s.held > HOOK_HOLD) return true;   // there
+    const hauls = mineHere || (botById.get(s.owner) || {}).input;
+    if (hauls) { const k = Math.min(1, dt * 14); sh.vx += (dx / d * HOOK_PULL - sh.vx) * k; sh.vy += (dy / d * HOOK_PULL - sh.vy) * k; }
+    return false;
+  }
   function updateShots(dt, now) {
     // fireballs
     for (let i = shots.length - 1; i >= 0; i--) {
@@ -405,10 +440,8 @@
       }
       if (s.kind === K.RECALL) { recallSaws(s); shots.splice(i, 1); continue; }
       if (s.kind === K.PULSE_BOLT && s.life > 0 && Math.random() < (lowQ ? 0.35 : 0.8)) puff(s.x, s.y, s.vx * 0.05 + (Math.random() - 0.5) * 60, s.vy * 0.05 + (Math.random() - 0.5) * 60, 0.18 + Math.random() * 0.2, 1 + Math.random(), Math.random() < 0.5 ? "#9dff5a" : "#e8ffc0", 5, 0, 0, 0.9);   // its trail of motes
-      if (s.kind === K.MELEE && !s.swung) {   // a Saber blow: its pilot swings the blade (if it isn't mid-swing already)
-        s.swung = true; const sh = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
-        if (sh && !sh.dead) saberSwing(sh, now);
-      }
+      if (s.kind === K.GAMMA && s.life > 0 && Math.random() < (lowQ ? 0.3 : 0.75)) puff(s.x - s.vx / (Math.hypot(s.vx, s.vy) || 1) * 50, s.y - s.vy / (Math.hypot(s.vx, s.vy) || 1) * 50, s.vx * 0.1 + (Math.random() - 0.5) * 50, s.vy * 0.1 + (Math.random() - 0.5) * 50, 0.9 + Math.random() * 0.8, 10 + Math.random() * 10, Math.random() < 0.7 ? "#0c0608" : "#2a0a10", 2, 0, (Math.random() - 0.5) * 0.6, 0.96);   // a trail of black smoke
+      if (s.kind === K.HOOK) { if (hookStep(s, stepDt, now)) shots.splice(i, 1); continue; }
       if (s.kind === K.SWORD) {   // a sword swing: its bin swings the blade, the crescent sweeps, and the blade cuts as it goes
         const sh = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
         if (!sh || sh.dead) { s.life = 0; shots.splice(i, 1); continue; }

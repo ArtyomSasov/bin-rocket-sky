@@ -26,7 +26,7 @@ test('slot keys are stable when inventory changes and every slot has its own usa
   const c=setup(),keys=vm.runInContext('WEAPON_SLOTS.map(weaponKey)',c);
   assert.equal(new Set(keys).size,keys.length);assert.ok(keys.length>=16);assert.ok(keys.every(k=>/^(Alt\+)?[0-9]$/.test(k)));
   const before=c.weaponKey('rail');c.me.arsenal={rail:2,fire:Infinity};assert.equal(c.weaponKey('rail'),before);
-  assert.equal(c.weaponKey('fire'),'1');assert.equal(c.weaponKey('gauntlet'),'2');
+  assert.equal(c.weaponKey('fire'),'1');assert.equal(c.weaponKey('saw'),'2');
 });
 test('permanent walls block through-wall segments, allow same-side blasts and open doorways',()=>{
   const c=setup();c.bodies=[{fixed:true,x:100,y:100,hw:10,hh:80}];

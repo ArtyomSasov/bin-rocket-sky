@@ -165,10 +165,11 @@
 
   function drawDemonicOrb(x, y, radius, now) {
     g.save(); g.translate(x, y); g.scale(radius / 32, radius / 32);
-    g.globalAlpha *= 0.55; g.drawImage(dotSprite("#36ef56"), -90, -90, 180, 180); g.globalAlpha = 1;
+    g.globalAlpha *= 0.35; g.drawImage(dotSprite("#36ef56"), -90, -90, 180, 180); g.globalAlpha = 1;
+    // a dark, scorched shell (black and blood red) split by cracks of sickly green fire
     const skin = g.createRadialGradient(-8, -10, 1, 0, 0, 34);
-    skin.addColorStop(0, "#f0ffb7"); skin.addColorStop(0.25, "#b9ff65"); skin.addColorStop(0.58, "#42df40");
-    skin.addColorStop(0.85, "#116d31"); skin.addColorStop(1, "#062719");
+    skin.addColorStop(0, "#ff6a4a"); skin.addColorStop(0.22, "#8a1424"); skin.addColorStop(0.55, "#2a0c12");
+    skin.addColorStop(0.85, "#0c0a08"); skin.addColorStop(1, "#000000");
     g.fillStyle = skin; g.beginPath(); g.arc(0, 0, 32, 0, Math.PI * 2); g.fill();
     g.save(); g.beginPath(); g.arc(0, 0, 31, 0, Math.PI * 2); g.clip();
     g.rotate(now / 1700);
@@ -176,18 +177,19 @@
     for (let i = 0; i < 7; i++) {
       g.save(); g.rotate(i * Math.PI * 2 / 7);
       const bend = Math.sin(now / 340 + i * 2) * 5;
-      g.strokeStyle = "#063a22"; g.lineWidth = 3;
+      g.strokeStyle = "#000000"; g.lineWidth = 3.5;
       g.beginPath(); g.moveTo(10, -3); g.bezierCurveTo(18, -9 + bend, 17, 12, 25, 8); g.lineTo(36, bend); g.stroke();
-      g.strokeStyle = "#a6ff65"; g.lineWidth = 1;
+      g.strokeStyle = "#7dff5a"; g.lineWidth = 1.6;
       g.beginPath(); g.moveTo(15, -7 + bend); g.quadraticCurveTo(22, -13, 33, -7); g.stroke(); g.restore();
     }
     g.restore();
-    const core = g.createRadialGradient(-4, -4, 0, 0, 0, 15);
-    core.addColorStop(0, "#ffffde"); core.addColorStop(0.3, "#e4ffa4"); core.addColorStop(1, "#b3ff5300");
-    g.fillStyle = core; g.beginPath(); g.arc(0, 0, 15, 0, Math.PI * 2); g.fill();
+    const beat = 0.75 + 0.25 * Math.pow(Math.abs(Math.sin(now / 260)), 6);   // its heart beats, slow and heavy
+    const core = g.createRadialGradient(-2, -2, 0, 0, 0, 15 * beat);
+    core.addColorStop(0, "#ffe8d8"); core.addColorStop(0.3, "#ff4a3c"); core.addColorStop(1, "#8a001800");
+    g.fillStyle = core; g.beginPath(); g.arc(0, 0, 15 * beat, 0, Math.PI * 2); g.fill();
     for (let i = 0; i < 6; i++) {
       const a = i * Math.PI / 3 + now / 1300, tip = 39 + Math.sin(now / 110 + i) * 5;
-      g.save(); g.rotate(a); g.fillStyle = "#7aff7070"; g.beginPath(); g.moveTo(27, -5);
+      g.save(); g.rotate(a); g.fillStyle = "#5cff6a60"; g.beginPath(); g.moveTo(27, -5);
       g.quadraticCurveTo(tip, -10, tip + 4, 3); g.quadraticCurveTo(33, -2, 28, 6); g.closePath(); g.fill(); g.restore();
     }
     g.restore();
@@ -259,6 +261,25 @@
     }
     if (s.kind === K.PISTOL || s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.DET) return;   // beams are drawn as beams; a detonator isn't seen
     if (s.kind === K.MELEE || s.kind === K.SWORD) return;   // a blow, a swing: the blade on the bin (and its trail) is what you see
+    if (s.kind === K.HOOK) {   // the hook: a chain of steel links from its gun to a barbed head
+      const sh = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
+      if (!sh) return;
+      const ox = sx(sh.x), oy = sy(sh.y), dx = x - ox, dy = y - oy, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, n = Math.floor(d / (9 * TS));
+      g.save(); g.lineCap = "round";
+      for (let k = 0; k < n; k++) {   // links, alternately face-on and edge-on
+        const cx = ox + ux * (k + 0.5) * d / n, cy = oy + uy * (k + 0.5) * d / n;
+        g.save(); g.translate(cx, cy); g.rotate(Math.atan2(uy, ux));
+        g.strokeStyle = k % 2 ? "#7d8796" : "#c9d2de"; g.lineWidth = 2.2 * TS;
+        if (k % 2) { g.beginPath(); g.moveTo(-5 * TS, 0); g.lineTo(5 * TS, 0); g.stroke(); }
+        else { g.beginPath(); g.ellipse(0, 0, 5.5 * TS, 3 * TS, 0, 0, 6.283); g.stroke(); }
+        g.restore();
+      }
+      g.translate(x, y); g.rotate(Math.atan2(uy, ux));   // the head: a steel point with two barbs
+      g.fillStyle = "#e6edf5"; g.strokeStyle = "#5c6675"; g.lineWidth = 1.5 * TS;
+      g.beginPath(); g.moveTo(10 * TS, 0); g.lineTo(-4 * TS, -7 * TS); g.lineTo(-1 * TS, 0); g.lineTo(-4 * TS, 7 * TS); g.closePath(); g.fill(); g.stroke();
+      g.restore();
+      return;
+    }
     if (s.kind === K.NAIL || s.kind === K.SPIKE) {   // a nail: a silver shaft with a dark head (a spike is longer and glows)
       const sp = s.kind === K.SPIKE, L = sp ? 34 : 16;
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx)); g.lineCap = "round";
@@ -390,15 +411,25 @@
     }
     if (s.kind === K.GAMMA) {   // the demonic orb: a churning ball of hellfire in a shroud of green flame and smoke
       const speed = Math.hypot(s.vx, s.vy) || 1, ux = s.vx / speed, uy = s.vy / speed;
-      g.save(); g.globalCompositeOperation = "lighter";
-      g.globalAlpha = 0.3; g.drawImage(dotSprite("#2cff5a"), x - 110, y - 110, 220, 220);
+      g.save();
+      const dk = g.createRadialGradient(x, y, 20, x, y, 190);   // it darkens the space round it, as if it drinks the light
+      dk.addColorStop(0, "rgba(0,0,0,0.6)"); dk.addColorStop(0.55, "rgba(6,0,4,0.32)"); dk.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = dk; g.beginPath(); g.arc(x, y, 190, 0, 6.29); g.fill();
+      g.globalCompositeOperation = "lighter";
+      g.globalAlpha = 0.1; g.drawImage(dotSprite("#2cff5a"), x - 110, y - 110, 220, 220);
       g.globalCompositeOperation = "source-over";   // (the shroud laid over, not added: it stays green, dark at its edges)
       // the shroud: flame clouds turning round it both ways, streaming back along its flight
       for (let i = 0; i < 10; i++) {
         const a = now / (i % 2 ? 700 : -900) + i * 0.628, rr = 22 + (i % 3) * 10 + Math.sin(now / 230 + i) * 5, back = (i % 4) * 9;
         const cx = x + Math.cos(a) * rr - ux * back, cy = y + Math.sin(a) * rr - uy * back, d = 46 + (i % 3) * 14;
-        g.globalAlpha = 0.7; g.save(); g.translate(cx, cy); g.rotate(now / 400 + i);
-        g.drawImage(fireSprite(3 + (i % 5), i & 3, DEMON_RAMP), -d / 2, -d / 2, d, d); g.restore();
+        g.globalAlpha = 0.3; g.save(); g.translate(cx, cy); g.rotate(now / 400 + i);
+        g.drawImage(fireSprite(5 + (i % 3), i & 3, DEMON_RAMP), -d / 2, -d / 2, d, d); g.restore();   // (the darker greens of its fire)
+      }
+      for (let i = 0; i < 6; i++) {   // black smoke coiling through the flame
+        const a = now / (i % 2 ? -520 : 610) + i * 1.047, rr = 26 + (i % 3) * 8, cx = x + Math.cos(a) * rr - ux * 14, cy = y + Math.sin(a) * rr - uy * 14, d = 30 + (i % 2) * 12;
+        const sm = g.createRadialGradient(cx, cy, 0, cx, cy, d);
+        sm.addColorStop(0, "rgba(6,2,4,0.85)"); sm.addColorStop(0.6, "rgba(10,2,6,0.4)"); sm.addColorStop(1, "rgba(6,2,4,0)");
+        g.globalAlpha = 1; g.fillStyle = sm; g.beginPath(); g.arc(cx, cy, d, 0, 6.29); g.fill();
       }
       g.restore();
       drawDemonicOrb(x, y, 30 + Math.sin(now / 160) * 2, now);
@@ -1085,7 +1116,7 @@
   // the crosshair: a ring ahead of the bin on the line its shots take, in the gun's colour; red and tighter when
   // someone you can hurt is on that line
   function drawAim(now) {
-    if (charge > 0 && playing && !me.dead) {   // the charge cannon filling up: a ring round the bin, white-hot when full
+    if (charge > 0 && playing && !me.dead && !WEAPONS[me.weapon]?.sword) {   // (the sword shows its wind-up on the blade itself)   // the charge cannon filling up: a ring round the bin, white-hot when full
       const x = sx(me.x), y = sy(me.y), R = 70 * sizeOf(me.lv), full = charge >= 1;
       g.save(); g.lineCap = "round";
       g.strokeStyle = "rgba(127,184,255,0.25)"; g.lineWidth = 6; g.beginPath(); g.arc(x, y, R, 0, 6.29); g.stroke();

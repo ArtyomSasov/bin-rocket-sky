@@ -74,12 +74,12 @@ test('primary fire, boost, collisions and large blasts select the replacement re
 test('rocket uses UT and grenade keeps Quake while the demonic orb plays its own explosion once', () => {
   const events = [];
   const c = { K:{MINE:6,ORB:7,GAMMA:13,ROCKET:1,GREN:23}, me:{x:0,y:0}, lowQ:true, shake:0,
-    impacts:[],rings:[],arcs:[], explode(){},puff(){},smoke(){},
+    impacts:[],rings:[],arcs:[], post:null, explode(){},puff(){},smoke(){},
     packPlay(name){events.push(name);return true;},sfx(){throw Error('unexpected fallback');} };
   vm.createContext(c); const source=read('11-weapons.js');
   vm.runInContext(source.slice(source.indexOf('  function blastFx'),source.indexOf('  let hitTickAt')),c);
   for(const kind of [1,23,13]) {const shot={kind,x:kind===13?1700:20,y:20};c.blastFx(shot);c.blastFx(shot);}
-  assert.deepEqual(events,['p_boom_rocket','p_quake_grenade_boom','p_boom_gamma']);
+  assert.deepEqual(events,['p_boom_rocket','p_quake_grenade_boom','p_boom_gamma','p_blast_heavy']);   // (the demonic orb: its own blast with a heavy one under it)
 });
 
 test('the jet engine is made here: it roars up with the throttle, lights its afterburner on boost and falls silent when it should', () => {

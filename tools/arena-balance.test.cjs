@@ -55,5 +55,5 @@ test('source damage relationships and the minigun\'s explosive alternate match t
   assert.equal(run('WEAPONS.minigun.spin.join()'), '0.2,0.05,2.2');   // the primary winds up over 2.2 s
   assert.ok(run('WEAPONS.minigun.alt.cd > WEAPONS.minigun.cd'));
   assert.equal(run('SHOTS[K.GREN].dmg'), 3);
-  assert.equal(run('SHOTS[K.MELEE].dmg'), 1.5);
+  assert.equal(run('SHOTS[K.MELEE].dmg'), 0.3);   // a blade's touch: a small blow
 });
