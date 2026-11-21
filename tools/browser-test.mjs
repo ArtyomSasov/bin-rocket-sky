@@ -250,7 +250,8 @@ try {
   await evaluate(lagB, '__t.me.hitHistory=[];__t.recordHitPose(__t.me,performance.now()-100);__t.recordHitPose(__t.me,performance.now())');
   const lagShot = await evaluate(lagA, "__t.volley(__t.me,performance.now(),{shot:[__t.K.RAIL,4200]},{x:100,y:600}).id");
   await wait(70);
-  await evaluate(lagB, '__t.me.y=750;__t.recordHitPose(__t.me,performance.now())');
+  // (a jump, not a glide: the pose just before it is recorded too, so the history does not ease from one to the other)
+  await evaluate(lagB, '__t.recordHitPose(__t.me,performance.now()-12);__t.me.y=750;__t.recordHitPose(__t.me,performance.now())');
   await until(lagB, `__t.seenShots.has(${JSON.stringify(lagShot)})`,3000);
   const lagDebug = await evaluate(lagB, '({now:performance.now(),shot:__t.shots[0],history:__t.me.hitHistory,pose:__t.hitPose(__t.shots[0],__t.me),round:__t.roundLive,remotes:[...__t.remotes.values()].map(r=>({tag:r.tag,ping:r.ping,off:r.off,tm:r.tm}))})');
   const lagHealth = await evaluate(lagB, '__t.updateShots(0.016,performance.now());__t.me.lives');
@@ -299,7 +300,7 @@ try {
     assert.equal(await evaluate(lagB,`(()=>{const s=__t.shots.find(s=>s.id===${JSON.stringify(id)});return ${weapon==='saw'?'!!s?.returning':'!s || s.life<=0 || !!s.boom'};})()`),true,'remote '+weapon+' command');
   }
   console.log('PASS last gamma/mine commands reach the other browser');
-  for (const [weapon, alt, kind] of [['fire',false,29],['minigun',true,31],['saw',false,33],['laser',false,32],['laser',true,2]]) {
+  for (const [weapon, alt, kind] of [['fire',false,29],['minigun',true,31],['saw',false,33],['laser',false,32],['laser',true,36]]) {
     for(const p of [lagA,lagB]) await evaluate(p,'__t.isolate();__t.me.dead=false;__t.me.inv=1e15');
     const id=await evaluate(lagA,`__t.me.weapon=${JSON.stringify(weapon)};__t.me.arsenal[${JSON.stringify(weapon)}]=20;__t.shoot(performance.now(),${alt});__t.netSend(1,performance.now());__t.myShotLog.at(-1).d[0]`);
     await until(lagB,`__t.shots.some(s=>s.id===${JSON.stringify(id)}&&s.kind===${kind})`);

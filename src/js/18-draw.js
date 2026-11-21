@@ -263,6 +263,20 @@
     }
     if (s.kind === K.PISTOL || s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.DET) return;   // beams are drawn as beams; a detonator isn't seen
     if (s.kind === K.MELEE || s.kind === K.SWORD) return;   // a blow, a swing: the blade on the bin (and its trail) is what you see
+    if (s.kind === K.SENTRY) {   // the Pulse Gun's sentry: a green core in two turning rings of plasma, flaring as it fires
+      const life = SHOTS[K.SENTRY].life, fade = Math.min(1, s.life / 0.4), fl = s.shotAt ? Math.max(0, 1 - (now - s.shotAt) / 120) : 0;
+      g.save(); g.translate(x, y); g.globalCompositeOperation = "lighter"; g.globalAlpha = fade;
+      g.globalAlpha = (0.35 + 0.4 * fl) * fade; g.drawImage(dotSprite("#7dff3a"), -60, -60, 120, 120);
+      g.globalAlpha = fade; g.lineWidth = 2.2; g.strokeStyle = "rgba(190,255,140,0.85)";
+      for (let k = 0; k < 2; k++) {   // two broken rings turning opposite ways
+        const r = 15 + k * 7, sp = (k ? -1 : 1) * now / (260 + k * 120);
+        for (let q = 0; q < 3; q++) { g.beginPath(); g.arc(0, 0, r, sp + q * 2.094, sp + q * 2.094 + 1.3); g.stroke(); }
+      }
+      g.globalAlpha = 0.9 * fade; g.drawImage(fireSprite(2 + ((now / 50) | 0) % 3, (s.x | 0) & 3, DEMON_RAMP), -14, -14, 28, 28);
+      g.fillStyle = "#ffffff"; g.beginPath(); g.arc(0, 0, 4 + 2 * fl, 0, 6.29); g.fill();
+      if (fl > 0 && s.shotA !== undefined) { g.rotate(s.shotA); g.globalAlpha = fl * fade; g.drawImage(dotSprite("#c8ff7a"), 8, -9, 46, 18); }   // its muzzle flash, toward its mark
+      g.restore(); return;
+    }
     if (s.kind === K.HOOK) {   // the hook: a chain of steel links from its gun to a barbed head
       const sh = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
       if (!sh) return;

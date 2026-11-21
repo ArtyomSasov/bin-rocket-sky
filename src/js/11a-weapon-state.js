@@ -54,7 +54,7 @@
     saw: "Blood Blade: hold to wind the red blade back over your shoulder, let go to sweep it through the arc ahead; the fuller the wind-up, the harder it cuts, through rock and walls too. No alternate fire.",
     mine: "Detonate works with zero ammo while your mines are active.",
     gamma: "One slow orb controls a 280 px zone: green pulses drain nearby enemies. ALT detonates for up to 80 HP, including after the last ammo. Walls block damage.",
-    laser: "Pulse Gun: rapid green plasma bolts. Hold alternate fire for a steady beam that grows stronger the longer it is held (green to white-hot, up to three times its first bite) until the gun overheats after about 3 s and must cool; 1 ammo per tick. Cover blocks both modes.",
+    laser: "Pulse Gun: rapid green plasma bolts. Alternate fire throws a Pulse Sentry: a core of plasma that drifts to a stop and for about 3.5 s fires bolts of its own at the nearest enemy within reach; 10 ammo, ready again after 6 s. Cover blocks its aim.",
     rail: "Precision shot: 80 HP, 1.8 s between shots. Primary fire only. Armor absorbs damage; permanent walls block the beam."
   };
   const weaponHint = k => WEAPONS[k].name + " · " + weaponKey(k) + ". " + (ALT_HINTS[k] || "Q/E cycles carried weapons. Right click or C uses alternate fire when available.");

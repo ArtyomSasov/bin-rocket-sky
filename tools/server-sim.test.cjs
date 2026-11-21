@@ -532,3 +532,27 @@ test('the scatter gun\'s hook bites into a bin and hauls its pilot there', { ski
     assert.equal(A.arsenal.scatter, 10, 'the hook costs no ammo');
   } finally { m.dispose(); }
 });
+
+test('the Pulse Gun\'s sentry hangs where it stops and shoots a pilot near it', { skip }, async () => {
+  const { createMatch } = await sim();
+  const m = createMatch({ code: 'm1d0o' });
+  m.game.__simTerrain.empty();
+  try {
+    const a = m.addPilot('Gunner'), v = m.addPilot('Mark');
+    run(m, 0.1);
+    const A = m.game.__simBot(a), V = m.game.__simBot(v), w = m.game.__simConst.WEAPON_KEYS.indexOf('laser'), K = m.game.__simConst.K;
+    A.arsenal.laser = 40; A.weapon = 'laser';
+    const hold = () => { Object.assign(V, { x: 2500, y: 2300, vx: 0, vy: 0 }); };
+    Object.assign(A, { x: 2000, y: 2000, vx: 0, vy: 0, a: 0 }); hold();
+    m.input(a, { w, aim: 0 }); run(m, 0.1, hold);
+    const lives0 = V.lives;
+    run(m, 0.2, () => { hold(); m.input(a, { w, aim: 0, alt: true }); });
+    // the gunner flies off and looks away: the sentry fights on by itself
+    let sentry = null;
+    run(m, 2.5, () => { hold(); Object.assign(A, { x: 600, y: 600, vx: 0, vy: 0 }); m.input(a, { w, aim: Math.PI }); sentry = sentry || m.game.__simShots().find(s => s.kind === K.SENTRY); });
+    assert.ok(sentry, 'the alt throws a sentry');
+    assert.ok(Math.hypot(sentry.vx, sentry.vy) < 20, 'it has drifted to a stop');
+    assert.ok(V.lives < lives0, 'its bolts hit the pilot near it: ' + lives0 + ' -> ' + V.lives);
+    assert.equal(A.arsenal.laser, 30, 'a sentry costs 10');
+  } finally { m.dispose(); }
+});

@@ -105,7 +105,7 @@
     // (a quick alt has its own cooldown: the shock beam right after an orb)
     if (w.quickAlt && i.alt && alt && live && (b.altCd || 0) <= 0) { pilotShoot(b, now, k, true); return; }
     if (!ready) return;
-    if (i.alt && alt && !alt.load && !alt.charge) pilotShoot(b, now, k, true);
+    if (i.alt && alt && !alt.load && !alt.charge && !w.quickAlt) pilotShoot(b, now, k, true);   // (a quick alt waits for its own cooldown, as the screen's does)
     else if ((i.fire && !w.charge) || (k === "gauntlet" && now < (b.lungeUntil || 0))) pilotShoot(b, now, k, false);   // a lunge lands blows too
   }
   function pilotShoot(b, now, k, alt, mul = 1, rockets = 0) {
@@ -149,8 +149,8 @@
     if (alt && w.quickAlt) { b.altCd = pat.cd; b.fireCd = Math.max(b.fireCd, 0.15); } else
     b.fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * b.spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
     const gun = muzzleOf(b, k);   // from the gun's tip, as the player's screen fires it
-    if (k === "laser" && alt) { b.linkHeld = now - (b.linkAt || 0) < 400 ? (b.linkHeld || 0) + (now - b.linkAt) / 1000 : 0; b.linkAt = now; mul *= linkHeatOf(b.linkHeld); }   // (its beam heats held on, as a player's screen has it)
-    const shot = volley(b, now, pat, gun, (k === "bolt" && !alt) || (k === "laser" && alt) ? boltLock(b, gun) : undefined, mul);
+    if (alt && pat.shot[0] === K.LASER) { b.linkHeld = now - (b.linkAt || 0) < 400 ? (b.linkHeld || 0) + (now - b.linkAt) / 1000 : 0; b.linkAt = now; mul *= linkHeatOf(b.linkHeld); }   // (its beam heats held on, as a player's screen has it)
+    const shot = volley(b, now, pat, gun, (k === "bolt" && !alt) || (alt && pat.shot[0] === K.LASER) ? boltLock(b, gun) : undefined, mul);
     if (pat.guided && shot) { shot.life = SHOTS[K.NUKE].life; b.guide = { shot, gb: b.input.gb || 0 }; }   // steered by the player from now on
     const kick = (pat.kick || 0) * (w.charge ? mul : 1);
     b.vx -= ax * kick; b.vy -= ay * kick;

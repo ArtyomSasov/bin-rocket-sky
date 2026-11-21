@@ -423,6 +423,34 @@
     if (hauls) { const k = Math.min(1, dt * 14); sh.vx += (dx / d * HOOK_PULL - sh.vx) * k; sh.vy += (dy / d * HOOK_PULL - sh.vy) * k; }
     return false;
   }
+  // the Pulse Gun's sentry: a core of plasma that drifts to a stop (stopped by rock), then fires a pulse bolt at the
+  // nearest enemy in reach every SENTRY_EVERY s until it burns out. It fires where its owner's shots are made (my
+  // screen offline or between browsers, the server for a player there, a host for its bots); every other screen
+  // only moves its copy, and sees its bolts arrive as that owner's shots
+  const SENTRY_REACH = 650, SENTRY_EVERY = 0.3, SENTRY_ARM = 0.35, SENTRY_PAT = { shot: [K.PULSE_BOLT, 1500], cost: 0 };
+  function sentryStep(s, dt, now) {
+    const k = Math.exp(-4.5 * dt), nx = s.x + s.vx * dt, ny = s.y + s.vy * dt;
+    if (solidAny(nx, ny)) { s.vx = s.vy = 0; } else { s.x = nx; s.y = ny; s.vx *= k; s.vy *= k; }
+    s.px = s.x; s.py = s.y;
+    s.age = (s.age || 0) + dt;
+    const owner = s.mine ? me : botById.get(s.owner);
+    if (!owner || owner.dead || s.age < SENTRY_ARM) return s.expireAfterStep;
+    s.cd = (s.cd || 0) - dt;
+    if (s.cd > 0) return s.expireAfterStep;
+    let best = null, bd = SENTRY_REACH;
+    const consider = o => { if (!o || o === owner || o.dead || mates(o, owner)) return; const d = Math.hypot(o.x - s.x, o.y - s.y); if (d < bd && !fixedCover(s.x, s.y, o.x, o.y)) { bd = d; best = o; } };
+    for (const b of bots) consider(b);
+    if (owner === me) for (const r of remotes.values()) consider(r);
+    else if (playing && !serverRun) consider(me);
+    if (!best) { s.cd = 0.1; return s.expireAfterStep; }
+    s.cd = SENTRY_EVERY;
+    const lead = bd / 1500, aim = Math.atan2(best.y + (best.vy || 0) * lead - s.y, best.x + (best.vx || 0) * lead - s.x);
+    const b = volley(owner, now, SENTRY_PAT, { x: s.x + Math.cos(aim) * 22, y: s.y + Math.sin(aim) * 22 }, aim, 0.6);
+    if (b) { b.catchup = 0; b.catchSlow = 0; }   // (fired by the sentry now, not by its owner's screen a round trip ago)
+    s.shotAt = now; s.shotA = aim;
+    if (Math.hypot(s.x - me.x, s.y - me.y) < 1600) packPlay("p_ut_pulse_fire", 0.45, s.x, s.y);
+    return s.expireAfterStep;
+  }
   function updateShots(dt, now) {
     // fireballs
     for (let i = shots.length - 1; i >= 0; i--) {
@@ -442,6 +470,7 @@
       if (s.kind === K.PULSE_BOLT && s.life > 0 && Math.random() < (lowQ ? 0.35 : 0.8)) puff(s.x, s.y, s.vx * 0.05 + (Math.random() - 0.5) * 60, s.vy * 0.05 + (Math.random() - 0.5) * 60, 0.18 + Math.random() * 0.2, 1 + Math.random(), Math.random() < 0.5 ? "#9dff5a" : "#e8ffc0", 5, 0, 0, 0.9);   // its trail of motes
       if (s.kind === K.GAMMA && s.life > 0 && Math.random() < (lowQ ? 0.3 : 0.75)) puff(s.x - s.vx / (Math.hypot(s.vx, s.vy) || 1) * 50, s.y - s.vy / (Math.hypot(s.vx, s.vy) || 1) * 50, s.vx * 0.1 + (Math.random() - 0.5) * 50, s.vy * 0.1 + (Math.random() - 0.5) * 50, 0.9 + Math.random() * 0.8, 10 + Math.random() * 10, Math.random() < 0.7 ? "#0c0608" : "#2a0a10", 2, 0, (Math.random() - 0.5) * 0.6, 0.96);   // a trail of black smoke
       if (s.kind === K.HOOK) { if (hookStep(s, stepDt, now)) shots.splice(i, 1); continue; }
+      if (s.kind === K.SENTRY) { if (sentryStep(s, stepDt, now) || s.life <= 0) shots.splice(i, 1); continue; }
       if (s.kind === K.SWORD) {   // a sword swing: its bin swings the blade, the crescent sweeps, and the blade cuts as it goes
         const sh = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
         if (!sh || sh.dead) { s.life = 0; shots.splice(i, 1); continue; }

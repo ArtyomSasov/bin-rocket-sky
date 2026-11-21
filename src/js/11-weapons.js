@@ -705,12 +705,12 @@
     if (alt && w.quickAlt) { me.altCd = pat.cd; fireCd = Math.max(fireCd, 0.15); } else
     fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
     const gun = muzzleAt(k);   // (the server fires a player's pilot from the same gun tips)
-    if (k === "laser" && alt) { me.linkHeld = now - (me.linkAt || 0) < 400 ? (me.linkHeld || 0) + (now - me.linkAt) / 1000 : 0; me.linkAt = now; mul *= linkHeatOf(me.linkHeld); }   // (the link beam heats up held on)
-    const muzzle = volley(me, now, pat, gun, (k === "bolt" && !alt || k === "laser" && alt) ? boltLock(me, gun) : undefined, mul);
+    if (alt && pat.shot[0] === K.LASER) { me.linkHeld = now - (me.linkAt || 0) < 400 ? (me.linkHeld || 0) + (now - me.linkAt) / 1000 : 0; me.linkAt = now; mul *= linkHeatOf(me.linkHeld); }   // (the link beam heats up held on)
+    const muzzle = volley(me, now, pat, gun, (k === "bolt" && !alt || alt && pat.shot[0] === K.LASER) ? boltLock(me, gun) : undefined, mul);
     const [name, vol, pitch] = pat.sfx;
     const packed = alt && k === "orb" ? audioCue("shockBeam") : k === "minigun" && alt ? (stopContinuous("me"), packPlay("p_user_autocannon", 0.7))
       : k === "minigun" ? continuousFire("me", "minigun", me.x, me.y, now, false)
-      : k === "laser" ? continuousFire("me", "laser", me.x, me.y, now, !!alt)
+      : k === "laser" && !alt ? continuousFire("me", "laser", me.x, me.y, now, false)
       : k === "saw" && !alt ? true   // (the Blood Blade's swing sounds as it swings: swingStart)
       : packPlay(alt ? ALT_SOUND[k] || "" : k === "holy" ? "p_fire_gren" : "p_fire_" + k, 0.9);
     if (!packed) sfx(name, vol, w.charge ? pitch * (1.3 - 0.4 * mul) : pitch);   // a fuller charge sounds deeper
@@ -741,7 +741,7 @@
     spin = w.spin && held && playing && !me.dead ? Math.min(1, spin + dt / w.spin[2]) : Math.max(0, spin - dt * 1.5);
     // a sound pack's loops: the hum of the gun in your hands, and the laser's beam while the trigger is held
     const alive = playing && !me.dead;
-    const altAutomatic = (me.weapon === "minigun" || me.weapon === "laser") && (altFiring || keys.has("KeyC"));
+    const altAutomatic = me.weapon === "minigun" && (altFiring || keys.has("KeyC"));
     packLoop("hum", alive ? { rail: "p_hum_rail", gamma: "p_hum_gamma" }[me.weapon] || null : null, 0.22);
     const beam = alive && (held || altAutomatic) && roundLive && me.weapon === "laser" && me.arsenal.laser > 0;
     if (!beam && me.weapon === "laser" && firingSounds.has("me")) stopContinuous("me");
