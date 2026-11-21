@@ -2,7 +2,7 @@
 // The map is cleared (no planets, junk, events or pick-ups), target dummies stand still in a row, and each gun
 // fires its primary and its alt at them. The report says, per gun and mode: shots fired, damage dealt, the sounds
 // heard and whether the page threw; a screenshot is taken mid-fire and just after.
-//   BROWSER_PATH=/path/to/chrome node tools/lab.mjs [gun,gun,...]        (OUT=dir for the screenshots; W/H: viewport)
+//   BROWSER_PATH=/path/to/chrome node tools/lab.mjs [gun,gun,...]        (OUT=dir for the screenshots; W/H: viewport; MOBILE=1: a touch phone)
 // FX=1 node tools/lab.mjs [rocket,gren,mine,flak,bin,hits,spark,nuke,holy,sword,saber,engine,boost,fall,jolt,nova]: each effect photographed as it unfolds
 // (engine/boost: flying under thrust / on boost, then turning; sword/saber: the blades swung at a dummy), then a stress test
 import { createServer } from 'node:http';
@@ -65,6 +65,11 @@ try {
   const { targetId } = await send('Target.createTarget', { url: 'about:blank' });
   const { sessionId } = await send('Target.attachToTarget', { targetId, flatten: true });
   await send('Runtime.enable', {}, sessionId);
+  if (process.env.MOBILE) {   // MOBILE=1: a phone (touch, coarse pointer, W x H in CSS pixels)
+    await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 2, mobile: true }, sessionId);
+    await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 }, sessionId);
+    await send('Emulation.setEmitTouchEventsForMouse', { enabled: true, configuration: 'mobile' }, sessionId);
+  }
   await send('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/?offline` }, sessionId);
   const ev = async x => { const r = await send('Runtime.evaluate', { expression: x, returnByValue: true, awaitPromise: true }, sessionId); if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text); return r.result.value; };
   const shot = async name => { const { data } = await send('Page.captureScreenshot', { format: 'png' }, sessionId); await writeFile(join(OUT, name + '.png'), Buffer.from(data, 'base64')); };

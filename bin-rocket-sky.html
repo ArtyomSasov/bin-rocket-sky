@@ -600,6 +600,18 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   .stepnav { position: sticky; bottom: -16px; z-index: 2; margin-inline: -14px; width: calc(100% + 28px); padding: 10px 14px 14px;
     background: linear-gradient(to bottom, rgba(30, 21, 58, 0), rgba(30, 21, 58, 0.94) 30%); }
 }
+
+/* first steps: the newcomer's card, above the gun bar */
+.tips { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 10px;
+  max-width: min(560px, calc(100vw - 24px)); padding: 9px 10px 9px 14px; font-size: 14px; font-weight: 700; pointer-events: auto; }
+.tips b { font-size: 11px; letter-spacing: .06em; color: var(--muted); white-space: nowrap; }
+.tips span { flex: 1; }
+.tips button { background: none; border: 0; box-shadow: none; border-radius: 8px; color: var(--muted); font-size: 20px; line-height: 1; padding: 2px 6px; cursor: pointer; min-width: 32px; min-height: 32px; }
+.tips.pop { animation: tipPop .35s ease-out; }
+.tips.done b { color: #6ff0a0; }
+@keyframes tipPop { from { transform: translateX(-50%) translateY(8px); opacity: .2; } to { transform: translateX(-50%); opacity: 1; } }
+@media (pointer: coarse) { .tips { bottom: auto; top: 212px; font-size: 13px; } }   /* under the energy bar and the map */
+@media (pointer: coarse) and (max-height: 500px) { .tips { top: 96px; max-width: 46vw; } }   /* a phone on its side: under the energy bar, clear of the bin in the middle */
 </style>
 
 <canvas id="c" tabindex="0" aria-label="Game arena"></canvas>
@@ -615,6 +627,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
 <button class="fire" id="fireBtn" aria-label="Fire" hidden><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg></button>
 <div class="event" id="eventBanner" hidden></div>
 <div class="match-hud"><div class="match-header">
+<div class="tips chip" id="tips" role="status" aria-live="polite" hidden><b id="tipsStep">1/4</b><span id="tipsText"></span><button type="button" aria-label="Close the tips">×</button></div>
 <div class="match-clock chip" id="roundInfo" role="timer" aria-label="Round timer">Round 1 · 5:00</div>
 <div class="hud-tools"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><button type="button" id="chatBtn" aria-label="Chat">Chat</button><button type="button" id="scoreBtn" aria-controls="scoreboard" aria-expanded="false">Scores <span>Tab</span></button></div>
 </div>
@@ -12461,6 +12474,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     update(now < hitStopUntil ? 0 : dt, now); draw(now);
     if (!playing) drawPreview(now);
     else { drawMinimap(now); renderEnergy(); }
+    tipsTick(now);
     if (post) post.frame(dt);   // the WebGL look over the finished frame (20b-post.js)
     const cur = playing && mouseAim() ? (settings.aim === "off" || me.dead ? "crosshair" : "none") : "";
     if (cv.style.cursor !== cur) cv.style.cursor = cur;
@@ -12851,6 +12865,50 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       }
     };
   })();
+  // ---------- first steps: a short card for a newcomer ----------
+  // On a first match a small card at the bottom walks through the controls, one step at a time; each step is ticked
+  // off by doing it (not by reading it), and the card goes for good once all are done or it is closed. Touch screens
+  // get their own steps
+  const TIPS_KEY = "binrocket.tips";
+  const TIP_STEPS = COARSE ? [
+    ["Drag the stick on the left to fly", t => t.flown > 400],
+    ["Hold the boost button to boost, tap it to dash", t => t.boosted],
+    ["Tap the fire button to shoot", t => t.shots >= 3],
+    ["ALT fires the gun's second mode; tap a gun in the bar to switch", t => t.alt || t.switched]
+  ] : [
+    ["Fly with W A S D", t => t.flown > 400],
+    ["Hold Shift to boost, tap it to dash", t => t.boosted],
+    ["Aim with the mouse, the left button fires", t => t.shots >= 3],
+    ["The right button fires the gun's second mode; 1–9 or Q / E switch guns", t => t.alt || t.switched]
+  ];
+  const tipsEl = document.getElementById("tips"), tipsText = document.getElementById("tipsText"), tipsStep = document.getElementById("tipsStep");
+  let tips = null;   // { step, flown, boosted, shots, alt, switched, x, y, shots0, weapon0, dash0, doneAt }
+  tipsEl?.querySelector("button")?.addEventListener("click", () => { store.set(TIPS_KEY, "done"); tips = { closed: true }; tipsEl.hidden = true; });
+  function tipsTick(now) {
+    if (!tipsEl || tips?.closed) return;
+    if (!tips) {
+      if (store.get(TIPS_KEY) === "done" || !playing || me.dead) return;
+      tips = { step: 0, flown: 0, boosted: false, shots: 0, alt: false, switched: false, x: me.x, y: me.y, shots0: stats.shots, weapon0: me.weapon, dash0: me.dashAt || 0 };
+    }
+    if (!playing) { tipsEl.hidden = true; return; }
+    if (!me.dead) {
+      const d = Math.hypot(me.x - tips.x, me.y - tips.y); if (d < 300) tips.flown += d;   // (not a respawn's jump)
+      tips.x = me.x; tips.y = me.y;
+      if (me.boostOn || (me.dashAt || 0) > tips.dash0) tips.boosted = true;
+      tips.shots = stats.shots - tips.shots0;
+      if (altFiring || keys.has("KeyC")) tips.alt = true;
+      if (me.weapon !== tips.weapon0) tips.switched = true;
+    }
+    if (tips.doneAt) {   // the last step ticked: "Ready" for a moment, then gone for good
+      if (now - tips.doneAt > 1800) { store.set(TIPS_KEY, "done"); tips.closed = true; tipsEl.hidden = true; }
+      return;
+    }
+    while (tips.step < TIP_STEPS.length && TIP_STEPS[tips.step][1](tips)) tips.step++;
+    if (tips.step >= TIP_STEPS.length) { tips.doneAt = now; tipsText.textContent = "Ready. Good hunting!"; tipsStep.textContent = "✓"; tipsEl.classList.add("done"); return; }
+    const txt = TIP_STEPS[tips.step][0];
+    if (tipsText.textContent !== txt) { tipsText.textContent = txt; tipsStep.textContent = (tips.step + 1) + "/" + TIP_STEPS.length; tipsEl.classList.remove("pop"); void tipsEl.offsetWidth; tipsEl.classList.add("pop"); }
+    tipsEl.hidden = false;
+  }
   // ---------- controls help, tailored to the device ----------
   const KEY = k => `<kbd>${k}</kbd>`;
   // desktop rows differ only in a few key names
