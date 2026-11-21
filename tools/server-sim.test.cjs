@@ -556,3 +556,24 @@ test('the Pulse Gun\'s sentry hangs where it stops and shoots a pilot near it', 
     assert.equal(A.arsenal.laser, 30, 'a sentry costs 10');
   } finally { m.dispose(); }
 });
+
+test('a void bomb\'s black hole drags every pilot in, the one who threw it too', { skip }, async () => {
+  const { createMatch } = await sim();
+  const m = createMatch({ code: 'm1d0o' });
+  m.game.__simTerrain.empty();
+  try {
+    const a = m.addPilot('Thrower'), v = m.addPilot('Victim');
+    run(m, 0.1);
+    const A = m.game.__simBot(a), V = m.game.__simBot(v), w = m.game.__simConst.WEAPON_KEYS.indexOf('void');
+    A.arsenal.void = 1; A.weapon = 'void';
+    Object.assign(A, { x: 1500, y: 2000, vx: 0, vy: 0, a: 0 }); Object.assign(V, { x: 3300, y: 2000, vx: 0, vy: 0 });
+    m.input(a, { w, aim: 0, fire: true }); run(m, 0.1); m.input(a, { w, aim: 0 });
+    run(m, 1.6);   // it flies on and bursts
+    const hole = { x: (A.x + V.x) / 2 }, dA0 = null;
+    const a0 = A.x, v0 = V.x;
+    m.input(v, { w: 0, aim: 0 });
+    run(m, 1.0);
+    console.log('# thrower', Math.round(a0), '->', Math.round(A.x), 'victim', Math.round(v0), '->', Math.round(V.x), 'dead', A.dead, V.dead);
+    assert.ok(V.dead || V.x < v0 - 150, 'the victim is dragged toward the hole: ' + Math.round(v0) + ' -> ' + Math.round(V.x));
+  } finally { m.dispose(); }
+});

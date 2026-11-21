@@ -3,13 +3,13 @@
 // DELAY=ms holds every message this long each way (a proxy in front of the server: DevTools latency does not apply
 // to WebSocket frames), so DELAY=42 is a ~85 ms round trip. SECS: how long. Prints shown / confirmed / not shown,
 // the state of each target hit shown but never confirmed, and the server's own " net " line.
-// usage: DELAY=42 SECS=40 node tools/hits.mjs [scratch dir]
+// usage: DELAY=42 SECS=40 [GUN=rocket] node tools/hits.mjs [scratch dir]   (GUN=rocket: the test range, loading and firing rocket volleys; VOLLEY: rockets shown at once / sent back by the server / matched)
 import { createServer } from 'node:http';
 import net from 'node:net';
 import { readFile, mkdtemp } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { join, resolve } from 'node:path';
-const root = new URL('..', import.meta.url).pathname.replace(/\/$/, ''), scratch = process.argv[2] || (await import('node:os')).tmpdir(), LAT = +(process.env.LAT || 0), SECS = +(process.env.SECS || 25), GUN = process.env.GUN || 'minigun';
+const root = new URL('..', import.meta.url).pathname.replace(/\/$/, ''), scratch = process.argv[2] || (await import('node:os')).tmpdir(), LAT = +(process.env.LAT || 0), SECS = +(process.env.SECS || 25), GUN = process.env.GUN || 'fire';
 const hook = 'window.__e = s => eval(s);\n';
 const web = createServer(async (req, res) => { try { const n = decodeURIComponent(new URL(req.url, 'http://x').pathname), f = resolve(root, '.' + (n === '/' ? '/index.html' : n));
   let d = await readFile(f); if (f.endsWith('/index.html')) d = Buffer.from(d.toString().replace('})();\n</script>', hook + '})();\n</script>'));
@@ -45,7 +45,7 @@ try {
   const A = await page(), B = await page();
   for (const [p, name] of [[A, 'Shooter'], [B, 'Target']]) {
     await p(`chooseWhere('srv'); document.getElementById('tabJoin').click(); document.getElementById('nameInput').value = '${name}';
-      const li = document.getElementById('lobbyInput'); li.value = 'M1D0OHITS'; li.dispatchEvent(new Event('input')); document.getElementById('startForm').requestSubmit(); 0`);
+      const li = document.getElementById('lobbyInput'); li.value = '${GUN === 'rocket' ? 'M1X0OHITS' : 'M1D0OHITS'}'; li.dispatchEvent(new Event('input')); document.getElementById('startForm').requestSubmit(); 0`);
     await wait(2500);
   }
   console.log('joined', await A(`'playing ' + playing + ' live ' + roundLive + ' dead ' + me.dead + ' pos ' + Math.round(me.x) + ',' + Math.round(me.y) + ' info ' + document.getElementById('roundInfo').textContent + ' start ' + !document.getElementById('start').hidden + ' ' + serverRun + ' ' + srv.joined + ' ping ' + Math.round(myPing||0) + ' remotes ' + remotes.size`), '|', await B(`srv.joined + ' ping ' + Math.round(myPing||0)`));
@@ -61,12 +61,21 @@ try {
       ptr.cx = sx(r.x) * zoom; ptr.cy = sy(r.y) * zoom;
       if (d > 520) { if (Math.abs(dx) > 80) keys.add(dx > 0 ? 'KeyD' : 'KeyA'); if (Math.abs(dy) > 80) keys.add(dy > 0 ? 'KeyS' : 'KeyW'); }
       else if (d < 300) { if (Math.abs(dx) > 80) keys.add(dx > 0 ? 'KeyA' : 'KeyD'); if (Math.abs(dy) > 80) keys.add(dy > 0 ? 'KeyW' : 'KeyS'); }
-      keys.add('KeyF'); }, 30); 0`);
+      if (${JSON.stringify(GUN)} === 'ram' || ${JSON.stringify(GUN)} === 'fly') { keys.delete('KeyW'); keys.delete('KeyS'); keys.delete('KeyA'); keys.delete('KeyD'); const tx = ${JSON.stringify(GUN)} === 'ram' ? r.x : r.x + 900 * Math.cos(performance.now() / 1500), ty = ${JSON.stringify(GUN)} === 'ram' ? r.y : r.y + 900 * Math.sin(performance.now() / 1500); if (Math.abs(tx - me.x) > 20) keys.add(tx > me.x ? 'KeyD' : 'KeyA'); if (Math.abs(ty - me.y) > 20) keys.add(ty > me.y ? 'KeyS' : 'KeyW'); return; }
+      if (${JSON.stringify(GUN)} === 'rocket') { if (me.weapon !== 'rocket') selectWeapon('rocket'); altFiring = performance.now() % 1800 < 1200; } else keys.add('KeyF'); }, 30);
+    // rockets: how many my screen showed at once (predictShot) and how many of mine the server sent back
+    window.__err = []; const rc0 = reconcile; reconcile = m => { rc0(m); __err.push(srv.lastErr); };
+    window.__vol = { shown: 0, srv: 0, claimed: 0 }; const ps0 = predictShot, ar0 = addRemoteShot, cp0 = claimPrediction;
+    predictShot = s => { if (s.kind === K.ROCKET) __vol.shown++; return ps0(s); };
+    addRemoteShot = (owner, f, ...a) => { if (owner === srv.id && Array.isArray(f) && f[5] === K.ROCKET && !seenShots.has(f[0])) __vol.srv++; return ar0(owner, f, ...a); };
+    claimPrediction = (kind, now, id) => { const r = cp0(kind, now, id); if (kind === K.ROCKET && r) __vol.claimed++; return r; }; 0`);
   // the target flies about a little, as a player would
   await B(`window.__ctl = setInterval(() => { const t = performance.now() / 1000; keys.delete('KeyW'); keys.delete('KeyS'); keys.add(Math.sin(t * 1.3) > 0 ? 'KeyW' : 'KeyS'); }, 100); 0`);
   for (let t = 0; t < SECS; t += 5) { await wait(5000); console.log(t + 5 + 's', await A(`document.getElementById('roundInfo').textContent + ' live ' + roundLive + ' dead ' + me.dead + ' matchReady ' + matchReady + ' ping ' + Math.round(myPing||0) + ' shown so far ' + (__acc.hs + srv.report.hs) + ' confirmed ' + (__acc.hc + srv.report.hc) + ' unshown ' + (__acc.hn + srv.report.hn) + ' myShots ' + stats.shots + ' weapon ' + me.weapon + ' d ' + Math.round(Math.hypot(([...remotes.values()][0]||me).x-me.x, ([...remotes.values()][0]||me).y-me.y)) + ' keys ' + [...keys].join()`)); }
   const r = await A(`({ hs: __acc.hs + srv.report.hs, hc: __acc.hc + srv.report.hc, hn: __acc.hn + srv.report.hn, ping: Math.round(myPing||0) })`);
   console.log('RESULT', JSON.stringify(r), 'confirmed', r.hs ? Math.round(100 * r.hc / r.hs) + '%' : '-');
+  console.log('CORRECTIONS', JSON.stringify(await A(`(() => { const e = __err.filter(Number.isFinite), n = e.length, c = k => e.filter(x => x > k).length; return { n, over2: c(2), over10: c(10), over30: c(30), max: Math.round(Math.max(0, ...e.filter(x => x < 300))) }; })()`)));
+  if (GUN === 'rocket') console.log('VOLLEY', JSON.stringify(await A('__vol')));
   console.log('errors', errs);
   console.log('RD', JSON.stringify(await A(`({ ...__rd, rds: [...__rd.rds], nm: [...(__rd.nm || [])], credSize: credited.size })`)));
   console.log('UNCONFIRMED', JSON.stringify(await A(`__log.filter(e => !e.ok).map(e => ({ kind: e.kind, side: e.side, perp: e.perp, lives: e.lives, inv: e.inv, dead: e.dead }))`)));

@@ -325,12 +325,11 @@
     }
     g.restore();
   }
-  // dash: a flash and a hot ring at the nozzle, sparks thrown back
+  // dash: a flash at the nozzle, sparks thrown back (no ring: it read as a circle round whoever dashed)
   function dashBurst(b) {
     const jet = exhaustJets({ ...b, thrust: Math.max(1, b.thrust || 0) }, performance.now()).sort((a, b) => b.power - a.power)[0];
     const A = jet.a - Math.PI, sz = sizeOf(b.lv || 1), tx = jet.x, ty = jet.y;
     impacts.push({ x: tx, y: ty, t: 0, r: 90 * sz, col: "#ffd23f" });
-    rings.push({ x: tx, y: ty, t: 0, r: 110 * sz, col: "255,220,160", dur: 0.35, w: 8 });
     for (let k = 0; k < (lowQ ? 12 : 30); k++) {
       const a = A + Math.PI + (Math.random() - 0.5) * 0.9, v = 400 + Math.random() * 500;
       puff(tx, ty, Math.cos(a) * v, Math.sin(a) * v, 0.25 + Math.random() * 0.25, 1.2 + Math.random(), k % 2 ? "#fff6c8" : "#ffb43c", 1);
@@ -478,7 +477,7 @@
   // fall away glowing; the cut leaves a glowing scar on the hull it struck that cools and fades
   const cuts = [], scars = [];
   function bladeHitFx(x, y, a, heavy, victim) {
-    const col = heavy ? "255,40,60" : "70,175,255", hex = heavy ? "#ff3048" : "#4ab4ff", sc = heavy ? 1.35 : 1, q = lowQ ? 0.45 : 1;
+    const col = "255,40,60", hex = "#ff3048", sc = heavy ? 1.35 : 0.8, q = lowQ ? 0.45 : 1;   // (one blade now: its touch is red too, and smaller)
     cuts.push({ x, y, a, t: 0, len: 190 * sc, col, heavy });
     if (cuts.length > 16) cuts.shift();
     if (victim) { scars.push({ o: victim, lx: x - victim.x, ly: y - victim.y, oa: victim.a || 0, a: a - (victim.a || 0), t: 0, len: 46 * sc, col }); if (scars.length > 24) scars.shift(); }
