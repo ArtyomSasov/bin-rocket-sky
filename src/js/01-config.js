@@ -92,7 +92,7 @@
     { name: "pulse plasma", life: 1.05, dmg: .22, r: 7, col: "#a8ff55", carve: 9, shove: 45, sfx: ["p_ut_pulse_fire", .65, 1] },
     // the Blood Blade's swing: everything in the arc ahead of it, each once (pierce), for a moment
     // (the swing lasts its life; the blade, a line from the bin out to its tip, sweeps the arc and cuts what it passes through)
-    { name: "blood blade", life: 0.35, dmg: 2.7, r: 20, col: "#ff2a3c", carve: 0, shove: 900, pierce: true, sfx: ["p_melee_hit", 0.9, 0.8] },
+    { name: "blood blade", life: 0.35, dmg: 1.8, r: 20, col: "#ff2a3c", carve: 0, shove: 900, pierce: true, sfx: ["p_melee_hit", 0.9, 0.8] },
     // the void bomb: a slow dark orb that opens a black hole where it bursts
     { name: "void bomb", life: 1.4, dmg: 0, r: 14, col: "#b06bff", carve: 0, shove: 0, sfx: ["rocket", 1, 0.4] },
     // the scatter gun's hook on a chain: it flies, bites into a wall or a bin and hauls its pilot there (hookStep)
@@ -112,58 +112,58 @@
     // the starting gun: a laser pistol (the Enforcer's damage and pace, a red beam and the pulse gun's sound, pitched up)
     fire:    { name: "Laser pistol", ammo: Infinity, cd: 0.28, col: "#ff3b4e", shot: [K.PISTOL, 6000], jitter: 0.01, kick: 25, feel: [5, 0.05, 40], sfx: ["p_ut_fire", 0.75, 1],
                alt: { name: "Rapid fire", cost: 0, cd: 0.16, mul: 0.6, shot: [K.PISTOL, 6000], jitter: 0.085, kick: 35, feel: [6, 0.06, 45], sfx: ["p_ut_fire", 0.7, 1.4] } },   // (mul: each rapid shot is weaker: a spray up close, not the better gun)
-    triple:  { name: "Triple shot", ammo: 24, cd: 0.3, col: "#ffb43c", shot: [K.FIRE, 1000], spread: [-0.2, 0, 0.2], kick: 25, feel: [7, 0.07, 50], sfx: ["triple", 0.7],
+    triple:  { name: "Triple shot", ammo: 20, cd: 0.3, col: "#ffb43c", shot: [K.FIRE, 1000], spread: [-0.2, 0, 0.2], kick: 25, feel: [7, 0.07, 50], sfx: ["triple", 0.7],
                alt: { name: "Focus", cost: 1, cd: 0.3, shot: [K.FIRE, 1050], spread: [-0.035, 0, 0.035], kick: 60, feel: [10, 0.13, 80], sfx: ["triple", 0.8, 0.9] } },
     // Pulse Gun: fast plasma spheres; alt: hold to charge a Plasma Nova, let go to throw it
-    laser:   { name: "Pulse Gun", ammo: 120, cd: 0.12, col: "#a8ff55", shot: [K.PULSE_BOLT, 1500], kick: 6, feel: [3, 0.03, 30], sfx: ["p_ut_pulse_fire", .75, 1], fx: "pulse",
+    laser:   { name: "Pulse Gun", ammo: 80, cd: 0.12, col: "#a8ff55", shot: [K.PULSE_BOLT, 1500], kick: 6, feel: [3, 0.03, 30], sfx: ["p_ut_pulse_fire", .75, 1], fx: "pulse",
                alt: { name: "Plasma Nova", charge: 0.6, nova: true, cost: 5, cd: 0.6, shot: [K.NOVA, 1400], kick: 260, feel: [22, 0.3, 50], sfx: ["p_nova", 1, 1] } },
     // rockets as in Quake: straight and fast (about 2.4x a bin's speed), dodgeable by reading them; alt three slow homing ones
-    rocket:  { name: "Rocket launcher", ammo: 10, cd: 0.8, col: "#ff5a6e", shot: [K.ROCKET, 1350], kick: 120, feel: [12, 0.16, 70], sfx: ["rocket", 0.8],
+    rocket:  { name: "Rocket launcher", ammo: 8, cd: 0.8, col: "#ff5a6e", shot: [K.ROCKET, 1350], kick: 120, feel: [12, 0.16, 70], sfx: ["rocket", 0.8],
                alt: { name: "Load rockets", load: true, cost: 1, cd: 0.9, shot: [K.ROCKET, 1350], kick: 200, feel: [18, 0.23, 96], sfx: ["rocket", 1, 0.8] } },
     // the void bomb: where it bursts (on whatever it touches, or at the end of its flight) a black hole opens for six
     // seconds, dragging in bins, shots, wrecks, rock and smoke, and eating what reaches it
     void:    { name: "Void Bomb", ammo: 1, cd: 1.2, col: "#b06bff", shot: [K.VOID, 1000], kick: 140, feel: [26, 0.4, 110], sfx: ["rocket", 1, 0.4] },
     nuke:    { name: "Nuke", ammo: 1, cd: 1.0, col: "#ffe14d", shot: [K.NUKE, 360], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.6],
                alt: { name: "Guided", cost: 1, cd: 1.0, shot: [K.NUKE, 420], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.5], guided: true } },
-    scatter: { name: "Scatter gun", ammo: 16, cd: 0.7, col: "#ffd27a", shot: [K.PELLET, 1250], kick: 260, feel: [22, 0.3, 90], sfx: ["scatter", 1, 0.85], fx: "blast",
+    scatter: { name: "Scatter gun", ammo: 12, cd: 0.7, col: "#ffd27a", shot: [K.PELLET, 1250], kick: 260, feel: [22, 0.3, 90], sfx: ["scatter", 1, 0.85], fx: "blast",
                quickAlt: true,   // (the hook has its own cooldown: the gun fires as soon as it lands)
                alt: { name: "Hook", cost: 0, cd: 2.5, shot: [K.HOOK, 2600], kick: 0, feel: [6, 0.1, 0], sfx: ["p_metal", 0.6, 1.3] } },
     // Precision single-shot weapon, with no alternate mode.
-    rail: { name: "Railgun", ammo: 6, cd: 1.8, col: "#d9a8ff", shot: [K.RAIL, 4200], kick: 320, feel: [26, 0.35, 90], sfx: ["rail", .9], fx: "rail" },
+    rail: { name: "Railgun", ammo: 5, cd: 1.8, col: "#d9a8ff", shot: [K.RAIL, 4200], kick: 320, feel: [26, 0.35, 90], sfx: ["rail", .9], fx: "rail" },
     // the prox launcher (Quake Team Arena): a mine flies like a grenade, sticks to the first rock or wall it meets,
     // arms, and goes off a beat after an enemy comes near; alt sets off all your mines at once
-    mine:    { name: "Prox mines", ammo: 8, cd: 0.7, col: "#ff6b3c", shot: [K.MINE, 760], kick: 60, feel: [6, 0.08, 60], sfx: ["mine_drop", 0.8],
+    mine:    { name: "Prox mines", ammo: 6, cd: 0.7, col: "#ff6b3c", shot: [K.MINE, 760], kick: 60, feel: [6, 0.08, 60], sfx: ["mine_drop", 0.8],
                alt: { name: "Detonate", minedet: true, cost: 0, cd: 0.5, sfx: ["hit", 0.6, 0.6] } },
     // the shock orb: a continuously travelling ball; its alt fire is a beam, and the beam through a ball sets off a combo
-    orb:     { name: "Shock orb", ammo: 12, cd: 0.85, col: "#6fd8ff", shot: [K.ORB, 420], kick: 140, feel: [16, 0.18, 110], sfx: ["shield_get", 1, 0.9], fx: "plasma",
+    orb:     { name: "Shock orb", ammo: 9, cd: 0.85, col: "#6fd8ff", shot: [K.ORB, 420], kick: 140, feel: [16, 0.18, 110], sfx: ["shield_get", 1, 0.9], fx: "plasma",
                quickAlt: true,   // (its beam has its own cooldown: it fires at once after an orb, to set the orb off)
                alt: { name: "Beam", cost: 1, cd: 0.6, shot: [K.SHOCK, 6400], kick: 70, feel: [8, 0.08, 60], sfx: ["laser", 0.8, 0.55], fx: "shock" } },
-    bolt:    { name: "Lightning", ammo: 90, cd: 0.11, col: "#bfefff", shot: [K.BOLT, 5600], kick: 4, feel: [2, 0.03, 35], sfx: ["laser", 0.22, 1.7] },
+    bolt:    { name: "Lightning", ammo: 60, cd: 0.11, col: "#bfefff", shot: [K.BOLT, 5600], kick: 4, feel: [2, 0.03, 35], sfx: ["laser", 0.22, 1.7] },
     holy:    { name: "Holy bomb", ammo: 1, cd: 1.2, col: "#fff3b0", shot: [K.HOLY, 700], kick: 120, feel: [20, 0.3, 110], sfx: ["mine_drop", 1, 0.6] },
     // the Blood Blade: a red energy sword; each press a swing through the arc ahead, cutting whoever is in it
     // (charge: hold to wind it up, let go to strike; a full wind-up, 0.45 s, strikes at full strength)
     saw:     { name: "Blood Blade", ammo: Infinity, cd: 0.75, charge: 0.45, col: "#ff2a3c", shot: [K.SWORD, 300], sword: true, kick: -160, feel: [10, 0.14, 0], sfx: ["dash", 0.7, 1.6] },
     // alt: set your gamma orb off where it is now
-    gamma:   { name: "Demonic Orb", ammo: 3, cd: 1.6, col: "#7dff8a", shot: [K.GAMMA, 420], kick: 220, feel: [24, 0.35, 130], sfx: ["shield_get", 1, 0.5], fx: "gamma",
+    gamma:   { name: "Demonic Orb", ammo: 2, cd: 1.6, col: "#7dff8a", shot: [K.GAMMA, 420], kick: 220, feel: [24, 0.35, 130], sfx: ["shield_get", 1, 0.5], fx: "gamma",
                alt: { name: "Detonate", detonate: true, cost: 0, cd: 0.3, sfx: ["hit", 0.6, 0.6] } },
     tele:    { name: "Teleporter", ammo: 3, cd: 0.35, col: "#8ff0ff", shot: [K.BEACON, 1250], kick: 0, feel: [3, 0.02, 30], sfx: ["mine_drop", 0.7, 1.5] },
     // UT-style accurate primary and faster, less accurate alternative.
     // spin: [time between shots at a standstill, at full speed, seconds to spin up]: it winds up while the trigger is held
-    minigun: { name: "Minigun", ammo: 160, cd: 0.09, spin: [0.17, 0.065, 0.85], jitter: 0.025, col: "#ffe08a", shot: [K.BULLET, 2600], kick: 22, feel: [4, 0.05, 42], sfx: ["p_ut_mini_fire", 0.65, 1], fx: "mini",
+    minigun: { name: "Minigun", ammo: 100, cd: 0.09, spin: [0.17, 0.065, 0.85], jitter: 0.025, col: "#ffe08a", shot: [K.BULLET, 2600], kick: 22, feel: [4, 0.05, 42], sfx: ["p_ut_mini_fire", 0.65, 1], fx: "mini",
                alt: { name: "Rapid stream", cost: 1, cd: 0.045, jitter: 0.09, shot: [K.BULLET_ALT, 2600], kick: 16, feel: [3, 0.04, 36], sfx: ["p_ut_mini_alt", .65, 1], fx: "mini" } },
-    gauss:   { name: "Charge cannon", ammo: 8, cd: 1.4, charge: 1.1, col: "#7fb8ff", shot: [K.GAUSS, 3600], kick: 300, feel: [24, 0.35, 100], sfx: ["rail", 0.9, 0.75], fx: "rail" },
+    gauss:   { name: "Charge cannon", ammo: 6, cd: 1.4, charge: 1.1, col: "#7fb8ff", shot: [K.GAUSS, 3600], kick: 300, feel: [24, 0.35, 100], sfx: ["rail", 0.9, 0.75], fx: "rail" },
     // Flak Cannon: eight fragments lose energy after each ricochet.
     // alt: a flak shell that bursts into eight shards all round after a short flight (or on impact)
     // Quake's three: a nailgun (a fan of nails that fly far, alt a piercing spike), a grenade launcher (grenades
     // bounce off rock and go off after 2.5 s or on a bin, alt three at once), and the gauntlet everyone carries
     // (hold fire: the blade spins and tears into a bin it touches; alt: a lunge forward with it)
-    nail:    { name: "Nailgun", ammo: 30, cd: 0.55, col: "#cfd6e2", shot: [K.NAIL, 1700], kick: 90, feel: [10, 0.12, 60], sfx: ["fire", 0.6, 1.6],
+    nail:    { name: "Nailgun", ammo: 24, cd: 0.55, col: "#cfd6e2", shot: [K.NAIL, 1700], kick: 90, feel: [10, 0.12, 60], sfx: ["fire", 0.6, 1.6],
                alt: { name: "Spike", cost: 2, cd: 1.0, shot: [K.SPIKE, 2600], kick: 200, feel: [16, 0.22, 80], sfx: ["rail", 0.6, 1.6] } },
-    gren:    { name: "Grenade launcher", ammo: 10, cd: 0.8, col: "#8fd06a", shot: [K.GREN, 900], kick: 140, feel: [14, 0.18, 80], sfx: ["mine_drop", 0.9, 0.7],
+    gren:    { name: "Grenade launcher", ammo: 8, cd: 0.8, col: "#8fd06a", shot: [K.GREN, 900], kick: 140, feel: [14, 0.18, 80], sfx: ["mine_drop", 0.9, 0.7],
                alt: { name: "Volley", cost: 3, cd: 1.5, shot: [K.GREN, 850], spread: [-0.25, 0, 0.25], kick: 260, feel: [20, 0.28, 100], sfx: ["mine_drop", 1, 0.6] } },
     gauntlet: { name: "Saber", ammo: Infinity, cd: 0.4, col: "#ffcf5a", shot: [K.MELEE, 0], melee: true, kick: 0, feel: [6, 0.1, 0], sfx: ["hit", 0.7, 0.7],
                alt: { name: "Lunge", cost: 0, cd: 0, lunge: true, sfx: ["dash", 0.8] } },
-    shard:   { name: "Flak Cannon", ammo: 14, cd: 0.8, col: "#ff9a3c", shot: [K.SHARD, 1500], kick: 340, feel: [28, 0.42, 130], sfx: ["scatter", 1, 0.7], fx: "shard",
+    shard:   { name: "Flak Cannon", ammo: 10, cd: 0.8, col: "#ff9a3c", shot: [K.SHARD, 1500], kick: 340, feel: [28, 0.42, 130], sfx: ["scatter", 1, 0.7], fx: "shard",
                alt: { name: "Flak shell", cost: 1, cd: 0.95, shot: [K.FLAK, 1100], kick: 220, feel: [20, 0.28, 110], sfx: ["scatter", 1, 0.55], fx: "shard" } }
   };
   // Source-based baseline; 100 HP = 3 internal lives. See WEAPON-BALANCE.md.
@@ -191,7 +191,7 @@
   balanceShot(K.PELLET, { dmg: HP(12), life: 0.62 });   // real pellets in flight (not hitscan): ~1100 px of reach
   balanceShot(K.SLUG, { dmg: HP(60), life: 1.4 });
   balanceShot(K.GREN, { dmg: HP(100) });
-  balanceShot(K.MELEE, { name: "blade touch", dmg: HP(10) });   // the Blood Blade touching a bin when it isn't swung (bladeTouch)
+  balanceShot(K.MELEE, { name: "blade touch", dmg: HP(6) });   // the Blood Blade touching a bin when it isn't swung (bladeTouch)
   balanceShot(K.MINE, { dmg: HP(100) });
   Object.assign(WEAPONS.fire, { cd: .4 }); Object.assign(WEAPONS.fire.alt, { cd: .2 });
   Object.assign(WEAPONS.laser, { cd: .16, shot: [K.PULSE_BOLT, 2400] });

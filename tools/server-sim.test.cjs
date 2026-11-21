@@ -491,7 +491,7 @@ test('the Blood Blade wind-up is in the snapshot while a player holds it (others
   } finally { m.dispose(); }
 });
 
-test('everyone carries the one sword, and its blade bites what it touches even unswung (a touch every 0.45 s)', { skip }, async () => {
+test('the Blood Blade is found, not carried, and its blade bites what it touches even unswung (a touch every 0.45 s)', { skip }, async () => {
   const { createMatch } = await sim();
   const m = createMatch({ code: 'm1d0o' });
   m.game.__simTerrain.empty();
@@ -499,7 +499,8 @@ test('everyone carries the one sword, and its blade bites what it touches even u
     const a = m.addPilot('Blade'), v = m.addPilot('Victim');
     run(m, 0.1);
     const A = m.game.__simBot(a), V = m.game.__simBot(v), w = m.game.__simConst.WEAPON_KEYS.indexOf('saw');
-    assert.ok(A.arsenal.saw === Infinity && !('gauntlet' in A.arsenal), 'the sword, not the Saber');
+    assert.ok(!('saw' in A.arsenal) && !('gauntlet' in A.arsenal), 'no blade to start with');
+    m.game.__simPilotGive ? m.game.__simPilotGive(A, 'saw', Infinity) : (A.arsenal.saw = Infinity);
     const put = () => {   // the victim held on the resting blade, halfway along it
       Object.assign(A, { x: 2000, y: 2000, vx: 0, vy: 0, a: 0, inv: 0 });
       const ha = 1.4, rh = 34 + 4, hx = A.x + Math.cos(ha) * rh, hy = A.y + Math.sin(ha) * rh;
@@ -509,7 +510,7 @@ test('everyone carries the one sword, and its blade bites what it touches even u
     const hp = V.lives;
     run(m, 1, () => { put(); m.input(a, { w, aim: 0 }); });
     assert.ok(V.lives < hp, `the touched bin loses health: ${hp} -> ${V.lives}`);
-    assert.ok(hp - V.lives <= 0.3 * 3 + 1e-6, 'at most a touch every 0.45 s: ' + (hp - V.lives));
+    assert.ok(hp - V.lives <= 0.18 * 3 + 1e-6, 'at most a touch every 0.45 s: ' + (hp - V.lives));
   } finally { m.dispose(); }
 });
 

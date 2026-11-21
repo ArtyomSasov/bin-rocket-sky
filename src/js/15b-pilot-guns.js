@@ -6,7 +6,7 @@
   const PILOT_FALLBACK = ["fire", "nuke", "holy", "tele", "saw"];   // never switched to when a gun runs dry
   function pilotArm(b) {
     const o = MODES[MODE].only;
-    b.arsenal = o ? { [o]: Infinity } : { fire: Infinity, saw: Infinity }; b.weapon = o || "fire";
+    b.arsenal = o ? { [o]: Infinity } : { fire: Infinity }; b.weapon = o || "fire";
     Object.assign(b, { teleN: 0, rocketLoad: 0, loadFor: 0, spin: 0, charge: 0, cutCharge: 0, heat: 0, overheat: false });
     if (MODES[MODE].sandbox) for (const k of SANDBOX_GUNS) b.arsenal[k] = Infinity;   // the test range: everything, for ever (as baseArsenal)
   }
@@ -15,7 +15,7 @@
   function pilotGive(b, type, ammo) {
     if (type === "tele") return;   // the teleporter is retired
     if (MODES[MODE].only || !WEAPONS[type] || WEAPONS[type].disabled) return;
-    b.arsenal[type] = Math.min(WEAPONS[type].ammo * 2, (b.arsenal[type] || 0) + ammo);
+    b.arsenal[type] = Number.isFinite(WEAPONS[type].ammo) ? Math.min(WEAPONS[type].ammo * 2, (b.arsenal[type] || 0) + ammo) : Infinity;
   }
   function pilotSpend(b, k, n) {
     if (!Number.isFinite(b.arsenal[k])) return;

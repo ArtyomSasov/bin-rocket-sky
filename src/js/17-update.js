@@ -782,7 +782,7 @@
       if (WEAPONS[d.type]?.disabled || !playing || me.dead || grabbed.has(key) || now - d.born < 600 || Math.hypot(d.x - me.x, d.y - me.y) > 30 + 30 * sizeOf(me.lv) + magnet()) continue;
       grabbed.add(key); pushCapped(myGrabs, key, 40);
       const w = WEAPONS[d.type];
-      me.arsenal[d.type] = Math.min(Number.isFinite(w.ammo) ? w.ammo * 2 : 1, (me.arsenal[d.type] || 0) + d.ammo);
+      me.arsenal[d.type] = Number.isFinite(w.ammo) ? Math.min(w.ammo * 2, (me.arsenal[d.type] || 0) + d.ammo) : Infinity;   // (a blade never runs out)
       renderWeapon();
       floaters.push({ x: d.x, y: d.y - 20, t: 0, txt: "TROPHY · " + w.name.toUpperCase(), gold: true });
       for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 220; puff(d.x, d.y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, k % 2 ? "#ffd36b" : w.col); }
