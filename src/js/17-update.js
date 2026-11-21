@@ -872,8 +872,17 @@
     rebuildSolidGrid(now);
     // flying through smoke and sparks shoves them aside (faster = harder)
     const meSp = Math.hypot(me.vx, me.vy), pushR = 46 * sizeOf(me.lv), pushR2 = pushR * pushR, canPush = playing && !me.dead && meSp > 60;
+    // the planets pull the heavy bits (sparks, embers, hot blobs, burning chunks): near one they arc down onto it
+    // and bounce off its ground (smoke and fire clouds float)
+    const gp = planets.filter(q => !q.dead && !q.free && q.mass > 0);
     for (let i = parts.length - 1; i >= 0; i--) {
       const p = parts[i]; p.life -= dt;
+      if (gp.length && (p.k === 1 || p.k === 3 || p.k === 5 || p.k === 8)) for (const q of gp) {
+        const dx = q.x - p.x, dy = q.y - p.y, R = q.rr, d2 = dx * dx + dy * dy;
+        if (d2 > 9 * R * R || d2 < 1) continue;
+        const d = Math.sqrt(d2), acc = PLANET_G * 2.2 * (R / 250) * (R / Math.max(d, R)) ** 2 * (q.mass / q.mass0) * dt;
+        p.vx += dx / d * acc; p.vy += dy / d * acc;
+      }
       if (canPush && p.k !== 1) {
         const dx = p.x - me.x, dy = p.y - me.y, d2 = dx * dx + dy * dy;
         if (d2 < pushR2 && d2 > 1) { const d = Math.sqrt(d2), v = meSp * 0.8 + 80; p.vx = dx / d * v + me.vx * 0.3; p.vy = dy / d * v + me.vy * 0.3; }

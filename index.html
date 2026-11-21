@@ -9647,8 +9647,17 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     rebuildSolidGrid(now);
     // flying through smoke and sparks shoves them aside (faster = harder)
     const meSp = Math.hypot(me.vx, me.vy), pushR = 46 * sizeOf(me.lv), pushR2 = pushR * pushR, canPush = playing && !me.dead && meSp > 60;
+    // the planets pull the heavy bits (sparks, embers, hot blobs, burning chunks): near one they arc down onto it
+    // and bounce off its ground (smoke and fire clouds float)
+    const gp = planets.filter(q => !q.dead && !q.free && q.mass > 0);
     for (let i = parts.length - 1; i >= 0; i--) {
       const p = parts[i]; p.life -= dt;
+      if (gp.length && (p.k === 1 || p.k === 3 || p.k === 5 || p.k === 8)) for (const q of gp) {
+        const dx = q.x - p.x, dy = q.y - p.y, R = q.rr, d2 = dx * dx + dy * dy;
+        if (d2 > 9 * R * R || d2 < 1) continue;
+        const d = Math.sqrt(d2), acc = PLANET_G * 2.2 * (R / 250) * (R / Math.max(d, R)) ** 2 * (q.mass / q.mass0) * dt;
+        p.vx += dx / d * acc; p.vy += dy / d * acc;
+      }
       if (canPush && p.k !== 1) {
         const dx = p.x - me.x, dy = p.y - me.y, d2 = dx * dx + dy * dy;
         if (d2 < pushR2 && d2 > 1) { const d = Math.sqrt(d2), v = meSp * 0.8 + 80; p.vx = dx / d * v + me.vx * 0.3; p.vy = dy / d * v + me.vy * 0.3; }
@@ -11282,7 +11291,14 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       }
       g.restore();
     }
-    g.save(); g.translate(x, y); g.rotate(pose.a); g.scale(pose.scaleX, 1);
+    // a jolt (a crash, a ram, a hard blow, a dash): the hull squashes along it and springs back, wobbling
+    const pvx = b.jvx ?? b.vx ?? 0, pvy = b.jvy ?? b.vy ?? 0, jdv = Math.hypot((b.vx || 0) - pvx, (b.vy || 0) - pvy);
+    b.jvx = b.vx || 0; b.jvy = b.vy || 0;
+    if (jdv > 380 && !b.dead && jdv < 4000) { const k = Math.min(1, (jdv - 300) / 1200); if (k > (b.joltK || 0) * Math.exp(-(now - (b.joltAt || 0)) / 140)) { b.joltAt = now; b.joltK = k; b.joltA = Math.atan2((b.vy || 0) - pvy, (b.vx || 0) - pvx) - pose.a; } }
+    const jt = (now - (b.joltAt || -1e9)) / 1000, jk = jt < 0.6 ? (b.joltK || 0) * Math.exp(-jt / 0.14) * Math.cos(jt * 38) * 0.22 : 0;
+    g.save(); g.translate(x, y); g.rotate(pose.a);
+    if (jk) { g.rotate(b.joltA); g.scale(1 - jk, 1 + jk * 0.8); g.rotate(-b.joltA); }   // (squashed along the blow, bulging across it)
+    g.scale(pose.scaleX, 1);
     drawWings(lv, s);
     mountHeat = isMe ? Math.max(spin, Math.min(1, me.heat || 0)) : 0;
     // a minigun's barrels turn with its spin (mine: the trigger's spin-up; another's: how hard it has been firing)

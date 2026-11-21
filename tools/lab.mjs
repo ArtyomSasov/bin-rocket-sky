@@ -3,7 +3,7 @@
 // fires its primary and its alt at them. The report says, per gun and mode: shots fired, damage dealt, the sounds
 // heard and whether the page threw; a screenshot is taken mid-fire and just after.
 //   BROWSER_PATH=/path/to/chrome node tools/lab.mjs [gun,gun,...]        (OUT=dir for the screenshots; W/H: viewport)
-// FX=1 node tools/lab.mjs [rocket,gren,mine,flak,bin,hits,spark,nuke,holy,sword,saber,engine,boost,fall]: each effect photographed as it unfolds
+// FX=1 node tools/lab.mjs [rocket,gren,mine,flak,bin,hits,spark,nuke,holy,sword,saber,engine,boost,fall,jolt]: each effect photographed as it unfolds
 // (engine/boost: flying under thrust / on boost, then turning; sword/saber: the blades swung at a dummy), then a stress test
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdtemp, mkdir, rm } from 'node:fs/promises';
@@ -92,6 +92,7 @@ try {
       bin: `deathFx({ ...bots[0], x: me.x + 330, y: me.y, vx: 0, vy: 0, dead: false }, 3, 0, 0)`,
       void: `{ const h = hurtMe; hurtMe = () => {}; try { me.inv = 1e15; for (const b of bots) Object.assign(b, { x: me.x + 700 + Math.random() * 300, y: me.y + (Math.random() - 0.5) * 500, dead: false }); detonate({ kind: K.VOID, x: me.x + 500, y: me.y, mine: false, id: 'v1' }, performance.now()); for (let k = 0; k < 6; k++) explode(me.x + 300 + k * 60, me.y + 200, 30, 300); } finally { hurtMe = h; } }`,
       pulse: `{ bots[0] && Object.assign(bots[0], { x: me.x + 420, y: me.y, dead: false, lives: 30 }); cam.x = me.x + 200; cam.y = me.y; me.arsenal.laser = 999; selectWeapon("laser"); me.a = 0; let n = 0; const iv = setInterval(() => { me.a = 0; fireCd = 0; shoot(performance.now(), n > 6); if (++n > 30) clearInterval(iv); }, 70); }`,
+      jolt: `{ window.__free = 1; me.x = W / 2; me.y = H / 2; me.vx = me.vy = 0; me.a = 0; setTimeout(() => { me.vx = -1100; me.vy = 300; }, 120); setTimeout(() => { me.vx = me.vy = 0; }, 900); }`,
       fall: `{ window.__keepWorld = 1; buildPlanets(worldCode); rebuildBodies(); const p = planets.filter(p => !p.free && !p.dead).sort((a, b) => b.rr - a.rr)[0]; me.x = p.x - 330; me.y = p.y - p.rr - 140; cam.x = me.x; cam.y = me.y; me.vx = me.vy = 0; me.inv = 1e15;
         makeHulk({ x: p.x - 120, y: p.y - p.rr - 330, vx: 160, vy: 40, a: 0.3, lv: 1, ck: me.ck }); const h = hulks[hulks.length - 1]; h.spin = 3; window.__fallP = p; }`,
       sword: `{ window.__dist = 125; me.x = W * 0.3; me.y = H * 0.3; cam.x = me.x; cam.y = me.y; bots[0] && Object.assign(bots[0], { lives: 3 }); me.arsenal.saw = 30; selectWeapon("saw"); fireCd = 0; charge = 0; keys.add("KeyF"); setTimeout(() => keys.delete("KeyF"), 520); }`,
@@ -113,10 +114,10 @@ try {
     for (const name of pick) {
       await ev(`__e('parts.length = impacts.length = rings.length = booms.length = waves.length = debris.length = frags.length = hulks.length = 0')`);
       await ev('window.__dist = 4000; window.__free = 0; window.__keepWorld = 0'); await wait(300);
-      const t0 = Date.now(), times = name === 'nuke' || name === 'holy' ? [80, 400, 1000, 2000, 3500] : name === 'sword' ? [150, 420, 570, 620, 700, 1100] : name === 'fall' ? [100, 700, 1300, 1900, 2800, 4500] : name === 'saber' ? [60, 140, 260, 420, 560, 900] : [40, 150, 400, 900, 1800, 2800];
+      const t0 = Date.now(), times = name === 'nuke' || name === 'holy' ? [80, 400, 1000, 2000, 3500] : name === 'sword' ? [150, 420, 570, 620, 700, 1100] : name === 'fall' ? [100, 700, 1300, 1900, 2800, 4500] : name === 'jolt' ? [100, 150, 175, 200, 240, 320] : name === 'saber' ? [60, 140, 260, 420, 560, 900] : [40, 150, 400, 900, 1800, 2800];
       await ev(`__e(${JSON.stringify(FX[name])})`);
       let peak = 0;
-      const cxs = [], cys = [], big = name === 'nuke' || name === 'holy', follow = name === 'engine' || name === 'boost', blade = name === 'sword' || name === 'saber', cx = await ev(`__e("sx(me.x + ${big ? 250 : follow ? 0 : blade ? 70 : 330}) * innerWidth / vw")`), cy = await ev(`__e("sy(me.y) * innerWidth / vw")`), frames = [];
+      const cxs = [], cys = [], big = name === 'nuke' || name === 'holy', follow = name === 'engine' || name === 'boost' || name === 'jolt', blade = name === 'sword' || name === 'saber', cx = await ev(`__e("sx(me.x + ${big ? 250 : follow ? 0 : blade ? 70 : 330}) * innerWidth / vw")`), cy = await ev(`__e("sy(me.y) * innerWidth / vw")`), frames = [];
       for (const t of times) {
         await wait(Math.max(0, t - (Date.now() - t0)));
         peak = Math.max(peak, await ev('__e("parts.length")'));

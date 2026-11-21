@@ -1257,7 +1257,14 @@
       }
       g.restore();
     }
-    g.save(); g.translate(x, y); g.rotate(pose.a); g.scale(pose.scaleX, 1);
+    // a jolt (a crash, a ram, a hard blow, a dash): the hull squashes along it and springs back, wobbling
+    const pvx = b.jvx ?? b.vx ?? 0, pvy = b.jvy ?? b.vy ?? 0, jdv = Math.hypot((b.vx || 0) - pvx, (b.vy || 0) - pvy);
+    b.jvx = b.vx || 0; b.jvy = b.vy || 0;
+    if (jdv > 380 && !b.dead && jdv < 4000) { const k = Math.min(1, (jdv - 300) / 1200); if (k > (b.joltK || 0) * Math.exp(-(now - (b.joltAt || 0)) / 140)) { b.joltAt = now; b.joltK = k; b.joltA = Math.atan2((b.vy || 0) - pvy, (b.vx || 0) - pvx) - pose.a; } }
+    const jt = (now - (b.joltAt || -1e9)) / 1000, jk = jt < 0.6 ? (b.joltK || 0) * Math.exp(-jt / 0.14) * Math.cos(jt * 38) * 0.22 : 0;
+    g.save(); g.translate(x, y); g.rotate(pose.a);
+    if (jk) { g.rotate(b.joltA); g.scale(1 - jk, 1 + jk * 0.8); g.rotate(-b.joltA); }   // (squashed along the blow, bulging across it)
+    g.scale(pose.scaleX, 1);
     drawWings(lv, s);
     mountHeat = isMe ? Math.max(spin, Math.min(1, me.heat || 0)) : 0;
     // a minigun's barrels turn with its spin (mine: the trigger's spin-up; another's: how hard it has been firing)
