@@ -60,6 +60,15 @@
       guns: [["scatter", 0.5, 0.3], ["saw", 0.2, 0.32], ["nail", 0.93, 0.18], ["rocket", 0.4, 0.05], ["laser", 0.2, 0.43], ["minigun", 0.67, 0.4]],
       supplies: [["med", 0.6, 0.27], ["bigmed", 0.05, 0.25], ["shield", 0.62, 0.06]],
       amp: [0.5, 0.05], nuke: [0.5, 0.95], holy: [0.5, 0.38], pads: [[0.22, 0.56, 0]] },
+    // Frost Belt: a belt of ice and rock running corner to corner through the middle (gaps to fly through), an ice
+    // giant with its moon in two corners, a hull frozen in the ice either side of the belt, a ring station on the flank
+    i: { name: "Frost Belt",
+      planets: [["ice", 0.13, 0.14, 200, 1], ["ice", 0.6, 0.4, 62, 0], ["ice", 0.69, 0.31, 84, 0], ["rock", 0.77, 0.24, 52, 0], ["ice", 0.86, 0.13, 72, 0],
+        ["rock", 0.36, 0.17, 48, 0], ["ice", 0.93, 0.45, 50, 0]],
+      wrecks: [["hull", 0.32, 0.43, 0.65], ["ring", 0.84, 0.76], ["crates", 0.12, 0.42]],
+      guns: [["laser", 0.42, 0.3], ["minigun", 0.22, 0.06], ["shard", 0.6, 0.14], ["gren", 0.9, 0.3], ["rail", 0.96, 0.04], ["gamma", 0.52, 0.22]],
+      supplies: [["med", 0.46, 0.12], ["shield", 0.24, 0.3], ["bigmed", 0.96, 0.36]],
+      amp: [0.5, 0.5], nuke: [0.5, 0.05], holy: [0.5, 0.95], pads: [[0.2, 0.58, 0]] },
     // Duel: almost empty. Two ice pillars on the line between the bases, two stations above and below the centre
     o: { name: "Duel",
       planets: [["ice", 0.32, 0.5, 130, 0]],
@@ -68,7 +77,7 @@
       supplies: [["med", 0.33, 0.3], ["shield", 0.67, 0.3]],
       amp: [0.5, 0.5], nuke: [0.5, 0.06], holy: [0.5, 0.94], pads: [[0.2, 0.36, 0]] }
   };
-  for (const [map, x, y] of [["c", .14, .42], ["a", .15, .38], ["y", .12, .27], ["r", .18, .38], ["s", .12, .43], ["w", .13, .29], ["o", .22, .3]]) ARENAS[map].supplies.push(["pads", x, y]);
+  for (const [map, x, y] of [["c", .14, .42], ["a", .15, .38], ["y", .12, .27], ["r", .18, .38], ["s", .12, .43], ["w", .13, .29], ["i", .1, .3], ["o", .22, .3]]) ARENAS[map].supplies.push(["pads", x, y]);
   // an entry and its mirror through the centre (one entry when it sits on the centre)
   const mirrored = list => list.flatMap(e => {
     const [k, x, y, ...rest] = e;

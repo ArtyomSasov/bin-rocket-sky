@@ -17,6 +17,7 @@
     r: { name: "Downtown", label: "Downtown", hint: "tower blocks, a main street" },
     s: { name: "Orrery", label: "Orrery", hint: "a sun and its planets", star: true },
     w: { name: "The Tip", label: "The Tip", hint: "trucks, skips, a landfill hill" },
+    i: { name: "Frost Belt", label: "Frost Belt · NEW", hint: "an ice belt across the middle, a frozen hull" },
     o: { name: "Duel", label: "Duel", hint: "nearly empty: duels" }
   };
 
