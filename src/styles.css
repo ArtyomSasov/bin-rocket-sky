@@ -204,6 +204,8 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
 .pane[hidden], .pick[hidden] { display: none; }
 .pick { width: 100%; display: grid; gap: 6px; text-align: left; }
 .pick > span { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.pick .vol { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; }
+.pick .vol input { width: 100%; accent-color: var(--accent, #6ff0c8); min-height: 28px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
 .cards button { display: grid; gap: 2px; text-align: left; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,.04); color: var(--ink);
   border: 1px solid var(--line); box-shadow: none; font: 700 13px var(--display); }

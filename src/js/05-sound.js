@@ -7,6 +7,7 @@
     "v_multikill", "v_levelup", "v_powerup"];   // v_*: Kenney's CC0 voice-over packs
   const SFX_MP3 = new Set(["rail"]);   // rail.mp3: made by the game's author
   const sfxBuf = {};
+  let soundMix = null;   // the mix's buses, for the volume settings (applyVolumes)
   let sfxBus = null, heavyBus = null, mixBus = null, voiceBus = null, engineBus = null, userBus = null, priorityBus = null, priorityVoices = 0, sfxVoices = 0, tailVoices = 0, blastVoices = 0, hall = null;
   function createSoundMix(ctx) {
     const effects = ctx.createGain(), mix = ctx.createGain(), voice = ctx.createGain(), engine = ctx.createGain(), priority = ctx.createGain();
@@ -94,9 +95,18 @@
     jet.crG.gain.setTargetAtTime(0.05 * ab, t, 0.06);
     return;
   }
+  // the volume settings (0-100 each): all of it, the effects (guns, blasts, hits, the important cues), the engines,
+  // the announcer; each scales its bus from the mix's own level, gliding there so a slider drag does not click
+  function applyVolumes() {
+    if (!soundMix || !audio) return;
+    const v = k => Math.max(0, Math.min(100, Number(settings[k]) || 0)) / 100, t = audio.currentTime;
+    const set = (node, x) => node.gain.setTargetAtTime(x, t, 0.03);
+    set(soundMix.output, 4 * 0.95 * v("vol")); set(soundMix.effects, 0.85 * v("volFx")); set(soundMix.priority, v("volFx"));
+    set(soundMix.engine, 0.8 * v("volEngine")); set(soundMix.voice, 0.75 * v("volVoice"));
+  }
   function loadSfx() {
     if (!audio || sfxBus) return;
-    const buses = createSoundMix(audio);
+    const buses = soundMix = createSoundMix(audio);
     sfxBus = buses.effects; mixBus = buses.mix; voiceBus = buses.voice;
     engineBus = buses.engine; userBus = buses.presence; priorityBus = buses.priority;
     heavyBus = audio.createGain(); heavyBus.gain.value = 0.75;
@@ -107,6 +117,7 @@
     const room = audio.createGain(); room.gain.value = 0.18;
     heavyBus.connect(drive).connect(lows).connect(mixBus);
     lows.connect(room).connect(getHall());
+    applyVolumes();
     preloadSounds();   // (already under way since the page opened, unless it couldn't decode before a click)
     audioUp(audio);
   }

@@ -213,6 +213,8 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
 .pane[hidden], .pick[hidden] { display: none; }
 .pick { width: 100%; display: grid; gap: 6px; text-align: left; }
 .pick > span { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.pick .vol { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; }
+.pick .vol input { width: 100%; accent-color: var(--accent, #6ff0c8); min-height: 28px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
 .cards button { display: grid; gap: 2px; text-align: left; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,.04); color: var(--ink);
   border: 1px solid var(--line); box-shadow: none; font: 700 13px var(--display); }
@@ -636,6 +638,11 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     <div class="pick" id="mousePick"><span>Mouse</span><div class="segs" id="setMouse" role="group" aria-label="Mouse"></div>
       <small>Aims: the gun follows the cursor, WASD flies, left button fires. Steers: hold the button to fly toward the pointer.</small></div>
     <div class="pick"><span>Engine sound</span><div class="segs" id="setEngine" role="group" aria-label="Engine sound"></div></div>
+    <div class="pick" id="volPick"><span>Volume</span>
+      <label class="vol">All<input type="range" min="0" max="100" step="5" data-vol="vol" aria-label="All sound"></label>
+      <label class="vol">Effects<input type="range" min="0" max="100" step="5" data-vol="volFx" aria-label="Effects volume"></label>
+      <label class="vol">Engines<input type="range" min="0" max="100" step="5" data-vol="volEngine" aria-label="Engines volume"></label>
+      <label class="vol">Voice<input type="range" min="0" max="100" step="5" data-vol="volVoice" aria-label="Announcer volume"></label></div>
     <div class="pick"><span>Crosshair</span><div class="segs" id="setAim" role="group" aria-label="Crosshair"></div>
       <div class="segs" id="setAimCol" role="group" aria-label="Crosshair colour"></div></div>
     <details><summary>Weapon controls</summary><p id="weaponHint"></p><small>Fixed slots: 1–9, 0; Alt+1–6 for additional weapons. Q/E cycles carried weapons. Hold Tab: scores.</small></details>
@@ -1737,7 +1744,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // graphics settings, kept in this browser: res "auto" (drops when slow) or a fixed share of the screen's resolution,
   // fx "high" or "low" (lighter effects), aim: the crosshair ("off", "small", "big"), aimCol: its colour
   const settings = (() => {
-    const d = { res: "auto", fx: "high", post: "auto", light: "on", smoke: "on", glow: "on", aim: "small", aimCol: "gun", engine: "on", engineV: 3, mouse: "aim" };   // Recorded spaceship loop; the sound setting can still disable it
+    const d = { res: "auto", fx: "high", post: "auto", light: "on", smoke: "on", glow: "on", aim: "small", aimCol: "gun", engine: "on", engineV: 3, mouse: "aim", vol: 100, volFx: 100, volEngine: 100, volVoice: 100 };   // Recorded spaceship loop; the sound setting can still disable it
     try {
       const v = JSON.parse(store.get("binrocket.gfx"));
       if (!v || typeof v !== "object") return d;
@@ -2137,6 +2144,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     "v_multikill", "v_levelup", "v_powerup"];   // v_*: Kenney's CC0 voice-over packs
   const SFX_MP3 = new Set(["rail"]);   // rail.mp3: made by the game's author
   const sfxBuf = {};
+  let soundMix = null;   // the mix's buses, for the volume settings (applyVolumes)
   let sfxBus = null, heavyBus = null, mixBus = null, voiceBus = null, engineBus = null, userBus = null, priorityBus = null, priorityVoices = 0, sfxVoices = 0, tailVoices = 0, blastVoices = 0, hall = null;
   function createSoundMix(ctx) {
     const effects = ctx.createGain(), mix = ctx.createGain(), voice = ctx.createGain(), engine = ctx.createGain(), priority = ctx.createGain();
@@ -2224,9 +2232,18 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     jet.crG.gain.setTargetAtTime(0.05 * ab, t, 0.06);
     return;
   }
+  // the volume settings (0-100 each): all of it, the effects (guns, blasts, hits, the important cues), the engines,
+  // the announcer; each scales its bus from the mix's own level, gliding there so a slider drag does not click
+  function applyVolumes() {
+    if (!soundMix || !audio) return;
+    const v = k => Math.max(0, Math.min(100, Number(settings[k]) || 0)) / 100, t = audio.currentTime;
+    const set = (node, x) => node.gain.setTargetAtTime(x, t, 0.03);
+    set(soundMix.output, 4 * 0.95 * v("vol")); set(soundMix.effects, 0.85 * v("volFx")); set(soundMix.priority, v("volFx"));
+    set(soundMix.engine, 0.8 * v("volEngine")); set(soundMix.voice, 0.75 * v("volVoice"));
+  }
   function loadSfx() {
     if (!audio || sfxBus) return;
-    const buses = createSoundMix(audio);
+    const buses = soundMix = createSoundMix(audio);
     sfxBus = buses.effects; mixBus = buses.mix; voiceBus = buses.voice;
     engineBus = buses.engine; userBus = buses.presence; priorityBus = buses.priority;
     heavyBus = audio.createGain(); heavyBus.gain.value = 0.75;
@@ -2237,6 +2254,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const room = audio.createGain(); room.gain.value = 0.18;
     heavyBus.connect(drive).connect(lows).connect(mixBus);
     lows.connect(room).connect(getHall());
+    applyVolumes();
     preloadSounds();   // (already under way since the page opened, unless it couldn't decode before a click)
     audioUp(audio);
   }
@@ -13055,6 +13073,10 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   document.getElementById("postPick").hidden = !post;   // (no WebGL here: nothing to choose)
   segButtons(document.getElementById("setMouse"), [["aim", "Aims"], ["steer", "Steers"]], settings.mouse, v => { settings.mouse = v; saveSettings(); if (v === "steer" && aimLocked()) document.exitPointerLock(); });
   document.getElementById("mousePick").hidden = COARSE;
+  for (const el of document.querySelectorAll("#volPick input[data-vol]")) {   // the volume sliders: heard as they move
+    const k = el.dataset.vol; el.value = settings[k];
+    el.addEventListener("input", () => { settings[k] = +el.value; saveSettings(); if (typeof applyVolumes === "function") applyVolumes(); });
+  }
   segButtons(document.getElementById("setEngine"), [["on", "On"], ["off", "Off"]], settings.engine, v => { settings.engine = v; saveSettings(); });
   segButtons(document.getElementById("setAim"), [["off", "Off"], ["small", "Small"], ["big", "Big"]], settings.aim, v => { settings.aim = v; saveSettings(); });
   segButtons(document.getElementById("setAimCol"), [["gun", "Gun colour"], ["white", "White"], ["green", "Green"], ["red", "Red"]], settings.aimCol, v => { settings.aimCol = v; saveSettings(); });

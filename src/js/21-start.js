@@ -234,6 +234,10 @@
   document.getElementById("postPick").hidden = !post;   // (no WebGL here: nothing to choose)
   segButtons(document.getElementById("setMouse"), [["aim", "Aims"], ["steer", "Steers"]], settings.mouse, v => { settings.mouse = v; saveSettings(); if (v === "steer" && aimLocked()) document.exitPointerLock(); });
   document.getElementById("mousePick").hidden = COARSE;
+  for (const el of document.querySelectorAll("#volPick input[data-vol]")) {   // the volume sliders: heard as they move
+    const k = el.dataset.vol; el.value = settings[k];
+    el.addEventListener("input", () => { settings[k] = +el.value; saveSettings(); if (typeof applyVolumes === "function") applyVolumes(); });
+  }
   segButtons(document.getElementById("setEngine"), [["on", "On"], ["off", "Off"]], settings.engine, v => { settings.engine = v; saveSettings(); });
   segButtons(document.getElementById("setAim"), [["off", "Off"], ["small", "Small"], ["big", "Big"]], settings.aim, v => { settings.aim = v; saveSettings(); });
   segButtons(document.getElementById("setAimCol"), [["gun", "Gun colour"], ["white", "White"], ["green", "Green"], ["red", "Red"]], settings.aimCol, v => { settings.aimCol = v; saveSettings(); });

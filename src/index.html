@@ -42,6 +42,11 @@
     <div class="pick" id="mousePick"><span>Mouse</span><div class="segs" id="setMouse" role="group" aria-label="Mouse"></div>
       <small>Aims: the gun follows the cursor, WASD flies, left button fires. Steers: hold the button to fly toward the pointer.</small></div>
     <div class="pick"><span>Engine sound</span><div class="segs" id="setEngine" role="group" aria-label="Engine sound"></div></div>
+    <div class="pick" id="volPick"><span>Volume</span>
+      <label class="vol">All<input type="range" min="0" max="100" step="5" data-vol="vol" aria-label="All sound"></label>
+      <label class="vol">Effects<input type="range" min="0" max="100" step="5" data-vol="volFx" aria-label="Effects volume"></label>
+      <label class="vol">Engines<input type="range" min="0" max="100" step="5" data-vol="volEngine" aria-label="Engines volume"></label>
+      <label class="vol">Voice<input type="range" min="0" max="100" step="5" data-vol="volVoice" aria-label="Announcer volume"></label></div>
     <div class="pick"><span>Crosshair</span><div class="segs" id="setAim" role="group" aria-label="Crosshair"></div>
       <div class="segs" id="setAimCol" role="group" aria-label="Crosshair colour"></div></div>
     <details><summary>Weapon controls</summary><p id="weaponHint"></p><small>Fixed slots: 1–9, 0; Alt+1–6 for additional weapons. Q/E cycles carried weapons. Hold Tab: scores.</small></details>
