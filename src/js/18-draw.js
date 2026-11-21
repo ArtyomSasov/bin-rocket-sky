@@ -667,22 +667,25 @@
     if (L < 2) return;
     const core = boost ? [205, 228, 255] : pal.core, mid = pal.mid, outer = pal.outer, ember = [outer[0] * 0.55, outer[1] * 0.3, outer[2] * 0.3];
     const speed = boost ? 4.2 : 2.6;   // how many jet-lengths of fire pour out per second (the texture's flow)
+    // bent hard (a sharp turn): its layers fold onto each other by the nozzle and, added up, burned to a white blot; so
+    // the more it bends the dimmer each layer
+    const fold = 1 - 0.5 * Math.min(1, Math.abs(bend) / (Wd * 1.2));
     g.globalCompositeOperation = "lighter";
     // the outer flame: from the palette's middle through its outer colour to a dull ember red, fading out
-    g.globalAlpha = Math.min(1, 0.55 + 0.4 * power);
+    g.globalAlpha = Math.min(1, 0.55 + 0.4 * power) * fold;
     jetDraw(jetLayer(false, -t * speed, seed * 0.13, [[0, rgba(mid, 0.9)], [0.25, rgba(mid, 0.85)], [0.5, rgba(outer, 0.75)], [0.8, rgba(ember, 0.55)], [1, rgba(ember, 0)]]), L, Wd, bend);
     // the inner core: short, white-hot to its core colour (blue-white on boost)
-    g.globalAlpha = Math.min(1, 0.7 + 0.3 * power);
+    g.globalAlpha = Math.min(1, 0.7 + 0.3 * power) * fold;
     jetDraw(jetLayer(true, -t * speed * 1.4, seed * 0.29 + 0.5, [[0, "rgba(255,255,255,1)"], [0.3, rgba(core, 0.95)], [0.7, rgba(mid, 0.6)], [1, rgba(mid, 0)]]), L * (boost ? 0.62 : 0.5), Wd * 0.55, bend * 0.5);
     g.globalAlpha = 1;
     if (boost && !lowQ) for (let i = 1; i <= 4; i++) {   // shock diamonds: bright knots standing in the core
       const f = 0.1 + i * 0.12, yj = L * f, xj = bend * f * f, r = Wd * (0.12 - i * 0.015);
-      g.globalAlpha = (0.6 - i * 0.11) * fl; g.fillStyle = "#eef6ff";
+      g.globalAlpha = (0.6 - i * 0.11) * fl * fold; g.fillStyle = "#eef6ff";
       g.beginPath(); g.ellipse(xj, yj, r, r * 2.4, 0, 0, 6.29); g.fill();
     }
     g.globalAlpha = 1;
     const hr = Wd * (boost ? 0.6 : 0.5), hg = g.createRadialGradient(0, 2, 0, 0, 2, hr);   // the throat's glow
-    hg.addColorStop(0, rgba(core, boost ? 0.5 : 0.4)); hg.addColorStop(1, rgba(mid, 0));
+    hg.addColorStop(0, rgba(core, (boost ? 0.5 : 0.4) * fold)); hg.addColorStop(1, rgba(mid, 0));
     g.fillStyle = hg; g.beginPath(); g.arc(0, 2, hr, 0, 6.29); g.fill();
     g.globalCompositeOperation = "source-over";
   }

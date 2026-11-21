@@ -326,7 +326,7 @@
       if (!cmdMode) { me.vx += Math.cos(me.a) * 220; me.vy += Math.sin(me.a) * 220; }
       camKick.x -= Math.cos(me.a) * 10; camKick.y -= Math.sin(me.a) * 10;
       const jet = exhaustJets(me, now).sort((a, b) => b.power - a.power)[0];
-      impacts.push({ x: jet.x, y: jet.y, t: 0, r: 70, col: "#9ff3ff" });
+      impacts.push({ x: jet.x, y: jet.y, t: 0, r: 42, col: "#9ff3ff", dur: 0.14 });   // (a short flick at the nozzle, not a white ball)
     }
     if (!cmdMode) me.boostOn = boost;
     // the camera leads the bin by up to ~a fifth of the screen in the direction it flies
