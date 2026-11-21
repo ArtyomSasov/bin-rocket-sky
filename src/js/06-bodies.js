@@ -686,6 +686,19 @@
     }
     g.globalAlpha = 1;
   }
+  // a big crater (a bomb's, a blast's) doesn't just vanish: what it blew out comes away as pieces of the body
+  // itself, cut from where it stood and flung out from the middle of the blast (taken before the crater is cut)
+  function craterChunks(b, x, y, rad) {
+    if (!b.cv || rad < 50 || (lowQ && rad < 90)) return;
+    const n = Math.min(lowQ ? 6 : 14, Math.round(rad / 12));
+    for (let i = 0, tries = 0; i < n && tries < n * 4; tries++) {
+      const a = Math.random() * 6.283, d = rad * Math.sqrt(Math.random()) * 0.9, px = x + Math.cos(a) * d, py = y + Math.sin(a) * d;
+      if (!solidAt(b, px, py)) continue;
+      i++;
+      const v = 160 + Math.random() * 520 * Math.min(1, rad / 150), r = Math.min(34, rad * (0.07 + Math.random() * 0.09));
+      chunkOff(b, px, py, r, Math.cos(a) * v + (b.vx || 0), Math.sin(a) * v + (b.vy || 0));
+    }
+  }
   // pieces off a hit: n of them, about r across, thrown out along the face's normal (and some through, from a breach)
   function chunksOff(b, x, y, n, r, speed, through = 0) {
     const [nx, ny] = normalAt(b, x, y), out = Math.atan2(ny, nx);
@@ -748,6 +761,7 @@
     }
     const [lx0, ly0] = toLocal(b, x, y), lx = Math.round(lx0), ly = Math.round(ly0), r = Math.round(rad);
     const shared = own && !b.free, sq = shared ? ++carveSeq : 0;
+    craterChunks(b, x, y, rad);
     const n = carveLocal(b, lx, ly, r, true, shared ? carveRnd(lx, ly, r, sq) : Math.random);
     if (!n) return 0;
     rubbleFx(b, x, y, rad, n);
@@ -857,6 +871,7 @@
       const b = det[bi];
       if (!b || b.dead || b.free || r < 2 || r > 700 || Math.abs(lx) > 3000 || Math.abs(ly) > 3000) continue;
       if (e.length === 8 && (Math.abs(e[6]) > 3000 || Math.abs(e[7]) > 3000 || r > 72)) continue;
+      if (e.length === 6) { const [x, y] = toWorld(b, lx, ly); craterChunks(b, x, y, r); }
       const n = e.length === 8 ? carveLineLocal(b, lx, ly, e[6], e[7], r) : carveLocal(b, lx, ly, r, true, carveRnd(lx, ly, r, sq));
       if (n) { const [x, y] = toWorld(b, lx, ly); rubbleFx(b, x, y, r, n); }
     }

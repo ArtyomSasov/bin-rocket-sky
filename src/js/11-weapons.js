@@ -44,6 +44,7 @@
     if (kind === K.BULLET_ALT) { stopContinuous(owner); packPlay("p_user_autocannon", 0.5, x, y); return; }   // an explosive round: each one a heavy thump
     if (kind === K.PULSE_BOLT || kind === K.LASER || kind === K.BULLET) { if (continuousFire(owner, kind === K.LASER || kind === K.PULSE_BOLT ? "laser" : "minigun", x, y, performance.now(), kind === K.BULLET_ALT || kind === K.LASER)) return; }
     if (kind !== K.PULSE_BOLT && kind !== K.LASER && kind !== K.BULLET) stopContinuous(owner);
+    if (kind === K.NOVA) { packPlay("p_nova", 0.8, x, y); return; }
     if (kind === K.SAW_ALT || kind === K.FLAK) { packPlay(kind === K.SAW_ALT ? "p_ut_saw_alt" : "p_ut_flak_alt", .8, x, y); return; }
     if (kind === K.SHOCK) { audioCue("shockBeam", x, y); return; }
     if (kind === K.PULSE) { audioCue("laserPulse", x, y); return; }
@@ -311,6 +312,7 @@
   // the blast of a rocket or a plasma orb, wherever it ends: everyone sees it, and it hurts me and my bots nearby
   // (whoever took the direct hit, s.direct, already got its damage)
   function splash(s, now) {
+    if (s.kind === K.GAMMA && !s.sucked) { if (!s.sucking) gammaSuck(s, now); return; }   // the demonic orb draws everything in first, then lets it all go
     blastFx(s);
     if (s.splashed) return;
     s.splashed = true;
@@ -322,13 +324,45 @@
     const hit = (o, id, rad) => {
       const d = Math.hypot(o.x - s.x, o.y - s.y), R = R0 + rad;
       if (d > R || id === s.direct || !canHurt(s, o, id, true) || fixedCover(s.x, s.y, o.x, o.y)) return 0;
-      const jump = ownShot(s, o, id) ? 2.6 : 1;   // a rocket jump: your own blast flings you
-      o.vx += (o.x - s.x) / (d || 1) * push * jump; o.vy += (o.y - s.y) / (d || 1) * push * jump;
+      const jump = ownShot(s, o, id) ? 2.6 : 1, f = push * jump * (0.45 + 0.9 * (1 - d / R));   // a rocket jump: your own blast flings you; the nearer, the harder
+      o.vx += (o.x - s.x) / (d || 1) * f; o.vy += (o.y - s.y) / (d || 1) * f;
+      pushed.add(o);
       return (lo + (hi - lo) * (1 - d / R)) * m;
     };
+    const pushed = new Set();
     const dm = hit(me, "me", 26 * sizeOf(me.lv));
     if (dm) hurtMe(s, now, dm);
     for (const b of bots) { const db = hit(b, b.id, 26 * sizeOf(b.lv || 1)); if (db) botHurt(b, db * selfMul(s, b.id), s.id, now, false, s.kind); }
+    // and its shock wave runs on past the blast: whoever and whatever it reaches (bins, wreckage, pieces, sparks,
+    // shots) is thrown out from the middle, the harder the nearer (those the blast itself threw are not thrown twice)
+    waves.push({ x: s.x, y: s.y, t: 0, r: 0, max: R0 * 2.4, dur: 0.32, power: push * 1.6 * Math.min(2, m), mine: s.mine || botById.has(s.owner), hit: pushed, small: true });
+  }
+  // the demonic orb's end: for half a second it drinks everything round it in (bins, wreckage, pieces, smoke), light
+  // and embers pouring into it as it swells, then lets it all go at once (splash: the blast, its wave, the damage)
+  const GAMMA_SUCK = { t: 0.5, R: 620, acc: 3400 };
+  const maws = [];
+  function gammaSuck(s, now) {
+    s.sucking = true; s.boom = true;
+    maws.push({ s, x: s.x, y: s.y, t: 0 });
+    rings.push({ x: s.x, y: s.y, t: 0, r: GAMMA_SUCK.R, col: "120,0,20", warp: true, dur: GAMMA_SUCK.t, w: 18 });
+    if (post) post.wave(s.x, s.y, GAMMA_SUCK.R, GAMMA_SUCK.t, -0.06);
+    if (Math.hypot(s.x - me.x, s.y - me.y) < 1600) packPlay("p_charge", 0.8, s.x, s.y);
+  }
+  function mawTick(dt, now) {
+    for (let i = maws.length - 1; i >= 0; i--) {
+      const m = maws[i], { R, acc } = GAMMA_SUCK;
+      m.t += dt;
+      const pull = (o, k = 1) => { const dx = m.x - o.x, dy = m.y - o.y, d = Math.hypot(dx, dy); if (d < 1 || d > R) return; const a = acc * Math.sqrt(1 - d / R) * k * dt; o.vx += dx / d * a; o.vy += dy / d * a; if (o.rest) o.rest = null; };
+      if (playing && !me.dead) pull(me);
+      for (const b of bots) if (!b.dead) pull(b);
+      for (const list of [hulks, frags, debris, chunks]) for (const o of list) pull(o, 1.3);
+      for (const o of parts) pull(o, 2);
+      for (let k = 0; k < (lowQ ? 2 : 6); k++) {   // embers, smoke and light pouring in
+        const a = Math.random() * 6.283, r = R * (0.5 + Math.random() * 0.5), v = r * 2.6;
+        puff(m.x + Math.cos(a) * r, m.y + Math.sin(a) * r, -Math.cos(a) * v, -Math.sin(a) * v, 0.38, k % 3 ? 1.4 + Math.random() : 6 + Math.random() * 6, k % 3 ? (k % 2 ? "#ff2a3c" : "#ff7a4a") : "#140508", k % 3 ? 5 : 2, 0, 0, 1);
+      }
+      if (m.t >= GAMMA_SUCK.t) { maws.splice(i, 1); m.s.sucked = true; m.s.x = m.x; m.s.y = m.y; splash(m.s, now); }
+    }
   }
   // the look of a rocket or plasma blast, once per shot
   function blastFx(s) {
@@ -348,7 +382,7 @@
       // and it leaves a pall of black smoke, crimson embers spitting out of it
       for (let k = 0; k < (lowQ ? 6 : 14); k++) { const a = Math.random() * 6.283, v = 30 + Math.random() * 130; puff(x + Math.cos(a) * 30, y + Math.sin(a) * 30, Math.cos(a) * v, Math.sin(a) * v, 0.8 + Math.random() * 0.8, 14 + Math.random() * 14, k % 3 ? "#0a0507" : "#240810", 2, 0, (Math.random() - 0.5) * 0.8, 0.95); }
       for (let k = 0; k < (lowQ ? 6 : 18); k++) { const a = Math.random() * 6.283, v = 200 + Math.random() * 600; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.5 + Math.random() * 0.7, 1.4 + Math.random() * 1.6, k % 2 ? "#ff2a3c" : "#ff7a4a", 5, 0, 0, 0.93); }
-      if (post) post.burst(x, y, 200, [0.05, 0.02, 0.04], 3.2, 900);
+      if (post) post.burst(x, y, 160, [0.4, 0.06, 0.08], 0.6, 900);   // (a thin blood-red haze: a dark one hid the screen)
       // The orb travels beyond the old 1400px gate; let the sound mixer handle distance.
       packPlay("p_boom_gamma", 1, x, y); packPlay("p_blast_heavy", 0.7, x, y);
       if (near) shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400));
@@ -658,7 +692,7 @@
   const DETONATOR = { shot: [K.DET, 0] }, MINE_DETONATOR = { shot: [K.MDET, 0] };
   let lungeReady = 0;
   // the pack's sound for each alt fire (the rest keep their own)
-  const ALT_SOUND = { fire: "p_ut_pulse_fire", saw: "p_ut_saw_alt", nuke: "p_ut_nuke_fire", mine: "p_fire_mine", scatter: "p_fire_nail", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_fire_laser", gren: "p_fire_gren", nail: "p_fire_nail", rail: "p_fire_rail", shard: "p_ut_flak_alt" };
+  const ALT_SOUND = { fire: "p_ut_pulse_fire", saw: "p_ut_saw_alt", nuke: "p_ut_nuke_fire", mine: "p_fire_mine", scatter: "p_fire_nail", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_nova", gren: "p_fire_gren", nail: "p_fire_nail", rail: "p_fire_rail", shard: "p_ut_flak_alt" };
   // fire the gun in hand (alt: its alternate fire, which needs its full ammo cost)
   // mul: the charge cannon's charge (0.25..1)
   function shoot(now, alt, mul = 1, loadedRockets = 0) {
@@ -778,7 +812,6 @@
       if (w.sword) bladeHumSet(charge);   // (the blade hums as it winds up)
       else if (Math.floor(was * 6) !== Math.floor(charge * 6)) sfx("p_charge", 0.3, 0.8 + charge * 0.5);   // a rising whine
       if (charge === 1 && was < 1 && !w.sword) impacts.push({ x: me.x, y: me.y, t: 0, r: 60, col: w.col });
-      if (w.sword && charge === 1 && ready) { shoot(now, false, 1); charge = 0; }   // a full wind-up strikes by itself, so held it keeps swinging (the server does the same)
       return false;
     }
     if (charge > 0 && ready) shoot(now, false, Math.max(0.25, charge));
@@ -868,7 +901,7 @@
   // light sucked in, a ring falling inward, and a blow to whoever is close
   function voidBurst(s, now, bm) {
     const x = clamp(s.x, 0, W), y = clamp(s.y, 0, H), d = Math.hypot(me.x - x, me.y - y);
-    voids.push({ x, y, born: performance.now(), dur: 6000 });
+    voids.push({ x, y, born: performance.now(), dur: 6000, s: { id: s.id || "x", owner: s.owner, mine: !!s.mine, kind: K.VOID, m: 1 } });   // (s: whose hole it is, for the kills it makes)
     impacts.push({ x, y, t: 0, r: 220, col: "#efe0ff", dur: 0.18 });
     impacts.push({ x, y, t: 0, r: 700, col: "176,107,255", dur: 1.6, soft: 0.6, flick: Math.random() * 6.28 });
     rings.push({ x, y, t: 0, r: 900, col: "200,160,255", warp: true, dur: 0.6, w: 26, shock: 30 });
@@ -1057,6 +1090,7 @@
   // the junk rocks. You feel it (shake, thump) when it reaches you, not at the flash
   const waves = [];
   function waveTick(dt) {
+    mawTick(dt, performance.now());
     for (let i = waves.length - 1; i >= 0; i--) {
       const w = waves[i], r0 = w.r;
       w.t += dt;
@@ -1073,13 +1107,13 @@
       if (playing && !me.dead && (d = swept(me)) >= 0) {
         push(me, d, 1);
         const near = 1 - d / w.max;
-        shake = Math.max(shake, 0.3 + 1.3 * near);
-        camKick.x += (me.x - w.x) / (d || 1) * 40 * near; camKick.y += (me.y - w.y) / (d || 1) * 40 * near;
-        sfx("boom_low", 0.3 + 0.7 * near, w.holy ? 0.9 : 1.2);
+        shake = Math.max(shake, (w.small ? 0.1 + 0.3 * near : 0.3 + 1.3 * near));
+        camKick.x += (me.x - w.x) / (d || 1) * (w.small ? 14 : 40) * near; camKick.y += (me.y - w.y) / (d || 1) * (w.small ? 14 : 40) * near;
+        if (!w.small) sfx("boom_low", 0.3 + 0.7 * near, w.holy ? 0.9 : 1.2);
       }
       for (const b of bots) if (!b.dead && (d = swept(b)) >= 0) push(b, d, 1);
       for (const b of rubble) if ((d = swept(b)) >= 0) push(b, d, Math.max(1, Math.sqrt(b.mass / 200)));
-      for (const list of [hulks, frags, debris]) for (const o of list) if ((d = swept(o)) >= 0) push(o, d, 1);
+      for (const list of [hulks, frags, debris, chunks]) for (const o of list) if ((d = swept(o)) >= 0) { push(o, d, 1); if (o.rest) o.rest = null; }
       for (const o of parts) if ((d = swept(o)) >= 0) push(o, d, 2.5);
       for (const o of shots) if (!BOMBS[o.kind] && (d = swept(o)) >= 0) push(o, d, 3);
       if (w.mine) for (const r of world.rocks) if (!grabbed.has(r.key) && (d = swept(r, r.key)) >= 0) {

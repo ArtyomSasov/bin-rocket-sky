@@ -200,7 +200,11 @@
         const hx = b.x - bh.x, hy = b.y - bh.y, hd = Math.hypot(hx, hy) || 1;
         if (hd < 900 && !human) { dx += hx / hd * 3 * (1 - hd / 900) * 2; dy += hy / hd * 3 * (1 - hd / 900) * 2; }
         if (hd < holeReach(bh)) { const acc = holeAcc(bh, hd); b.vx -= hx / hd * acc * dt; b.vy -= hy / hd * acc * dt; }
-        if (hd < 60 * bh.k) botHurt(b, 99, "x", now, true);
+        if (bh.s) {   // a void bomb's hole burns as it drags, and its kills are its thrower's
+          b.voidBurn = (b.voidBurn || 0) + voidBurn(bh, hd, dt);
+          if (b.voidBurn >= VOID_BURN.bite) { const n = b.voidBurn; b.voidBurn = 0; botHurt(b, n * selfMul(bh.s, b.id), bh.s.id, now, false, K.VOID); }
+        }
+        if (hd < 60 * bh.k) botHurt(b, 99, bh.s ? bh.s.id : "x", now, true, bh.s ? K.VOID : -1);
       }
       if (stationMap() && !human) {
         if (!routeGoal) {

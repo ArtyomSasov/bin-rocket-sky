@@ -471,7 +471,7 @@ test('a player\u2019s guided nuke turns on the server by their stick, and blows 
 });
 
 
-test('the Blood Blade wind-up is in the snapshot while a player holds it (others see it drawn back), a full one swings by itself, and it is gone once it swings', { skip }, async () => {
+test('the Blood Blade wind-up is in the snapshot while a player holds it (others see it drawn back), held full till let go, and gone once it swings', { skip }, async () => {
   const { createMatch } = await sim();
   const m = createMatch({ code: 'm1d0o' });
   m.game.__simTerrain.empty();
@@ -485,7 +485,7 @@ test('the Blood Blade wind-up is in the snapshot while a player holds it (others
     const half = wind();
     assert.ok(half > 0.2 && half < 0.8, 'part wound: ' + half);
     run(m, 0.4, () => m.input(id, { aim: 0, fire: true, w }));
-    assert.ok(wind() < 0.5, 'a full wind-up swung by itself and winds again: ' + wind());
+    assert.equal(wind(), 1, 'fully wound, and held there till let go');
     run(m, 0.1, () => m.input(id, { aim: 0, fire: false, w }));
     assert.equal(wind(), undefined, 'swung: nothing wound');
   } finally { m.dispose(); }
@@ -573,5 +573,11 @@ test('a void bomb\'s black hole drags every pilot in, the one who threw it too',
     run(m, 1.0);
     console.log('# thrower', Math.round(a0), '->', Math.round(A.x), 'victim', Math.round(v0), '->', Math.round(V.x), 'dead', A.dead, V.dead);
     assert.ok(V.dead || V.x < v0 - 150, 'the victim is dragged toward the hole: ' + Math.round(v0) + ' -> ' + Math.round(V.x));
+    // held near the hole it burns, and the kill is the thrower's
+    const lives0 = V.lives; Object.assign(V, { inv: 0 });
+    run(m, 3, () => { m.input(v, { w: 0, aim: 0 }); });
+    console.log('# victim lives', lives0, '->', V.lives, 'deaths', V.st.deaths, 'thrower kills', A.st.kills, 'koBy', JSON.stringify(V.koBy), 'tag', A.tag);
+    assert.ok(V.dead || V.lives < lives0 || V.st.deaths > 0, 'the hole hurts: ' + lives0 + ' -> ' + V.lives);
+    assert.ok(V.st.deaths > 0 ? (V.koBy || []).some(k => String(k).startsWith(A.tag + '.')) || A.st.kills > 0 : true, 'its kill is the thrower\'s: koBy ' + JSON.stringify(V.koBy) + ' kills ' + A.st.kills);
   } finally { m.dispose(); }
 });

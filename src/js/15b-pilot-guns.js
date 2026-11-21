@@ -98,7 +98,7 @@
     }
     // the charge cannon: held charges it, letting go fires it
     if (w.charge) {
-      if (i.fire && live) { b.charge = Math.min(1, b.charge + dt / w.charge); if (w.sword && b.charge >= 1 && ready) { pilotShoot(b, now, k, false, 1); b.charge = 0; } return; }   // (a full blade swings by itself, as on the screen)
+      if (i.fire && live) { b.charge = Math.min(1, b.charge + dt / w.charge); return; }
       if (b.charge > 0 && ready) pilotShoot(b, now, k, false, Math.max(0.25, b.charge));
       b.charge = 0;
     }

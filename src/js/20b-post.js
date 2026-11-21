@@ -138,7 +138,7 @@
       // a black hole drinks the smoke in, swirling
       for (const bh of holesNow()) if (bh.k > 0.05) { fluid.splat(bh.x, bh.y, (bh.v ? 420 : 260) * bh.k, null, 0, 0, 0, -(bh.v ? 3000 : 1400) * bh.k); fluid.splat(bh.x + 200, bh.y, 120, [0.3, 0.12, 0.45], 0.03 * bh.k, 0, -900 * bh.k); fluid.splat(bh.x - 200, bh.y, 120, [0.3, 0.12, 0.45], 0.03 * bh.k, 0, 900 * bh.k); }
       // fires keep smoking while they burn; bins badly hurt smoke too
-      for (const m of impacts) if (m.flick && m.t >= 0 && m.t < m.dur) fluid.splat(m.x + (Math.random() - 0.5) * 40, m.y + (Math.random() - 0.5) * 40, 26, [0.2, 0.18, 0.18], 0.12, (Math.random() - 0.5) * 120, (Math.random() - 0.5) * 120);
+      for (const m of impacts) if (m.flick && m.t >= 0 && m.t < m.dur) fluid.splat(m.x + (Math.random() - 0.5) * 40, m.y + (Math.random() - 0.5) * 40, 26, [0.2, 0.18, 0.18], 0.05, (Math.random() - 0.5) * 120, (Math.random() - 0.5) * 120);
       const smoking = o => { if (!o.dead && o.lives !== undefined && damageOf(o) > 0.45) fluid.splat(o.x, o.y, 18, [0.22, 0.2, 0.22], 0.06 * damageOf(o), -(o.vx || 0) * 0.3, -(o.vy || 0) * 0.3); };
       if (playing) smoking(me);
       for (const r of remotes.values()) smoking(r);
@@ -147,7 +147,7 @@
         if (!m.soft || m.fluided || m.t < 0) continue;
         m.fluided = true;
         const big = m.r > 200, fire = !!m.flick;
-        fluid.splat(m.x, m.y, m.r * 0.4, fire ? [0.26, 0.22, 0.21] : [0.34, 0.32, 0.34], big ? 3.2 : 1.6, 0, 0, m.r * 3.2);
+        fluid.splat(m.x, m.y, m.r * 0.4, fire ? [0.26, 0.22, 0.21] : [0.34, 0.32, 0.34], big ? 1.1 : 0.8, 0, 0, m.r * 3.2);   // (thin: a blast's smoke must not hide the fight)
       }
       for (const s of shots) if ((s.kind === K.ROCKET || s.kind === K.HROCKET || s.kind === K.NUKE) && s.life > 0) fluid.splat(s.x, s.y, 16, [0.5, 0.48, 0.5], 0.09, -s.vx * 0.25, -s.vy * 0.25);
         else if (s.kind === K.GAMMA && s.life > 0) { const sp = Math.hypot(s.vx, s.vy) || 1; fluid.splat(s.x - s.vx / sp * 55 + (Math.random() - 0.5) * 30, s.y - s.vy / sp * 55 + (Math.random() - 0.5) * 30, 30, [0.05, 0.015, 0.025], 0.3, -s.vx * 0.4 + (Math.random() - 0.5) * 300, -s.vy * 0.4 + (Math.random() - 0.5) * 300); }   // its black smoke, left behind it
@@ -197,7 +197,7 @@
         lamps.push({ x: (x + 0.5) * unit, y: (y + 0.5) * unit, r: unit * 2.6, col: (x + y) % 8 === 0 ? station().accent[1] : "#ffe6c0", flick: hash(x, y, 77) < 0.2 ? hash(x, y, 78) * 6.28 : 0 });
       return lamps;
     }
-    const rgbOf = c => { if (c[0] === "#") { const v = parseInt(c.slice(1, 7), 16); return [(v >> 16 & 255) / 255, (v >> 8 & 255) / 255, (v & 255) / 255]; } const p = c.split(",").map(Number); return [p[0] / 255, p[1] / 255, p[2] / 255]; };
+    const rgbOf = c => { if (c[0] === "#") { const v = parseInt(c.slice(1, 7), 16); return [(v >> 16 & 255) / 255, (v >> 8 & 255) / 255, (v & 255) / 255]; } const p = c.replace(/[^\d.,]/g, "").split(",").map(Number); return [p[0] / 255, p[1] / 255, p[2] / 255]; };
     const SHOT_LIGHT = { [K.ROCKET]: [260, 0.55, 0.45], [K.HROCKET]: [260, 0.55, 0.45], [K.FIRE]: [170, 0.4, 0.3], [K.ORB]: [300, 0.6], [K.GAMMA]: [220, 0.3], [K.NUKE]: [380, 0.7, 0.6], [K.HOLY]: [420, 0.7, 0.3], [K.GREN]: [150, 0.3], [K.PULSE_BOLT]: [150, 0.35], [K.VOID]: [260, 0.5] };
     function gatherLights(now) {
       const list = [], cx = cam.x, cy = cam.y, hw = vw / 2, hh = vh / 2;
@@ -224,8 +224,6 @@
         const k = m.t / (m.dur || 0.22), fl = m.flick ? (1 - k) * (0.7 + 0.3 * Math.sin(now / 37 + m.flick) * Math.sin(now / 61 + m.flick * 2)) : (1 - k) * (1 - k);
         add(m.x, m.y, m.r * (0.8 + 0.4 * k) * 1.4, fl * m.soft * 1.2, m.col, m.flick ? (1 - k) * 1.2 : (1 - k) * 0.6);   // (a fire shimmers longest)
       }
-      for (const L of bladeLights) add(...L, 0.1, 30);   // energy blades in hand
-      bladeLights.length = 0;
       for (const s of shots) { const L = SHOT_LIGHT[s.kind]; if (L && s.life > 0) add(s.x, s.y, L[0], L[1], SHOTS[s.kind].col, L[2] || 0, 30); }
       list.sort((a, b) => b[7] - a[7]);
       const n = Math.min(16, list.length);
@@ -281,7 +279,6 @@
           // the light map, at half the size (its shadows crisp enough)
           if (lightOn && maskN++ % 3 === 0) drawMask();
           const nl = lightOn ? gatherLights(performance.now()) : 0;
-          if (!lightOn) bladeLights.length = 0;
           const wL = Math.max(1, W0 >> (COARSE ? 2 : 1)), hL = Math.max(1, H0 >> (COARSE ? 2 : 1));   // (a phone: the light at a quarter, its fill rate is the cost)
           fit(LM, wL, hL);
           if (lightOn) pass(P.light, LM, wL, hL, p => { use(3, maskTex); gl.uniform1i(p.u("m"), 3); gl.uniform2f(p.u("cam"), cam.x, cam.y); gl.uniform2f(p.u("view"), vw, vh); gl.uniform2f(p.u("world"), W, H);

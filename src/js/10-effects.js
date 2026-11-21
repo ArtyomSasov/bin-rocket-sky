@@ -403,6 +403,21 @@
       volley(b, now, WEAPONS.gauntlet, { x: cx, y: cy });
     }
   }
+  // and it cuts whatever solid it lies across (rock, a station's wall, a crate), swung or not: wherever along it the
+  // beam is inside something, a bite every 0.14 s (a wider one mid-swing), with sparks and the hiss of the burn
+  function bladeGrind(b, now, wind) {
+    if (now - (b.grindAt || 0) < 140) return;
+    const P = bladePose(b, true, wind, now), rh = binR(b.lv || 1) + 4, L = (BLADE_REACH - rh * 0.6) * (1 + wind * 0.08);
+    const ha = b.a + P.ph, hx = b.x + Math.cos(ha) * rh, hy = b.y + Math.sin(ha) * rh, da = b.a + P.ps, ux = Math.cos(da), uy = Math.sin(da);
+    let n = 0;
+    for (let i = 2; i <= 8 && n < 3; i++) {
+      const f = i / 8, x = hx + ux * L * f, y = hy + uy * L * f, o = solidAny(x, y);
+      if (!o) continue;
+      n++; carveAt(o, x, y, P.tr !== undefined ? 20 : 12, true);
+      if (Math.random() < 0.8) sparkShower(x, y, -ux + (Math.random() - 0.5), -uy + (Math.random() - 0.5), 0.8);
+    }
+    if (n) { b.grindAt = now; bladeClash(clamp((b.x - me.x) / 900, -1, 1), true); }
+  }
   function swingStart(o, a, side) {
     o.swingSide = side; o.swingAt = performance.now(); o.swingMs = SWING_MS;
     const dist = Math.hypot(o.x - me.x, o.y - me.y);
@@ -430,7 +445,6 @@
     const w = swingEase(wind);   // at rest, or wound up over the right shoulder
     return { ph: REST[0] + 0.85 * w, ps: REST[1] + 2.75 * w, lit: 1 + 0.9 * w };
   }
-  const bladeLights = [];   // this frame's light thrown by blades (gatherLights takes them)
   // the blade on its bin (x, y: the bin on screen), drawn over it: a hilt of dark metal and a beam of light in its
   // colour with a white-hot core, quivering; mid-swing a smear of light follows it round
   function drawBlade(b, x, y, heavy, wind, now) {
@@ -468,8 +482,6 @@
       for (let k = 0; k < 2; k++) { g.beginPath(); for (let i = 0; i <= 6; i++) { const f = i / 6, o = (Math.random() - 0.5) * 14 * sz; g.lineTo(hx + ux * L * f - uy * o, hy + uy * L * f + ux * o); } g.stroke(); }
     }
     g.restore();
-    const mx = (hx + tx) / 2, my = (hy + ty) / 2;   // world point of its middle, for the light it throws
-    bladeLights.push([b.x + (mx - x), b.y + (my - y), heavy ? 230 : 190, 0.35 * lit + (P.tr !== undefined ? 0.2 : 0), `rgb(${col})`]);
   }
   // ---------- a blade's hit: the "wow" ----------
   // The world stops for a beat; a cut of light flashes across the target along the stroke and slowly closes; a star
@@ -1036,7 +1048,7 @@
     fire: { cloud: "fire", light: "255,176,96", sparks: SPARK_COLS, ember: "fire", ring: "255,246,230", dust: "rgb(150,138,142)", smoke: true },
     demon: { cloud: "demon", light: "110,255,120", sparks: ["#ff4a3c", "#9dff6a", "#ff2a3c"], ember: "demon", ring: "170,255,160", dust: "rgb(60,120,70)", smoke: false },
     plasma_green: { cloud: "demon", light: "150,255,90", sparks: ["#ffffff", "#d8ff9a", "#9dff5a"], ember: "demon", ring: "190,255,140", dust: "rgb(90,140,70)", smoke: false },
-    hell: { cloud: "hell", light: "200,20,40", sparks: ["#ff2a3c", "#ff7a4a", "#3a0208"], ember: "hell", ring: "120,10,24", dust: "rgb(40,8,12)", smoke: true },
+    hell: { cloud: "hell", light: "200,20,40", sparks: ["#ff2a3c", "#ff7a4a", "#3a0208"], ember: "hell", ring: "120,10,24", dust: "rgb(120,26,30)", smoke: false },
     plasma: { cloud: "plasma", light: "120,200,255", sparks: ["#ffffff", "#c8f4ff", "#7fdcff"], ember: "plasma", ring: "200,240,255", dust: "rgb(110,160,220)", smoke: false }
   };
   function explode(x, y, n, speed, pal = "fire") {
@@ -1081,7 +1093,6 @@
         const a = Math.random() * 6.28, d = (40 + Math.random() * 70) * s;
         afterBlasts.push({ at: performance.now() + 100 + Math.random() * 250, x: x + Math.cos(a) * d, y: y + Math.sin(a) * d, speed: (140 + Math.random() * 80) * s });
       }
-      if (stationMap()) { scorches.push({ x, y, r: (70 + 40 * nn) * s, born: performance.now(), seed: Math.random() * 6.28 }); if (scorches.length > 40) scorches.shift(); }   // a burn on the deck
     }
     for (let k = 0, m = n >= 26 ? Math.round((3 + 3 * nn) * q) : 0; k < m; k++) {   // burning chunks, trailing fire and smoke
       const a = Math.random() * 6.28, v = (280 + Math.random() * 420) * ss;

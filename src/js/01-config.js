@@ -99,7 +99,7 @@
     { name: "hook", life: 0.42, dmg: 0, r: 0, col: "#c9d2de", carve: 0, shove: 0, sfx: ["p_metal", 0.6, 1.2], inert: true },
     // the Pulse Gun's Plasma Nova: a charged ball of plasma that lashes everyone near its path with lightning and
     // bursts in a nova where it strikes (its size and bite by its charge: s.m)
-    { name: "plasma nova", life: 2.4, dmg: 0, r: 18, col: "#a8ff55", carve: 34, shove: 0, sfx: ["p_ut_pulse_bolt", 0.8, 0.6] }
+    { name: "plasma nova", life: 2.4, dmg: 0, r: 18, col: "#a8ff55", carve: 34, shove: 0, sfx: ["p_nova", 0.8, 1] }
   );
   // weapons: pick-ups swap the fireball for a while. Each gun is described here, and the player and the bots fire it
   // the same way (see volley):
@@ -116,7 +116,7 @@
                alt: { name: "Focus", cost: 1, cd: 0.3, shot: [K.FIRE, 1050], spread: [-0.035, 0, 0.035], kick: 60, feel: [10, 0.13, 80], sfx: ["triple", 0.8, 0.9] } },
     // Pulse Gun: fast plasma spheres; alt: hold to charge a Plasma Nova, let go to throw it
     laser:   { name: "Pulse Gun", ammo: 120, cd: 0.12, col: "#a8ff55", shot: [K.PULSE_BOLT, 1500], kick: 6, feel: [3, 0.03, 30], sfx: ["p_ut_pulse_fire", .75, 1], fx: "pulse",
-               alt: { name: "Plasma Nova", charge: 0.6, nova: true, cost: 5, cd: 0.6, shot: [K.NOVA, 1400], kick: 260, feel: [22, 0.3, 50], sfx: ["p_ut_pulse_bolt", 1, 0.6] } },
+               alt: { name: "Plasma Nova", charge: 0.6, nova: true, cost: 5, cd: 0.6, shot: [K.NOVA, 1400], kick: 260, feel: [22, 0.3, 50], sfx: ["p_nova", 1, 1] } },
     // rockets as in Quake: straight and fast (about 2.4x a bin's speed), dodgeable by reading them; alt three slow homing ones
     rocket:  { name: "Rocket launcher", ammo: 10, cd: 0.8, col: "#ff5a6e", shot: [K.ROCKET, 1350], kick: 120, feel: [12, 0.16, 70], sfx: ["rocket", 0.8],
                alt: { name: "Load rockets", load: true, cost: 1, cd: 0.9, shot: [K.ROCKET, 1350], kick: 200, feel: [18, 0.23, 96], sfx: ["rocket", 1, 0.8] } },
@@ -301,7 +301,7 @@
   // wave: [reach, seconds to get there, push at the centre] of the blast wave that flings everything outward
   // edge: past R, out to where its shock wave ends (wave[0]), the nuke still hurts, from this much down to nothing:
   // what is seen inside the blast is felt
-  const BOMBS = { [K.VOID]: { R: 320, kill: 0, damage: HP(40), carve: 120, wave: [700, 0.6, -900], void: true }, [K.NUKE]: { R: 1100, kill: 0, damage: HP(1000), edge: HP(45), carve: 420, wave: [2100, 1.1, 2400] },
+  const BOMBS = { [K.VOID]: { R: 320, kill: 0, damage: HP(40), carve: 120, wave: [700, 0.6, -900], void: true }, [K.NUKE]: { R: 1100, kill: 0, damage: HP(1000), edge: HP(45), carve: 420, wave: [2800, 1.3, 4200] },
                   [K.HOLY]: { R: 2000, kill: 1300, carve: 700, wave: [3600, 1.5, 3000], sing: 2.55, holy: true, wipe: true } };   // sing: the holy bomb's sound (2.53 s) starts so it ends with the blast   // wipe: bodies inside kill are erased whole
   const bombReach = bm => bm.edge ? bm.wave[0] : bm.R;
   const bombDmg = (bm, d) => bm.damage ? (d <= bm.R ? Math.max(bm.damage * (1 - d / bm.R), bm.edge || 0) : bm.edge ? bm.edge * Math.max(0, 1 - (d - bm.R) / (bm.wave[0] - bm.R)) : 0)

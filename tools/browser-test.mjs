@@ -17,9 +17,9 @@ const audioChecks = await readFile(join(root, "tools/audio-render-checks.js"), "
 const weaponChecks = await readFile(join(root, "tools/weapon-audit-checks.js"), "utf8");
 const hook = gameplayChecks + audioChecks + weaponChecks + `window.__t = {get activeBlasts(){return blastVoices}, get jet(){return jet}, renderArsenalPreview, runWeaponAuditChecks, checkContinuousAudio, metricsReport, checkAudioRender, keys, update, runGameplayChecks, renderDemonicPreview, WEAPONS, renderVfxPreview, renderWeapon, renderTele, renderShield, ampHud, settings, packHas, packBuf, engineHum, packLoops, K, SHOTS, hitPose, targetHit, recordHitPose, updateShots, volley, net, netSend, gotPing,
  checkDemonicAudio(){const original=audio.createBufferSource;let heard=0;audio.createBufferSource=function(){const src=original.call(audio),start=src.start.bind(src);src.start=(...args)=>{if(src.buffer===packBuf.p_user_demonic_explosion[0])heard++;return start(...args);};return src;};
- try {bodies=[];det=[];shots.length=0;me.x=100;me.y=100;me.inv=1e15;
+ try {bodies=[];det=[];shots.length=0;maws.length=0;me.x=100;me.y=100;me.inv=1e15;
  const far=volley(me,performance.now(),WEAPONS.gamma,{x:1700,y:100});far.life=0;updateShots(0.016,performance.now());
- const manual=volley(me,performance.now(),WEAPONS.gamma,{x:200,y:100});detonateOrb({mine:true,x:manual.x,y:manual.y});updateShots(0.016,performance.now());return heard;
+ const manual=volley(me,performance.now(),WEAPONS.gamma,{x:200,y:100});detonateOrb({mine:true,x:manual.x,y:manual.y});updateShots(0.016,performance.now());mawTick(GAMMA_SUCK.t+0.05,performance.now());return heard;
  }finally{audio.createBufferSource=original;}},
  isolate(){bodies=[];det=[];shots.length=0;},
  me, stats, PACK_PATHS, PACK_VOICES, SFX_NAMES, sfxBuf, queueVoice, get voiceActive(){return voiceActive?.name}, get voiceQueue(){return voiceQueue.map(v=>v.name)}, setScoreLimit(v){SCORE_LIMIT=v}, setEnd(v){matchEnd=v}, getFrame(){return frameAvg}, startMatch, roundAt, receiveMatchClock, playerRows, renderBoard, foundryOpen, foundryPoint, foundryRoute, stationMap, beamReach, solidAny, spawnPoint, get arena(){return arena}, get match(){return [matchRound,matchStart,matchEnd]}, updateJunk, rock, rockMotion, clockNow, get world(){return world}, deathFx, hurt, ctfTick, roundTick, shoot, carveAt, nextTerrain, applyTerrain,

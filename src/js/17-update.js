@@ -28,6 +28,7 @@
     if (altReady && altHeld && altW && !altW.charge && !altW.load) { triggerTick(dt, now, false, held); shoot(now, true); }
     else if (triggerTick(dt, now, ready && fireCd <= 0 && !(altHeld && (altW?.charge || altW?.load)) && railCharge === 0, held) || (ready && me.weapon === "gauntlet" && now < (me.lungeUntil || 0))) shoot(now);   // a lunge lands blows too
     if (me.weapon === "saw" && playing && roundLive && !me.dead && !serverRun) bladeTouch(me, now, charge, remotes);   // (on the server, the server judges it)
+    if (me.weapon === "saw" && playing && roundLive && !me.dead) bladeGrind(me, now, charge);   // (what it cuts is shared, as every crater of mine is)
   }
   // controls: respawn when due, fire, read the stick / keys / mouse, boost energy
   function steerAndShoot(dt, now) {

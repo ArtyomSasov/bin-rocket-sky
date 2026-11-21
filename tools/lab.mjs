@@ -90,7 +90,7 @@ try {
       gren: `blastFx({ kind: K.GREN, x: me.x + 330, y: me.y })`,
       mine: `blastFx({ kind: K.MINE, x: me.x + 330, y: me.y })`,
       orb: `blastFx({ kind: K.ORB, x: me.x + 330, y: me.y })`,
-      gamma: `blastFx({ kind: K.GAMMA, x: me.x + 330, y: me.y })`,
+      gamma: `{ me.inv = 1e15; for (let k = 0; k < 40; k++) addDebris(me.x + 330 + (Math.random() - 0.5) * 900, me.y + (Math.random() - 0.5) * 600, 0, 0, 3 + Math.random() * 5, "#9aa0b4"); splash({ kind: K.GAMMA, id: 'g1', owner: 'nobody', x: me.x + 330, y: me.y, vx: 0, vy: 0, m: 1, life: 0 }, performance.now()); }`,
       gammafly: `shots.push({ id: 'g' + Math.random(), kind: K.GAMMA, x: me.x + 200, y: me.y, px: me.x + 200, py: me.y, vx: 60, vy: 0, life: 4, m: 1, owner: 'nobody', bn: 0 })`,
       combo: `explode(me.x + 330, me.y, 120, 640, "plasma")`,
       flak: `flakBurst({ kind: K.FLAK, id: 'fx' + Math.random(), owner: 'nobody', x: me.x + 330, y: me.y, vx: 0, vy: 0, life: 1, m: 1 })`,
