@@ -159,7 +159,7 @@ try {
   }
   const guns = process.env.FX ? [] : process.argv[2] ? process.argv[2].split(',') : await ev('__e("SANDBOX_GUNS")');
   for (const g of guns) for (const [mode, key] of [['primary', 'KeyF'], ['alt', 'KeyC']]) {
-    const dist = g === 'gauntlet' ? 95 : g === 'nuke' || g === 'holy' ? 900 : 520;
+    const dist = g === 'gauntlet' ? 95 : g === 'saw' ? 115 : g === 'mine' ? 320 : g === 'nuke' || g === 'holy' ? 900 : 520;   // (each gun at a range it is made for)
     await ev(`(() => { const E = __e; window.__dist = ${dist}; E('keys').clear(); E('__lab.heal()'); E('shots.length = 0'); E('me.weapon = ${JSON.stringify(g)}'); E('renderWeapon()'); E('fireCd = 0'); })()`);
     await wait(500);
     const hp0 = await ev('__e("__lab.hp()")'), d0 = await ev('__e("__lab.deaths()")'), s0 = await ev('__e("stats.shots")');
@@ -169,7 +169,7 @@ try {
     await wait(700);
     await ev(`__e('keys').delete(${JSON.stringify(key)})`);
     await wait(150); await shot(`${g}-${mode}-2`);
-    await wait(g === 'holy' || g === 'nuke' ? 3800 : 900); await shot(`${g}-${mode}-3`);
+    await wait(g === 'holy' || g === 'nuke' ? 3800 : 2000); await shot(`${g}-${mode}-3`);   // (slow shots and the demonic orb's draw land in this time)
     const hp1 = await ev('__e("__lab.hp()")'), d1 = await ev('__e("__lab.deaths()")'), s1 = await ev('__e("stats.shots")');
     const sounds = [...new Set(await ev('__lab.sounds'))];
     report.push({ gun: g, mode, shots: s1 - s0, damage: +(hp0 - hp1 + (d1 - d0) * 3).toFixed(2), kills: d1 - d0, sounds: sounds.slice(0, 8).join(' ') });

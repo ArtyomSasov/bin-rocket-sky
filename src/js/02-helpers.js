@@ -102,7 +102,7 @@
   // its own thrust (1150) cannot, and from 3000 px it still pulls as hard as that thrust
   // a void bomb's hole also burns whoever it has hold of: within r of it, dps at its edge rising to 3x at its heart
   // (dealt in bites of at least bite), and the kills it makes are its thrower's
-  const VOID_BURN = { r: 520, dps: HP(22), bite: HP(4) };
+  const VOID_BURN = { r: 400, dps: HP(22), bite: HP(4) };
   const voidBurn = (bh, d, dt) => bh.v && d < VOID_BURN.r ? VOID_BURN.dps * bh.k * (1 + 2 * (1 - d / VOID_BURN.r)) * dt : 0;
   const holeAcc = (bh, d) => holePower(bh) * bh.k * 9e7 / (d * d + 1.5e4) + (bh.v ? bh.k * 3.4e6 / (d + 300) : 0);
   function holesNow() {
