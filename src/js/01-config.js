@@ -116,7 +116,7 @@
                alt: { name: "Focus", cost: 1, cd: 0.3, shot: [K.FIRE, 1050], spread: [-0.035, 0, 0.035], kick: 60, feel: [10, 0.13, 80], sfx: ["triple", 0.8, 0.9] } },
     // Pulse Gun: fast plasma spheres; alt: hold to charge a Plasma Nova, let go to throw it
     laser:   { name: "Pulse Gun", ammo: 120, cd: 0.12, col: "#a8ff55", shot: [K.PULSE_BOLT, 1500], kick: 6, feel: [3, 0.03, 30], sfx: ["p_ut_pulse_fire", .75, 1], fx: "pulse",
-               alt: { name: "Plasma Nova", charge: 1.0, nova: true, cost: 8, cd: 0.9, shot: [K.NOVA, 950], kick: 260, feel: [22, 0.3, 50], sfx: ["p_ut_pulse_bolt", 1, 0.6] } },
+               alt: { name: "Plasma Nova", charge: 0.6, nova: true, cost: 5, cd: 0.6, shot: [K.NOVA, 1400], kick: 260, feel: [22, 0.3, 50], sfx: ["p_ut_pulse_bolt", 1, 0.6] } },
     // rockets as in Quake: straight and fast (about 2.4x a bin's speed), dodgeable by reading them; alt three slow homing ones
     rocket:  { name: "Rocket launcher", ammo: 10, cd: 0.8, col: "#ff5a6e", shot: [K.ROCKET, 1350], kick: 120, feel: [12, 0.16, 70], sfx: ["rocket", 0.8],
                alt: { name: "Load rockets", load: true, cost: 1, cd: 0.9, shot: [K.ROCKET, 1350], kick: 200, feel: [18, 0.23, 96], sfx: ["rocket", 1, 0.8] } },
@@ -174,7 +174,7 @@
   const ROCKET_LOAD = 0.7, ROCKET_MAX = 3;
   const rocketsLoaded = (t, carried) => Math.min(ROCKET_MAX, carried, 1 + Math.floor((t + 1e-8) / ROCKET_LOAD));
   balanceShot(K.PISTOL, { dmg: HP(17), col: "#ff3b4e" });
-  balanceShot(K.NOVA, { dmg: HP(30) });   // the Plasma Nova's direct hit, by its charge (its burst: SPLASH)   // the laser pistol: red sparks where it lands
+  balanceShot(K.NOVA, { dmg: HP(60) });   // the Plasma Nova's direct hit, by its charge (its burst: SPLASH)   // the laser pistol: red sparks where it lands
   balanceShot(K.ROCKET, { dmg: HP(75) });
   balanceShot(K.PULSE_BOLT, { dmg: HP(24) });
   balanceShot(K.LASER, { dmg: HP(72 * .24 * 1.8) }); // the Pulse Gun's beam, a link beam: half again UT99's, and it heats up held on (LINK_HEAT)
@@ -217,9 +217,9 @@
   let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
-  const SPLASH = { [K.BULLET_ALT]: [100, HP(24), 0, 170], [K.FLAK]: [210, HP(70), 0, 400], [K.SAW_ALT]: [252, HP(34), 0, 350], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [280, HP(80), 0, 600], [K.NOVA]: [250, HP(85), 0, 700] };
+  const SPLASH = { [K.BULLET_ALT]: [100, HP(24), 0, 170], [K.FLAK]: [210, HP(70), 0, 400], [K.SAW_ALT]: [252, HP(34), 0, 350], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [280, HP(80), 0, 600], [K.NOVA]: [300, HP(150), 0, 900] };   // (Plasma Nova: a full one kills a bin at its heart)
   const GAMMA_ZAP = { r: 280, every: 0.45, dmg: HP(6) };
-  const NOVA_ZAP = { r: 240, every: 0.18, dmg: HP(5) };   // the nova lashes every enemy this close to its path, by its charge   // the gamma orb zaps every enemy this close as it flies
+  const NOVA_ZAP = { r: 260, every: 0.12, dmg: HP(12) };   // the nova lashes every enemy this close to its path, by its charge   // the gamma orb zaps every enemy this close as it flies
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
   // a station's inner wall gives only to heavy weapons (a crater of WALL_CARVE or more: rockets, grenades, mines, the
   // orbs, the charged rail and gauss), and then WALL_GIVE times more than rock does; the hull never

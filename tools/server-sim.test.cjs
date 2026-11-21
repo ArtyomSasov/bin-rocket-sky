@@ -545,13 +545,13 @@ test('the Pulse Gun\'s Plasma Nova charges while held and bursts on a pilot, by 
     const hold = () => { Object.assign(V, { x: 2600, y: 2000, vx: 0, vy: 0, inv: 0 }); Object.assign(A, { x: 2000, y: 2000, vx: 0, vy: 0, a: 0 }); };   // (no spawn protection on the mark)
     hold(); m.input(a, { w, aim: 0 }); run(m, 0.1, hold);
     const lives0 = V.lives;
-    run(m, 1.1, () => { hold(); m.input(a, { w, aim: 0, alt: true }); });   // charged in full
+    run(m, 0.7, () => { hold(); m.input(a, { w, aim: 0, alt: true }); });   // charged in full
     let nova = null;
     run(m, 1.2, () => { hold(); m.input(a, { w, aim: 0 }); nova = nova || m.game.__simShots().find(s => s.kind === K.NOVA); });
     assert.ok(nova, 'letting go throws a nova');
     assert.ok(nova.m > 0.9, 'charged in full: ' + nova.m);
-    assert.ok(V.lives < lives0 - 0.8, 'its lightning and its burst hit hard: ' + lives0 + ' -> ' + V.lives);
-    assert.equal(A.arsenal.laser, 32, 'a nova costs 8');
+    assert.ok(V.dead || V.lives < lives0 - 2, 'its lightning and its burst hit hard: ' + lives0 + ' -> ' + V.lives);
+    assert.equal(A.arsenal.laser, 35, 'a nova costs 5');
   } finally { m.dispose(); }
 });
 

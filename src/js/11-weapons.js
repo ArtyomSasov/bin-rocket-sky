@@ -675,7 +675,7 @@
     if (!alt && !(me.arsenal[k] > 0)) { rejectFire("NO AMMO · use alternate command", now); return; }
     if (alt && (me.arsenal[k] || 0) < pat.cost) { rejectFire("NEED " + pat.cost + " AMMO", now); return; }
     if (alt && pat.cutter) pat = { ...pat, cut: Math.round(24 + 48 * railCharge) };
-    if (alt && pat.nova) mul *= 0.35 + 0.65 * railCharge;   // (the nova: as big and as strong as it was charged)
+    if (alt && pat.nova) mul *= 0.55 + 0.45 * railCharge;   // (the nova: as big and as strong as it was charged)
     if (alt && pat.recall) {
       if (!shots.some(s => myShot(s) && s.kind === K.SAW && !s.returning && s.life > 0)) { rejectFire(controlledShots("saw").length ? "BLADES ALREADY RETURNING" : "NO ACTIVE BLADES", now); return; }
       const signal = volley(me, now, pat, { x: me.x, y: me.y }); recallSaws(signal); fireCd = pat.cd; sfx(...pat.sfx); return;

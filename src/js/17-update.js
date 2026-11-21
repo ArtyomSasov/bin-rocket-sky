@@ -17,7 +17,7 @@
       if (altHeld && ready && me.arsenal[me.weapon] >= altW.cost) {
         const was = railCharge; railCharge = Math.min(1, railCharge + dt / altW.charge);
         if (Math.floor(was * 6) !== Math.floor(railCharge * 6)) sfx("p_charge", 0.3, 0.8 + railCharge * 0.5);
-        if (was < 1 && railCharge === 1) audioCue("chargeFull");
+        if (was < 1 && railCharge === 1) { if (altW.nova) { shoot(now, true); railCharge = 0; } else audioCue("chargeFull"); }   // (a full nova goes by itself: held, they keep coming)
       } else {
         if (altHeld && ready && (me.arsenal[me.weapon] || 0) < altW.cost) rejectFire("NEED " + altW.cost + " AMMO", now);
         if (railCharge > 0) { if (!altHeld && ready && me.arsenal[me.weapon] >= altW.cost) shoot(now, true); else audioCue("chargeCancel"); railCharge = 0; }

@@ -601,17 +601,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     background: linear-gradient(to bottom, rgba(30, 21, 58, 0), rgba(30, 21, 58, 0.94) 30%); }
 }
 
-/* first steps: the newcomer's card, above the gun bar */
-.tips { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 10px;
-  max-width: min(560px, calc(100vw - 24px)); padding: 9px 10px 9px 14px; font-size: 14px; font-weight: 700; pointer-events: auto; }
-.tips b { font-size: 11px; letter-spacing: .06em; color: var(--muted); white-space: nowrap; }
-.tips span { flex: 1; }
-.tips button { background: none; border: 0; box-shadow: none; border-radius: 8px; color: var(--muted); font-size: 20px; line-height: 1; padding: 2px 6px; cursor: pointer; min-width: 32px; min-height: 32px; }
-.tips.pop { animation: tipPop .35s ease-out; }
-.tips.done b { color: #6ff0a0; }
-@keyframes tipPop { from { transform: translateX(-50%) translateY(8px); opacity: .2; } to { transform: translateX(-50%); opacity: 1; } }
-@media (pointer: coarse) { .tips { bottom: auto; top: 212px; font-size: 13px; } }   /* under the energy bar and the map */
-@media (pointer: coarse) and (max-height: 500px) { .tips { top: 96px; max-width: 46vw; } }   /* a phone on its side: under the energy bar, clear of the bin in the middle */
 </style>
 
 <canvas id="c" tabindex="0" aria-label="Game arena"></canvas>
@@ -627,7 +616,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
 <button class="fire" id="fireBtn" aria-label="Fire" hidden><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg></button>
 <div class="event" id="eventBanner" hidden></div>
 <div class="match-hud"><div class="match-header">
-<div class="tips chip" id="tips" role="status" aria-live="polite" hidden><b id="tipsStep">1/4</b><span id="tipsText"></span><button type="button" aria-label="Close the tips">×</button></div>
 <div class="match-clock chip" id="roundInfo" role="timer" aria-label="Round timer">Round 1 · 5:00</div>
 <div class="hud-tools"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><button type="button" id="chatBtn" aria-label="Chat">Chat</button><button type="button" id="scoreBtn" aria-controls="scoreboard" aria-expanded="false">Scores <span>Tab</span></button></div>
 </div>
@@ -892,7 +880,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
                alt: { name: "Focus", cost: 1, cd: 0.3, shot: [K.FIRE, 1050], spread: [-0.035, 0, 0.035], kick: 60, feel: [10, 0.13, 80], sfx: ["triple", 0.8, 0.9] } },
     // Pulse Gun: fast plasma spheres; alt: hold to charge a Plasma Nova, let go to throw it
     laser:   { name: "Pulse Gun", ammo: 120, cd: 0.12, col: "#a8ff55", shot: [K.PULSE_BOLT, 1500], kick: 6, feel: [3, 0.03, 30], sfx: ["p_ut_pulse_fire", .75, 1], fx: "pulse",
-               alt: { name: "Plasma Nova", charge: 1.0, nova: true, cost: 8, cd: 0.9, shot: [K.NOVA, 950], kick: 260, feel: [22, 0.3, 50], sfx: ["p_ut_pulse_bolt", 1, 0.6] } },
+               alt: { name: "Plasma Nova", charge: 0.6, nova: true, cost: 5, cd: 0.6, shot: [K.NOVA, 1400], kick: 260, feel: [22, 0.3, 50], sfx: ["p_ut_pulse_bolt", 1, 0.6] } },
     // rockets as in Quake: straight and fast (about 2.4x a bin's speed), dodgeable by reading them; alt three slow homing ones
     rocket:  { name: "Rocket launcher", ammo: 10, cd: 0.8, col: "#ff5a6e", shot: [K.ROCKET, 1350], kick: 120, feel: [12, 0.16, 70], sfx: ["rocket", 0.8],
                alt: { name: "Load rockets", load: true, cost: 1, cd: 0.9, shot: [K.ROCKET, 1350], kick: 200, feel: [18, 0.23, 96], sfx: ["rocket", 1, 0.8] } },
@@ -950,7 +938,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const ROCKET_LOAD = 0.7, ROCKET_MAX = 3;
   const rocketsLoaded = (t, carried) => Math.min(ROCKET_MAX, carried, 1 + Math.floor((t + 1e-8) / ROCKET_LOAD));
   balanceShot(K.PISTOL, { dmg: HP(17), col: "#ff3b4e" });
-  balanceShot(K.NOVA, { dmg: HP(30) });   // the Plasma Nova's direct hit, by its charge (its burst: SPLASH)   // the laser pistol: red sparks where it lands
+  balanceShot(K.NOVA, { dmg: HP(60) });   // the Plasma Nova's direct hit, by its charge (its burst: SPLASH)   // the laser pistol: red sparks where it lands
   balanceShot(K.ROCKET, { dmg: HP(75) });
   balanceShot(K.PULSE_BOLT, { dmg: HP(24) });
   balanceShot(K.LASER, { dmg: HP(72 * .24 * 1.8) }); // the Pulse Gun's beam, a link beam: half again UT99's, and it heats up held on (LINK_HEAT)
@@ -993,9 +981,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
-  const SPLASH = { [K.BULLET_ALT]: [100, HP(24), 0, 170], [K.FLAK]: [210, HP(70), 0, 400], [K.SAW_ALT]: [252, HP(34), 0, 350], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [280, HP(80), 0, 600], [K.NOVA]: [250, HP(85), 0, 700] };
+  const SPLASH = { [K.BULLET_ALT]: [100, HP(24), 0, 170], [K.FLAK]: [210, HP(70), 0, 400], [K.SAW_ALT]: [252, HP(34), 0, 350], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [280, HP(80), 0, 600], [K.NOVA]: [300, HP(150), 0, 900] };   // (Plasma Nova: a full one kills a bin at its heart)
   const GAMMA_ZAP = { r: 280, every: 0.45, dmg: HP(6) };
-  const NOVA_ZAP = { r: 240, every: 0.18, dmg: HP(5) };   // the nova lashes every enemy this close to its path, by its charge   // the gamma orb zaps every enemy this close as it flies
+  const NOVA_ZAP = { r: 260, every: 0.12, dmg: HP(12) };   // the nova lashes every enemy this close to its path, by its charge   // the gamma orb zaps every enemy this close as it flies
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
   // a station's inner wall gives only to heavy weapons (a crater of WALL_CARVE or more: rockets, grenades, mines, the
   // orbs, the charged rail and gauss), and then WALL_GIVE times more than rock does; the hull never
@@ -6089,7 +6077,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (!alt && !(me.arsenal[k] > 0)) { rejectFire("NO AMMO · use alternate command", now); return; }
     if (alt && (me.arsenal[k] || 0) < pat.cost) { rejectFire("NEED " + pat.cost + " AMMO", now); return; }
     if (alt && pat.cutter) pat = { ...pat, cut: Math.round(24 + 48 * railCharge) };
-    if (alt && pat.nova) mul *= 0.35 + 0.65 * railCharge;   // (the nova: as big and as strong as it was charged)
+    if (alt && pat.nova) mul *= 0.55 + 0.45 * railCharge;   // (the nova: as big and as strong as it was charged)
     if (alt && pat.recall) {
       if (!shots.some(s => myShot(s) && s.kind === K.SAW && !s.returning && s.life > 0)) { rejectFire(controlledShots("saw").length ? "BLADES ALREADY RETURNING" : "NO ACTIVE BLADES", now); return; }
       const signal = volley(me, now, pat, { x: me.x, y: me.y }); recallSaws(signal); fireCd = pat.cd; sfx(...pat.sfx); return;
@@ -6683,7 +6671,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     saw: "Blood Blade: hold to wind the red blade back over your shoulder, let go to sweep it through the arc ahead; the fuller the wind-up, the harder it cuts, through rock and walls too. No alternate fire.",
     mine: "Detonate works with zero ammo while your mines are active.",
     gamma: "One slow orb controls a 280 px zone: green pulses drain nearby enemies. ALT detonates for up to 80 HP, including after the last ammo. Walls block damage.",
-    laser: "Pulse Gun: rapid green plasma bolts. Hold alternate fire to charge a Plasma Nova (up to 1 s), let go to throw it: it lashes every enemy near its path with lightning and bursts where it strikes, bigger and harder the longer it was charged; 8 ammo.",
+    laser: "Pulse Gun: rapid green plasma bolts. Alternate fire throws a Plasma Nova (hold up to 0.6 s to charge it fuller): it lashes every enemy near its path with lightning and bursts where it strikes; a full one kills a bin at its heart; 5 ammo.",
     rail: "Precision shot: 80 HP, 1.8 s between shots. Primary fire only. Armor absorbs damage; permanent walls block the beam."
   };
   const weaponHint = k => WEAPONS[k].name + " · " + weaponKey(k) + ". " + (ALT_HINTS[k] || "Q/E cycles carried weapons. Right click or C uses alternate fire when available.");
@@ -8700,7 +8688,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     // the rail's cutter: alt held widens it, letting go fires it
     if (alt && alt.charge) {
-      if (i.alt && ready && (b.arsenal[k] || 0) >= alt.cost) b.cutCharge = Math.min(1, b.cutCharge + dt / alt.charge);
+      if (i.alt && ready && (b.arsenal[k] || 0) >= alt.cost) { b.cutCharge = Math.min(1, b.cutCharge + dt / alt.charge); if (alt.nova && b.cutCharge >= 1) { pilotShoot(b, now, k, true); b.cutCharge = 0; } }   // (a full nova goes by itself, as on the screen)
       else { if (b.cutCharge > 0 && !i.alt && ready) pilotShoot(b, now, k, true); b.cutCharge = 0; }
     }
     // the charge cannon: held charges it, letting go fires it
@@ -8752,7 +8740,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       b.heat += pat.heat; if (b.heat >= 1) b.overheat = true;
     }
     if (alt && pat.cutter) pat = { ...pat, cut: Math.round(24 + 48 * b.cutCharge) };
-    if (alt && pat.nova) mul *= 0.35 + 0.65 * b.cutCharge;   // (as the screen charges it)
+    if (alt && pat.nova) mul *= 0.55 + 0.45 * b.cutCharge;   // (as the screen charges it)
     const cdMul = MODES[MODE].cdMul || 1;
     if (alt && w.quickAlt) { b.altCd = pat.cd; b.fireCd = Math.max(b.fireCd, 0.15); } else
     b.fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * b.spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
@@ -8896,7 +8884,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (altHeld && ready && me.arsenal[me.weapon] >= altW.cost) {
         const was = railCharge; railCharge = Math.min(1, railCharge + dt / altW.charge);
         if (Math.floor(was * 6) !== Math.floor(railCharge * 6)) sfx("p_charge", 0.3, 0.8 + railCharge * 0.5);
-        if (was < 1 && railCharge === 1) audioCue("chargeFull");
+        if (was < 1 && railCharge === 1) { if (altW.nova) { shoot(now, true); railCharge = 0; } else audioCue("chargeFull"); }   // (a full nova goes by itself: held, they keep coming)
       } else {
         if (altHeld && ready && (me.arsenal[me.weapon] || 0) < altW.cost) rejectFire("NEED " + altW.cost + " AMMO", now);
         if (railCharge > 0) { if (!altHeld && ready && me.arsenal[me.weapon] >= altW.cost) shoot(now, true); else audioCue("chargeCancel"); railCharge = 0; }
@@ -12504,7 +12492,6 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     update(now < hitStopUntil ? 0 : dt, now); draw(now);
     if (!playing) drawPreview(now);
     else { drawMinimap(now); renderEnergy(); }
-    tipsTick(now);
     if (post) post.frame(dt);   // the WebGL look over the finished frame (20b-post.js)
     const cur = playing && mouseAim() ? (settings.aim === "off" || me.dead ? "crosshair" : "none") : "";
     if (cv.style.cursor !== cur) cv.style.cursor = cur;
@@ -12895,50 +12882,6 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       }
     };
   })();
-  // ---------- first steps: a short card for a newcomer ----------
-  // On a first match a small card at the bottom walks through the controls, one step at a time; each step is ticked
-  // off by doing it (not by reading it), and the card goes for good once all are done or it is closed. Touch screens
-  // get their own steps
-  const TIPS_KEY = "binrocket.tips";
-  const TIP_STEPS = COARSE ? [
-    ["Drag the stick on the left to fly", t => t.flown > 400],
-    ["Hold the boost button to boost, tap it to dash", t => t.boosted],
-    ["Tap the fire button to shoot", t => t.shots >= 3],
-    ["ALT fires the gun's second mode; tap a gun in the bar to switch", t => t.alt || t.switched]
-  ] : [
-    ["Fly with W A S D", t => t.flown > 400],
-    ["Hold Shift to boost, tap it to dash", t => t.boosted],
-    ["Aim with the mouse, the left button fires", t => t.shots >= 3],
-    ["The right button fires the gun's second mode; 1–9 or Q / E switch guns", t => t.alt || t.switched]
-  ];
-  const tipsEl = document.getElementById("tips"), tipsText = document.getElementById("tipsText"), tipsStep = document.getElementById("tipsStep");
-  let tips = null;   // { step, flown, boosted, shots, alt, switched, x, y, shots0, weapon0, dash0, doneAt }
-  tipsEl?.querySelector("button")?.addEventListener("click", () => { store.set(TIPS_KEY, "done"); tips = { closed: true }; tipsEl.hidden = true; });
-  function tipsTick(now) {
-    if (!tipsEl || tips?.closed) return;
-    if (!tips) {
-      if (store.get(TIPS_KEY) === "done" || !playing || me.dead) return;
-      tips = { step: 0, flown: 0, boosted: false, shots: 0, alt: false, switched: false, x: me.x, y: me.y, shots0: stats.shots, weapon0: me.weapon, dash0: me.dashAt || 0 };
-    }
-    if (!playing) { tipsEl.hidden = true; return; }
-    if (!me.dead) {
-      const d = Math.hypot(me.x - tips.x, me.y - tips.y); if (d < 300) tips.flown += d;   // (not a respawn's jump)
-      tips.x = me.x; tips.y = me.y;
-      if (me.boostOn || (me.dashAt || 0) > tips.dash0) tips.boosted = true;
-      tips.shots = stats.shots - tips.shots0;
-      if (altFiring || keys.has("KeyC")) tips.alt = true;
-      if (me.weapon !== tips.weapon0) tips.switched = true;
-    }
-    if (tips.doneAt) {   // the last step ticked: "Ready" for a moment, then gone for good
-      if (now - tips.doneAt > 1800) { store.set(TIPS_KEY, "done"); tips.closed = true; tipsEl.hidden = true; }
-      return;
-    }
-    while (tips.step < TIP_STEPS.length && TIP_STEPS[tips.step][1](tips)) tips.step++;
-    if (tips.step >= TIP_STEPS.length) { tips.doneAt = now; tipsText.textContent = "Ready. Good hunting!"; tipsStep.textContent = "✓"; tipsEl.classList.add("done"); return; }
-    const txt = TIP_STEPS[tips.step][0];
-    if (tipsText.textContent !== txt) { tipsText.textContent = txt; tipsStep.textContent = (tips.step + 1) + "/" + TIP_STEPS.length; tipsEl.classList.remove("pop"); void tipsEl.offsetWidth; tipsEl.classList.add("pop"); }
-    tipsEl.hidden = false;
-  }
   // ---------- controls help, tailored to the device ----------
   const KEY = k => `<kbd>${k}</kbd>`;
   // desktop rows differ only in a few key names

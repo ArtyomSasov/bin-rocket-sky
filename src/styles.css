@@ -592,14 +592,3 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     background: linear-gradient(to bottom, rgba(30, 21, 58, 0), rgba(30, 21, 58, 0.94) 30%); }
 }
 
-/* first steps: the newcomer's card, above the gun bar */
-.tips { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 10px;
-  max-width: min(560px, calc(100vw - 24px)); padding: 9px 10px 9px 14px; font-size: 14px; font-weight: 700; pointer-events: auto; }
-.tips b { font-size: 11px; letter-spacing: .06em; color: var(--muted); white-space: nowrap; }
-.tips span { flex: 1; }
-.tips button { background: none; border: 0; box-shadow: none; border-radius: 8px; color: var(--muted); font-size: 20px; line-height: 1; padding: 2px 6px; cursor: pointer; min-width: 32px; min-height: 32px; }
-.tips.pop { animation: tipPop .35s ease-out; }
-.tips.done b { color: #6ff0a0; }
-@keyframes tipPop { from { transform: translateX(-50%) translateY(8px); opacity: .2; } to { transform: translateX(-50%); opacity: 1; } }
-@media (pointer: coarse) { .tips { bottom: auto; top: 212px; font-size: 13px; } }   /* under the energy bar and the map */
-@media (pointer: coarse) and (max-height: 500px) { .tips { top: 96px; max-width: 46vw; } }   /* a phone on its side: under the energy bar, clear of the bin in the middle */

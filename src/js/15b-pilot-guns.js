@@ -93,7 +93,7 @@
     }
     // the rail's cutter: alt held widens it, letting go fires it
     if (alt && alt.charge) {
-      if (i.alt && ready && (b.arsenal[k] || 0) >= alt.cost) b.cutCharge = Math.min(1, b.cutCharge + dt / alt.charge);
+      if (i.alt && ready && (b.arsenal[k] || 0) >= alt.cost) { b.cutCharge = Math.min(1, b.cutCharge + dt / alt.charge); if (alt.nova && b.cutCharge >= 1) { pilotShoot(b, now, k, true); b.cutCharge = 0; } }   // (a full nova goes by itself, as on the screen)
       else { if (b.cutCharge > 0 && !i.alt && ready) pilotShoot(b, now, k, true); b.cutCharge = 0; }
     }
     // the charge cannon: held charges it, letting go fires it
@@ -145,7 +145,7 @@
       b.heat += pat.heat; if (b.heat >= 1) b.overheat = true;
     }
     if (alt && pat.cutter) pat = { ...pat, cut: Math.round(24 + 48 * b.cutCharge) };
-    if (alt && pat.nova) mul *= 0.35 + 0.65 * b.cutCharge;   // (as the screen charges it)
+    if (alt && pat.nova) mul *= 0.55 + 0.45 * b.cutCharge;   // (as the screen charges it)
     const cdMul = MODES[MODE].cdMul || 1;
     if (alt && w.quickAlt) { b.altCd = pat.cd; b.fireCd = Math.max(b.fireCd, 0.15); } else
     b.fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * b.spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
