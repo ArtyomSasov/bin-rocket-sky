@@ -71,3 +71,18 @@ test('every space map gives each pick-up its own spot (the void bomb lay on the 
       assert.ok(Math.hypot(pts[i][1] - pts[j][1], pts[i][2] - pts[j][2]) > 0.03, `${k} ${A.name}: ${pts[i][0]} and ${pts[j][0]} share a spot at ${pts[i][1]},${pts[i][2]}`);
   }
 });
+
+test('every gun lying on a map can be picked up (the nailgun was retired but still lay on eight maps)', () => {
+  const { run } = setup();
+  const slots = read('11a-weapon-state.js').match(/const WEAPON_SLOTS = (\[[^\]]*\])/)[1];
+  const usable = JSON.parse(slots);
+  for (const file of ['01b-arenas.js', '01c-foundry.js']) {
+    const lines = read(file).split('\n').filter(l => /^\s*guns: \[/.test(l));
+    assert.ok(lines.length >= 5, file + ': map gun lists found');
+    for (const l of lines) for (const [, k] of l.matchAll(/\["([a-z]+)", [\d.]+, [\d.]+\]/g)) {
+      assert.ok(usable.includes(k), `${file}: ${k} is not a gun you can carry`);
+      assert.equal(run(`!!WEAPONS[${JSON.stringify(k)}].disabled`), false, `${file}: ${k} is retired`);
+    }
+  }
+  for (const k of ['nail', 'tele', 'triple', 'bolt', 'gauss', 'gauntlet']) assert.ok(run(`WEAPONS.${k}.disabled`), k + ' retired');   // (the nailgun keeps its slot, hidden, so the keys after it stay put)
+});

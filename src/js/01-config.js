@@ -217,6 +217,7 @@
   WEAPONS.nuke.shot = [K.NUKE, 840]; WEAPONS.nuke.alt.shot = [K.NUKE, 840];
   WEAPONS.nail.disabled = true; // keep wire IDs and other weapons' number keys stable
   WEAPONS.tele.disabled = true; // the teleporter is retired (nobody used it); its wire number stays
+  for (const k of ["triple", "bolt", "gauss", "gauntlet"]) WEAPONS[k].disabled = true;   // retired too (never on a map); their wire numbers stay
   let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]

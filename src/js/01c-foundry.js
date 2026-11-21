@@ -67,7 +67,7 @@
     k: {
       open: cargoOpen,
       floor: ["#25211d", "#2e2924", "#4a4038"], wall: ["#5a5148", "#3b342e", "#e6c08a"], accent: ["#f0b43c", "#58c8e8"], void: "#0c0a09", style: "cargo", lamp: "#ffe6c0",
-      guns: [["rocket", 2, 2], ["rail", 10, 1], ["scatter", 5, 5], ["minigun", 1, 6], ["laser", 7, 7], ["orb", 10, 6], ["shard", 6, 9], ["gamma", 5, 2], ["nail", 2, 15], ["gren", 15, 2]],
+      guns: [["rocket", 2, 2], ["rail", 10, 1], ["scatter", 5, 5], ["minigun", 1, 6], ["laser", 7, 7], ["orb", 10, 6], ["shard", 6, 9], ["gamma", 5, 2], ["mine", 2, 15], ["gren", 15, 2]],
       supplies: [["med", 5, 6], ["shield", 8, 10], ["vial", 2, 8], ["vial", 2, 12], ["bigmed", 10, 14], ["pads", 13, 10], ["shield", 5, 4]],
       mega: [10, 3], pads: [[4, 1, 0], [16, 19, Math.PI]],
       props: [["crate", 4.32, 4.32, 0], ["crate", 4.8, 4.3, 0.08], ["crate", 4.3, 4.8, -0.06], ["crate", 6.66, 6.62, 0.12], ["drum", 6.7, 4.3], ["drum", 4.3, 6.7],
@@ -90,7 +90,7 @@
     d: {
       open: cruiserOpen, space: cruiserSpace,
       floor: ["#1b1f27", "#232833", "#3a4252"], wall: ["#4a5262", "#2b303b", "#a8c4e0"], accent: ["#ff5a4a", "#7fd0ff"], void: "#02030a", style: "tread", lamp: "#ff9a8a",
-      guns: [["rocket", 4, 7], ["scatter", 6, 13], ["laser", 7, 10], ["minigun", 3, 10], ["rail", 10, 2], ["gamma", 10, 7], ["shard", 1, 3], ["nail", 4, 17], ["gren", 6, 6], ["orb", 14, 2], ["mine", 3, 14]],
+      guns: [["rocket", 4, 7], ["scatter", 6, 13], ["laser", 7, 10], ["minigun", 3, 10], ["rail", 10, 2], ["gamma", 10, 7], ["shard", 1, 3], ["gren", 6, 6], ["orb", 14, 2], ["mine", 3, 14]],
       supplies: [["med", 3, 6], ["shield", 7, 14], ["vial", 6, 10], ["vial", 4, 10], ["bigmed", 10, 16], ["pads", 1, 10], ["shield", 10, 4]],
       mega: [10, 3], pads: [[1, 6, Math.PI / 2], [19, 14, -Math.PI / 2]],
       props: [["crate", 3.3, 6.3, 0.1], ["crate", 3.75, 6.3, -0.1], ["drum", 7.6, 6.4], ["crate", 3.4, 14.6, -0.15], ["drum", 7.6, 14.5], ["panel", 6.0, 9.0, 0]],
@@ -99,7 +99,7 @@
     v: {
       open: vaultOpen,
       floor: ["#231b1a", "#2d2321", "#4d3a33"], wall: ["#5e3d33", "#3a2522", "#ffb070"], accent: ["#ff8a4a", "#ffd27a"], void: "#0a0605", style: "inlay", lamp: "#ffc890",
-      guns: [["rocket", 3, 3], ["rail", 10, 1], ["scatter", 2, 9], ["minigun", 10, 6], ["orb", 9, 10], ["laser", 5, 5], ["shard", 15, 3], ["gamma", 1, 5], ["nail", 5, 12], ["gren", 12, 1]],
+      guns: [["rocket", 3, 3], ["rail", 10, 1], ["scatter", 2, 9], ["minigun", 10, 6], ["orb", 9, 10], ["laser", 5, 5], ["shard", 15, 3], ["gamma", 1, 5], ["mine", 5, 12], ["gren", 12, 1]],
       supplies: [["med", 1, 1], ["shield", 5, 9], ["vial", 3, 1], ["vial", 1, 3], ["bigmed", 10, 12], ["pads", 12, 5], ["shield", 8, 15]],
       mega: [10, 3], pads: [[3, 6, Math.PI / 2], [17, 14, -Math.PI / 2]],
       props: [["crate", 1.3, 8.3, 0.1], ["crate", 1.3, 8.78, -0.05], ["crate", 4.7, 8.3, 0.15], ["drum", 8.3, 1.3], ["drum", 12.7, 4.7], ["crate", 11.7, 8.3, -0.1],
