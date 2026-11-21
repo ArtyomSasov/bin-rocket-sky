@@ -346,7 +346,7 @@
       impacts.push({ x, y, t: 0, r: 380, col: "170,10,30", dur: 0.9, soft: 0.6, flick: Math.random() * 6.28 });
       for (let k = 0; k < (lowQ ? 4 : 9); k++) { const a = Math.random() * 6.283, d = 120 + Math.random() * 200; arcs.push({ x1: x, y1: y, x2: x + Math.cos(a) * d, y2: y + Math.sin(a) * d, t: 0, col: "255,50,60" }); }
       // and it leaves a pall of black smoke, crimson embers spitting out of it
-      for (let k = 0; k < (lowQ ? 10 : 26); k++) { const a = Math.random() * 6.283, v = 40 + Math.random() * 260; puff(x + Math.cos(a) * 30, y + Math.sin(a) * 30, Math.cos(a) * v, Math.sin(a) * v, 1.6 + Math.random() * 1.6, 22 + Math.random() * 26, k % 3 ? "#0a0507" : "#240810", 2, 0, (Math.random() - 0.5) * 0.8, 0.95); }
+      for (let k = 0; k < (lowQ ? 6 : 14); k++) { const a = Math.random() * 6.283, v = 30 + Math.random() * 130; puff(x + Math.cos(a) * 30, y + Math.sin(a) * 30, Math.cos(a) * v, Math.sin(a) * v, 0.8 + Math.random() * 0.8, 14 + Math.random() * 14, k % 3 ? "#0a0507" : "#240810", 2, 0, (Math.random() - 0.5) * 0.8, 0.95); }
       for (let k = 0; k < (lowQ ? 6 : 18); k++) { const a = Math.random() * 6.283, v = 200 + Math.random() * 600; puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.5 + Math.random() * 0.7, 1.4 + Math.random() * 1.6, k % 2 ? "#ff2a3c" : "#ff7a4a", 5, 0, 0, 0.93); }
       if (post) post.burst(x, y, 200, [0.05, 0.02, 0.04], 3.2, 900);
       // The orb travels beyond the old 1400px gate; let the sound mixer handle distance.
@@ -778,6 +778,7 @@
       if (w.sword) bladeHumSet(charge);   // (the blade hums as it winds up)
       else if (Math.floor(was * 6) !== Math.floor(charge * 6)) sfx("p_charge", 0.3, 0.8 + charge * 0.5);   // a rising whine
       if (charge === 1 && was < 1 && !w.sword) impacts.push({ x: me.x, y: me.y, t: 0, r: 60, col: w.col });
+      if (w.sword && charge === 1 && ready) { shoot(now, false, 1); charge = 0; }   // a full wind-up strikes by itself, so held it keeps swinging (the server does the same)
       return false;
     }
     if (charge > 0 && ready) shoot(now, false, Math.max(0.25, charge));

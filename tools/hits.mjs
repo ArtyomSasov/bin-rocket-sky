@@ -45,7 +45,7 @@ try {
   const A = await page(), B = await page();
   for (const [p, name] of [[A, 'Shooter'], [B, 'Target']]) {
     await p(`chooseWhere('srv'); document.getElementById('tabJoin').click(); document.getElementById('nameInput').value = '${name}';
-      const li = document.getElementById('lobbyInput'); li.value = '${GUN === 'rocket' || GUN === 'nova' ? 'M1X0OHITS' : 'M1D0OHITS'}'; li.dispatchEvent(new Event('input')); document.getElementById('startForm').requestSubmit(); 0`);
+      const li = document.getElementById('lobbyInput'); li.value = '${['rocket', 'nova', 'saw', 'void', 'gamma'].includes(GUN) ? 'M1X0OHITS' : 'M1D0OHITS'}'; li.dispatchEvent(new Event('input')); document.getElementById('startForm').requestSubmit(); 0`);
     await wait(2500);
   }
   console.log('joined', await A(`'playing ' + playing + ' live ' + roundLive + ' dead ' + me.dead + ' pos ' + Math.round(me.x) + ',' + Math.round(me.y) + ' info ' + document.getElementById('roundInfo').textContent + ' start ' + !document.getElementById('start').hidden + ' ' + serverRun + ' ' + srv.joined + ' ping ' + Math.round(myPing||0) + ' remotes ' + remotes.size`), '|', await B(`srv.joined + ' ping ' + Math.round(myPing||0)`));
@@ -62,6 +62,9 @@ try {
       if (d > 520) { if (Math.abs(dx) > 80) keys.add(dx > 0 ? 'KeyD' : 'KeyA'); if (Math.abs(dy) > 80) keys.add(dy > 0 ? 'KeyS' : 'KeyW'); }
       else if (d < 300) { if (Math.abs(dx) > 80) keys.add(dx > 0 ? 'KeyA' : 'KeyD'); if (Math.abs(dy) > 80) keys.add(dy > 0 ? 'KeyW' : 'KeyS'); }
       if (${JSON.stringify(GUN)} === 'ram' || ${JSON.stringify(GUN)} === 'fly') { keys.delete('KeyW'); keys.delete('KeyS'); keys.delete('KeyA'); keys.delete('KeyD'); const tx = ${JSON.stringify(GUN)} === 'ram' ? r.x : r.x + 900 * Math.cos(performance.now() / 1500), ty = ${JSON.stringify(GUN)} === 'ram' ? r.y : r.y + 900 * Math.sin(performance.now() / 1500); if (Math.abs(tx - me.x) > 20) keys.add(tx > me.x ? 'KeyD' : 'KeyA'); if (Math.abs(ty - me.y) > 20) keys.add(ty > me.y ? 'KeyS' : 'KeyW'); return; }
+      if (['saw', 'void', 'gamma'].includes(${JSON.stringify(GUN)})) { if (me.weapon !== ${JSON.stringify(GUN)}) selectWeapon(${JSON.stringify(GUN)});
+        if (${JSON.stringify(GUN)} === 'saw') { keys.delete('KeyW'); keys.delete('KeyS'); keys.delete('KeyA'); keys.delete('KeyD'); if (d > 150) { if (Math.abs(dx) > 30) keys.add(dx > 0 ? 'KeyD' : 'KeyA'); if (Math.abs(dy) > 30) keys.add(dy > 0 ? 'KeyS' : 'KeyW'); } }
+        if (${JSON.stringify(GUN)} !== 'void' || !holesNow().length) keys.add('KeyF'); return; }
       if (${JSON.stringify(GUN)} === 'nova') { if (me.weapon !== 'laser') selectWeapon('laser'); altFiring = performance.now() % 2400 < 1100; return; }
       if (${JSON.stringify(GUN)} === 'rocket') { if (me.weapon !== 'rocket') selectWeapon('rocket'); altFiring = performance.now() % 1800 < 1200; } else keys.add('KeyF'); }, 30);
     // rockets: how many my screen showed at once (predictShot) and how many of mine the server sent back
@@ -71,12 +74,14 @@ try {
     addRemoteShot = (owner, f, ...a) => { if (owner === srv.id && Array.isArray(f) && (f[5] === K.ROCKET || f[5] === K.NOVA) && !seenShots.has(f[0])) { __vol.srv++; if (f[5] === K.NOVA) (__vol.m = __vol.m || []).push(f[6]); } return ar0(owner, f, ...a); };
     claimPrediction = (kind, now, id) => { const r = cp0(kind, now, id); if ((kind === K.ROCKET || kind === K.NOVA) && r) __vol.claimed++; if (kind === K.NOVA) (__vol.cl = __vol.cl || []).push(r); return r; }; 0`);
   // the target flies about a little, as a player would
+  await B(`window.__pull = []; setInterval(() => { const h = holesNow()[0]; if (!h || me.dead) return; const dx = h.x - me.x, dy = h.y - me.y, d = Math.hypot(dx, dy); __pull.push([Math.round(d), Math.round((me.vx * dx + me.vy * dy) / (d || 1))]); if (__pull.length > 400) __pull.shift(); }, 200); 0`);
   await B(`window.__ctl = setInterval(() => { const t = performance.now() / 1000; keys.delete('KeyW'); keys.delete('KeyS'); keys.add(Math.sin(t * 1.3) > 0 ? 'KeyW' : 'KeyS'); }, 100); 0`);
   for (let t = 0; t < SECS; t += 5) { await wait(5000); console.log(t + 5 + 's', await A(`document.getElementById('roundInfo').textContent + ' live ' + roundLive + ' dead ' + me.dead + ' matchReady ' + matchReady + ' ping ' + Math.round(myPing||0) + ' shown so far ' + (__acc.hs + srv.report.hs) + ' confirmed ' + (__acc.hc + srv.report.hc) + ' unshown ' + (__acc.hn + srv.report.hn) + ' myShots ' + stats.shots + ' weapon ' + me.weapon + ' d ' + Math.round(Math.hypot(([...remotes.values()][0]||me).x-me.x, ([...remotes.values()][0]||me).y-me.y)) + ' keys ' + [...keys].join()`)); }
   const r = await A(`({ hs: __acc.hs + srv.report.hs, hc: __acc.hc + srv.report.hc, hn: __acc.hn + srv.report.hn, ping: Math.round(myPing||0) })`);
   console.log('RESULT', JSON.stringify(r), 'confirmed', r.hs ? Math.round(100 * r.hc / r.hs) + '%' : '-');
   console.log('CORRECTIONS', JSON.stringify(await A(`(() => { const e = __err.filter(Number.isFinite), n = e.length, c = k => e.filter(x => x > k).length; return { n, over2: c(2), over10: c(10), over30: c(30), max: Math.round(Math.max(0, ...e.filter(x => x < 300))) }; })()`)));
-  if (GUN === 'nova' && process.env.SHOTS) { const { writeFile } = await import('node:fs/promises'); for (let i = 0; i < 12; i++) { await wait(200); await writeFile(process.env.SHOTS + '/nova-' + i + '.png', Buffer.from(await A.shot(), 'base64')); } }
+  if (process.env.SHOTS) { const { writeFile } = await import('node:fs/promises'); for (let i = 0; i < 12; i++) { await wait(200); await writeFile(process.env.SHOTS + '/' + GUN + '-' + i + '.png', Buffer.from(await A.shot(), 'base64')); } }
+  if (GUN === 'void') console.log('PULL', JSON.stringify(await B('__pull')));
   if (GUN === 'rocket' || GUN === 'nova') console.log('VOLLEY', JSON.stringify(await A('__vol')));
   console.log('errors', errs);
   console.log('RD', JSON.stringify(await A(`({ ...__rd, rds: [...__rd.rds], nm: [...(__rd.nm || [])], credSize: credited.size })`)));
