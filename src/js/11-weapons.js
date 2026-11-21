@@ -354,6 +354,19 @@
       if (near) shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400));
       return;
     }
+    if (s.kind === K.NOVA) {   // the Plasma Nova bursts: a white-green flash, lightning lashing out all round, plasma
+      // sparks and a glow that fades, the air thrown out (no ring drawn); all of it by its charge
+      const c = Math.min(1, s.m || 1), R = 250 * (0.6 + 0.4 * c);
+      explode(x, y, Math.round(40 + 50 * c), 300 + 260 * c, "plasma_green");
+      impacts.push({ x, y, t: 0, r: R * 0.55, col: "#f4ffe8", dur: 0.12 });
+      impacts.push({ x, y, t: 0, r: R * 1.3, col: "150,255,90", dur: 0.7, soft: 0.6, flick: Math.random() * 6.28 });
+      for (let k = 0; k < (lowQ ? 5 : 12) * (0.5 + c); k++) { const a = Math.random() * 6.283, d = R * (0.5 + Math.random() * 0.7); arcs.push({ x1: x, y1: y, x2: x + Math.cos(a) * d, y2: y + Math.sin(a) * d, t: 0, col: k % 3 ? "170,255,100" : "240,255,220" }); }
+      for (let k = 0; k < (lowQ ? 12 : 34); k++) { const a = Math.random() * 6.283, v = 300 + Math.random() * 700 * (0.5 + c); puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.3 + Math.random() * 0.5, 1.2 + Math.random() * 1.6, k % 3 ? "#b8ff6a" : "#ffffff", 1, 0.05, 0, 0.94); }
+      if (post) post.burst(x, y, R * 0.8, [0.25, 0.6, 0.1], 1.6, 600);
+      packPlay("p_ut_pulse_explode", 0.7 + 0.5 * c, x, y); packPlay("p_blast", 0.4 + 0.4 * c, x, y);
+      if (near) shake = Math.max(shake, (0.12 + 0.2 * c) * (1 - Math.hypot(x - me.x, y - me.y) / 1400));
+      return;
+    }
     if (s.kind === K.BULLET_ALT) {   // an explosive round: a small hard burst of fire, burning embers, a patch of flame that flickers out
       explode(x, y, 26, 230);
       impacts.push({ x, y, t: 0, r: 110, col: "255,140,50", dur: 0.8, soft: 0.5, flick: Math.random() * 6.28 });
@@ -662,6 +675,7 @@
     if (!alt && !(me.arsenal[k] > 0)) { rejectFire("NO AMMO · use alternate command", now); return; }
     if (alt && (me.arsenal[k] || 0) < pat.cost) { rejectFire("NEED " + pat.cost + " AMMO", now); return; }
     if (alt && pat.cutter) pat = { ...pat, cut: Math.round(24 + 48 * railCharge) };
+    if (alt && pat.nova) mul *= 0.35 + 0.65 * railCharge;   // (the nova: as big and as strong as it was charged)
     if (alt && pat.recall) {
       if (!shots.some(s => myShot(s) && s.kind === K.SAW && !s.returning && s.life > 0)) { rejectFire(controlledShots("saw").length ? "BLADES ALREADY RETURNING" : "NO ACTIVE BLADES", now); return; }
       const signal = volley(me, now, pat, { x: me.x, y: me.y }); recallSaws(signal); fireCd = pat.cd; sfx(...pat.sfx); return;
@@ -867,6 +881,20 @@
     if (d < 2000) shake = Math.max(shake, 0.9 * (1 - d / 2000));
     if (canHurt(s, me, "me", true) && d < bm.R && !fixedCover(x, y, me.x, me.y)) hurtMe(s, now, bombDmg(bm, d), s.kind, 0, false);
     for (const b of bots) { const bd = Math.hypot(b.x - x, b.y - y); if (bd < bm.R && canHurt(s, b, b.id, true) && !fixedCover(x, y, b.x, b.y)) botHurt(b, bombDmg(bm, bd) * selfMul(s, b.id), s.id, now, false, s.kind); }
+  }
+  // ---- the Plasma Nova lashes every enemy near its path with lightning as it flies (each victim judges its own, as
+  // any hit: me here, the bots where they run, a player on their own screen)
+  function novaZap(s, dt, now) {
+    s.zap = (s.zap || 0) - dt;
+    if (s.zap > 0) return;
+    s.zap = NOVA_ZAP.every;
+    const R = NOVA_ZAP.r * (0.6 + 0.4 * Math.min(1, s.m)), near = o => Math.hypot(o.x - s.x, o.y - s.y) < R && !fixedCover(s.x, s.y, o.x, o.y);
+    const zap = o => { arcs.push({ x1: s.x, y1: s.y, x2: o.x, y2: o.y, t: 0, col: "190,255,120" }); arcs.push({ x1: s.x, y1: s.y, x2: o.x + (Math.random() - 0.5) * 40, y2: o.y + (Math.random() - 0.5) * 40, t: 0, col: "240,255,220" }); impact(o.x, o.y, "#c8ff7a", 0.5); };
+    let any = false;
+    if (playing && !me.dead && canHurt(s, me, "me") && near(me)) { zap(me); any = true; hurtMe(s, now, NOVA_ZAP.dmg * s.m, K.NOVA); }
+    for (const b of bots) if (!b.dead && canHurt(s, b, b.id) && near(b)) { zap(b); any = true; botHurt(b, NOVA_ZAP.dmg * s.m, s.id, now, false, K.NOVA); }
+    for (const [rid, r] of remotes) if (!botById.has(rid) && !r.dead && canHurt(s, r, rid) && near(r)) { zap(r); any = true; }   // they judge their own
+    if (any && Math.hypot(s.x - me.x, s.y - me.y) < 1500) packPlay("p_hit_laser", 0.5, s.x, s.y);
   }
   // ---- the gamma orb zaps every enemy near it as it flies (each victim judges its own zaps, like any hit)
   function gammaZap(s, dt, now) {

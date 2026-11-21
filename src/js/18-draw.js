@@ -263,18 +263,15 @@
     }
     if (s.kind === K.PISTOL || s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.DET) return;   // beams are drawn as beams; a detonator isn't seen
     if (s.kind === K.MELEE || s.kind === K.SWORD) return;   // a blow, a swing: the blade on the bin (and its trail) is what you see
-    if (s.kind === K.SENTRY) {   // the Pulse Gun's sentry: a green core in two turning rings of plasma, flaring as it fires
-      const life = SHOTS[K.SENTRY].life, fade = Math.min(1, s.life / 0.4), fl = s.shotAt ? Math.max(0, 1 - (now - s.shotAt) / 120) : 0;
-      g.save(); g.translate(x, y); g.globalCompositeOperation = "lighter"; g.globalAlpha = fade;
-      g.globalAlpha = (0.35 + 0.4 * fl) * fade; g.drawImage(dotSprite("#7dff3a"), -60, -60, 120, 120);
-      g.globalAlpha = fade; g.lineWidth = 2.2; g.strokeStyle = "rgba(190,255,140,0.85)";
-      for (let k = 0; k < 2; k++) {   // two broken rings turning opposite ways
-        const r = 15 + k * 7, sp = (k ? -1 : 1) * now / (260 + k * 120);
-        for (let q = 0; q < 3; q++) { g.beginPath(); g.arc(0, 0, r, sp + q * 2.094, sp + q * 2.094 + 1.3); g.stroke(); }
-      }
-      g.globalAlpha = 0.9 * fade; g.drawImage(fireSprite(2 + ((now / 50) | 0) % 3, (s.x | 0) & 3, DEMON_RAMP), -14, -14, 28, 28);
-      g.fillStyle = "#ffffff"; g.beginPath(); g.arc(0, 0, 4 + 2 * fl, 0, 6.29); g.fill();
-      if (fl > 0 && s.shotA !== undefined) { g.rotate(s.shotA); g.globalAlpha = fl * fade; g.drawImage(dotSprite("#c8ff7a"), 8, -9, 46, 18); }   // its muzzle flash, toward its mark
+    if (s.kind === K.NOVA) {   // the Plasma Nova: a swirling ball of green plasma, white at its heart, lightning crawling over it
+      const c = Math.min(1, s.m || 1), r = 12 + 16 * c, a = Math.atan2(s.vy, s.vx);
+      g.save(); g.translate(x, y); g.globalCompositeOperation = "lighter";
+      g.globalAlpha = 0.5; g.rotate(a); g.drawImage(dotSprite("#4dff1e"), -r * 5, -r * 0.9, r * 5.5, r * 1.8); g.rotate(-a);   // the streak behind it
+      g.globalAlpha = 0.4; g.drawImage(dotSprite("#7dff3a"), -r * 2.6, -r * 2.6, r * 5.2, r * 5.2);
+      for (let k = 0; k < 3; k++) { g.save(); g.rotate(now / (90 + k * 40) * (k % 2 ? -1 : 1) + k * 2); g.globalAlpha = 0.85; g.drawImage(fireSprite(2 + ((now / 40 + k) | 0) % 3, k, DEMON_RAMP), -r * 1.25, -r * 1.25, r * 2.5, r * 2.5); g.restore(); }
+      g.globalAlpha = 1; g.strokeStyle = "rgba(230,255,200,0.9)"; g.lineWidth = 1.5;
+      for (let k = 0; k < (lowQ ? 2 : 4); k++) { let an = Math.random() * 6.283, rr = r * 0.6; g.beginPath(); g.moveTo(Math.cos(an) * rr, Math.sin(an) * rr); for (let n = 0; n < 3; n++) { an += 0.5 + Math.random() * 0.5; rr = r * (1 + Math.random() * 0.8); g.lineTo(Math.cos(an) * rr, Math.sin(an) * rr); } g.stroke(); }
+      g.fillStyle = "#ffffff"; g.beginPath(); g.arc(0, 0, r * 0.4, 0, 6.29); g.fill();
       g.restore(); return;
     }
     if (s.kind === K.HOOK) {   // the hook: a chain of steel links from its gun to a barbed head
@@ -1141,7 +1138,16 @@
       g.beginPath(); g.arc(x, y, R, -Math.PI / 2, -Math.PI / 2 + charge * 6.283); g.stroke();
       g.restore();
     }
-    if (railCharge > 0 && playing && !me.dead) {   // the railgun charging: a blue ring filling round the bin, and a sight line that firms up
+    if (railCharge > 0 && playing && !me.dead && me.weapon === "laser") {   // a Plasma Nova charging: a ball of plasma swelling at the gun, crackling
+      const mz = muzzleOf({ ...me, gunSide: 0 }, "laser"), c = railCharge, x0 = sx(mz.x), y0 = sy(mz.y), r = 6 + 16 * c, full = c >= 1;
+      g.save(); g.globalCompositeOperation = "lighter";
+      g.globalAlpha = 0.2 + 0.25 * c; g.drawImage(dotSprite("#7dff3a"), x0 - r * 3, y0 - r * 3, r * 6, r * 6);
+      g.globalAlpha = 1; g.drawImage(fireSprite(2 + ((now / 45) | 0) % 3, 1, DEMON_RAMP), x0 - r * 1.3, y0 - r * 1.3, r * 2.6, r * 2.6);
+      g.strokeStyle = full && Math.floor(now / 80) % 2 ? "#ffffff" : "rgba(210,255,170,0.9)"; g.lineWidth = 1.4;
+      for (let k = 0; k < 2 + Math.round(3 * c); k++) { let an = Math.random() * 6.283, rr = r * 0.5; g.beginPath(); g.moveTo(x0 + Math.cos(an) * rr, y0 + Math.sin(an) * rr); for (let n = 0; n < 3; n++) { an += 0.4 + Math.random() * 0.5; rr = r * (0.9 + Math.random() * 0.9); g.lineTo(x0 + Math.cos(an) * rr, y0 + Math.sin(an) * rr); } g.stroke(); }
+      g.fillStyle = "#ffffff"; g.beginPath(); g.arc(x0, y0, r * 0.35, 0, 6.29); g.fill();
+      g.restore();
+    } else if (railCharge > 0 && playing && !me.dead) {   // the railgun charging: a blue ring filling round the bin, and a sight line that firms up
       const x0 = sx(me.x), y0 = sy(me.y), R = 70 * sizeOf(me.lv), full = railCharge >= 1, ca = Math.cos(me.a), sa = Math.sin(me.a);
       g.save(); g.lineCap = "round";
       g.strokeStyle = "rgba(127,184,255,0.25)"; g.lineWidth = 6; g.beginPath(); g.arc(x0, y0, R, 0, 6.29); g.stroke();

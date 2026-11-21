@@ -37,8 +37,8 @@ function runWeaponAuditChecks() {
     ok(WEAPONS.minigun.alt.cd>WEAPONS.minigun.cd&&SHOTS[K.BULLET_ALT].dmg>SHOTS[K.BULLET].dmg,'two minigun modes');
     reset();me.weapon='laser';me.arsenal.laser=20;shoot(now,false);
     ok(shots.at(-1).kind===K.PULSE_BOLT&&!HITSCAN[K.PULSE_BOLT],'Pulse primary is moving plasma');
-    shoot(now,true);ok(shots.at(-1).kind===K.SENTRY&&SHOTS[K.SENTRY].inert,'Pulse alternate throws a sentry');
-    ok(me.arsenal.laser===9,'one ammo per pulse, ten for a sentry');
+    shoot(now,true);ok(shots.at(-1).kind===K.NOVA&&SPLASH[K.NOVA]&&shots.at(-1).m<0.5,'Pulse alternate throws a Plasma Nova, weak uncharged');
+    ok(me.arsenal.laser===11,'one ammo per pulse, eight for a nova');
   });
   check('last ammo retains commands, blocks primary and removes slot after expiry', () => {
     for (const k of ['gamma','mine']) {

@@ -533,7 +533,7 @@ test('the scatter gun\'s hook bites into a bin and hauls its pilot there', { ski
   } finally { m.dispose(); }
 });
 
-test('the Pulse Gun\'s sentry hangs where it stops and shoots a pilot near it', { skip }, async () => {
+test('the Pulse Gun\'s Plasma Nova charges while held and bursts on a pilot, by its charge', { skip }, async () => {
   const { createMatch } = await sim();
   const m = createMatch({ code: 'm1d0o' });
   m.game.__simTerrain.empty();
@@ -542,18 +542,16 @@ test('the Pulse Gun\'s sentry hangs where it stops and shoots a pilot near it', 
     run(m, 0.1);
     const A = m.game.__simBot(a), V = m.game.__simBot(v), w = m.game.__simConst.WEAPON_KEYS.indexOf('laser'), K = m.game.__simConst.K;
     A.arsenal.laser = 40; A.weapon = 'laser';
-    const hold = () => { Object.assign(V, { x: 2500, y: 2300, vx: 0, vy: 0 }); };
-    Object.assign(A, { x: 2000, y: 2000, vx: 0, vy: 0, a: 0 }); hold();
-    m.input(a, { w, aim: 0 }); run(m, 0.1, hold);
+    const hold = () => { Object.assign(V, { x: 2600, y: 2000, vx: 0, vy: 0, inv: 0 }); Object.assign(A, { x: 2000, y: 2000, vx: 0, vy: 0, a: 0 }); };   // (no spawn protection on the mark)
+    hold(); m.input(a, { w, aim: 0 }); run(m, 0.1, hold);
     const lives0 = V.lives;
-    run(m, 0.2, () => { hold(); m.input(a, { w, aim: 0, alt: true }); });
-    // the gunner flies off and looks away: the sentry fights on by itself
-    let sentry = null;
-    run(m, 2.5, () => { hold(); Object.assign(A, { x: 600, y: 600, vx: 0, vy: 0 }); m.input(a, { w, aim: Math.PI }); sentry = sentry || m.game.__simShots().find(s => s.kind === K.SENTRY); });
-    assert.ok(sentry, 'the alt throws a sentry');
-    assert.ok(Math.hypot(sentry.vx, sentry.vy) < 20, 'it has drifted to a stop');
-    assert.ok(V.lives < lives0, 'its bolts hit the pilot near it: ' + lives0 + ' -> ' + V.lives);
-    assert.equal(A.arsenal.laser, 30, 'a sentry costs 10');
+    run(m, 1.1, () => { hold(); m.input(a, { w, aim: 0, alt: true }); });   // charged in full
+    let nova = null;
+    run(m, 1.2, () => { hold(); m.input(a, { w, aim: 0 }); nova = nova || m.game.__simShots().find(s => s.kind === K.NOVA); });
+    assert.ok(nova, 'letting go throws a nova');
+    assert.ok(nova.m > 0.9, 'charged in full: ' + nova.m);
+    assert.ok(V.lives < lives0 - 0.8, 'its lightning and its burst hit hard: ' + lives0 + ' -> ' + V.lives);
+    assert.equal(A.arsenal.laser, 32, 'a nova costs 8');
   } finally { m.dispose(); }
 });
 

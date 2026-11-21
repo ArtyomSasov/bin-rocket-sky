@@ -803,7 +803,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   ];
   const tierOf = lv => TIERS.filter(t => lv >= t.from).pop();
   // shot kinds: what flies. The number is what goes over the network; everything per kind lives in SHOTS
-  const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10, HOLY: 11, SAW: 12, GAMMA: 13, BEACON: 14, TFRAG: 15, BULLET: 16, GAUSS: 17, SHOCK: 18, PULSE: 19, FLAK: 20, DET: 21, NAIL: 22, GREN: 23, MELEE: 24, SPIKE: 25, MDET: 26, HROCKET: 27, RECALL: 28, PISTOL: 29, SAW_ALT: 30, BULLET_ALT: 31, PULSE_BOLT: 32, SWORD: 33, VOID: 34, HOOK: 35, SENTRY: 36 };
+  const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10, HOLY: 11, SAW: 12, GAMMA: 13, BEACON: 14, TFRAG: 15, BULLET: 16, GAUSS: 17, SHOCK: 18, PULSE: 19, FLAK: 20, DET: 21, NAIL: 22, GREN: 23, MELEE: 24, SPIKE: 25, MDET: 26, HROCKET: 27, RECALL: 28, PISTOL: 29, SAW_ALT: 30, BULLET_ALT: 31, PULSE_BOLT: 32, SWORD: 33, VOID: 34, HOOK: 35, NOVA: 36 };
   const MINE_R = 55, MINE_ARM = 0.7;   // mines go off when a bin comes this close, after arming
   // life: seconds; dmg: in lives (Lv 1 has 3 = 100%; pellets use pelletDmg, the nuke deals its damage in detonate);
   // r: extra hit radius; col: colour; carve: crater radius; shove: push on the bin it hits; sfx: [sound, volume, pitch] of someone else's shot;
@@ -853,8 +853,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     { name: "void bomb", life: 1.4, dmg: 0, r: 14, col: "#b06bff", carve: 0, shove: 0, sfx: ["rocket", 1, 0.4] },
     // the scatter gun's hook on a chain: it flies, bites into a wall or a bin and hauls its pilot there (hookStep)
     { name: "hook", life: 0.42, dmg: 0, r: 0, col: "#c9d2de", carve: 0, shove: 0, sfx: ["p_metal", 0.6, 1.2], inert: true },
-    // the Pulse Gun's sentry: a core of plasma that drifts to a stop and fires pulse bolts of its own (sentryStep)
-    { name: "sentry", life: 3.9, dmg: 0, r: 0, col: "#a8ff55", carve: 0, shove: 0, sfx: ["p_ut_pulse_bolt", 0.6, 0.7], inert: true }
+    // the Pulse Gun's Plasma Nova: a charged ball of plasma that lashes everyone near its path with lightning and
+    // bursts in a nova where it strikes (its size and bite by its charge: s.m)
+    { name: "plasma nova", life: 2.4, dmg: 0, r: 18, col: "#a8ff55", carve: 34, shove: 0, sfx: ["p_ut_pulse_bolt", 0.8, 0.6] }
   );
   // weapons: pick-ups swap the fireball for a while. Each gun is described here, and the player and the bots fire it
   // the same way (see volley):
@@ -869,9 +870,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
                alt: { name: "Rapid fire", cost: 0, cd: 0.16, shot: [K.PISTOL, 6000], jitter: 0.085, kick: 35, feel: [6, 0.06, 45], sfx: ["p_ut_pulse_fire", 0.7, 1.4] } },
     triple:  { name: "Triple shot", ammo: 24, cd: 0.3, col: "#ffb43c", shot: [K.FIRE, 1000], spread: [-0.2, 0, 0.2], kick: 25, feel: [7, 0.07, 50], sfx: ["triple", 0.7],
                alt: { name: "Focus", cost: 1, cd: 0.3, shot: [K.FIRE, 1050], spread: [-0.035, 0, 0.035], kick: 60, feel: [10, 0.13, 80], sfx: ["triple", 0.8, 0.9] } },
-    // Pulse Gun: fast plasma spheres; alt: a sentry, a core of plasma that hangs where it stops and fires at whoever comes near
-    laser:   { name: "Pulse Gun", ammo: 120, quickAlt: true, cd: 0.12, col: "#a8ff55", shot: [K.PULSE_BOLT, 1500], kick: 6, feel: [3, 0.03, 30], sfx: ["p_ut_pulse_fire", .75, 1], fx: "pulse",
-               alt: { name: "Pulse Sentry", cost: 10, cd: 6, shot: [K.SENTRY, 760], kick: 40, feel: [8, 0.08, 40], sfx: ["p_ut_pulse_bolt", .8, 0.7] } },
+    // Pulse Gun: fast plasma spheres; alt: hold to charge a Plasma Nova, let go to throw it
+    laser:   { name: "Pulse Gun", ammo: 120, cd: 0.12, col: "#a8ff55", shot: [K.PULSE_BOLT, 1500], kick: 6, feel: [3, 0.03, 30], sfx: ["p_ut_pulse_fire", .75, 1], fx: "pulse",
+               alt: { name: "Plasma Nova", charge: 1.0, nova: true, cost: 8, cd: 0.9, shot: [K.NOVA, 950], kick: 260, feel: [22, 0.3, 50], sfx: ["p_ut_pulse_bolt", 1, 0.6] } },
     // rockets as in Quake: straight and fast (about 2.4x a bin's speed), dodgeable by reading them; alt three slow homing ones
     rocket:  { name: "Rocket launcher", ammo: 10, cd: 0.8, col: "#ff5a6e", shot: [K.ROCKET, 1350], kick: 120, feel: [12, 0.16, 70], sfx: ["rocket", 0.8],
                alt: { name: "Load rockets", load: true, cost: 1, cd: 0.9, shot: [K.ROCKET, 1350], kick: 200, feel: [18, 0.23, 96], sfx: ["rocket", 1, 0.8] } },
@@ -928,7 +929,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // seconds; at three the salvo goes by itself, and letting go fires what is loaded
   const ROCKET_LOAD = 0.7, ROCKET_MAX = 3;
   const rocketsLoaded = (t, carried) => Math.min(ROCKET_MAX, carried, 1 + Math.floor((t + 1e-8) / ROCKET_LOAD));
-  balanceShot(K.PISTOL, { dmg: HP(17), col: "#ff3b4e" });   // the laser pistol: red sparks where it lands
+  balanceShot(K.PISTOL, { dmg: HP(17), col: "#ff3b4e" });
+  balanceShot(K.NOVA, { dmg: HP(30) });   // the Plasma Nova's direct hit, by its charge (its burst: SPLASH)   // the laser pistol: red sparks where it lands
   balanceShot(K.ROCKET, { dmg: HP(75) });
   balanceShot(K.PULSE_BOLT, { dmg: HP(24) });
   balanceShot(K.LASER, { dmg: HP(72 * .24 * 1.8) }); // the Pulse Gun's beam, a link beam: half again UT99's, and it heats up held on (LINK_HEAT)
@@ -971,8 +973,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
-  const SPLASH = { [K.BULLET_ALT]: [100, HP(24), 0, 170], [K.FLAK]: [210, HP(70), 0, 400], [K.SAW_ALT]: [252, HP(34), 0, 350], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [280, HP(80), 0, 600] };
-  const GAMMA_ZAP = { r: 280, every: 0.45, dmg: HP(6) };   // the gamma orb zaps every enemy this close as it flies
+  const SPLASH = { [K.BULLET_ALT]: [100, HP(24), 0, 170], [K.FLAK]: [210, HP(70), 0, 400], [K.SAW_ALT]: [252, HP(34), 0, 350], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [280, HP(80), 0, 600], [K.NOVA]: [250, HP(85), 0, 700] };
+  const GAMMA_ZAP = { r: 280, every: 0.45, dmg: HP(6) };
+  const NOVA_ZAP = { r: 240, every: 0.18, dmg: HP(5) };   // the nova lashes every enemy this close to its path, by its charge   // the gamma orb zaps every enemy this close as it flies
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
   // a station's inner wall gives only to heavy weapons (a crater of WALL_CARVE or more: rockets, grenades, mines, the
   // orbs, the charged rail and gauss), and then WALL_GIVE times more than rock does; the hull never
@@ -5278,6 +5281,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const BLAST_PAL = {
     fire: { cloud: "fire", light: "255,176,96", sparks: SPARK_COLS, ember: "fire", ring: "255,246,230", dust: "rgb(150,138,142)", smoke: true },
     demon: { cloud: "demon", light: "110,255,120", sparks: ["#ff4a3c", "#9dff6a", "#ff2a3c"], ember: "demon", ring: "170,255,160", dust: "rgb(60,120,70)", smoke: false },
+    plasma_green: { cloud: "demon", light: "150,255,90", sparks: ["#ffffff", "#d8ff9a", "#9dff5a"], ember: "demon", ring: "190,255,140", dust: "rgb(90,140,70)", smoke: false },
     hell: { cloud: "hell", light: "200,20,40", sparks: ["#ff2a3c", "#ff7a4a", "#3a0208"], ember: "hell", ring: "120,10,24", dust: "rgb(40,8,12)", smoke: true },
     plasma: { cloud: "plasma", light: "120,200,255", sparks: ["#ffffff", "#c8f4ff", "#7fdcff"], ember: "plasma", ring: "200,240,255", dust: "rgb(110,160,220)", smoke: false }
   };
@@ -5706,6 +5710,19 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (near) shake = Math.max(shake, 0.3 * (1 - Math.hypot(x - me.x, y - me.y) / 1400));
       return;
     }
+    if (s.kind === K.NOVA) {   // the Plasma Nova bursts: a white-green flash, lightning lashing out all round, plasma
+      // sparks and a glow that fades, the air thrown out (no ring drawn); all of it by its charge
+      const c = Math.min(1, s.m || 1), R = 250 * (0.6 + 0.4 * c);
+      explode(x, y, Math.round(40 + 50 * c), 300 + 260 * c, "plasma_green");
+      impacts.push({ x, y, t: 0, r: R * 0.55, col: "#f4ffe8", dur: 0.12 });
+      impacts.push({ x, y, t: 0, r: R * 1.3, col: "150,255,90", dur: 0.7, soft: 0.6, flick: Math.random() * 6.28 });
+      for (let k = 0; k < (lowQ ? 5 : 12) * (0.5 + c); k++) { const a = Math.random() * 6.283, d = R * (0.5 + Math.random() * 0.7); arcs.push({ x1: x, y1: y, x2: x + Math.cos(a) * d, y2: y + Math.sin(a) * d, t: 0, col: k % 3 ? "170,255,100" : "240,255,220" }); }
+      for (let k = 0; k < (lowQ ? 12 : 34); k++) { const a = Math.random() * 6.283, v = 300 + Math.random() * 700 * (0.5 + c); puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.3 + Math.random() * 0.5, 1.2 + Math.random() * 1.6, k % 3 ? "#b8ff6a" : "#ffffff", 1, 0.05, 0, 0.94); }
+      if (post) post.burst(x, y, R * 0.8, [0.25, 0.6, 0.1], 1.6, 600);
+      packPlay("p_ut_pulse_explode", 0.7 + 0.5 * c, x, y); packPlay("p_blast", 0.4 + 0.4 * c, x, y);
+      if (near) shake = Math.max(shake, (0.12 + 0.2 * c) * (1 - Math.hypot(x - me.x, y - me.y) / 1400));
+      return;
+    }
     if (s.kind === K.BULLET_ALT) {   // an explosive round: a small hard burst of fire, burning embers, a patch of flame that flickers out
       explode(x, y, 26, 230);
       impacts.push({ x, y, t: 0, r: 110, col: "255,140,50", dur: 0.8, soft: 0.5, flick: Math.random() * 6.28 });
@@ -6014,6 +6031,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (!alt && !(me.arsenal[k] > 0)) { rejectFire("NO AMMO · use alternate command", now); return; }
     if (alt && (me.arsenal[k] || 0) < pat.cost) { rejectFire("NEED " + pat.cost + " AMMO", now); return; }
     if (alt && pat.cutter) pat = { ...pat, cut: Math.round(24 + 48 * railCharge) };
+    if (alt && pat.nova) mul *= 0.35 + 0.65 * railCharge;   // (the nova: as big and as strong as it was charged)
     if (alt && pat.recall) {
       if (!shots.some(s => myShot(s) && s.kind === K.SAW && !s.returning && s.life > 0)) { rejectFire(controlledShots("saw").length ? "BLADES ALREADY RETURNING" : "NO ACTIVE BLADES", now); return; }
       const signal = volley(me, now, pat, { x: me.x, y: me.y }); recallSaws(signal); fireCd = pat.cd; sfx(...pat.sfx); return;
@@ -6219,6 +6237,20 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (d < 2000) shake = Math.max(shake, 0.9 * (1 - d / 2000));
     if (canHurt(s, me, "me", true) && d < bm.R && !fixedCover(x, y, me.x, me.y)) hurtMe(s, now, bombDmg(bm, d), s.kind, 0, false);
     for (const b of bots) { const bd = Math.hypot(b.x - x, b.y - y); if (bd < bm.R && canHurt(s, b, b.id, true) && !fixedCover(x, y, b.x, b.y)) botHurt(b, bombDmg(bm, bd) * selfMul(s, b.id), s.id, now, false, s.kind); }
+  }
+  // ---- the Plasma Nova lashes every enemy near its path with lightning as it flies (each victim judges its own, as
+  // any hit: me here, the bots where they run, a player on their own screen)
+  function novaZap(s, dt, now) {
+    s.zap = (s.zap || 0) - dt;
+    if (s.zap > 0) return;
+    s.zap = NOVA_ZAP.every;
+    const R = NOVA_ZAP.r * (0.6 + 0.4 * Math.min(1, s.m)), near = o => Math.hypot(o.x - s.x, o.y - s.y) < R && !fixedCover(s.x, s.y, o.x, o.y);
+    const zap = o => { arcs.push({ x1: s.x, y1: s.y, x2: o.x, y2: o.y, t: 0, col: "190,255,120" }); arcs.push({ x1: s.x, y1: s.y, x2: o.x + (Math.random() - 0.5) * 40, y2: o.y + (Math.random() - 0.5) * 40, t: 0, col: "240,255,220" }); impact(o.x, o.y, "#c8ff7a", 0.5); };
+    let any = false;
+    if (playing && !me.dead && canHurt(s, me, "me") && near(me)) { zap(me); any = true; hurtMe(s, now, NOVA_ZAP.dmg * s.m, K.NOVA); }
+    for (const b of bots) if (!b.dead && canHurt(s, b, b.id) && near(b)) { zap(b); any = true; botHurt(b, NOVA_ZAP.dmg * s.m, s.id, now, false, K.NOVA); }
+    for (const [rid, r] of remotes) if (!botById.has(rid) && !r.dead && canHurt(s, r, rid) && near(r)) { zap(r); any = true; }   // they judge their own
+    if (any && Math.hypot(s.x - me.x, s.y - me.y) < 1500) packPlay("p_hit_laser", 0.5, s.x, s.y);
   }
   // ---- the gamma orb zaps every enemy near it as it flies (each victim judges its own zaps, like any hit)
   function gammaZap(s, dt, now) {
@@ -6593,7 +6625,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     saw: "Blood Blade: hold to wind the red blade back over your shoulder, let go to sweep it through the arc ahead; the fuller the wind-up, the harder it cuts, through rock and walls too. No alternate fire.",
     mine: "Detonate works with zero ammo while your mines are active.",
     gamma: "One slow orb controls a 280 px zone: green pulses drain nearby enemies. ALT detonates for up to 80 HP, including after the last ammo. Walls block damage.",
-    laser: "Pulse Gun: rapid green plasma bolts. Alternate fire throws a Pulse Sentry: a core of plasma that drifts to a stop and for about 3.5 s fires bolts of its own at the nearest enemy within reach; 10 ammo, ready again after 6 s. Cover blocks its aim.",
+    laser: "Pulse Gun: rapid green plasma bolts. Hold alternate fire to charge a Plasma Nova (up to 1 s), let go to throw it: it lashes every enemy near its path with lightning and bursts where it strikes, bigger and harder the longer it was charged; 8 ammo.",
     rail: "Precision shot: 80 HP, 1.8 s between shots. Primary fire only. Armor absorbs damage; permanent walls block the beam."
   };
   const weaponHint = k => WEAPONS[k].name + " · " + weaponKey(k) + ". " + (ALT_HINTS[k] || "Q/E cycles carried weapons. Right click or C uses alternate fire when available.");
@@ -6805,7 +6837,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (age > 1200) return;
     const lag = clamp(age, 0, REWIND_MS);
     // m: Quad damage (x4) and the crown (x1.25), or the charge cannon's charge (0.25..1); anything else is ignored
-    const kind = f[5], m = (kind === K.GAUSS || kind === K.SWORD) && Number.isFinite(f[6]) ? clamp(f[6], 0.25, 5) : kind === K.LASER && Number.isFinite(f[6]) ? clamp(f[6], LINK_MIN, LINK_HEAT * (remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now() ? QUAD * 1.25 : 1.25)) : [QUAD, 1.25, QUAD * 1.25].includes(f[6]) ? f[6] : 1;   // (a link beam heats up to LINK_HEAT; Quad only if the shooter is seen to carry it)
+    const kind = f[5], m = (kind === K.GAUSS || kind === K.SWORD) && Number.isFinite(f[6]) ? clamp(f[6], 0.25, 5) : kind === K.NOVA && Number.isFinite(f[6]) ? clamp(f[6], 0.3, QUAD * 1.25) : kind === K.LASER && Number.isFinite(f[6]) ? clamp(f[6], LINK_MIN, LINK_HEAT * (remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now() ? QUAD * 1.25 : 1.25)) : [QUAD, 1.25, QUAD * 1.25].includes(f[6]) ? f[6] : 1;   // (a link beam heats up to LINK_HEAT; Quad only if the shooter is seen to carry it)
     const x = clamp(num(f[1], 0), 0, W), y = clamp(num(f[2], 0), 0, H);
     // Keep an age bound relative to the newest state as well as to this packet.
     if (!fresh && Number.isFinite(peer.lastTs) && peer.lastTs - f[9] > 1200) return;
@@ -8662,6 +8694,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       b.heat += pat.heat; if (b.heat >= 1) b.overheat = true;
     }
     if (alt && pat.cutter) pat = { ...pat, cut: Math.round(24 + 48 * b.cutCharge) };
+    if (alt && pat.nova) mul *= 0.35 + 0.65 * b.cutCharge;   // (as the screen charges it)
     const cdMul = MODES[MODE].cdMul || 1;
     if (alt && w.quickAlt) { b.altCd = pat.cd; b.fireCd = Math.max(b.fireCd, 0.15); } else
     b.fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * b.spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
@@ -9211,34 +9244,6 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (hauls) { const k = Math.min(1, dt * 14); sh.vx += (dx / d * HOOK_PULL - sh.vx) * k; sh.vy += (dy / d * HOOK_PULL - sh.vy) * k; }
     return false;
   }
-  // the Pulse Gun's sentry: a core of plasma that drifts to a stop (stopped by rock), then fires a pulse bolt at the
-  // nearest enemy in reach every SENTRY_EVERY s until it burns out. It fires where its owner's shots are made (my
-  // screen offline or between browsers, the server for a player there, a host for its bots); every other screen
-  // only moves its copy, and sees its bolts arrive as that owner's shots
-  const SENTRY_REACH = 650, SENTRY_EVERY = 0.3, SENTRY_ARM = 0.35, SENTRY_PAT = { shot: [K.PULSE_BOLT, 1500], cost: 0 };
-  function sentryStep(s, dt, now) {
-    const k = Math.exp(-4.5 * dt), nx = s.x + s.vx * dt, ny = s.y + s.vy * dt;
-    if (solidAny(nx, ny)) { s.vx = s.vy = 0; } else { s.x = nx; s.y = ny; s.vx *= k; s.vy *= k; }
-    s.px = s.x; s.py = s.y;
-    s.age = (s.age || 0) + dt;
-    const owner = s.mine ? me : botById.get(s.owner);
-    if (!owner || owner.dead || s.age < SENTRY_ARM) return s.expireAfterStep;
-    s.cd = (s.cd || 0) - dt;
-    if (s.cd > 0) return s.expireAfterStep;
-    let best = null, bd = SENTRY_REACH;
-    const consider = o => { if (!o || o === owner || o.dead || mates(o, owner)) return; const d = Math.hypot(o.x - s.x, o.y - s.y); if (d < bd && !fixedCover(s.x, s.y, o.x, o.y)) { bd = d; best = o; } };
-    for (const b of bots) consider(b);
-    if (owner === me) for (const r of remotes.values()) consider(r);
-    else if (playing && !serverRun) consider(me);
-    if (!best) { s.cd = 0.1; return s.expireAfterStep; }
-    s.cd = SENTRY_EVERY;
-    const lead = bd / 1500, aim = Math.atan2(best.y + (best.vy || 0) * lead - s.y, best.x + (best.vx || 0) * lead - s.x);
-    const b = volley(owner, now, SENTRY_PAT, { x: s.x + Math.cos(aim) * 22, y: s.y + Math.sin(aim) * 22 }, aim, 0.6);
-    if (b) { b.catchup = 0; b.catchSlow = 0; }   // (fired by the sentry now, not by its owner's screen a round trip ago)
-    s.shotAt = now; s.shotA = aim;
-    if (Math.hypot(s.x - me.x, s.y - me.y) < 1600) packPlay("p_ut_pulse_fire", 0.45, s.x, s.y);
-    return s.expireAfterStep;
-  }
   function updateShots(dt, now) {
     // fireballs
     for (let i = shots.length - 1; i >= 0; i--) {
@@ -9258,7 +9263,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (s.kind === K.PULSE_BOLT && s.life > 0 && Math.random() < (lowQ ? 0.35 : 0.8)) puff(s.x, s.y, s.vx * 0.05 + (Math.random() - 0.5) * 60, s.vy * 0.05 + (Math.random() - 0.5) * 60, 0.18 + Math.random() * 0.2, 1 + Math.random(), Math.random() < 0.5 ? "#9dff5a" : "#e8ffc0", 5, 0, 0, 0.9);   // its trail of motes
       if (s.kind === K.GAMMA && s.life > 0 && Math.random() < (lowQ ? 0.3 : 0.75)) puff(s.x - s.vx / (Math.hypot(s.vx, s.vy) || 1) * 50, s.y - s.vy / (Math.hypot(s.vx, s.vy) || 1) * 50, s.vx * 0.1 + (Math.random() - 0.5) * 50, s.vy * 0.1 + (Math.random() - 0.5) * 50, 0.9 + Math.random() * 0.8, 10 + Math.random() * 10, Math.random() < 0.7 ? "#0c0608" : "#2a0a10", 2, 0, (Math.random() - 0.5) * 0.6, 0.96);   // a trail of black smoke
       if (s.kind === K.HOOK) { if (hookStep(s, stepDt, now)) shots.splice(i, 1); continue; }
-      if (s.kind === K.SENTRY) { if (sentryStep(s, stepDt, now) || s.life <= 0) shots.splice(i, 1); continue; }
+      if (s.kind === K.NOVA && s.life > 0) { novaZap(s, stepDt, now); if (Math.random() < (lowQ ? 0.4 : 0.9)) puff(s.x + (Math.random() - 0.5) * 20, s.y + (Math.random() - 0.5) * 20, -s.vx * 0.1 + (Math.random() - 0.5) * 80, -s.vy * 0.1 + (Math.random() - 0.5) * 80, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 1.5, Math.random() < 0.5 ? "#b8ff6a" : "#ffffff", 1, 0.04); }
       if (s.kind === K.SWORD) {   // a sword swing: its bin swings the blade, the crescent sweeps, and the blade cuts as it goes
         const sh = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
         if (!sh || sh.dead) { s.life = 0; shots.splice(i, 1); continue; }
@@ -10310,18 +10315,15 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     if (s.kind === K.PISTOL || s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.DET) return;   // beams are drawn as beams; a detonator isn't seen
     if (s.kind === K.MELEE || s.kind === K.SWORD) return;   // a blow, a swing: the blade on the bin (and its trail) is what you see
-    if (s.kind === K.SENTRY) {   // the Pulse Gun's sentry: a green core in two turning rings of plasma, flaring as it fires
-      const life = SHOTS[K.SENTRY].life, fade = Math.min(1, s.life / 0.4), fl = s.shotAt ? Math.max(0, 1 - (now - s.shotAt) / 120) : 0;
-      g.save(); g.translate(x, y); g.globalCompositeOperation = "lighter"; g.globalAlpha = fade;
-      g.globalAlpha = (0.35 + 0.4 * fl) * fade; g.drawImage(dotSprite("#7dff3a"), -60, -60, 120, 120);
-      g.globalAlpha = fade; g.lineWidth = 2.2; g.strokeStyle = "rgba(190,255,140,0.85)";
-      for (let k = 0; k < 2; k++) {   // two broken rings turning opposite ways
-        const r = 15 + k * 7, sp = (k ? -1 : 1) * now / (260 + k * 120);
-        for (let q = 0; q < 3; q++) { g.beginPath(); g.arc(0, 0, r, sp + q * 2.094, sp + q * 2.094 + 1.3); g.stroke(); }
-      }
-      g.globalAlpha = 0.9 * fade; g.drawImage(fireSprite(2 + ((now / 50) | 0) % 3, (s.x | 0) & 3, DEMON_RAMP), -14, -14, 28, 28);
-      g.fillStyle = "#ffffff"; g.beginPath(); g.arc(0, 0, 4 + 2 * fl, 0, 6.29); g.fill();
-      if (fl > 0 && s.shotA !== undefined) { g.rotate(s.shotA); g.globalAlpha = fl * fade; g.drawImage(dotSprite("#c8ff7a"), 8, -9, 46, 18); }   // its muzzle flash, toward its mark
+    if (s.kind === K.NOVA) {   // the Plasma Nova: a swirling ball of green plasma, white at its heart, lightning crawling over it
+      const c = Math.min(1, s.m || 1), r = 12 + 16 * c, a = Math.atan2(s.vy, s.vx);
+      g.save(); g.translate(x, y); g.globalCompositeOperation = "lighter";
+      g.globalAlpha = 0.5; g.rotate(a); g.drawImage(dotSprite("#4dff1e"), -r * 5, -r * 0.9, r * 5.5, r * 1.8); g.rotate(-a);   // the streak behind it
+      g.globalAlpha = 0.4; g.drawImage(dotSprite("#7dff3a"), -r * 2.6, -r * 2.6, r * 5.2, r * 5.2);
+      for (let k = 0; k < 3; k++) { g.save(); g.rotate(now / (90 + k * 40) * (k % 2 ? -1 : 1) + k * 2); g.globalAlpha = 0.85; g.drawImage(fireSprite(2 + ((now / 40 + k) | 0) % 3, k, DEMON_RAMP), -r * 1.25, -r * 1.25, r * 2.5, r * 2.5); g.restore(); }
+      g.globalAlpha = 1; g.strokeStyle = "rgba(230,255,200,0.9)"; g.lineWidth = 1.5;
+      for (let k = 0; k < (lowQ ? 2 : 4); k++) { let an = Math.random() * 6.283, rr = r * 0.6; g.beginPath(); g.moveTo(Math.cos(an) * rr, Math.sin(an) * rr); for (let n = 0; n < 3; n++) { an += 0.5 + Math.random() * 0.5; rr = r * (1 + Math.random() * 0.8); g.lineTo(Math.cos(an) * rr, Math.sin(an) * rr); } g.stroke(); }
+      g.fillStyle = "#ffffff"; g.beginPath(); g.arc(0, 0, r * 0.4, 0, 6.29); g.fill();
       g.restore(); return;
     }
     if (s.kind === K.HOOK) {   // the hook: a chain of steel links from its gun to a barbed head
@@ -11188,7 +11190,16 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       g.beginPath(); g.arc(x, y, R, -Math.PI / 2, -Math.PI / 2 + charge * 6.283); g.stroke();
       g.restore();
     }
-    if (railCharge > 0 && playing && !me.dead) {   // the railgun charging: a blue ring filling round the bin, and a sight line that firms up
+    if (railCharge > 0 && playing && !me.dead && me.weapon === "laser") {   // a Plasma Nova charging: a ball of plasma swelling at the gun, crackling
+      const mz = muzzleOf({ ...me, gunSide: 0 }, "laser"), c = railCharge, x0 = sx(mz.x), y0 = sy(mz.y), r = 6 + 16 * c, full = c >= 1;
+      g.save(); g.globalCompositeOperation = "lighter";
+      g.globalAlpha = 0.2 + 0.25 * c; g.drawImage(dotSprite("#7dff3a"), x0 - r * 3, y0 - r * 3, r * 6, r * 6);
+      g.globalAlpha = 1; g.drawImage(fireSprite(2 + ((now / 45) | 0) % 3, 1, DEMON_RAMP), x0 - r * 1.3, y0 - r * 1.3, r * 2.6, r * 2.6);
+      g.strokeStyle = full && Math.floor(now / 80) % 2 ? "#ffffff" : "rgba(210,255,170,0.9)"; g.lineWidth = 1.4;
+      for (let k = 0; k < 2 + Math.round(3 * c); k++) { let an = Math.random() * 6.283, rr = r * 0.5; g.beginPath(); g.moveTo(x0 + Math.cos(an) * rr, y0 + Math.sin(an) * rr); for (let n = 0; n < 3; n++) { an += 0.4 + Math.random() * 0.5; rr = r * (0.9 + Math.random() * 0.9); g.lineTo(x0 + Math.cos(an) * rr, y0 + Math.sin(an) * rr); } g.stroke(); }
+      g.fillStyle = "#ffffff"; g.beginPath(); g.arc(x0, y0, r * 0.35, 0, 6.29); g.fill();
+      g.restore();
+    } else if (railCharge > 0 && playing && !me.dead) {   // the railgun charging: a blue ring filling round the bin, and a sight line that firms up
       const x0 = sx(me.x), y0 = sy(me.y), R = 70 * sizeOf(me.lv), full = railCharge >= 1, ca = Math.cos(me.a), sa = Math.sin(me.a);
       g.save(); g.lineCap = "round";
       g.strokeStyle = "rgba(127,184,255,0.25)"; g.lineWidth = 6; g.beginPath(); g.arc(x0, y0, R, 0, 6.29); g.stroke();

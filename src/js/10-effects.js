@@ -1035,6 +1035,7 @@
   const BLAST_PAL = {
     fire: { cloud: "fire", light: "255,176,96", sparks: SPARK_COLS, ember: "fire", ring: "255,246,230", dust: "rgb(150,138,142)", smoke: true },
     demon: { cloud: "demon", light: "110,255,120", sparks: ["#ff4a3c", "#9dff6a", "#ff2a3c"], ember: "demon", ring: "170,255,160", dust: "rgb(60,120,70)", smoke: false },
+    plasma_green: { cloud: "demon", light: "150,255,90", sparks: ["#ffffff", "#d8ff9a", "#9dff5a"], ember: "demon", ring: "190,255,140", dust: "rgb(90,140,70)", smoke: false },
     hell: { cloud: "hell", light: "200,20,40", sparks: ["#ff2a3c", "#ff7a4a", "#3a0208"], ember: "hell", ring: "120,10,24", dust: "rgb(40,8,12)", smoke: true },
     plasma: { cloud: "plasma", light: "120,200,255", sparks: ["#ffffff", "#c8f4ff", "#7fdcff"], ember: "plasma", ring: "200,240,255", dust: "rgb(110,160,220)", smoke: false }
   };
