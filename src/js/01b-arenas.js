@@ -69,6 +69,14 @@
       guns: [["laser", 0.42, 0.3], ["minigun", 0.22, 0.06], ["shard", 0.6, 0.14], ["gren", 0.9, 0.3], ["rail", 0.96, 0.04], ["gamma", 0.52, 0.22]],
       supplies: [["med", 0.46, 0.12], ["shield", 0.24, 0.3], ["bigmed", 0.96, 0.36]],
       amp: [0.5, 0.5], nuke: [0.5, 0.05], void: [0.5, 0.7], holy: [0.5, 0.95], pads: [[0.2, 0.58, 0]] },
+    // Graveyard: the wrecks of a lost battle drifting at every angle round a dead red world, a burning world in two
+    // corners, broken towers and spilt cargo among them; close fights from hull to hull
+    g: { name: "Graveyard",
+      planets: [["lava", 0.5, 0.5, 210, 1], ["lava", 0.13, 0.13, 140, 0], ["rock", 0.37, 0.3, 46, 0], ["rock", 0.7, 0.2, 40, 0], ["rock", 0.9, 0.6, 44, 0]],
+      wrecks: [["hull", 0.3, 0.17, 0.9], ["hull", 0.66, 0.36, -0.5], ["hull", 0.2, 0.76, 1.6], ["tower", 0.85, 0.12, 0.4], ["crates", 0.46, 0.1], ["hull", 0.42, 0.8, 2.6], ["tower", 0.06, 0.7, -0.3]],
+      guns: [["minigun", 0.27, 0.36], ["scatter", 0.42, 0.21], ["orb", 0.76, 0.16], ["rail", 0.05, 0.3], ["nail", 0.84, 0.4], ["saw", 0.58, 0.4]],
+      supplies: [["med", 0.36, 0.43], ["shield", 0.6, 0.07], ["bigmed", 0.94, 0.22]],
+      amp: [0.5, 0.29], nuke: [0.5, 0.03], void: [0.5, 0.71], holy: [0.5, 0.97], pads: [[0.2, 0.42, 0]] },
     // Duel: almost empty. Two ice pillars on the line between the bases, two stations above and below the centre
     o: { name: "Duel",
       planets: [["ice", 0.32, 0.5, 130, 0]],
@@ -77,7 +85,7 @@
       supplies: [["med", 0.33, 0.3], ["shield", 0.67, 0.3]],
       amp: [0.5, 0.5], nuke: [0.5, 0.06], void: [0.5, 0.43], holy: [0.5, 0.94], pads: [[0.2, 0.36, 0]] }
   };
-  for (const [map, x, y] of [["c", .14, .42], ["a", .15, .38], ["y", .12, .27], ["r", .18, .38], ["s", .12, .43], ["w", .13, .29], ["i", .1, .3], ["o", .22, .3]]) ARENAS[map].supplies.push(["pads", x, y]);
+  for (const [map, x, y] of [["c", .14, .42], ["a", .15, .38], ["y", .12, .27], ["r", .18, .38], ["s", .12, .43], ["w", .13, .29], ["i", .1, .3], ["g", .12, .26], ["o", .22, .3]]) ARENAS[map].supplies.push(["pads", x, y]);
   // an entry and its mirror through the centre (one entry when it sits on the centre)
   const mirrored = list => list.flatMap(e => {
     const [k, x, y, ...rest] = e;

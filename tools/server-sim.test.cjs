@@ -17,7 +17,7 @@ function run(m, seconds, each) {
 
 test('every map builds solid terrain on the server; the Foundry station keeps its 40 hull walls and breakable walls inside', { skip }, async () => {
   const { createMatch } = await sim();
-  for (const map of ['f', 'k', 'h', 'v', 'd', 'c', 'a', 'y', 'r', 's', 'w', 'i', 'o']) {
+  for (const map of ['f', 'k', 'h', 'v', 'd', 'c', 'a', 'y', 'r', 's', 'w', 'i', 'g', 'o']) {
     const m = createMatch({ code: 'm1d0' + map });
     try {
       const { bodies, solidCells } = m.info;

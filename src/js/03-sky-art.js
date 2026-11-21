@@ -108,6 +108,7 @@
     w: { base: ["#020501", "#0a1305", "#0b0a03"], neb: [4, 2, 4], n: 4, milky: 0.6 },
     d: { base: ["#010108", "#05071a", "#0b040e"], neb: [5, 1, 0], n: 4, milky: 1 },   // Derelict: the dark round a dead ship
     i: { base: ["#00050c", "#021424", "#04101c"], neb: [3, 3, 1], n: 5, milky: 1 },   // Frost Belt: cold and clear
+    g: { base: ["#070102", "#160407", "#0c0306"], neb: [5, 0, 5], n: 4, milky: 0.6 },   // Graveyard: a smouldering red dark
     o: { base: ["#000003", "#020209", "#050208"], neb: [1], n: 1, milky: 1.1 }
   };
   const skyTheme = () => SKY_THEMES[mapThemeOf(worldCode)] || SKY_THEMES.c;

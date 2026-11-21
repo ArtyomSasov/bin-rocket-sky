@@ -119,6 +119,7 @@ try {
       saber: `{ window.__dist = 110; me.x = W * 0.3; me.y = H * 0.3; cam.x = me.x + 330; cam.y = me.y; bots[0] && Object.assign(bots[0], { x: me.x + 120, y: me.y + 10, dead: false, lives: 3 }); selectWeapon("gauntlet"); me.a = 0; keys.add("KeyF"); setTimeout(() => keys.delete("KeyF"), 1500); }`,
       spark: `sparkShower(${at(330)}, -1, 0, 1)`,
       nuke: `{ const h = hurtMe; hurtMe = () => {}; try { detonate({ kind: K.NUKE, x: me.x + 250, y: me.y, mine: false }, performance.now()); } finally { hurtMe = h; } }`,
+      nukefar: `{ const h = hurtMe; hurtMe = () => {}; try { detonate({ kind: K.NUKE, x: me.x + 1000, y: me.y, mine: false }, performance.now()); } finally { hurtMe = h; } }`,   // at the edge of its reach: what a survivor sees
       holy: `{ const h = hurtMe; hurtMe = () => {}; try { detonate({ kind: K.HOLY, x: me.x + 250, y: me.y, mine: false }, performance.now()); } finally { hurtMe = h; } }`,
     };
     const pick = process.argv[2] ? process.argv[2].split(',') : Object.keys(FX);
@@ -127,10 +128,10 @@ try {
     for (const name of pick) {
       await ev(`__e('parts.length = impacts.length = rings.length = booms.length = waves.length = debris.length = frags.length = hulks.length = 0')`);
       await ev('window.__dist = 4000; window.__free = 0; window.__keepWorld = 0'); await wait(300);
-      const t0 = Date.now(), times = name === 'nuke' || name === 'holy' ? [80, 400, 1000, 2000, 3500] : name === 'sword' ? [150, 420, 570, 620, 700, 1100] : name === 'fall' ? [100, 700, 1300, 1900, 2800, 4500] : name === 'jolt' ? [100, 150, 175, 200, 240, 320] : name === 'nova' ? [500, 1100, 1300, 1550, 1750, 2200] : name === 'saber' ? [60, 140, 260, 420, 560, 900] : [40, 150, 400, 900, 1800, 2800];
+      const t0 = Date.now(), times = name === 'nuke' || name === 'nukefar' || name === 'holy' ? [80, 400, 1000, 2000, 3500] : name === 'sword' ? [150, 420, 570, 620, 700, 1100] : name === 'fall' ? [100, 700, 1300, 1900, 2800, 4500] : name === 'jolt' ? [100, 150, 175, 200, 240, 320] : name === 'nova' ? [500, 1100, 1300, 1550, 1750, 2200] : name === 'saber' ? [60, 140, 260, 420, 560, 900] : [40, 150, 400, 900, 1800, 2800];
       await ev(`__e(${JSON.stringify(FX[name])})`);
       let peak = 0;
-      const cxs = [], cys = [], big = name === 'nuke' || name === 'holy', follow = name === 'engine' || name === 'boost' || name === 'jolt', blade = name === 'sword' || name === 'saber', cx = await ev(`__e("sx(me.x + ${big ? 250 : follow ? 0 : blade ? 70 : 330}) * innerWidth / vw")`), cy = await ev(`__e("sy(me.y) * innerWidth / vw")`), frames = [];
+      const cxs = [], cys = [], big = name === 'nuke' || name === 'nukefar' || name === 'holy', follow = name === 'engine' || name === 'boost' || name === 'jolt', blade = name === 'sword' || name === 'saber', cx = await ev(`__e("sx(me.x + ${name === 'nukefar' ? 0 : big ? 250 : follow ? 0 : blade ? 70 : 330}) * innerWidth / vw")`), cy = await ev(`__e("sy(me.y) * innerWidth / vw")`), frames = [];
       for (const t of times) {
         await wait(Math.max(0, t - (Date.now() - t0)));
         peak = Math.max(peak, await ev('__e("parts.length")'));
