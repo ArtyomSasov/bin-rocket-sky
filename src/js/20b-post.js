@@ -194,7 +194,7 @@
       if (!stationMap()) return lamps;
       const unit = W / FOUNDRY_N;
       for (const y of [2, 6, 10, 14, 18]) for (const x of [2, 6, 10, 14, 18]) if (foundryOpen(x, y))
-        lamps.push({ x: (x + 0.5) * unit, y: (y + 0.5) * unit, r: unit * 2.6, col: (x + y) % 8 === 0 ? station().accent[1] : "#ffe6c0", flick: hash(x, y, 77) < 0.2 ? hash(x, y, 78) * 6.28 : 0 });
+        lamps.push({ x: (x + 0.5) * unit, y: (y + 0.5) * unit, r: unit * 2.6, col: (x + y) % 8 === 0 ? station().accent[1] : station().lamp || "#ffe6c0", flick: hash(x, y, 77) < 0.2 ? hash(x, y, 78) * 6.28 : 0 });
       return lamps;
     }
     const rgbOf = c => { if (c[0] === "#") { const v = parseInt(c.slice(1, 7), 16); return [(v >> 16 & 255) / 255, (v >> 8 & 255) / 255, (v & 255) / 255]; } const p = c.replace(/[^\d.,]/g, "").split(",").map(Number); return [p[0] / 255, p[1] / 255, p[2] / 255]; };
