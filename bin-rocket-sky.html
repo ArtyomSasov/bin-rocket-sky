@@ -6837,7 +6837,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (age > 1200) return;
     const lag = clamp(age, 0, REWIND_MS);
     // m: Quad damage (x4) and the crown (x1.25), or the charge cannon's charge (0.25..1); anything else is ignored
-    const kind = f[5], m = (kind === K.GAUSS || kind === K.SWORD) && Number.isFinite(f[6]) ? clamp(f[6], 0.25, 5) : kind === K.NOVA && Number.isFinite(f[6]) ? clamp(f[6], 0.3, QUAD * 1.25) : kind === K.LASER && Number.isFinite(f[6]) ? clamp(f[6], LINK_MIN, LINK_HEAT * (remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now() ? QUAD * 1.25 : 1.25)) : [QUAD, 1.25, QUAD * 1.25].includes(f[6]) ? f[6] : 1;   // (a link beam heats up to LINK_HEAT; Quad only if the shooter is seen to carry it)
+    const kind = f[5], m = (kind === K.GAUSS || kind === K.SWORD) && Number.isFinite(f[6]) ? clamp(f[6], 0.25, 5) : kind === K.NOVA && Number.isFinite(f[6]) ? clamp(f[6], 0.3, remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now() ? QUAD * 1.25 : 1.25) : kind === K.LASER && Number.isFinite(f[6]) ? clamp(f[6], LINK_MIN, LINK_HEAT * (remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now() ? QUAD * 1.25 : 1.25)) : [QUAD, 1.25, QUAD * 1.25].includes(f[6]) ? f[6] : 1;   // (a link beam heats up to LINK_HEAT; Quad only if the shooter is seen to carry it)
     const x = clamp(num(f[1], 0), 0, W), y = clamp(num(f[2], 0), 0, H);
     // Keep an age bound relative to the newest state as well as to this packet.
     if (!fresh && Number.isFinite(peer.lastTs) && peer.lastTs - f[9] > 1200) return;
