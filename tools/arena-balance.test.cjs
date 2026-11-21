@@ -58,3 +58,16 @@ test('source damage relationships and the minigun\'s explosive alternate match t
   assert.ok(Math.abs(run('SHOTS[K.MELEE].dmg') - 0.18) < 1e-9);   // a blade's touch: a small blow
   assert.equal(run('SHOTS[K.SWORD].dmg'), 1.8);   // a full swing: 60 HP (the blade is found, no longer carried by all)
 });
+
+test('every space map gives each pick-up its own spot (the void bomb lay on the Quad or the holy bomb)', () => {
+  const src = read('01b-arenas.js'), a = src.indexOf('  const ringRocks'), b = src.indexOf('  for (const [map, x, y] of');
+  const ARENAS = new Function(src.slice(a, b) + '; return ARENAS;')();
+  const mir = ([x, y]) => Math.abs(x - 0.5) > 1e-6 || Math.abs(y - 0.5) > 1e-6 ? [[x, y], [1 - x, 1 - y]] : [[x, y]];
+  for (const [k, A] of Object.entries(ARENAS)) {
+    assert.ok(A.void, `${A.name}: a void bomb spot`);
+    const pts = [...A.guns, ...A.supplies].flatMap(([n, x, y]) => mir([x, y]).map(p => [n, ...p]))
+      .concat(['amp', 'nuke', 'holy', 'void'].filter(n => A[n]).map(n => [n, ...A[n]]));
+    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++)
+      assert.ok(Math.hypot(pts[i][1] - pts[j][1], pts[i][2] - pts[j][2]) > 0.03, `${k} ${A.name}: ${pts[i][0]} and ${pts[j][0]} share a spot at ${pts[i][1]},${pts[i][2]}`);
+  }
+});
