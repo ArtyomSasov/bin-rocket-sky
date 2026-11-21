@@ -658,7 +658,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       <label class="vol">Voice<input type="range" min="0" max="100" step="5" data-vol="volVoice" aria-label="Announcer volume"></label></div>
     <div class="pick"><span>Crosshair</span><div class="segs" id="setAim" role="group" aria-label="Crosshair"></div>
       <div class="segs" id="setAimCol" role="group" aria-label="Crosshair colour"></div></div>
-    <details><summary>Weapon controls</summary><p id="weaponHint"></p><small>Fixed slots: 1–9, 0; Alt+1–6 for additional weapons. Q/E cycles carried weapons. Hold Tab: scores.</small></details>
+    <details><summary>Weapon controls</summary><p id="weaponHint"></p><small>Fixed slots: 1–9, 0; Alt+1–6 for additional weapons. Q/E cycles carried weapons. Hold Tab: scores.</small><small>Gamepad: left stick flies, right stick aims, RT fires, LT second mode, A boosts (tap: dash), B brakes, LB/RB switch guns, Start: settings.</small></details>
     <details class="audio-credits"><summary>Audio credits</summary><p>The engine and the energy blades are synthesized in the game. Warp dash: <a href="https://opengameart.org/content/sci-fi-sound-effects-library" target="_blank" rel="noopener">Little Robot Sound Factory</a>, CC BY 3.0 (trimmed and faded). Additional effects: Kenney, rubberduck, zer0sol and bart (CC0). Additional recorded announcer: <a href="https://opengameart.org/content/warlord-video-game-announcer" target="_blank" rel="noopener">Warlord</a> and <a href="https://opengameart.org/content/dragon-announcer-audio-pack" target="_blank" rel="noopener">Dragon</a> by VoiceBosch, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>; source recordings unchanged. Existing weapon and announcer pack supplied by the game's author. Railgun recording by the game's author.</p></details>
     <button type="button" class="ghost" id="exportWeapons">Export weapon match stats</button>
     <button type="button" class="go" id="setDone">Back to the game</button>
@@ -2162,6 +2162,33 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   for (const el of [cv, fireBtn]) el.addEventListener("contextmenu", e => e.preventDefault());
   cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
 
+  // ---------- gamepad ----------
+  // A standard pad (Xbox / PlayStation layout): the left stick flies, the right stick aims (the nose keeps its last
+  // aim for a moment after the stick is let go, then follows the flight again), the right trigger fires, the left
+  // trigger is the second mode, A (cross) boosts when held and dashes when tapped, B (circle) brakes, the bumpers
+  // switch guns, and Start opens the settings. Picking it up hides the mouse aim until the mouse moves again
+  const PAD_DEAD = 0.18, PAD_AIM = 0.35;
+  const pad = { on: false, x: 0, y: 0, aim: 0, aimUntil: 0, fire: false, alt: false, braking: false, prev: [] };
+  const padAxis = v => Math.abs(v) < PAD_DEAD ? 0 : (v - Math.sign(v) * PAD_DEAD) / (1 - PAD_DEAD);
+  function padPoll(now) {
+    const gp = navigator.getGamepads ? [...navigator.getGamepads()].find(g => g && g.connected && g.mapping === "standard") || [...navigator.getGamepads()].find(g => g && g.connected) : null;
+    if (!gp) { if (pad.on) { pad.on = pad.fire = pad.alt = false; pad.x = pad.y = 0; if (pad.braking) { keys.delete("KeyX"); pad.braking = false; } if (boostBtnDown && pad.boosting) { boostBtnDown = false; pad.boosting = false; } } return; }
+    const b = i => !!(gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.3)), was = i => !!pad.prev[i], pressed = i => b(i) && !was(i);
+    const lx = padAxis(gp.axes[0] || 0), ly = padAxis(gp.axes[1] || 0), rx = gp.axes[2] || 0, ry = gp.axes[3] || 0;
+    const any = lx || ly || Math.hypot(rx, ry) > PAD_AIM || gp.buttons.some(x => x && x.pressed);
+    if (any && !pad.on) { pad.on = true; ptr.moved = false; }   // (the pad took over: no mouse aim till the mouse moves)
+    if (!pad.on) return;
+    pad.x = lx; pad.y = ly;
+    if (Math.hypot(rx, ry) > PAD_AIM) { pad.aim = Math.atan2(ry, rx); pad.aimUntil = now + 900; }
+    pad.fire = b(7); pad.alt = b(6);
+    if (pressed(0)) { boostBtnDown = true; pad.boosting = true; boostDownAt = now; dash(now); }   // A: tap to dash, hold to boost
+    else if (!b(0) && pad.boosting) { boostBtnDown = false; pad.boosting = false; }
+    if (b(1) && !pad.braking) { keys.add("KeyX"); pad.braking = true; } else if (!b(1) && pad.braking) { keys.delete("KeyX"); pad.braking = false; }
+    if (playing && pressed(5)) cycleWeapon(1);
+    if (playing && pressed(4)) cycleWeapon(-1);
+    if (playing && pressed(9)) document.getElementById("gearBtn")?.click();
+    pad.prev = gp.buttons.map(x => !!(x && (x.pressed || x.value > 0.3)));
+  }
   // ---------- sound ----------
   let noiseBuf = null;   // white noise (the blades' whoosh and crackle)
   // recorded sound effects (CC0, from OpenGameArt: Kenney, rubberduck, zer0sol, bart), loaded after the first click.
@@ -8885,13 +8912,14 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   function steerAndShoot(dt, now) {
     // input → acceleration
     let ix = 0, iy = 0;
+    padPoll(now);
     const shiftHeld = keys.has("ShiftLeft") || keys.has("ShiftRight");
     let boost = (shiftHeld || boostBtnDown) && boostDownAt >= 0 && now - boostDownAt > BOOST_HOLD * 1000 && !keys.has("KeyX");
     if (me.dead && now >= me.respawnAt && !serverRun) respawn(now);   // the server respawns my pilot where it chooses
     shake = Math.max(0, shake - dt);
     const aimM = mouseAim();
-    const held = firing || FIRE_KEYS.some(k => keys.has(k)) || (aimM && ptr.down);   // with mouse aim the left button fires
-    const altHeld = altFiring || keys.has("KeyC");
+    const held = firing || pad.fire || FIRE_KEYS.some(k => keys.has(k)) || (aimM && ptr.down);   // with mouse aim the left button fires
+    const altHeld = altFiring || pad.alt || keys.has("KeyC");
     // on the game server the trigger is pulled once per flight command (flyCmds), as the server pulls it: the same
     // moments, the same shots in the same order (their spread is numbered by them), the same aim; offline every frame
     srv.trig = { held, altHeld };
@@ -8903,6 +8931,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (keys.has("KeyS") || keys.has("ArrowDown")) iy += 1;
       const jm = Math.hypot(joy.x, joy.y);
       if (jm > 0.12) { const m = Math.min(1, (jm - 0.12) / 0.8); ix += joy.x / jm * m; iy += joy.y / jm * m; }
+      if (pad.on) { ix += pad.x; iy += pad.y; }   // a gamepad's left stick
       if ((ptr.down && !aimM) || (aimM && guided)) {   // the pointer steers (with mouse aim: only a guided nuke)
         const [cx, cy] = cursorAt(), from = guided || me, dx = cx - sx(from.x), dy = cy - sy(from.y), d = Math.hypot(dx, dy);   // steer from where the bin (or the guided nuke) is on screen
         if (d > 8) { const m = Math.min(1, d / 140); ix += dx / d * m; iy += dy / d * m; }
@@ -9108,7 +9137,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // but no longer spin it (shooting while standing still used to flip it round and round)
   function faceMe(dt, drift) {
     const steerMag = Math.hypot(steer.x, steer.y), sp = Math.hypot(me.vx, me.vy);
-    if (playing && !me.dead && mouseAim()) {   // mouse aim: the nose follows the cursor, quick but not instant
+    if (playing && !me.dead && pad.on && pad.aimUntil > performance.now()) me.a = lerpAng(me.a, pad.aim, 1 - Math.exp(-30 * dt));   // a gamepad's right stick aims
+    else if (playing && !me.dead && mouseAim()) {   // mouse aim: the nose follows the cursor, quick but not instant
       const [cx, cy] = cursorAt();
       if (Math.hypot(cx - sx(me.x), cy - sy(me.y)) > 12) me.a = lerpAng(me.a, Math.atan2(cy - sy(me.y), cx - sx(me.x)), 1 - Math.exp(-30 * dt));
     } else if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-(drift ? 20 : 13) * dt));

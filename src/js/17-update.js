@@ -33,13 +33,14 @@
   function steerAndShoot(dt, now) {
     // input → acceleration
     let ix = 0, iy = 0;
+    padPoll(now);
     const shiftHeld = keys.has("ShiftLeft") || keys.has("ShiftRight");
     let boost = (shiftHeld || boostBtnDown) && boostDownAt >= 0 && now - boostDownAt > BOOST_HOLD * 1000 && !keys.has("KeyX");
     if (me.dead && now >= me.respawnAt && !serverRun) respawn(now);   // the server respawns my pilot where it chooses
     shake = Math.max(0, shake - dt);
     const aimM = mouseAim();
-    const held = firing || FIRE_KEYS.some(k => keys.has(k)) || (aimM && ptr.down);   // with mouse aim the left button fires
-    const altHeld = altFiring || keys.has("KeyC");
+    const held = firing || pad.fire || FIRE_KEYS.some(k => keys.has(k)) || (aimM && ptr.down);   // with mouse aim the left button fires
+    const altHeld = altFiring || pad.alt || keys.has("KeyC");
     // on the game server the trigger is pulled once per flight command (flyCmds), as the server pulls it: the same
     // moments, the same shots in the same order (their spread is numbered by them), the same aim; offline every frame
     srv.trig = { held, altHeld };
@@ -51,6 +52,7 @@
       if (keys.has("KeyS") || keys.has("ArrowDown")) iy += 1;
       const jm = Math.hypot(joy.x, joy.y);
       if (jm > 0.12) { const m = Math.min(1, (jm - 0.12) / 0.8); ix += joy.x / jm * m; iy += joy.y / jm * m; }
+      if (pad.on) { ix += pad.x; iy += pad.y; }   // a gamepad's left stick
       if ((ptr.down && !aimM) || (aimM && guided)) {   // the pointer steers (with mouse aim: only a guided nuke)
         const [cx, cy] = cursorAt(), from = guided || me, dx = cx - sx(from.x), dy = cy - sy(from.y), d = Math.hypot(dx, dy);   // steer from where the bin (or the guided nuke) is on screen
         if (d > 8) { const m = Math.min(1, d / 140); ix += dx / d * m; iy += dy / d * m; }
@@ -256,7 +258,8 @@
   // but no longer spin it (shooting while standing still used to flip it round and round)
   function faceMe(dt, drift) {
     const steerMag = Math.hypot(steer.x, steer.y), sp = Math.hypot(me.vx, me.vy);
-    if (playing && !me.dead && mouseAim()) {   // mouse aim: the nose follows the cursor, quick but not instant
+    if (playing && !me.dead && pad.on && pad.aimUntil > performance.now()) me.a = lerpAng(me.a, pad.aim, 1 - Math.exp(-30 * dt));   // a gamepad's right stick aims
+    else if (playing && !me.dead && mouseAim()) {   // mouse aim: the nose follows the cursor, quick but not instant
       const [cx, cy] = cursorAt();
       if (Math.hypot(cx - sx(me.x), cy - sy(me.y)) > 12) me.a = lerpAng(me.a, Math.atan2(cy - sy(me.y), cx - sx(me.x)), 1 - Math.exp(-30 * dt));
     } else if (playing && steerMag > 0.15) me.a = lerpAng(me.a, Math.atan2(steer.y, steer.x), 1 - Math.exp(-(drift ? 20 : 13) * dt));
