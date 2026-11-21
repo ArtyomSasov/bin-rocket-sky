@@ -98,6 +98,13 @@ try {
       void: `{ const h = hurtMe; hurtMe = () => {}; try { me.inv = 1e15; for (const b of bots) Object.assign(b, { x: me.x + 700 + Math.random() * 300, y: me.y + (Math.random() - 0.5) * 500, dead: false }); detonate({ kind: K.VOID, x: me.x + 500, y: me.y, mine: false, id: 'v1' }, performance.now()); for (let k = 0; k < 6; k++) explode(me.x + 300 + k * 60, me.y + 200, 30, 300); } finally { hurtMe = h; } }`,
       pulse: `{ bots[0] && Object.assign(bots[0], { x: me.x + 420, y: me.y, dead: false, lives: 30 }); cam.x = me.x + 200; cam.y = me.y; me.arsenal.laser = 999; selectWeapon("laser"); me.a = 0; let n = 0; const iv = setInterval(() => { me.a = 0; fireCd = 0; shoot(performance.now(), false); if (++n > 5) clearInterval(iv); }, 70); }`,
       nova: `{ window.__dist = 520; me.arsenal.laser = 999; selectWeapon("laser"); me.a = 0; cam.x = me.x + 300; cam.y = me.y; fireCd = 0; railCharge = 0; altFiring = true; setTimeout(() => { altFiring = false; }, 1150); }`,
+      // voidme: a void bursts 600 px to my right while I fly away from it at full thrust; __vd: my distance to it
+      voidme: `{ window.__free = 1; me.x = W / 2; me.y = H / 2; me.vx = me.vy = 0; me.a = Math.PI; me.inv = 1e15; const h = hurtMe; hurtMe = () => {}; setTimeout(() => hurtMe = h, 4000);
+        detonate({ kind: K.VOID, x: me.x + 600, y: me.y, mine: false, id: 'v9', owner: 'nobody' }, performance.now()); keys.add("KeyA"); window.__vd = [];
+        const iv = setInterval(() => { const v = holesNow().find(h => h.v); if (v) __vd.push(Math.round(Math.hypot(v.x - me.x, v.y - me.y))); }, 250); setTimeout(() => { clearInterval(iv); keys.clear(); window.__free = 0; }, 3000); }`,
+      voidst: `{ window.__wc = worldCode; worldCode = 'M1X0KLAB'; setTimeout(() => { worldCode = window.__wc; }, 3200); { window.__free = 1; me.x = W / 2; me.y = H / 2; me.vx = me.vy = 0; me.a = Math.PI; me.inv = 1e15; const h = hurtMe; hurtMe = () => {}; setTimeout(() => hurtMe = h, 4000);
+        detonate({ kind: K.VOID, x: me.x + 600, y: me.y, mine: false, id: 'v9', owner: 'nobody' }, performance.now()); keys.add("KeyA"); window.__vd = [];
+        const iv = setInterval(() => { const v = holesNow().find(h => h.v); if (v) __vd.push(Math.round(Math.hypot(v.x - me.x, v.y - me.y))); }, 250); setTimeout(() => { clearInterval(iv); keys.clear(); window.__free = 0; }, 3000); } }`,
       jolt: `{ window.__free = 1; me.x = W / 2; me.y = H / 2; me.vx = me.vy = 0; me.a = 0; setTimeout(() => { me.vx = -1100; me.vy = 300; }, 120); setTimeout(() => { me.vx = me.vy = 0; }, 900); }`,
       fall: `{ window.__keepWorld = 1; buildPlanets(worldCode); rebuildBodies(); const p = planets.filter(p => !p.free && !p.dead).sort((a, b) => b.rr - a.rr)[0]; me.x = p.x - 330; me.y = p.y - p.rr - 140; cam.x = me.x; cam.y = me.y; me.vx = me.vy = 0; me.inv = 1e15;
         makeHulk({ x: p.x - 120, y: p.y - p.rr - 330, vx: 160, vy: 40, a: 0.3, lv: 1, ck: me.ck }); const h = hulks[hulks.length - 1]; h.spin = 3; window.__fallP = p; }`,
@@ -130,6 +137,7 @@ try {
         frames.push((await send('Page.captureScreenshot', { format: 'png' }, sessionId)).data);
         if (follow || blade) { cxs.push(await ev(`__e("sx(me.x + ${blade ? 70 : 0}) * innerWidth / vw")`)); cys.push(await ev(`__e("sy(me.y + ${follow ? 90 : 0}) * innerWidth / vw")`)); }
       }
+      if (name === 'voidme' || name === 'voidst') console.log('VOIDME distance every 0.25 s:', JSON.stringify(await ev('window.__vd')));
       // one contact sheet per blast: the frames cropped round it, in time order, labelled
       const png = await ev(`(async () => {
         const fr = ${JSON.stringify(frames)}, cxs = ${JSON.stringify(cxs)}, cys = ${JSON.stringify(cys)}, ts = ${JSON.stringify(times)}, cw = ${big ? 1280 : blade ? 380 : follow ? 300 : 520}, ch = ${big ? 640 : blade ? 290 : follow ? 300 : 400}, sc = ${big ? 0.28 : blade ? 0.96 : follow ? 1.2 : 0.7}, w = cw * sc, h = ch * sc;

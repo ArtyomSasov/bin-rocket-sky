@@ -25,6 +25,18 @@
     const pass = (ax >= 2 && ax <= 3 && ay >= 9) || (ay >= 2 && ay <= 3 && ax >= 9);
     return ring || bay || corner || pass;
   };
+  // Derelict: a cruiser broken in two across the middle of open space. Each half (the right is the left turned round)
+  // is a hull of plating round two decks split by a bulkhead with a gap in it; doors in the hull lead out to space,
+  // into the breach between the halves and round the bow. Outside the hull is open space (drawn as the sky)
+  const cruiserHull = (x, y) => y >= 5 && y <= 15 && (x >= 2 && x <= 8 || x >= 12 && x <= 18);
+  const cruiserOpen = (x, y) => {
+    if (x < 1 || x > 19 || y < 1 || y > 19) return false;
+    if (!cruiserHull(x, y)) return true;
+    const hx = x <= 8 ? x : 20 - x, hy = x <= 8 ? y : 20 - y;   // in the left half's terms
+    if (hy === 5 || hy === 15 || hx === 2 || hx === 8) return [[4, 5], [8, 10], [8, 7], [2, 12], [6, 15]].some(([a, b]) => a === hx && b === hy);   // the hull, and its doors
+    return !(hx === 5 && (hy >= 7 && hy <= 8 || hy >= 12 && hy <= 13));   // the bulkhead between the decks
+  };
+  const cruiserSpace = (x, y) => !cruiserHull(x, y);
   // Vault: nine rooms in a grid joined by narrow doors, the vault itself in the middle behind four pillars
   const vaultOpen = (x, y) => {
     if (x < 1 || x > 19 || y < 1 || y > 19) return false;
@@ -74,6 +86,15 @@
         ["panel", 6.5, 10.5, Math.PI / 2], ["crate", 3.6, 2.4, 0.1], ["drum", 1.4, 3.5], ["crate", 4.5, 7.6, -0.2], ["drum", 11.4, 4.4], ["panel", 10.5, 8.6, 0]],
       labels: [["HANGAR BAY", 10, 10, "#ffe08a"], ["DOCK 1", 2.5, 2.5, "#ffd34d"], ["DOCK 2", 17.5, 17.5, "#5ad1ff"]],
       hangar: true
+    },
+    d: {
+      open: cruiserOpen, space: cruiserSpace,
+      floor: ["#1b1f27", "#232833", "#3a4252"], wall: ["#4a5262", "#2b303b", "#a8c4e0"], accent: ["#ff5a4a", "#7fd0ff"], void: "#02030a", style: "tread", lamp: "#ff9a8a",
+      guns: [["rocket", 4, 7], ["scatter", 6, 13], ["laser", 7, 10], ["minigun", 3, 10], ["rail", 10, 2], ["gamma", 10, 7], ["shard", 1, 3], ["nail", 4, 17], ["gren", 6, 6], ["orb", 14, 2], ["mine", 3, 14]],
+      supplies: [["med", 3, 6], ["shield", 7, 14], ["vial", 6, 10], ["vial", 4, 10], ["bigmed", 10, 16], ["pads", 1, 10], ["shield", 10, 4]],
+      mega: [10, 3], pads: [[1, 6, Math.PI / 2], [19, 14, -Math.PI / 2]],
+      props: [["crate", 3.3, 6.3, 0.1], ["crate", 3.75, 6.3, -0.1], ["drum", 7.6, 6.4], ["crate", 3.4, 14.6, -0.15], ["drum", 7.6, 14.5], ["panel", 6.0, 9.0, 0]],
+      labels: [["ENGINES", 5, 10, "#ffb070"], ["BRIDGE", 15, 10, "#9fd4ff"], ["THE BREACH", 10, 10, "#c9b6ff"]]
     },
     v: {
       open: vaultOpen,
@@ -359,7 +380,7 @@
   }
   function drawFoundry(now) {
     const st = station();
-    g.fillStyle = st.void; g.fillRect(0, 0, vw, vh);
+    if (st.space) paintSky(now); else { g.fillStyle = st.void; g.fillRect(0, 0, vw, vh); }   // (a station in open space: the sky round it)
     const unit = W / FOUNDRY_N, tile = floorTile(st), sh = unit * 0.16;
     for (let y = 1; y < 20; y++) for (let x = 1; x < 20; x++) {
       const px = sx(x * unit), py = sy(y * unit);
@@ -369,6 +390,7 @@
         g.fillStyle = "rgba(10,8,10,0.55)"; g.fillRect(px, py, unit + 0.5, unit + 0.5);
         continue;
       }
+      if (st.space && st.space(x, y)) continue;   // open space: nothing laid there
       g.drawImage(tile, px, py, unit + 0.5, unit + 0.5);
       stationDecor(st, x, y, px, py, unit, now);
       // the walls cast a shadow on the floor next to them, and a strip of light runs along their foot

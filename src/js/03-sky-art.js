@@ -106,6 +106,7 @@
     r: { base: ["#05020f", "#120826", "#1a0614"], neb: [6, 0, 6], n: 5, milky: 0.6 },
     s: { base: ["#070301", "#180a03", "#0d0406"], neb: [2, 5, 2], n: 4, milky: 0.8 },
     w: { base: ["#020501", "#0a1305", "#0b0a03"], neb: [4, 2, 4], n: 4, milky: 0.6 },
+    d: { base: ["#010108", "#05071a", "#0b040e"], neb: [5, 1, 0], n: 4, milky: 1 },   // Derelict: the dark round a dead ship
     i: { base: ["#00050c", "#021424", "#04101c"], neb: [3, 3, 1], n: 5, milky: 1 },   // Frost Belt: cold and clear
     o: { base: ["#000003", "#020209", "#050208"], neb: [1], n: 1, milky: 1.1 }
   };

@@ -193,7 +193,7 @@
       lampsFor = key; lamps = [];
       if (!stationMap()) return lamps;
       const unit = W / FOUNDRY_N;
-      for (const y of [2, 6, 10, 14, 18]) for (const x of [2, 6, 10, 14, 18]) if (foundryOpen(x, y))
+      for (const y of [2, 6, 10, 14, 18]) for (const x of [2, 6, 10, 14, 18]) if (foundryOpen(x, y) && !station().space?.(x, y))
         lamps.push({ x: (x + 0.5) * unit, y: (y + 0.5) * unit, r: unit * 2.6, col: (x + y) % 8 === 0 ? station().accent[1] : station().lamp || "#ffe6c0", flick: hash(x, y, 77) < 0.2 ? hash(x, y, 78) * 6.28 : 0 });
       return lamps;
     }

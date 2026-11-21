@@ -91,6 +91,7 @@
   }
   function updateEvents(dt, now) {
     holesTick(dt, now);
+    if (playing && !me.dead && roundLive) for (const bh of holesNow()) if (bh.v) holeOnMe(bh, dt, now);   // a void bomb's hole: on every map, a station's too
     if (stationMap()) { bannerEl.hidden = true; return; }
     const ev = eventAt(clockNow());
     bannerAcc += dt;
@@ -105,7 +106,6 @@
       } else bannerEl.hidden = true;
     }
 
-    if (playing && !me.dead && roundLive) for (const bh of holesNow()) if (bh.v) holeOnMe(bh, dt, now);   // (a void bomb's hole, whatever the event)
     if (!ev.active || !playing || me.dead || !roundLive) return;   // events leave you alone during the results break
     const mr = 30 * sizeOf(me.lv);
 

@@ -10,6 +10,7 @@
     f: { name: "Foundry", label: "Foundry", hint: "industrial corridors, three routes", station: true },
     k: { name: "Cargo Deck", label: "Cargo Deck", hint: "a ring corridor round a cargo hall, crates to smash", station: true },
     h: { name: "Hangar", label: "Hangar · NEW", hint: "one huge hangar bay, corridors all round", station: true },
+    d: { name: "Derelict", label: "Derelict · NEW", hint: "a cruiser broken in two, open space round it", station: true },
     v: { name: "Vault", label: "Vault · NEW", hint: "nine rooms and narrow doors, the vault in the middle", station: true },
     c: { name: "Twin Worlds", label: "Twin Worlds", hint: "two giants, an open centre" },
     a: { name: "The Ring", label: "The Ring", hint: "a ring of asteroids, four gates", lumpy: true },
