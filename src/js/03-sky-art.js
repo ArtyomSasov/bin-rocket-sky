@@ -90,8 +90,25 @@
   const NEB_ART = [
     nebCloud(61, ["255,80,200", "130,90,255", "255,130,170"]),
     nebCloud(64, ["60,200,255", "70,230,190", "110,140,255"]),
-    nebCloud(67, ["255,140,80", "255,80,110", "255,200,120"])
+    nebCloud(67, ["255,140,80", "255,80,110", "255,200,120"]),
+    nebCloud(71, ["60,150,215", "100,190,230", "50,100,200"]),   // 3: ice
+    nebCloud(73, ["150,230,60", "200,210,70", "90,170,80"]),      // 4: toxic haze
+    nebCloud(79, ["255,70,30", "200,30,40", "255,150,60"]),       // 5: embers
+    nebCloud(83, ["255,40,190", "40,220,255", "160,70,255"])      // 6: neon
   ];
+  // each open-space map has its own sky: the base colours (top-left to bottom-right), which nebulae drift in it and
+  // how many, and how bright the Milky Way is. Twin Worlds: violet and pink; The Ring: an icy blue-green; Drydocks: rust
+  // and amber; Downtown: a neon city's glow; Orrery: the warm light of its sun; The Tip: a sickly green haze; Duel: stark
+  const SKY_THEMES = {
+    c: { base: ["#010208", "#04061a", "#0a0619"], neb: [0, 1, 2], n: 4, milky: 0.95 },
+    a: { base: ["#00060b", "#03141e", "#041019"], neb: [3, 1, 3], n: 5, milky: 1 },
+    y: { base: ["#060201", "#130805", "#0b0405"], neb: [5, 2, 5], n: 4, milky: 0.7 },
+    r: { base: ["#05020f", "#120826", "#1a0614"], neb: [6, 0, 6], n: 5, milky: 0.6 },
+    s: { base: ["#070301", "#180a03", "#0d0406"], neb: [2, 5, 2], n: 4, milky: 0.8 },
+    w: { base: ["#020501", "#0a1305", "#0b0a03"], neb: [4, 2, 4], n: 4, milky: 0.6 },
+    o: { base: ["#000003", "#020209", "#050208"], neb: [1], n: 1, milky: 1.1 }
+  };
+  const skyTheme = () => SKY_THEMES[mapThemeOf(worldCode)] || SKY_THEMES.c;
   // a far gas giant (lit from one side, with a thin ring)
   const farPlanet = (base, band) => {
     const S = 360, R = 110, c = document.createElement("canvas"); c.width = c.height = S;
@@ -115,11 +132,12 @@
   let sky = [];
   function buildSky(seed) {
     const r = k => hash(seed, k, 909), big = Math.max(1, W / 4200);
-    sky = [{ img: milkyCv, x: r(1) * W, y: r(2) * H, par: 0.22, rot: r(3) * 3.14, sc: 1.5 * big, a: 0.95, glow: true }];
+    const th = skyTheme();
+    sky = [{ img: milkyCv, x: r(1) * W, y: r(2) * H, par: 0.22, rot: r(3) * 3.14, sc: 1.5 * big, a: Math.min(1, th.milky), glow: true }];
     for (let i = 0; i < Math.round(2 * big); i++)
       sky.push({ img: galaxyCv, x: r(10 + i) * W, y: r(20 + i) * H, par: 0.28 + r(30 + i) * 0.06, rot: r(40 + i) * 6.28, sc: 0.8 + r(50 + i) * 0.9, a: 0.85, glow: true, spin: 0.01 });
-    for (let i = 0; i < Math.round(4 * big); i++)
-      sky.push({ img: NEB_ART[i % 3], x: r(60 + i) * W, y: r(70 + i) * H, par: 0.35 + r(80 + i) * 0.15, rot: r(90 + i) * 6.28, sc: 2 * (1.1 + r(100 + i) * 0.9), a: 0.9, glow: true });
+    for (let i = 0; i < Math.round(th.n * big); i++)
+      sky.push({ img: NEB_ART[th.neb[i % th.neb.length]], x: r(60 + i) * W, y: r(70 + i) * H, par: 0.35 + r(80 + i) * 0.15, rot: r(90 + i) * 6.28, sc: 2 * (1.1 + r(100 + i) * 0.9), a: 0.9, glow: true });
     for (let i = 0; i < Math.round(1.5 * big); i++)
       sky.push({ img: FAR_PLANETS[i % 3], x: r(110 + i) * W, y: r(120 + i) * H, par: 0.5 + r(130 + i) * 0.1, rot: 0, sc: 0.28 + r(140 + i) * 0.22, a: 0.6 });   // small and dim: never mistaken for a real planet
     sky.sort((p, q) => p.par - q.par);

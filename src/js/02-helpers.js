@@ -78,7 +78,7 @@
     return c;
   }
   // ---------- world event timing (shared clock; used from the first frame, by the bodies too) ----------
-  const EV_CYCLE = 45, EV_START = 10, EV_LEN = 25;
+  const EV_CYCLE = 75, EV_START = 30, EV_LEN = 20;   // (an event a quarter of the time: they spice a match, not run it)
   const EV_TYPES = ["blackhole", "meteors", "aliens"];   // (the gold rain is gone with the stars)
   function eventAt(ms) {
     if (stationMap()) return { cyc: 0, ph: 0, et: 0, type: "blackhole", active: false, warn: false };

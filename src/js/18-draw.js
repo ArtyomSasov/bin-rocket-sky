@@ -12,13 +12,14 @@
   let skyBase = null, skyEdge = null;
   function skyLayers() {
     const W2 = Math.ceil(innerWidth), H2 = Math.ceil(innerHeight);   // window pixels: zooming the view doesn't rebuild them
-    if (skyBase && skyBase.width === W2 && skyBase.height === H2) return;
+    const th = skyTheme();
+    if (skyBase && skyBase.width === W2 && skyBase.height === H2 && skyBase.th === th) return;
     const vw = W2, vh = H2;
     const mk = () => { const c = document.createElement("canvas"); c.width = W2; c.height = H2; return c; };
-    skyBase = mk(); skyEdge = mk();
+    skyBase = mk(); skyEdge = mk(); skyBase.th = th;
     let q = skyBase.getContext("2d");
     const gr = q.createLinearGradient(0, 0, vw * 0.3, vh);   // deep space: nearly black, a touch of blue and violet
-    gr.addColorStop(0, "#010208"); gr.addColorStop(0.55, "#04061a"); gr.addColorStop(1, "#0a0619");
+    gr.addColorStop(0, th.base[0]); gr.addColorStop(0.55, th.base[1]); gr.addColorStop(1, th.base[2]);   // (the map's own sky)
     q.fillStyle = gr; q.fillRect(0, 0, vw, vh);
     q = skyEdge.getContext("2d");
     const vg = q.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.35, vw / 2, vh / 2, Math.max(vw, vh) * 0.75);
