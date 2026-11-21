@@ -63,7 +63,7 @@
       }
       for (const list of [rubble, hulks, frags, debris]) for (let i = list.length - 1; i >= 0; i--) {
         const o = list[i], dx = bh.x - o.x, dy = bh.y - o.y, d = Math.hypot(dx, dy) || 1;
-        if (d < reach) { const acc = holeAcc(bh, d) * (bh.v ? 1.2 : 0.45); o.vx += (dx / d + dy / d * 0.35) * acc * dt; o.vy += (dy / d - dx / d * 0.35) * acc * dt; }
+        if (d < reach) { const acc = holeAcc(bh, d) * (bh.v ? 1.2 : 0.45); if (acc > 150) o.rest = null; o.vx += (dx / d + dy / d * 0.35) * acc * dt; o.vy += (dy / d - dx / d * 0.35) * acc * dt; }
         if (d < eat + 20) {
           swallowFx(o.x, o.y, bh, list === rubble ? bodyCol(o) : "#c38bff");
           if (list === rubble) { o.dead = true; rebuildBodies(); } else list.splice(i, 1);

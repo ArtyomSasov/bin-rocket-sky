@@ -922,7 +922,7 @@
         if (h.pin) h.vx = h.vy = 0;
       } else {
         const oldX = h.x, oldY = h.y;
-        h.x += h.vx * dt; h.y += h.vy * dt; h.vx *= drag; h.vy *= drag; h.a += h.spin * dt;
+        if (!h.rest) { h.x += h.vx * dt; h.y += h.vy * dt; } h.vx *= drag; h.vy *= drag; h.a += h.spin * dt;
         if (stationMap()) h.spin *= Math.exp(-1.8 * dt);
         if (h.nailA !== undefined) {   // flying on along the nail: the first rock (or the fence) it meets, it is pinned to
           const tip = 30 * sizeOf(h.lv), dx = Math.cos(h.nailA) * tip, dy = Math.sin(h.nailA) * tip;
@@ -935,7 +935,7 @@
           }
           else if (h.x < 40 || h.x > W - 40 || h.y < 40 || h.y > H - 40) { h.x = clamp(h.x, 40, W - 40); h.y = clamp(h.y, 40, H - 40); h.pin = { b: null }; }
         } else {
-          const pc = bounceOff(h, 30 * sizeOf(h.lv), 0.8, 0.35 * binMass(h.lv));
+          const pc = h.dying ? bounceOff(h, 30 * sizeOf(h.lv), 0.8, 0.35 * binMass(h.lv)) : wreckFalls(h, 30 * sizeOf(h.lv), dt, now, 0.35 * binMass(h.lv));   // (a thrown one flies until it blows)
           if (h.dying) {   // a bin thrown by the blow that killed it: burning as it flies, until it slams into something
             const d = h.dying, sz2 = sizeOf(h.lv);
             d.fuse -= dt; d.age = (d.age || 0) + dt;
@@ -977,7 +977,7 @@
         const nx = dx / d, ny = dy / d, vn = (me.vx - h.vx) * nx + (me.vy - h.vy) * ny, mh = 0.35;
         const j = vn < 0 ? -1.4 * vn / (1 + 1 / mh) : 40 * mh / (1 + mh);   // (touching but parting: just a little push apart)
         if (!serverRun) { me.vx += nx * j; me.vy += ny * j; }
-        h.vx -= nx * j / mh; h.vy -= ny * j / mh; h.spin += (Math.random() - 0.5) * 2 * Math.min(1, j / 200);
+        h.rest = null; h.vx -= nx * j / mh; h.vy -= ny * j / mh; h.spin += (Math.random() - 0.5) * 2 * Math.min(1, j / 200);
         impact(me.x - dx / 2, me.y - dy / 2, "#d9c8ff", Math.min(1.2, 0.3 + j / 250));
         if (j > 250) sparkShower(me.x - dx / 2, me.y - dy / 2, -dy, dx, 0.8);
         sfx("crash", Math.min(0.6, 0.15 + j / 600));
@@ -988,18 +988,18 @@
       f.life -= dt;
       if (f.life <= 0) { frags.splice(i, 1); continue; }
       const drag = Math.exp(-(stationMap() ? 1.1 : 0.015) * dt), spinDrag = stationMap() ? Math.exp(-1.5 * dt) : 1;
-      f.x += f.vx * dt; f.y += f.vy * dt; f.vx *= drag; f.vy *= drag; f.spin *= spinDrag; f.a += f.spin * dt;
+      if (!f.rest) { f.x += f.vx * dt; f.y += f.vy * dt; f.vx *= drag; f.vy *= drag; f.spin *= spinDrag; f.a += f.spin * dt; }
       // (bins shove the pieces about: piecesCollide)
-      bounceOff(f, f.s * 0.25, 0.8, 0.25 * (f.s / BOT) ** 2);
+      wreckFalls(f, f.s * 0.25, dt, now, 0.25 * (f.s / BOT) ** 2, "a", "spin", 0.35);
       if (f.x < 0 || f.x > W) { f.vx = -f.vx; f.x = clamp(f.x, 0, W); }
       if (f.y < 0 || f.y > H) { f.vy = -f.vy; f.y = clamp(f.y, 0, H); }
       if ((now - f.born) / 1000 < 4 && Math.random() < (lowQ ? 3 : 8) * dt) puff(f.x, f.y, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30, 1.4, 3 + Math.random() * 3, "rgb(60,54,72)", 2);
     }
     for (const s of shots) {
       if (s.life <= 0 || SHOTS[s.kind].inert || s.kind === K.MINE) continue;
-      for (const o of hulks) if (segHit(s, o.x, o.y, 34 * sizeOf(o.lv)) && (!pierces(s) || railOnce(s, o))) { const pk = pierces(s) ? 0.03 : 0.08; o.vx += s.vx * pk; o.vy += s.vy * pk; o.spin += (Math.random() - 0.5); if (!pierces(s)) s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.8); break; }
+      for (const o of hulks) if (segHit(s, o.x, o.y, 34 * sizeOf(o.lv)) && (!pierces(s) || railOnce(s, o))) { const pk = pierces(s) ? 0.03 : 0.08; o.rest = null; o.vx += s.vx * pk; o.vy += s.vy * pk; o.spin += (Math.random() - 0.5); if (!pierces(s)) s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.8); break; }
       if (s.life <= 0) continue;
-      for (const o of frags) if (segHit(s, o.x, o.y, o.s * 0.3)) { o.vx += s.vx * 0.12; o.vy += s.vy * 0.12; o.spin += (Math.random() - 0.5) * 2; s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.6); break; }
+      for (const o of frags) if (segHit(s, o.x, o.y, o.s * 0.3)) { o.rest = null; o.vx += s.vx * 0.12; o.vy += s.vy * 0.12; o.spin += (Math.random() - 0.5) * 2; s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.6); break; }
     }
     // wreckage drifts (almost no drag in space), spins, bounces off the fence, smoulders at first
     // (on a station's deck it scrapes along and comes to rest; in space it drifts on)
@@ -1008,12 +1008,12 @@
       const d = debris[i];
       d.life -= dt;
       if (d.life <= 0) { debris.splice(i, 1); continue; }
-      d.x += d.vx * dt; d.y += d.vy * dt; d.vx *= drift; d.vy *= drift; d.vr *= drift; d.rot += d.vr * dt;
-      bounceOff(d, 4, 0.8, debrisMass(d));
+      if (!d.rest) { d.x += d.vx * dt; d.y += d.vy * dt; d.vx *= drift; d.vy *= drift; d.vr *= drift; d.rot += d.vr * dt; }
+      wreckFalls(d, 4, dt, now, debrisMass(d), "rot", "vr", 0.4);
       if (d.x < 0 || d.x > W) { d.vx = -d.vx; d.x = clamp(d.x, 0, W); }
       if (d.y < 0 || d.y > H) { d.vy = -d.vy; d.y = clamp(d.y, 0, H); }
       const ddx = d.x - me.x, ddy = d.y - me.y, dd = Math.hypot(ddx, ddy);
-      if (playing && !me.dead && dd < 34 * sizeOf(me.lv) && dd > 0.01) { const pv = Math.max(120, Math.hypot(me.vx, me.vy)); d.vx = ddx / dd * pv; d.vy = ddy / dd * pv; d.vr += (Math.random() - 0.5) * 4; }
+      if (playing && !me.dead && dd < 34 * sizeOf(me.lv) && dd > 0.01) { d.rest = null; const pv = Math.max(120, Math.hypot(me.vx, me.vy)); d.vx = ddx / dd * pv; d.vy = ddy / dd * pv; d.vr += (Math.random() - 0.5) * 4; }
       if ((now - d.born) / 1000 < 3 && Math.random() < (lowQ ? 1 : 3) * dt) puff(d.x, d.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 1.2, 2 + Math.random() * 2, "rgb(80,72,98)", 2);
     }
     for (let i = impacts.length - 1; i >= 0; i--) { impacts[i].t += dt; if (impacts[i].t > (impacts[i].dur || 0.22)) impacts.splice(i, 1); }

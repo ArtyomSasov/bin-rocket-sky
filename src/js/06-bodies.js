@@ -651,6 +651,7 @@
       const rvx = a.vx - (b.vx || 0), rvy = a.vy - (b.vy || 0), vn = rvx * nx + rvy * ny;
       if (vn >= 0) return;
       const j = collide(a, ma, b, mb, nx, ny, 0.3);
+      if (j / ma > 30) a.rest = null; if (mb !== Infinity && j / mb > 30) b.rest = null;   // knocked loose off the ground it lay on
       // friction along the contact: some of the slide goes, and turns into spin
       const vt = rvx * -ny + rvy * nx, f = Math.min(Math.abs(vt), j / ma * 0.4) * Math.sign(vt);
       a.vx -= f * -ny * 0.5; a.vy -= f * nx * 0.5; a.spin = (a.spin || 0) + f / Math.max(4, ra) * 0.8;

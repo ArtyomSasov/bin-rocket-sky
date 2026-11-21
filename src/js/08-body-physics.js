@@ -103,6 +103,37 @@
     }
     return null;
   }
+  // Wreckage (a dead bin's hulk, its pieces, scraps) falls and lands: a planet's pull draws it down (a little harder
+  // than a live bin feels it: no engine holds it up), it strikes the ground with a thud of dust and bounces low, its
+  // slide is braked by the ground and turns into a roll (spin = speed / radius), and once it is all but still it lies
+  // there, riding the body as it turns, until the ground under it is shot away or something knocks it loose.
+  // ang/spin: the names of its angle and spin. Returns the contact, if any
+  function wreckFalls(o, rad, dt, now, mass, ang = "a", spin = "spin", e = 0.3) {
+    if (o.rest) {
+      const R = o.rest, b = R.b;
+      if (!b.dead && bodies.includes(b)) {
+        const [gx, gy] = toWorld(b, R.gx, R.gy);
+        if (solidAt(b, gx, gy)) { [o.x, o.y] = toWorld(b, R.lx, R.ly); o[ang] = R.a + b.a; o.vx = b.vx || 0; o.vy = b.vy || 0; o[spin] = 0; return null; }
+      }
+      o.rest = null;   // the ground went (shot away, swallowed): it falls again
+    }
+    gravityOn(o, dt * 1.6);
+    const pc = bounceOff(o, rad, e, mass);
+    if (!pc) return null;
+    const bvx = pc.b.vx || 0, bvy = pc.b.vy || 0, tx = -pc.ny, ty = pc.nx, vt = (o.vx - bvx) * tx + (o.vy - bvy) * ty, f = 1 - Math.exp(-5.5 * dt);
+    o.vx -= tx * vt * f; o.vy -= ty * vt * f;   // the ground brakes its slide
+    o[spin] += (vt / rad - o[spin]) * Math.min(1, 7 * dt);   // ... and it rolls
+    if (pc.vn < -170 && (!o.thudAt || now - o.thudAt > 250)) {   // a thud: dust thrown up off the ground, a crunch
+      o.thudAt = now; const hard = Math.min(1, -pc.vn / 700), cx = o.x - pc.nx * rad, cy = o.y - pc.ny * rad;
+      for (let k = 0, n = Math.round((lowQ ? 4 : 10) * (0.4 + hard)); k < n; k++) { const s = (Math.random() - 0.5) * 2, v = 60 + Math.random() * 160 * (0.5 + hard); puff(cx, cy, tx * s * v + pc.nx * v * 0.4, ty * s * v + pc.ny * v * 0.4, 0.6 + Math.random() * 0.6, 4 + Math.random() * 6 * (0.5 + hard), SMOKE_COLS[k % 3], 2, 0, 0, 0.93); }
+      if (rad > 12 && Math.hypot(cx - me.x, cy - me.y) < 1400) sfx("crash", 0.2 + 0.4 * hard, 0.7 + Math.random() * 0.2, cx, cy);
+    }
+    if (!pc.b.free && Math.hypot(o.vx - bvx, o.vy - bvy) < 40 && Math.abs(o[spin]) < 1.6) {   // all but still: it lies there
+      const [lx, ly] = toLocal(pc.b, o.x, o.y), [gx, gy] = toLocal(pc.b, o.x - pc.nx * rad * 1.25, o.y - pc.ny * rad * 1.25);
+      o.rest = { b: pc.b, lx, ly, gx, gy, a: o[ang] - pc.b.a };
+    }
+    return pc;
+  }
   // outward normal at a point on a body's surface (towards the empty cells around it)
   function normalAt(b, x, y) {
     let nx = 0, ny = 0;
