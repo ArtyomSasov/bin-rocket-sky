@@ -48,8 +48,9 @@
     return jetCanvas;
   }
   // the layer drawn along the jet's bent path, in slices: L long, Wd wide at its widest, the tip bent sideways by bend
+  // (as many slices as the bend needs to look smooth: a straight jet is one picture, a hard-bent one six)
   function jetDraw(cv, L, Wd, bend) {
-    const N = 6;
+    const b = Math.abs(bend), N = b < 1.5 ? 1 : b < 6 ? 3 : 6;
     for (let i = 0; i < N; i++) {
       const t0 = i / N, t1 = (i + 1) / N, x0 = bend * t0 * t0, x1 = bend * t1 * t1, y0 = L * t0, y1 = L * t1, ang = Math.atan2(x1 - x0, y1 - y0);
       g.save(); g.translate(x0, y0); g.rotate(-ang);

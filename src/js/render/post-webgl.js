@@ -115,8 +115,20 @@
     // move, walls break)
     const mask = document.createElement("canvas"), mq = mask.getContext("2d");
     let maskN = 0;
+    // (redrawn and sent to the GPU only when something on it moved by a pixel of it, turned or lost cells: a still
+    // station with nobody flying costs nothing; maskSig sums up what it shows)
+    let maskSig = null;
     function drawMask() {
       const M = 768, k = M / Math.max(W, H);   // (fine enough for crisp shadows)
+      let sig = W * 7 + H;
+      const add = v => { sig = (sig * 31 + v) | 0; };
+      for (const b of bodies) if (!b.dead && !b.free && b.cv) { add(Math.round(b.x * k)); add(Math.round(b.y * k)); add(Math.round((b.a || 0) * 100)); add(b.mass | 0); }
+      const pin = o => { add(Math.round(o.x * k)); add(Math.round(o.y * k)); };
+      if (playing && !me.dead) pin(me);
+      for (const r of remotes.values()) if (!r.dead) pin(r);
+      for (const b of bots) if (!b.dead) pin(b);
+      if (sig === maskSig) return;
+      maskSig = sig;
       if (mask.width !== Math.round(W * k) || mask.height !== Math.round(H * k)) { mask.width = Math.round(W * k); mask.height = Math.round(H * k); }
       mq.setTransform(1, 0, 0, 1, 0, 0); mq.clearRect(0, 0, mask.width, mask.height);
       for (const b of bodies) {

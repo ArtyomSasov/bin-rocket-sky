@@ -43,6 +43,7 @@ test('on every map each pick-up has a spot of its own, and every gun lying there
   try {
     for (const map of [...SPACE, ...STATIONS]) for (const size of ['m', 'x']) {
       const r = g.get(`(() => {
+        eventAt = () => ({ cyc: 0, ph: 0, et: 0, type: "meteors", active: false, warn: false });   // (a black hole, by the real clock, would drag the planets off their places)
         worldCode = "${size}1x0${map}"; setMapSize(mapOf(worldCode)); setMode(modeOf(worldCode)); buildPlanets(worldCode);
         const all = [...arena.guns, ...arena.supplies, arena.amp, arena.nuke, arena.holy, arena.void].filter(Boolean);
         const close = [];

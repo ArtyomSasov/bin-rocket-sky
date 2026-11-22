@@ -10472,8 +10472,9 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     return jetCanvas;
   }
   // the layer drawn along the jet's bent path, in slices: L long, Wd wide at its widest, the tip bent sideways by bend
+  // (as many slices as the bend needs to look smooth: a straight jet is one picture, a hard-bent one six)
   function jetDraw(cv, L, Wd, bend) {
-    const N = 6;
+    const b = Math.abs(bend), N = b < 1.5 ? 1 : b < 6 ? 3 : 6;
     for (let i = 0; i < N; i++) {
       const t0 = i / N, t1 = (i + 1) / N, x0 = bend * t0 * t0, x1 = bend * t1 * t1, y0 = L * t0, y1 = L * t1, ang = Math.atan2(x1 - x0, y1 - y0);
       g.save(); g.translate(x0, y0); g.rotate(-ang);
@@ -12267,8 +12268,20 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     // move, walls break)
     const mask = document.createElement("canvas"), mq = mask.getContext("2d");
     let maskN = 0;
+    // (redrawn and sent to the GPU only when something on it moved by a pixel of it, turned or lost cells: a still
+    // station with nobody flying costs nothing; maskSig sums up what it shows)
+    let maskSig = null;
     function drawMask() {
       const M = 768, k = M / Math.max(W, H);   // (fine enough for crisp shadows)
+      let sig = W * 7 + H;
+      const add = v => { sig = (sig * 31 + v) | 0; };
+      for (const b of bodies) if (!b.dead && !b.free && b.cv) { add(Math.round(b.x * k)); add(Math.round(b.y * k)); add(Math.round((b.a || 0) * 100)); add(b.mass | 0); }
+      const pin = o => { add(Math.round(o.x * k)); add(Math.round(o.y * k)); };
+      if (playing && !me.dead) pin(me);
+      for (const r of remotes.values()) if (!r.dead) pin(r);
+      for (const b of bots) if (!b.dead) pin(b);
+      if (sig === maskSig) return;
+      maskSig = sig;
       if (mask.width !== Math.round(W * k) || mask.height !== Math.round(H * k)) { mask.width = Math.round(W * k); mask.height = Math.round(H * k); }
       mq.setTransform(1, 0, 0, 1, 0, 0); mq.clearRect(0, 0, mask.width, mask.height);
       for (const b of bodies) {
