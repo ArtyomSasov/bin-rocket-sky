@@ -27,6 +27,7 @@ const BRIDGE = `
   globalThis.__simBot = id => botById.get(id);
   globalThis.__simBots = () => bots;   // every pilot, for tests and tools
   globalThis.__simWorld = () => world;   // the pick-ups as they lie now   // the live pilot object, for tests and tools
+  globalThis.__simCleanChat = t => typeof t === "string" ? cleanChatText(t) : "";   // a chat line as every screen cleans it (ui/chat.js)
   globalThis.__simConst = { WEAPON_KEYS, K };   // protocol numbers, for tests and tools
   globalThis.__simShots = () => shots;   // the shots in flight, for tests and tools
   globalThis.__simTerrain = { rubble: () => rubble, det: () => det, carveAt, shove,   // for tests and tools
@@ -155,6 +156,7 @@ export function createMatch({ code = "m1d0c", bots = 0, level = "normal" } = {})
     release: id => sim.release(id),
     rtt: (id, ms) => sim.rtt(id, Math.max(0, Math.min(1000, Number(ms) || 0))),
     pilot: id => sim.pilot(id),
+    cleanChat: t => game.__simCleanChat(t),   // (the game's own rule for a chat line)
     get pilots() { return sim.pilots; },
     get bots() { return sim.bots; },   // how many AI bots fly (a count, cheap)
     get info() { return sim.info; },
