@@ -13,7 +13,7 @@ The browser client does not use it yet (stage 3: client prediction and rendering
 
 ```sh
 cd server && npm ci && node index.mjs          # ws://localhost:8080, health at /health
-npm test                                       # from the repository root: includes tools/server*.test.cjs
+npm test                                       # from the repository root: includes test/server.test.cjs
 server/deploy/deploy.sh root@HOST HOST-IP-WITH-DASHES.sslip.io
 ```
 

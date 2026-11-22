@@ -98,7 +98,7 @@ game already uses, so there is no server of our own; a lobby disappears from the
 
 Also picked with a new lobby (and carried in its code), on top of the map size. Every map is hand-laid and always
 the same, in every lobby, so it can be learned. Each layout is mirrored through the centre, so both halves (and
-both CTF bases) are equal. The space layouts live in `src/js/01b-arenas.js`; the stations (Foundry, Cargo Deck) live in `src/js/01c-foundry.js`.
+both CTF bases) are equal. The space layouts live in `src/js/world/arenas.js`; the stations live in `src/js/world/stations.js`.
 
 | Map | Layout |
 |---|---|
@@ -194,45 +194,35 @@ rules additionally require a trusted server.
 index.html        built page (what GitHub Pages serves) - do not edit, run the build
 src/index.html    markup; the build puts the styles and script in place of <!-- @styles --> / <!-- @script -->
 src/styles.css    all styling
-src/js/           the game code, one file per section, joined in file-name order into one scope
-  01-config.js         world size, fixed stats, weapons, shot tables, modes, supplies, rounds
-  01b-arenas.js        the hand-made map layouts: bodies, gun and supply spots
-  02-helpers.js        maths and colour helpers, bin recolouring, world event timing
-  03-sky-art.js        stars, the Milky Way, galaxies, nebulae, far planets (placed per lobby)
-  04-state-input.js    player state, keyboard / mouse / touch input
-  05-sound.js          sound loading, mixing and synthesized fallbacks
-  06-bodies.js         destructible planets, moons and wrecks: art, cell grids, craters, breaking apart
-  07-modes.js          game modes, teams, CTF pads
-  08-body-physics.js   gravity, bouncing, shots hitting bodies
-  09-sparks-junk-health.js  shared pick-ups on the common clock, health bar
-  10-effects.js        particles, explosions, deaths by weapon (cut, shocked, melted, nailed, burnt, sawn)
-  11-weapons.js        firing, damage, rockets, rail, lightning, combos, nukes and the holy bomb
-  12-network.js        lobby, MQTT / Claude room transport, remote players and shots
-  12b-lan.js           the local room: WebRTC between devices nearby, QR-code handshake
-  13-crates.js         the fixed spots: weapon crates, supplies, nuke / holy bomb and Overdrive
-  14-ctf.js            capture-the-flag rules and drawing
-  15-bots.js           bots
-  16-announcer.js      announcer, kill streaks
-  17-update.js         the per-frame simulation (flight with inertia, hits, pick-ups)
-  18-draw.js           rendering
-  19-events.js         world events: black hole (pulls in planets, wrecks, junk and pick-ups), meteors, aliens
-  20-loop-hud.js       main loop, energy bar, mini map (pilots only)
-  21-start.js          start screen, lobby and mode pickers
+src/js/           the game code, one folder per domain (see "How the game code is organised")
+  build-order.json     the order the files run in (the build and the server both read it)
+  core/                config, helpers, state, the frame (update, loop)
+  world/               arenas, stations, bodies (art, craters, chunks, breaking up), physics, junk, world events
+  weapons/             the gun table, firing, hits, beams, projectiles, blasts, bombs, the Blood Blade, the arsenal
+  pilots/              flight, numbered flight commands, bots, players' guns on the server
+  match/               rules and modes, rounds, pick-ups, health and armour, damage, CTF, the announcer
+  net/                 lobbies (MQTT), peers, the local room (WebRTC), the game-server client, snapshot deltas
+  render/              sky, terrain, shots, bins, effects, decals, deaths, the WebGL light pass
+  audio/               mixer, sound pack, cues, the synthesized jet engine and blade
+  ui/                  input, gamepad, HUD, start screen, chat
+test/             node tests, one file per domain (npm test); test/helpers load the whole game as the server does
+tools/            the build, the browser end-to-end suite, the lab (tools/lab.mjs), map shots, the hit-registration probe
 tools/build.mjs   the build (also writes sw.js, the offline cache, from src/sw.js)
 manifest.webmanifest  lets the game be added to a home screen
 sfx/              sound effects (see sfx/CREDITS.txt)
 sfx/pack/         the author's sound pack: weapons/ (a Quake III-style weapons tree) and voice/ (announcer lines).
-                  05-sound.js matches each file to a game event by its path or a word in its name; where the pack
+                  audio/pack.js matches each file to a game event by its path or a word in its name; where the pack
                   has a sound it plays instead of the built-in one. The build lists them in sfx/pack/index.json
 bot.png           bin sprite
 ```
 
-The files in `src/js/` are sections of one script, not separate modules: they share variables, and the
-numeric prefixes set the order they run in.
+The files in `src/js/` are sections of one script, not separate modules: they share variables and run in the
+order `src/js/build-order.json` lists them (a section may use constants of an earlier one while it loads). A new
+file goes into its domain's folder and into that list, after what it needs at load time.
 
 ### How the game code is organised
 
-- **Data tables** (`01-config.js`): `SHOTS` (per shot kind `K.*`: life, damage, hit radius, crater, shove,
+- **Data tables** (`core/config.js`, `weapons/catalog.js`, `match/rules.js`): `SHOTS` (per shot kind `K.*`: life, damage, hit radius, crater, shove,
   sound), `WEAPONS` (per gun: shot pattern, recoil, feel, sound, muzzle fx, alt fire), `MODES` (rules:
   teams, flags, single gun, reload multipliers, instagib, supplies), `MAPS` (what fills the arena).
   A new gun, mode or map is mostly a new row here.
@@ -247,19 +237,22 @@ numeric prefixes set the order they run in.
 
 ### Checking a change
 
-`npm test` runs the combat, network, round, terrain and offline-cache regression tests using Node's built-in test runner.
-To check that the regressions fail against an earlier revision, use `TEST_REF=<commit> npm test`.
+`npm test` runs the node tests in `test/`, one file per domain of the game: maps, weapons, combat, flight, match,
+net, server, audio, offline. They load the whole game as the server does (`test/helpers/game.cjs`) and check
+how it plays: every gun fires and hurts, a shot is judged where the shooter saw the target, the server flies a
+player's commands exactly as their screen does, rounds and score limits, snapshot deltas over a lossy link, peers
+sending nonsense, every map's pick-ups. A test describes a behaviour of the game, never the text of a file or one
+particular fix. The server tests need its dependencies (`cd server && npm ci`).
 
-`BROWSER_PATH=/path/to/chrome npm run test:browser` runs the game in real headless Chrome (Node 22+).
-It serves local assets and substitutes an in-process two-broker relay, with all external HTTPS requests
-intercepted: no test traffic reaches public brokers. It checks two-window visibility with one broker offline,
-late-join and reconnect terrain repair, round reset, the six-bot weapon/CTF smoke sequence, mobile rendering,
-browser exceptions and packet sizes. Combat checks also cover 140 ms relay delay, dropped immediate shots,
-duplicate damage/confirmation suppression, fast-round catch-up, decoded audio and nozzle geometry. It also exercises Foundry with 24 networked bots, permanent walls, Tab, early score-limit finish and the shared clock. This does not test the availability or latency of the public brokers.
+`BROWSER_PATH=/path/to/chrome npm run test:browser` runs end-to-end checks in real headless Chrome (Node 22+): two
+browsers over an in-process two-broker relay (no test traffic reaches public brokers), late join and terrain
+repair after a lost connection, delayed shots and duplicate suppression, the six-bot smoke run, HUD layout from
+320 to 1920 px, a phone viewport, every sound decoding, and no browser errors.
 
-Run `node tools/build.mjs --debug test.html`, serve it next to `sfx/`, and load `tools/smoke.js` in that page (see the comment at its top): it
-fires every gun and alt fire, plays every death effect, runs bots and a CTF capture, and reports frame
-times and errors.
+`node tools/lab.mjs [guns]` fires each gun at still targets and reports damage, kills and sounds (FX=1 for effect
+frames); `node tools/mapshot.mjs <code>` photographs a map; `GUN=… node tools/hits.mjs` plays two browsers through a
+local game server and compares the hits shown with the server's (DROP=1: cut every connection and check each page
+comes back to its own pilot).
 
 ## Credits
 
@@ -295,8 +288,6 @@ drag are based on elapsed time. Hot particles cool through yellow/orange/red; ca
 rotate. Lightning topology refreshes every 45 ms instead of changing with display FPS. Low FX quality retains
 reduced particle budgets and skips extra shock diamonds/arcs. No additional bitmap assets are needed.
 
-To save a contact sheet from the real canvas renderers while testing:
-`BRS_COMBAT_ONLY=1 BRS_VFX_PREVIEW=/tmp/brs-vfx.png BROWSER_PATH=/path/to/chrome npm run test:browser`.
 
 
 ## Weapon measurements
