@@ -1,4 +1,4 @@
-// Snapshots as binary deltas, one stream per player (see src/js/12d-delta.js, the same code the screens run).
+// Snapshots as binary deltas, one stream per player (see src/js/net/delta.js, the same code the screens run).
 // Each player's stream remembers what it sent by number; the player says which one it last rebuilt (sa, in its
 // controls) and the next message is the difference from that one. Pilots far from the player are brought up to
 // date only every third snapshot (as Unreal does with distant actors), unless they died, respawned or were hurt.
@@ -7,7 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const src = [join(here, "..", "src", "js", "12d-delta.js"), "/app/src/js/12d-delta.js"].map(p => { try { return readFileSync(p, "utf8"); } catch { return null; } }).find(Boolean);
+const src = [join(here, "..", "src", "js", "net", "delta.js"), "/app/src/js/net/delta.js"].map(p => { try { return readFileSync(p, "utf8"); } catch { return null; } }).find(Boolean);
 // (the game's own file from this repository, never anything received: evaluated once at start-up)
 export const SNAP_DELTA = new Function(src + "\nreturn SNAP_DELTA;")();
 

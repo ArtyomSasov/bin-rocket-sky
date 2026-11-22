@@ -1,8 +1,8 @@
 // Standalone listening comparison using the production mixer and minigun player.
 import { readFileSync, writeFileSync } from 'node:fs';
-const sound = readFileSync('src/js/05-sound.js', 'utf8');
-const mixer = sound.slice(sound.indexOf('  function createSoundMix'), sound.indexOf('  // a big room'));
-const continuous = readFileSync('src/js/05c-continuous-audio.js', 'utf8');
+const mixerSrc = readFileSync('src/js/audio/mixer.js', 'utf8'), sound = readFileSync('src/js/audio/pack.js', 'utf8');
+const mixer = mixerSrc.slice(mixerSrc.indexOf('  function createSoundMix'), mixerSrc.indexOf('  // a big room'));
+const continuous = readFileSync('src/js/audio/continuous.js', 'utf8');
 const burstPlayer = continuous.slice(0, continuous.indexOf('  function continuousAudioTick'));
 const loops = sound.slice(sound.indexOf('  function packLoop('), sound.indexOf('  document.addEventListener("visibilitychange"'));
 const files = {

@@ -2,7 +2,8 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const read = n => fs.readFileSync(`${__dirname}/../src/js/${n}`, 'utf8');
+const { legacy } = require('./lib/source.cjs');
+const read = legacy;
 function setup() {
   const c = {}; vm.createContext(c);
   const config = read('01-config.js');

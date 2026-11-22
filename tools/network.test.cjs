@@ -6,9 +6,7 @@ const vm = require('node:vm');
 const { EventEmitter } = require('node:events');
 const { execFileSync } = require('node:child_process');
 const root = path.join(__dirname, '..');
-const read = name => process.env.TEST_REF
-  ? execFileSync('git', ['show', `${process.env.TEST_REF}:src/js/${name}`], { cwd: root, encoding: 'utf8' })
-  : fs.readFileSync(path.join(root, 'src/js', name), 'utf8');
+const read = require('./lib/source.cjs').legacy;
 function section(file, from, to) { const s = read(file); return s.slice(s.indexOf(from), s.indexOf(to)); }
 function setup() {
   let now = 0;

@@ -3,7 +3,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const read = name => fs.readFileSync(path.join(__dirname, '../src/js', name), 'utf8');
+const { legacy } = require('./lib/source.cjs');
+const read = legacy;
 function setup() {
   const started = [], timers = [], gainTargets = [], listeners = {};
   const node = () => ({ connect() { return this; }, gain: { value: 1 } });

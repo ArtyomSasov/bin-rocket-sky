@@ -3,7 +3,8 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
-const read = n => fs.readFileSync(path.join(__dirname, '../src/js', n), 'utf8');
+const { legacy } = require('./lib/source.cjs');
+const read = legacy;
 const part = (s, a, b) => s.slice(s.indexOf(a), s.indexOf(b));
 function setup() {
   const cues = [], c = { shots: [], bodies: [], me: { weapon:'gamma', arsenal:{fire:Infinity,gauntlet:Infinity,gamma:1},x:0,y:0 },

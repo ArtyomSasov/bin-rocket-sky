@@ -9,10 +9,11 @@
 // only sfx/ and bot.png next to it. The source lives in src/:
 //   src/index.html  markup, with <!-- @styles --> and <!-- @script --> where the parts go
 //   src/styles.css  all the styling
-//   src/js/*.js     the game code, in file-name order. The files are sections of ONE scope: they are joined
-//                   inside a single (() => { ... })() so they share variables, exactly like one long script.
-//                   Keep the numeric prefixes: order matters (a section may use constants from an earlier one
-//                   while it runs, e.g. the world is built at load time).
+//   src/js/**       the game code, one folder per domain (core, world, weapons, pilots, match, net, render, audio,
+//                   ui). The files are sections of ONE scope: they are joined inside a single (() => { ... })() so
+//                   they share variables, exactly like one long script, in the order src/js/build-order.json lists
+//                   them. Order matters: a section may use constants from an earlier one while it runs (the world
+//                   is built at load time). A new file goes into that list where it belongs.
 import { readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,7 +22,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = p => readFileSync(join(root, p), "utf8");
 
 const jsDir = join(root, "src", "js");
-const parts = readdirSync(jsDir).filter(f => f.endsWith(".js")).sort();
+const parts = JSON.parse(readFileSync(join(jsDir, "build-order.json"), "utf8"));   // the files in the order they run
 const script = "<script>\n(() => {\n" + parts.map(f => readFileSync(join(jsDir, f), "utf8")).join("") + "})();\n</script>\n";
 const template = read("src/index.html");
 for (const mark of ["<!-- @styles -->", "<!-- @script -->"]) {

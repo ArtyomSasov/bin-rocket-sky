@@ -3,7 +3,8 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
-const read = n => fs.readFileSync(path.join(__dirname, '../src/js', n), 'utf8');
+const { legacy } = require('./lib/source.cjs');
+const read = legacy;
 const section = (n, a, b) => { const s = read(n); return s.slice(s.indexOf(a), s.indexOf(b)); };
 function setup() {
   const c = { Math, Map, Set, Number, Array, Uint8Array, performance: {now:()=>1000},
@@ -11,7 +12,7 @@ function setup() {
     me:{x:1000,y:1000,lv:1}, playing:false, W:4000,H:4000,
     audioCue(){}, canHurt:(s,o,id)=>!o.dead && id!==s.owner, sweepOrphans(){},
     toLocal:(b,x,y)=>[x-b.x+b.hw,y-b.y+b.hh], toWorld:(b,x,y)=>[x+b.x-b.hw,y+b.y-b.hh],
-    rubbleFx(){}, WALL_CARVE:+fs.readFileSync(path.join(__dirname,'../src/js/01-config.js'),'utf8').match(/WALL_CARVE = (\d+)/)[1], RAIL_DRILL:60, solidAt:()=>false, bodies:[],det:[],stats:{round:1},myCarves:[],carveSeq:0,MAX_CARVES:320,seenCarves:new Set(),carveRnd(){},carveLocal(){return 0;}
+    rubbleFx(){}, WALL_CARVE:+legacy('01-config.js').match(/WALL_CARVE = (\d+)/)[1], RAIL_DRILL:60, solidAt:()=>false, bodies:[],det:[],stats:{round:1},myCarves:[],carveSeq:0,MAX_CARVES:320,seenCarves:new Set(),carveRnd(){},carveLocal(){return 0;}
   };
   vm.createContext(c);
   vm.runInContext(section('01-config.js','  const K =','  // weapons:') + '\nglobalThis.K=K;globalThis.SHOTS=SHOTS;',c);

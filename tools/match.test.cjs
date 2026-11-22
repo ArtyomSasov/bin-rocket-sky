@@ -3,7 +3,8 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
-const read = f => fs.readFileSync(path.join(__dirname, '../src/js', f), 'utf8');
+const { legacy } = require('./lib/source.cjs');
+const read = legacy;
 function match() {
   let now = 1800000000000;
   const c = { clockNow: () => now, ROUND_PLAY: 300, ROUND_BREAK: 15, ROUND_LEN: 315 };

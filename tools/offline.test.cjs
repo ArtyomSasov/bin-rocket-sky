@@ -62,7 +62,7 @@ test('offline assets use the active cache and activation preserves other project
 
 test('QR loader shares an in-flight request and retries after failure', async () => {
   const scripts = [];
-  const source = readFileSync(join(root, 'src/js/12b-lan.js'), 'utf8').split('  // ---- the handshake')[0];
+  const source = require('./lib/source.cjs').legacy('12b-lan.js').split('  // ---- the handshake')[0];
   const context = { window: {}, document: {
     createElement: () => ({ remove() { this.removed = true; } }),
     head: { appendChild(s) { scripts.push(s); } },
