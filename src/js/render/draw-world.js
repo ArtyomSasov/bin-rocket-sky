@@ -198,11 +198,11 @@
     for (const r of remotes.values()) {
       if (r.dead) continue;
       const x = sx(r.x), y = sy(r.y);
-      if (onScreen(x, y, BOT * 2)) drawBot({ ...r, blink: r.inv }, x, y, now, false);
+      if (onScreen(x, y, BOT * 2)) drawBot(r, x, y, now, false, { blink: r.inv });
       else drawPointer(r, x, y);
     }
     if (serverRun && !srv.placed) {}   // (not placed by the server yet: a moment)
-    else if (!me.dead) drawBot({ ...me, name: playing && !COMPACT.matches ? me.name : "", blink: now < me.inv }, sx(me.x + srv.vox), sy(me.y + srv.voy), now, true);   // (vox: a correction still fading, drawn only)   // on a small screen your own label goes
+    else if (!me.dead) drawBot(me, sx(me.x + srv.vox), sy(me.y + srv.voy), now, true, { name: playing && !COMPACT.matches ? me.name : "", blink: now < me.inv });   // (vox: a correction still fading, drawn only)   // on a small screen your own label goes
     else {
       g.textAlign = "center"; g.fillStyle = "#ffffff";
       g.font = `700 ${30 * TS}px ` + DISPLAY_FONT;

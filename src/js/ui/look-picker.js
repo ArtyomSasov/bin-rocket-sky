@@ -6,7 +6,7 @@
     const k = pv.width / 150;
     pctx.setTransform(1, 0, 0, 1, 0, 0); pctx.clearRect(0, 0, pv.width, pv.height);
     pctx.setTransform(k * 1.25, 0, 0, k * 1.25, 0, 0);
-    drawBot({ ...me, name: "", blink: false, thrust: 0.9, a: -Math.PI / 2 + Math.sin(now / 900) * 0.25 }, 60, 66, now, true);   // low enough for a hat or halo
+    drawBot({ ...me, thrust: 0.9, a: -Math.PI / 2 + Math.sin(now / 900) * 0.25 }, 60, 66, now, true, { name: "" });   // low enough for a hat or halo
     } finally { g = main; TS = mainTS; }
   }
   me.ck = cleanCustom((() => { try { return JSON.parse(store.get("binrocket.custom")); } catch { return null; } })());

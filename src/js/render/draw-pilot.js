@@ -1,6 +1,8 @@
-  function drawBot(b, x, y, now, isMe) {
+  // b: the pilot itself (what this keeps on it between frames: its jolt, its barrels' turn, its fire's colours, lives on);
+  // look: how it is shown this frame (blink: protected, so it flickers; name: its label, if not its own name)
+  function drawBot(b, x, y, now, isMe, look = {}) {
     const S = BOT;
-    if (b.blink && Math.floor(now / 90) % 2) g.globalAlpha = 0.35;
+    if (look.blink && Math.floor(now / 90) % 2) g.globalAlpha = 0.35;
     const shield = isMe ? me.shield : b.shield || 0;
     if (shield > 0) {
       const hit = isMe ? Math.max(0, 1 - (now - shieldHitAt) / 300) : 0;
@@ -87,7 +89,7 @@
       g.fillStyle = f > 0.6 ? "#4fe39a" : f > 0.3 ? "#ffc23d" : "#ff4d5e"; rrect(x - bw / 2, by, bw * f, 5, 2.5); g.fill();
     }
 
-    const label = b.name || "";
+    const label = look.name ?? b.name ?? "";
     if (label) {
       g.font = `700 ${13 * TS}px ` + DISPLAY_FONT;
       g.textAlign = "center";
