@@ -2,18 +2,17 @@
   // A pilot flown by a player (addPilot) carries an arsenal like the local pilot's: crates and trophies add guns,
   // the input picks one, and both triggers and the teleporter work by the rules shoot() keeps for the local pilot
   // (11-weapons.js). What only a screen can do fires in its plain form: a guided nuke flies straight.
-  //   input: { w: the gun's index in WEAPON_KEYS, fire, alt: the triggers held, tele: a counter, +1 per press }
-  const PILOT_FALLBACK = ["fire", "nuke", "holy", "tele", "saw"];   // never switched to when a gun runs dry
+  //   input: { w: the gun's index in WEAPON_KEYS, fire, alt: the triggers held }
+  const PILOT_FALLBACK = ["fire", "nuke", "holy", "saw"];   // never switched to when a gun runs dry
   function pilotArm(b) {
     const o = MODES[MODE].only;
     b.arsenal = o ? { [o]: Infinity } : { fire: Infinity }; b.weapon = o || "fire";
-    Object.assign(b, { teleN: 0, rocketLoad: 0, loadFor: 0, spin: 0, charge: 0, cutCharge: 0, heat: 0, overheat: false });
+    Object.assign(b, { rocketLoad: 0, loadFor: 0, spin: 0, charge: 0, cutCharge: 0, heat: 0, overheat: false });
     if (MODES[MODE].sandbox) for (const k of SANDBOX_GUNS) b.arsenal[k] = Infinity;   // the test range: everything, for ever (as baseArsenal)
   }
   const pilotShots = (b, kind) => shots.filter(s => s.owner === b.id && s.life > 0 && !s.boom && s.kind === kind);
   // a crate or a trophy: a new gun joins the arsenal, a carried one gets more ammo; the gun in hand stays
   function pilotGive(b, type, ammo) {
-    if (type === "tele") return;   // the teleporter is retired
     if (MODES[MODE].only || !WEAPONS[type] || WEAPONS[type].disabled) return;
     b.arsenal[type] = Number.isFinite(WEAPONS[type].ammo) ? Math.min(WEAPONS[type].ammo * 2, (b.arsenal[type] || 0) + ammo) : Infinity;
   }
@@ -70,13 +69,12 @@
     if (pilotGuide(b, dt, now)) return;
     // the gun picked: one this pilot carries (the teleporter is a tool, on its own button)
     const pick = WEAPON_KEYS[i.w];
-    if (!only && pick && pick !== b.weapon && pick !== "tele" && pick in b.arsenal) {
+    if (!only && pick && pick !== b.weapon && pick in b.arsenal) {
       b.weapon = pick; b.fireCd = Math.max(b.fireCd, 0.15); b.rocketLoad = b.loadFor = b.charge = b.cutCharge = 0;
     }
     for (const k of ["gamma", "mine"]) if (b.arsenal[k] === 0 && !pilotShots(b, controlledKind(k)).length) {
       delete b.arsenal[k]; if (b.weapon === k) b.weapon = "fire";
     }
-    if (i.tele > (b.teleDone || 0)) { b.teleDone = i.tele; pilotTele(b, now); }
     const k = only || b.weapon, w = WEAPONS[k], alt = w.alt, live = roundLive && !b.dead, ready = live && b.fireCd <= 0;
     if (k === "saw" && live) bladeTouch(b, now, b.charge || 0, bots.map(o => [o.id, o]));
     b.heat = Math.max(0, b.heat - 0.45 * dt); if (b.overheat && b.heat < 0.3) b.overheat = false;
@@ -158,20 +156,4 @@
     b.vx -= ax * kick; b.vy -= ay * kick;
     shotSound(pat.shot[0], b.x, b.y, b.id);
     pilotSpend(b, k, alt ? pat.cost : 1);
-  }
-  // the teleporter: the first press throws the beacon, the next jumps onto it (telefragging whoever sits there)
-  function pilotTele(b, now) {
-    if (b.dead || !roundLive || now < (b.teleCd || 0)) return;
-    const beacon = pilotShots(b, K.BEACON)[0];
-    if (beacon) {
-      beacon.life = 0; b.teleCd = now + 350;
-      b.x = beacon.x; b.y = beacon.y; b.hitHistory = [];
-      volley(b, now, TELEFRAG, { x: beacon.x, y: beacon.y });
-      b.vx = beacon.vx * 0.5; b.vy = beacon.vy * 0.5;
-      b.teleN = Math.max(0, b.teleN - 1);
-      return;
-    }
-    if (!(b.teleN > 0)) return;
-    b.teleCd = now + 350;
-    volley(b, now, WEAPONS.tele, null);
   }

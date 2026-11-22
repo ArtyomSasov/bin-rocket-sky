@@ -23,7 +23,6 @@
       ["Boost", "hold the teal button"],
       ["Weapon", "tap a gun in the bar above the fire button"],
       ["Alt fire", "the small orange button above the fire button (shock beam, rockets, shotgun, mines, saws)"],
-      ["Teleporter", "the cyan button: throw the beacon, tap again to jump onto it"],
       ["Health & armor", "100 HP on spawn; Health Pack +20 (cap 100), Vial +5 and Big Keg +100 (cap 199). Body Armor absorbs 75%; Shield Belt absorbs all damage until depleted. No levels or XP bonuses."]] }
   };
   function detectDevice() {

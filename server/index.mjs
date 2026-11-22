@@ -6,7 +6,7 @@
 //
 // client -> server   { t: "join", code, name, bots, level }   first message; joins or creates the room
 //                    (join's pub: true lists the room in /rooms, for the lobby browser)
-//                    { t: "in", mx, my, aim, fire, alt, boost, brake, dash, tele, w, s }   the player's controls, sent as they change (s: their number)
+//                    { t: "in", mx, my, aim, fire, alt, boost, brake, dash, w, s, c }   the player's controls, sent as they change (s: their number)
 //                    { t: "net", p, j, s, g, f, h }   every 10 s: round trip, jitter, stalls, worst gap (ms), frames a second,
 //                    h: [hits shown at once, of them confirmed by the server, confirmed hits that were not shown]
 //                    { t: "ping", c }

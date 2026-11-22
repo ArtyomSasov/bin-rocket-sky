@@ -65,7 +65,7 @@
         // the guns on their spots and the two big bombs' crates (a nuke, the holy bomb): a bot takes any of them, and so
         // does a player on the server (the teleporter is retired)
         for (const c of [...world.picks, ...world.bombs]) {
-          if (grabbed.has(c.key) || c.age < 0.05 || c.type === "tele" || WEAPONS[c.type]?.disabled) continue;
+          if (grabbed.has(c.key) || c.age < 0.05 || WEAPONS[c.type]?.disabled) continue;
           const d = Math.hypot(c.x - b.x, c.y - b.y);
           if (d < 34 + 30) {   // picked up
             grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
@@ -196,7 +196,7 @@
         // the junk rocks bump it, as they bump my bin (updateJunk)
         if (!cmds) for (const k of world.rocks) if (k && !grabbed.has(k.key) && k.age >= 0.6) collideRock(b, k);   // (commands meet them in pilotMove)
       } else {   // a bot
-      thrustPilot(b, st.x, st.y, b.boosting, false, dt, b.L.speed * (now < (b.pinnedUntil || 0) ? 0.6 : 1));
+      thrustPilot(b, st.x, st.y, b.boosting, false, dt, b.L.speed);
       slingshot(b, dt); padsFor(b, now);
       if (Math.hypot(st.x, st.y) > 0.15) b.a = lerpAng(b.a, Math.atan2(st.y, st.x), 1 - Math.exp(-13 * dt));
       gravityOn(b, dt);
@@ -258,7 +258,6 @@
           if (pierces(s)) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
           shotBurst(s); hitConfirm(s, b.lv, b.x, b.y, remotes.get(b.id)); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
           if (s.kind === K.BOLT || s.kind === K.LASER) boltChain(s, b.x, b.y, b.id, now);
-          if (s.kind === K.NAIL || s.kind === K.SPIKE) b.pinnedUntil = now + 1000;
           botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx), invNow);
         }
       }

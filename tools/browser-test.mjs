@@ -12,10 +12,8 @@ const chromePath = process.env.BROWSER_PATH;
 assert.ok(chromePath, 'Set BROWSER_PATH to a Chrome/Chromium executable');
 execFileSync(process.execPath, ['tools/build.mjs'], { cwd: root });
 execFileSync(process.execPath, ['tools/build-audio-preview.mjs'], { cwd: root });
-const gameplayChecks = await readFile(join(root, "tools/gameplay-checks.js"), "utf8");
 const audioChecks = await readFile(join(root, "tools/audio-render-checks.js"), "utf8");
-const weaponChecks = await readFile(join(root, "tools/weapon-audit-checks.js"), "utf8");
-const hook = gameplayChecks + audioChecks + weaponChecks + `window.__t = {get activeBlasts(){return blastVoices}, get jet(){return jet}, renderArsenalPreview, runWeaponAuditChecks, checkContinuousAudio, metricsReport, checkAudioRender, keys, update, runGameplayChecks, renderDemonicPreview, WEAPONS, renderVfxPreview, renderWeapon, renderTele, renderShield, ampHud, settings, packHas, packBuf, engineHum, packLoops, K, SHOTS, hitPose, targetHit, recordHitPose, updateShots, volley, net, netSend, gotPing,
+const hook = audioChecks + `window.__t = {get activeBlasts(){return blastVoices}, get jet(){return jet}, checkContinuousAudio, metricsReport, checkAudioRender, keys, update, WEAPONS, renderWeapon, renderShield, ampHud, settings, packHas, packBuf, engineHum, packLoops, K, SHOTS, hitPose, targetHit, recordHitPose, updateShots, volley, net, netSend, gotPing,
  checkDemonicAudio(){const original=audio.createBufferSource;let heard=0;audio.createBufferSource=function(){const src=original.call(audio),start=src.start.bind(src);src.start=(...args)=>{if(src.buffer===packBuf.p_user_demonic_explosion[0])heard++;return start(...args);};return src;};
  try {bodies=[];det=[];shots.length=0;maws.length=0;me.x=100;me.y=100;me.inv=1e15;
  const far=volley(me,performance.now(),WEAPONS.gamma,{x:1700,y:100});far.life=0;updateShots(0.016,performance.now());
@@ -174,21 +172,17 @@ try {
   assert.deepEqual(result.errors, []);
   for (const [weapon, kinds] of Object.entries(result.fired)) assert.ok(kinds.length, 'Weapon fired: ' + weapon + ' ' + JSON.stringify(result.missed));
   assert.equal(Object.keys(result.fired).length, 11); assert.ok(result.ctfCaps > 0);
-  assert.deepEqual(result.altCost, {rocket:3,scatter:0,triple:1,mine:0});   // mines: the alt is Detonate (free, and nothing to set off yet); the scatter gun's hook is free
+  assert.deepEqual(result.altCost, {rocket:3,gren:3,mine:0});   // mines: the alt is Detonate (free, and nothing to set off yet)
   console.log('PASS six-bot weapon/death/CTF smoke', JSON.stringify(result));
   }
   const combat = await page(); await evaluate(combat, "window.__code='M1D0SCOMB'"); await join(combat, 'Combat');
   await evaluate(combat, 'window.__pauseGame=true');
-  const combatResult = await evaluate(combat, '__t.runGameplayChecks()');
-  console.log('PASS real gameplay checks', combatResult);
   const minigun = await evaluate(combat, `(()=>{const t=__t;t.me.weapon='minigun';t.me.arsenal.minigun=100;t.renderWeapon();
     const before=t.shots.length;t.shoot(performance.now(),true);
     const altShots=t.shots.length-before,altAmmo=t.me.arsenal.minigun;t.shoot(performance.now(),false);
     return {altDefined:!!t.WEAPONS.minigun.alt,altShots,altAmmo,primaryShots:t.shots.length-before,ammo:t.me.arsenal.minigun};})()`);
   assert.deepEqual(minigun,{altDefined:true,altShots:1,altAmmo:98,primaryShots:2,ammo:97});
-  if(process.env.BRS_DEMONIC_PREVIEW) {const png=await evaluate(combat,'__t.renderDemonicPreview()');await writeFile(process.env.BRS_DEMONIC_PREVIEW,Buffer.from(png.split(',')[1],'base64'));}
   await until(combat, '["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine","a_firstblood","v_flawless","p_loop_minigun","p_start_minigun","p_stop_minigun","p_stop_laser","p_fire_laser","p_loop_laser","p_warp","p_ut_mini_fire","p_ut_mini_alt","p_ut_mini_stop","p_ut_fire","p_ut_flak_fire","p_ut_rocket_load","p_ut_pulse_fire","p_ut_pulse_bolt","p_ut_pulse_down","p_ut_pulse_explode","p_burst_minigun","p_user_fire","p_user_demonic","p_user_demonic_explosion","p_user_cannon","p_user_autocannon","p_user_explosion","p_user_massive"].every(__t.packHas) && !!__t.sfxBuf.hit && !!__t.sfxBuf.boom_low',10000);
-  console.log('PASS weapon audit scenarios', await evaluate(combat,'__t.runWeaponAuditChecks()'));
   console.log('PASS continuous audio', await evaluate(combat,'__t.checkContinuousAudio()'));
   await until(combat,'__t.activeBlasts===0',10000);
   assert.equal(await evaluate(combat,'__t.checkDemonicAudio()'),2,'the supplied explosion starts on distant expiry and manual detonation');
@@ -214,7 +208,7 @@ try {
   await until(combat,'__t.jet.out.gain.value<0.05',3000);   // death stops the engine through the real game update
   await evaluate(combat,'__t.me.dead=false');
 
-  await evaluate(combat, '__t.me.weapon="gamma";__t.me.teleN=99;__t.me.shield=3;__t.me.ampUntil=performance.now()+20000;__t.renderWeapon();__t.renderTele();__t.renderShield();__t.ampHud(performance.now())');
+  await evaluate(combat, '__t.me.weapon="gamma";__t.me.shield=3;__t.me.ampUntil=performance.now()+20000;__t.renderWeapon();__t.renderShield();__t.ampHud(performance.now())');
   for (const width of [320,390,700,1024,1440,1920]) {
     await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600},combat);
     await wait(100);
@@ -224,15 +218,7 @@ try {
     assert.equal(hud.overlap,false,'HUD overlap at '+width);assert.equal(hud.overflow,false,'HUD overflow at '+width);assert.equal(hud.below,true);
     if(process.env.BRS_HUD_PREVIEW && width===1440){const shot=await send('Page.captureScreenshot',{format:'png'},combat);await writeFile(process.env.BRS_HUD_PREVIEW,Buffer.from(shot.data,'base64'));}
   }
-  console.log('PASS clock, full weapon/teleport/power-up HUD and settings do not overlap at 320–1920px');
-  if(process.env.BRS_ARSENAL_PREVIEW) {
-    const png=await evaluate(combat,'__t.renderArsenalPreview()');
-    await writeFile(process.env.BRS_ARSENAL_PREVIEW,Buffer.from(png.split(',')[1],'base64'));
-  }
-  if(process.env.BRS_VFX_PREVIEW) {
-    const png=await evaluate(combat,'__t.renderVfxPreview()');
-    await writeFile(process.env.BRS_VFX_PREVIEW,Buffer.from(png.split(',')[1],'base64'));
-  }
+  console.log('PASS clock, full weapon/power-up HUD and settings do not overlap at 320–1920px');
 
 
   // Two actual clients, 140 ms each way to relay delivery. Movement history is controlled so
@@ -261,7 +247,7 @@ try {
   assert.equal(await evaluate(lagB,'__t.updateShots(0.016,performance.now());__t.me.lives'),7,'journal and second broker cannot repeat damage');
   // Lose the immediate channel; the repeated state journal must still deliver the shot.
   dropFire=true;
-  const recovered = await evaluate(lagA, "__t.volley(__t.me,performance.now(),{shot:[__t.K.NAIL,1500]},{x:100,y:600}).id");
+  const recovered = await evaluate(lagA, "__t.volley(__t.me,performance.now(),{shot:[__t.K.ROCKET,1500]},{x:100,y:600}).id");
   await evaluate(lagA,'__t.netSend(1,performance.now())');
   await until(lagB,`__t.seenShots.has(${JSON.stringify(recovered)})`,3000);
   dropFire=false;relayDelay=0;

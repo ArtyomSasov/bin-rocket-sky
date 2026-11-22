@@ -8,7 +8,7 @@
     event: ["p_event", 0.55, 0.75, 2000], ui: ["p_ui", 0.18, 1.1, 120],
     sawCatch: ["p_change", 0.45, 1.1, 200], sawReturn: ["p_saw", 0.35, 1.55, 200],
     refuse: ["p_noammo", 0.65, 1, 700], lowAmmo: ["p_warning", 0.35, 1.4, 1000],
-    nailWall: ["p_hit_nail", 0.5, 1, 70], chargeFull: ["p_ready", 0.65, 1.4, 500],
+    chargeFull: ["p_ready", 0.65, 1.4, 500],
     chargeCancel: ["p_powerdown", 0.35, 1.2, 200],
     shockCombo: ["p_ut_shock_combo", 1, 1, 120], shockBeam: ["p_ut_shock_alt", 0.9, 1, 100],
     laserPulse: ["p_boom_orb", 0.75, 1.4, 150], demonicZap: ["p_hit_laser", 0.4, 0.6, 100],

@@ -46,7 +46,6 @@
       addRemoteShot(srv.id, f, m.ts);
     }
     if (Array.isArray(m.ar)) serverArsenal(m.ar, m.wp);
-    if (Number.isInteger(m.tn) && m.tn !== me.teleN) { me.teleN = clamp(m.tn, 0, 6); renderTele(); }
     if ("tm" in m) me.tm = m.tm === 0 || m.tm === 1 ? m.tm : undefined;
     if ("fc" in m) me.fc = m.fc === 0 || m.fc === 1 ? m.fc : -1;
     if (Array.isArray(m.al) && m.al.length === 3 && m.al.every(Number.isFinite)) { me.beltArmor = clamp(m.al[0], 0, MAX_SHIELD); me.bodyArmor = clamp(m.al[1], 0, MAX_SHIELD); me.padsArmor = clamp(m.al[2], 0, MAX_SHIELD); }

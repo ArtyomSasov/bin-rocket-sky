@@ -20,7 +20,7 @@
       noteShotKind(id, kind);
       metricShot(s, p, pat);
       pilotLag(s, p, now);
-      if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else if (kind === K.NAIL) nailSpray(s); else shots.push(s);
+      if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else shots.push(s);
       if (kind === K.RAIL || kind === K.GAUSS) railBeam(s);
       if (kind === K.GAUSS && mine) { myRails.set(id, { x: s.x, y: s.y, charged: true, cut: !!s.cut }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value); }
       if ((kind === K.MELEE || kind === K.SWORD) && mine) { myMelee.add(id); if (myMelee.size > 64) myMelee.delete(myMelee.values().next().value); }   // for Humiliation (only the recent ones: a kill is reported within seconds)
@@ -60,21 +60,6 @@
     // A short ricochet grace lets the blade escape a wall before homing resumes.
     s.ricTime = Math.max(0, (s.ricTime || 0) - dt);
     if (!s.ricTime) { const v = Math.min(speed, d / Math.max(dt, 0.001)); s.vx = dx / d * v; s.vy = dy / d * v; }
-  }
-  // the nailgun: one record becomes the same fan of seven nails everywhere
-  function nailSpray(s) {
-    for (let k = 0; k < 7; k++) {
-      const da = (k - 3) * 0.035 + (((k * 37) % 7) - 3) * 0.006, f = 0.95 + ((k * 3) % 5) * 0.025, c = Math.cos(da), sn = Math.sin(da);
-      metricChild(s.id, s.id + "n" + k);
-      shots.push({ ...s, id: s.id + "n" + k, vx: (s.vx * c - s.vy * sn) * f, vy: (s.vx * sn + s.vy * c) * f });
-    }
-  }
-  // nails left sticking out of rock (for 8 s, at most 150), riding along with it
-  const stuckNails = [];
-  function stickNail(b, x, y, a, spike) {
-    const [lx, ly] = toLocal(b, x, y);
-    stuckNails.push({ b, lx, ly, a: a - b.a, spike, at: performance.now() });
-    if (stuckNails.length > 150) stuckNails.shift();
   }
   // a grenade hits rock or the fence: it clinks and rolls off
   function grenBounce(s) {
@@ -140,7 +125,7 @@
     if (s.kind === K.MINE) { blastFx(s); return; }
     if (SPLASH[s.kind]) blastFx(s);
     else {
-      const ev = s.kind === K.SHARD ? "p_ric" : s.kind === K.BULLET ? "p_hit_bullet" : s.kind === K.LASER || s.kind === K.BOLT ? "p_hit_laser" : s.kind === K.NAIL || s.kind === K.SPIKE ? "p_hit_nail" : s.kind === K.RAIL ? "p_boom_orb" : "";
+      const ev = s.kind === K.SHARD ? "p_ric" : s.kind === K.BULLET ? "p_hit_bullet" : s.kind === K.LASER || s.kind === K.BOLT ? "p_hit_laser" : s.kind === K.RAIL ? "p_boom_orb" : "";
       if (ev) packPlay(ev, 0.6, s.x, s.y); else sfx("hit", 0.55, 1.1, s.x, s.y);
     }
     if (s.kind === K.RAIL) sparkShower(s.x, s.y, s.vx / 4200, s.vy / 4200, 1.2);
@@ -163,7 +148,7 @@
     // a slug on a bin's metal: sparks thrown back off it, white-hot flecks, a spit of oil; energy on it: embers of its
     // colour scattering off the hull
     const sp = Math.hypot(s.vx, s.vy) || 1, ux = s.vx / sp, uy = s.vy / sp;
-    if (s.kind === K.BULLET || s.kind === K.BULLET_ALT || s.kind === K.NAIL || s.kind === K.SPIKE || s.kind === K.GAUSS || s.kind === K.PELLET) {
+    if (s.kind === K.BULLET || s.kind === K.BULLET_ALT || s.kind === K.GAUSS || s.kind === K.PELLET) {
       sparkShower(s.x, s.y, -ux, -uy, s.kind === K.GAUSS ? 1.4 : 0.8);
       for (let k = 0, m = lowQ ? 3 : 7; k < m; k++) { const a = Math.atan2(-uy, -ux) + (Math.random() - 0.5) * 2.2, v = 350 + Math.random() * 550; puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.12 + Math.random() * 0.2, 0.8 + Math.random() * 0.8, k % 3 ? "#fff1b8" : "#ffb04a", 1, 0.05, 0, 0.92); }
       oilSplash(s.x, s.y, 3, 200, ux * 120, uy * 120);
@@ -222,4 +207,4 @@
   const DETONATOR = { shot: [K.DET, 0] }, MINE_DETONATOR = { shot: [K.MDET, 0] };
   let lungeReady = 0;
   // the pack's sound for each alt fire (the rest keep their own)
-  const ALT_SOUND = { fire: "", saw: "p_ut_saw_alt", nuke: "p_ut_nuke_fire", mine: "p_fire_mine", scatter: "p_fire_nail", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_nova", gren: "p_fire_gren", nail: "p_fire_nail", rail: "p_fire_rail", shard: "p_ut_flak_alt" };
+  const ALT_SOUND = { fire: "", saw: "p_ut_saw_alt", nuke: "p_ut_nuke_fire", mine: "p_fire_mine", scatter: "p_fire_nail", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_nova", gren: "p_fire_gren", rail: "p_fire_rail", shard: "p_ut_flak_alt" };

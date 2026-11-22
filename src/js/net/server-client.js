@@ -7,14 +7,16 @@
   // addresses and decide what they see). ?server= is honoured only for a server on this machine, for development;
   // a page that hosts the game elsewhere names its server in window.BRS_SERVER.
   const DEFAULT_SERVER = "wss://134-122-60-131.sslip.io:8443";
-  const SERVER_URL = (() => {
-    const m = /[?&]server=([^&#]+)/.exec(location.search || ""), local = m ? decodeURIComponent(m[1]) : "";
+  // search: the page's query string; configured: the page's own window.BRS_SERVER. "" when no valid address
+  function chooseServer(search, configured) {
+    const m = /[?&]server=([^&#]+)/.exec(search || ""), local = m ? decodeURIComponent(m[1]) : "";
     if (/^wss?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/i.test(local)) return local;
-    const u = window.BRS_SERVER || DEFAULT_SERVER;
+    const u = configured || DEFAULT_SERVER;
     return /^wss:\/\/[a-z0-9.-]+(:\d+)?\/?$/i.test(u) ? u : "";
-  })();
+  }
+  const SERVER_URL = chooseServer(location.search, window.BRS_SERVER);
   let serverRun = false;
-  const srv = { ws: null, id: "", tag: "", sendHz: 30, dashN: 0, teleN: 0, lastIn: "", lastInAt: 0, deadSeen: false, joined: false, err: "", pred: [], pseq: 0,
+  const srv = { ws: null, id: "", tag: "", sendHz: 30, dashN: 0, lastIn: "", lastInAt: 0, deadSeen: false, joined: false, err: "", pred: [], pseq: 0,
     seq: 0, sent: new Map(), hist: [], cx: 0, cy: 0, vox: 0, voy: 0, seqOff: 0, cmds: [], cs: 0, sentCs: 0, acc: 0,   // my flight commands (pilotMove)   // seqOff: the server's shot numbers less mine (for the spread)
     jit: 0, interp: 70, hits: [],
     lastSnapAt: 0, stalls: [], maxGap: 0, report: { stalls: 0, maxGap: 0, hs: 0, hc: 0, hn: 0 } };   // how the snapshots arrive (the network indicator)   // arrival jitter and the delay others are shown at (ms); my hits shown before the server's word   // my numbered controls, my flight as predicted here, and the correction still to ease in
@@ -86,7 +88,7 @@
     const ws = srv.ws;
     if (!ws || ws.readyState !== 1 || !srv.joined) return;
     const c = me.ctl || {}, i = { t: "in", mx: +num(c.mx, 0).toFixed(3), my: +num(c.my, 0).toFixed(3), aim: +me.a.toFixed(3),
-      fire: !!c.fire && !me.dead && playing, alt: !!c.alt && !me.dead && playing, boost: !!c.boost, brake: !!c.brake && !me.dead, dash: srv.dashN, tele: srv.teleN,
+      fire: !!c.fire && !me.dead && playing, alt: !!c.alt && !me.dead && playing, boost: !!c.boost, brake: !!c.brake && !me.dead, dash: srv.dashN,
       w: WEAPON_KEYS.indexOf(me.weapon), ld: Math.round(srv.interp / 5) * 5,
       gx: +num(srv.gx, 0).toFixed(3), gy: +num(srv.gy, 0).toFixed(3), gb: srv.gb || 0 };   // a guided nuke's stick and blow-ups   // ld: how far in the past I see the others (for lag compensation)
     const sig = JSON.stringify(i), t = performance.now(), fresh = srv.cs > srv.sentCs;   // fresh: flight commands not sent yet

@@ -87,13 +87,6 @@
         if (Math.hypot(c.x - me.x, c.y - me.y) < 26 + 30 * sizeOf(me.lv) + magnet()) {
           grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
           const w = WEAPONS[c.type];
-          if (c.type === "tele") {   // a tool, on its own key: it doesn't take a slot in the gun bar
-            me.teleN = Math.max(me.teleN || 0, Math.min(6, (me.teleN || 0) + w.ammo)); renderTele();
-            floaters.push({ x: c.x, y: c.y - 20, t: 0, txt: "TELEPORTER ×" + me.teleN + (COARSE ? "" : " · press T"), gold: true });
-            for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 220; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.6, 2.2, w.col); }
-            sfx("weapon_get", 0.8);
-            continue;
-          }
           const had = !!me.arsenal[c.type];   // a gun you already carry just gets more ammo; a new one joins the gun bar
           me.arsenal[c.type] = Math.min(w.ammo * 2, (me.arsenal[c.type] || 0) + w.ammo);
           renderWeapon();   // it goes into the gun bar; the gun in your hands stays until you switch

@@ -74,11 +74,6 @@
       }
       if ((s.kind === K.NUKE || s.kind === K.VOID) && (s.x < 0 || s.x > W || s.y < 0 || s.y > H || solidAny(s.x, s.y) || nukeTouches(s))) { detonate(s, now); shots.splice(i, 1); continue; }
       if (s.kind === K.HOLY) { holyFlight(s, stepDt); continue; }
-      if (s.kind === K.BEACON) {   // the teleporter's beacon: slides to a stop and blinks
-        bounceFlight(s, stepDt, 1.9);
-        if (Math.random() < stepDt * 12) puff(s.x, s.y, (Math.random() - .5) * 60, (Math.random() - .5) * 60, 0.4, 2, "#8ff0ff");
-        continue;
-      }
       // the demonic orb draws every bin near it gently in (not its own): 900 px round it, strongest close up; a pull a
       // bin can fly out of, but one that bends a fight round it. The same on the server (its pilots) and my own bin here
       if (s.kind === K.GAMMA && s.life > 0) {
@@ -124,7 +119,6 @@
           if (s.kind !== K.MINE && !s.surfFx) { s.surfFx = true; surfaceHit(hb.b, hb.x, hb.y, s.kind); }
           if (dig && SHOTS[s.kind].carve && s.kind !== K.MINE && s.kind !== K.SAW) carveAt(hb.b, hb.x, hb.y, SHOTS[s.kind].carve, own);   // only the mine attaches; an exhausted saw disappears
           if ((s.kind === K.BULLET || s.kind === K.PELLET) && now - ricAt > 90) { ricAt = now; packPlay("p_ric", 0.4, hb.x, hb.y); }   // whine off the rock
-          if (s.kind === K.NAIL || s.kind === K.SPIKE) { stickNail(hb.b, hb.x, hb.y, Math.atan2(s.vy, s.vx), s.kind === K.SPIKE); audioCue("nailWall", hb.x, hb.y); }
           if (s.kind === K.MINE) {   // a prox mine sticks where it lands, just off the surface
             const [nx, ny] = normalAt(hb.b, hb.x, hb.y), px = hb.x + nx * 10, py = hb.y + ny * 10, [lx, ly] = toLocal(hb.b, px, py);
             s.stuck = { b: hb.b, lx, ly }; s.x = px; s.y = py; s.vx = s.vy = 0;
@@ -147,7 +141,7 @@
         const sp = Math.hypot(s.vx, s.vy) || 1, bx = s.x - s.vx / sp * 26, by = s.y - s.vy / sp * 26;
         if (Math.random() < stepDt * (lowQ ? 30 : 70)) puff(bx, by, -s.vx * 0.08 + (Math.random() - .5) * 50, -s.vy * 0.08 + (Math.random() - .5) * 50, 1.2 + Math.random() * 1.0, 6 + Math.random() * 6, "rgb(120,110,140)", 2);
         if (Math.random() < stepDt * 60) puff(bx, by, -s.vx * 0.4 + (Math.random() - .5) * 60, -s.vy * 0.4 + (Math.random() - .5) * 60, 0.2 + Math.random() * 0.2, 3 + Math.random() * 3, FIRE_COLS[(Math.random() * 3) | 0]);
-      } else if (s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.MELEE || s.kind === K.NAIL) {
+      } else if (s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.MELEE) {
         // a beam is drawn as a beam; a gauntlet blow isn't seen; nails are too many for trails
       } else if (s.kind === K.SAW) {
         if (Math.random() < stepDt * 45) puff(s.x, s.y, -s.vx * 0.05, -s.vy * 0.05, 0.22, 2, s.returning ? "#6fffe0" : "#d6dde8");
@@ -163,8 +157,8 @@
         // pellets are too short-lived for a trail; mines just sit there blinking
       } else if (Math.random() < stepDt * 40) puff(s.x, s.y, -s.vx * 0.08 + (Math.random() - .5) * 60, -s.vy * 0.08 + (Math.random() - .5) * 60, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 2, FIRE_COLS[(Math.random() * 4) | 0]);
       // a round that only just misses me whizzes by
-      if (!s.mine && !s.whiz && playing && !me.dead && (s.kind === K.BULLET || s.kind === K.PELLET || s.kind === K.SHARD || s.kind === K.RAIL || s.kind === K.NAIL || s.kind === K.SPIKE) && now - whizAt > 120
-          && segHit(s, me.x, me.y, binR(me.lv) + 140) && !segHit(s, me.x, me.y, binR(me.lv))) { s.whiz = true; whizAt = now; packPlay(s.kind === K.NAIL || s.kind === K.SPIKE ? "p_whiz_nail" : "p_whiz", 0.7, s.x, s.y); }
+      if (!s.mine && !s.whiz && playing && !me.dead && (s.kind === K.BULLET || s.kind === K.PELLET || s.kind === K.SHARD || s.kind === K.RAIL) && now - whizAt > 120
+          && segHit(s, me.x, me.y, binR(me.lv) + 140) && !segHit(s, me.x, me.y, binR(me.lv))) { s.whiz = true; whizAt = now; packPlay("p_whiz", 0.7, s.x, s.y); }
       // a rocket or an orb flying past roars by (yours too, once, as it leaves)
       if (!s.flyby && s.kind === K.ORB && playing && !me.dead && Math.hypot(s.x - me.x, s.y - me.y) < (s.mine ? 200 : 380)) {
         s.flyby = true; packPlay(s.kind === K.ORB ? "p_fly_orb" : "p_fly_rocket", s.mine ? 0.35 : 0.7, s.x, s.y);
@@ -179,7 +173,6 @@
         shotBurst(s);
         if (SHOTS[s.kind].shove) pelletShove(me, s, SHOTS[s.kind].shove);
         if (s.kind === K.BOLT || s.kind === K.LASER) boltChain(s, me.x, me.y, "me", now);
-        if (s.kind === K.NAIL || s.kind === K.SPIKE) { if (now > (me.pinnedUntil || 0)) floaters.push({ x: me.x, y: me.y - 50, t: 0, txt: "PINNED", gold: false }); me.pinnedUntil = now + 1000; }
         hurtMe(s, now, shotDmg(s), s.kind, Math.atan2(s.vy, s.vx));
       }
       // someone else's bolt hitting a third pilot can still jump to me or my bots

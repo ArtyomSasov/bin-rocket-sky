@@ -42,7 +42,7 @@
   const KIND_WEAPON = (() => {   // the gun a kind of shot comes from (the first that fires it, main fire before alt)
     const m = new Map();
     for (const [w, v] of Object.entries(WEAPONS)) for (const p of [v, v.alt]) if (p && p.shot && !m.has(p.shot[0])) m.set(p.shot[0], w);
-    for (const [kind, w] of [[K.SHARD, "shard"], [K.TFRAG, "tele"], [K.PELLET, "scatter"]]) if (WEAPONS[w] && !m.has(kind)) m.set(kind, w);
+    for (const [kind, w] of [[K.SHARD, "shard"], [K.PELLET, "scatter"]]) if (WEAPONS[w] && !m.has(kind)) m.set(kind, w);
     return m;
   })();
   // a kill's shot: by its id, or a pellet's, shard's or nail's by the shot it split from (id + letter + index)

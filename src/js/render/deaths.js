@@ -5,9 +5,9 @@
   const DEATH_KINDS = 6;
   const deathStyleOf = kind => kind === K.RAIL || kind === K.GAUSS || kind === K.SWORD ? 1
     : kind === K.LASER || kind === K.BOLT || kind === K.GAMMA || kind === K.SHOCK || kind === K.PULSE ? 2 : kind === K.ORB ? 3
-    : kind === K.NAIL || kind === K.SPIKE ? 4 : kind === K.FIRE ? 5 : kind === K.SAW || kind === K.MELEE ? 6 : 0;
+    : kind === K.FIRE ? 5 : kind === K.SAW || kind === K.MELEE ? 6 : 0;
   // pieces for a blast (2-4), a hulk sometimes for the rest
-  const BLASTS = new Set([K.ROCKET, K.HROCKET, K.GREN, K.MINE, K.NUKE, K.HOLY, K.FLAK, K.SHARD, K.PELLET, K.SLUG, K.TFRAG]);
+  const BLASTS = new Set([K.ROCKET, K.HROCKET, K.GREN, K.MINE, K.NUKE, K.HOLY, K.FLAK, K.SHARD, K.PELLET, K.SLUG]);
   const deathPiecesOf = kind => BLASTS.has(kind) ? 3 + Math.floor(Math.random() * 2) : 1 + Math.floor(Math.random() * 4);
   // A bin killed by a blast, a slug, lightning or a blade is first thrown by the blow: it flies off the way the killing
   // shot went, tumbling, burning and trailing smoke, sparks and oil, and goes up where it slams into something (or
@@ -35,19 +35,9 @@
     if (dk === 1) railCut(b, da);
     else if (dk === 2) electrocute(b);
     else if (dk === 3) meltDown(b);
-    else if (dk === 4) nailDeath(b, da);
     else if (dk === 5) burnDeath(b);
     else if (dk === 6) sawDeath(b, da);
     else if (ds === 1) makeHulk(b); else binExplosion(b, ds >= 2 && ds <= 4 ? ds : 3);
-  }
-  // nailed: the hulk flies on along the nail, nails sticking out of it, and is pinned to the first rock it meets
-  function nailDeath(b, da) {
-    makeHulk(b, false, true);
-    const h = hulks[hulks.length - 1];
-    h.nailA = da; h.vx = Math.cos(da) * 620 + (b.vx || 0) * 0.3; h.vy = Math.sin(da) * 620 + (b.vy || 0) * 0.3; h.spin = 0;
-    h.nails = Array.from({ length: 3 }, (_, k) => ({ off: (k - 1) * 0.22 + (Math.random() - 0.5) * 0.1, len: 0.5 + Math.random() * 0.2 }));
-    sparkShower(b.x, b.y, Math.cos(da), Math.sin(da), 1.2);
-    packPlay("p_hit_nail", 0.9, b.x, b.y);
   }
   // burnt: the hulk burns for a few seconds, chars black, then crumbles to ash
   function burnDeath(b) {

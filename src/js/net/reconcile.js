@@ -1,7 +1,7 @@
   function reconcile(m) {
     const ak = Number.isSafeInteger(m.ak) ? m.ak : 0;
     while (srv.cmds.length && srv.cmds[0].s <= ak) srv.cmds.shift();   // flown on the server: done with
-    const o = { lv: me.lv, inv: 0, pinnedUntil: me.pinnedUntil }; setMoveState(o, m.mv);
+    const o = { lv: me.lv, inv: 0 }; setMoveState(o, m.mv);
     replaying = true;
     try { for (const c of srv.cmds) { o.vx += c.kx || 0; o.vy += c.ky || 0; pilotMove(o, c); } } finally { replaying = false; }   // (recoil first, as it went)
     // the flight takes the corrected state exactly (so the next bounce off a wall is the server's bounce too); only

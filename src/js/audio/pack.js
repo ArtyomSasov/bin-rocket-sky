@@ -67,7 +67,7 @@
     p_nova: ["bfg/nova_fire.wav"],   // the Plasma Nova going off the muzzle (its own: not the pulse gun's fire)
     p_fire_mine: ["proxmine/fire.wav"], p_arm_mine: ["proxmine/actv.wav"], p_boom_mine: ["proxmine/expl.wav"], p_tick_mine: ["proxmine/tick.wav"],
     p_mine_hit: ["proxmine/impd.wav", "proxmine/impl.wav", "proxmine/impm.wav"],
-    p_fire_nail: ["nailgun/wnalfire.wav"], p_hit_nail: ["nailgun/wnalimpd.wav", "nailgun/wnalimpl.wav", "nailgun/wnalimpm.wav"], p_whiz_nail: ["nailgun/wnalflit.wav"],
+    p_fire_nail: ["nailgun/wnalfire.wav"],
     p_fire_gren: ["grenade/grenlf1a.wav"], p_bounce_gren: ["grenade/hgrenb1a.wav", "grenade/hgrenb2a.wav"],
     p_melee_hit: ["melee/fstatck.wav"], p_melee_run: ["melee/fstrun.wav"],
     p_change: ["change.wav"], p_noammo: ["noammo.wav"], p_spot: ["weapon_hover.wav"], p_holy: ["holy/holy-bomb.mp3"]
@@ -165,7 +165,7 @@
       rate *= name === "ram" ? 0.7 : 0.9;
     }
     const priority = prioritySounds.has(name) && x === undefined;
-    if (["p_hit_bullet", "p_hit_nail", "p_hit_laser"].includes(name) && audio) {
+    if (["p_hit_bullet", "p_hit_laser"].includes(name) && audio) {
       if (audio.currentTime - (impactTimes.get(name) ?? -Infinity) < 0.065) return true;
       impactTimes.set(name, audio.currentTime);
     }
@@ -217,7 +217,7 @@
       else if (majorBlast) blastVoices--; else sfxVoices--;
     };
     src.start();
-    if (["p_hit_bullet", "p_hit_nail", "p_hit_laser"].includes(name)) {
+    if (["p_hit_bullet", "p_hit_laser"].includes(name)) {
       v.gain.setValueAtTime(vol, audio.currentTime + 0.12);
       v.gain.linearRampToValueAtTime(0, audio.currentTime + 0.22); src.stop(audio.currentTime + 0.23);
     }

@@ -20,7 +20,6 @@
       if (!shots.some(s => myShot(s) && s.kind === K.SAW && !s.returning && s.life > 0)) { rejectFire(controlledShots("saw").length ? "BLADES ALREADY RETURNING" : "NO ACTIVE BLADES", now); return; }
       const signal = volley(me, now, pat, { x: me.x, y: me.y }); recallSaws(signal); fireCd = pat.cd; sfx(...pat.sfx); return;
     }
-    if (k === "tele" && myBeacon()) { teleport(now); return; }   // the second shot jumps you to the beacon
     if (w.melee && !alt) {   // the gauntlet: a blow only lands on a bin within reach ahead (the blade spins anyway)
       const reach = binR(me.lv) + 60, nx = me.x + Math.cos(me.a) * (binR(me.lv) + 14), ny = me.y + Math.sin(me.a) * (binR(me.lv) + 14);
       let target = null;
@@ -75,7 +74,7 @@
       const g = shots.filter(o => o.owner === srv.id && o.kind === K.NUKE && !o.boom).pop();
       if (g) startGuide(g);
     }
-    if (k !== "tele" && !serverRun) spend(k, alt ? pat.cost : 1);   // on the server, ammo is its count   // the teleporter spends a charge on the jump, not on the throw
+    if (!serverRun) spend(k, alt ? pat.cost : 1);   // on the server, ammo is its count
   }
   // ---- the minigun spins up while the trigger is held; the charge cannon charges while held and fires on release
   let spin = 0, charge = 0, railCharge = 0, gauntHum = false;   // railCharge: the railgun's alt, held

@@ -54,7 +54,6 @@
   "weapons/hits.js",
   "weapons/projectiles.js",
   "weapons/shoot.js",
-  "weapons/teleporter.js",
   "weapons/guided-nuke.js",
   "weapons/zaps.js",
   "weapons/arsenal.js",

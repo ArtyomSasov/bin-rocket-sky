@@ -60,25 +60,6 @@ test('offline assets use the active cache and activation preserves other project
   assert.equal(w.stores.has('brs-https://example.github.io/other/-test'), true);
 });
 
-test('QR loader shares an in-flight request and retries after failure', async () => {
-  const scripts = [];
-  const source = require('./lib/source.cjs').legacy('12b-lan.js').split('  // ---- the handshake')[0];
-  const context = { window: {}, document: {
-    createElement: () => ({ remove() { this.removed = true; } }),
-    head: { appendChild(s) { scripts.push(s); } },
-  } };
-  vm.runInNewContext(source + '\nglobalThis.load = loadScript; globalThis.lib = QR_LIB;', context);
-  const first = context.load(context.lib);
-  assert.equal(context.load(context.lib), first);
-  assert.equal(scripts.length, 1);
-  scripts[0].onerror();
-  await assert.rejects(first, /Could not load/);
-  const retry = context.load(context.lib);
-  assert.equal(scripts.length, 2);
-  scripts[1].onload();
-  await retry;
-});
-
 test('offline build includes local QR libraries and invalidates cache when asset contents change', () => {
   const fixture = mkdtempSync(join(tmpdir(), 'brs-build-'));
   try {

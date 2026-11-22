@@ -8,9 +8,7 @@
   function baseArsenal() {
     const o = MODES[MODE].only;
     me.arsenal = o ? { [o]: Infinity } : { fire: Infinity }; me.weapon = o || "fire";   // (the Blood Blade is found, as the other guns)
-    me.teleN = 0;
     if (MODES[MODE].sandbox) for (const k of SANDBOX_GUNS) me.arsenal[k] = Infinity;   // the test range: everything, for ever
-    if (typeof renderTele === "function") renderTele();
   }
   function findBase(t) {
     if (stationMap()) return foundryPoint(t ? 17 : 3, 10);

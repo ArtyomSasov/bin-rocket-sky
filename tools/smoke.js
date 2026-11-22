@@ -21,7 +21,7 @@
   const out = { mode: T.mode, title: document.getElementById("boardTitle").textContent, bodies: T.bodies.length };
   const fired = {};
   const solo = { n: "nuke", r: "rail" }[T.mode];
-  for (const w of solo ? [solo] : ["fire", "triple", "laser", "rocket", "scatter", "rail", "mine", "orb", "bolt", "shard", "nuke"]) {
+  for (const w of solo ? [solo] : ["fire", "minigun", "laser", "rocket", "gren", "scatter", "rail", "mine", "orb", "shard", "nuke"]) {
     await wait(2000);   // longer than the slowest reload (Railgun, 1.8 s), so the next gun is ready
     while (m.dead) await wait(40);
     m.inv = 1e15; m.arsenal[w] = 30; m.weapon = w;
@@ -37,7 +37,7 @@
     while (m.dead || T.shots.some(s => s.mine && s.kind === 3)) await wait(40);
     m.inv = 1e15;
     const alt = {};
-    for (const w of ["rocket", "scatter", "triple", "mine"]) {
+    for (const w of ["rocket", "gren", "mine"]) {
       await wait(1800);
       while (m.dead) await wait(40);
       m.inv = 1e15; m.arsenal[w] = 30; m.weapon = w;

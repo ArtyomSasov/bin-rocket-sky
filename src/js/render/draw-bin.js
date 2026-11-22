@@ -268,11 +268,6 @@
         g.fillStyle = "#3b2d5c"; rrect(-10, -6, 20, 16, 4); g.fill();
         g.fillStyle = "#cfc6e8"; rrect(-4, -78, 8, 76, 3); g.fill();
         for (let k = 0; k < 4; k++) { g.fillStyle = `rgba(127,184,255,${0.5 + 0.5 * Math.sin(now / 120 + k)})`; rrect(-8, -66 + k * 15, 16, 7, 3); g.fill(); }
-      } else if (weapon === "nail") {   // the nailgun: a squat block with a nail magazine on top and a short muzzle
-        g.fillStyle = "#3b2d5c"; rrect(-13, -20, 26, 28, 5); g.fill();
-        g.fillStyle = "#8a93ad"; rrect(-9, -30, 18, 10, 3); g.fill();
-        for (let i = -2; i <= 2; i++) { g.fillStyle = "#e8eef8"; g.fillRect(i * 3.4 - 0.8, -28, 1.6, 7); }
-        g.fillStyle = "#cfd6e2"; rrect(-4, -46, 8, 18, 2); g.fill();
       } else if (weapon === "gren") {   // the grenade launcher: a fat drum and a stubby wide tube
         g.fillStyle = "#3b2d5c"; rrect(-12, -10, 24, 18, 5); g.fill();
         g.fillStyle = "#4a7a3a"; g.beginPath(); g.arc(0, -16, 12, 0, 6.29); g.fill();

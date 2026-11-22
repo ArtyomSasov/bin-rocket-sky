@@ -48,3 +48,26 @@ async function checkAudioRender() {
     shots, battle: measure(await render({ engine: true, events }))
   };
 }
+async function checkContinuousAudio() {
+  const now=performance.now(), ok=(v,msg)=>{if(!v)throw Error(msg);};
+  for(const id of firingSounds.keys())stopContinuous(id);
+  for (const v of [...priorityActive]) v.src.stop();
+  await new Promise(resolve => setTimeout(resolve, 30));
+  const original=audio.createBufferSource, started=[];
+  audio.createBufferSource=function(){const s=original.call(audio),start=s.start.bind(s);s.start=(...a)=>{started.push(s.buffer);return start(...a);};return s;};
+  try {
+    const oldWeapon=me.weapon;me.weapon='minigun';
+    for(let i=0;i<20;i++)continuousFire('me','minigun',me.x,me.y,now+i*45);
+    ok(started.filter(b=>packBuf.p_ut_mini_fire.includes(b)).length===1,'one authored UT loop per shooter');
+    ok(!started.includes(packBuf.p_loop_minigun[0]),'no buzzing minigun loop');
+    continuousFire('me','minigun',me.x,me.y,now+1000,true);ok(started.includes(packBuf.p_ut_mini_alt[0]),'alternate minigun sound');
+    stopContinuous('me');ok(started.includes(packBuf.p_ut_mini_stop[0]),'minigun winddown');ok(!packLoops['fire:me'],'minigun stop');me.weapon=oldWeapon;
+    for(const id of ['laserA','laserB']) {remotes.set(id,{x:me.x+100,y:me.y,weapon:'laser'});shotSound(K.LASER,me.x+100,me.y,id);}
+    ok(firingSounds.has('laserA')&&firingSounds.has('laserB'),'independent remote laser starts');
+    ok(packLoops['fire:laserA'].src.buffer===packBuf.p_ut_pulse_bolt[0],'remote Pulse beam uses supplied loop');
+    continuousAudioTick(now+2000);ok(!firingSounds.size,'stale remote beams stop');
+    const saved=sfxVoices;sfxVoices=29;const count=started.length;sfx('hit',1);sfx('p_kill',0.5);sfx('p_warning',0.5);sfxVoices=saved;
+    ok([sfxBuf.hit,packBuf.p_kill[0],packBuf.p_warning[0]].every(b=>b&&started.slice(count).includes(b)),'damage, kill and warning survive weapon voice exhaustion');
+    return ['authored UT minigun loops and winddown', 'independent remote lasers and timeout', 'reserved damage/kill/warning voices'];
+  } finally {audio.createBufferSource=original;remotes.delete('laserA');remotes.delete('laserB');for(const id of firingSounds.keys())stopContinuous(id);}
+}

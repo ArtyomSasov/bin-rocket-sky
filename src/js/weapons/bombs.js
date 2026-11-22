@@ -11,7 +11,7 @@
   let flash = 0;
   // the holy bomb in flight: it slows down, bounces off the fence and bodies, glows brighter as the fuse runs out
   // and sings its choir once, a couple of seconds before it goes off
-  function bounceFlight(s, dt, damp) {   // slows down, bounces off the fence and bodies (holy bomb, beacon)
+  function bounceFlight(s, dt, damp) {   // slows down, bounces off the fence and bodies (the holy bomb)
     const k = Math.exp(-damp * dt); s.vx *= k; s.vy *= k;
     if (s.x < 0 || s.x > W) { s.vx = -s.vx * 0.6; s.x = clamp(s.x, 0, W); }
     if (s.y < 0 || s.y > H) { s.vy = -s.vy * 0.6; s.y = clamp(s.y, 0, H); }

@@ -95,15 +95,6 @@
       g.restore();
       return;
     }
-    if (s.kind === K.NAIL || s.kind === K.SPIKE) {   // a nail: a silver shaft with a dark head (a spike is longer and glows)
-      const sp = s.kind === K.SPIKE, L = sp ? 34 : 16;
-      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx)); g.lineCap = "round";
-      if (sp) { g.strokeStyle = "rgba(200,220,255,0.35)"; g.lineWidth = 9; g.beginPath(); g.moveTo(-L - 20, 0); g.lineTo(0, 0); g.stroke(); }
-      g.strokeStyle = sp ? "#f2f6ff" : "#cfd6e2"; g.lineWidth = sp ? 4 : 2.2; g.beginPath(); g.moveTo(-L, 0); g.lineTo(2, 0); g.stroke();
-      g.fillStyle = "#5a6276"; g.fillRect(-L - 2, sp ? -4 : -3, 3, sp ? 8 : 6);
-      g.restore();
-      return;
-    }
     if (s.kind === K.GREN) {   // a grenade: a dark metal body with a ridged belt and a blinking fuse, tumbling
       const t = SHOTS[K.GREN].life - s.life, blink = Math.floor(t * (t > 1.8 ? 14 : 4)) % 2;
       g.save(); g.translate(x, y); g.rotate(t * 5 + s.x * 0.001); g.scale(1.25, 1.25);
@@ -246,18 +237,6 @@
       }
       g.restore();
       drawDemonicOrb(x, y, 30 + Math.sin(now / 160) * 2, now);
-      return;
-    }
-    if (s.kind === K.BEACON) {   // the teleporter's beacon: a cyan diamond with a beating ring
-      const p = (now / 600) % 1;
-      g.strokeStyle = `rgba(143,240,255,${1 - p})`; g.lineWidth = 2; g.beginPath(); g.arc(x, y, 12 + p * 40, 0, 6.29); g.stroke();
-      g.fillStyle = "#8ff0ff"; g.beginPath(); g.moveTo(x, y - 12); g.lineTo(x + 9, y); g.lineTo(x, y + 12); g.lineTo(x - 9, y); g.closePath(); g.fill();
-      g.fillStyle = "#ffffff"; g.beginPath(); g.arc(x, y, 3, 0, 6.29); g.fill();
-      return;
-    }
-    if (s.kind === K.TFRAG) {   // the arrival flash
-      const k = 1 - Math.max(0, s.life) / SHOTS[K.TFRAG].life;
-      g.strokeStyle = `rgba(200,250,255,${1 - k})`; g.lineWidth = 6; g.beginPath(); g.arc(x, y, 20 + k * 70, 0, 6.29); g.stroke();
       return;
     }
     if (s.kind === K.BULLET || s.kind === K.BULLET_ALT) {

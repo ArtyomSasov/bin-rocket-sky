@@ -17,7 +17,7 @@
     delete me.arsenal[k];
     packPlay("p_noammo", 0.8);   // the empty click
     // out of ammo: fall back to another gun you carry (never auto-pick the nuke), else the fireball
-    me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && w !== "holy" && w !== "void" && w !== "tele" && w !== "saw" && me.arsenal[w]) || "fire";
+    me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && w !== "holy" && w !== "void" && w !== "saw" && me.arsenal[w]) || "fire";
     renderWeapon();
   }
   // quick dodge: a burst forward (or toward where you steer) with a moment of invulnerability

@@ -43,17 +43,6 @@
       }
       g.globalAlpha = 1;
     }
-    for (let i = stuckNails.length - 1; i >= 0; i--) {   // nails sticking out of rock, fading after 8 s
-      const n = stuckNails[i], age = now - n.at;
-      if (age > 8000 || n.b.dead) { stuckNails.splice(i, 1); continue; }
-      const [wx, wy] = toWorld(n.b, n.lx, n.ly), x = sx(wx), y = sy(wy);
-      if (!onScreen(x, y, 40)) continue;
-      const a = n.a + n.b.a, L = n.spike ? 20 : 10;
-      g.globalAlpha = Math.min(1, (8000 - age) / 1000);
-      g.strokeStyle = "#cfd6e2"; g.lineWidth = n.spike ? 3 : 1.8; g.beginPath(); g.moveTo(x, y); g.lineTo(x - Math.cos(a) * L, y - Math.sin(a) * L); g.stroke();
-      g.fillStyle = "#5a6276"; g.fillRect(x - Math.cos(a) * L - 1.5, y - Math.sin(a) * L - 1.5, 3, 3);
-      g.globalAlpha = 1;
-    }
     for (const p of arena.pads) {   // boost pads: a glowing ring with chevrons running its way
       const x = sx(p.x), y = sy(p.y);
       if (!onScreen(x, y, 120)) continue;
@@ -124,13 +113,6 @@
       if (h.burn && now >= h.burn && char < 1) {   // the embers glowing through
         g.globalCompositeOperation = "lighter"; g.globalAlpha *= 0.5 * (1 - char * 0.6) * (0.7 + 0.3 * Math.sin(now / 60));
         g.drawImage(dotSprite("#ff6a1f"), -s * 0.5, -s * 0.5, s, s); g.globalCompositeOperation = "source-over";
-      }
-      if (h.nails) {   // the nails it was killed with, sticking out of it
-        for (const n of h.nails) {
-          const a2 = (h.nailA - (h.a + Math.PI / 2 - SPRITE_TILT)) + n.off, L = s * n.len;
-          g.strokeStyle = "#dfe5ee"; g.lineWidth = 3; g.beginPath(); g.moveTo(Math.cos(a2) * s * 0.1, Math.sin(a2) * s * 0.1); g.lineTo(-Math.cos(a2) * L, -Math.sin(a2) * L); g.stroke();
-          g.fillStyle = "#5a6276"; g.fillRect(-Math.cos(a2) * L - 3, -Math.sin(a2) * L - 3, 6, 6);
-        }
       }
       drawDamage(1, s, now, h.x);
       const zk = h.zap ? 1 - (now - h.born) / 2800 : 0;
