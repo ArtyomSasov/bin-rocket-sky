@@ -98,7 +98,7 @@ game already uses, so there is no server of our own; a lobby disappears from the
 
 Also picked with a new lobby (and carried in its code), on top of the map size. Every map is hand-laid and always
 the same, in every lobby, so it can be learned. Each layout is mirrored through the centre, so both halves (and
-both CTF bases) are equal. The space layouts live in `src/js/world/arenas.js`; the stations live in `src/js/world/stations.js`.
+both CTF bases) are equal. The space layouts live in `src/js/world/arenas.js`; the station plans live in `src/js/world/stations.js` (routes and building beside it: `station-routes.js`, `station-build.js`).
 
 | Map | Layout |
 |---|---|

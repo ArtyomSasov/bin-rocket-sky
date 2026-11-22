@@ -1,15 +1,15 @@
   // what of a bot's state goes on the wire. With 24 bots the host's packet was ~8 KB, eight times a second, and a
   // fifth of it repeated what never changes: the clock and round (the receiver takes the host's), the tag, team,
   // flag and captures (sent when they change and on every full tick), a living bot's death pose, empty lists
+  // (m is this tick's own state, already shown here: it is trimmed in place, not copied)
   function botWire(b, m, full) {
-    const w = { ...m };
-    delete w.rd; delete w.ts;
-    if (!m.d) { delete w.ds; delete w.dk; delete w.da; }
-    for (const k of ["f", "hb", "ko"]) if (!w[k].length) delete w[k];
+    delete m.rd; delete m.ts;
+    if (!m.d) { delete m.ds; delete m.dk; delete m.da; }
+    for (const k of ["f", "hb", "ko"]) if (!m[k].length) delete m[k];
     const sticky = [m.tg, m.tm, m.fc, m.cp[1], m.sh].join("|");
-    if (!full && sticky === b.wireSticky) { delete w.tg; delete w.tm; delete w.fc; delete w.cp; delete w.sh; }
+    if (!full && sticky === b.wireSticky) { delete m.tg; delete m.tm; delete m.fc; delete m.cp; delete m.sh; }
     b.wireSticky = sticky;
-    return w;
+    return m;
   }
   function botStates(now) {
     const out = [];

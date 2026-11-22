@@ -1387,6 +1387,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const foundryPoint = (x, y) => ({ x: (x + 0.5) * W / FOUNDRY_N, y: (y + 0.5) * H / FOUNDRY_N });
   const stationMap = () => !!MAPS[mapThemeOf(worldCode)].station;
   const foundryCell = p => [clamp(Math.floor(p.x / W * FOUNDRY_N), 0, 20), clamp(Math.floor(p.y / H * FOUNDRY_N), 0, 20)];
+  // ---------- getting about a station: which cells a bin can pass, and the way from one to another ----------
   // A cell a bin can get through: open by the plan, or an inner wall blown wide open there (its middle and four points
   // round it clear of what still stands). Looked up afresh every half second, as walls go
   let passCache = null, passAt = -1e9;
@@ -1423,6 +1424,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     }
     return null;
   }
+  // ---------- a station built: its walls painted as raised slabs, its crates, drums and partitions ----------
   // diagonal yellow-and-black hazard stripes in a band
   function hazardBand(q, x, y, w, h) {
     q.save(); q.beginPath(); q.rect(x, y, w, h); q.clip();
@@ -3107,7 +3109,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   function solidAt(b, px, py) {
     const dx = px - b.x, dy = py - b.y;
     if (dx * dx + dy * dy > b.r * b.r) return false;
-    const [lx, ly] = toLocal(b, px, py), i = Math.floor(lx / b.cs), j = Math.floor(ly / b.cs);
+    const c = Math.cos(b.a), s = Math.sin(b.a), i = Math.floor((dx * c + dy * s + b.hw) / b.cs), j = Math.floor((-dx * s + dy * c + b.hh) / b.cs);   // (toLocal, without its array)
     return i >= 0 && j >= 0 && i < b.gw && j < b.gh && b.cells[j * b.gw + i] === 1;
   }
   const solidAny = (x, y) => { for (const b of bodies) if (solidAt(b, x, y)) return b; return null; };
@@ -4170,8 +4172,10 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // the first solid point along the path a shot travelled this frame
   function shotBody(s) {
     const dx = s.x - s.px, dy = s.y - s.py, L = Math.hypot(dx, dy);
+    const x0 = Math.min(s.px, s.x), x1 = Math.max(s.px, s.x), y0 = Math.min(s.py, s.y), y1 = Math.max(s.py, s.y);
     let nearest = null, fraction = Infinity;
     for (const b of bodies) {
+      if (b.x < x0 - b.r || b.x > x1 + b.r || b.y < y0 - b.r || b.y > y1 + b.r) continue;   // nowhere near the path
       const t = L ? clamp(((b.x - s.px) * dx + (b.y - s.py) * dy) / (L * L), 0, 1) : 0, cx = s.px + dx * t - b.x, cy = s.py + dy * t - b.y;
       if (cx * cx + cy * cy > b.r * b.r) continue;
       const steps = Math.min(80, Math.ceil(L / (b.cs * 0.6)) + 1);
@@ -4782,12 +4786,17 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // the hilt circling just outside the bin and the blade pointing outward, so it never passes through the bin.
   // A Blood Blade swing: SWING_ARC radians swept in SWING_MS, centred on the aim; the blade reaches BLADE_REACH
   const SWING_MS = 350, SWING_ARC = 2.5, BLADE_REACH = 125;
-  const swingSideOf = () => -1;   // (right-handed: from the right round to the left, on every screen and the server alike)
+  const SWING_SIDE = -1;   // right-handed: every swing goes from the right round to the left, on every screen and the server alike
   const swingEase = k => 1 - Math.pow(1 - k, 2.2);
   // where the blade is now: from the bin's edge out to its tip, swept round as the swing goes (owner: the bin swinging)
   function swordSweep(s, owner) {
-    const k = Math.min(1, 1 - s.life / SHOTS[K.SWORD].life), a = s.sa - SWING_ARC / 2 * s.side + SWING_ARC * s.side * swingEase(k), r0 = binR(owner.lv || 1) * 0.6;
+    const k = Math.min(1, 1 - s.life / SHOTS[K.SWORD].life), a = s.sa - SWING_ARC / 2 * SWING_SIDE + SWING_ARC * SWING_SIDE * swingEase(k), r0 = binR(owner.lv || 1) * 0.6;
     s.px = owner.x + Math.cos(a) * r0; s.py = owner.y + Math.sin(a) * r0; s.x = owner.x + Math.cos(a) * BLADE_REACH; s.y = owner.y + Math.sin(a) * BLADE_REACH;
+  }
+  // the blade's line in a pose P, its bin at (x, y): hilt (hx, hy) at rh from the centre, pointing (ux, uy), L long
+  function bladeLine(b, P, wind, x, y) {
+    const rh = binR(b.lv || 1) + 4, ha = b.a + P.ph, da = b.a + P.ps;
+    return { rh, L: (BLADE_REACH - rh * 0.6) * (1 + wind * 0.08), hx: x + Math.cos(ha) * rh, hy: y + Math.sin(ha) * rh, ux: Math.cos(da), uy: Math.sin(da) };
   }
   // the Blood Blade bites whatever it touches, swung or not: at rest or wound up, a bin its beam lies across takes a
   // touch (K.MELEE, a small blow) every 0.45 s. Judged where its owner is judged (my screen; a server pilot on the
@@ -4795,8 +4804,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const TOUCH_MS = 450, BLADE_TOUCH = { shot: [K.MELEE, 0], feel: [6, 0.1, 0], sfx: ["hit", 0.7, 0.7] };
   function bladeTouch(b, now, wind, targets) {
     if (b.swingAt && now - b.swingAt < (b.swingMs || SWING_MS)) return;   // mid-swing the swing itself cuts
-    const P = bladePose(b, wind, now), rh = binR(b.lv || 1) + 4, L = (BLADE_REACH - rh * 0.6) * (1 + wind * 0.08);
-    const ha = b.a + P.ph, hx = b.x + Math.cos(ha) * rh, hy = b.y + Math.sin(ha) * rh, da = b.a + P.ps, ux = Math.cos(da), uy = Math.sin(da);
+    const P = bladePose(b, wind, now), { L, hx, hy, ux, uy } = bladeLine(b, P, wind, b.x, b.y);
     const seen = b.touched || (b.touched = new Map());
     for (const [id, o] of targets) {
       if (!o || o === b || o.dead || mates(o, b) || now - (seen.get(id) || 0) < TOUCH_MS) continue;
@@ -4810,8 +4818,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // beam is inside something, a bite every 0.14 s (a wider one mid-swing), with sparks and the hiss of the burn
   function bladeGrind(b, now, wind) {
     if (now - (b.grindAt || 0) < 140) return;
-    const P = bladePose(b, wind, now), rh = binR(b.lv || 1) + 4, L = (BLADE_REACH - rh * 0.6) * (1 + wind * 0.08);
-    const ha = b.a + P.ph, hx = b.x + Math.cos(ha) * rh, hy = b.y + Math.sin(ha) * rh, da = b.a + P.ps, ux = Math.cos(da), uy = Math.sin(da);
+    const P = bladePose(b, wind, now), { L, hx, hy, ux, uy } = bladeLine(b, P, wind, b.x, b.y);
     let n = 0;
     for (let i = 2; i <= 8 && n < 3; i++) {
       const f = i / 8, x = hx + ux * L * f, y = hy + uy * L * f, o = solidAny(x, y);
@@ -4821,15 +4828,15 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     }
     if (n) { b.grindAt = now; bladeClash(clamp((b.x - me.x) / 900, -1, 1), true); }
   }
-  function swingStart(o, a, side) {
-    o.swingSide = side; o.swingAt = performance.now(); o.swingMs = SWING_MS;
+  function swingStart(o) {
+    o.swingAt = performance.now(); o.swingMs = SWING_MS;
     const dist = Math.hypot(o.x - me.x, o.y - me.y);
     if (dist < 1600) bladeSwing(1 - dist / 1600, clamp((o.x - me.x) / 900, -1, 1));
   }
   // the blade's pose round its bin: hilt at angle ph from the aim (+: to the right), blade pointing at ps from the aim;
   // tr: where the swing was a moment ago (for its smear), lit: how bright
   function bladePose(b, wind, now) {
-    const REST = [1.4, 0.26], ms = b.swingMs || SWING_MS, k = b.swingAt ? (now - b.swingAt) / ms : 9, side = b.swingSide || -1;
+    const REST = [1.4, 0.26], ms = b.swingMs || SWING_MS, k = b.swingAt ? (now - b.swingAt) / ms : 9, side = SWING_SIDE;
     const arc = SWING_ARC, lead = 0.5, hold = 0.25, rec = 0.6;
     const at = e => { const f0 = arc / 2 + lead, ph = -side * (f0 + (-arc / 2 - f0) * e); return [ph, ph - side * (1.1 - 0.95 * e)]; };
     if (k >= 0 && k <= 1) { const e = swingEase(k), [ph, ps] = at(e), [p0] = at(swingEase(Math.max(0, k - 0.32))); return { ph, ps, tr: p0, lit: 1.35 - 0.35 * k, k }; }
@@ -4843,14 +4850,14 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // the blade on its bin (x, y: the bin on screen), drawn over it: a hilt of dark metal and a beam of light in its
   // colour with a white-hot core, quivering; mid-swing a smear of light follows it round
   function drawBlade(b, x, y, wind, now) {
-    const P = bladePose(b, wind, now), sz = sizeOf(b.lv || 1), A = b.a, rh = binR(b.lv || 1) + 4;
-    const col = "255,40,60", L = (BLADE_REACH - rh * 0.6) * (1 + wind * 0.08);
+    const P = bladePose(b, wind, now), sz = sizeOf(b.lv || 1), A = b.a, { rh, L, hx, hy, ux, uy } = bladeLine(b, P, wind, x, y);
+    const col = "255,40,60";
     const flick = 0.9 + 0.06 * Math.sin(now / 17 + (b.hue || 0)) + 0.04 * Math.sin(now / 7.3), lit = P.lit * flick;
-    const ha = A + P.ph, hx = x + Math.cos(ha) * rh, hy = y + Math.sin(ha) * rh, da = A + P.ps, ux = Math.cos(da), uy = Math.sin(da), tx = hx + ux * L, ty = hy + uy * L;
+    const tx = hx + ux * L, ty = hy + uy * L;
     g.save(); g.lineCap = "round";
     if (P.tr !== undefined && !lowQ) {   // the smear: a fan of light from where the blade was to where it is, brightest at the blade
       g.globalCompositeOperation = "lighter";
-      const n = 10, side = b.swingSide || -1;
+      const n = 10, side = SWING_SIDE;
       for (let i = 0; i < n; i++) {
         const f0 = i / n, f1 = (i + 1) / n, p0 = P.tr + (P.ph - P.tr) * f0, p1 = P.tr + (P.ph - P.tr) * f1, al = Math.pow(f1, 2) * 0.32 * lit;
         const q = ph => { const h = A + ph, d = A + ph - side * 0.12; return [x + Math.cos(h) * rh, y + Math.sin(h) * rh, x + Math.cos(h) * rh + Math.cos(d) * L, y + Math.sin(h) * rh + Math.sin(d) * L]; };
@@ -6029,7 +6036,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (s.kind === K.SWORD || s.kind === K.MELEE) {   // a blade bites: the cut of light, the glint, the warp, the spray, its clash
       const heavy = s.kind === K.SWORD, own = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
       // the stroke's way at the hit: across the line from its bin, the way the swing goes
-      const ra = own ? Math.atan2(s.y - own.y, s.x - own.x) : Math.atan2(s.vy, s.vx), a = ra + (own?.swingSide || -1) * Math.PI / 2;
+      const ra = own ? Math.atan2(s.y - own.y, s.x - own.x) : Math.atan2(s.vy, s.vx), a = ra + SWING_SIDE * Math.PI / 2;
       let victim = null, vd = 90;
       for (const o of [me, ...remotes.values()]) if (o !== own && !o.dead && Math.hypot(o.x - s.x, o.y - s.y) < vd) { vd = Math.hypot(o.x - s.x, o.y - s.y); victim = o; }
       bladeClash(clamp((s.x - me.x) / 900, -1, 1));
@@ -6971,9 +6978,10 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   function applyCombatReports(id, p, r) {
     if (p.rd !== stats.round) return;
     // credit for my fireballs that they report
-    const validHit = k => typeof k === "string" && k.length <= 48;
-    const mine = k => validHit(k) && k.startsWith(myTag + ".") && credited.size < MAX_CREDITS;
-    for (const k of Array.isArray(p.hb) ? p.hb.slice(0, 16).filter(validHit) : []) if (mine(k) && !credited.has(id + ":" + k)) {
+    const validHit = k => typeof k === "string" && k.length <= 48, reports = l => Array.isArray(l) ? l.slice(0, 16).filter(validHit) : [];
+    const hb = reports(p.hb), ko = reports(p.ko);
+    const mine = k => k.startsWith(myTag + ".") && credited.size < MAX_CREDITS;
+    for (const k of hb) if (mine(k) && !credited.has(id + ":" + k)) {
       credited.add(id + ":" + k); me.score += 1; stats.hits++;
       // hits on one pilot within a moment (a shotgun's pellets) add up in one "Hit +N", not a pile of "+1"s
       const f0 = floaters.find(f => f.hitOf === id && f.t < 0.3);
@@ -6984,11 +6992,11 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       metricPeer(k, id, false);
       confirmShotHit(id, k, r);
     }
-    if (bots.length) { creditBots(Array.isArray(p.hb) ? p.hb.slice(0, 16).filter(validHit) : [], false, id); creditBots(Array.isArray(p.ko) ? p.ko.slice(0, 16).filter(validHit) : [], true, id); }
-    for (const k of Array.isArray(p.ko) ? p.ko.slice(0, 16).filter(validHit) : []) if (typeof k === "string") reportKill(k, r.name, id);
-    for (const k of Array.isArray(p.ko) ? p.ko.slice(0, 16).filter(validHit) : []) if (mine(k) && !credited.has("ko" + id + ":" + k)) {
+    if (bots.length) { creditBots(hb, false, id); creditBots(ko, true, id); }
+    for (const k of ko) reportKill(k, r.name, id);
+    for (const k of ko) if (mine(k) && !credited.has("ko" + id + ":" + k)) {
       credited.add("ko" + id + ":" + k); me.score += 5; floaters.push({ x: r.x, y: r.y - 50, t: 0, txt: "KILL " + r.name, gold: true });
-      if (serverRun && !(Array.isArray(p.hb) && p.hb.includes(k))) serverHitShown(id);   // (the killing shot comes as a kill, not a hit: it confirms the hit shown too)
+      if (serverRun && !hb.includes(k)) serverHitShown(id);   // (the killing shot comes as a kill, not a hit: it confirms the hit shown too)
       gainXp(killXp(me.lv, r.lv || 1), performance.now());
       metricPeer(k, id, true);
       killStyle(k, r);
@@ -8244,14 +8252,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         resetCmds(b);
       }
       const human = b.input;   // flown by a player: the AI below only steers the others
-      // nearest living target: me or anyone else in the lobby (other bots included)
-      let tgt = null, td = botWeapon(b) === "holy" ? 3200 : botWeapon(b) === "nuke" || botWeapon(b) === "void" ? 2600 : 1700;   // (a big bomb looks further)
-      if (playing && !me.dead && !mates(b, me)) { const d = Math.hypot(me.x - b.x, me.y - b.y); if (d < td) { td = d; tgt = me; } }
-      for (const [rid, r] of remotes) {
-        if (rid === b.id || r.dead || mates(r, b)) continue;
-        const d = Math.hypot(r.x - b.x, r.y - b.y);
-        if (d < td) { td = d; tgt = r; }
-      }
+      const [tgt, td] = botTarget(b);   // nearest living target: me or anyone else in the lobby (other bots included)
       // a bot flies like a player: it pushes a stick, the bin turns to face where it pushes, and it can only shoot
       // where it faces. So it makes attack runs at its target (aiming ahead of it), breaks off when it gets too
       // close, loops round and comes back; it boosts to close a long gap and dashes aside when it gets hit
@@ -8326,7 +8327,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         if (b.y < m) dy += (m - b.y) / m * 2.5; if (b.y > H - m) dy -= (b.y - H + m) / m * 2.5;
         for (const p of bodies) {   // and around planets and moons
           if (p.fixed || p.prop) continue;   // (a station's crates are steered round by its route, not kept off)
-          const hx = b.x - p.x, hy = b.y - p.y, hd = Math.hypot(hx, hy) || 1, gap = hd - p.rr;
+          const lim = p.rr + 280; if (Math.abs(b.x - p.x) > lim || Math.abs(b.y - p.y) > lim) continue;
+          const hx = b.x - p.x, hy = b.y - p.y, hd = Math.sqrt(hx * hx + hy * hy) || 1, gap = hd - p.rr;
           if (gap < 280) { dx += hx / hd * 3 * (1 - gap / 280); dy += hy / hd * 3 * (1 - gap / 280); }
         }
       }
@@ -8465,35 +8467,53 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       else if (tgt && roundLive && botInRange(b, td) && Math.abs(angD(aimA - b.a)) < 0.22 + b.L.aim && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
         const md = MODES[MODE];
         b.fireCd = (md.botCd ? b.L.cd * md.botCd : cd < 0.15 ? cd * 2 : Math.max(b.L.cd, cd * 1.3)) * (0.7 + Math.random() * 0.6); }
-      // another pilot ramming my bot on boost (the bot is the victim, so its owner decides)
-      for (const [rid, r] of remotes) {
-        if (botById.has(rid) || r.dead || !(r.boost > 0) || !r.tag || mates(r, b)) continue;
-        const dx = b.x - r.x, dy = b.y - r.y, d = Math.hypot(dx, dy) || 1;
-        if (d < 31 * (sizeOf(r.lv || 1) + sizeOf(b.lv || 1))) {   // (their bin is theirs to move: only mine takes the blow here)
-          const nx = dx / d, ny = dy / d, mb = binMass(b.lv), mr = binMass(r.lv), vn = (b.vx - (r.vx || 0)) * nx + (b.vy - (r.vy || 0)) * ny;
-          if (vn < 0) {
-            const j = -1.5 * vn / (1 / mb + 1 / mr), dmg = knockDmg(j / mb);
-            b.vx += j * nx / mb; b.vy += j * ny / mb;
-            if (dmg > 0 && (!b.rammedBy || now - b.rammedBy > 300)) { b.rammedBy = now; botHurt(b, dmg, r.tag + ".ram" + Math.floor(now), now, false); }
-          }
-        }
-      }
+      botRammed(b, now);
       recordHitPose(b, now);
-      // anyone's shots can hit the bot (the bot's own excepted). Its invulnerability now (a dash, a respawn) stops a
-      // shot judged now; a player's shot judged in the past (lag compensation) meets it as it was then (targetHit)
-      const invNow = now < b.inv;
-      for (const s of shots) {
-        if (invNow && !(s.hitTime && HITSCAN[s.kind] && !s.mine)) continue;
-        if (s.life <= 0 || SHOTS[s.kind].inert || !nearPath(s, b) || !canHurt(s, b, b.id)) continue;
-        if (s.kind === K.MINE && SHOTS[K.MINE].life - s.life < MINE_ARM) continue;
-        if (targetHit(s, b)) {
-          if (pierces(s)) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
-          shotBurst(s); hitConfirm(s, b.lv, b.x, b.y, remotes.get(b.id)); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
-          botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx), invNow);
+      shotsAtBot(b, now);
+    }
+    binContacts(now);
+  }
+  // a bot's target: the nearest living pilot not on its side (me or anyone else, other bots included), within how far
+  // it looks (further with a big bomb); [the pilot, how far] or [null, that range]
+  function botTarget(b) {
+    let tgt = null, td = botWeapon(b) === "holy" ? 3200 : botWeapon(b) === "nuke" || botWeapon(b) === "void" ? 2600 : 1700;
+    if (playing && !me.dead && !mates(b, me)) { const d = Math.hypot(me.x - b.x, me.y - b.y); if (d < td) { td = d; tgt = me; } }
+    for (const [rid, r] of remotes) {
+      if (rid === b.id || r.dead || Math.abs(r.x - b.x) > td || Math.abs(r.y - b.y) > td || mates(r, b)) continue;
+      const ex = r.x - b.x, ey = r.y - b.y, d = Math.sqrt(ex * ex + ey * ey);
+      if (d < td) { td = d; tgt = r; }
+    }
+    return [tgt, td];
+  }
+  // another pilot ramming my bot on boost (the bot is the victim, so its owner decides)
+  function botRammed(b, now) {
+    for (const [rid, r] of remotes) {
+      if (botById.has(rid) || r.dead || !(r.boost > 0) || !r.tag || mates(r, b)) continue;
+      const dx = b.x - r.x, dy = b.y - r.y, d = Math.hypot(dx, dy) || 1;
+      if (d < 31 * (sizeOf(r.lv || 1) + sizeOf(b.lv || 1))) {   // (their bin is theirs to move: only mine takes the blow here)
+        const nx = dx / d, ny = dy / d, mb = binMass(b.lv), mr = binMass(r.lv), vn = (b.vx - (r.vx || 0)) * nx + (b.vy - (r.vy || 0)) * ny;
+        if (vn < 0) {
+          const j = -1.5 * vn / (1 / mb + 1 / mr), dmg = knockDmg(j / mb);
+          b.vx += j * nx / mb; b.vy += j * ny / mb;
+          if (dmg > 0 && (!b.rammedBy || now - b.rammedBy > 300)) { b.rammedBy = now; botHurt(b, dmg, r.tag + ".ram" + Math.floor(now), now, false); }
         }
       }
     }
-    binContacts(now);
+  }
+  // anyone's shots can hit the bot (the bot's own excepted). Its invulnerability now (a dash, a respawn) stops a
+  // shot judged now; a player's shot judged in the past (lag compensation) meets it as it was then (targetHit)
+  function shotsAtBot(b, now) {
+    const invNow = now < b.inv;
+    for (const s of shots) {
+      if (invNow && !(s.hitTime && HITSCAN[s.kind] && !s.mine)) continue;
+      if (s.life <= 0 || SHOTS[s.kind].inert || !nearPath(s, b) || !canHurt(s, b, b.id)) continue;
+      if (s.kind === K.MINE && SHOTS[K.MINE].life - s.life < MINE_ARM) continue;
+      if (targetHit(s, b)) {
+        if (pierces(s)) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
+        shotBurst(s); hitConfirm(s, b.lv, b.x, b.y, remotes.get(b.id)); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
+        botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx), invNow);
+      }
+    }
   }
   // Bins meeting bins (bots, players' pilots on the server, and my own bin when this page runs the bots): each pair
   // once, pushed apart by their overlap (the lighter further) and struck by weight (collide, a fairly dead bounce,
@@ -8537,15 +8557,15 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // what of a bot's state goes on the wire. With 24 bots the host's packet was ~8 KB, eight times a second, and a
   // fifth of it repeated what never changes: the clock and round (the receiver takes the host's), the tag, team,
   // flag and captures (sent when they change and on every full tick), a living bot's death pose, empty lists
+  // (m is this tick's own state, already shown here: it is trimmed in place, not copied)
   function botWire(b, m, full) {
-    const w = { ...m };
-    delete w.rd; delete w.ts;
-    if (!m.d) { delete w.ds; delete w.dk; delete w.da; }
-    for (const k of ["f", "hb", "ko"]) if (!w[k].length) delete w[k];
+    delete m.rd; delete m.ts;
+    if (!m.d) { delete m.ds; delete m.dk; delete m.da; }
+    for (const k of ["f", "hb", "ko"]) if (!m[k].length) delete m[k];
     const sticky = [m.tg, m.tm, m.fc, m.cp[1], m.sh].join("|");
-    if (!full && sticky === b.wireSticky) { delete w.tg; delete w.tm; delete w.fc; delete w.cp; delete w.sh; }
+    if (!full && sticky === b.wireSticky) { delete m.tg; delete m.tm; delete m.fc; delete m.cp; delete m.sh; }
     b.wireSticky = sticky;
-    return w;
+    return m;
   }
   function botStates(now) {
     const out = [];
@@ -8576,7 +8596,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // ---------- a player's guns on the authoritative server ----------
   // A pilot flown by a player (addPilot) carries an arsenal like the local pilot's: crates and trophies add guns,
   // the input picks one, and both triggers work by the rules shoot() keeps for the local pilot
-  // (11-weapons.js). What only a screen can do fires in its plain form: a guided nuke flies straight.
+  // (weapons/shoot.js). What only a screen can do fires in its plain form: a guided nuke flies straight.
   //   input: { w: the gun's index in WEAPON_KEYS, fire, alt: the triggers held }
   function pilotArm(b) {
     const o = MODES[MODE].only;
@@ -8600,7 +8620,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // what the snapshot tells the player about their arsenal: [gun index, ammo] (-1: endless)
   const pilotArsenalWire = b => Object.entries(b.arsenal).map(([k, n]) => [WEAPON_KEYS.indexOf(k), Number.isFinite(n) ? Math.ceil(n) : -1]);
   // A player's shot is judged against where its targets were on the player's screen (a straight round also
-  // catches up that far along its line, as a peer's does in 12-network.js). Their screen shows the others between
+  // catches up that far along its line, as a peer's does in net/peers.js). Their screen shows the others between
   // two snapshots, ld ms behind the newest, which itself left here half a round trip before it arrived; the controls
   // then take the other half to come back, and wait half a step on average for a step to fly them. So the targets
   // they saw are a round trip, ld and half a step old: Source's "server time - latency - view interpolation".
@@ -9257,7 +9277,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       if (s.kind === K.SWORD) {   // a sword swing: its bin swings the blade, the crescent sweeps, and the blade cuts as it goes
         const sh = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
         if (!sh || sh.dead) { s.life = 0; shots.splice(i, 1); continue; }
-        if (!s.swung) { s.swung = true; s.sa = Math.atan2(s.vy, s.vx); s.side = swingSideOf(s); swingStart(sh, s.sa, s.side); }
+        if (!s.swung) { s.swung = true; s.sa = Math.atan2(s.vy, s.vx); swingStart(sh); }
         s.vx = s.vy = 0; s.traced = true; swordSweep(s, sh);   // (traced: its line is set here, not flown)
         // the blade cuts what it sweeps through: rock, walls, crates (a narrow cut along it), with sparks where it bites
         if (s.lastCut === undefined || now - s.lastCut > 25) {
@@ -10182,13 +10202,10 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     g.globalCompositeOperation = "lighter"; g.fillStyle = core; g.beginPath(); g.arc(0, 0, 13 * beat, 0, 6.29); g.fill();
     g.restore();
   }
-  function drawShot(s, x, y, now) {
-    if (s.m >= QUAD) {   // Quad damage shots carry a violet-blue halo
-      const hg = g.createRadialGradient(x, y, 0, x, y, 26);
-      hg.addColorStop(0, "rgba(195,139,255,0.55)"); hg.addColorStop(1, "rgba(195,139,255,0)");
-      g.fillStyle = hg; g.beginPath(); g.arc(x, y, 26, 0, 6.29); g.fill();
-    }
-    if (s.kind === K.PULSE_BOLT) {   // a pulse bolt: a crackling ball of green plasma in a shell of arcs, a long streak behind
+  // ---------- how each kind of shot looks in flight (x, y: where it is on screen); drawShot picks one ----------
+  // bolts, bullets, slugs and rockets
+  const SHOT_ART = {
+    [K.PULSE_BOLT](s, x, y, now) {   // a pulse bolt: a crackling ball of green plasma in a shell of arcs, a long streak behind
       const a = Math.atan2(s.vy, s.vx);
       g.save(); g.translate(x, y); g.rotate(a); g.globalCompositeOperation = "lighter";
       g.globalAlpha = 0.45; g.drawImage(dotSprite("#4dff1e"), -110, -16, 120, 32);   // the long streak
@@ -10199,9 +10216,9 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       g.strokeStyle = "rgba(220,255,180,0.9)"; g.lineWidth = 1.3;
       for (let k = 0; k < 3; k++) { let an = now / 30 + k * 2.1 + s.x, r = 9; g.beginPath(); g.moveTo(Math.cos(an) * r, Math.sin(an) * r); for (let n = 0; n < 3; n++) { an += 0.5 + Math.random() * 0.4; r = 12 + Math.random() * 7; g.lineTo(Math.cos(an) * r, Math.sin(an) * r); } g.stroke(); }
       g.globalAlpha = 1; g.fillStyle = "#ffffff"; g.beginPath(); g.arc(0, 0, 5.5, 0, 6.29); g.fill();
-      g.restore(); return;
-    }
-    if (s.kind === K.ORB) {   // plasma orb: a big crackling ball, a wide glow, spinning rings and arcs licking out
+      g.restore();
+    },
+    [K.ORB](s, x, y, now) {   // plasma orb: a big crackling ball, a wide glow, spinning rings and arcs licking out
       const r = 25 + Math.sin(now / 60 + s.x) * 2.5;
       g.globalAlpha = 0.5; g.drawImage(dotSprite("#3aa8ff"), x - r * 3.4, y - r * 3.4, r * 6.8, r * 6.8); g.globalAlpha = 1;
       const og = g.createRadialGradient(x, y, 0, x, y, r * 1.7);
@@ -10217,12 +10234,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         for (let n = 0; n < 4; n++) { a += (Math.random() - 0.5) * 0.9; rr += r * (0.25 + Math.random() * 0.2); g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
         g.stroke();
       }
-      return;
-    }
-
-    if (s.kind === K.PISTOL || s.kind === K.SHOCK || s.kind === K.DET) return;   // beams are drawn as beams; a detonator isn't seen
-    if (s.kind === K.MELEE || s.kind === K.SWORD) return;   // a blow, a swing: the blade on the bin (and its trail) is what you see
-    if (s.kind === K.NOVA) {   // the Plasma Nova: a swirling ball of green plasma, white at its heart, lightning crawling over it
+    },
+    [K.NOVA](s, x, y, now) {   // the Plasma Nova: a swirling ball of green plasma, white at its heart, lightning crawling over it
       const c = Math.min(1, s.m || 1), r = 12 + 16 * c, a = Math.atan2(s.vy, s.vx);
       g.save(); g.translate(x, y); g.globalCompositeOperation = "lighter";
       g.globalAlpha = 0.5; g.rotate(a); g.drawImage(dotSprite("#4dff1e"), -r * 5, -r * 0.9, r * 5.5, r * 1.8); g.rotate(-a);   // the streak behind it
@@ -10231,9 +10244,9 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       g.globalAlpha = 1; g.strokeStyle = "rgba(230,255,200,0.9)"; g.lineWidth = 1.5;
       for (let k = 0; k < (lowQ ? 2 : 4); k++) { let an = Math.random() * 6.283, rr = r * 0.6; g.beginPath(); g.moveTo(Math.cos(an) * rr, Math.sin(an) * rr); for (let n = 0; n < 3; n++) { an += 0.5 + Math.random() * 0.5; rr = r * (1 + Math.random() * 0.8); g.lineTo(Math.cos(an) * rr, Math.sin(an) * rr); } g.stroke(); }
       g.fillStyle = "#ffffff"; g.beginPath(); g.arc(0, 0, r * 0.4, 0, 6.29); g.fill();
-      g.restore(); return;
-    }
-    if (s.kind === K.HOOK) {   // the hook: a chain of steel links from its gun to a barbed head
+      g.restore();
+    },
+    [K.HOOK](s, x, y, now) {   // the hook: a chain of steel links from its gun to a barbed head
       const sh = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
       if (!sh) return;
       const ox = sx(sh.x), oy = sy(sh.y), dx = x - ox, dy = y - oy, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, n = Math.floor(d / (9 * TS));
@@ -10250,9 +10263,76 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       g.fillStyle = "#e6edf5"; g.strokeStyle = "#5c6675"; g.lineWidth = 1.5 * TS;
       g.beginPath(); g.moveTo(10 * TS, 0); g.lineTo(-4 * TS, -7 * TS); g.lineTo(-1 * TS, 0); g.lineTo(-4 * TS, 7 * TS); g.closePath(); g.fill(); g.stroke();
       g.restore();
-      return;
+    },
+    [K.SHARD](s, x, y, now) {   // shard: a heavy white-hot splinter, longer and hotter after every ricochet
+      const hot = Math.min(4, s.bn || 0), L = 40 + hot * 14, k = 1.5 + hot * 0.15;
+      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
+      g.globalAlpha = 0.5 + hot * 0.1; g.drawImage(dotSprite(hot ? "#ffd27a" : "#ff9a3c"), -22 * k, -22 * k, 44 * k, 44 * k); g.globalAlpha = 1;
+      const lg = g.createLinearGradient(-L, 0, 0, 0);
+      lg.addColorStop(0, "rgba(255,120,30,0)"); lg.addColorStop(1, hot ? "rgba(255,240,190,0.98)" : "rgba(255,200,120,0.95)");
+      g.strokeStyle = lg; g.lineWidth = 8 + hot; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
+      g.fillStyle = "#fff4e0"; g.beginPath(); g.moveTo(8 * k, 0); g.lineTo(-4 * k, -4.5 * k); g.lineTo(-2 * k, 0); g.lineTo(-4 * k, 4.5 * k); g.fill();
+      g.restore();
+    },
+    [K.PELLET](s, x, y, now) {   // scatter pellet: a short hot streak
+      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
+      const lg = g.createLinearGradient(-44, 0, 0, 0);
+      lg.addColorStop(0, "rgba(255,150,40,0)"); lg.addColorStop(1, "rgba(255,235,160,0.95)");
+      g.strokeStyle = lg; g.lineWidth = 6; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-44, 0); g.lineTo(0, 0); g.stroke();
+      g.fillStyle = "rgba(255,200,90,0.35)"; g.beginPath(); g.arc(0, 0, 9, 0, 6.29); g.fill();
+      g.fillStyle = "#fff6d8"; g.beginPath(); g.arc(0, 0, 3.6, 0, 6.29); g.fill();
+      g.restore();
+    },
+    [K.RAIL](s, x, y, now) {   // rail slug: a long violet-white beam
+      const L = 280;
+      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
+      const lg = g.createLinearGradient(-L, 0, 0, 0);
+      lg.addColorStop(0, "rgba(190,120,255,0)"); lg.addColorStop(1, "rgba(220,170,255,0.7)");
+      g.strokeStyle = lg; g.lineWidth = 16; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
+      g.strokeStyle = "rgba(255,255,255,0.95)"; g.lineWidth = 3.5;
+      g.beginPath(); g.moveTo(-L * 0.75, 0); g.lineTo(6, 0); g.stroke();
+      const hg = g.createRadialGradient(0, 0, 0, 0, 0, 22);
+      hg.addColorStop(0, "rgba(255,255,255,0.95)"); hg.addColorStop(1, "rgba(200,140,255,0)");
+      g.fillStyle = hg; g.beginPath(); g.arc(0, 0, 22, 0, 6.29); g.fill();
+      g.restore();
+    },
+    [K.BULLET](s, x, y, now) {
+      const heavy = s.kind === K.BULLET_ALT, L = heavy ? 70 : 56;   // a long hot tracer with a glow round it (an explosive round: fatter, burning red-orange)
+      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx)); g.globalCompositeOperation = "lighter";
+      const tail = g.createLinearGradient(-L, 0, 3, 0);
+      tail.addColorStop(0, heavy ? "#ff200000" : "#ff6a1000");
+      tail.addColorStop(0.6, heavy ? "#ff4a14aa" : "#ffa03a99");
+      tail.addColorStop(1, heavy ? "#ffb060" : "#ffe08a");
+      if (!lowQ) { g.strokeStyle = heavy ? "rgba(255,80,20,0.32)" : "rgba(255,150,50,0.28)"; g.lineWidth = heavy ? 16 : 11; g.lineCap = "round"; g.beginPath(); g.moveTo(-L * 0.7, 0); g.lineTo(2, 0); g.stroke(); }
+      g.strokeStyle = tail; g.lineWidth = heavy ? 7 : 4.5; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
+      g.fillStyle = heavy ? "#fff0c8" : "#fff8dc";
+      g.beginPath(); g.ellipse(0, 0, heavy ? 9 : 6, heavy ? 4.5 : 2.6, 0, 0, 6.29); g.fill();
+      g.restore();
+    },
+    [K.ROCKET](s, x, y, now) {   // a rocket: a fin-tailed body on a flame
+      const a = Math.atan2(s.vy, s.vx), fl = 1 + Math.sin(now / 25 + s.x) * 0.25;
+      g.save(); g.translate(x, y); g.rotate(a); g.scale(1.15, 1.15);
+      const fg = g.createLinearGradient(-34 * fl, 0, -8, 0);
+      fg.addColorStop(0, "rgba(255,60,20,0)"); fg.addColorStop(1, "rgba(255,210,90,0.95)");
+      g.fillStyle = fg; g.beginPath(); g.moveTo(-8, -4); g.lineTo(-34 * fl, 0); g.lineTo(-8, 4); g.fill();
+      g.globalCompositeOperation = "source-over";
+      g.fillStyle = "#8a7fb0"; g.beginPath(); g.moveTo(-10, -8); g.lineTo(-2, -3); g.lineTo(-2, 3); g.lineTo(-10, 8); g.fill();
+      const bg = g.createLinearGradient(0, -5, 0, 5);
+      bg.addColorStop(0, "#f4f1ff"); bg.addColorStop(1, "#a59cc8");
+      g.fillStyle = bg; rrect(-10, -4.5, 20, 9, 4); g.fill();
+      g.fillStyle = "#ff5a6e"; g.beginPath(); g.moveTo(10, -4.5); g.quadraticCurveTo(18, 0, 10, 4.5); g.fill();
+      g.globalCompositeOperation = "lighter";
+      g.restore();
     }
-    if (s.kind === K.GREN) {   // a grenade: a dark metal body with a ridged belt and a blinking fuse, tumbling
+  };
+  SHOT_ART[K.BULLET_ALT] = SHOT_ART[K.BULLET];
+  // grenades, shells, mines and the big bombs
+  const BOMB_ART = {
+    [K.GREN](s, x, y, now) {   // a grenade: a dark metal body with a ridged belt and a blinking fuse, tumbling
       const t = SHOTS[K.GREN].life - s.life, blink = Math.floor(t * (t > 1.8 ? 14 : 4)) % 2;
       g.save(); g.translate(x, y); g.rotate(t * 5 + s.x * 0.001); g.scale(1.25, 1.25);
       if (blink) { g.globalCompositeOperation = "lighter"; g.drawImage(dotSprite("#ff5a3c"), -16, -16, 32, 32); g.globalCompositeOperation = "source-over"; }
@@ -10266,10 +10346,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       g.fillStyle = "#30343b"; g.beginPath(); g.ellipse(10, 0, 3, 4, 0, 0, 6.29); g.fill();   // the capped nose
       g.fillStyle = blink ? "#ffd2c0" : "#802010"; g.beginPath(); g.arc(11, 0, 1.8, 0, 6.29); g.fill();   // the fuse light, faster near the end
       g.restore();
-      return;
-    }
-
-    if (s.kind === K.FLAK) {   // shell shadow and loft make its falling trajectory readable
+    },
+    [K.FLAK](s, x, y, now) {   // shell shadow and loft make its falling trajectory readable
       const height = flakHeight(s);
       g.fillStyle = "rgba(0,0,0,.4)"; g.beginPath(); g.ellipse(x, y + 8, 12 + height*.08, 5, 0, 0, Math.PI*2); g.fill();
       g.save(); g.translate(x, y - height); g.rotate(performance.now() / 80);
@@ -10278,48 +10356,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       for (let k = 0; k < 16; k++) { const r = k % 2 ? 6 : 13, a = k / 16 * 6.283; k ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(r, 0); }
       g.closePath(); g.fill(); g.fillStyle = "#fff4e0"; g.beginPath(); g.arc(0, 0, 4, 0, 6.29); g.fill();
       g.restore();
-      return;
-    }
-    if (s.kind === K.SHARD) {   // shard: a heavy white-hot splinter, longer and hotter after every ricochet
-      const hot = Math.min(4, s.bn || 0), L = 40 + hot * 14, k = 1.5 + hot * 0.15;
-      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
-      g.globalAlpha = 0.5 + hot * 0.1; g.drawImage(dotSprite(hot ? "#ffd27a" : "#ff9a3c"), -22 * k, -22 * k, 44 * k, 44 * k); g.globalAlpha = 1;
-      const lg = g.createLinearGradient(-L, 0, 0, 0);
-      lg.addColorStop(0, "rgba(255,120,30,0)"); lg.addColorStop(1, hot ? "rgba(255,240,190,0.98)" : "rgba(255,200,120,0.95)");
-      g.strokeStyle = lg; g.lineWidth = 8 + hot; g.lineCap = "round";
-      g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
-      g.fillStyle = "#fff4e0"; g.beginPath(); g.moveTo(8 * k, 0); g.lineTo(-4 * k, -4.5 * k); g.lineTo(-2 * k, 0); g.lineTo(-4 * k, 4.5 * k); g.fill();
-      g.restore();
-      return;
-    }
-
-    if (s.kind === K.PELLET) {   // scatter pellet: a short hot streak
-      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
-      const lg = g.createLinearGradient(-44, 0, 0, 0);
-      lg.addColorStop(0, "rgba(255,150,40,0)"); lg.addColorStop(1, "rgba(255,235,160,0.95)");
-      g.strokeStyle = lg; g.lineWidth = 6; g.lineCap = "round";
-      g.beginPath(); g.moveTo(-44, 0); g.lineTo(0, 0); g.stroke();
-      g.fillStyle = "rgba(255,200,90,0.35)"; g.beginPath(); g.arc(0, 0, 9, 0, 6.29); g.fill();
-      g.fillStyle = "#fff6d8"; g.beginPath(); g.arc(0, 0, 3.6, 0, 6.29); g.fill();
-      g.restore();
-      return;
-    }
-    if (s.kind === K.RAIL) {   // rail slug: a long violet-white beam
-      const L = 280;
-      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
-      const lg = g.createLinearGradient(-L, 0, 0, 0);
-      lg.addColorStop(0, "rgba(190,120,255,0)"); lg.addColorStop(1, "rgba(220,170,255,0.7)");
-      g.strokeStyle = lg; g.lineWidth = 16; g.lineCap = "round";
-      g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
-      g.strokeStyle = "rgba(255,255,255,0.95)"; g.lineWidth = 3.5;
-      g.beginPath(); g.moveTo(-L * 0.75, 0); g.lineTo(6, 0); g.stroke();
-      const hg = g.createRadialGradient(0, 0, 0, 0, 0, 22);
-      hg.addColorStop(0, "rgba(255,255,255,0.95)"); hg.addColorStop(1, "rgba(200,140,255,0)");
-      g.fillStyle = hg; g.beginPath(); g.arc(0, 0, 22, 0, 6.29); g.fill();
-      g.restore();
-      return;
-    }
-    if (s.kind === K.MINE) {   // mine: spiked ball, blinks faster once armed, shows its trigger radius
+    },
+    [K.MINE](s, x, y, now) {   // mine: spiked ball, blinks faster once armed, shows its trigger radius
       const armed = SHOTS[K.MINE].life - s.life >= MINE_ARM, ending = s.life < 3;
       const on = Math.floor(now / (armed ? (ending ? 90 : 260) : 120)) % 2 === 0;
       g.save(); g.translate(x, y);
@@ -10342,9 +10380,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         g.fillStyle = rg; g.beginPath(); g.arc(0, 0, 26, 0, 6.29); g.fill();
       }
       g.restore();
-      return;
-    }
-    if (s.kind === K.GAMMA) {   // the demonic orb: a churning ball of hellfire in a shroud of green flame and smoke
+    },
+    [K.GAMMA](s, x, y, now) {   // the demonic orb: a churning ball of hellfire in a shroud of green flame and smoke
       const speed = Math.hypot(s.vx, s.vy) || 1, ux = s.vx / speed, uy = s.vy / speed;
       g.save();
       const dk = g.createRadialGradient(x, y, 20, x, y, 190);   // it darkens the space round it, as if it drinks the light
@@ -10366,24 +10403,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       }
       g.restore();
       drawDemonicOrb(x, y, 30 + Math.sin(now / 160) * 2, now);
-      return;
-    }
-    if (s.kind === K.BULLET || s.kind === K.BULLET_ALT) {
-      const heavy = s.kind === K.BULLET_ALT, L = heavy ? 70 : 56;   // a long hot tracer with a glow round it (an explosive round: fatter, burning red-orange)
-      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx)); g.globalCompositeOperation = "lighter";
-      const tail = g.createLinearGradient(-L, 0, 3, 0);
-      tail.addColorStop(0, heavy ? "#ff200000" : "#ff6a1000");
-      tail.addColorStop(0.6, heavy ? "#ff4a14aa" : "#ffa03a99");
-      tail.addColorStop(1, heavy ? "#ffb060" : "#ffe08a");
-      if (!lowQ) { g.strokeStyle = heavy ? "rgba(255,80,20,0.32)" : "rgba(255,150,50,0.28)"; g.lineWidth = heavy ? 16 : 11; g.lineCap = "round"; g.beginPath(); g.moveTo(-L * 0.7, 0); g.lineTo(2, 0); g.stroke(); }
-      g.strokeStyle = tail; g.lineWidth = heavy ? 7 : 4.5; g.lineCap = "round";
-      g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
-      g.fillStyle = heavy ? "#fff0c8" : "#fff8dc";
-      g.beginPath(); g.ellipse(0, 0, heavy ? 9 : 6, heavy ? 4.5 : 2.6, 0, 0, 6.29); g.fill();
-      g.restore(); return;
-    }
-
-    if (s.kind === K.HOLY) {   // a golden orb under a halo; it pulses faster and shines wider as the fuse runs out
+    },
+    [K.HOLY](s, x, y, now) {   // a golden orb under a halo; it pulses faster and shines wider as the fuse runs out
       const left = Math.max(0, s.life), hot = 1 - left / SHOTS[K.HOLY].life, pulse = 0.6 + 0.4 * Math.sin(now / (120 - 90 * hot));
       g.save(); g.translate(x, y);
       g.globalCompositeOperation = "lighter";
@@ -10406,18 +10427,16 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       }
       g.restore();
       g.globalCompositeOperation = "lighter";
-      return;
-    }
-    if (s.kind === K.VOID) {   // the void bomb: a dark orb, light bending round it, a violet ring turning
+    },
+    [K.VOID](s, x, y, now) {   // the void bomb: a dark orb, light bending round it, a violet ring turning
       const t = now / 1000;
       g.save(); g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.5; g.drawImage(dotSprite("#9b5cff"), x - 60, y - 60, 120, 120);
       g.globalAlpha = 1; g.strokeStyle = "rgba(210,170,255,0.9)"; g.lineWidth = 3;
       for (let i = 0; i < 3; i++) { g.beginPath(); g.ellipse(x, y, 26, 9, t * 2 + i * 1.05, 0, 6.29); g.stroke(); }
       g.globalCompositeOperation = "source-over"; g.fillStyle = "#05010a"; g.beginPath(); g.arc(x, y, 15, 0, 6.29); g.fill();
       g.strokeStyle = "#e9dcff"; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, 16, 0, 6.29); g.stroke(); g.restore();
-      return;
-    }
-    if (s.kind === K.NUKE) {
+    },
+    [K.NUKE](s, x, y, now) {
       const a = Math.atan2(s.vy, s.vx), fl = 1 + Math.sin(now / 22 + s.x) * 0.25;
       g.save(); g.translate(x, y); g.rotate(a);
       g.globalCompositeOperation = "lighter";
@@ -10434,25 +10453,22 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       g.save(); g.translate(-7, -7); g.scale(14 / 24, 14 / 24); g.fill(ICON_PATHS.nuke, "evenodd"); g.restore();
       g.restore();
       g.globalCompositeOperation = "lighter";
-      return;
     }
-
-    if (s.kind === K.ROCKET) {   // a rocket the size of a rocket (it used to be drawn twice as big)
-      const a = Math.atan2(s.vy, s.vx), fl = 1 + Math.sin(now / 25 + s.x) * 0.25;
-      g.save(); g.translate(x, y); g.rotate(a); g.scale(1.15, 1.15);
-      const fg = g.createLinearGradient(-34 * fl, 0, -8, 0);
-      fg.addColorStop(0, "rgba(255,60,20,0)"); fg.addColorStop(1, "rgba(255,210,90,0.95)");
-      g.fillStyle = fg; g.beginPath(); g.moveTo(-8, -4); g.lineTo(-34 * fl, 0); g.lineTo(-8, 4); g.fill();
-      g.globalCompositeOperation = "source-over";
-      g.fillStyle = "#8a7fb0"; g.beginPath(); g.moveTo(-10, -8); g.lineTo(-2, -3); g.lineTo(-2, 3); g.lineTo(-10, 8); g.fill();
-      const bg = g.createLinearGradient(0, -5, 0, 5);
-      bg.addColorStop(0, "#f4f1ff"); bg.addColorStop(1, "#a59cc8");
-      g.fillStyle = bg; rrect(-10, -4.5, 20, 9, 4); g.fill();
-      g.fillStyle = "#ff5a6e"; g.beginPath(); g.moveTo(10, -4.5); g.quadraticCurveTo(18, 0, 10, 4.5); g.fill();
-      g.globalCompositeOperation = "lighter";
-      g.restore();
-      return;
+  };
+  // a shot as it flies: its own look (SHOT_ART, BOMB_ART), the fireball for any other; Quad damage puts a halo round it
+  const UNSEEN = new Set([K.PISTOL, K.SHOCK, K.DET, K.MELEE, K.SWORD]);   // beams are drawn as beams, a blade on its bin; a detonator is not seen
+  function drawShot(s, x, y, now) {
+    if (s.m >= QUAD) {   // Quad damage shots carry a violet-blue halo
+      const hg = g.createRadialGradient(x, y, 0, x, y, 26);
+      hg.addColorStop(0, "rgba(195,139,255,0.55)"); hg.addColorStop(1, "rgba(195,139,255,0)");
+      g.fillStyle = hg; g.beginPath(); g.arc(x, y, 26, 0, 6.29); g.fill();
     }
+    if (UNSEEN.has(s.kind)) return;
+    const art = SHOT_ART[s.kind] || BOMB_ART[s.kind];
+    if (art) { art(s, x, y, now); return; }
+    drawFireball(s, x, y, now);
+  }
+  function drawFireball(s, x, y, now) {
     const fl = 1 + Math.sin(now / 28 + s.y) * 0.18;
     g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
     const tail = g.createLinearGradient(-52 * fl, 0, 10, 0);
@@ -10474,7 +10490,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     g.fillStyle = core; g.beginPath(); g.arc(4, 0, 17 * fl, 0, 6.29); g.fill();
     g.restore();
   }
-
   // ---------- live engine fire: a jet of flame, drawn as fire flows ----------
   // Local frame: nozzle at the origin, +y points out of the engine. The jet is a strip of turbulent flame texture (noise
   // stretched along the flow, tileable along it) scrolled outward every frame so the fire visibly pours out of the
@@ -12309,22 +12324,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   botSlider.addEventListener("input", () => { botChoice.n = Math.max(0, Math.min(MAX_BOTS, Number(botSlider.value))); showBotCount(); store.set("binrocket.bots", JSON.stringify(botChoice)); });
   segButtons(document.getElementById("botLevel"), Object.entries(BOT_LEVELS).map(([k, L]) => [k, L.label]), botChoice.level, v => { botChoice.level = v; store.set("binrocket.bots", JSON.stringify(botChoice)); });
 
-  // ---------- the look: a WebGL pass over the finished 2D frame ----------
-  // The game draws with the 2D canvas as ever; when this works, each frame of it is handed to the GPU and comes out
-  // with what a 2D canvas cannot do: bloom (bright fire, shots, neon and pick-ups bleed light round them, from a
-  // blurred copy of only their brightest parts, at a quarter of the size and again at an eighth, so the glow is wide
-  // and cheap), a touch of colour grading, a vignette, and a short colour split on a big hit or blast. The 2D canvas
-  // stays underneath (still the one that takes the mouse); if WebGL is missing, the context is lost, the player picks
-  // light effects or the device can't keep up, this canvas hides and the plain picture shows, nothing else changes.
-  const post = (() => {
-    let gl = null, el = null;
-    try {
-      if (typeof document === "undefined" || !document.body || !window.WebGLRenderingContext) return null;
-      el = document.createElement("canvas"); el.id = "post"; el.setAttribute("aria-hidden", "true");
-      gl = el.getContext("webgl", { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: "high-performance" });
-    } catch { gl = null; }
-    if (!gl) return null;
-    cv.after(el);
+  // ---------- the GLSL of the WebGL look (post-webgl.js): the passes over the frame and the smoke fluid ----------
+  const POST_GLSL = (() => {
     const VS = "attribute vec2 p;varying vec2 v;void main(){v=p*.5+.5;gl_Position=vec4(p,0.,1.);}";
     // the bright parts only (a soft knee above the threshold), fire and neon kept in their colours
     const BRIGHT = "precision mediump float;varying vec2 v;uniform sampler2D t;uniform vec2 px;void main(){" +
@@ -12364,6 +12365,39 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       "float l=dot(c,vec3(.299,.587,.114));c=mix(vec3(l),c,sat);c=(c-.5)*1.04+.5;" +
       "float r=length((v-.5)*vec2(1.,.8));c*=1.-vig*smoothstep(.45,.95,r);" +
       "c=c/(1.+max(c-.85,0.)*.9);gl_FragColor=vec4(c,1.);}";
+    const H = "precision mediump float;varying vec2 v;uniform vec2 px;";
+    // the smoke fluid's steps (a fragment shader each)
+    const FLUID = {
+      advect: H + "uniform sampler2D vel,src;uniform vec2 shift;uniform float dt,keep;void main(){vec2 c=v-texture2D(vel,v).xy*dt*px+shift;" +
+        "gl_FragColor=(c.x<0.||c.y<0.||c.x>1.||c.y>1.)?vec4(0.):texture2D(src,c)*keep;}",
+      splat: H + "uniform sampler2D base;uniform vec2 at;uniform vec4 col;uniform float r,radial,aspect;void main(){vec2 d=v-at;d.x*=aspect;float k=exp(-dot(d,d)/r);" +
+        "vec4 add=radial>.5?vec4(normalize(d+1e-5)*col.x,0.,0.):col;gl_FragColor=texture2D(base,v)+add*k;}",
+      curl: H + "uniform sampler2D vel;void main(){float l=texture2D(vel,v-vec2(px.x,0.)).y,r=texture2D(vel,v+vec2(px.x,0.)).y,b=texture2D(vel,v-vec2(0.,px.y)).x,t=texture2D(vel,v+vec2(0.,px.y)).x;gl_FragColor=vec4(.5*(r-l-t+b),0.,0.,1.);}",
+      vort: H + "uniform sampler2D vel,cu;uniform float dt,amt;void main(){float l=texture2D(cu,v-vec2(px.x,0.)).x,r=texture2D(cu,v+vec2(px.x,0.)).x,b=texture2D(cu,v-vec2(0.,px.y)).x,t=texture2D(cu,v+vec2(0.,px.y)).x,c=texture2D(cu,v).x;" +
+        "vec2 f=.5*vec2(abs(t)-abs(b),abs(r)-abs(l));f/=length(f)+1e-4;f*=amt*c;f.y*=-1.;gl_FragColor=vec4(texture2D(vel,v).xy+f*dt,0.,1.);}",
+      div: H + "uniform sampler2D vel;void main(){float l=texture2D(vel,v-vec2(px.x,0.)).x,r=texture2D(vel,v+vec2(px.x,0.)).x,b=texture2D(vel,v-vec2(0.,px.y)).y,t=texture2D(vel,v+vec2(0.,px.y)).y;gl_FragColor=vec4(.5*(r-l+t-b),0.,0.,1.);}",
+      press: H + "uniform sampler2D pr,dv;void main(){float l=texture2D(pr,v-vec2(px.x,0.)).x,r=texture2D(pr,v+vec2(px.x,0.)).x,b=texture2D(pr,v-vec2(0.,px.y)).x,t=texture2D(pr,v+vec2(0.,px.y)).x;gl_FragColor=vec4((l+r+b+t-texture2D(dv,v).x)*.25,0.,0.,1.);}",
+      grad: H + "uniform sampler2D pr,vel;void main(){float l=texture2D(pr,v-vec2(px.x,0.)).x,r=texture2D(pr,v+vec2(px.x,0.)).x,b=texture2D(pr,v-vec2(0.,px.y)).x,t=texture2D(pr,v+vec2(0.,px.y)).x;gl_FragColor=vec4(texture2D(vel,v).xy-.5*vec2(r-l,t-b),0.,1.);}"
+    };
+    return { VS, BRIGHT, BLUR, LIGHT, COMP, FLUID };
+  })();
+  // ---------- the look: a WebGL pass over the finished 2D frame ----------
+  // The game draws with the 2D canvas as ever; when this works, each frame of it is handed to the GPU and comes out
+  // with what a 2D canvas cannot do: bloom (bright fire, shots, neon and pick-ups bleed light round them, from a
+  // blurred copy of only their brightest parts, at a quarter of the size and again at an eighth, so the glow is wide
+  // and cheap), a touch of colour grading, a vignette, and a short colour split on a big hit or blast. The 2D canvas
+  // stays underneath (still the one that takes the mouse); if WebGL is missing, the context is lost, the player picks
+  // light effects or the device can't keep up, this canvas hides and the plain picture shows, nothing else changes.
+  const post = (() => {
+    let gl = null, el = null;
+    try {
+      if (typeof document === "undefined" || !document.body || !window.WebGLRenderingContext) return null;
+      el = document.createElement("canvas"); el.id = "post"; el.setAttribute("aria-hidden", "true");
+      gl = el.getContext("webgl", { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: "high-performance" });
+    } catch { gl = null; }
+    if (!gl) return null;
+    cv.after(el);
+    const { VS, BRIGHT, BLUR, LIGHT, COMP } = POST_GLSL;
     const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
     const prog = fs => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.bindAttribLocation(p, 0, "p"); gl.linkProgram(p);
       if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); const u = {}; return { p, u: n => u[n] ?? (u[n] = gl.getUniformLocation(p, n)) }; };
@@ -12396,19 +12430,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); return gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE; };
       const pair = () => { const p = { r: mk(), w: mk() }; p.swap = () => { const t = p.r; p.r = p.w; p.w = t; }; return p; };
       const V = pair(), D = pair(), PR = pair(), DIV = mk(), CURL = mk();
-      const H = "precision mediump float;varying vec2 v;uniform vec2 px;";
-      const F = {
-        advect: prog(H + "uniform sampler2D vel,src;uniform vec2 shift;uniform float dt,keep;void main(){vec2 c=v-texture2D(vel,v).xy*dt*px+shift;" +
-          "gl_FragColor=(c.x<0.||c.y<0.||c.x>1.||c.y>1.)?vec4(0.):texture2D(src,c)*keep;}"),
-        splat: prog(H + "uniform sampler2D base;uniform vec2 at;uniform vec4 col;uniform float r,radial,aspect;void main(){vec2 d=v-at;d.x*=aspect;float k=exp(-dot(d,d)/r);" +
-          "vec4 add=radial>.5?vec4(normalize(d+1e-5)*col.x,0.,0.):col;gl_FragColor=texture2D(base,v)+add*k;}"),
-        curl: prog(H + "uniform sampler2D vel;void main(){float l=texture2D(vel,v-vec2(px.x,0.)).y,r=texture2D(vel,v+vec2(px.x,0.)).y,b=texture2D(vel,v-vec2(0.,px.y)).x,t=texture2D(vel,v+vec2(0.,px.y)).x;gl_FragColor=vec4(.5*(r-l-t+b),0.,0.,1.);}"),
-        vort: prog(H + "uniform sampler2D vel,cu;uniform float dt,amt;void main(){float l=texture2D(cu,v-vec2(px.x,0.)).x,r=texture2D(cu,v+vec2(px.x,0.)).x,b=texture2D(cu,v-vec2(0.,px.y)).x,t=texture2D(cu,v+vec2(0.,px.y)).x,c=texture2D(cu,v).x;" +
-          "vec2 f=.5*vec2(abs(t)-abs(b),abs(r)-abs(l));f/=length(f)+1e-4;f*=amt*c;f.y*=-1.;gl_FragColor=vec4(texture2D(vel,v).xy+f*dt,0.,1.);}"),
-        div: prog(H + "uniform sampler2D vel;void main(){float l=texture2D(vel,v-vec2(px.x,0.)).x,r=texture2D(vel,v+vec2(px.x,0.)).x,b=texture2D(vel,v-vec2(0.,px.y)).y,t=texture2D(vel,v+vec2(0.,px.y)).y;gl_FragColor=vec4(.5*(r-l+t-b),0.,0.,1.);}"),
-        press: prog(H + "uniform sampler2D pr,dv;void main(){float l=texture2D(pr,v-vec2(px.x,0.)).x,r=texture2D(pr,v+vec2(px.x,0.)).x,b=texture2D(pr,v-vec2(0.,px.y)).x,t=texture2D(pr,v+vec2(0.,px.y)).x;gl_FragColor=vec4((l+r+b+t-texture2D(dv,v).x)*.25,0.,0.,1.);}"),
-        grad: prog(H + "uniform sampler2D pr,vel;void main(){float l=texture2D(pr,v-vec2(px.x,0.)).x,r=texture2D(pr,v+vec2(px.x,0.)).x,b=texture2D(pr,v-vec2(0.,px.y)).x,t=texture2D(pr,v+vec2(0.,px.y)).x;gl_FragColor=vec4(texture2D(vel,v).xy-.5*vec2(r-l,t-b),0.,1.);}")
-      };
+      const F = Object.fromEntries(Object.entries(POST_GLSL.FLUID).map(([k, src]) => [k, prog(src)]));
       let W1 = 0, H1 = 0, ok = true, lastCx = null, lastCy = null;
       const splats = [];
       const run = (pr, out, bind) => { gl.useProgram(pr.p); gl.bindFramebuffer(gl.FRAMEBUFFER, out.f); gl.viewport(0, 0, W1, H1); gl.uniform2f(pr.u("px"), 1 / W1, 1 / H1); bind(pr); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); };
@@ -12653,7 +12675,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   document.getElementById("ctrlTitle").textContent = "Controls · " + CONTROLS[myDevice].label;
   document.getElementById("clist").innerHTML = CONTROLS[myDevice].rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
 
-  // ---------- start ----------
+  // ---------- the start card: the pilot's look (a preview and the pickers) ----------
   const pv = document.getElementById("preview"), pctx = pv.getContext("2d");
   function drawPreview(now) {
     const main = g, mainTS = TS; g = pctx; TS = 1;
@@ -12705,6 +12727,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   document.getElementById("randomLook").addEventListener("click", () => {
     setLook(CUSTOM_KEYS.map(key => Math.floor(Math.random() * CUSTOM[key].items.length)));
   });
+  // ---------- the start card: the pilot's name, new game (mode, map, bots, in steps) or a friend's code ----------
   const nameInput = document.getElementById("nameInput");
   nameInput.value = store.get("binrocket.name") || "Bin-" + Math.floor(10 + Math.random() * 89);
   const lobbyInput = document.getElementById("lobbyInput"), goBtn = document.getElementById("goBtn");
@@ -12830,6 +12853,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const measureHud = () => document.documentElement.style.setProperty("--hud-bottom", Math.ceil(hud.getBoundingClientRect().bottom) + "px");
   new ResizeObserver(measureHud).observe(hud);
   addEventListener("resize", measureHud);
+  // ---------- in game: the settings card and the scoreboard ----------
   // graphics settings: the gear on the scoreboard, or the button on the start card
   const setEl = document.getElementById("settings");
   const pickRes = v => { settings.res = v; saveSettings(); resScale = v === "auto" ? 1 : v; resize(); };
@@ -12874,6 +12898,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   addEventListener("keyup", e => { if (e.code === "Tab") { e.preventDefault(); showBoard(scorePinned); } });
   addEventListener("blur", () => { scorePinned = false; showBoard(false); });
   addEventListener("wheel", e => { if (!boardBox.hidden) { e.preventDefault(); boardBox.scrollTop += e.deltaY; } }, { passive: false });
+  // ---------- take off, and the page starting up ----------
   document.getElementById("startForm").addEventListener("submit", e => {
     e.preventDefault();
     if (lan.guest) { joining = false; offlineRun = false; localRun = true; }   // a guest in a local room plays the host's game
@@ -12907,7 +12932,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   if (window.BRS_FILE) document.getElementById("dlGame").hidden = true;   // already the one-file game
   // keep the game on this device (sw.js): it opens again with no internet, for offline play or a local room
   if (standalone && "serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
-  // the fire and smoke textures (10-effects.js) are made ahead, one at a time while the page is idle, so the first
+  // the fire and smoke textures (render/particles.js) are made ahead, one at a time while the page is idle, so the first
   // blasts of a game don't stutter making them (the server, which draws nothing, has no need of them)
   if (!window.BRS_BODY_CANVAS) {
     let k = 0;
@@ -12915,7 +12940,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const warm = () => { if (k === 0) smokeGrain(); if (k < 32) { fireSprite(k >> 2, k & 3); k++; later(warm); } };
     setTimeout(warm, 800);
   }
-
   // ---------- chat ----------
   // T opens a line to type in (the game's keys let go while it is open); Enter sends it, Esc or leaving it closes it.
   // Lines show over the mini map and fade after 10 s (all of the last few come back while typing). Names and text go

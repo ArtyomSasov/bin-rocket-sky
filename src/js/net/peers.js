@@ -159,9 +159,10 @@
   function applyCombatReports(id, p, r) {
     if (p.rd !== stats.round) return;
     // credit for my fireballs that they report
-    const validHit = k => typeof k === "string" && k.length <= 48;
-    const mine = k => validHit(k) && k.startsWith(myTag + ".") && credited.size < MAX_CREDITS;
-    for (const k of Array.isArray(p.hb) ? p.hb.slice(0, 16).filter(validHit) : []) if (mine(k) && !credited.has(id + ":" + k)) {
+    const validHit = k => typeof k === "string" && k.length <= 48, reports = l => Array.isArray(l) ? l.slice(0, 16).filter(validHit) : [];
+    const hb = reports(p.hb), ko = reports(p.ko);
+    const mine = k => k.startsWith(myTag + ".") && credited.size < MAX_CREDITS;
+    for (const k of hb) if (mine(k) && !credited.has(id + ":" + k)) {
       credited.add(id + ":" + k); me.score += 1; stats.hits++;
       // hits on one pilot within a moment (a shotgun's pellets) add up in one "Hit +N", not a pile of "+1"s
       const f0 = floaters.find(f => f.hitOf === id && f.t < 0.3);
@@ -172,11 +173,11 @@
       metricPeer(k, id, false);
       confirmShotHit(id, k, r);
     }
-    if (bots.length) { creditBots(Array.isArray(p.hb) ? p.hb.slice(0, 16).filter(validHit) : [], false, id); creditBots(Array.isArray(p.ko) ? p.ko.slice(0, 16).filter(validHit) : [], true, id); }
-    for (const k of Array.isArray(p.ko) ? p.ko.slice(0, 16).filter(validHit) : []) if (typeof k === "string") reportKill(k, r.name, id);
-    for (const k of Array.isArray(p.ko) ? p.ko.slice(0, 16).filter(validHit) : []) if (mine(k) && !credited.has("ko" + id + ":" + k)) {
+    if (bots.length) { creditBots(hb, false, id); creditBots(ko, true, id); }
+    for (const k of ko) reportKill(k, r.name, id);
+    for (const k of ko) if (mine(k) && !credited.has("ko" + id + ":" + k)) {
       credited.add("ko" + id + ":" + k); me.score += 5; floaters.push({ x: r.x, y: r.y - 50, t: 0, txt: "KILL " + r.name, gold: true });
-      if (serverRun && !(Array.isArray(p.hb) && p.hb.includes(k))) serverHitShown(id);   // (the killing shot comes as a kill, not a hit: it confirms the hit shown too)
+      if (serverRun && !hb.includes(k)) serverHitShown(id);   // (the killing shot comes as a kill, not a hit: it confirms the hit shown too)
       gainXp(killXp(me.lv, r.lv || 1), performance.now());
       metricPeer(k, id, true);
       killStyle(k, r);

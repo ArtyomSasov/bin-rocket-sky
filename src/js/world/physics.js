@@ -116,8 +116,10 @@
   // the first solid point along the path a shot travelled this frame
   function shotBody(s) {
     const dx = s.x - s.px, dy = s.y - s.py, L = Math.hypot(dx, dy);
+    const x0 = Math.min(s.px, s.x), x1 = Math.max(s.px, s.x), y0 = Math.min(s.py, s.y), y1 = Math.max(s.py, s.y);
     let nearest = null, fraction = Infinity;
     for (const b of bodies) {
+      if (b.x < x0 - b.r || b.x > x1 + b.r || b.y < y0 - b.r || b.y > y1 + b.r) continue;   // nowhere near the path
       const t = L ? clamp(((b.x - s.px) * dx + (b.y - s.py) * dy) / (L * L), 0, 1) : 0, cx = s.px + dx * t - b.x, cy = s.py + dy * t - b.y;
       if (cx * cx + cy * cy > b.r * b.r) continue;
       const steps = Math.min(80, Math.ceil(L / (b.cs * 0.6)) + 1);

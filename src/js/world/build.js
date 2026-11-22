@@ -1,7 +1,7 @@
   function solidAt(b, px, py) {
     const dx = px - b.x, dy = py - b.y;
     if (dx * dx + dy * dy > b.r * b.r) return false;
-    const [lx, ly] = toLocal(b, px, py), i = Math.floor(lx / b.cs), j = Math.floor(ly / b.cs);
+    const c = Math.cos(b.a), s = Math.sin(b.a), i = Math.floor((dx * c + dy * s + b.hw) / b.cs), j = Math.floor((-dx * s + dy * c + b.hh) / b.cs);   // (toLocal, without its array)
     return i >= 0 && j >= 0 && i < b.gw && j < b.gh && b.cells[j * b.gw + i] === 1;
   }
   const solidAny = (x, y) => { for (const b of bodies) if (solidAt(b, x, y)) return b; return null; };

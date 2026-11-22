@@ -20,7 +20,7 @@
       if (s.kind === K.SWORD) {   // a sword swing: its bin swings the blade, the crescent sweeps, and the blade cuts as it goes
         const sh = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
         if (!sh || sh.dead) { s.life = 0; shots.splice(i, 1); continue; }
-        if (!s.swung) { s.swung = true; s.sa = Math.atan2(s.vy, s.vx); s.side = swingSideOf(s); swingStart(sh, s.sa, s.side); }
+        if (!s.swung) { s.swung = true; s.sa = Math.atan2(s.vy, s.vx); swingStart(sh); }
         s.vx = s.vy = 0; s.traced = true; swordSweep(s, sh);   // (traced: its line is set here, not flown)
         // the blade cuts what it sweeps through: rock, walls, crates (a narrow cut along it), with sparks where it bites
         if (s.lastCut === undefined || now - s.lastCut > 25) {

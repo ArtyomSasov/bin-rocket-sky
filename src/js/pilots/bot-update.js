@@ -12,14 +12,7 @@
         resetCmds(b);
       }
       const human = b.input;   // flown by a player: the AI below only steers the others
-      // nearest living target: me or anyone else in the lobby (other bots included)
-      let tgt = null, td = botWeapon(b) === "holy" ? 3200 : botWeapon(b) === "nuke" || botWeapon(b) === "void" ? 2600 : 1700;   // (a big bomb looks further)
-      if (playing && !me.dead && !mates(b, me)) { const d = Math.hypot(me.x - b.x, me.y - b.y); if (d < td) { td = d; tgt = me; } }
-      for (const [rid, r] of remotes) {
-        if (rid === b.id || r.dead || mates(r, b)) continue;
-        const d = Math.hypot(r.x - b.x, r.y - b.y);
-        if (d < td) { td = d; tgt = r; }
-      }
+      const [tgt, td] = botTarget(b);   // nearest living target: me or anyone else in the lobby (other bots included)
       // a bot flies like a player: it pushes a stick, the bin turns to face where it pushes, and it can only shoot
       // where it faces. So it makes attack runs at its target (aiming ahead of it), breaks off when it gets too
       // close, loops round and comes back; it boosts to close a long gap and dashes aside when it gets hit
@@ -94,7 +87,8 @@
         if (b.y < m) dy += (m - b.y) / m * 2.5; if (b.y > H - m) dy -= (b.y - H + m) / m * 2.5;
         for (const p of bodies) {   // and around planets and moons
           if (p.fixed || p.prop) continue;   // (a station's crates are steered round by its route, not kept off)
-          const hx = b.x - p.x, hy = b.y - p.y, hd = Math.hypot(hx, hy) || 1, gap = hd - p.rr;
+          const lim = p.rr + 280; if (Math.abs(b.x - p.x) > lim || Math.abs(b.y - p.y) > lim) continue;
+          const hx = b.x - p.x, hy = b.y - p.y, hd = Math.sqrt(hx * hx + hy * hy) || 1, gap = hd - p.rr;
           if (gap < 280) { dx += hx / hd * 3 * (1 - gap / 280); dy += hy / hd * 3 * (1 - gap / 280); }
         }
       }
@@ -233,33 +227,51 @@
       else if (tgt && roundLive && botInRange(b, td) && Math.abs(angD(aimA - b.a)) < 0.22 + b.L.aim && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
         const md = MODES[MODE];
         b.fireCd = (md.botCd ? b.L.cd * md.botCd : cd < 0.15 ? cd * 2 : Math.max(b.L.cd, cd * 1.3)) * (0.7 + Math.random() * 0.6); }
-      // another pilot ramming my bot on boost (the bot is the victim, so its owner decides)
-      for (const [rid, r] of remotes) {
-        if (botById.has(rid) || r.dead || !(r.boost > 0) || !r.tag || mates(r, b)) continue;
-        const dx = b.x - r.x, dy = b.y - r.y, d = Math.hypot(dx, dy) || 1;
-        if (d < 31 * (sizeOf(r.lv || 1) + sizeOf(b.lv || 1))) {   // (their bin is theirs to move: only mine takes the blow here)
-          const nx = dx / d, ny = dy / d, mb = binMass(b.lv), mr = binMass(r.lv), vn = (b.vx - (r.vx || 0)) * nx + (b.vy - (r.vy || 0)) * ny;
-          if (vn < 0) {
-            const j = -1.5 * vn / (1 / mb + 1 / mr), dmg = knockDmg(j / mb);
-            b.vx += j * nx / mb; b.vy += j * ny / mb;
-            if (dmg > 0 && (!b.rammedBy || now - b.rammedBy > 300)) { b.rammedBy = now; botHurt(b, dmg, r.tag + ".ram" + Math.floor(now), now, false); }
-          }
-        }
-      }
+      botRammed(b, now);
       recordHitPose(b, now);
-      // anyone's shots can hit the bot (the bot's own excepted). Its invulnerability now (a dash, a respawn) stops a
-      // shot judged now; a player's shot judged in the past (lag compensation) meets it as it was then (targetHit)
-      const invNow = now < b.inv;
-      for (const s of shots) {
-        if (invNow && !(s.hitTime && HITSCAN[s.kind] && !s.mine)) continue;
-        if (s.life <= 0 || SHOTS[s.kind].inert || !nearPath(s, b) || !canHurt(s, b, b.id)) continue;
-        if (s.kind === K.MINE && SHOTS[K.MINE].life - s.life < MINE_ARM) continue;
-        if (targetHit(s, b)) {
-          if (pierces(s)) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
-          shotBurst(s); hitConfirm(s, b.lv, b.x, b.y, remotes.get(b.id)); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
-          botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx), invNow);
+      shotsAtBot(b, now);
+    }
+    binContacts(now);
+  }
+  // a bot's target: the nearest living pilot not on its side (me or anyone else, other bots included), within how far
+  // it looks (further with a big bomb); [the pilot, how far] or [null, that range]
+  function botTarget(b) {
+    let tgt = null, td = botWeapon(b) === "holy" ? 3200 : botWeapon(b) === "nuke" || botWeapon(b) === "void" ? 2600 : 1700;
+    if (playing && !me.dead && !mates(b, me)) { const d = Math.hypot(me.x - b.x, me.y - b.y); if (d < td) { td = d; tgt = me; } }
+    for (const [rid, r] of remotes) {
+      if (rid === b.id || r.dead || Math.abs(r.x - b.x) > td || Math.abs(r.y - b.y) > td || mates(r, b)) continue;
+      const ex = r.x - b.x, ey = r.y - b.y, d = Math.sqrt(ex * ex + ey * ey);
+      if (d < td) { td = d; tgt = r; }
+    }
+    return [tgt, td];
+  }
+  // another pilot ramming my bot on boost (the bot is the victim, so its owner decides)
+  function botRammed(b, now) {
+    for (const [rid, r] of remotes) {
+      if (botById.has(rid) || r.dead || !(r.boost > 0) || !r.tag || mates(r, b)) continue;
+      const dx = b.x - r.x, dy = b.y - r.y, d = Math.hypot(dx, dy) || 1;
+      if (d < 31 * (sizeOf(r.lv || 1) + sizeOf(b.lv || 1))) {   // (their bin is theirs to move: only mine takes the blow here)
+        const nx = dx / d, ny = dy / d, mb = binMass(b.lv), mr = binMass(r.lv), vn = (b.vx - (r.vx || 0)) * nx + (b.vy - (r.vy || 0)) * ny;
+        if (vn < 0) {
+          const j = -1.5 * vn / (1 / mb + 1 / mr), dmg = knockDmg(j / mb);
+          b.vx += j * nx / mb; b.vy += j * ny / mb;
+          if (dmg > 0 && (!b.rammedBy || now - b.rammedBy > 300)) { b.rammedBy = now; botHurt(b, dmg, r.tag + ".ram" + Math.floor(now), now, false); }
         }
       }
     }
-    binContacts(now);
+  }
+  // anyone's shots can hit the bot (the bot's own excepted). Its invulnerability now (a dash, a respawn) stops a
+  // shot judged now; a player's shot judged in the past (lag compensation) meets it as it was then (targetHit)
+  function shotsAtBot(b, now) {
+    const invNow = now < b.inv;
+    for (const s of shots) {
+      if (invNow && !(s.hitTime && HITSCAN[s.kind] && !s.mine)) continue;
+      if (s.life <= 0 || SHOTS[s.kind].inert || !nearPath(s, b) || !canHurt(s, b, b.id)) continue;
+      if (s.kind === K.MINE && SHOTS[K.MINE].life - s.life < MINE_ARM) continue;
+      if (targetHit(s, b)) {
+        if (pierces(s)) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
+        shotBurst(s); hitConfirm(s, b.lv, b.x, b.y, remotes.get(b.id)); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
+        botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx), invNow);
+      }
+    }
   }

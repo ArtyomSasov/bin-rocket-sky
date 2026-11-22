@@ -1,7 +1,7 @@
   // ---------- a player's guns on the authoritative server ----------
   // A pilot flown by a player (addPilot) carries an arsenal like the local pilot's: crates and trophies add guns,
   // the input picks one, and both triggers work by the rules shoot() keeps for the local pilot
-  // (11-weapons.js). What only a screen can do fires in its plain form: a guided nuke flies straight.
+  // (weapons/shoot.js). What only a screen can do fires in its plain form: a guided nuke flies straight.
   //   input: { w: the gun's index in WEAPON_KEYS, fire, alt: the triggers held }
   function pilotArm(b) {
     const o = MODES[MODE].only;
@@ -25,7 +25,7 @@
   // what the snapshot tells the player about their arsenal: [gun index, ammo] (-1: endless)
   const pilotArsenalWire = b => Object.entries(b.arsenal).map(([k, n]) => [WEAPON_KEYS.indexOf(k), Number.isFinite(n) ? Math.ceil(n) : -1]);
   // A player's shot is judged against where its targets were on the player's screen (a straight round also
-  // catches up that far along its line, as a peer's does in 12-network.js). Their screen shows the others between
+  // catches up that far along its line, as a peer's does in net/peers.js). Their screen shows the others between
   // two snapshots, ld ms behind the newest, which itself left here half a round trip before it arrived; the controls
   // then take the other half to come back, and wait half a step on average for a step to fly them. So the targets
   // they saw are a round trip, ld and half a step old: Source's "server time - latency - view interpolation".

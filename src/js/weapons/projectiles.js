@@ -107,7 +107,7 @@
     if (s.kind === K.SWORD || s.kind === K.MELEE) {   // a blade bites: the cut of light, the glint, the warp, the spray, its clash
       const heavy = s.kind === K.SWORD, own = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
       // the stroke's way at the hit: across the line from its bin, the way the swing goes
-      const ra = own ? Math.atan2(s.y - own.y, s.x - own.x) : Math.atan2(s.vy, s.vx), a = ra + (own?.swingSide || -1) * Math.PI / 2;
+      const ra = own ? Math.atan2(s.y - own.y, s.x - own.x) : Math.atan2(s.vy, s.vx), a = ra + SWING_SIDE * Math.PI / 2;
       let victim = null, vd = 90;
       for (const o of [me, ...remotes.values()]) if (o !== own && !o.dead && Math.hypot(o.x - s.x, o.y - s.y) < vd) { vd = Math.hypot(o.x - s.x, o.y - s.y); victim = o; }
       bladeClash(clamp((s.x - me.x) / 900, -1, 1));
