@@ -909,7 +909,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   balanceShot(K.NOVA, { dmg: HP(60) });   // the Plasma Nova's direct hit, by its charge (its burst: SPLASH)   // the laser pistol: red sparks where it lands
   balanceShot(K.ROCKET, { dmg: HP(75) });
   balanceShot(K.PULSE_BOLT, { dmg: HP(24) });
-  balanceShot(K.LASER, { dmg: HP(72 * .24 * 1.8) }); // the Pulse Gun's beam, a link beam: half again UT99's, and it heats up held on (LINK_HEAT)
   balanceShot(K.SHARD, { dmg: HP(16), life: 1.15 });
   balanceShot(K.FLAK, { dmg: HP(70), life: .8 });
   balanceShot(K.ORB, { dmg: HP(55), life: 4, r: 16 });
@@ -925,10 +924,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   balanceShot(K.MINE, { dmg: HP(100) });
   Object.assign(WEAPONS.fire, { cd: .4 }); Object.assign(WEAPONS.fire.alt, { cd: .2 });
   Object.assign(WEAPONS.laser, { cd: .16, shot: [K.PULSE_BOLT, 2400] });
-  // the link beam heats as it is held on: its damage climbs to LINK_HEAT times over a second of steady fire, and falls
-  // back the moment it lets go
-  // (now: from LINK_MIN at the first tick up to LINK_HEAT over LINK_RAMP s; the gun overheats after about 3 s of it)
-  const LINK_MIN = 0.6, LINK_HEAT = 1.8, LINK_RAMP = 2.5, linkHeatOf = held => LINK_MIN + (LINK_HEAT - LINK_MIN) * Math.min(1, held / LINK_RAMP);
+  const LINK_MIN = 0.6, LINK_HEAT = 1.8;   // how hot a beam is drawn (render: its colour runs from cool to hot over this range of its strength)
   Object.assign(WEAPONS.rocket, { shot: [K.ROCKET, 1260] }); WEAPONS.rocket.alt.shot = [K.ROCKET, 1260];
   Object.assign(WEAPONS.orb, { shot: [K.ORB, 650] });
   Object.assign(WEAPONS.shard, { shot: [K.SHARD, 3500] }); WEAPONS.shard.alt.shot = [K.FLAK, 1050];
@@ -945,7 +941,9 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // Retired guns: gone from the game, but their names keep their place in WEAPON_KEYS (the numbers on the wire) and in
   // WEAPON_SLOTS (the keys after them stay put); anything naming one, or firing one of their shots, is refused
   for (const k of ["triple", "bolt", "tele", "gauss", "nail", "gauntlet"]) WEAPONS[k] = { name: k, disabled: true, ammo: 0, shot: null };
-  const RETIRED_SHOTS = new Set([K.FIRE, K.BOLT, K.SAW, K.BEACON, K.TFRAG, K.GAUSS, K.NAIL, K.SPIKE, K.RECALL, K.SAW_ALT]);
+  // the shot kinds a peer may send: what the guns fire (either mode), the Blood Blade's touch and the two detonators.
+  // Anything else (a retired gun's shots, kinds no gun makes any more) is refused on arrival
+  const WIRE_SHOTS = new Set([K.MELEE, K.DET, K.MDET, ...Object.values(WEAPONS).flatMap(w => [w.shot, w.alt?.shot]).filter(Boolean).map(s => s[0])]);
   let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
@@ -2689,7 +2687,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     powerDown: ["p_powerdown", 0.5, 0.8, 800], flagReturn: ["p_ready", 0.7, 0.7, 800],
     event: ["p_event", 0.55, 0.75, 2000], ui: ["p_ui", 0.18, 1.1, 120],
     refuse: ["p_noammo", 0.65, 1, 700], lowAmmo: ["p_warning", 0.35, 1.4, 1000],
-    chargeFull: ["p_ready", 0.65, 1.4, 500],
     chargeCancel: ["p_powerdown", 0.35, 1.2, 200],
     shockCombo: ["p_ut_shock_combo", 1, 1, 120], shockBeam: ["p_ut_shock_alt", 0.9, 1, 100],
     laserPulse: ["p_boom_orb", 0.75, 1.4, 150], demonicZap: ["p_hit_laser", 0.4, 0.6, 100],
@@ -5757,32 +5754,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       if (e.hit === "body" && Math.random() < 0.5) puff(e.x, e.y, (Math.random() - 0.5) * 30, -20 - Math.random() * 30, 0.6, 3 + Math.random() * 3, "rgb(255,140,60)", 1);   // the rock glows and melts
     }
   }
-  // and it jumps on: up to two more enemies close to the one it hit, each taking a little less
-  const CHAIN_R = 340, CHAIN_DMG = 0.14, CHAIN_JUMPS = 2;   // the laser: one jump, shorter and weaker
-  function boltChain(s, hx, hy, hitId, now) {
-    if (s.chained || s.kind === K.LASER) return; // Laser keeps tracking and Pulse; chaining belongs to Lightning.
-    s.chained = true;
-    const done = new Set([hitId]), laser = s.kind === K.LASER;
-    let x = hx, y = hy;
-    for (let j = 0; j < (laser ? 1 : CHAIN_JUMPS); j++) {
-      let best = null, bd = laser ? 260 : CHAIN_R;
-      const consider = (id, o) => { if (done.has(id) || !canHurt(s, o, id) || fixedCover(x, y, o.x, o.y)) return; const d = Math.hypot(o.x - x, o.y - y); if (d < bd) { bd = d; best = { id, o }; } };
-      consider("me", me);
-      for (const [id, r] of remotes) consider(id, r);
-      if (!best) return;
-      const t = best.o, a = Math.atan2(t.y - y, t.x - x);
-      done.add(best.id);
-      arcs.push({ x1: x, y1: y, x2: t.x, y2: t.y, t: 0 });
-      impact(t.x, t.y, "#bfefff", 1);
-      packPlay("p_hit_laser", 0.5, t.x, t.y);
-      const dmg = (laser ? 0.1 : CHAIN_DMG * (1 - j * 0.25)) * (s.m || 1), cid = s.id + "c" + j;
-      metricChild(s.id, cid);
-      if (best.id === "me") { if (hurt(now, dmg, false, K.LASER, a)) { pushCapped(hitBy, cid, 12); if (me.dead) { meKilled(cid); killedBy(s.owner); } } }
-      else if (botById.has(best.id)) botHurt(botById.get(best.id), dmg, cid, now, false, K.LASER, a);
-      else if (s.mine) hitConfirm({ ...s, kind: K.LASER }, t.lv, t.x, t.y, t);
-      x = t.x; y = t.y;
-    }
-  }
   // homing: turns gently toward the nearest enemy ahead of it, never faster than a bin flies, so boost or a dash escapes it
   function steerRocket(s, dt) {
     const cur = Math.atan2(s.vy, s.vx);
@@ -6180,7 +6151,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (alt && w.quickAlt) { me.altCd = pat.cd; fireCd = Math.max(fireCd, 0.15); } else
     fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
     const gun = muzzleAt(k);   // (the server fires a player's pilot from the same gun tips)
-    if (alt && pat.shot[0] === K.LASER) { me.linkHeld = now - (me.linkAt || 0) < 400 ? (me.linkHeld || 0) + (now - me.linkAt) / 1000 : 0; me.linkAt = now; mul *= linkHeatOf(me.linkHeld); }   // (the link beam heats up held on)
     const muzzle = volley(me, now, pat, gun, undefined, mul);
     const [name, vol, pitch] = pat.sfx;
     const packed = alt && k === "orb" ? audioCue("shockBeam") : k === "minigun" && alt ? (stopContinuous("me"), packPlay("p_user_autocannon", 0.7))
@@ -6873,7 +6843,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     // my own pilot on the server is no remote, but its shots come back the same way
     const peer = remotes.get(owner) || (owner && owner === srv.id ? srv : null);
     if (!peer || seenShots.size >= MAX_SEEN_SHOTS) return;
-    if (!Number.isInteger(f[5]) || f[5] < 0 || f[5] >= SHOTS.length || RETIRED_SHOTS.has(f[5]) || !f.slice(1, 5).every(Number.isFinite) || f.length < 6) return;
+    if (!Number.isInteger(f[5]) || f[5] < 0 || f[5] >= SHOTS.length || !WIRE_SHOTS.has(f[5]) || !f.slice(1, 5).every(Number.isFinite) || f.length < 6) return;
     if (peer.tag && !f[0].startsWith(peer.tag + ".")) return;
     noteShotKind(f[0], f[5]);
     if (!Number.isFinite(f[9]) || !Number.isFinite(sentAt)) return;
@@ -6884,8 +6854,11 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const age = fresh ? 0 : Math.max(0, queued) + Math.max(link, jitter);
     if (age > 1200) return;
     const lag = clamp(age, 0, REWIND_MS);
-    // m: Quad damage (x4) and the crown (x1.25), or the charge cannon's charge (0.25..1); anything else is ignored
-    const kind = f[5], m = kind === K.SWORD && Number.isFinite(f[6]) ? clamp(f[6], 0.25, 5) : kind === K.PISTOL && Number.isFinite(f[6]) ? clamp(f[6], 0.5, remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now() ? QUAD * 1.25 : 1.25) : kind === K.NOVA && Number.isFinite(f[6]) ? clamp(f[6], 0.3, remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now() ? QUAD * 1.25 : 1.25) : kind === K.LASER && Number.isFinite(f[6]) ? clamp(f[6], LINK_MIN, LINK_HEAT * (remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now() ? QUAD * 1.25 : 1.25)) : [QUAD, 1.25, QUAD * 1.25].includes(f[6]) ? f[6] : 1;   // (a link beam heats up to LINK_HEAT; Quad only if the shooter is seen to carry it)
+    // m: what the shot's strength is multiplied by: the crown (x1.25) always, Quad damage (x4) only when its shooter is
+    // seen to carry it; a sword's wind-up (from 0.25), a pistol's rapid fire (0.5), a nova's charge (0.3) below that
+    const amped = remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now(), top = amped ? QUAD * 1.25 : 1.25;
+    const kind = f[5], low = { [K.SWORD]: 0.25, [K.PISTOL]: 0.5, [K.NOVA]: 0.3 }[kind];
+    const m = !Number.isFinite(f[6]) ? 1 : low !== undefined ? clamp(f[6], low, top) : [QUAD, 1.25, QUAD * 1.25].includes(f[6]) && f[6] <= top ? f[6] : 1;
     const x = clamp(num(f[1], 0), 0, W), y = clamp(num(f[2], 0), 0, H);
     // Keep an age bound relative to the newest state as well as to this packet.
     if (!fresh && Number.isFinite(peer.lastTs) && peer.lastTs - f[9] > 1200) return;
@@ -7767,13 +7740,13 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     renderWeapon();
   }
   // Shot prediction: my trigger runs the same shoot() as anywhere (every gun, both fires, rockets loaded, the
-  // cutter and the charge cannon released), but each shot volley() makes is only shown here, at once, from my
+  // the Plasma Nova released), but each shot volley() makes is only shown here, at once, from my
   // nose, as the server will fire it from my controls. When the server's copy comes back it is not shown again
   // (claimPrediction). It is a picture only: what it hits, and the ammo it takes, are the server's word.
   const myShot = s => s.mine || mySrvShot(s);
   function predictShot(s) {
-    const d = [srv.tag + ".p" + (srv.pseq++).toString(36), Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), s.kind, +s.m.toFixed(2), 0, s.cut || 0, Date.now()];
-    // lock-on shots (lightning, the plasma beam) are shown at once too, at the target this screen locks on (the server
+    const d = [srv.tag + ".p" + (srv.pseq++).toString(36), Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), s.kind, +s.m.toFixed(2), 0, 0, Date.now()];
+    // lock-on shots are shown at once too, at the target this screen locks on (the server
     // locks on in its own view of the same moment, so it is nearly always the same one).
     // A prediction this screen refused (too many shots alive) is not recorded, so the server's copy still shows.
     if (addRemoteShot(srv.id, d, Date.now(), true) === true) srv.pred.push({ kind: s.kind, at: performance.now(), n: srv.pseq - 1 }); if (srv.pred.length > 48) srv.pred.shift();
@@ -8211,7 +8184,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     addBots(1, "hard");
     if (bots.length === before) return null;
     const b = bots[bots.length - 1];
-    b.name = String(name || "Pilot").slice(0, 14); b.input = { mx: 0, my: 0, aim: b.a, fire: false, alt: false, boost: false, brake: false, dash: 0, w: -1, s: 0 }; b.ackSeq = 0; b.energy = 100; b.dashDone = 0; b.teleDone = 0; b.fireCd = 0;   // a bot's opening pause is not for players
+    b.name = String(name || "Pilot").slice(0, 14); b.input = { mx: 0, my: 0, aim: b.a, fire: false, alt: false, boost: false, brake: false, dash: 0, w: -1, s: 0 }; b.ackSeq = 0; b.energy = 100; b.dashDone = 0; b.fireCd = 0;   // a bot's opening pause is not for players
     pilotArm(b);
     return b;
   }
@@ -8535,7 +8508,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         if (targetHit(s, b)) {
           if (pierces(s)) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
           shotBurst(s); hitConfirm(s, b.lv, b.x, b.y, remotes.get(b.id)); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
-          if (s.kind === K.LASER) boltChain(s, b.x, b.y, b.id, now);
           botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx), invNow);
         }
       }
@@ -8622,7 +8594,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
 
   // ---------- a player's guns on the authoritative server ----------
   // A pilot flown by a player (addPilot) carries an arsenal like the local pilot's: crates and trophies add guns,
-  // the input picks one, and both triggers and the teleporter work by the rules shoot() keeps for the local pilot
+  // the input picks one, and both triggers work by the rules shoot() keeps for the local pilot
   // (11-weapons.js). What only a screen can do fires in its plain form: a guided nuke flies straight.
   //   input: { w: the gun's index in WEAPON_KEYS, fire, alt: the triggers held }
   const PILOT_FALLBACK = ["fire", "nuke", "holy", "saw"];   // never switched to when a gun runs dry
@@ -8689,7 +8661,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   function pilotTriggers(b, dt, now) {
     const i = b.input, only = MODES[MODE].only;
     if (pilotGuide(b, dt, now)) return;
-    // the gun picked: one this pilot carries (the teleporter is a tool, on its own button)
+    // the gun picked: one this pilot carries
     const pick = WEAPON_KEYS[i.w];
     if (!only && pick && pick !== b.weapon && pick in b.arsenal) {
       b.weapon = pick; b.fireCd = Math.max(b.fireCd, 0.15); b.rocketLoad = b.loadFor = b.charge = b.altCharge = 0;
@@ -8716,7 +8688,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       if (i.alt && ready && (b.arsenal[k] || 0) >= alt.cost) { b.altCharge = Math.min(1, b.altCharge + dt / alt.charge); if (alt.nova && b.altCharge >= 1) { pilotShoot(b, now, k, true); b.altCharge = 0; } }   // (a full nova goes by itself, as on the screen)
       else { if (b.altCharge > 0 && !i.alt && ready) pilotShoot(b, now, k, true); b.altCharge = 0; }
     }
-    // the charge cannon: held charges it, letting go fires it
+    // the Blood Blade: held, it winds up; let go, it strikes
     if (w.charge) {
       if (i.fire && live) { b.charge = Math.min(1, b.charge + dt / w.charge); return; }
       if (b.charge > 0 && ready) pilotShoot(b, now, k, false, Math.max(0.25, b.charge));
@@ -8755,7 +8727,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (alt && w.quickAlt) { b.altCd = pat.cd; b.fireCd = Math.max(b.fireCd, 0.15); } else
     b.fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * b.spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
     const gun = muzzleOf(b, k);   // from the gun's tip, as the player's screen fires it
-    if (alt && pat.shot[0] === K.LASER) { b.linkHeld = now - (b.linkAt || 0) < 400 ? (b.linkHeld || 0) + (now - b.linkAt) / 1000 : 0; b.linkAt = now; mul *= linkHeatOf(b.linkHeld); }   // (its beam heats held on, as a player's screen has it)
     const shot = volley(b, now, pat, gun, undefined, mul);
     if (pat.guided && shot) { shot.life = SHOTS[K.NUKE].life; b.guide = { shot, gb: b.input.gb || 0 }; }   // steered by the player from now on
     const kick = (pat.kick || 0) * (w.charge ? mul : 1);
@@ -8878,7 +8849,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       if (altHeld && ready && me.arsenal[me.weapon] >= altW.cost) {
         const was = altCharge; altCharge = Math.min(1, altCharge + dt / altW.charge);
         if (Math.floor(was * 6) !== Math.floor(altCharge * 6)) sfx("p_charge", 0.3, 0.8 + altCharge * 0.5);
-        if (was < 1 && altCharge === 1) { if (altW.nova) { shoot(now, true); altCharge = 0; } else audioCue("chargeFull"); }   // (a full nova goes by itself: held, they keep coming)
+        if (was < 1 && altCharge === 1) { shoot(now, true); altCharge = 0; }   // (a full nova goes by itself: held, they keep coming)
       } else {
         if (altHeld && ready && (me.arsenal[me.weapon] || 0) < altW.cost) rejectFire("NEED " + altW.cost + " AMMO", now);
         if (altCharge > 0) { if (!altHeld && ready && me.arsenal[me.weapon] >= altW.cost) shoot(now, true); else audioCue("chargeCancel"); altCharge = 0; }
@@ -9460,14 +9431,9 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         s.direct = "me";   // its blast (if any) spares me: I took the direct hit
         shotBurst(s);
         if (SHOTS[s.kind].shove) pelletShove(me, s, SHOTS[s.kind].shove);
-        if (s.kind === K.LASER) boltChain(s, me.x, me.y, "me", now);
         hurtMe(s, now, shotDmg(s), s.kind, Math.atan2(s.vy, s.vx));
       }
       // someone else's bolt hitting a third pilot can still jump to me or my bots
-      if (s.kind === K.LASER && !s.mine && !s.chained && s.life > 0) for (const [rid, r] of remotes) {
-        if (r.inv || botById.has(rid) || !canHurt(s, r, rid)) continue;
-        if (segHit(s, r.x, r.y, binR(r.lv))) { s.life = 0; boltChain(s, r.x, r.y, rid, now); break; }
-      }
       // a shot reaches a bin flown in another browser: it ends here and they confirm the hit. Mine is predicted
       // (the hit marker waits for their word); a bot's or a third pilot's just bursts, so it neither hangs on its
       // target nor flies on through it and blows up somewhere it never reached on the victim's screen
@@ -9477,7 +9443,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         if (armed && targetHit(s, r)) {
           if (pierces(s)) { if (railOnce(s, rid)) { shotBurst(s); if (s.mine) predictHit(s, rid, r); else if (mySrvShot(s)) serverHitFx(s, rid, r); } continue; }
           s.life = 0; s.direct = rid; shotBurst(s); if (s.mine) predictHit(s, rid, r); else if (mySrvShot(s)) serverHitFx(s, rid, r);
-          if (s.kind === K.LASER && s.mine) boltChain(s, r.x, r.y, rid, now);
           break;
         }
       }

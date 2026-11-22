@@ -1,6 +1,6 @@
   // ---------- a player's guns on the authoritative server ----------
   // A pilot flown by a player (addPilot) carries an arsenal like the local pilot's: crates and trophies add guns,
-  // the input picks one, and both triggers and the teleporter work by the rules shoot() keeps for the local pilot
+  // the input picks one, and both triggers work by the rules shoot() keeps for the local pilot
   // (11-weapons.js). What only a screen can do fires in its plain form: a guided nuke flies straight.
   //   input: { w: the gun's index in WEAPON_KEYS, fire, alt: the triggers held }
   const PILOT_FALLBACK = ["fire", "nuke", "holy", "saw"];   // never switched to when a gun runs dry
@@ -67,7 +67,7 @@
   function pilotTriggers(b, dt, now) {
     const i = b.input, only = MODES[MODE].only;
     if (pilotGuide(b, dt, now)) return;
-    // the gun picked: one this pilot carries (the teleporter is a tool, on its own button)
+    // the gun picked: one this pilot carries
     const pick = WEAPON_KEYS[i.w];
     if (!only && pick && pick !== b.weapon && pick in b.arsenal) {
       b.weapon = pick; b.fireCd = Math.max(b.fireCd, 0.15); b.rocketLoad = b.loadFor = b.charge = b.altCharge = 0;
@@ -94,7 +94,7 @@
       if (i.alt && ready && (b.arsenal[k] || 0) >= alt.cost) { b.altCharge = Math.min(1, b.altCharge + dt / alt.charge); if (alt.nova && b.altCharge >= 1) { pilotShoot(b, now, k, true); b.altCharge = 0; } }   // (a full nova goes by itself, as on the screen)
       else { if (b.altCharge > 0 && !i.alt && ready) pilotShoot(b, now, k, true); b.altCharge = 0; }
     }
-    // the charge cannon: held charges it, letting go fires it
+    // the Blood Blade: held, it winds up; let go, it strikes
     if (w.charge) {
       if (i.fire && live) { b.charge = Math.min(1, b.charge + dt / w.charge); return; }
       if (b.charge > 0 && ready) pilotShoot(b, now, k, false, Math.max(0.25, b.charge));
@@ -133,7 +133,6 @@
     if (alt && w.quickAlt) { b.altCd = pat.cd; b.fireCd = Math.max(b.fireCd, 0.15); } else
     b.fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * b.spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
     const gun = muzzleOf(b, k);   // from the gun's tip, as the player's screen fires it
-    if (alt && pat.shot[0] === K.LASER) { b.linkHeld = now - (b.linkAt || 0) < 400 ? (b.linkHeld || 0) + (now - b.linkAt) / 1000 : 0; b.linkAt = now; mul *= linkHeatOf(b.linkHeld); }   // (its beam heats held on, as a player's screen has it)
     const shot = volley(b, now, pat, gun, undefined, mul);
     if (pat.guided && shot) { shot.life = SHOTS[K.NUKE].life; b.guide = { shot, gb: b.input.gb || 0 }; }   // steered by the player from now on
     const kick = (pat.kick || 0) * (w.charge ? mul : 1);

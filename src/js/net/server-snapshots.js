@@ -137,13 +137,13 @@
     renderWeapon();
   }
   // Shot prediction: my trigger runs the same shoot() as anywhere (every gun, both fires, rockets loaded, the
-  // cutter and the charge cannon released), but each shot volley() makes is only shown here, at once, from my
+  // the Plasma Nova released), but each shot volley() makes is only shown here, at once, from my
   // nose, as the server will fire it from my controls. When the server's copy comes back it is not shown again
   // (claimPrediction). It is a picture only: what it hits, and the ammo it takes, are the server's word.
   const myShot = s => s.mine || mySrvShot(s);
   function predictShot(s) {
-    const d = [srv.tag + ".p" + (srv.pseq++).toString(36), Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), s.kind, +s.m.toFixed(2), 0, s.cut || 0, Date.now()];
-    // lock-on shots (lightning, the plasma beam) are shown at once too, at the target this screen locks on (the server
+    const d = [srv.tag + ".p" + (srv.pseq++).toString(36), Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), s.kind, +s.m.toFixed(2), 0, 0, Date.now()];
+    // lock-on shots are shown at once too, at the target this screen locks on (the server
     // locks on in its own view of the same moment, so it is nearly always the same one).
     // A prediction this screen refused (too many shots alive) is not recorded, so the server's copy still shows.
     if (addRemoteShot(srv.id, d, Date.now(), true) === true) srv.pred.push({ kind: s.kind, at: performance.now(), n: srv.pseq - 1 }); if (srv.pred.length > 48) srv.pred.shift();

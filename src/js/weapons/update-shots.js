@@ -168,14 +168,9 @@
         s.direct = "me";   // its blast (if any) spares me: I took the direct hit
         shotBurst(s);
         if (SHOTS[s.kind].shove) pelletShove(me, s, SHOTS[s.kind].shove);
-        if (s.kind === K.LASER) boltChain(s, me.x, me.y, "me", now);
         hurtMe(s, now, shotDmg(s), s.kind, Math.atan2(s.vy, s.vx));
       }
       // someone else's bolt hitting a third pilot can still jump to me or my bots
-      if (s.kind === K.LASER && !s.mine && !s.chained && s.life > 0) for (const [rid, r] of remotes) {
-        if (r.inv || botById.has(rid) || !canHurt(s, r, rid)) continue;
-        if (segHit(s, r.x, r.y, binR(r.lv))) { s.life = 0; boltChain(s, r.x, r.y, rid, now); break; }
-      }
       // a shot reaches a bin flown in another browser: it ends here and they confirm the hit. Mine is predicted
       // (the hit marker waits for their word); a bot's or a third pilot's just bursts, so it neither hangs on its
       // target nor flies on through it and blows up somewhere it never reached on the victim's screen
@@ -185,7 +180,6 @@
         if (armed && targetHit(s, r)) {
           if (pierces(s)) { if (railOnce(s, rid)) { shotBurst(s); if (s.mine) predictHit(s, rid, r); else if (mySrvShot(s)) serverHitFx(s, rid, r); } continue; }
           s.life = 0; s.direct = rid; shotBurst(s); if (s.mine) predictHit(s, rid, r); else if (mySrvShot(s)) serverHitFx(s, rid, r);
-          if (s.kind === K.LASER && s.mine) boltChain(s, r.x, r.y, rid, now);
           break;
         }
       }

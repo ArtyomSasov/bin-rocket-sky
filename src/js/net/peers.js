@@ -17,7 +17,7 @@
     // my own pilot on the server is no remote, but its shots come back the same way
     const peer = remotes.get(owner) || (owner && owner === srv.id ? srv : null);
     if (!peer || seenShots.size >= MAX_SEEN_SHOTS) return;
-    if (!Number.isInteger(f[5]) || f[5] < 0 || f[5] >= SHOTS.length || RETIRED_SHOTS.has(f[5]) || !f.slice(1, 5).every(Number.isFinite) || f.length < 6) return;
+    if (!Number.isInteger(f[5]) || f[5] < 0 || f[5] >= SHOTS.length || !WIRE_SHOTS.has(f[5]) || !f.slice(1, 5).every(Number.isFinite) || f.length < 6) return;
     if (peer.tag && !f[0].startsWith(peer.tag + ".")) return;
     noteShotKind(f[0], f[5]);
     if (!Number.isFinite(f[9]) || !Number.isFinite(sentAt)) return;
@@ -28,8 +28,11 @@
     const age = fresh ? 0 : Math.max(0, queued) + Math.max(link, jitter);
     if (age > 1200) return;
     const lag = clamp(age, 0, REWIND_MS);
-    // m: Quad damage (x4) and the crown (x1.25), or the charge cannon's charge (0.25..1); anything else is ignored
-    const kind = f[5], m = kind === K.SWORD && Number.isFinite(f[6]) ? clamp(f[6], 0.25, 5) : kind === K.PISTOL && Number.isFinite(f[6]) ? clamp(f[6], 0.5, remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now() ? QUAD * 1.25 : 1.25) : kind === K.NOVA && Number.isFinite(f[6]) ? clamp(f[6], 0.3, remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now() ? QUAD * 1.25 : 1.25) : kind === K.LASER && Number.isFinite(f[6]) ? clamp(f[6], LINK_MIN, LINK_HEAT * (remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now() ? QUAD * 1.25 : 1.25)) : [QUAD, 1.25, QUAD * 1.25].includes(f[6]) ? f[6] : 1;   // (a link beam heats up to LINK_HEAT; Quad only if the shooter is seen to carry it)
+    // m: what the shot's strength is multiplied by: the crown (x1.25) always, Quad damage (x4) only when its shooter is
+    // seen to carry it; a sword's wind-up (from 0.25), a pistol's rapid fire (0.5), a nova's charge (0.3) below that
+    const amped = remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now(), top = amped ? QUAD * 1.25 : 1.25;
+    const kind = f[5], low = { [K.SWORD]: 0.25, [K.PISTOL]: 0.5, [K.NOVA]: 0.3 }[kind];
+    const m = !Number.isFinite(f[6]) ? 1 : low !== undefined ? clamp(f[6], low, top) : [QUAD, 1.25, QUAD * 1.25].includes(f[6]) && f[6] <= top ? f[6] : 1;
     const x = clamp(num(f[1], 0), 0, W), y = clamp(num(f[2], 0), 0, H);
     // Keep an age bound relative to the newest state as well as to this packet.
     if (!fresh && Number.isFinite(peer.lastTs) && peer.lastTs - f[9] > 1200) return;

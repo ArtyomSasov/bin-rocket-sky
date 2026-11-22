@@ -24,7 +24,8 @@ async function createMatch(opts) {
   return create(opts);
 }
 // steps a match for some seconds on its own clock (60 steps a second, a snapshot every other one, as the server)
-function run(m, seconds, each, clock = { t: 1e6 }) {
+const runClock = { t: 1e6 };
+function run(m, seconds, each, clock = runClock) {
   for (let i = 0; i < seconds * 60; i++) { clock.t += 1000 / 60; if (each) each(clock.t, i); m.step(1 / 60, clock.t); if (i % 2) m.packet(clock.t); }
   return clock.t;
 }
