@@ -251,7 +251,7 @@
       // a blast's smoke rolling out through the fluid
       burst(x, y, r, col, amount, radial) { if (fluid && smokeLive) { fluid.splat(x, y, r, col, amount, 0, 0, radial); for (let k = 0; k < 6; k++) { const a = k / 6 * 6.283; fluid.splat(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, r * 0.5, col, amount * 0.4, Math.cos(a) * radial * 0.25, Math.sin(a) * radial * 0.25); } } },
       // a shock wave bending the picture: out to reach (world px) over dur seconds, strength in the view's terms
-      wave(x, y, reach, dur, strength) { waves.push({ x, y, reach, dur, s: strength, t0: performance.now() }); if (waves.length > 4) waves.shift(); },
+      wave(x, y, reach, dur, strength) { pushCapped(waves, { x, y, reach, dur, s: strength, t0: performance.now() }, 4); },
       frame(dt) {
         if (settings.post === "auto" && lowQ && autoStep < 4) {
           const t = performance.now();

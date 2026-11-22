@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { skip, loadGame, ROOT } = require('./helpers/game.cjs');
-const { readAll } = require('../tools/lib/source.cjs');
+const { gameSource: readAll } = require('../tools/lib/source.cjs');
 
 const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(path.join(dir, e.name)) : /\.(wav|ogg|mp3)$/.test(e.name) ? [path.join(dir, e.name)] : []);
 

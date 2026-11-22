@@ -93,7 +93,7 @@
         ct: Math.round(clockNow()),   // when (shared clock): the junk rocks are met where they were then
         vt: serverRun ? Math.round(Date.now() + (srv.off || 0) - srv.interp) : 0 };   // the moment of the others shown now (serverInterp)
       srv.kx = srv.ky = 0;
-      srv.cmds.push(c); if (srv.cmds.length > 240) srv.cmds.shift();
+      pushCapped(srv.cmds, c, 240);
       if (srv.trig) { me.a = c.aim; srv.jk = c.s; fireTick(CMD_DT, performance.now(), srv.trig.held, srv.trig.altHeld); srv.jk = undefined; }   // the trigger, before the flight (as the server)
       const g = pilotMove(me, c);
       f = { crash: g.crash || f.crash, fence: g.fence || f.fence, drift: g.drift, dashed: g.dashed !== false ? g.dashed : f.dashed, lit: g.lit || f.lit, rock: g.rock || f.rock };

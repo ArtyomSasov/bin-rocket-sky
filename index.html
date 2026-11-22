@@ -939,9 +939,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   WEAPONS.rail.cd = 1.8; WEAPONS.gren.shot = [K.GREN, 1225];
   WEAPONS.mine.cd = .8;
   WEAPONS.nuke.shot = [K.NUKE, 840]; WEAPONS.nuke.alt.shot = [K.NUKE, 840];
-  // Retired guns: gone from the game, but their names keep their place in WEAPON_KEYS (the numbers on the wire) and in
-  // WEAPON_SLOTS (the keys after them stay put); anything naming one, or firing one of their shots, is refused
-  for (const k of ["triple", "bolt", "tele", "gauss", "nail", "gauntlet"]) WEAPONS[k] = { name: k, disabled: true, ammo: 0, shot: null };
+  // Retired guns (triple, bolt, tele, gauss, nail, gauntlet) are gone from WEAPONS: only their names stay, in
+  // WEAPON_KEYS (their numbers on the wire), so WEAPONS[k] alone says whether k is a gun of the game
   // the shot kinds a peer may send: what the guns fire (either mode), the Blood Blade's touch and the two detonators.
   // Anything else (a retired gun's shots, kinds no gun makes any more) is refused on arrival
   const WIRE_SHOTS = new Set([K.MELEE, K.DET, K.MDET, ...Object.values(WEAPONS).flatMap(w => [w.shot, w.alt?.shot]).filter(Boolean).map(s => s[0])]);
@@ -1800,6 +1799,10 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const WALL_R = 34;      // bot radius against the walls
   const rndIn = (s, m) => m + Math.random() * (s - 2 * m);
   const num = (v, d) => Number.isFinite(v) ? v : d;
+  // Quad damage on a pilot: its seconds left (a bot, me: ampUntil), and whether it carries it (another player: amp,
+  // from their state)
+  const ampLeft = (p, now = performance.now()) => p && p.ampUntil > now ? (p.ampUntil - now) / 1000 : 0;
+  const amped = (p, now = performance.now()) => !!p && (!!p.amp || ampLeft(p, now) > 0);
   // world time everyone agrees on: each player averages its clock offset to every other player,
   // so all of them land on the same mean even when a phone's clock is seconds off
   let clockOff = 0, clockTarget = 0, clockBase = 0;   // clockBase: offline, the shift that starts a fresh round at take-off
@@ -2636,12 +2639,12 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const f = 90 + 26 * level; bladeHum.o1.frequency.setTargetAtTime(f, t, 0.06); bladeHum.o2.frequency.setTargetAtTime(f * 1.014, t, 0.06); bladeHum.o3.frequency.setTargetAtTime(f / 2, t, 0.06);
   }
   // the swing: "vwhoom", the hum Doppler-bent up as the blade sweeps past and down after it, louder for a fuller swing
-  function bladeSwing(power = 1, pan = 0, heavy = false) {
+  function bladeSwing(power = 1, pan = 0) {
     if (!audio || !sfxBus) return;
-    const t = audio.currentTime, d = heavy ? 0.5 : 0.36, pk = d * 0.42, out = bladeOut(pan), h = humVoice(heavy ? 78 : 96, out), up = heavy ? 1.9 : 1.75;
-    for (const [o, m] of [[h.o1, 1], [h.o2, 1.014], [h.o3, 0.5]]) { const f0 = (heavy ? 78 : 96) * m; o.frequency.cancelScheduledValues(t); o.frequency.setValueAtTime(f0 * 0.92, t); o.frequency.exponentialRampToValueAtTime(f0 * up, t + pk); o.frequency.exponentialRampToValueAtTime(f0 * 0.8, t + d); }
+    const t = audio.currentTime, d = 0.5, pk = d * 0.42, out = bladeOut(pan), h = humVoice(78, out), up = 1.9;
+    for (const [o, m] of [[h.o1, 1], [h.o2, 1.014], [h.o3, 0.5]]) { const f0 = 78 * m; o.frequency.cancelScheduledValues(t); o.frequency.setValueAtTime(f0 * 0.92, t); o.frequency.exponentialRampToValueAtTime(f0 * up, t + pk); o.frequency.exponentialRampToValueAtTime(f0 * 0.8, t + d); }
     h.lp.frequency.setValueAtTime(700, t); h.lp.frequency.exponentialRampToValueAtTime(4200, t + pk); h.lp.frequency.exponentialRampToValueAtTime(600, t + d);
-    const vol = (heavy ? 0.24 : 0.19) * (0.45 + 0.55 * power);
+    const vol = 0.24 * (0.45 + 0.55 * power);
     h.v.gain.setValueAtTime(0.0001, t); h.v.gain.exponentialRampToValueAtTime(vol, t + pk); h.v.gain.exponentialRampToValueAtTime(0.0001, t + d);
     h.os.forEach(o => { o.start(t); o.stop(t + d + 0.02); });
     const n = audio.createBufferSource(), bf = audio.createBiquadFilter(), nv = audio.createGain();   // the air it cuts
@@ -3737,13 +3740,17 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const bi = terrainCursor++ % det.length, b = det[bi];
     if (b.fixed) return null;
     if (b.dead || b.free) return [stats.round, bi, 1, ""];
-    let bytes = "";
-    for (let i = 0; i < b.cells.length; i += 8) {
-      let bits = 0;
-      for (let k = 0; k < 8 && i + k < b.cells.length; k++) if (b.initialCells[i + k] && !b.cells[i + k]) bits |= 1 << k;
-      bytes += String.fromCharCode(bits);
+    // (kept until the body loses a cell: every cut lowers its mass, so an unchanged mass is an unchanged body)
+    if (!b.terEnc || b.terEnc.mass !== b.mass) {
+      let bytes = "";
+      for (let i = 0; i < b.cells.length; i += 8) {
+        let bits = 0;
+        for (let k = 0; k < 8 && i + k < b.cells.length; k++) if (b.initialCells[i + k] && !b.cells[i + k]) bits |= 1 << k;
+        bytes += String.fromCharCode(bits);
+      }
+      b.terEnc = { mass: b.mass, enc: btoa(bytes) };
     }
-    return [stats.round, bi, 0, btoa(bytes)];
+    return [stats.round, bi, 0, b.terEnc.enc];
   }
   function applyTerrain(s) {
     if (s.length !== 4 || s[0] !== stats.round || !Number.isSafeInteger(s[1]) || (s[2] !== 0 && s[2] !== 1) || typeof s[3] !== "string") return;
@@ -4774,7 +4781,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // back over the right shoulder; a swing sweeps round the front from right to left (the Saber's next one back again),
   // the hilt circling just outside the bin and the blade pointing outward, so it never passes through the bin.
   // A Blood Blade swing: SWING_ARC radians swept in SWING_MS, centred on the aim; the blade reaches BLADE_REACH
-  const SWING_MS = 350, SWING_ARC = 2.5, BLADE_REACH = 125, SABER_MS = 200, SABER_REACH = 150;
+  const SWING_MS = 350, SWING_ARC = 2.5, BLADE_REACH = 125;
   const swingSideOf = () => -1;   // (right-handed: from the right round to the left, on every screen and the server alike)
   const swingEase = k => 1 - Math.pow(1 - k, 2.2);
   // where the blade is now: from the bin's edge out to its tip, swept round as the swing goes (owner: the bin swinging)
@@ -4788,7 +4795,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const TOUCH_MS = 450, BLADE_TOUCH = { shot: [K.MELEE, 0], feel: [6, 0.1, 0], sfx: ["hit", 0.7, 0.7] };
   function bladeTouch(b, now, wind, targets) {
     if (b.swingAt && now - b.swingAt < (b.swingMs || SWING_MS)) return;   // mid-swing the swing itself cuts
-    const P = bladePose(b, true, wind, now), rh = binR(b.lv || 1) + 4, L = (BLADE_REACH - rh * 0.6) * (1 + wind * 0.08);
+    const P = bladePose(b, wind, now), rh = binR(b.lv || 1) + 4, L = (BLADE_REACH - rh * 0.6) * (1 + wind * 0.08);
     const ha = b.a + P.ph, hx = b.x + Math.cos(ha) * rh, hy = b.y + Math.sin(ha) * rh, da = b.a + P.ps, ux = Math.cos(da), uy = Math.sin(da);
     const seen = b.touched || (b.touched = new Map());
     for (const [id, o] of targets) {
@@ -4803,7 +4810,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // beam is inside something, a bite every 0.14 s (a wider one mid-swing), with sparks and the hiss of the burn
   function bladeGrind(b, now, wind) {
     if (now - (b.grindAt || 0) < 140) return;
-    const P = bladePose(b, true, wind, now), rh = binR(b.lv || 1) + 4, L = (BLADE_REACH - rh * 0.6) * (1 + wind * 0.08);
+    const P = bladePose(b, wind, now), rh = binR(b.lv || 1) + 4, L = (BLADE_REACH - rh * 0.6) * (1 + wind * 0.08);
     const ha = b.a + P.ph, hx = b.x + Math.cos(ha) * rh, hy = b.y + Math.sin(ha) * rh, da = b.a + P.ps, ux = Math.cos(da), uy = Math.sin(da);
     let n = 0;
     for (let i = 2; i <= 8 && n < 3; i++) {
@@ -4817,14 +4824,14 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   function swingStart(o, a, side) {
     o.swingSide = side; o.swingAt = performance.now(); o.swingMs = SWING_MS;
     const dist = Math.hypot(o.x - me.x, o.y - me.y);
-    if (dist < 1600) bladeSwing(1 - dist / 1600, clamp((o.x - me.x) / 900, -1, 1), true);
+    if (dist < 1600) bladeSwing(1 - dist / 1600, clamp((o.x - me.x) / 900, -1, 1));
   }
   // the blade's pose round its bin: hilt at angle ph from the aim (+: to the right), blade pointing at ps from the aim;
   // tr: where the swing was a moment ago (for its smear), lit: how bright
-  function bladePose(b, heavy, wind, now) {
+  function bladePose(b, wind, now) {
     const REST = [1.4, 0.26], ms = b.swingMs || SWING_MS, k = b.swingAt ? (now - b.swingAt) / ms : 9, side = b.swingSide || -1;
-    const arc = heavy ? SWING_ARC : SWING_ARC * 0.9, lead = heavy ? 0.5 : 0.15, hold = heavy ? 0.25 : 0.45 * SABER_MS / ms, rec = heavy ? 0.6 : 1.2;
-    const at = e => { const f0 = arc / 2 + lead, ph = -side * (f0 + (-arc / 2 - f0) * e); return [ph, ph - side * (heavy ? 1.1 - 0.95 * e : 0.5 - 0.4 * e)]; };
+    const arc = SWING_ARC, lead = 0.5, hold = 0.25, rec = 0.6;
+    const at = e => { const f0 = arc / 2 + lead, ph = -side * (f0 + (-arc / 2 - f0) * e); return [ph, ph - side * (1.1 - 0.95 * e)]; };
     if (k >= 0 && k <= 1) { const e = swingEase(k), [ph, ps] = at(e), [p0] = at(swingEase(Math.max(0, k - 0.32))); return { ph, ps, tr: p0, lit: 1.35 - 0.35 * k, k }; }
     if (k > 1 && k < 1 + hold + rec) {   // after it: held a moment where it ended, then brought back to rest
       const [ph, ps] = at(1), f = clamp((k - 1 - hold) / rec, 0, 1), sm = f * f * (3 - 2 * f);
@@ -4835,9 +4842,9 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   }
   // the blade on its bin (x, y: the bin on screen), drawn over it: a hilt of dark metal and a beam of light in its
   // colour with a white-hot core, quivering; mid-swing a smear of light follows it round
-  function drawBlade(b, x, y, heavy, wind, now) {
-    const P = bladePose(b, heavy, wind, now), sz = sizeOf(b.lv || 1), A = b.a, rh = binR(b.lv || 1) + 4;
-    const col = heavy ? "255,40,60" : "70,175,255", L = (heavy ? BLADE_REACH - rh * 0.6 : SABER_REACH - rh * 0.7) * (1 + wind * 0.08);
+  function drawBlade(b, x, y, wind, now) {
+    const P = bladePose(b, wind, now), sz = sizeOf(b.lv || 1), A = b.a, rh = binR(b.lv || 1) + 4;
+    const col = "255,40,60", L = (BLADE_REACH - rh * 0.6) * (1 + wind * 0.08);
     const flick = 0.9 + 0.06 * Math.sin(now / 17 + (b.hue || 0)) + 0.04 * Math.sin(now / 7.3), lit = P.lit * flick;
     const ha = A + P.ph, hx = x + Math.cos(ha) * rh, hy = y + Math.sin(ha) * rh, da = A + P.ps, ux = Math.cos(da), uy = Math.sin(da), tx = hx + ux * L, ty = hy + uy * L;
     g.save(); g.lineCap = "round";
@@ -4858,7 +4865,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     g.strokeStyle = "#1c2028"; g.lineWidth = 7.5 * sz; g.beginPath(); g.moveTo(bx, by); g.lineTo(hx, hy); g.stroke();
     g.strokeStyle = "#a9b4c4"; g.lineWidth = 5 * sz; g.beginPath(); g.moveTo(bx + ux * hl * 0.1, by + uy * hl * 0.1); g.lineTo(hx - ux * hl * 0.45, hy - uy * hl * 0.45); g.stroke();
     g.strokeStyle = "#3a4250"; g.lineWidth = 6.5 * sz; g.beginPath(); g.moveTo(hx - ux * hl * 0.3, hy - uy * hl * 0.3); g.lineTo(hx, hy); g.stroke();
-    g.strokeStyle = heavy ? "#ff4050" : "#5ad0ff"; g.lineWidth = 2; g.beginPath(); g.moveTo(hx - ux * hl * 0.6 - uy * 3 * sz, hy - uy * hl * 0.6 + ux * 3 * sz); g.lineTo(hx - ux * hl * 0.6 + uy * 3 * sz, hy - uy * hl * 0.6 - ux * 3 * sz); g.stroke();   // its switch
+    g.strokeStyle = "#ff4050"; g.lineWidth = 2; g.beginPath(); g.moveTo(hx - ux * hl * 0.6 - uy * 3 * sz, hy - uy * hl * 0.6 + ux * 3 * sz); g.lineTo(hx - ux * hl * 0.6 + uy * 3 * sz, hy - uy * hl * 0.6 - ux * 3 * sz); g.stroke();   // its switch
     // the beam: a wide soft glow, a coloured body, a white core, a hot emitter and a rounded tip
     g.globalCompositeOperation = "lighter";
     for (const [w, c, al] of [[26, col, 0.13], [14, col, 0.38], [8, col, 0.8], [3.6, "255,255,255", 0.95]]) {
@@ -4880,7 +4887,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const col = "255,40,60", hex = "#ff3048", sc = heavy ? 1.35 : 0.8, q = lowQ ? 0.45 : 1;   // (one blade now: its touch is red too, and smaller)
     cuts.push({ x, y, a, t: 0, len: 190 * sc, col, heavy });
     if (cuts.length > 16) cuts.shift();
-    if (victim) { scars.push({ o: victim, lx: x - victim.x, ly: y - victim.y, oa: victim.a || 0, a: a - (victim.a || 0), t: 0, len: 46 * sc, col }); if (scars.length > 24) scars.shift(); }
+    if (victim) { pushCapped(scars, { o: victim, lx: x - victim.x, ly: y - victim.y, oa: victim.a || 0, a: a - (victim.a || 0), t: 0, len: 46 * sc, col }, 24); }
     impacts.push({ x, y, t: 0, r: 34 * sc, col: "#ffffff", dur: 0.08 });
     impacts.push({ x, y, t: 0, r: 170 * sc, col, dur: 0.35, soft: 0.55, fluided: true });   // (light only: no smoke cloud)
     for (const d of [-1, 1]) {   // molten droplets flung along the stroke, both ways, most the way it was going
@@ -5705,6 +5712,10 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     for (const [id, r] of remotes) if (!botById.has(id)) test(r, id);
     return found ? Math.min(range, first + 0.5) : range;
   }
+  // a quick look before the full test: could this shot's path this step pass near o at all? (pad: the bin, the shot
+  // and how far a bin flies in the furthest a shot is judged back, REWIND_MS, with room to spare)
+  const NEAR_PAD = 700;
+  const nearPath = (s, o) => o.x > Math.min(s.px, s.x) - NEAR_PAD && o.x < Math.max(s.px, s.x) + NEAR_PAD && o.y > Math.min(s.py, s.y) - NEAR_PAD && o.y < Math.max(s.py, s.y) + NEAR_PAD;
   const pierces = s => SHOTS[s.kind].pierce || !!s.pc;   // rail-like shots, and fireballs from Lv 7
   // Piercing shots hit each target once.
   function railOnce(s, key) { if (!s.hits) s.hits = new Set(); if (s.hits.has(key)) return false; s.hits.add(key); return true; }
@@ -5915,7 +5926,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const shotJitter = (tag, n, j) => (hash(tagSeed(String(tag || "")), n, 991) - 0.5) * 2 * j;
   function volley(p, now, pat, from, aim, mul = 1) {
     metricVolley(p, pat);
-    const mine = p === me, [kind, speed] = pat.shot, amp = ((mine ? me.ampUntil : p.ampUntil || 0) > now ? QUAD : 1) * mul, ride = kind === K.GREN || kind === K.HOLY || kind === K.MINE ? .6 : 0;
+    const mine = p === me, [kind, speed] = pat.shot, amp = (ampLeft(p, now) > 0 ? QUAD : 1) * mul, ride = kind === K.GREN || kind === K.HOLY || kind === K.MINE ? .6 : 0;
     const base = (aim ?? p.a) + (pat.back ? Math.PI : 0), sz = sizeOf(p.lv || 1);
     let s, vi = 0;
     // the spread's number: a player's shot fired by a flight command is numbered by that command (jk) and its place in
@@ -6554,7 +6565,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   function dropGun(x, y, type, ammo) {
     if (!(ammo > 0) || !Number.isFinite(ammo)) return;
     const id = myTag + "g" + (gunDropSeq++).toString(36), d = [id, Math.round(x), Math.round(y), WEAPON_KEYS.indexOf(type), Math.min(999, Math.ceil(ammo)), Date.now()];
-    myGunDrops.push(d); if (myGunDrops.length > 6) myGunDrops.shift();
+    pushCapped(myGunDrops, d, 6);
     gunDrops.set(id, { x: d[1], y: d[2], type, ammo: d[4], born: performance.now() });
   }
   function spillStars() { me.carry = 0; }   // stars are gone from the game: nothing is spilled
@@ -6574,11 +6585,12 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // Stable controls are independent of inventory and mode; protocol IDs stay in WEAPON_KEYS.
   // never picked by themselves when the gun in hand runs dry (the pistol is the last resort; bombs and the blade are a choice)
   const NO_AUTO_PICK = ["fire", "nuke", "holy", "void", "saw"];
-  const WEAPON_SLOTS = ["fire", "saw", "minigun", "scatter", "rocket", "gren", "laser", "orb", "rail", "nail", "shard", "mine", "gamma", "nuke", "holy", "void"];
+  // the guns by their number key, 1-9 and 0, then Alt with them (null: a key no gun has, kept so the rest stay put)
+  const WEAPON_SLOTS = ["fire", "saw", "minigun", "scatter", "rocket", "gren", "laser", "orb", "rail", null, "shard", "mine", "gamma", "nuke", "holy", "void"];
   const weaponKey = k => { const i = WEAPON_SLOTS.indexOf(k); return i < 0 ? "Q/E" : (i >= 10 ? "Alt+" : "") + ((i % 10 + 1) % 10); };
   const controlledKind = k => ({ gamma: K.GAMMA, mine: K.MINE })[k];
   const controlledShots = k => shots.filter(s => (s.mine || mySrvShot(s)) && s.life > 0 && !s.boom && s.kind === controlledKind(k));
-  const hasWeapon = k => !WEAPONS[k]?.disabled && (!!me.arsenal[k] || controlledShots(k).length > 0);
+  const hasWeapon = k => !!WEAPONS[k] && (!!me.arsenal[k] || controlledShots(k).length > 0);
   let rejectAt = -Infinity, lastWeaponStatus = "";
   function rejectFire(reason, now) {
     if (now - rejectAt < 700) return;
@@ -6837,7 +6849,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const lag = clamp(age, 0, REWIND_MS);
     // m: what the shot's strength is multiplied by: the crown (x1.25) always, Quad damage (x4) only when its shooter is
     // seen to carry it; a sword's wind-up (from 0.25), a pistol's rapid fire (0.5), a nova's charge (0.3) below that
-    const amped = remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now(), top = amped ? QUAD * 1.25 : 1.25;
+    const top = amped(remotes.get(owner)) || amped(botById.get(owner)) ? QUAD * 1.25 : 1.25;
     const kind = f[5], low = { [K.SWORD]: 0.25, [K.PISTOL]: 0.5, [K.NOVA]: 0.3 }[kind];
     const m = !Number.isFinite(f[6]) ? 1 : low !== undefined ? clamp(f[6], low, top) : [QUAD, 1.25, QUAD * 1.25].includes(f[6]) && f[6] <= top ? f[6] : 1;
     const x = clamp(num(f[1], 0), 0, W), y = clamp(num(f[2], 0), 0, H);
@@ -6927,7 +6939,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (Number.isFinite(p.s)) r.score = Math.max(0, Math.floor(p.s));
     r.lv = 1;
     if (Array.isArray(p.st) && p.st.length === 6 && p.st.every(Number.isInteger)) r.st = p.st;   // [round, kills, deaths, shots, hits, best]
-    if (Number.isInteger(p.wp)) r.weapon = WEAPON_KEYS[p.wp] || "fire";
+    if (Number.isInteger(p.wp)) r.weapon = WEAPONS[WEAPON_KEYS[p.wp]] ? WEAPON_KEYS[p.wp] : "fire";
     if (Number.isFinite(p.sh)) r.shield = clamp(p.sh, 0, MAX_SHIELD);
     if (Number.isFinite(p.pg)) r.ping = clamp(p.pg, 0, 5000);
     if ("am" in p) r.amp = p.am >= 1;   // (a player on the server: the seconds it has left)
@@ -6956,7 +6968,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       if (!Array.isArray(d) || typeof d[0] !== "string" || !/^[a-z0-9]{2,16}$/.test(d[0]) || gunDrops.has(d[0])) continue;
       if (!Number.isInteger(d[3]) || d[3] < 0 || d[3] >= WEAPON_KEYS.length) continue;   // an index, never a key like "length"
       const type = WEAPON_KEYS[d[3]];
-      if (type === "fire" || WEAPONS[type]?.disabled) continue;
+      if (type === "fire" || !WEAPONS[type]) continue;
       gunDrops.set(d[0], { x: clamp(num(d[1], 0), 0, W), y: clamp(num(d[2], 0), 0, H), type, ammo: clamp(Math.floor(num(d[4], 1)), 1, 999), born: performance.now() });
     }
     if (Array.isArray(p.terrain)) applyTerrain(p.terrain);
@@ -7634,7 +7646,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if ("fc" in m) me.fc = m.fc === 0 || m.fc === 1 ? m.fc : -1;
     if (Array.isArray(m.al) && m.al.length === 3 && m.al.every(Number.isFinite)) { me.beltArmor = clamp(m.al[0], 0, MAX_SHIELD); me.bodyArmor = clamp(m.al[1], 0, MAX_SHIELD); me.padsArmor = clamp(m.al[2], 0, MAX_SHIELD); }
     if (Number.isInteger(m.am)) {   // Quad damage, as the server has it: taken there, its seconds counted there
-      const left = me.ampUntil > now ? (me.ampUntil - now) / 1000 : 0;
+      const left = ampLeft(me, now);
       if (m.am > 0 && !left) {
         announce("QUAD DAMAGE", "four times the damage for 20 seconds", "#6fa8ff", 4);
         const c = world.amp || me;
@@ -7704,7 +7716,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   function serverArsenal(list, wp) {
     const ar = {};
     for (const e of list.slice(0, 32)) {
-      const k = Array.isArray(e) ? WEAPON_KEYS[e[0]] : null;
+      const k = Array.isArray(e) && WEAPONS[WEAPON_KEYS[e[0]]] ? WEAPON_KEYS[e[0]] : null;
       if (k && WEAPONS[k]) ar[k] = e[1] === -1 ? Infinity : clamp(num(e[1], 0), 0, 9999);
     }
     const keys = Object.keys(ar).join(), was = Object.keys(me.arsenal).join(), old = me.arsenal;
@@ -7730,7 +7742,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     // lock-on shots are shown at once too, at the target this screen locks on (the server
     // locks on in its own view of the same moment, so it is nearly always the same one).
     // A prediction this screen refused (too many shots alive) is not recorded, so the server's copy still shows.
-    if (addRemoteShot(srv.id, d, Date.now(), true) === true) srv.pred.push({ kind: s.kind, at: performance.now(), n: srv.pseq - 1 }); if (srv.pred.length > 48) srv.pred.shift();
+    if (addRemoteShot(srv.id, d, Date.now(), true) === true) pushCapped(srv.pred, { kind: s.kind, at: performance.now(), n: srv.pseq - 1 }, 48);
     stats.shots++;
     return { ...s, mine: false, owner: srv.id, id: d[0] };   // for the caller: where it left from, whose it is, its id here
   }
@@ -7825,12 +7837,12 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     };
     if (!MODES[MODE].only) {
       for (const c of world.picks) {
-        if (grabbed.has(c.key) || c.age < 0.05 || WEAPONS[c.type]?.disabled || !near(c.x, c.y, 56)) continue;
+        if (grabbed.has(c.key) || c.age < 0.05 || !near(c.x, c.y, 56)) continue;
         take(c.key, c.type); gunGot(c.type, c.x, c.y, false);
       }
       for (const [id, d] of gunDrops) {
         const key = "W" + id;
-        if (grabbed.has(key) || WEAPONS[d.type]?.disabled || now - d.born < 650 || !near(d.x, d.y, 56)) continue;
+        if (grabbed.has(key) || now - d.born < 650 || !near(d.x, d.y, 56)) continue;
         take(key, d.type); gunGot(d.type, d.x, d.y, true);
       }
     }
@@ -8292,7 +8304,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         // the guns on their spots and the two big bombs' crates (a nuke, the holy bomb): a bot takes any of them, and so
         // does a player on the server (the teleporter is retired)
         for (const c of [...world.picks, ...world.bombs]) {
-          if (grabbed.has(c.key) || c.age < 0.05 || WEAPONS[c.type]?.disabled) continue;
+          if (grabbed.has(c.key) || c.age < 0.05) continue;
           const d = Math.hypot(c.x - b.x, c.y - b.y);
           if (d < 34 + 30) {   // picked up
             grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
@@ -8306,7 +8318,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
           if (d < bd) { bd = d; best = c; }
         }
         for (const [gid, d] of gunDrops) {   // trophies count as crates
-          if (grabbed.has("W" + gid) || WEAPONS[d.type]?.disabled || performance.now() - d.born < 600) continue;
+          if (grabbed.has("W" + gid) || performance.now() - d.born < 600) continue;
           const dd = Math.hypot(d.x - b.x, d.y - b.y);
           if (dd < 64) { grabbed.add("W" + gid); pushCapped(myGrabs, "W" + gid, 40); if (human) pilotGive(b, d.type, d.ammo); else { b.weapon = d.type; b.ammo = d.ammo; } sfx("weapon_get", 0.5, 1, d.x, d.y); best = null; break; }
           if (dd < bd) { bd = dd; best = d; }
@@ -8479,7 +8491,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       const invNow = now < b.inv;
       for (const s of shots) {
         if (invNow && !(s.hitTime && HITSCAN[s.kind] && !s.mine)) continue;
-        if (s.life <= 0 || SHOTS[s.kind].inert || !canHurt(s, b, b.id)) continue;
+        if (s.life <= 0 || SHOTS[s.kind].inert || !nearPath(s, b) || !canHurt(s, b, b.id)) continue;
         if (s.kind === K.MINE && SHOTS[K.MINE].life - s.life < MINE_ARM) continue;
         if (targetHit(s, b)) {
           if (pierces(s)) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
@@ -8554,7 +8566,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         bw: b.charge > 0 && !b.dead && botWeapon(b) === "saw" ? +b.charge.toFixed(2) : undefined   // its Blood Blade wound up this far
       };
       m.sh = b.shield || 0;
-      m.am = b.ampUntil > now ? Math.ceil((b.ampUntil - now) / 1000) : 0;   // Quad damage: the seconds it has left
+      m.am = Math.ceil(ampLeft(b, now));   // Quad damage: the seconds it has left
       // a player's own HUD (the guns they carry), and which of their controls this state already holds:
       // ak, the last one applied; ag, for how long (ms, including this step), so their screen can compare
       if (b.input) { m.ar = pilotArsenalWire(b); m.ak = (b.cq ? b.cmdAck : b.ackSeq) || 0; m.ag = Math.round(now - (b.ackAt ?? now)); m.en = Math.round(b.energy);
@@ -8582,7 +8594,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const pilotShots = (b, kind) => shots.filter(s => s.owner === b.id && s.life > 0 && !s.boom && s.kind === kind);
   // a crate or a trophy: a new gun joins the arsenal, a carried one gets more ammo; the gun in hand stays
   function pilotGive(b, type, ammo) {
-    if (MODES[MODE].only || !WEAPONS[type] || WEAPONS[type].disabled) return;
+    if (MODES[MODE].only || !WEAPONS[type]) return;
     b.arsenal[type] = Number.isFinite(WEAPONS[type].ammo) ? Math.min(WEAPONS[type].ammo * 2, (b.arsenal[type] || 0) + ammo) : Infinity;
   }
   function pilotSpend(b, k, n) {
@@ -8805,7 +8817,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const ampChip = document.getElementById("ampChip");
   let ampShown = -1;
   function ampHud(now) {
-    const left = me.ampUntil > now ? Math.ceil((me.ampUntil - now) / 1000) : 0;
+    const left = Math.ceil(ampLeft(me, now));
     if (left === ampShown) return;
     ampShown = left; ampChip.hidden = !left; ampChip.textContent = "QUAD DAMAGE x4 · " + left + "s";
   }
@@ -9050,7 +9062,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         ct: Math.round(clockNow()),   // when (shared clock): the junk rocks are met where they were then
         vt: serverRun ? Math.round(Date.now() + (srv.off || 0) - srv.interp) : 0 };   // the moment of the others shown now (serverInterp)
       srv.kx = srv.ky = 0;
-      srv.cmds.push(c); if (srv.cmds.length > 240) srv.cmds.shift();
+      pushCapped(srv.cmds, c, 240);
       if (srv.trig) { me.a = c.aim; srv.jk = c.s; fireTick(CMD_DT, performance.now(), srv.trig.held, srv.trig.altHeld); srv.jk = undefined; }   // the trigger, before the flight (as the server)
       const g = pilotMove(me, c);
       f = { crash: g.crash || f.crash, fence: g.fence || f.fence, drift: g.drift, dashed: g.dashed !== false ? g.dashed : f.dashed, lit: g.lit || f.lit, rock: g.rock || f.rock };
@@ -9555,7 +9567,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     for (const [id, d] of gunDrops) {
       if (now - d.born > GUN_DROP_LIFE) { gunDrops.delete(id); continue; }
       const key = "W" + id;
-      if (WEAPONS[d.type]?.disabled || !playing || me.dead || grabbed.has(key) || now - d.born < 600 || Math.hypot(d.x - me.x, d.y - me.y) > 30 + 30 * sizeOf(me.lv) + magnet()) continue;
+      if (!playing || me.dead || grabbed.has(key) || now - d.born < 600 || Math.hypot(d.x - me.x, d.y - me.y) > 30 + 30 * sizeOf(me.lv) + magnet()) continue;
       grabbed.add(key); pushCapped(myGrabs, key, 40);
       const w = WEAPONS[d.type];
       me.arsenal[d.type] = Number.isFinite(w.ammo) ? Math.min(w.ammo * 2, (me.arsenal[d.type] || 0) + d.ammo) : Infinity;   // (a blade never runs out)
@@ -9772,7 +9784,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       };
       const slow = {
         tm: me.tm ?? -1, fc: me.fc ?? -1, cp: [stats.round, me.caps || 0], pg: Math.round(myPing / 10) * 10, bc: bots.length ? [bots.length, bots[0].level] : 0,
-        tg: myTag, n: me.name, h: me.hue, ck: me.ck, s: me.score, l: Math.round(me.lives * 100) / 100, am: me.ampUntil > now ? 1 : 0, lv: me.lv, sh: Math.round(me.shield * 100) / 100, wp: WEAPON_KEYS.indexOf(me.weapon), g: myGrabs, hb: hitBy, ko: koBy,
+        tg: myTag, n: me.name, h: me.hue, ck: me.ck, s: me.score, l: Math.round(me.lives * 100) / 100, am: amped(me, now) ? 1 : 0, lv: me.lv, sh: Math.round(me.shield * 100) / 100, wp: WEAPON_KEYS.indexOf(me.weapon), g: myGrabs, hb: hitBy, ko: koBy,
         st: [stats.round, stats.kills, stats.deaths, stats.shots, stats.hits, stats.best],
         // Keep live deltas within the packet budget; rolling terrain snapshots repair older holes.
         cv: myCarves.filter(e => performance.now() - e.at < 4000).slice(-128).map(e => e.d),
@@ -11068,7 +11080,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     };
     orbit(false);
 
-    if (b.ampUntil > now || b.amp) {   // Quad damage: a blue aura around the bin
+    if (amped(b, now)) {   // Quad damage: a blue aura around the bin
       g.globalCompositeOperation = "lighter";
       const ar = S * (0.85 + 0.08 * Math.sin(now / 90)), ag = g.createRadialGradient(x, y, S * 0.2, x, y, ar);
       ag.addColorStop(0, "rgba(91,155,255,0)"); ag.addColorStop(0.7, "rgba(91,155,255,0.42)"); ag.addColorStop(1, "rgba(91,155,255,0)");
@@ -11137,7 +11149,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (hat) drawHat(hat, s, now);
     g.restore();
     { const wpn = isMe ? me.weapon : b.weapon;   // a blade in hand: held outside the hull, over it
-      if (wpn === "saw") drawBlade(isMe ? me : b, x, y, true, isMe ? charge : b.charge || b.wind || 0, now); }
+      if (wpn === "saw") drawBlade(isMe ? me : b, x, y, isMe ? charge : b.charge || b.wind || 0, now); }
     orbit(true);
     g.globalAlpha = 1;
 
@@ -12558,7 +12570,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       // a blast's smoke rolling out through the fluid
       burst(x, y, r, col, amount, radial) { if (fluid && smokeLive) { fluid.splat(x, y, r, col, amount, 0, 0, radial); for (let k = 0; k < 6; k++) { const a = k / 6 * 6.283; fluid.splat(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, r * 0.5, col, amount * 0.4, Math.cos(a) * radial * 0.25, Math.sin(a) * radial * 0.25); } } },
       // a shock wave bending the picture: out to reach (world px) over dur seconds, strength in the view's terms
-      wave(x, y, reach, dur, strength) { waves.push({ x, y, reach, dur, s: strength, t0: performance.now() }); if (waves.length > 4) waves.shift(); },
+      wave(x, y, reach, dur, strength) { pushCapped(waves, { x, y, reach, dur, s: strength, t0: performance.now() }, 4); },
       frame(dt) {
         if (settings.post === "auto" && lowQ && autoStep < 4) {
           const t = performance.now();

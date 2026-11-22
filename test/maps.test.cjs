@@ -48,8 +48,8 @@ test('on every map each pick-up has a spot of its own, and every gun lying there
         const close = [];
         for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++)
           if (Math.hypot(all[i].x - all[j].x, all[i].y - all[j].y) < 100) close.push(all[i].type + "/" + all[j].type);
-        return { n: all.length, close, bad: arena.guns.filter(c => !WEAPONS[c.type] || WEAPONS[c.type].disabled || !WEAPON_SLOTS.includes(c.type)).map(c => c.type),
-          inside: all.filter(c => bodies.some(b => !b.moon && solidAt(b, c.x, c.y))).map(c => c.type) }; })()`);   // (moons orbit by the real clock: one may be passing over a spot)
+        return { n: all.length, close, bad: arena.guns.filter(c => !WEAPONS[c.type] || !WEAPON_SLOTS.includes(c.type)).map(c => c.type),
+          inside: all.filter(c => bodies.some(b => !b.moon && !wrecks.includes(b) && solidAt(b, c.x, c.y))).map(c => c.type) }; })()`);   // (moons orbit and wrecks drift by the real clock: one may be passing over a spot)
       assert.ok(r.n >= 8, `${size}${map}: ${r.n} pick-ups`);
       assert.deepEqual(r.close, [], `${size}${map}: two pick-ups on one spot`);
       assert.deepEqual(r.bad, [], `${size}${map}: guns nobody can carry`);

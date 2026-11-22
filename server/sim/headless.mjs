@@ -1,14 +1,10 @@
 // Runs the game's own code (src/js, the same sections the browser runs, in build-order.json's order) in Node with no browser:
 // the page, canvas, audio and storage are inert stand-ins, so only the simulation does anything.
 // This is how the authoritative server simulates a match with exactly the rules the clients have.
-import { readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { createCanvas } from "@napi-rs/canvas";
+import { gameSource } from "./source.mjs";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const jsDir = join(root, "src", "js");
 
 // An object that answers anything: every property is another stand-in, calling or constructing one returns
 // one, and as a value it reads as 0 or "". Page elements, canvas contexts, gradients and audio nodes all
@@ -86,8 +82,7 @@ function browserless() {
 // Loads the game into a fresh context. `extra` is code appended inside the game's scope, so it can reach the
 // game's own variables and functions (the server's bridge, see sim.mjs); it runs after everything else.
 export function loadGame(extra = "") {
-  const parts = JSON.parse(readFileSync(join(jsDir, "build-order.json"), "utf8"));   // as the build joins them
-  const source = "(() => {\n" + parts.map(f => readFileSync(join(jsDir, f), "utf8")).join("") + extra + "\n})();\n";
+  const source = "(() => {\n" + gameSource() + extra + "\n})();\n";   // (as the build joins it: source.mjs)
   const context = browserless();
   vm.runInContext(source, context, { filename: "bin-rocket-sky.js" });
   return context;

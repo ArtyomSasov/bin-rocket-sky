@@ -86,6 +86,10 @@
     for (const [id, r] of remotes) if (!botById.has(id)) test(r, id);
     return found ? Math.min(range, first + 0.5) : range;
   }
+  // a quick look before the full test: could this shot's path this step pass near o at all? (pad: the bin, the shot
+  // and how far a bin flies in the furthest a shot is judged back, REWIND_MS, with room to spare)
+  const NEAR_PAD = 700;
+  const nearPath = (s, o) => o.x > Math.min(s.px, s.x) - NEAR_PAD && o.x < Math.max(s.px, s.x) + NEAR_PAD && o.y > Math.min(s.py, s.y) - NEAR_PAD && o.y < Math.max(s.py, s.y) + NEAR_PAD;
   const pierces = s => SHOTS[s.kind].pierce || !!s.pc;   // rail-like shots, and fireballs from Lv 7
   // Piercing shots hit each target once.
   function railOnce(s, key) { if (!s.hits) s.hits = new Set(); if (s.hits.has(key)) return false; s.hits.add(key); return true; }

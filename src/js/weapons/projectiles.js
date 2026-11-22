@@ -1,6 +1,6 @@
   function volley(p, now, pat, from, aim, mul = 1) {
     metricVolley(p, pat);
-    const mine = p === me, [kind, speed] = pat.shot, amp = ((mine ? me.ampUntil : p.ampUntil || 0) > now ? QUAD : 1) * mul, ride = kind === K.GREN || kind === K.HOLY || kind === K.MINE ? .6 : 0;
+    const mine = p === me, [kind, speed] = pat.shot, amp = (ampLeft(p, now) > 0 ? QUAD : 1) * mul, ride = kind === K.GREN || kind === K.HOLY || kind === K.MINE ? .6 : 0;
     const base = (aim ?? p.a) + (pat.back ? Math.PI : 0), sz = sizeOf(p.lv || 1);
     let s, vi = 0;
     // the spread's number: a player's shot fired by a flight command is numbered by that command (jk) and its place in

@@ -12,7 +12,7 @@
   const pilotShots = (b, kind) => shots.filter(s => s.owner === b.id && s.life > 0 && !s.boom && s.kind === kind);
   // a crate or a trophy: a new gun joins the arsenal, a carried one gets more ammo; the gun in hand stays
   function pilotGive(b, type, ammo) {
-    if (MODES[MODE].only || !WEAPONS[type] || WEAPONS[type].disabled) return;
+    if (MODES[MODE].only || !WEAPONS[type]) return;
     b.arsenal[type] = Number.isFinite(WEAPONS[type].ammo) ? Math.min(WEAPONS[type].ammo * 2, (b.arsenal[type] || 0) + ammo) : Infinity;
   }
   function pilotSpend(b, k, n) {

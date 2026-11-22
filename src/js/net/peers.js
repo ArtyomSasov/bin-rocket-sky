@@ -30,7 +30,7 @@
     const lag = clamp(age, 0, REWIND_MS);
     // m: what the shot's strength is multiplied by: the crown (x1.25) always, Quad damage (x4) only when its shooter is
     // seen to carry it; a sword's wind-up (from 0.25), a pistol's rapid fire (0.5), a nova's charge (0.3) below that
-    const amped = remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now(), top = amped ? QUAD * 1.25 : 1.25;
+    const top = amped(remotes.get(owner)) || amped(botById.get(owner)) ? QUAD * 1.25 : 1.25;
     const kind = f[5], low = { [K.SWORD]: 0.25, [K.PISTOL]: 0.5, [K.NOVA]: 0.3 }[kind];
     const m = !Number.isFinite(f[6]) ? 1 : low !== undefined ? clamp(f[6], low, top) : [QUAD, 1.25, QUAD * 1.25].includes(f[6]) && f[6] <= top ? f[6] : 1;
     const x = clamp(num(f[1], 0), 0, W), y = clamp(num(f[2], 0), 0, H);
@@ -120,7 +120,7 @@
     if (Number.isFinite(p.s)) r.score = Math.max(0, Math.floor(p.s));
     r.lv = 1;
     if (Array.isArray(p.st) && p.st.length === 6 && p.st.every(Number.isInteger)) r.st = p.st;   // [round, kills, deaths, shots, hits, best]
-    if (Number.isInteger(p.wp)) r.weapon = WEAPON_KEYS[p.wp] || "fire";
+    if (Number.isInteger(p.wp)) r.weapon = WEAPONS[WEAPON_KEYS[p.wp]] ? WEAPON_KEYS[p.wp] : "fire";
     if (Number.isFinite(p.sh)) r.shield = clamp(p.sh, 0, MAX_SHIELD);
     if (Number.isFinite(p.pg)) r.ping = clamp(p.pg, 0, 5000);
     if ("am" in p) r.amp = p.am >= 1;   // (a player on the server: the seconds it has left)
@@ -149,7 +149,7 @@
       if (!Array.isArray(d) || typeof d[0] !== "string" || !/^[a-z0-9]{2,16}$/.test(d[0]) || gunDrops.has(d[0])) continue;
       if (!Number.isInteger(d[3]) || d[3] < 0 || d[3] >= WEAPON_KEYS.length) continue;   // an index, never a key like "length"
       const type = WEAPON_KEYS[d[3]];
-      if (type === "fire" || WEAPONS[type]?.disabled) continue;
+      if (type === "fire" || !WEAPONS[type]) continue;
       gunDrops.set(d[0], { x: clamp(num(d[1], 0), 0, W), y: clamp(num(d[2], 0), 0, H), type, ammo: clamp(Math.floor(num(d[4], 1)), 1, 999), born: performance.now() });
     }
     if (Array.isArray(p.terrain)) applyTerrain(p.terrain);

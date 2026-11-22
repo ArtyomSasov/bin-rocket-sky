@@ -77,12 +77,12 @@
     };
     if (!MODES[MODE].only) {
       for (const c of world.picks) {
-        if (grabbed.has(c.key) || c.age < 0.05 || WEAPONS[c.type]?.disabled || !near(c.x, c.y, 56)) continue;
+        if (grabbed.has(c.key) || c.age < 0.05 || !near(c.x, c.y, 56)) continue;
         take(c.key, c.type); gunGot(c.type, c.x, c.y, false);
       }
       for (const [id, d] of gunDrops) {
         const key = "W" + id;
-        if (grabbed.has(key) || WEAPONS[d.type]?.disabled || now - d.born < 650 || !near(d.x, d.y, 56)) continue;
+        if (grabbed.has(key) || now - d.born < 650 || !near(d.x, d.y, 56)) continue;
         take(key, d.type); gunGot(d.type, d.x, d.y, true);
       }
     }

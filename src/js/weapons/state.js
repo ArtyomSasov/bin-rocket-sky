@@ -1,11 +1,12 @@
   // Stable controls are independent of inventory and mode; protocol IDs stay in WEAPON_KEYS.
   // never picked by themselves when the gun in hand runs dry (the pistol is the last resort; bombs and the blade are a choice)
   const NO_AUTO_PICK = ["fire", "nuke", "holy", "void", "saw"];
-  const WEAPON_SLOTS = ["fire", "saw", "minigun", "scatter", "rocket", "gren", "laser", "orb", "rail", "nail", "shard", "mine", "gamma", "nuke", "holy", "void"];
+  // the guns by their number key, 1-9 and 0, then Alt with them (null: a key no gun has, kept so the rest stay put)
+  const WEAPON_SLOTS = ["fire", "saw", "minigun", "scatter", "rocket", "gren", "laser", "orb", "rail", null, "shard", "mine", "gamma", "nuke", "holy", "void"];
   const weaponKey = k => { const i = WEAPON_SLOTS.indexOf(k); return i < 0 ? "Q/E" : (i >= 10 ? "Alt+" : "") + ((i % 10 + 1) % 10); };
   const controlledKind = k => ({ gamma: K.GAMMA, mine: K.MINE })[k];
   const controlledShots = k => shots.filter(s => (s.mine || mySrvShot(s)) && s.life > 0 && !s.boom && s.kind === controlledKind(k));
-  const hasWeapon = k => !WEAPONS[k]?.disabled && (!!me.arsenal[k] || controlledShots(k).length > 0);
+  const hasWeapon = k => !!WEAPONS[k] && (!!me.arsenal[k] || controlledShots(k).length > 0);
   let rejectAt = -Infinity, lastWeaponStatus = "";
   function rejectFire(reason, now) {
     if (now - rejectAt < 700) return;

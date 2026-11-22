@@ -218,7 +218,7 @@ test('a gun\'s spread is a function of the pilot\'s tag and the shot\'s number, 
 test('every gun has a key of its own, the same whatever a pilot carries', { skip }, async () => {
   const g = await loadGame();
   try {
-    const r = g.get(`(() => { const all = WEAPON_SLOTS.filter(k => !WEAPONS[k].disabled), keys = all.map(weaponKey);
+    const r = g.get(`(() => { const all = WEAPON_SLOTS.filter(Boolean), keys = all.map(weaponKey);
       const before = weaponKey("rail"); me.arsenal = { rail: 2, fire: Infinity }; const after = weaponKey("rail");
       return { keys, before, after, pistol: weaponKey("fire"), blade: weaponKey("saw") }; })()`);
     assert.equal(new Set(r.keys).size, r.keys.length, 'no two guns share a key: ' + r.keys);

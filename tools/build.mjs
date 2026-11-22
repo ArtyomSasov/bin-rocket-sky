@@ -17,13 +17,12 @@
 import { readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { gameSource, order } from "../server/sim/source.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = p => readFileSync(join(root, p), "utf8");
 
-const jsDir = join(root, "src", "js");
-const parts = JSON.parse(readFileSync(join(jsDir, "build-order.json"), "utf8"));   // the files in the order they run
-const script = "<script>\n(() => {\n" + parts.map(f => readFileSync(join(jsDir, f), "utf8")).join("") + "})();\n</script>\n";
+const script = "<script>\n(() => {\n" + gameSource() + "})();\n</script>\n";   // the files in the order they run (server/sim/source.mjs)
 const template = read("src/index.html");
 for (const mark of ["<!-- @styles -->", "<!-- @script -->"]) {
   if (template.split(mark).length !== 2) throw new Error(`src/index.html must contain ${mark} exactly once`);
@@ -73,5 +72,5 @@ if (args[0] === "--debug") {
   for (const file of files.filter(f => f !== "./")) hash.update(readFileSync(join(root, file)));
   const version = hash.digest("hex").slice(0, 12);
   writeFileSync(join(root, "sw.js"), read("src/sw.js").replace("__VERSION__", version).replace("__FILES__", JSON.stringify(files)));
-  console.log(`wrote index.html (${parts.length} script sections) and bin-rocket-sky.html`);
+  console.log(`wrote index.html (${order().length} script sections) and bin-rocket-sky.html`);
 }

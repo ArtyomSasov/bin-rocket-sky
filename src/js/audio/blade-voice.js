@@ -35,12 +35,12 @@
     const f = 90 + 26 * level; bladeHum.o1.frequency.setTargetAtTime(f, t, 0.06); bladeHum.o2.frequency.setTargetAtTime(f * 1.014, t, 0.06); bladeHum.o3.frequency.setTargetAtTime(f / 2, t, 0.06);
   }
   // the swing: "vwhoom", the hum Doppler-bent up as the blade sweeps past and down after it, louder for a fuller swing
-  function bladeSwing(power = 1, pan = 0, heavy = false) {
+  function bladeSwing(power = 1, pan = 0) {
     if (!audio || !sfxBus) return;
-    const t = audio.currentTime, d = heavy ? 0.5 : 0.36, pk = d * 0.42, out = bladeOut(pan), h = humVoice(heavy ? 78 : 96, out), up = heavy ? 1.9 : 1.75;
-    for (const [o, m] of [[h.o1, 1], [h.o2, 1.014], [h.o3, 0.5]]) { const f0 = (heavy ? 78 : 96) * m; o.frequency.cancelScheduledValues(t); o.frequency.setValueAtTime(f0 * 0.92, t); o.frequency.exponentialRampToValueAtTime(f0 * up, t + pk); o.frequency.exponentialRampToValueAtTime(f0 * 0.8, t + d); }
+    const t = audio.currentTime, d = 0.5, pk = d * 0.42, out = bladeOut(pan), h = humVoice(78, out), up = 1.9;
+    for (const [o, m] of [[h.o1, 1], [h.o2, 1.014], [h.o3, 0.5]]) { const f0 = 78 * m; o.frequency.cancelScheduledValues(t); o.frequency.setValueAtTime(f0 * 0.92, t); o.frequency.exponentialRampToValueAtTime(f0 * up, t + pk); o.frequency.exponentialRampToValueAtTime(f0 * 0.8, t + d); }
     h.lp.frequency.setValueAtTime(700, t); h.lp.frequency.exponentialRampToValueAtTime(4200, t + pk); h.lp.frequency.exponentialRampToValueAtTime(600, t + d);
-    const vol = (heavy ? 0.24 : 0.19) * (0.45 + 0.55 * power);
+    const vol = 0.24 * (0.45 + 0.55 * power);
     h.v.gain.setValueAtTime(0.0001, t); h.v.gain.exponentialRampToValueAtTime(vol, t + pk); h.v.gain.exponentialRampToValueAtTime(0.0001, t + d);
     h.os.forEach(o => { o.start(t); o.stop(t + d + 0.02); });
     const n = audio.createBufferSource(), bf = audio.createBiquadFilter(), nv = audio.createGain();   // the air it cuts

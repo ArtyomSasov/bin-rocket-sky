@@ -143,9 +143,8 @@
   WEAPONS.rail.cd = 1.8; WEAPONS.gren.shot = [K.GREN, 1225];
   WEAPONS.mine.cd = .8;
   WEAPONS.nuke.shot = [K.NUKE, 840]; WEAPONS.nuke.alt.shot = [K.NUKE, 840];
-  // Retired guns: gone from the game, but their names keep their place in WEAPON_KEYS (the numbers on the wire) and in
-  // WEAPON_SLOTS (the keys after them stay put); anything naming one, or firing one of their shots, is refused
-  for (const k of ["triple", "bolt", "tele", "gauss", "nail", "gauntlet"]) WEAPONS[k] = { name: k, disabled: true, ammo: 0, shot: null };
+  // Retired guns (triple, bolt, tele, gauss, nail, gauntlet) are gone from WEAPONS: only their names stay, in
+  // WEAPON_KEYS (their numbers on the wire), so WEAPONS[k] alone says whether k is a gun of the game
   // the shot kinds a peer may send: what the guns fire (either mode), the Blood Blade's touch and the two detonators.
   // Anything else (a retired gun's shots, kinds no gun makes any more) is refused on arrival
   const WIRE_SHOTS = new Set([K.MELEE, K.DET, K.MDET, ...Object.values(WEAPONS).flatMap(w => [w.shot, w.alt?.shot]).filter(Boolean).map(s => s[0])]);

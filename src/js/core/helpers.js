@@ -13,6 +13,10 @@
   const WALL_R = 34;      // bot radius against the walls
   const rndIn = (s, m) => m + Math.random() * (s - 2 * m);
   const num = (v, d) => Number.isFinite(v) ? v : d;
+  // Quad damage on a pilot: its seconds left (a bot, me: ampUntil), and whether it carries it (another player: amp,
+  // from their state)
+  const ampLeft = (p, now = performance.now()) => p && p.ampUntil > now ? (p.ampUntil - now) / 1000 : 0;
+  const amped = (p, now = performance.now()) => !!p && (!!p.amp || ampLeft(p, now) > 0);
   // world time everyone agrees on: each player averages its clock offset to every other player,
   // so all of them land on the same mean even when a phone's clock is seconds off
   let clockOff = 0, clockTarget = 0, clockBase = 0;   // clockBase: offline, the shift that starts a fresh round at take-off

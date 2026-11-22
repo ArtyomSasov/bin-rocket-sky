@@ -43,7 +43,7 @@
   function dropGun(x, y, type, ammo) {
     if (!(ammo > 0) || !Number.isFinite(ammo)) return;
     const id = myTag + "g" + (gunDropSeq++).toString(36), d = [id, Math.round(x), Math.round(y), WEAPON_KEYS.indexOf(type), Math.min(999, Math.ceil(ammo)), Date.now()];
-    myGunDrops.push(d); if (myGunDrops.length > 6) myGunDrops.shift();
+    pushCapped(myGunDrops, d, 6);
     gunDrops.set(id, { x: d[1], y: d[2], type, ammo: d[4], born: performance.now() });
   }
   function spillStars() { me.carry = 0; }   // stars are gone from the game: nothing is spilled

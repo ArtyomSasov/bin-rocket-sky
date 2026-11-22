@@ -65,7 +65,7 @@
         // the guns on their spots and the two big bombs' crates (a nuke, the holy bomb): a bot takes any of them, and so
         // does a player on the server (the teleporter is retired)
         for (const c of [...world.picks, ...world.bombs]) {
-          if (grabbed.has(c.key) || c.age < 0.05 || WEAPONS[c.type]?.disabled) continue;
+          if (grabbed.has(c.key) || c.age < 0.05) continue;
           const d = Math.hypot(c.x - b.x, c.y - b.y);
           if (d < 34 + 30) {   // picked up
             grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
@@ -79,7 +79,7 @@
           if (d < bd) { bd = d; best = c; }
         }
         for (const [gid, d] of gunDrops) {   // trophies count as crates
-          if (grabbed.has("W" + gid) || WEAPONS[d.type]?.disabled || performance.now() - d.born < 600) continue;
+          if (grabbed.has("W" + gid) || performance.now() - d.born < 600) continue;
           const dd = Math.hypot(d.x - b.x, d.y - b.y);
           if (dd < 64) { grabbed.add("W" + gid); pushCapped(myGrabs, "W" + gid, 40); if (human) pilotGive(b, d.type, d.ammo); else { b.weapon = d.type; b.ammo = d.ammo; } sfx("weapon_get", 0.5, 1, d.x, d.y); best = null; break; }
           if (dd < bd) { bd = dd; best = d; }
@@ -252,7 +252,7 @@
       const invNow = now < b.inv;
       for (const s of shots) {
         if (invNow && !(s.hitTime && HITSCAN[s.kind] && !s.mine)) continue;
-        if (s.life <= 0 || SHOTS[s.kind].inert || !canHurt(s, b, b.id)) continue;
+        if (s.life <= 0 || SHOTS[s.kind].inert || !nearPath(s, b) || !canHurt(s, b, b.id)) continue;
         if (s.kind === K.MINE && SHOTS[K.MINE].life - s.life < MINE_ARM) continue;
         if (targetHit(s, b)) {
           if (pierces(s)) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }

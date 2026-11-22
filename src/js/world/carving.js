@@ -178,13 +178,17 @@
     const bi = terrainCursor++ % det.length, b = det[bi];
     if (b.fixed) return null;
     if (b.dead || b.free) return [stats.round, bi, 1, ""];
-    let bytes = "";
-    for (let i = 0; i < b.cells.length; i += 8) {
-      let bits = 0;
-      for (let k = 0; k < 8 && i + k < b.cells.length; k++) if (b.initialCells[i + k] && !b.cells[i + k]) bits |= 1 << k;
-      bytes += String.fromCharCode(bits);
+    // (kept until the body loses a cell: every cut lowers its mass, so an unchanged mass is an unchanged body)
+    if (!b.terEnc || b.terEnc.mass !== b.mass) {
+      let bytes = "";
+      for (let i = 0; i < b.cells.length; i += 8) {
+        let bits = 0;
+        for (let k = 0; k < 8 && i + k < b.cells.length; k++) if (b.initialCells[i + k] && !b.cells[i + k]) bits |= 1 << k;
+        bytes += String.fromCharCode(bits);
+      }
+      b.terEnc = { mass: b.mass, enc: btoa(bytes) };
     }
-    return [stats.round, bi, 0, btoa(bytes)];
+    return [stats.round, bi, 0, b.terEnc.enc];
   }
   function applyTerrain(s) {
     if (s.length !== 4 || s[0] !== stats.round || !Number.isSafeInteger(s[1]) || (s[2] !== 0 && s[2] !== 1) || typeof s[3] !== "string") return;

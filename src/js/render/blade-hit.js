@@ -7,7 +7,7 @@
     const col = "255,40,60", hex = "#ff3048", sc = heavy ? 1.35 : 0.8, q = lowQ ? 0.45 : 1;   // (one blade now: its touch is red too, and smaller)
     cuts.push({ x, y, a, t: 0, len: 190 * sc, col, heavy });
     if (cuts.length > 16) cuts.shift();
-    if (victim) { scars.push({ o: victim, lx: x - victim.x, ly: y - victim.y, oa: victim.a || 0, a: a - (victim.a || 0), t: 0, len: 46 * sc, col }); if (scars.length > 24) scars.shift(); }
+    if (victim) { pushCapped(scars, { o: victim, lx: x - victim.x, ly: y - victim.y, oa: victim.a || 0, a: a - (victim.a || 0), t: 0, len: 46 * sc, col }, 24); }
     impacts.push({ x, y, t: 0, r: 34 * sc, col: "#ffffff", dur: 0.08 });
     impacts.push({ x, y, t: 0, r: 170 * sc, col, dur: 0.35, soft: 0.55, fluided: true });   // (light only: no smoke cloud)
     for (const d of [-1, 1]) {   // molten droplets flung along the stroke, both ways, most the way it was going

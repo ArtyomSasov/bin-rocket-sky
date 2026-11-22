@@ -30,7 +30,7 @@
     };
     orbit(false);
 
-    if (b.ampUntil > now || b.amp) {   // Quad damage: a blue aura around the bin
+    if (amped(b, now)) {   // Quad damage: a blue aura around the bin
       g.globalCompositeOperation = "lighter";
       const ar = S * (0.85 + 0.08 * Math.sin(now / 90)), ag = g.createRadialGradient(x, y, S * 0.2, x, y, ar);
       ag.addColorStop(0, "rgba(91,155,255,0)"); ag.addColorStop(0.7, "rgba(91,155,255,0.42)"); ag.addColorStop(1, "rgba(91,155,255,0)");
@@ -99,7 +99,7 @@
     if (hat) drawHat(hat, s, now);
     g.restore();
     { const wpn = isMe ? me.weapon : b.weapon;   // a blade in hand: held outside the hull, over it
-      if (wpn === "saw") drawBlade(isMe ? me : b, x, y, true, isMe ? charge : b.charge || b.wind || 0, now); }
+      if (wpn === "saw") drawBlade(isMe ? me : b, x, y, isMe ? charge : b.charge || b.wind || 0, now); }
     orbit(true);
     g.globalAlpha = 1;
 

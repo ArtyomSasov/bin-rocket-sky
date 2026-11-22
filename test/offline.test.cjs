@@ -63,7 +63,7 @@ test('offline assets use the active cache and activation preserves other project
 test('offline build includes local QR libraries and invalidates cache when asset contents change', () => {
   const fixture = mkdtempSync(join(tmpdir(), 'brs-build-'));
   try {
-    for (const path of ['src', 'tools', 'sfx', 'vendor', 'bot.png', 'holy.png', 'manifest.webmanifest']) {
+    for (const path of ['src', 'tools', 'server/sim/source.mjs', 'sfx', 'vendor', 'bot.png', 'holy.png', 'manifest.webmanifest']) {
       cpSync(join(root, path), join(fixture, path), { recursive: true });
     }
     const build = () => {

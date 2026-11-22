@@ -41,7 +41,7 @@
     for (const [id, d] of gunDrops) {
       if (now - d.born > GUN_DROP_LIFE) { gunDrops.delete(id); continue; }
       const key = "W" + id;
-      if (WEAPONS[d.type]?.disabled || !playing || me.dead || grabbed.has(key) || now - d.born < 600 || Math.hypot(d.x - me.x, d.y - me.y) > 30 + 30 * sizeOf(me.lv) + magnet()) continue;
+      if (!playing || me.dead || grabbed.has(key) || now - d.born < 600 || Math.hypot(d.x - me.x, d.y - me.y) > 30 + 30 * sizeOf(me.lv) + magnet()) continue;
       grabbed.add(key); pushCapped(myGrabs, key, 40);
       const w = WEAPONS[d.type];
       me.arsenal[d.type] = Number.isFinite(w.ammo) ? Math.min(w.ammo * 2, (me.arsenal[d.type] || 0) + d.ammo) : Infinity;   // (a blade never runs out)

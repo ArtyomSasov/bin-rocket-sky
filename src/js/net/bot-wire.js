@@ -23,7 +23,7 @@
         bw: b.charge > 0 && !b.dead && botWeapon(b) === "saw" ? +b.charge.toFixed(2) : undefined   // its Blood Blade wound up this far
       };
       m.sh = b.shield || 0;
-      m.am = b.ampUntil > now ? Math.ceil((b.ampUntil - now) / 1000) : 0;   // Quad damage: the seconds it has left
+      m.am = Math.ceil(ampLeft(b, now));   // Quad damage: the seconds it has left
       // a player's own HUD (the guns they carry), and which of their controls this state already holds:
       // ak, the last one applied; ag, for how long (ms, including this step), so their screen can compare
       if (b.input) { m.ar = pilotArsenalWire(b); m.ak = (b.cq ? b.cmdAck : b.ackSeq) || 0; m.ag = Math.round(now - (b.ackAt ?? now)); m.en = Math.round(b.energy);

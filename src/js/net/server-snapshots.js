@@ -50,7 +50,7 @@
     if ("fc" in m) me.fc = m.fc === 0 || m.fc === 1 ? m.fc : -1;
     if (Array.isArray(m.al) && m.al.length === 3 && m.al.every(Number.isFinite)) { me.beltArmor = clamp(m.al[0], 0, MAX_SHIELD); me.bodyArmor = clamp(m.al[1], 0, MAX_SHIELD); me.padsArmor = clamp(m.al[2], 0, MAX_SHIELD); }
     if (Number.isInteger(m.am)) {   // Quad damage, as the server has it: taken there, its seconds counted there
-      const left = me.ampUntil > now ? (me.ampUntil - now) / 1000 : 0;
+      const left = ampLeft(me, now);
       if (m.am > 0 && !left) {
         announce("QUAD DAMAGE", "four times the damage for 20 seconds", "#6fa8ff", 4);
         const c = world.amp || me;
@@ -120,7 +120,7 @@
   function serverArsenal(list, wp) {
     const ar = {};
     for (const e of list.slice(0, 32)) {
-      const k = Array.isArray(e) ? WEAPON_KEYS[e[0]] : null;
+      const k = Array.isArray(e) && WEAPONS[WEAPON_KEYS[e[0]]] ? WEAPON_KEYS[e[0]] : null;
       if (k && WEAPONS[k]) ar[k] = e[1] === -1 ? Infinity : clamp(num(e[1], 0), 0, 9999);
     }
     const keys = Object.keys(ar).join(), was = Object.keys(me.arsenal).join(), old = me.arsenal;
@@ -146,7 +146,7 @@
     // lock-on shots are shown at once too, at the target this screen locks on (the server
     // locks on in its own view of the same moment, so it is nearly always the same one).
     // A prediction this screen refused (too many shots alive) is not recorded, so the server's copy still shows.
-    if (addRemoteShot(srv.id, d, Date.now(), true) === true) srv.pred.push({ kind: s.kind, at: performance.now(), n: srv.pseq - 1 }); if (srv.pred.length > 48) srv.pred.shift();
+    if (addRemoteShot(srv.id, d, Date.now(), true) === true) pushCapped(srv.pred, { kind: s.kind, at: performance.now(), n: srv.pseq - 1 }, 48);
     stats.shots++;
     return { ...s, mine: false, owner: srv.id, id: d[0] };   // for the caller: where it left from, whose it is, its id here
   }

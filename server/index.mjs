@@ -19,7 +19,7 @@ import { isIPv6 } from "node:net";
 import { randomBytes } from "node:crypto";
 import { WebSocketServer } from "ws";
 import { createMatch } from "./sim/sim.mjs";
-import { deltaStream, deltaFrame, ackSnapshot } from "./delta.mjs";
+import { deltaStream, deltaFrame, ackSnapshot, roomStream, shareFrame } from "./delta.mjs";
 import { rtcReady, openRtc, rtcShutdown } from "./rtc.mjs";
 
 const env = (k, d) => (process.env[k] === undefined ? d : process.env[k]);
@@ -75,13 +75,13 @@ function broadcast(room, now) {
   let packet;
   try { packet = room.match.packet(now); } catch (e) { log("packet failed", room.code, e.stack); return; }
   if (!room.clients.size) return;   // built anyway: it is also how the pilots see each other
-  let data = null, plain = null;   // the snapshot as JSON text and as plain values, each made once and only if needed
+  let data = null, shared = null;   // the snapshot as JSON text, and what every player's delta is made from: each made once, only if needed
   for (const ws of room.clients) {
     if (ws.readyState !== 1 || ws.bufferedAmount >= 512 * 1024) continue;   // a stalled client skips snapshots
     if (!ws.delta) { ws.send(data ||= JSON.stringify({ t: "snap", ...packet })); continue; }   // an older page: the whole snapshot as JSON
     try {
-      plain ||= JSON.parse(data ||= JSON.stringify({ t: "snap", ...packet }));   // (the engine's own JSON is the quickest way to plain values)
-      const bytes = deltaFrame(ws.delta, plain, ws.pid);
+      shared ||= shareFrame(room.wire ||= roomStream(), JSON.parse(data ||= JSON.stringify({ t: "snap", ...packet })));   // (the engine's own JSON is the quickest way to plain values)
+      const bytes = deltaFrame(ws.delta, shared, ws.pid);
       if (ws.rtc?.usable() && ws.rtc.send(bytes)) ws.rtcUsed = true;   // the data channel while it works
       else ws.send(bytes, { binary: true });
     }

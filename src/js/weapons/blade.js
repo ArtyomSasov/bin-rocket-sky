@@ -3,7 +3,7 @@
   // back over the right shoulder; a swing sweeps round the front from right to left (the Saber's next one back again),
   // the hilt circling just outside the bin and the blade pointing outward, so it never passes through the bin.
   // A Blood Blade swing: SWING_ARC radians swept in SWING_MS, centred on the aim; the blade reaches BLADE_REACH
-  const SWING_MS = 350, SWING_ARC = 2.5, BLADE_REACH = 125, SABER_MS = 200, SABER_REACH = 150;
+  const SWING_MS = 350, SWING_ARC = 2.5, BLADE_REACH = 125;
   const swingSideOf = () => -1;   // (right-handed: from the right round to the left, on every screen and the server alike)
   const swingEase = k => 1 - Math.pow(1 - k, 2.2);
   // where the blade is now: from the bin's edge out to its tip, swept round as the swing goes (owner: the bin swinging)
@@ -17,7 +17,7 @@
   const TOUCH_MS = 450, BLADE_TOUCH = { shot: [K.MELEE, 0], feel: [6, 0.1, 0], sfx: ["hit", 0.7, 0.7] };
   function bladeTouch(b, now, wind, targets) {
     if (b.swingAt && now - b.swingAt < (b.swingMs || SWING_MS)) return;   // mid-swing the swing itself cuts
-    const P = bladePose(b, true, wind, now), rh = binR(b.lv || 1) + 4, L = (BLADE_REACH - rh * 0.6) * (1 + wind * 0.08);
+    const P = bladePose(b, wind, now), rh = binR(b.lv || 1) + 4, L = (BLADE_REACH - rh * 0.6) * (1 + wind * 0.08);
     const ha = b.a + P.ph, hx = b.x + Math.cos(ha) * rh, hy = b.y + Math.sin(ha) * rh, da = b.a + P.ps, ux = Math.cos(da), uy = Math.sin(da);
     const seen = b.touched || (b.touched = new Map());
     for (const [id, o] of targets) {
@@ -32,7 +32,7 @@
   // beam is inside something, a bite every 0.14 s (a wider one mid-swing), with sparks and the hiss of the burn
   function bladeGrind(b, now, wind) {
     if (now - (b.grindAt || 0) < 140) return;
-    const P = bladePose(b, true, wind, now), rh = binR(b.lv || 1) + 4, L = (BLADE_REACH - rh * 0.6) * (1 + wind * 0.08);
+    const P = bladePose(b, wind, now), rh = binR(b.lv || 1) + 4, L = (BLADE_REACH - rh * 0.6) * (1 + wind * 0.08);
     const ha = b.a + P.ph, hx = b.x + Math.cos(ha) * rh, hy = b.y + Math.sin(ha) * rh, da = b.a + P.ps, ux = Math.cos(da), uy = Math.sin(da);
     let n = 0;
     for (let i = 2; i <= 8 && n < 3; i++) {
@@ -46,14 +46,14 @@
   function swingStart(o, a, side) {
     o.swingSide = side; o.swingAt = performance.now(); o.swingMs = SWING_MS;
     const dist = Math.hypot(o.x - me.x, o.y - me.y);
-    if (dist < 1600) bladeSwing(1 - dist / 1600, clamp((o.x - me.x) / 900, -1, 1), true);
+    if (dist < 1600) bladeSwing(1 - dist / 1600, clamp((o.x - me.x) / 900, -1, 1));
   }
   // the blade's pose round its bin: hilt at angle ph from the aim (+: to the right), blade pointing at ps from the aim;
   // tr: where the swing was a moment ago (for its smear), lit: how bright
-  function bladePose(b, heavy, wind, now) {
+  function bladePose(b, wind, now) {
     const REST = [1.4, 0.26], ms = b.swingMs || SWING_MS, k = b.swingAt ? (now - b.swingAt) / ms : 9, side = b.swingSide || -1;
-    const arc = heavy ? SWING_ARC : SWING_ARC * 0.9, lead = heavy ? 0.5 : 0.15, hold = heavy ? 0.25 : 0.45 * SABER_MS / ms, rec = heavy ? 0.6 : 1.2;
-    const at = e => { const f0 = arc / 2 + lead, ph = -side * (f0 + (-arc / 2 - f0) * e); return [ph, ph - side * (heavy ? 1.1 - 0.95 * e : 0.5 - 0.4 * e)]; };
+    const arc = SWING_ARC, lead = 0.5, hold = 0.25, rec = 0.6;
+    const at = e => { const f0 = arc / 2 + lead, ph = -side * (f0 + (-arc / 2 - f0) * e); return [ph, ph - side * (1.1 - 0.95 * e)]; };
     if (k >= 0 && k <= 1) { const e = swingEase(k), [ph, ps] = at(e), [p0] = at(swingEase(Math.max(0, k - 0.32))); return { ph, ps, tr: p0, lit: 1.35 - 0.35 * k, k }; }
     if (k > 1 && k < 1 + hold + rec) {   // after it: held a moment where it ended, then brought back to rest
       const [ph, ps] = at(1), f = clamp((k - 1 - hold) / rec, 0, 1), sm = f * f * (3 - 2 * f);
@@ -64,9 +64,9 @@
   }
   // the blade on its bin (x, y: the bin on screen), drawn over it: a hilt of dark metal and a beam of light in its
   // colour with a white-hot core, quivering; mid-swing a smear of light follows it round
-  function drawBlade(b, x, y, heavy, wind, now) {
-    const P = bladePose(b, heavy, wind, now), sz = sizeOf(b.lv || 1), A = b.a, rh = binR(b.lv || 1) + 4;
-    const col = heavy ? "255,40,60" : "70,175,255", L = (heavy ? BLADE_REACH - rh * 0.6 : SABER_REACH - rh * 0.7) * (1 + wind * 0.08);
+  function drawBlade(b, x, y, wind, now) {
+    const P = bladePose(b, wind, now), sz = sizeOf(b.lv || 1), A = b.a, rh = binR(b.lv || 1) + 4;
+    const col = "255,40,60", L = (BLADE_REACH - rh * 0.6) * (1 + wind * 0.08);
     const flick = 0.9 + 0.06 * Math.sin(now / 17 + (b.hue || 0)) + 0.04 * Math.sin(now / 7.3), lit = P.lit * flick;
     const ha = A + P.ph, hx = x + Math.cos(ha) * rh, hy = y + Math.sin(ha) * rh, da = A + P.ps, ux = Math.cos(da), uy = Math.sin(da), tx = hx + ux * L, ty = hy + uy * L;
     g.save(); g.lineCap = "round";
@@ -87,7 +87,7 @@
     g.strokeStyle = "#1c2028"; g.lineWidth = 7.5 * sz; g.beginPath(); g.moveTo(bx, by); g.lineTo(hx, hy); g.stroke();
     g.strokeStyle = "#a9b4c4"; g.lineWidth = 5 * sz; g.beginPath(); g.moveTo(bx + ux * hl * 0.1, by + uy * hl * 0.1); g.lineTo(hx - ux * hl * 0.45, hy - uy * hl * 0.45); g.stroke();
     g.strokeStyle = "#3a4250"; g.lineWidth = 6.5 * sz; g.beginPath(); g.moveTo(hx - ux * hl * 0.3, hy - uy * hl * 0.3); g.lineTo(hx, hy); g.stroke();
-    g.strokeStyle = heavy ? "#ff4050" : "#5ad0ff"; g.lineWidth = 2; g.beginPath(); g.moveTo(hx - ux * hl * 0.6 - uy * 3 * sz, hy - uy * hl * 0.6 + ux * 3 * sz); g.lineTo(hx - ux * hl * 0.6 + uy * 3 * sz, hy - uy * hl * 0.6 - ux * 3 * sz); g.stroke();   // its switch
+    g.strokeStyle = "#ff4050"; g.lineWidth = 2; g.beginPath(); g.moveTo(hx - ux * hl * 0.6 - uy * 3 * sz, hy - uy * hl * 0.6 + ux * 3 * sz); g.lineTo(hx - ux * hl * 0.6 + uy * 3 * sz, hy - uy * hl * 0.6 - ux * 3 * sz); g.stroke();   // its switch
     // the beam: a wide soft glow, a coloured body, a white core, a hot emitter and a rounded tip
     g.globalCompositeOperation = "lighter";
     for (const [w, c, al] of [[26, col, 0.13], [14, col, 0.38], [8, col, 0.8], [3.6, "255,255,255", 0.95]]) {

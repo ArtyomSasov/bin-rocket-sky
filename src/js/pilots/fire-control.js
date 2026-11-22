@@ -3,7 +3,7 @@
   const ampChip = document.getElementById("ampChip");
   let ampShown = -1;
   function ampHud(now) {
-    const left = me.ampUntil > now ? Math.ceil((me.ampUntil - now) / 1000) : 0;
+    const left = Math.ceil(ampLeft(me, now));
     if (left === ampShown) return;
     ampShown = left; ampChip.hidden = !left; ampChip.textContent = "QUAD DAMAGE x4 · " + left + "s";
   }
