@@ -40,11 +40,14 @@
     }
     sfx("dash", 0.8);
   }
-  let killer = "";
+  // who killed me: their name for the words on the screen, their id for the camera, which goes over to them while I
+  // wait to come back (the kill seen from their side: where they are, how hurt they are)
+  let killer = "", killerId = null;
   function killedBy(owner) {
     const r = remotes.get(owner);
-    if (r) killer = r.name;
+    if (r) { killer = r.name; killerId = owner; }
   }
+  const forgetKiller = now => { killer = ""; killerId = null; camBackUntil = now + 600; };   // (and the camera eases back to me)
   const arsenalEl = document.getElementById("arsenal");
   const owned = () => WEAPON_SLOTS.filter(hasWeapon);
   const ammoFill = k => Number.isFinite(me.arsenal[k]) ? Math.min(1, (me.arsenal[k] || 0) / WEAPONS[k].ammo) : 1;

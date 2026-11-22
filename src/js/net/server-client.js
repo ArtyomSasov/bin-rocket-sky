@@ -24,7 +24,7 @@
   const mySrvShot = s => serverRun && !!srv.id && s.owner === srv.id;
   function serverStart(code) {
     net.send = () => {}; net.shot = () => {};   // nothing of mine goes anywhere but my controls
-    document.getElementById("boardTitle").textContent = "Server · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
+    document.getElementById("boardTitle").textContent = "Server · " + MODES[MODE].label + " · " + mapLabel(code);
     setStatus(false, "Server · connecting…");
     if (!SERVER_URL) { setStatus(false, "Server · no valid address"); return; }
     srv.code = code;

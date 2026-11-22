@@ -28,7 +28,8 @@ const BRIDGE = `
   globalThis.__simBots = () => bots;   // every pilot, for tests and tools
   globalThis.__simWorld = () => world;   // the pick-ups as they lie now   // the live pilot object, for tests and tools
   globalThis.__simCleanChat = t => typeof t === "string" ? cleanChatText(t) : "";   // a chat line as every screen cleans it (ui/chat.js)
-  globalThis.__simConst = { WEAPON_KEYS, K };   // protocol numbers, for tests and tools
+  globalThis.__simConst = { WEAPON_KEYS, K, RESPAWN_MS };   // protocol numbers and rules, for tests and tools
+  globalThis.__simHurt = (id, dmg) => botHurt(botById.get(id), dmg, "x", performance.now(), true);   // a blow from nowhere, for tests
   globalThis.__simShots = () => shots;   // the shots in flight, for tests and tools
   globalThis.__simTerrain = { rubble: () => rubble, det: () => det, carveAt, shove,   // for tests and tools
     empty() { bodies.length = 0; planets.length = 0; ROCKS = 0; world.rocks.length = 0; eventAt = () => ({ cyc: 0, ph: 0, et: 0, type: "meteors", active: false, warn: false }); } };   // an open field (tests of timing, where a passing moon must not be in the way)

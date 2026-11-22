@@ -62,16 +62,16 @@
     if (Number.isFinite(m.sh) && m.sh !== me.shield) { me.shield = clamp(m.sh, 0, MAX_SHIELD); renderShield(); }
     if (Number.isFinite(m.l) && m.l !== me.lives) { const hit = m.l < me.lives; me.lives = clamp(m.l, 0, LIVES * 1.99); renderHearts(hit); if (hit && !me.dead) { me.hitAt = now; hurtFlash = Math.min(1, hurtFlash + 0.4); } }
     if (m.d === 1 && !me.dead) {   // the server's verdict: I died
-      me.dead = true; me.respawnAt = now + 3000; me.vx = me.vy = 0;
+      me.dead = true; me.respawnAt = now + RESPAWN_MS; me.vx = me.vy = 0;
       me.ds = clamp(Math.floor(num(m.ds, 2)), 0, 4); me.dk = clamp(Math.floor(num(m.dk, 0)), 0, DEATH_KINDS); me.da = num(m.da, 0);
       deathFx(me, me.ds, me.dk, me.da);
       stats.deaths++; stats.streak = 0;
       const k = Array.isArray(m.ko) ? m.ko.at(-1) : "", tag = typeof k === "string" ? k.split(".")[0] : "";
-      const by = [...remotes.values()].find(r => r.tag === tag);
-      killer = by ? by.name : "";
+      const by = [...remotes].find(([, r]) => r.tag === tag);
+      killer = by ? by[1].name : ""; killerId = by ? by[0] : null;
       packPlay("p_death", 0.7);
     } else if (m.d === 0 && me.dead) {   // ...and back, where the server put me
-      me.dead = false; me.inv = now + 2000; me.vx = me.vy = 0;
+      me.dead = false; me.inv = now + 2000; me.vx = me.vy = 0; forgetKiller(now);
       if (Number.isFinite(m.x)) { me.x = m.x; me.y = m.y; }
       audioCue("respawn"); renderHearts(false);
       srv.hist.length = 0; srv.cx = srv.cy = 0;

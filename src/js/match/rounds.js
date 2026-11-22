@@ -82,8 +82,8 @@
       flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
       grabbed.clear(); myGrabs.length = 0; gunDrops.clear(); myGunDrops.length = 0;
       hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; wallDrips.length = 0; casings.length = 0; meltLines.length = 0; cuts.length = 0; scars.length = 0; voids.length = 0; decalTiles.clear(); afterBlasts.length = 0; shockQueue.length = 0;
-      if (shownRound !== -1) {
-        myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode);
+      if (shownRound !== -1 || mapThemeOf(worldCode) !== builtTheme) {   // (a rotating lobby: this round's map, even on joining)
+        myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode); placeBases();
         // Respawn after rebuilding: a repaired planet must not enclose a pilot in its old tunnel.
         Object.assign(me, spawnPoint(me.tm), { vx: 0, vy: 0 });
         if (serverRun) srv.placed = false;   // on the server, the server says where (serverSelf)

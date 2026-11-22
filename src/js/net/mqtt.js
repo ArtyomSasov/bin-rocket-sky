@@ -58,12 +58,12 @@
       clockBase = clockOff = clockTarget = 0;
       startMatch(clockNow());
       firstRoundIdx = null;   // so the fresh round is Round 1
-      document.getElementById("boardTitle").textContent = "Offline · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
+      document.getElementById("boardTitle").textContent = "Offline · " + MODES[MODE].label + " · " + mapLabel(code);
       setStatus(false, "Offline · you and " + bots.length + (bots.length === 1 ? " bot" : " bots"));
       return;
     }
     history.replaceState(null, "", "#" + code);
-    document.getElementById("boardTitle").textContent = "Lobby " + shown + " · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
+    document.getElementById("boardTitle").textContent = "Lobby " + shown + " · " + MODES[MODE].label + " · " + mapLabel(code);
     shareBtn.hidden = false;
     shareBtn.onclick = () => copyText(location.href, shareBtn, "Copy invite link", "Link copied");
     codeBtn.hidden = false;

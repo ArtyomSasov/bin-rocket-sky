@@ -7,7 +7,7 @@
       if (b.dead) {
         if (now < b.respawnAt) continue;
         clearArmor(b);
-        Object.assign(b, { dead: false, lives: LIVES, inv: now + 2000, ...spawnPoint(b.tm), vx: 0, vy: 0, charge: 0 });
+        Object.assign(b, { dead: false, lives: LIVES, inv: now + 2000, ...safeSpawn(b), vx: 0, vy: 0, charge: 0 });
         resetCmds(b);
       }
       const human = b.input;   // flown by a player: the AI below only steers the others

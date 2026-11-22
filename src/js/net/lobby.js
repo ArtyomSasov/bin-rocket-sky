@@ -44,7 +44,7 @@
     el.replaceChildren(...list.map(([, l]) => {
       const c = l.c;
       const row = document.createElement("button"); row.type = "button"; row.className = "lobby";
-      const t = document.createElement("b"); t.textContent = MODES[modeOf(c)].label + " · " + MAPS[mapThemeOf(c)].label + " · " + MAP_SIZES[mapOf(c)][1] + " · " + TIME_OPTS[timeOf(c)] + " min" + (scoreLimit(c) ? " · to " + scoreLimit(c) : "");
+      const t = document.createElement("b"); t.textContent = MODES[modeOf(c)].label + " · " + mapLabel(c) + " · " + MAP_SIZES[mapOf(c)][1] + " · " + TIME_OPTS[timeOf(c)] + " min" + (scoreLimit(c) ? " · to " + scoreLimit(c) : "");
       const s = document.createElement("small"); s.textContent = (l.s ? "Game server · " : "") + l.n + (l.n === 1 ? " pilot" : " pilots") + (l.b ? " + " + l.b + " bots" : "") + " · " + c.toUpperCase();
       row.append(t, s);
       if (l.s) row.classList.add("srv");
@@ -69,7 +69,7 @@
     const head = document.createElement("span"); head.textContent = rooms.length === 1 ? "A game is on the server now" : rooms.length + " games are on the server now";
     box.replaceChildren(head, ...rooms.map(l => {
       const c = l.c, b = document.createElement("button"); b.type = "button"; b.className = "go srv-join";
-      const t = document.createElement("b"); t.textContent = "Join: " + MODES[modeOf(c)].label + " · " + MAPS[mapThemeOf(c)].name + " · " + MAP_SIZES[mapOf(c)][1];
+      const t = document.createElement("b"); t.textContent = "Join: " + MODES[modeOf(c)].label + " · " + mapLabel(c, "name") + " · " + MAP_SIZES[mapOf(c)][1];
       const s2 = document.createElement("small"); s2.textContent = l.n + (l.n === 1 ? " pilot" : " pilots") + (l.b ? " + " + l.b + " bots" : "") + " · " + c.toUpperCase();
       b.append(t, s2);
       b.addEventListener("click", () => { if (!chooseWhere("srv")) return; lobbyInput.value = c.toUpperCase(); lobbyInput.dispatchEvent(new Event("input")); document.getElementById("startForm").requestSubmit(); });

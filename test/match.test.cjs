@@ -92,3 +92,21 @@ test('a piece broken off a planet has the same name in every game where the same
     assert.ok(wire && wire.list.some(e => e[0] === ra.key));
   } finally { a.dispose(); b.dispose(); }
 });
+
+test('a pilot that dies is back after the respawn time, at a spot away from its enemies', { skip }, async () => {
+  const m = await createMatch({ code: 'm1d0c', bots: 6, level: 'easy' });
+  try {
+    run(m, 1);
+    const G = m.game, [victim, ...rest] = G.__simBots();
+    for (const b of rest) Object.assign(b, { x: 300, y: 300, vx: 0, vy: 0, fireCd: 1e9 });   // every enemy in one corner
+    run(m, 0.1);
+    G.__simHurt(victim.id, 99);
+    assert.equal(victim.dead, true);
+    run(m, G.__simConst.RESPAWN_MS / 1000 - 0.3);
+    assert.equal(victim.dead, true, 'still waiting');
+    run(m, 0.6);
+    assert.equal(victim.dead, false, 'back in');
+    const near = Math.min(...rest.map(b => Math.hypot(b.x - victim.x, b.y - victim.y)));
+    assert.ok(near > 1200, `born ${Math.round(near)} px from the nearest enemy`);
+  } finally { m.dispose(); }
+});

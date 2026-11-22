@@ -190,6 +190,7 @@
     else {
       g.textAlign = "center"; g.fillStyle = "#ffffff";
       g.font = `700 ${30 * TS}px ` + DISPLAY_FONT;
-      g.fillText((killer ? "Killed by " + killer + " · " : "Boom! ") + "back in " + Math.max(1, Math.ceil((me.respawnAt - now) / 1000)) + "…", vw / 2, vh / 2);
+      const kr = killerId && remotes.get(killerId), hp = kr && !kr.dead && Number.isFinite(kr.lives) ? " · " + hpPct(kr) + " HP left" : "";
+      g.fillText((killer ? "Killed by " + killer + hp + " · " : "Boom! ") + "back in " + Math.max(1, Math.ceil((me.respawnAt - now) / 1000)) + "…", vw / 2, vh * 0.28);   // (above the middle: the camera shows the killer there)
     }
   }

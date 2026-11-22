@@ -35,9 +35,10 @@
     }
     return bd > pad ? best : null;
   }
+  let builtTheme = null;   // the map the world was last built as (a rotating lobby's changes with the round)
   function buildPlanets(code) {
     worldCode = code;
-    const theme = mapThemeOf(code), T = MAPS[theme], A = ARENAS[theme], rs = ARENA_SCALE[mapKey] || 1, big = mapKey === "l" ? 1 : mapKey === "x" ? 2 : 0;
+    const theme = builtTheme = mapThemeOf(code), T = MAPS[theme], A = ARENAS[theme], rs = ARENA_SCALE[mapKey] || 1, big = mapKey === "l" ? 1 : mapKey === "x" ? 2 : 0;
     // the same arena looks the same in every lobby: sky, planets and wrecks are seeded by the map and its size only
     let seed = 7;
     for (const ch of theme + mapKey) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) | 0;

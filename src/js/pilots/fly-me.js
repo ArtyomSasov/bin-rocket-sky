@@ -70,9 +70,14 @@
     const ce = 1 - Math.exp(-2.5 * dt);
     const [mcx, mcy] = mouseAim() && playing && !me.dead ? cursorAt() : [vw / 2, vh / 2], lean = 0.22;   // mouse aim: the view leans toward the cursor
     cam.lx += (me.vx * lk + (mcx - vw / 2) * lean - cam.lx) * ce; cam.ly += (me.vy * lk + (mcy - vh / 2) * lean - cam.ly) * ce;
+    // dead: my own end first, then over to whoever killed me (while they live), until I am back
+    const watch = me.dead && killerId && now > me.respawnAt - RESPAWN_MS + 900 ? remotes.get(killerId) : null;
     if (guided || now < camBackUntil) {   // riding along with the guided nuke, then easing back to the bin
       const to = guided || me, ce2 = 1 - Math.exp(-(guided ? 10 : 6) * dt);
       cam.x += (to.x + (guided ? 0 : cam.lx) - cam.x) * ce2; cam.y += (to.y + (guided ? 0 : cam.ly) - cam.y) * ce2;
+    } else if (me.dead) {
+      const to = watch && !watch.dead ? watch : me, ce2 = 1 - Math.exp(-4 * dt);
+      cam.x += (to.x - cam.x) * ce2; cam.y += (to.y - cam.y) * ce2;
     } else { cam.x = me.x + srv.vox + cam.lx; cam.y = me.y + srv.voy + cam.ly; }   // (following the bin as drawn)
     // on boost the view pulls back a little (and eases in again after): speed you can feel
     const vzT = playing && !me.dead && boost ? 0.84 : 1;

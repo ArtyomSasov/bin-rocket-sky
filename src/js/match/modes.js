@@ -40,5 +40,7 @@
     else { me.tm = undefined; for (const b of bots) b.tm = undefined; }
     me.fc = -1; me.caps = 0;
     for (const b of bots) { b.fc = -1; b.caps = 0; }
-    bases = MODES[MODE].flags ? [findBase(0), findBase(1)] : null;
+    placeBases();
   }
+  // capture the flag's two home pads, on the map being played
+  const placeBases = () => { bases = MODES[MODE].flags ? [findBase(0), findBase(1)] : null; };

@@ -769,9 +769,28 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     for (const [, a, b] of String(code).slice(1).matchAll(/([01])([a-z0-9])/g)) o[a + (/\d/.test(b) ? "d" : "l")] = b;
     return { mode: o["1l"], map: o["0l"], time: o["1d"], score: o["0d"] };
   };
-  // the map a code names ("c" if none): asked many times a step (stationMap), so the last answer is kept
-  let themeCode = null, themeOf = "c";
-  const mapThemeOf = code => { if (code !== themeCode) { const m = codeOpts(code).map; themeCode = code; themeOf = MAPS[m] ? m : "c"; } return themeOf; };
+  // Rotation (map letter z): a different map every round, the same on every screen and the server: the round's
+  // number picks it, going round every map but the duel one, from a start the code's random letters choose
+  const ROTATION = "z", ROTATION_LABEL = "Rotation";
+  const rotates = code => codeOpts(code).map === ROTATION;
+  const rotationMap = (code, round) => {
+    const list = Object.keys(MAPS).filter(k => k !== "o");
+    let seed = 0; for (const ch of String(code)) seed = (seed * 31 + ch.charCodeAt(0)) % 9973;
+    return list[(seed + Math.max(0, round)) % list.length];
+  };
+  // the map a code names ("c" if none) for the round being played: asked many times a step (stationMap), so the last
+  // answer is kept
+  let themeCode = null, themeRound = null, themeOf = "c";
+  const mapThemeOf = code => {
+    const round = rotates(code) ? stats.round : null;
+    if (code !== themeCode || round !== themeRound) {
+      const m = codeOpts(code).map; themeCode = code; themeRound = round;
+      themeOf = round !== null ? rotationMap(code, round) : MAPS[m] ? m : "c";
+    }
+    return themeOf;
+  };
+  // a code's map as a lobby list says it
+  const mapLabel = (code, key = "label") => rotates(code) ? ROTATION_LABEL : MAPS[mapThemeOf(code)][key];
   let W = 4200, H = 4200;
   const BOT = 84;                    // sprite size on screen
   const BIN_R = 40;                  // a bin's hit circle: the same on the victim's screen and the shooter's
@@ -780,6 +799,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const SPRITE_TILT = 0.24;          // the art leans right a little (its engine points down-left)
   const NOZZLE = [140 / 320 - 0.5, 186 / 320 - 0.5];   // engine opening in the art, as a fraction of size
   const LIVES = 3, ROCK_PERIOD = 22; let ROCKS = 36;
+  const RESPAWN_MS = 2000;           // dead this long, then back in (see safeSpawn)
   const FLAME = { outer: [255, 70, 20], mid: [255, 150, 40], core: [255, 240, 170] };   // an engine's fire, unless its look picks another
   // shot kinds: what flies. The number is what goes over the network; everything per kind lives in SHOTS
   const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10, HOLY: 11, SAW: 12, GAMMA: 13, BEACON: 14, TFRAG: 15, BULLET: 16, GAUSS: 17, SHOCK: 18, PULSE: 19, FLAK: 20, DET: 21, NAIL: 22, GREN: 23, MELEE: 24, SPIKE: 25, MDET: 26, HROCKET: 27, RECALL: 28, PISTOL: 29, SAW_ALT: 30, BULLET_ALT: 31, PULSE_BOLT: 32, SWORD: 33, VOID: 34, HOOK: 35, NOVA: 36 };
@@ -3112,9 +3132,10 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     }
     return bd > pad ? best : null;
   }
+  let builtTheme = null;   // the map the world was last built as (a rotating lobby's changes with the round)
   function buildPlanets(code) {
     worldCode = code;
-    const theme = mapThemeOf(code), T = MAPS[theme], A = ARENAS[theme], rs = ARENA_SCALE[mapKey] || 1, big = mapKey === "l" ? 1 : mapKey === "x" ? 2 : 0;
+    const theme = builtTheme = mapThemeOf(code), T = MAPS[theme], A = ARENAS[theme], rs = ARENA_SCALE[mapKey] || 1, big = mapKey === "l" ? 1 : mapKey === "x" ? 2 : 0;
     // the same arena looks the same in every lobby: sky, planets and wrecks are seeded by the map and its size only
     let seed = 7;
     for (const ch of theme + mapKey) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) | 0;
@@ -3954,6 +3975,22 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     for (let k = 0; k < 30 && inBody(x, y, 160); k++) { x = rx(); y = rndIn(H, 300); }
     return { x, y };
   }
+  // where a pilot comes back after dying: of a few spots on its side, the one furthest from any living enemy, so it is
+  // not born into a fight (the same rule on every screen and the server)
+  function safeSpawn(o) {
+    const foes = [];
+    if (o !== me && playing && !me.dead && !mates(me, o)) foes.push(me);
+    for (const [id, r] of remotes) if (id !== o.id && !r.dead && !mates(r, o)) foes.push(r);
+    let best = null, bestD = -1;
+    for (let k = 0; k < 8; k++) {
+      const p = spawnPoint(o.tm);
+      let d = Infinity;
+      for (const f of foes) d = Math.min(d, Math.hypot(f.x - p.x, f.y - p.y));
+      if (d > bestD) { bestD = d; best = p; }
+      if (!foes.length) break;
+    }
+    return best;
+  }
   // ---------- game modes ----------
   let bases = null;   // capture the flag: [red, blue] home pads
   const isTeams = () => !!MODES[MODE].teams;
@@ -3996,8 +4033,10 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     else { me.tm = undefined; for (const b of bots) b.tm = undefined; }
     me.fc = -1; me.caps = 0;
     for (const b of bots) { b.fc = -1; b.caps = 0; }
-    bases = MODES[MODE].flags ? [findBase(0), findBase(1)] : null;
+    placeBases();
   }
+  // capture the flag's two home pads, on the map being played
+  const placeBases = () => { bases = MODES[MODE].flags ? [findBase(0), findBase(1)] : null; };
   // ---------- body physics: pick-up placement, gravity, bouncing off bodies, shot hits ----------
   // pick-ups that would land inside a planet sit on its rim instead (same result on every client)
   function outside(o) {
@@ -5547,7 +5586,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const before = me.lives + me.shield;
     if (!hurt(now, s.mine ? dmg * SELF_DMG : dmg, force, kind, ang)) return false;
     if (!s.mine) metricDamage(s.id, before - me.lives - me.shield, me.dead);
-    if (s.mine) { if (me.dead) killer = "your own blast"; return true; }
+    if (s.mine) { if (me.dead) { killer = "your own blast"; killerId = null; } return true; }
     pushCapped(hitBy, s.id, 12);
     if (me.dead) { meKilled(s.id); killedBy(s.owner); }
     return true;
@@ -6272,11 +6311,14 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     }
     sfx("dash", 0.8);
   }
-  let killer = "";
+  // who killed me: their name for the words on the screen, their id for the camera, which goes over to them while I
+  // wait to come back (the kill seen from their side: where they are, how hurt they are)
+  let killer = "", killerId = null;
   function killedBy(owner) {
     const r = remotes.get(owner);
-    if (r) killer = r.name;
+    if (r) { killer = r.name; killerId = owner; }
   }
+  const forgetKiller = now => { killer = ""; killerId = null; camBackUntil = now + 600; };   // (and the camera eases back to me)
   const arsenalEl = document.getElementById("arsenal");
   const owned = () => WEAPON_SLOTS.filter(hasWeapon);
   const ammoFill = k => Number.isFinite(me.arsenal[k]) ? Math.min(1, (me.arsenal[k] || 0) / WEAPONS[k].ammo) : 1;
@@ -6502,7 +6544,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       me.ds = deathPiecesOf(kind);   // pieces the bin breaks into: 1 = intact dead hulk, 2-4 = shattered (always pieces for a blast)
       me.dk = deathStyleOf(kind); me.da = ang;
       deathFx(me, me.ds, me.dk, me.da);
-      me.dead = true; me.respawnAt = now + 3000; me.vx = me.vy = 0;
+      me.dead = true; me.respawnAt = now + RESPAWN_MS; me.vx = me.vy = 0;
       const trophy = me.weapon !== "fire" ? me.weapon : owned().find(k => k !== "fire");
       if (trophy && !MODES[MODE].only) dropGun(me.x, me.y, trophy, me.arsenal[trophy]);
       baseArsenal(); me.ampUntil = 0; me.fc = -1; renderWeapon();   // its guns are lost with it (and a carried flag goes home)
@@ -6519,10 +6561,10 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     gunDrops.set(id, { x: d[1], y: d[2], type, ammo: d[4], born: performance.now() });
   }
   function respawn(now) {
-    killer = "";
+    forgetKiller(now);
     audioCue("respawn");
     me.dead = false; me.lives = LIVES; me.inv = now + 2000; clearArmor(me); renderShield();
-    Object.assign(me, spawnPoint(me.tm)); me.vx = 0; me.vy = -60;
+    Object.assign(me, safeSpawn(me)); me.vx = 0; me.vy = -60;
     renderHearts(false);
   }
 
@@ -6712,7 +6754,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     el.replaceChildren(...list.map(([, l]) => {
       const c = l.c;
       const row = document.createElement("button"); row.type = "button"; row.className = "lobby";
-      const t = document.createElement("b"); t.textContent = MODES[modeOf(c)].label + " · " + MAPS[mapThemeOf(c)].label + " · " + MAP_SIZES[mapOf(c)][1] + " · " + TIME_OPTS[timeOf(c)] + " min" + (scoreLimit(c) ? " · to " + scoreLimit(c) : "");
+      const t = document.createElement("b"); t.textContent = MODES[modeOf(c)].label + " · " + mapLabel(c) + " · " + MAP_SIZES[mapOf(c)][1] + " · " + TIME_OPTS[timeOf(c)] + " min" + (scoreLimit(c) ? " · to " + scoreLimit(c) : "");
       const s = document.createElement("small"); s.textContent = (l.s ? "Game server · " : "") + l.n + (l.n === 1 ? " pilot" : " pilots") + (l.b ? " + " + l.b + " bots" : "") + " · " + c.toUpperCase();
       row.append(t, s);
       if (l.s) row.classList.add("srv");
@@ -6737,7 +6779,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const head = document.createElement("span"); head.textContent = rooms.length === 1 ? "A game is on the server now" : rooms.length + " games are on the server now";
     box.replaceChildren(head, ...rooms.map(l => {
       const c = l.c, b = document.createElement("button"); b.type = "button"; b.className = "go srv-join";
-      const t = document.createElement("b"); t.textContent = "Join: " + MODES[modeOf(c)].label + " · " + MAPS[mapThemeOf(c)].name + " · " + MAP_SIZES[mapOf(c)][1];
+      const t = document.createElement("b"); t.textContent = "Join: " + MODES[modeOf(c)].label + " · " + mapLabel(c, "name") + " · " + MAP_SIZES[mapOf(c)][1];
       const s2 = document.createElement("small"); s2.textContent = l.n + (l.n === 1 ? " pilot" : " pilots") + (l.b ? " + " + l.b + " bots" : "") + " · " + c.toUpperCase();
       b.append(t, s2);
       b.addEventListener("click", () => { if (!chooseWhere("srv")) return; lobbyInput.value = c.toUpperCase(); lobbyInput.dispatchEvent(new Event("input")); document.getElementById("startForm").requestSubmit(); });
@@ -7047,12 +7089,12 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       clockBase = clockOff = clockTarget = 0;
       startMatch(clockNow());
       firstRoundIdx = null;   // so the fresh round is Round 1
-      document.getElementById("boardTitle").textContent = "Offline · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
+      document.getElementById("boardTitle").textContent = "Offline · " + MODES[MODE].label + " · " + mapLabel(code);
       setStatus(false, "Offline · you and " + bots.length + (bots.length === 1 ? " bot" : " bots"));
       return;
     }
     history.replaceState(null, "", "#" + code);
-    document.getElementById("boardTitle").textContent = "Lobby " + shown + " · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
+    document.getElementById("boardTitle").textContent = "Lobby " + shown + " · " + MODES[MODE].label + " · " + mapLabel(code);
     shareBtn.hidden = false;
     shareBtn.onclick = () => copyText(location.href, shareBtn, "Copy invite link", "Link copied");
     codeBtn.hidden = false;
@@ -7257,7 +7299,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     net.send = lanSend;
     net.chat = text => { const data = JSON.stringify({ t: "chat", i: lan.myId, m: text }); for (const peer of lan.peers) lanSendTo(peer, data); };
     net.hz = 20;   // straight to the devices in the room, no broker's message budget: 20 states a second instead of 8
-    document.getElementById("boardTitle").textContent = "Local room · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
+    document.getElementById("boardTitle").textContent = "Local room · " + MODES[MODE].label + " · " + mapLabel(code);
     if (lan.host) { const b = document.getElementById("lanAdd"); b.hidden = false; b.onclick = () => lanDialog("host"); }
     setInterval(() => { lanRefresh(); if (!lan.host) for (const p of lan.peers) lanSendTo(p, JSON.stringify({ t: "ping", v: performance.now() })); }, 2000);
     lanRefresh();
@@ -7385,7 +7427,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const mySrvShot = s => serverRun && !!srv.id && s.owner === srv.id;
   function serverStart(code) {
     net.send = () => {}; net.shot = () => {};   // nothing of mine goes anywhere but my controls
-    document.getElementById("boardTitle").textContent = "Server · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
+    document.getElementById("boardTitle").textContent = "Server · " + MODES[MODE].label + " · " + mapLabel(code);
     setStatus(false, "Server · connecting…");
     if (!SERVER_URL) { setStatus(false, "Server · no valid address"); return; }
     srv.code = code;
@@ -7591,16 +7633,16 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (Number.isFinite(m.sh) && m.sh !== me.shield) { me.shield = clamp(m.sh, 0, MAX_SHIELD); renderShield(); }
     if (Number.isFinite(m.l) && m.l !== me.lives) { const hit = m.l < me.lives; me.lives = clamp(m.l, 0, LIVES * 1.99); renderHearts(hit); if (hit && !me.dead) { me.hitAt = now; hurtFlash = Math.min(1, hurtFlash + 0.4); } }
     if (m.d === 1 && !me.dead) {   // the server's verdict: I died
-      me.dead = true; me.respawnAt = now + 3000; me.vx = me.vy = 0;
+      me.dead = true; me.respawnAt = now + RESPAWN_MS; me.vx = me.vy = 0;
       me.ds = clamp(Math.floor(num(m.ds, 2)), 0, 4); me.dk = clamp(Math.floor(num(m.dk, 0)), 0, DEATH_KINDS); me.da = num(m.da, 0);
       deathFx(me, me.ds, me.dk, me.da);
       stats.deaths++; stats.streak = 0;
       const k = Array.isArray(m.ko) ? m.ko.at(-1) : "", tag = typeof k === "string" ? k.split(".")[0] : "";
-      const by = [...remotes.values()].find(r => r.tag === tag);
-      killer = by ? by.name : "";
+      const by = [...remotes].find(([, r]) => r.tag === tag);
+      killer = by ? by[1].name : ""; killerId = by ? by[0] : null;
       packPlay("p_death", 0.7);
     } else if (m.d === 0 && me.dead) {   // ...and back, where the server put me
-      me.dead = false; me.inv = now + 2000; me.vx = me.vy = 0;
+      me.dead = false; me.inv = now + 2000; me.vx = me.vy = 0; forgetKiller(now);
       if (Number.isFinite(m.x)) { me.x = m.x; me.y = m.y; }
       audioCue("respawn"); renderHearts(false);
       srv.hist.length = 0; srv.cx = srv.cy = 0;
@@ -8150,7 +8192,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (!byHole) pushCapped(b.hitBy, shotId, 12);
     if (b.lives <= 0) {
       if (b.weapon !== "fire" && !MODES[MODE].only) dropGun(b.x, b.y, b.weapon, b.input ? b.arsenal[b.weapon] : b.ammo);   // its trophy
-      b.dead = true; b.respawnAt = now + 3000; b.fc = -1; b.weapon = "fire"; b.ampUntil = 0;
+      b.dead = true; b.respawnAt = now + RESPAWN_MS; b.fc = -1; b.weapon = "fire"; b.ampUntil = 0;
       if (b.input) pilotArm(b);   // a player starts again with the laser pistol
       b.ds = deathPiecesOf(kind); b.dk = deathStyleOf(kind); b.da = ang;
       b.st.deaths++; b.st.streak = 0;
@@ -8189,7 +8231,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       if (b.dead) {
         if (now < b.respawnAt) continue;
         clearArmor(b);
-        Object.assign(b, { dead: false, lives: LIVES, inv: now + 2000, ...spawnPoint(b.tm), vx: 0, vy: 0, charge: 0 });
+        Object.assign(b, { dead: false, lives: LIVES, inv: now + 2000, ...safeSpawn(b), vx: 0, vy: 0, charge: 0 });
         resetCmds(b);
       }
       const human = b.input;   // flown by a player: the AI below only steers the others
@@ -9098,9 +9140,14 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const ce = 1 - Math.exp(-2.5 * dt);
     const [mcx, mcy] = mouseAim() && playing && !me.dead ? cursorAt() : [vw / 2, vh / 2], lean = 0.22;   // mouse aim: the view leans toward the cursor
     cam.lx += (me.vx * lk + (mcx - vw / 2) * lean - cam.lx) * ce; cam.ly += (me.vy * lk + (mcy - vh / 2) * lean - cam.ly) * ce;
+    // dead: my own end first, then over to whoever killed me (while they live), until I am back
+    const watch = me.dead && killerId && now > me.respawnAt - RESPAWN_MS + 900 ? remotes.get(killerId) : null;
     if (guided || now < camBackUntil) {   // riding along with the guided nuke, then easing back to the bin
       const to = guided || me, ce2 = 1 - Math.exp(-(guided ? 10 : 6) * dt);
       cam.x += (to.x + (guided ? 0 : cam.lx) - cam.x) * ce2; cam.y += (to.y + (guided ? 0 : cam.ly) - cam.y) * ce2;
+    } else if (me.dead) {
+      const to = watch && !watch.dead ? watch : me, ce2 = 1 - Math.exp(-4 * dt);
+      cam.x += (to.x - cam.x) * ce2; cam.y += (to.y - cam.y) * ce2;
     } else { cam.x = me.x + srv.vox + cam.lx; cam.y = me.y + srv.voy + cam.ly; }   // (following the bin as drawn)
     // on boost the view pulls back a little (and eases in again after): speed you can feel
     const vzT = playing && !me.dead && boost ? 0.84 : 1;
@@ -9886,8 +9933,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
       grabbed.clear(); myGrabs.length = 0; gunDrops.clear(); myGunDrops.length = 0;
       hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; wallDrips.length = 0; casings.length = 0; meltLines.length = 0; cuts.length = 0; scars.length = 0; voids.length = 0; decalTiles.clear(); afterBlasts.length = 0; shockQueue.length = 0;
-      if (shownRound !== -1) {
-        myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode);
+      if (shownRound !== -1 || mapThemeOf(worldCode) !== builtTheme) {   // (a rotating lobby: this round's map, even on joining)
+        myCarves.length = 0; seenCarves.clear(); buildPlanets(worldCode); placeBases();
         // Respawn after rebuilding: a repaired planet must not enclose a pilot in its old tunnel.
         Object.assign(me, spawnPoint(me.tm), { vx: 0, vy: 0 });
         if (serverRun) srv.placed = false;   // on the server, the server says where (serverSelf)
@@ -11583,7 +11630,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     else {
       g.textAlign = "center"; g.fillStyle = "#ffffff";
       g.font = `700 ${30 * TS}px ` + DISPLAY_FONT;
-      g.fillText((killer ? "Killed by " + killer + " · " : "Boom! ") + "back in " + Math.max(1, Math.ceil((me.respawnAt - now) / 1000)) + "…", vw / 2, vh / 2);
+      const kr = killerId && remotes.get(killerId), hp = kr && !kr.dead && Number.isFinite(kr.lives) ? " · " + hpPct(kr) + " HP left" : "";
+      g.fillText((killer ? "Killed by " + killer + hp + " · " : "Boom! ") + "back in " + Math.max(1, Math.ceil((me.respawnAt - now) / 1000)) + "…", vw / 2, vh * 0.28);   // (above the middle: the camera shows the killer there)
     }
   }
   // smoke over the bins, impact flashes, rail trails, zaps, shock rings, nuke blasts
@@ -12554,7 +12602,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   let joining = false, newGameCode = "";
   const lobbyCode = () => joining ? normCode(lobbyInput.value) : newGameCode;
   const codeOk = () => lobbyCode().length >= 4;
-  const describe = c => MODES[modeOf(c)].name + " · " + MAPS[mapThemeOf(c)].name + " · " + MAP_SIZES[mapOf(c)][1]
+  const describe = c => MODES[modeOf(c)].name + " · " + mapLabel(c, "name") + " · " + MAP_SIZES[mapOf(c)][1]
     + " · " + TIME_OPTS[timeOf(c)] + " min" + (scoreLimit(c) ? " · first to " + scoreLimit(c) + (MODES[modeOf(c)].flags ? " flags" : " kills") : "");
   const syncGo = () => {
     if (!standalone) { goBtn.textContent = "Take off"; return; }
@@ -12615,7 +12663,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     document.getElementById("lobbyBox").hidden = false;
     let mapPick = MAP_SIZES[store.get("binrocket.map")] ? store.get("binrocket.map") : "m";
     let modePick = MODES[store.get("binrocket.mode")] ? store.get("binrocket.mode") : "d";
-    let themePick = MAPS[store.get("binrocket.theme")] ? store.get("binrocket.theme") : "c";
+    let themePick = MAPS[store.get("binrocket.theme")] || store.get("binrocket.theme") === ROTATION ? store.get("binrocket.theme") : "c";
     let timePick = TIME_OPTS[store.get("binrocket.time")] ? store.get("binrocket.time") : TIME_DEFAULT;
     let scorePick = SCORE_OPTS[store.get("binrocket.score")] ? store.get("binrocket.score") : "";
     const newCode = () => {
@@ -12648,7 +12696,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (offlineOnly) noNetwork("Offline · you against the bots");
     for (const el of [document.getElementById("botCount"), document.getElementById("botLevel")]) el.addEventListener(el.id === "botCount" ? "input" : "click", () => syncGo());
     segButtons(document.getElementById("modePick"), Object.entries(MODES).map(([k, v]) => [k, v.label, v.hint]), modePick, v => { modePick = v; store.set("binrocket.mode", v); drawScores(); newCode(); });
-    segButtons(document.getElementById("themePick"), Object.entries(MAPS).map(([k, v]) => [k, v.label, v.hint]), themePick, v => { themePick = v; store.set("binrocket.theme", v); newCode(); });
+    segButtons(document.getElementById("themePick"), [...Object.entries(MAPS).map(([k, v]) => [k, v.label, v.hint]), [ROTATION, ROTATION_LABEL, "a different map every round"]], themePick, v => { themePick = v; store.set("binrocket.theme", v); newCode(); });
     segButtons(document.getElementById("timePick"), Object.entries(TIME_OPTS).map(([k, v]) => [k, v + " min"]), timePick, v => { timePick = v; store.set("binrocket.time", v); newCode(); });
     const scoreItems = () => [["", "None"], ...Object.entries(SCORE_OPTS).map(([k, v]) => [k, MODES[modePick].flags ? v[1] + " flags" : v[0] + " kills"])];
     const scoreEl = document.getElementById("scorePick");

@@ -71,3 +71,19 @@ test('station props stand on the floor, clear of the walls and of every pick-up 
     } finally { m.dispose(); }
   }
 });
+
+test('a Rotation lobby plays a different map every round, going round them all (the duel map aside)', { skip }, async () => {
+  const g = await loadGame();
+  try {
+    const r = g.get(`(() => { const code = "m1d0zqrst", seen = [];
+      worldCode = code; setMapSize(mapOf(code));
+      for (let i = 0; i < 13; i++) { stats.round = i; seen.push(mapThemeOf(code)); }
+      stats.round = 4; buildPlanets(code); setMode(modeOf(code));
+      return { seen, maps: Object.keys(MAPS).length, built: builtTheme, station: stationMap(), want: !!MAPS[seen[4]].station, label: mapLabel(code) }; })()`);
+    assert.equal(new Set(r.seen).size, r.maps - 1, 'every map once in a cycle');
+    assert.ok(!r.seen.includes('o'), 'not the duel map');
+    assert.equal(r.built, r.seen[4], 'the world is built as the round\'s map');
+    assert.equal(r.station, r.want);
+    assert.equal(r.label, 'Rotation');
+  } finally { g.dispose(); }
+});

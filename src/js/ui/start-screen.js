@@ -9,7 +9,7 @@
   let joining = false, newGameCode = "";
   const lobbyCode = () => joining ? normCode(lobbyInput.value) : newGameCode;
   const codeOk = () => lobbyCode().length >= 4;
-  const describe = c => MODES[modeOf(c)].name + " · " + MAPS[mapThemeOf(c)].name + " · " + MAP_SIZES[mapOf(c)][1]
+  const describe = c => MODES[modeOf(c)].name + " · " + mapLabel(c, "name") + " · " + MAP_SIZES[mapOf(c)][1]
     + " · " + TIME_OPTS[timeOf(c)] + " min" + (scoreLimit(c) ? " · first to " + scoreLimit(c) + (MODES[modeOf(c)].flags ? " flags" : " kills") : "");
   const syncGo = () => {
     if (!standalone) { goBtn.textContent = "Take off"; return; }
@@ -70,7 +70,7 @@
     document.getElementById("lobbyBox").hidden = false;
     let mapPick = MAP_SIZES[store.get("binrocket.map")] ? store.get("binrocket.map") : "m";
     let modePick = MODES[store.get("binrocket.mode")] ? store.get("binrocket.mode") : "d";
-    let themePick = MAPS[store.get("binrocket.theme")] ? store.get("binrocket.theme") : "c";
+    let themePick = MAPS[store.get("binrocket.theme")] || store.get("binrocket.theme") === ROTATION ? store.get("binrocket.theme") : "c";
     let timePick = TIME_OPTS[store.get("binrocket.time")] ? store.get("binrocket.time") : TIME_DEFAULT;
     let scorePick = SCORE_OPTS[store.get("binrocket.score")] ? store.get("binrocket.score") : "";
     const newCode = () => {
@@ -103,7 +103,7 @@
     if (offlineOnly) noNetwork("Offline · you against the bots");
     for (const el of [document.getElementById("botCount"), document.getElementById("botLevel")]) el.addEventListener(el.id === "botCount" ? "input" : "click", () => syncGo());
     segButtons(document.getElementById("modePick"), Object.entries(MODES).map(([k, v]) => [k, v.label, v.hint]), modePick, v => { modePick = v; store.set("binrocket.mode", v); drawScores(); newCode(); });
-    segButtons(document.getElementById("themePick"), Object.entries(MAPS).map(([k, v]) => [k, v.label, v.hint]), themePick, v => { themePick = v; store.set("binrocket.theme", v); newCode(); });
+    segButtons(document.getElementById("themePick"), [...Object.entries(MAPS).map(([k, v]) => [k, v.label, v.hint]), [ROTATION, ROTATION_LABEL, "a different map every round"]], themePick, v => { themePick = v; store.set("binrocket.theme", v); newCode(); });
     segButtons(document.getElementById("timePick"), Object.entries(TIME_OPTS).map(([k, v]) => [k, v + " min"]), timePick, v => { timePick = v; store.set("binrocket.time", v); newCode(); });
     const scoreItems = () => [["", "None"], ...Object.entries(SCORE_OPTS).map(([k, v]) => [k, MODES[modePick].flags ? v[1] + " flags" : v[0] + " kills"])];
     const scoreEl = document.getElementById("scorePick");

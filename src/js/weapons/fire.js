@@ -69,7 +69,7 @@
     const before = me.lives + me.shield;
     if (!hurt(now, s.mine ? dmg * SELF_DMG : dmg, force, kind, ang)) return false;
     if (!s.mine) metricDamage(s.id, before - me.lives - me.shield, me.dead);
-    if (s.mine) { if (me.dead) killer = "your own blast"; return true; }
+    if (s.mine) { if (me.dead) { killer = "your own blast"; killerId = null; } return true; }
     pushCapped(hitBy, s.id, 12);
     if (me.dead) { meKilled(s.id); killedBy(s.owner); }
     return true;
