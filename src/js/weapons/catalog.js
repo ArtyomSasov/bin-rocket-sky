@@ -157,6 +157,6 @@
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
   // a station's inner wall gives only to heavy weapons (a crater of WALL_CARVE or more: rockets, grenades, mines, the
   // orbs, the charged rail and gauss), and then WALL_GIVE times more than rock does; the hull never
-  const WALL_CARVE = 24, WALL_GIVE = 1.5, RAIL_DRILL = 60;   // RAIL_DRILL: how far a rail slug bores into a wall per shot
+  const WALL_CARVE = 24, WALL_GIVE = 1.5;
   const BOOST_PADS = false;   // the speed pads on the maps: taken off (their spots stay, kept clear, should they come back)
   const AMP_PERIOD = 95, AMP_TIME = 20000, QUAD = 4;         // Quad damage: a rare pick-up, four times the damage for 20 s                        // mines go off when a bin comes this close, after arming

@@ -1,6 +1,6 @@
   function railBeam(s) {
-    const {x, y, vx, vy} = s, v = Math.hypot(vx, vy) || 1, dx = vx / v, dy = vy / v, L = beamReach(s), big = false;
-    beams.push({ x1: x, y1: y, x2: x + dx * L, y2: y + dy * L, t: 0, big, cut: s.cut || 0 });
+    const {x, y, vx, vy} = s, v = Math.hypot(vx, vy) || 1, dx = vx / v, dy = vy / v, L = beamReach(s);
+    beams.push({ x1: x, y1: y, x2: x + dx * L, y2: y + dy * L, t: 0 });
     if (beams.length > 12) beams.shift();
   }
   // the laser's look: each pulse lays a short-lived beam from the gun to where it stops; at 12 a second they

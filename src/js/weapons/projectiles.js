@@ -15,7 +15,7 @@
       // (sideways drift no longer bends it off the crosshair), and firing ahead while flying fast still adds reach
       const fwd = speed > 0 ? Math.max(0, p.vx * bx + p.vy * by) * ride : 0;
       s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * (speed + fwd) + (speed > 0 ? 0 : p.vx * ride), vy: by * (speed + fwd) + (speed > 0 ? 0 : p.vy * ride),
-            life: SHOTS[kind].life, cut: pat.cut || 0, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: false };   // pc: pierces (fireballs from Lv 7)
+            life: SHOTS[kind].life, mine, m: amp, owner: mine ? undefined : p.id, bn: 0 };
       if (mine && serverRun) { s = predictShot(s); if (kind === K.RAIL) railFired(s.id); continue; }   // on the authoritative server my shot is only shown here
       noteShotKind(id, kind);
       metricShot(s, p, pat);
@@ -27,11 +27,8 @@
         const sd = Math.random() < 0.5 ? 1 : -1, cx = -by * sd, cy = bx * sd, v = 140 + Math.random() * 120;
         puff(ox, oy, cx * v - bx * 60 + p.vx * 0.8, cy * v - by * 60 + p.vy * 0.8, 0.5 + Math.random() * 0.3, 1.8, "#e8c060");
       }
-      if (kind === K.RAIL && mine) {   // for Impressive (a miss breaks the run) and Headshot
-        railFired(id);
-        myRails.set(id, { x: s.x, y: s.y, charged: false }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value);
-      }
-      const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind, +amp.toFixed(2), s.pc ? 1 : 0, s.cut || 0, Date.now()];
+      if (kind === K.RAIL && mine) railFired(id);   // for Impressive (a miss breaks the run)
+      const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind, +amp.toFixed(2), 0, 0, Date.now()];   // (two places once used, kept: older pages read the time after them)
       if (mine) { myShotLog.push({ at: now, d }); stats.shots++; net.shot(d); }
       else { seenShots.set(id, performance.now()); p.shotLog.push({ at: now, d }); p.st.shots++; }
     }

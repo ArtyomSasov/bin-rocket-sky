@@ -27,7 +27,7 @@
     if (p === o && shielded(o)) return false;
     return segHit(s, p.x, p.y, binR(p.lv) + shotRadius(s));
   }
-  const shotRadius = s => s.cut || SHOTS[s.kind].r;
+  const shotRadius = s => SHOTS[s.kind].r;
   // Earliest contact between a shot and a moving circle. Work in relative coordinates
   // so a target crossing the path between frames is not treated as a stationary point.
   function circleContact(x, y, dx, dy, r) {
@@ -90,7 +90,7 @@
   // and how far a bin flies in the furthest a shot is judged back, REWIND_MS, with room to spare)
   const NEAR_PAD = 700;
   const nearPath = (s, o) => o.x > Math.min(s.px, s.x) - NEAR_PAD && o.x < Math.max(s.px, s.x) + NEAR_PAD && o.y > Math.min(s.py, s.y) - NEAR_PAD && o.y < Math.max(s.py, s.y) + NEAR_PAD;
-  const pierces = s => SHOTS[s.kind].pierce || !!s.pc;   // rail-like shots, and fireballs from Lv 7
+  const pierces = s => !!SHOTS[s.kind].pierce;   // rail-like shots
   // Piercing shots hit each target once.
   function railOnce(s, key) { if (!s.hits) s.hits = new Set(); if (s.hits.has(key)) return false; s.hits.add(key); return true; }
   // its beam is drawn at once along the whole path, so the shot reads as instant
@@ -99,15 +99,13 @@
   const BEAM_T = 1.1;   // a rail trail lingers: the hot core goes fast, the spiral slowly unwinds
   function beamReach(s) {
     const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v;
-    let reach = Math.max(0, Math.min(s.cut ? 1100 : v * SHOTS[s.kind].life,
+    let reach = Math.max(0, Math.min(v * SHOTS[s.kind].life,
       dx > 0 ? (W - s.x) / dx : dx < 0 ? -s.x / dx : Infinity,
       dy > 0 ? (H - s.y) / dy : dy < 0 ? -s.y / dy : Infinity));
     // The station shell blocks even penetrating weapons; old maps keep their terrain cutting.
     // An inner wall stops it too, where it is still standing, unless the beam is heavy enough to break it (it cuts
     // its way through: carveBeam)
-    // (a rail slug drills into it: it bores RAIL_DRILL px into the wall and stops there, so a wall is drilled
-    // through by a few shots in one place, not shot through by one)
-    const heavy = (s.cut || SHOTS[s.kind].carve) >= WALL_CARVE || s.kind === K.RAIL, drill = false;   // (a rail slug cuts clean through)
+    const heavy = SHOTS[s.kind].carve >= WALL_CARVE || s.kind === K.RAIL;   // (a rail slug cuts clean through)
     for (const b of bodies) if (b.fixed || (b.wall && !b.dead && !b.free && !heavy)) {
       let near = 0, far = reach;
       for (const [p, d, lo, hi] of [[s.x, dx, b.x - b.hw, b.x + b.hw], [s.y, dy, b.y - b.hh, b.y + b.hh]]) {
@@ -116,7 +114,7 @@
       }
       if (far < near) continue;
       if (b.fixed) { reach = Math.min(reach, near); continue; }
-      for (let t = Math.max(0, near); t <= Math.min(far, reach); t += b.cs * 0.5) if (solidAt(b, s.x + dx * t, s.y + dy * t)) { reach = Math.min(reach, t + (drill ? RAIL_DRILL : 0)); break; }
+      for (let t = Math.max(0, near); t <= Math.min(far, reach); t += b.cs * 0.5) if (solidAt(b, s.x + dx * t, s.y + dy * t)) { reach = Math.min(reach, t); break; }
     }
     return reach;
   }

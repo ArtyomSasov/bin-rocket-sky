@@ -16,8 +16,8 @@
     }
     const ex = s.x + dx * L, ey = s.y + dy * L;
     s.px = s.x; s.py = s.y; s.x = ex; s.y = ey;
-    if (pierce && (s.kind === K.RAIL || s.cut)) railMelt(s.px, s.py, ex, ey, (s.cut || SHOTS[s.kind].carve) * 0.7);   // (before the cut: it sees what was there)
-    if (pierce) carveBeam(s, s.cut || SHOTS[s.kind].carve);
+    if (pierce && s.kind === K.RAIL) railMelt(s.px, s.py, ex, ey, SHOTS[s.kind].carve * 0.7);   // (before the cut: it sees what was there)
+    if (pierce) carveBeam(s, SHOTS[s.kind].carve);
     if (stop) {   // a beam ends on rock: it scorches a crater there
       surfaceHit(stop.b, stop.x, stop.y, s.kind);   // (first: its pieces are cut from the face before the crater is)
       if (own || stop.b.free) carveAt(stop.b, stop.x, stop.y, SHOTS[s.kind].carve, own);

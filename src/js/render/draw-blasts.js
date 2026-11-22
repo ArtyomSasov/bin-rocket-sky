@@ -90,10 +90,9 @@
       const k = 1 - b.t / BEAM_T, kc = Math.max(0, 1 - b.t / 0.4), x1 = sx(b.x1), y1 = sy(b.y1), x2 = sx(b.x2), y2 = sy(b.y2);
       g.lineCap = "round"; g.lineJoin = "round";
       if (kc > 0) {
-        const bw = b.cut ? b.cut / 15 : b.big ? 1.9 : 1;   // the charged slug: wider and blue
-        g.strokeStyle = `rgba(255,${b.big ? 110 : 130},50,${0.38 * kc})`; g.lineWidth = (26 * kc + 4) * bw;   // (white-hot, orange round it: a slug that melts what it goes through)
+        g.strokeStyle = `rgba(255,130,50,${0.38 * kc})`; g.lineWidth = 26 * kc + 4;   // (white-hot, orange round it: a slug that melts what it goes through)
         g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
-        g.strokeStyle = `rgba(255,${b.big ? 200 : 215},150,${0.85 * kc})`; g.lineWidth = (8 * kc + 1) * bw;
+        g.strokeStyle = `rgba(255,215,150,${0.85 * kc})`; g.lineWidth = 8 * kc + 1;
         g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
         g.strokeStyle = `rgba(255,255,255,${kc})`; g.lineWidth = 2.5 * kc + 0.5;
         g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();

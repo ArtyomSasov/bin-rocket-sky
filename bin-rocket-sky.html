@@ -967,7 +967,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
   // a station's inner wall gives only to heavy weapons (a crater of WALL_CARVE or more: rockets, grenades, mines, the
   // orbs, the charged rail and gauss), and then WALL_GIVE times more than rock does; the hull never
-  const WALL_CARVE = 24, WALL_GIVE = 1.5, RAIL_DRILL = 60;   // RAIL_DRILL: how far a rail slug bores into a wall per shot
+  const WALL_CARVE = 24, WALL_GIVE = 1.5;
   const BOOST_PADS = false;   // the speed pads on the maps: taken off (their spots stay, kept clear, should they come back)
   const AMP_PERIOD = 95, AMP_TIME = 20000, QUAD = 4;         // Quad damage: a rare pick-up, four times the damage for 20 s                        // mines go off when a bin comes this close, after arming
   // UT99 pickups: ordinary health caps at 100; super health at 199.
@@ -5667,7 +5667,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (p === o && shielded(o)) return false;
     return segHit(s, p.x, p.y, binR(p.lv) + shotRadius(s));
   }
-  const shotRadius = s => s.cut || SHOTS[s.kind].r;
+  const shotRadius = s => SHOTS[s.kind].r;
   // Earliest contact between a shot and a moving circle. Work in relative coordinates
   // so a target crossing the path between frames is not treated as a stationary point.
   function circleContact(x, y, dx, dy, r) {
@@ -5730,7 +5730,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // and how far a bin flies in the furthest a shot is judged back, REWIND_MS, with room to spare)
   const NEAR_PAD = 700;
   const nearPath = (s, o) => o.x > Math.min(s.px, s.x) - NEAR_PAD && o.x < Math.max(s.px, s.x) + NEAR_PAD && o.y > Math.min(s.py, s.y) - NEAR_PAD && o.y < Math.max(s.py, s.y) + NEAR_PAD;
-  const pierces = s => SHOTS[s.kind].pierce || !!s.pc;   // rail-like shots, and fireballs from Lv 7
+  const pierces = s => !!SHOTS[s.kind].pierce;   // rail-like shots
   // Piercing shots hit each target once.
   function railOnce(s, key) { if (!s.hits) s.hits = new Set(); if (s.hits.has(key)) return false; s.hits.add(key); return true; }
   // its beam is drawn at once along the whole path, so the shot reads as instant
@@ -5739,15 +5739,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const BEAM_T = 1.1;   // a rail trail lingers: the hot core goes fast, the spiral slowly unwinds
   function beamReach(s) {
     const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v;
-    let reach = Math.max(0, Math.min(s.cut ? 1100 : v * SHOTS[s.kind].life,
+    let reach = Math.max(0, Math.min(v * SHOTS[s.kind].life,
       dx > 0 ? (W - s.x) / dx : dx < 0 ? -s.x / dx : Infinity,
       dy > 0 ? (H - s.y) / dy : dy < 0 ? -s.y / dy : Infinity));
     // The station shell blocks even penetrating weapons; old maps keep their terrain cutting.
     // An inner wall stops it too, where it is still standing, unless the beam is heavy enough to break it (it cuts
     // its way through: carveBeam)
-    // (a rail slug drills into it: it bores RAIL_DRILL px into the wall and stops there, so a wall is drilled
-    // through by a few shots in one place, not shot through by one)
-    const heavy = (s.cut || SHOTS[s.kind].carve) >= WALL_CARVE || s.kind === K.RAIL, drill = false;   // (a rail slug cuts clean through)
+    const heavy = SHOTS[s.kind].carve >= WALL_CARVE || s.kind === K.RAIL;   // (a rail slug cuts clean through)
     for (const b of bodies) if (b.fixed || (b.wall && !b.dead && !b.free && !heavy)) {
       let near = 0, far = reach;
       for (const [p, d, lo, hi] of [[s.x, dx, b.x - b.hw, b.x + b.hw], [s.y, dy, b.y - b.hh, b.y + b.hh]]) {
@@ -5756,13 +5754,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       }
       if (far < near) continue;
       if (b.fixed) { reach = Math.min(reach, near); continue; }
-      for (let t = Math.max(0, near); t <= Math.min(far, reach); t += b.cs * 0.5) if (solidAt(b, s.x + dx * t, s.y + dy * t)) { reach = Math.min(reach, t + (drill ? RAIL_DRILL : 0)); break; }
+      for (let t = Math.max(0, near); t <= Math.min(far, reach); t += b.cs * 0.5) if (solidAt(b, s.x + dx * t, s.y + dy * t)) { reach = Math.min(reach, t); break; }
     }
     return reach;
   }
   function railBeam(s) {
-    const {x, y, vx, vy} = s, v = Math.hypot(vx, vy) || 1, dx = vx / v, dy = vy / v, L = beamReach(s), big = false;
-    beams.push({ x1: x, y1: y, x2: x + dx * L, y2: y + dy * L, t: 0, big, cut: s.cut || 0 });
+    const {x, y, vx, vy} = s, v = Math.hypot(vx, vy) || 1, dx = vx / v, dy = vy / v, L = beamReach(s);
+    beams.push({ x1: x, y1: y, x2: x + dx * L, y2: y + dy * L, t: 0 });
     if (beams.length > 12) beams.shift();
   }
   // the laser's look: each pulse lays a short-lived beam from the gun to where it stops; at 12 a second they
@@ -5899,7 +5897,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const railHits = new Set();   // my rail shots that hit (by id)
   // a new rail shot of mine: if the one before it hit nothing, the run of hits is over
   function railFired(id) { if (railLast && !railHits.has(railLast)) railRun = 0; railLast = id; if (railHits.size > 64) railHits.clear(); }
-  const myRails = new Map(), myMelee = new Set();
+  const myMelee = new Set();
   const pendingHitFx = new Map();
   function predictHit(s, id, r) {
     pendingHitFx.set(id + ":" + s.id, { s, at: performance.now(), lv: r.lv });
@@ -5913,8 +5911,6 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   }
   function killStyle(k, victim) {
     if (k.includes(".ram") || myMelee.has(k)) { setTimeout(() => announce("HUMILIATION", "rammed " + victim.name, "#ff8a5a", 3), 1400); return; }
-    const r = myRails.get(k);
-    if (r && r.charged && Math.hypot(victim.x - r.x, victim.y - r.y) > (r.cut ? 800 : 1200)) setTimeout(() => announce("HEADSHOT", "a charged rail kill from afar", "#d9a8ff", 3), 1400);
   }
   function hitConfirm(s, lv, x, y, target) {
     const t0 = performance.now();
@@ -5955,7 +5951,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       // (sideways drift no longer bends it off the crosshair), and firing ahead while flying fast still adds reach
       const fwd = speed > 0 ? Math.max(0, p.vx * bx + p.vy * by) * ride : 0;
       s = { id, kind, x: ox, y: oy, ox, oy, px: from ? ox : p.x, py: from ? oy : p.y, vx: bx * (speed + fwd) + (speed > 0 ? 0 : p.vx * ride), vy: by * (speed + fwd) + (speed > 0 ? 0 : p.vy * ride),
-            life: SHOTS[kind].life, cut: pat.cut || 0, mine, m: amp, owner: mine ? undefined : p.id, bn: 0, pc: false };   // pc: pierces (fireballs from Lv 7)
+            life: SHOTS[kind].life, mine, m: amp, owner: mine ? undefined : p.id, bn: 0 };
       if (mine && serverRun) { s = predictShot(s); if (kind === K.RAIL) railFired(s.id); continue; }   // on the authoritative server my shot is only shown here
       noteShotKind(id, kind);
       metricShot(s, p, pat);
@@ -5967,11 +5963,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         const sd = Math.random() < 0.5 ? 1 : -1, cx = -by * sd, cy = bx * sd, v = 140 + Math.random() * 120;
         puff(ox, oy, cx * v - bx * 60 + p.vx * 0.8, cy * v - by * 60 + p.vy * 0.8, 0.5 + Math.random() * 0.3, 1.8, "#e8c060");
       }
-      if (kind === K.RAIL && mine) {   // for Impressive (a miss breaks the run) and Headshot
-        railFired(id);
-        myRails.set(id, { x: s.x, y: s.y, charged: false }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value);
-      }
-      const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind, +amp.toFixed(2), s.pc ? 1 : 0, s.cut || 0, Date.now()];
+      if (kind === K.RAIL && mine) railFired(id);   // for Impressive (a miss breaks the run)
+      const d = [id, Math.round(s.x), Math.round(s.y), Math.round(s.vx), Math.round(s.vy), kind, +amp.toFixed(2), 0, 0, Date.now()];   // (two places once used, kept: older pages read the time after them)
       if (mine) { myShotLog.push({ at: now, d }); stats.shots++; net.shot(d); }
       else { seenShots.set(id, performance.now()); p.shotLog.push({ at: now, d }); p.st.shots++; }
     }
@@ -9203,8 +9196,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     const ex = s.x + dx * L, ey = s.y + dy * L;
     s.px = s.x; s.py = s.y; s.x = ex; s.y = ey;
-    if (pierce && (s.kind === K.RAIL || s.cut)) railMelt(s.px, s.py, ex, ey, (s.cut || SHOTS[s.kind].carve) * 0.7);   // (before the cut: it sees what was there)
-    if (pierce) carveBeam(s, s.cut || SHOTS[s.kind].carve);
+    if (pierce && s.kind === K.RAIL) railMelt(s.px, s.py, ex, ey, SHOTS[s.kind].carve * 0.7);   // (before the cut: it sees what was there)
+    if (pierce) carveBeam(s, SHOTS[s.kind].carve);
     if (stop) {   // a beam ends on rock: it scorches a crater there
       surfaceHit(stop.b, stop.x, stop.y, s.kind);   // (first: its pieces are cut from the face before the crater is)
       if (own || stop.b.free) carveAt(stop.b, stop.x, stop.y, SHOTS[s.kind].carve, own);
@@ -11905,10 +11898,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       const k = 1 - b.t / BEAM_T, kc = Math.max(0, 1 - b.t / 0.4), x1 = sx(b.x1), y1 = sy(b.y1), x2 = sx(b.x2), y2 = sy(b.y2);
       g.lineCap = "round"; g.lineJoin = "round";
       if (kc > 0) {
-        const bw = b.cut ? b.cut / 15 : b.big ? 1.9 : 1;   // the charged slug: wider and blue
-        g.strokeStyle = `rgba(255,${b.big ? 110 : 130},50,${0.38 * kc})`; g.lineWidth = (26 * kc + 4) * bw;   // (white-hot, orange round it: a slug that melts what it goes through)
+        g.strokeStyle = `rgba(255,130,50,${0.38 * kc})`; g.lineWidth = 26 * kc + 4;   // (white-hot, orange round it: a slug that melts what it goes through)
         g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
-        g.strokeStyle = `rgba(255,${b.big ? 200 : 215},150,${0.85 * kc})`; g.lineWidth = (8 * kc + 1) * bw;
+        g.strokeStyle = `rgba(255,215,150,${0.85 * kc})`; g.lineWidth = 8 * kc + 1;
         g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
         g.strokeStyle = `rgba(255,255,255,${kc})`; g.lineWidth = 2.5 * kc + 0.5;
         g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();

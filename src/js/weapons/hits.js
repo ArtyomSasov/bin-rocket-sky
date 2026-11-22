@@ -1,6 +1,6 @@
   // a new rail shot of mine: if the one before it hit nothing, the run of hits is over
   function railFired(id) { if (railLast && !railHits.has(railLast)) railRun = 0; railLast = id; if (railHits.size > 64) railHits.clear(); }
-  const myRails = new Map(), myMelee = new Set();
+  const myMelee = new Set();
   const pendingHitFx = new Map();
   function predictHit(s, id, r) {
     pendingHitFx.set(id + ":" + s.id, { s, at: performance.now(), lv: r.lv });
@@ -14,8 +14,6 @@
   }
   function killStyle(k, victim) {
     if (k.includes(".ram") || myMelee.has(k)) { setTimeout(() => announce("HUMILIATION", "rammed " + victim.name, "#ff8a5a", 3), 1400); return; }
-    const r = myRails.get(k);
-    if (r && r.charged && Math.hypot(victim.x - r.x, victim.y - r.y) > (r.cut ? 800 : 1200)) setTimeout(() => announce("HEADSHOT", "a charged rail kill from afar", "#d9a8ff", 3), 1400);
   }
   function hitConfirm(s, lv, x, y, target) {
     const t0 = performance.now();
