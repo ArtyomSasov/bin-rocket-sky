@@ -22,16 +22,16 @@ async function checkAudioRender() {
       s.connect(g).connect(output); s.start(at);
     };
     if (engine) { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sawtooth'; o.frequency.value = 70; g.gain.value = 0.3; o.connect(g).connect(bus.engine); o.start(); }   // a steady stand-in for the synthesized jet
-    const legacyGain = { p_user_fire: 0.75, p_user_demonic: 0.7, p_user_autocannon: 0.8 };
+    const legacyGain = { p_user_demonic: 0.7, p_user_autocannon: 0.8 };
     for (const [name, at, volume = 1] of events) play(packBuf[name][0], volume * ((legacy && legacyGain[name]) || USER_SOUND_GAIN[name] || 1), name.startsWith('p_user_') ? bus.presence : bus.effects, at);
     return ctx.startRendering();
   }
   const shots = [];
-  for (const name of ['p_user_fire', 'p_user_demonic', 'p_user_autocannon']) {
+  for (const name of ['p_user_demonic', 'p_user_autocannon']) {
     const events = [[name, 0.2]];
     shots.push({ name, channels: packBuf[name][0].numberOfChannels, current: measure(await render({ events }), 0.2, 0.4), legacy: measure(await render({ events, legacy: true }), 0.2, 0.4) });
   }
-  const events = Array.from({ length: 24 }, (_, i) => ['p_burst_minigun', 0.1 + i * 0.1, 0.7]);
+  const events = Array.from({ length: 24 }, (_, i) => ['p_ut_mini_fire', 0.1 + i * 0.1, 0.7]);
   for (let i = 0; i < 4; i++) events.push(['p_user_massive', 0.3 + i * 0.15], ['p_user_autocannon', 0.2 + i * 0.3], ['p_user_demonic_explosion', 0.25 + i * 0.2]);
   // A low-level impulse/alternating waveform must retain both channels and
   // every sample, including its attack; this catches EQ and compressor regressions.
@@ -59,7 +59,6 @@ async function checkContinuousAudio() {
     const oldWeapon=me.weapon;me.weapon='minigun';
     for(let i=0;i<20;i++)continuousFire('me','minigun',me.x,me.y,now+i*45);
     ok(started.filter(b=>packBuf.p_ut_mini_fire.includes(b)).length===1,'one authored UT loop per shooter');
-    ok(!started.includes(packBuf.p_loop_minigun[0]),'no buzzing minigun loop');
     continuousFire('me','minigun',me.x,me.y,now+1000,true);ok(started.includes(packBuf.p_ut_mini_alt[0]),'alternate minigun sound');
     stopContinuous('me');ok(started.includes(packBuf.p_ut_mini_stop[0]),'minigun winddown');ok(!packLoops['fire:me'],'minigun stop');me.weapon=oldWeapon;
     for(const id of ['laserA','laserB']) {remotes.set(id,{x:me.x+100,y:me.y,weapon:'laser'});shotSound(K.PULSE_BOLT,me.x+100,me.y,id);}

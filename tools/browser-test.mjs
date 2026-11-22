@@ -182,11 +182,11 @@ try {
     const altShots=t.shots.length-before,altAmmo=t.me.arsenal.minigun;t.shoot(performance.now(),false);
     return {altDefined:!!t.WEAPONS.minigun.alt,altShots,altAmmo,primaryShots:t.shots.length-before,ammo:t.me.arsenal.minigun};})()`);
   assert.deepEqual(minigun,{altDefined:true,altShots:1,altAmmo:98,primaryShots:2,ammo:97});
-  await until(combat, '["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine","a_firstblood","v_flawless","p_loop_minigun","p_start_minigun","p_stop_minigun","p_stop_laser","p_fire_laser","p_loop_laser","p_warp","p_ut_mini_fire","p_ut_mini_alt","p_ut_mini_stop","p_ut_fire","p_ut_flak_fire","p_ut_rocket_load","p_ut_pulse_fire","p_ut_pulse_bolt","p_ut_pulse_down","p_ut_pulse_explode","p_burst_minigun","p_user_fire","p_user_demonic","p_user_demonic_explosion","p_user_cannon","p_user_autocannon","p_user_explosion","p_user_massive"].every(__t.packHas) && !!__t.sfxBuf.hit && !!__t.sfxBuf.boom_low',10000);
+  await until(combat, '["p_pickup","p_kill","p_charge","p_sting","p_death","a_firstblood","v_flawless","p_stop_laser","p_fire_laser","p_loop_laser","p_warp","p_ut_mini_fire","p_ut_mini_alt","p_ut_mini_stop","p_ut_fire","p_ut_flak_fire","p_ut_rocket_load","p_ut_pulse_fire","p_ut_pulse_bolt","p_ut_pulse_down","p_ut_pulse_explode","p_user_demonic","p_user_demonic_explosion","p_user_autocannon","p_user_explosion","p_user_massive"].every(__t.packHas) && !!__t.sfxBuf.hit && !!__t.sfxBuf.boom_low',10000);
   console.log('PASS continuous audio', await evaluate(combat,'__t.checkContinuousAudio()'));
   await until(combat,'__t.activeBlasts===0',10000);
   assert.equal(await evaluate(combat,'__t.checkDemonicAudio()'),2,'the supplied explosion starts on distant expiry and manual detonation');
-  const decoded = await evaluate(combat, 'Object.fromEntries(["p_pickup","p_kill","p_charge","p_sting","p_death","p_engine"].map(k=>[k,+__t.packBuf[k][0].duration.toFixed(2)]))');
+  const decoded = await evaluate(combat, 'Object.fromEntries(["p_pickup","p_kill","p_charge","p_sting"].map(k=>[k,+__t.packBuf[k][0].duration.toFixed(2)]))');
   // the engine, a jet made here: roar, turbine whine, afterburner on boost, silent when it should be
   await evaluate(combat, '__t.settings.engine="on";__t.engineHum(500,1,0,performance.now())');
   await until(combat, '!!__t.jet && __t.jet.out.gain.value>0.4', 3000);

@@ -7,13 +7,12 @@ Stereo restored from the original AAC decodes on 2026-11-17; 1 ms attack fade,
 
 Mappings and edits:
 - demonic-shot.wav: demonic-shot.aac, 0.12–4.65 s; Demonic Orb (formerly Gamma Orb).
-- demonic-shot-short.wav: demonic-shot.aac, 0.18–0.60 s; Fireball / Triple shot.
-- explosive-canon.wav: explosive-canon.aac, 0.02–2.50 s; Shard Cannon impacts and Flak burst.
 - autocannon.wav: Shoot - Autocannon.aac, 0–2.00 s; Shard Cannon / Flak firing.
 - explosion-rumb.wav: explosion-rumb.aac, 0–3.30 s; ship explosions.
 - massive-explosion.wav: massive-explosion.aac, 0–6.40 s; Nuke / Holy Bomb explosion variation.
 One-shots have short attack/release fades; Autocannon retains a 2-second tail with a 120 ms fade-out.
-(engine-working.wav was removed 2026-11-20: the engine is synthesized in the game.)
+(engine-working.wav was removed 2026-11-20: the engine is synthesized in the game;
+demonic-shot-short.wav and explosive-canon.wav on 2026-11-22: no event played them.)
 All effects use event-specific playback gain. Existing weapon and voice assets remain.
 
 The later supplied you_win, you_lose, winner, dominating, monsterkill and use_medkit

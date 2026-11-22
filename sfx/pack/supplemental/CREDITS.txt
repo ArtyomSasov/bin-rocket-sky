@@ -4,15 +4,14 @@ Download: https://opengameart.org/sites/default/files/sci-fi-sfx.zip
 License: CC0 1.0, https://creativecommons.org/publicdomain/zero/1.0/
 Original Ogg files, unchanged. Added 2026-11-15.
 beep_01: pickups; terminal_02: charge; terminal_05: kill confirmation;
-teleport_01: announcement cue; explosion_02: death/nuke accent;
-loop_machine_01: engine loop (playback pitch and volume follow thrust).
+teleport_01: announcement cue.
 User-supplied Quake/announcer files are separate and retain their provenance.
 
 Added 2026-11-16 from the same CC0 archive, original files unchanged:
 teleport_02: teleport and respawn; rocket_01: boost and dash;
 loop_ambient_01: quiet atmosphere; loop_ambient_weird: black-hole atmosphere;
-loop_machine_02: moving saws; beep_03: warning; terminal_01: ready/flag return;
+beep_03: warning; terminal_01: ready/flag return;
 terminal_03: power-down; terminal_06: interface; explosion_01: event cue.
-The engine now uses the author's existing rocket flight sound; loop_machine_01
-remains available as p_engine. These are designed sci-fi effects, not all
+(explosion_02, loop_machine_01 and loop_machine_02 were removed 2026-11-22: no event
+played them any more; the engine is synthesized in the game.) These are designed sci-fi effects, not all
 recordings of physical objects. Audio synthesis by a sound designer is not AI.

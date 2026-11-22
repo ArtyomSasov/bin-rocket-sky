@@ -15,8 +15,8 @@
 | Nuke / Holy Bomb | Варианты `massive-explosion.aac` и `explosive-nuke-or-holybomb.aac`; у Holy Bomb сохранён хор |
 | Ракета / граната / мина | Возвращены звуки Quake |
 | Demonic Orb (бывший Gamma Orb) | Полная версия `demonic-shot.aac` |
-| Миниган | Один основной режим; начало/петля/остановка из прежних записей Quake (`chaingun`) |
-| Shard Cannon / Flak | Выстрел `Shoot - Autocannon.aac`, попадание/разрыв `explosive-canon.aac` |
+| Миниган | Звуки UT: `minigun-regfire`, остановка `minigun-winddown`; второй режим — `Shoot - Autocannon.aac` |
+| Shard Cannon / Flak | Звуки UT: `shard-cannon-fire`, `shard-cannon-alt-fire`, разрыв `shard-canon-alt-explode` |
 | Взрыв Demonic Orb | `demonic-explosions.aac`, при попадании и ручном подрыве |
 | Остальные оружия, попадания, рикошеты | Существующие отдельные файлы оружейного пака |
 | Телепорт / возрождение | `teleport_02.ogg` |
@@ -25,7 +25,7 @@
 | Низкое здоровье / предупреждение события | `beep_03.ogg`, без повторения каждый кадр |
 | Оружие остыло / возврат флага | `terminal_01.ogg` |
 | Усиление закончилось | `terminal_03.ogg` |
-| Фон / чёрная дыра / пила рядом | Тихие `loop_ambient_01`, `loop_ambient_weird`, `loop_machine_02` |
+| Фон / чёрная дыра | Тихие `loop_ambient_01`, `loop_ambient_weird` |
 | Диктор | Старые реплики плюс VoiceBosch: Deathmatch, Team Deathmatch, Capture the Flag, Unstoppable, Round Winner, Mission Failed |
 
 Диктор говорит по очереди, без случайного изменения высоты; боевой микс на время речи
