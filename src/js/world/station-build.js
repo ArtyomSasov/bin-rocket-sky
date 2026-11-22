@@ -114,8 +114,7 @@
     const spot = (type, x, y, P = GUN_PERIOD[type] || GUN_PERIOD_BASE) => ({ type, ...foundryPoint(x, y), P, off: 0 });
     const guns = st.guns.flatMap(([type, x, y]) => [spot(type, x, y), spot(type, 20 - x, 20 - y)]);
     arena = { guns, supplies: st.supplies.flatMap(([t, x, y]) => [spot(t, x, y, SUPPLIES[t].period), spot(t, 20 - x, 20 - y, SUPPLIES[t].period)]),
-      amp: spot("amp", 10, 10, AMP_PERIOD), nuke: null, holy: null,
-      pads: BOOST_PADS ? st.pads.map(([x, y, a]) => ({ ...foundryPoint(x, y), a })) : [] };
+      amp: spot("amp", 10, 10, AMP_PERIOD), nuke: null, holy: null };
     arena.supplies.push(spot("mega", ...st.mega, SUPPLIES.mega.period));
     PICKS = guns.length; SUPPLY_SLOTS = arena.supplies.length;
     det = [...wrecks, ...props]; rebuildBodies();

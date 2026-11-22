@@ -40,46 +40,9 @@
         else if (!b.attacker && Math.hypot(home.x - b.x, home.y - b.y) > 500) goal = home;   // guard
         if (goal) { routeGoal = goal; const gx = goal.x - b.x, gy = goal.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * w; dy += gy / gd * w; }
       }
-      if (roundLive && !MODES[MODE].noSupplies) for (const c of world.supplies) {
-        if (grabbed.has(c.key) || c.age < .05 || Math.hypot(c.x - b.x, c.y - b.y) > 56 || !applySupply(b, c.type)) continue;
-        grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
-        sfx(SUPPLIES[c.type].heal ? "heal" : "shield_get", .5, 1, c.x, c.y);
-      }
-      // Quad damage: anyone flying through it takes it, a player on the server (their screen only shows it) or a bot
-      const qd = world.amp;
-      if (roundLive && qd && !grabbed.has(qd.key) && Math.hypot(qd.x - b.x, qd.y - b.y) < 60) {
-        grabbed.add(qd.key); pushCapped(myGrabs, qd.key, 40); b.ampUntil = now + AMP_TIME;
-        if (!human) for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 100 + Math.random() * 300; puff(qd.x, qd.y, Math.cos(a) * v, Math.sin(a) * v, 0.8, 2.5, k % 2 ? "#5b9bff" : "#ffffff"); }
-        sfx("shield_get", 0.6, 0.7, qd.x, qd.y);
-      }
-      if (!MODES[MODE].only && roundLive) {
-        let best = null, bd = b.weapon === "fire" && td > 700 ? 1300 : 0;
-        // the guns on their spots and the two big bombs' crates (a nuke, the holy bomb): a bot takes any of them, and so
-        // does a player on the server (the teleporter is retired)
-        for (const c of [...world.picks, ...world.bombs]) {
-          if (grabbed.has(c.key) || c.age < 0.05) continue;
-          const d = Math.hypot(c.x - b.x, c.y - b.y);
-          if (d < 34 + 30) {   // picked up
-            grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
-            if (human) pilotGive(b, c.type, WEAPONS[c.type].ammo);
-            else { b.weapon = c.type; b.ammo = Math.ceil(WEAPONS[c.type].ammo * (c.type === "laser" ? 0.4 : 1)); }
-            if (c.type === "holy" || c.type === "nuke") announce(c.type === "holy" ? "HOLY BOMB TAKEN" : "NUKE TAKEN", b.name + " has it", WEAPONS[c.type].col);
-            for (let k = 0; k < 20; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 200; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.5, 2, WEAPONS[c.type].col); }
-            sfx("weapon_get", 0.5, 1, c.x, c.y);
-            best = null; break;
-          }
-          if (d < bd) { bd = d; best = c; }
-        }
-        for (const [gid, d] of gunDrops) {   // trophies count as crates
-          if (grabbed.has("W" + gid) || performance.now() - d.born < 600) continue;
-          const dd = Math.hypot(d.x - b.x, d.y - b.y);
-          if (dd < 64) { grabbed.add("W" + gid); pushCapped(myGrabs, "W" + gid, 40); if (human) pilotGive(b, d.type, d.ammo); else { b.weapon = d.type; b.ammo = d.ammo; } sfx("weapon_get", 0.5, 1, d.x, d.y); best = null; break; }
-          if (dd < bd) { bd = dd; best = d; }
-        }
-        // Quad damage draws a bot from twice as far as a gun does (and a gun in hand does not stop it)
-        if (qd && !grabbed.has(qd.key) && !human) { const dq = Math.hypot(qd.x - b.x, qd.y - b.y) / 2; if (dq < Math.max(bd, 900)) { bd = dq; best = qd; } }
-        if (best && !human) { routeGoal = best; const gx = best.x - b.x, gy = best.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * 1.4; dy += gy / gd * 1.4; }
-      }
+      pilotTakes(b, now, human);
+      const gun = !MODES[MODE].only && roundLive ? gunGoal(b, td, human) : null;
+      if (gun && !human) { routeGoal = gun; const gx = gun.x - b.x, gy = gun.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * 1.4; dy += gy / gd * 1.4; }
       const m = 260;   // keep off the fence
       if (!human) {
         if (b.x < m) dx += (m - b.x) / m * 2.5; if (b.x > W - m) dx -= (b.x - W + m) / m * 2.5;
@@ -140,69 +103,8 @@
         b.vx += Math.cos(a) * 900; b.vy += Math.sin(a) * 900; b.energy -= 25; b.dashAt = now; b.inv = Math.max(b.inv, now + 280);
       }
       b.dashReq = false;
-      if (human) {   // a player's pilot flies by the very function that flies their own bin on their screen (flyPilot)
-        // with controls that changed during the step: the old ones until they arrived, the new ones after, as the
-        // player's own screen flew them (it changed them when it sent them, a fixed trip earlier)
-        const parts = cmds ? [] : split ? [[b.prevIn, split], [human, dt - split]] : [[human, dt]];
-        let f = { crash: null, fence: null };
-        if (cmds) {
-          // Commands are flown against the clock, as Source and Overwatch do: each step adds its time to an allowance
-          // and each command spends CMD_DT of it, so sending them faster than time passes gains nothing (the queue
-          // just overflows). A delay of up to 8 commands (~133 ms, the network's jitter) is waited out; past that the
-          // last command is flown again, so the pilot never hangs in place, and as many late ones are skipped
-          // (the allowance grows by the clock, not by the step: a server running late drops steps, never a player's time)
-          const real = Number.isFinite(b.cqAt) ? Math.max(0, Math.min(0.5, (now - b.cqAt) / 1000)) : dt; b.cqAt = now;
-          b.cqBudget = Math.min(CMD_DT * 30, (b.cqBudget || 0) + real);
-          for (let n = 0; n < 3 && b.cqBudget >= CMD_DT - 1e-9; n++) {
-            let c;
-            // the next one is missing but later ones are here (lost or overtaken on the way): a moment's wait for it
-            // (cmdAck: the number of the last command flown; it is not the controls messages' number, ackSeq)
-            if (cmds.length && cmds[0].s !== (b.cmdAck || 0) + 1 && b.cmdAck && b.cqBudget < CMD_DT * 8) break;
-            // jkN: the spread's number for this command's shots, counted here one by one (from the first command, or a
-            // screen starting its count again at 1), so a screen cannot pick its numbers by skipping some; an honest
-            // one, sending them all, counts the same (c.s). A command flown again (below) has none
-            if (cmds.length) { c = cmds.shift(); b.lastCmd = c; b.cmdAck = c.s; b.jkN = b.jkN === undefined || c.s === 1 ? c.s : b.jkN + 1; c = { ...c, jk: b.jkN }; }
-            else if (b.cqBudget >= CMD_DT * 8) { c = b.lastCmd || { mx: 0, my: 0, aim: b.a, boost: false, brake: false, fire: false, alt: false, dash: b.dashDone || 0 }; b.cqOwed = Math.min(30, (b.cqOwed || 0) + 1); b.cqRepeats = (b.cqRepeats || 0) + 1; }
-            else break;
-            b.cqBudget -= CMD_DT;
-            // the trigger as this command held it, aimed as it was aimed, before the command's flight, as the player's
-            // screen fires before it flies its frame (Source and Overwatch fire from the user command the same way)
-            b.a = c.aim; human.fire = !!c.fire; human.alt = !!c.alt;
-            b.fireCd -= CMD_DT; b.altCd = (b.altCd || 0) - CMD_DT;   // (the cooldowns run by commands too, as on the player's screen)
-            b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; b.viewAt = c.va > 0 ? c.va : -1; b.jk = c.jk; pilotTriggers(b, CMD_DT, now); b.cmdWait = b.viewAt = -1; b.jk = undefined;
-            const g = pilotMove(b, c);
-            f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
-          }
-        }
-        for (const [inp, d] of parts) {
-          if (split) {
-            const m = Math.hypot(inp.mx, inp.my), px = m > 1 ? inp.mx / m : inp.mx, py = m > 1 ? inp.my / m : inp.my, e = 1 - Math.exp(-13 * d);
-            st.x += (px - st.x) * e; st.y += (py - st.y) * e;
-          }
-          const g = flyPilot(b, st.x, st.y, b.boosting, !!inp.brake, d, now, b.boosting || now - (b.dashAt || 0) < 350);
-          f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
-        }
-        if (!cmds) b.a = lerpAng(b.a, human.aim, 1 - Math.exp(-30 * dt));   // the nose follows the player's aim, as with mouse aim
-        if (f.crash && f.crash.hs > 60) impact(f.crash.x, f.crash.y, "#ffd9b0", Math.min(2, 0.4 + f.crash.hs / 450));
-        if (f.crash && f.crash.dmg > 0) botHurt(b, f.crash.dmg, "p", now, false);
-        if (f.fence && f.fence.dmg > 0) botHurt(b, f.fence.dmg, "p", now, false);
-        // the junk rocks bump it, as they bump my bin (updateJunk)
-        if (!cmds) for (const k of world.rocks) if (k && !grabbed.has(k.key) && k.age >= 0.6) collideRock(b, k);   // (commands meet them in pilotMove)
-      } else {   // a bot
-      thrustPilot(b, st.x, st.y, b.boosting, false, dt, b.L.speed);
-      slingshot(b, dt); padsFor(b, now);
-      if (Math.hypot(st.x, st.y) > 0.15) b.a = lerpAng(b.a, Math.atan2(st.y, st.x), 1 - Math.exp(-13 * dt));
-      gravityOn(b, dt);
-      b.x += b.vx * dt; b.y += b.vy * dt;
-      const pc = bounceOff(b, 40, 0.25, BIN_MASS);
-      if (pc && pc.vn < -200) {
-        impact(b.x - pc.nx * 40, b.y - pc.ny * 40, "#ffd9b0", 1.2);
-        const dmg = hurtsOnHit(pc.b) ? crashDmg(-pc.vn, false) : 0;
-        if (dmg > 0) botHurt(b, dmg, "p", now, false);
-      }
-      if (b.x < 40 || b.x > W - 40) { b.vx = -b.vx * 0.6; b.x = clamp(b.x, 40, W - 40); }
-      if (b.y < 40 || b.y > H - 40) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 40, H - 40); }
-      }
+      if (human) flyPlayer(b, st, human, cmds, split, dt, now);
+      else flyBot(b, st, dt, now);
       // shoot when the nose points at the target (where it will be)
       if (!b.cq) { b.fireCd -= dt; b.altCd = (b.altCd || 0) - dt; }   // (a player flown by commands: by each command, above)
       // shock combo: once its orb hangs near the target, a bot shoots the orb with the beam (harder bots do it more)
@@ -231,6 +133,115 @@
       shotsAtBot(b, now);
     }
     binContacts(now);
+  }
+  // what a pilot flies through is taken: supplies (health, armour) and Quad damage (a player on the server too: their
+  // screen only shows it)
+  function pilotTakes(b, now, human) {
+    if (roundLive && !MODES[MODE].noSupplies) for (const c of world.supplies) {
+      if (grabbed.has(c.key) || c.age < .05 || Math.hypot(c.x - b.x, c.y - b.y) > 56 || !applySupply(b, c.type)) continue;
+      grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
+      sfx(SUPPLIES[c.type].heal ? "heal" : "shield_get", .5, 1, c.x, c.y);
+    }
+    const qd = world.amp;
+    if (roundLive && qd && !grabbed.has(qd.key) && Math.hypot(qd.x - b.x, qd.y - b.y) < 60) {
+      grabbed.add(qd.key); pushCapped(myGrabs, qd.key, 40); b.ampUntil = now + AMP_TIME;
+      if (!human) for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 100 + Math.random() * 300; puff(qd.x, qd.y, Math.cos(a) * v, Math.sin(a) * v, 0.8, 2.5, k % 2 ? "#5b9bff" : "#ffffff"); }
+      sfx("shield_get", 0.6, 0.7, qd.x, qd.y);
+    }
+  }
+  // the guns on their spots, the big bombs' crates and trophies: the one it flies over is taken (by a bot, or a player on
+  // the server); the nearest worth going for is returned (Quad damage draws a bot from twice as far as a gun does)
+  function gunGoal(b, td, human) {
+    const qd = world.amp;
+    let best = null, bd = b.weapon === "fire" && td > 700 ? 1300 : 0;
+    for (const c of [...world.picks, ...world.bombs]) {
+      if (grabbed.has(c.key) || c.age < 0.05) continue;
+      const d = Math.hypot(c.x - b.x, c.y - b.y);
+      if (d < 34 + 30) {   // picked up
+        grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
+        if (human) pilotGive(b, c.type, WEAPONS[c.type].ammo);
+        else { b.weapon = c.type; b.ammo = Math.ceil(WEAPONS[c.type].ammo * (c.type === "laser" ? 0.4 : 1)); }
+        if (c.type === "holy" || c.type === "nuke") announce(c.type === "holy" ? "HOLY BOMB TAKEN" : "NUKE TAKEN", b.name + " has it", WEAPONS[c.type].col);
+        for (let k = 0; k < 20; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 200; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.5, 2, WEAPONS[c.type].col); }
+        sfx("weapon_get", 0.5, 1, c.x, c.y);
+        best = null; break;
+      }
+      if (d < bd) { bd = d; best = c; }
+    }
+    for (const [gid, d] of gunDrops) {   // trophies count as crates
+      if (grabbed.has("W" + gid) || performance.now() - d.born < 600) continue;
+      const dd = Math.hypot(d.x - b.x, d.y - b.y);
+      if (dd < 64) { grabbed.add("W" + gid); pushCapped(myGrabs, "W" + gid, 40); if (human) pilotGive(b, d.type, d.ammo); else { b.weapon = d.type; b.ammo = d.ammo; } sfx("weapon_get", 0.5, 1, d.x, d.y); best = null; break; }
+      if (dd < bd) { bd = dd; best = d; }
+    }
+    if (qd && !grabbed.has(qd.key) && !human) { const dq = Math.hypot(qd.x - b.x, qd.y - b.y) / 2; if (dq < Math.max(bd, 900)) { bd = dq; best = qd; } }
+    return best;
+  }
+  // a player's pilot on the server flies by the very function that flies their own bin on their screen (flyPilot)
+  function flyPlayer(b, st, human, cmds, split, dt, now) {
+    // with controls that changed during the step: the old ones until they arrived, the new ones after, as the
+    // player's own screen flew them (it changed them when it sent them, a fixed trip earlier)
+    const parts = cmds ? [] : split ? [[b.prevIn, split], [human, dt - split]] : [[human, dt]];
+    let f = { crash: null, fence: null };
+    if (cmds) {
+      // Commands are flown against the clock, as Source and Overwatch do: each step adds its time to an allowance
+      // and each command spends CMD_DT of it, so sending them faster than time passes gains nothing (the queue
+      // just overflows). A delay of up to 8 commands (~133 ms, the network's jitter) is waited out; past that the
+      // last command is flown again, so the pilot never hangs in place, and as many late ones are skipped
+      // (the allowance grows by the clock, not by the step: a server running late drops steps, never a player's time)
+      const real = Number.isFinite(b.cqAt) ? Math.max(0, Math.min(0.5, (now - b.cqAt) / 1000)) : dt; b.cqAt = now;
+      b.cqBudget = Math.min(CMD_DT * 30, (b.cqBudget || 0) + real);
+      for (let n = 0; n < 3 && b.cqBudget >= CMD_DT - 1e-9; n++) {
+        let c;
+        // the next one is missing but later ones are here (lost or overtaken on the way): a moment's wait for it
+        // (cmdAck: the number of the last command flown; it is not the controls messages' number, ackSeq)
+        if (cmds.length && cmds[0].s !== (b.cmdAck || 0) + 1 && b.cmdAck && b.cqBudget < CMD_DT * 8) break;
+        // jkN: the spread's number for this command's shots, counted here one by one (from the first command, or a
+        // screen starting its count again at 1), so a screen cannot pick its numbers by skipping some; an honest
+        // one, sending them all, counts the same (c.s). A command flown again (below) has none
+        if (cmds.length) { c = cmds.shift(); b.lastCmd = c; b.cmdAck = c.s; b.jkN = b.jkN === undefined || c.s === 1 ? c.s : b.jkN + 1; c = { ...c, jk: b.jkN }; }
+        else if (b.cqBudget >= CMD_DT * 8) { c = b.lastCmd || { mx: 0, my: 0, aim: b.a, boost: false, brake: false, fire: false, alt: false, dash: b.dashDone || 0 }; b.cqOwed = Math.min(30, (b.cqOwed || 0) + 1); b.cqRepeats = (b.cqRepeats || 0) + 1; }
+        else break;
+        b.cqBudget -= CMD_DT;
+        // the trigger as this command held it, aimed as it was aimed, before the command's flight, as the player's
+        // screen fires before it flies its frame (Source and Overwatch fire from the user command the same way)
+        b.a = c.aim; human.fire = !!c.fire; human.alt = !!c.alt;
+        b.fireCd -= CMD_DT; b.altCd = (b.altCd || 0) - CMD_DT;   // (the cooldowns run by commands too, as on the player's screen)
+        b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; b.viewAt = c.va > 0 ? c.va : -1; b.jk = c.jk; pilotTriggers(b, CMD_DT, now); b.cmdWait = b.viewAt = -1; b.jk = undefined;
+        const g = pilotMove(b, c);
+        f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
+      }
+    }
+    for (const [inp, d] of parts) {
+      if (split) {
+        const m = Math.hypot(inp.mx, inp.my), px = m > 1 ? inp.mx / m : inp.mx, py = m > 1 ? inp.my / m : inp.my, e = 1 - Math.exp(-13 * d);
+        st.x += (px - st.x) * e; st.y += (py - st.y) * e;
+      }
+      const g = flyPilot(b, st.x, st.y, b.boosting, !!inp.brake, d, now, b.boosting || now - (b.dashAt || 0) < 350);
+      f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
+    }
+    if (!cmds) b.a = lerpAng(b.a, human.aim, 1 - Math.exp(-30 * dt));   // the nose follows the player's aim, as with mouse aim
+    if (f.crash && f.crash.hs > 60) impact(f.crash.x, f.crash.y, "#ffd9b0", Math.min(2, 0.4 + f.crash.hs / 450));
+    if (f.crash && f.crash.dmg > 0) botHurt(b, f.crash.dmg, "p", now, false);
+    if (f.fence && f.fence.dmg > 0) botHurt(b, f.fence.dmg, "p", now, false);
+    // the junk rocks bump it, as they bump my bin (updateJunk)
+    if (!cmds) for (const k of world.rocks) if (k && !grabbed.has(k.key) && k.age >= 0.6) collideRock(b, k);   // (commands meet them in pilotMove)
+  }
+  // a bot flies by the same thrust and turning, bumping off what it meets
+  function flyBot(b, st, dt, now) {
+    thrustPilot(b, st.x, st.y, b.boosting, false, dt, b.L.speed);
+    slingshot(b, dt);
+    if (Math.hypot(st.x, st.y) > 0.15) b.a = lerpAng(b.a, Math.atan2(st.y, st.x), 1 - Math.exp(-13 * dt));
+    gravityOn(b, dt);
+    b.x += b.vx * dt; b.y += b.vy * dt;
+    const pc = bounceOff(b, 40, 0.25, BIN_MASS);
+    if (pc && pc.vn < -200) {
+      impact(b.x - pc.nx * 40, b.y - pc.ny * 40, "#ffd9b0", 1.2);
+      const dmg = hurtsOnHit(pc.b) ? crashDmg(-pc.vn, false) : 0;
+      if (dmg > 0) botHurt(b, dmg, "p", now, false);
+    }
+    if (b.x < 40 || b.x > W - 40) { b.vx = -b.vx * 0.6; b.x = clamp(b.x, 40, W - 40); }
+    if (b.y < 40 || b.y > H - 40) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 40, H - 40); }
   }
   // a bot's target: the nearest living pilot not on its side (me or anyone else, other bots included), within how far
   // it looks (further with a big bomb); [the pilot, how far] or [null, that range]

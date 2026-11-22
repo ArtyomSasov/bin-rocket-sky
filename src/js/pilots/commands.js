@@ -19,7 +19,7 @@
     return out;
   }
   function pilotMove(o, c, dt = CMD_DT) {
-    if (!Number.isFinite(o.mt)) { o.mt = 0; o.padAt = -1e9; }   // the command clock starts: a pad's wait from another clock is dropped
+    if (!Number.isFinite(o.mt)) o.mt = 0;   // the command clock starts
     o.mt += dt;
     const st = o.stick || (o.stick = { x: 0, y: 0 }), m = Math.hypot(c.mx, c.my), e = 1 - Math.exp(-13 * dt);
     st.x += ((m > 1 ? c.mx / m : c.mx) - st.x) * e; st.y += ((m > 1 ? c.my / m : c.my) - st.y) * e;
@@ -58,7 +58,7 @@
     }
     // the state ends each command in hundredths, on both sides alike (as Gaffer on Games quantizes): the server sends
     // exactly what it flies on from, small numbers the deltas shorten, and a replay from it is still exact
-    for (const k of MOVE_STATE) if (k !== "padAt") o[k] = Math.round(o[k] * 100) / 100;
+    for (const k of MOVE_STATE) o[k] = Math.round(o[k] * 100) / 100;
     st.x = Math.round(st.x * 1e4) / 1e4; st.y = Math.round(st.y * 1e4) / 1e4;
     return f;
   }
@@ -66,7 +66,7 @@
   // allowance does not count the time spent dead
   function resetCmds(b) { if (!b.cq) return; b.cq.length = 0; b.cqBudget = 0; b.cqAt = undefined; b.cqOwed = 0; b.lastCmd = null; b.jkN = undefined; }   // (jkN: counted again from the next command)
   // what a command flight carries from one command to the next (sent by the server for the player's own pilot)
-  const MOVE_STATE = ["x", "y", "vx", "vy", "a", "energy", "regenWait", "dashCool", "dashFx", "dashDone", "mt", "padAt"];
+  const MOVE_STATE = ["x", "y", "vx", "vy", "a", "energy", "regenWait", "dashCool", "dashFx", "dashDone", "mt"];
   // (exact, not rounded: a bounce off a wall turns on fractions of a pixel, and the replay must bounce the same)
   const moveState = o => [...MOVE_STATE.map(k => o[k] || 0), o.stick?.x || 0, o.stick?.y || 0, o.boostOn ? 1 : 0];
   function setMoveState(o, v) {

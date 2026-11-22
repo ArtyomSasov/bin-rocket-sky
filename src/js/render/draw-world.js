@@ -32,22 +32,6 @@
     g.restore();
   }
   function drawPickups(now) {
-    for (const p of arena.pads) {   // boost pads: a glowing ring with chevrons running its way
-      const x = sx(p.x), y = sy(p.y);
-      if (!onScreen(x, y, 120)) continue;
-      g.save(); g.translate(x, y); g.rotate(p.a);
-      const pg = g.createRadialGradient(0, 0, 10, 0, 0, PAD_R + 20);
-      pg.addColorStop(0, "rgba(125,255,216,0.35)"); pg.addColorStop(1, "rgba(125,255,216,0)");
-      g.fillStyle = pg; g.beginPath(); g.arc(0, 0, PAD_R + 20, 0, 6.29); g.fill();
-      g.strokeStyle = "rgba(125,255,216,0.8)"; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, PAD_R, 0, 6.29); g.stroke();
-      g.lineWidth = 5; g.lineCap = "round"; g.lineJoin = "round";
-      for (let k = 0; k < 3; k++) {
-        const ph = ((now / 600 + k / 3) % 1), cx = -40 + ph * 80;
-        g.strokeStyle = `rgba(220,255,245,${Math.sin(ph * Math.PI) * 0.95})`;
-        g.beginPath(); g.moveTo(cx - 12, -18); g.lineTo(cx + 6, 0); g.lineTo(cx - 12, 18); g.stroke();
-      }
-      g.restore();
-    }
     // the spots: a faint pad marks each one; a taken one shows what comes back there and when
     for (const c of world.picks) drawPad(c, WEAPONS[c.type].col, c.type, now);
     for (const c of world.supplies) drawPad(c, SUPPLIES[c.type].col, SUPPLIES[c.type].heal ? "cross" : "shield", now);

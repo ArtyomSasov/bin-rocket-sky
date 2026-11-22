@@ -69,7 +69,7 @@
       taken.push({ x: 0.5, y: 0.5, r: R / W + 0.06 });
     }
     const planetList = mirrored(A.planets), wreckList = mirrored(A.wrecks);
-    const layoutSpots = [...A.guns, ...A.supplies].map(([, x, y]) => ({ x, y })).concat([A.amp, A.nuke, A.holy, A.void, ...(A.pads || [])].filter(Boolean).map(([x, y]) => ({ x, y })));
+    const layoutSpots = [...A.guns, ...A.supplies].map(([, x, y]) => ({ x, y })).concat([A.amp, A.nuke, A.holy, A.void, ...(A.clear || [])].filter(Boolean).map(([x, y]) => ({ x, y })));
     // the big arenas: a few more bodies like the ones already there, in the widest gaps
     for (let k = 0; k < big * 2; k++) {
       for (const [, x, y, R] of planetList) taken.push({ x, y, r: (R * rs + 300) / W });
@@ -104,12 +104,11 @@
       wrecks.push(b);
     });
     // the spots: the layout's own, then (Large / Huge) more pairs in the widest gaps, cycling through the map's guns
-    const guns = mirrored(A.guns), supplies = mirrored(A.supplies), padList = mirrored((A.pads || []).map(([x, y, d]) => ["", x, y, d]))
-      .map((p, i) => i % 2 ? [p[0], p[1], p[2], p[3] + 180] : p);   // a mirrored pad points the other way
+    const guns = mirrored(A.guns), supplies = mirrored(A.supplies), clearList = mirrored((A.clear || []).map(([x, y]) => ["", x, y]));
     const reach = list => list.map(([, x, y]) => ({ x, y, r: 0 }));
     const bodyReach = () => [...planets.map(p => ({ x: p.hx / W, y: p.hy / H, r: (p.rr + 120) / W })), ...wrecks.map(w => ({ x: w.bx / W, y: w.by / H, r: (w.rr + w.A + 120) / W })),
       ...moons.map(m => ({ x: m.p.hx / W, y: m.p.hy / H, r: 0 }))];
-    const spotsNow = () => [...taken, ...bodyReach(), ...reach(guns), ...reach(supplies), ...padList.map(([, x, y]) => ({ x, y, r: 0.02 })),
+    const spotsNow = () => [...taken, ...bodyReach(), ...reach(guns), ...reach(supplies), ...clearList.map(([, x, y]) => ({ x, y, r: 0.02 })),
       ...[A.amp, A.nuke, A.holy, A.void].filter(Boolean).map(([x, y]) => ({ x, y, r: 0 }))];
     for (let k = 0; k < big * 3; k++) {
       const at = widestGap(spotsNow(), 0.06, 0.05);
@@ -125,8 +124,7 @@
       nuke: A.nuke && (big || modeOf(code) === "n" || modeOf(code) === "x") ? spot(["nuke", ...A.nuke], 201, BOMB_CRATES.nuke.period) : null,
       holy: A.holy && (big || modeOf(code) === "x") ? spot(["holy", ...A.holy], 202, BOMB_CRATES.holy.period) : null,
       // the void bomb's crate: its own spot, where nukes lie out (mirroring the nuke's put it on the Quad's or the holy bomb's)
-      void: A.void && (big || modeOf(code) === "n" || modeOf(code) === "x") ? spot(["void", ...A.void], 203, BOMB_CRATES.void.period) : null,
-      pads: BOOST_PADS ? padList.map(([, fx, fy, deg]) => ({ x: fx * W, y: fy * H, a: deg / 57.2958 })) : []   // (their places are still kept clear)
+      void: A.void && (big || modeOf(code) === "n" || modeOf(code) === "x") ? spot(["void", ...A.void], 203, BOMB_CRATES.void.period) : null
     };
     PICKS = arena.guns.length; SUPPLY_SLOTS = arena.supplies.length;
     det = [...planets, ...moons, ...wrecks];

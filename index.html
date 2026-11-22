@@ -135,8 +135,8 @@ body {
 .board .fold { right: 32px; transition: transform .2s; }
 .board.folded .fold { transform: rotate(180deg); }
 .board.folded { min-width: 0; padding-right: 64px; }
-.board.folded:not(.peek) h2, .board.folded:not(.peek) .bhead, .board.folded:not(.peek) li:not(.me):not(.team) { display: none; }
-.board.folded:not(.peek) .round { margin: 0; }
+.board.folded h2, .board.folded .bhead, .board.folded li:not(.me):not(.team) { display: none; }
+.board.folded .round { margin: 0; }
 .board ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
 .board li { display: flex; justify-content: space-between; gap: 12px; white-space: nowrap; }
 .board li .nm { overflow: hidden; text-overflow: ellipsis; }
@@ -660,7 +660,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
 </div>
 <div class="results" id="results" hidden><div class="card chip rcard" id="resultsCard"></div></div>
 <div class="status">
-  <div class="chip" id="netChip"><span class="dot" id="netDot"></span><span id="netText">Connecting…</span><span class="netq" id="netQ" hidden></span></div>
+  <div class="chip"><span class="dot" id="netDot"></span><span id="netText">Connecting…</span><span class="netq" id="netQ" hidden></span></div>
   <div class="netwarn" id="netWarn" hidden>Unstable connection · lag spikes</div>
   <button class="ghost" id="codeBtn" hidden>Copy code</button>
   <button class="ghost" id="shareBtn" hidden>Copy invite link</button>
@@ -943,7 +943,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // a station's inner wall gives only to heavy weapons (a crater of WALL_CARVE or more: rockets, grenades, mines, the
   // orbs, the charged rail and gauss), and then WALL_GIVE times more than rock does; the hull never
   const WALL_CARVE = 24, WALL_GIVE = 1.5;
-  const BOOST_PADS = false;   // the speed pads on the maps: taken off (their spots stay, kept clear, should they come back)
   const AMP_PERIOD = 95, AMP_TIME = 20000, QUAD = 4;         // Quad damage: a rare pick-up, four times the damage for 20 s                        // mines go off when a bin comes this close, after arming
   // UT99 pickups: ordinary health caps at 100; super health at 199.
   const SUPPLIES = {
@@ -1056,7 +1055,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     // the bin lid colours of household collections: recycling, garden, food, general waste, glass
     lid:   { label: "Lid",   items: [["Lavender", null], ["Navy", 222], ["Red", 2], ["Mint", 155], ["Rose", 318], ["Amber", 38],
                                      ["Recycling blue", [212, 1.3, 0.85]], ["Garden green", [120, 1.1, 0.75]], ["Food brown", [28, 0.75, 0.6]], ["General black", [230, 0.1, 0.4]], ["Glass purple", [275, 1, 0.8]]] },
-    flame: { label: "Fire",  items: [["By level", null], ["Blue", "blue"], ["Green", "green"], ["Pink", "pink"], ["Rainbow", "rainbow"], ["Toxic", "toxic"]] },
+    flame: { label: "Fire",  items: [["Classic", null], ["Blue", "blue"], ["Green", "green"], ["Pink", "pink"], ["Rainbow", "rainbow"], ["Toxic", "toxic"]] },
     trail: { label: "Trail", items: [["Sparkle", null], ["Fire", "fire"], ["Ice", "ice"], ["Gold", "gold"], ["Rainbow", "rainbow"], ["Litter", "litter"], ["Eco", "eco"]] },
     hat:   { label: "Hat",   items: [["None", null], ["Party", "party"], ["Top hat", "tophat"], ["Halo", "halo"], ["Bow", "bow"], ["Cap", "cap"],
                                      ["Hard hat", "hardhat"], ["Traffic cone", "cone"], ["Hi-vis beanie", "hivis"], ["Recycling", "recycle"]] }
@@ -1176,7 +1175,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   //   guns:     [weapon, x, y]                                 a crate that is always there until someone takes it
   //   supplies: [med | bigmed | shield | mega, x, y]
   //   amp, nuke, holy, void: [x, y] one spot each (on the vertical axis or the centre: as far from either base; each its own)
-  //   pads:     [x, y, direction in degrees] boost pads: fly over one and it flings you that way
+  //   clear:    [x, y] spots kept free of bodies and pick-ups (open space to fly through)
   // Each layout has its own deliberate weapon pool; large maps repeat its placements.
   // The Large and Huge arenas add a few more bodies and spots in the widest gaps (fixed too, see buildPlanets).
   // Gun respawn (s): a taken crate comes back at the start of its spot's next cycle
@@ -1191,7 +1190,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       wrecks: [["hull", 0.62, 0.1, 0], ["ring", 0.12, 0.2], ["tower", 0.5, 0.36, 0], ["crates", 0.3, 0.64]],
       guns: [["rail", 0.05, 0.05], ["rocket", 0.33, 0.07], ["scatter", 0.62, 0.5], ["laser", 0.92, 0.1], ["shard", 0.18, 0.4], ["saw", 0.4, 0.2]],
       supplies: [["med", 0.42, 0.13], ["med", 0.2, 0.31], ["shield", 0.07, 0.34], ["bigmed", 0.88, 0.3]],
-      amp: [0.5, 0.5], nuke: [0.5, 0.05], void: [0.5, 0.2], holy: [0.5, 0.95], pads: [[0.24, 0.5, 0], [0.15, 0.09, 0]] },
+      amp: [0.5, 0.5], nuke: [0.5, 0.05], void: [0.5, 0.2], holy: [0.5, 0.95], clear: [[0.24, 0.5], [0.15, 0.09]] },
     // The Ring: a circle of rocks round the centre, gates in four directions, rock clusters in two corners
     a: { name: "The Ring",
       planets: [...ringRocks(0.27, [18, 36, 54, 72, 108, 126, 144, 162], 72),
@@ -1199,14 +1198,14 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       wrecks: [],
       guns: [["gamma", 0.5, 0.38], ["gren", 0.33, 0.1], ["minigun", 0.88, 0.3], ["scatter", 0.77, 0.5], ["laser", 0.5, 0.24], ["rail", 0.95, 0.05]],
       supplies: [["med", 0.37, 0.37], ["shield", 0.8, 0.07], ["bigmed", 0.91, 0.41]],
-      amp: [0.5, 0.5], nuke: [0.5, 0.04], void: [0.5, 0.32], holy: [0.5, 0.96], pads: [[0.5, 0.18, 90]] },
+      amp: [0.5, 0.5], nuke: [0.5, 0.04], void: [0.5, 0.32], holy: [0.5, 0.96], clear: [[0.5, 0.18]] },
     // Drydocks: rows of moored hulls above and below, two ring stations either side of the moonbase in the middle
     y: { name: "Drydocks",
       planets: [["rock", 0.5, 0.5, 150, 0]],
       wrecks: [["hull", 0.3, 0.2, 0], ["hull", 0.5, 0.2, 0], ["hull", 0.7, 0.2, 0], ["ring", 0.34, 0.5], ["tower", 0.1, 0.1, 0], ["crates", 0.9, 0.1]],
       guns: [["rail", 0.4, 0.05], ["minigun", 0.38, 0.35], ["laser", 0.2, 0.32], ["saw", 0.7, 0.36], ["gren", 0.92, 0.27], ["rocket", 0.6, 0.08]],
       supplies: [["med", 0.6, 0.32], ["shield", 0.2, 0.08], ["bigmed", 0.64, 0.4]],
-      amp: [0.5, 0.05], nuke: [0.5, 0.95], void: [0.5, 0.65], holy: [0.5, 0.33], pads: [[0.12, 0.38, 0]] },
+      amp: [0.5, 0.05], nuke: [0.5, 0.95], void: [0.5, 0.65], holy: [0.5, 0.33], clear: [[0.12, 0.38]] },
     // Downtown: two blocks of towers with a plaza in each, the main street between the bases, a fallen hull in the middle
     r: { name: "Downtown",
       planets: [["rock", 0.9, 0.31, 100, 0]],
@@ -1214,21 +1213,21 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         ["hull", 0.5, 0.5, 0], ["crates", 0.1, 0.12]],
       guns: [["rocket", 0.4, 0.26], ["gamma", 0.5, 0.32], ["scatter", 0.2, 0.25], ["shard", 0.6, 0.05], ["laser", 0.25, 0.45], ["rail", 0.95, 0.05]],
       supplies: [["med", 0.4, 0.1], ["bigmed", 0.64, 0.42], ["shield", 0.8, 0.26]],
-      amp: [0.5, 0.05], nuke: [0.5, 0.95], void: [0.5, 0.63], holy: [0.5, 0.39], pads: [[0.22, 0.56, 0]] },
+      amp: [0.5, 0.05], nuke: [0.5, 0.95], void: [0.5, 0.63], holy: [0.5, 0.39], clear: [[0.22, 0.56]] },
     // Orrery: the sun in the middle, two giants with two moons each, two small hot worlds on the axis
     s: { name: "Orrery",
       planets: [["gas", 0.24, 0.21, 230, 2], ["ice", 0.77, 0.2, 180, 1], ["lava", 0.5, 0.11, 110, 0]],
       wrecks: [],
       guns: [["gamma", 0.66, 0.37], ["rail", 0.05, 0.05], ["rocket", 0.94, 0.38], ["minigun", 0.19, 0.4], ["orb", 0.35, 0.39]],
       supplies: [["med", 0.12, 0.33], ["shield", 0.62, 0.21], ["bigmed", 0.95, 0.06]],
-      amp: [0.5, 0.71], nuke: [0.5, 0.29], void: [0.5, 0.23], holy: [0.5, 0.03], pads: [[0.3, 0.52, -90]] },
+      amp: [0.5, 0.71], nuke: [0.5, 0.29], void: [0.5, 0.23], holy: [0.5, 0.03], clear: [[0.3, 0.52]] },
     // The Tip: a landfill hill in the middle, a convoy of refuse trucks along the top and bottom, skips and bales round the edge
     w: { name: "The Tip",
       planets: [["rock", 0.5, 0.5, 190, 0]],
       wrecks: [["truck", 0.27, 0.17, 0], ["truck", 0.5, 0.16, 0], ["truck", 0.73, 0.17, 0], ["wheelie", 0.35, 0.36, 0], ["bales", 0.1, 0.1], ["skip", 0.85, 0.33, 0]],
       guns: [["scatter", 0.5, 0.3], ["saw", 0.2, 0.32], ["gren", 0.93, 0.18], ["rocket", 0.4, 0.05], ["laser", 0.2, 0.43], ["minigun", 0.67, 0.4]],
       supplies: [["med", 0.6, 0.27], ["bigmed", 0.05, 0.25], ["shield", 0.62, 0.06]],
-      amp: [0.5, 0.05], nuke: [0.5, 0.95], void: [0.5, 0.64], holy: [0.5, 0.38], pads: [[0.22, 0.56, 0]] },
+      amp: [0.5, 0.05], nuke: [0.5, 0.95], void: [0.5, 0.64], holy: [0.5, 0.38], clear: [[0.22, 0.56]] },
     // Frost Belt: a belt of ice and rock running corner to corner through the middle (gaps to fly through), an ice
     // giant with its moon in two corners, a hull frozen in the ice either side of the belt, a ring station on the flank
     i: { name: "Frost Belt",
@@ -1237,7 +1236,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       wrecks: [["hull", 0.32, 0.43, 0.65], ["ring", 0.84, 0.76], ["crates", 0.12, 0.42]],
       guns: [["laser", 0.42, 0.3], ["minigun", 0.22, 0.06], ["shard", 0.6, 0.14], ["gren", 0.9, 0.3], ["rail", 0.96, 0.04], ["gamma", 0.52, 0.22]],
       supplies: [["med", 0.46, 0.12], ["shield", 0.24, 0.3], ["bigmed", 0.96, 0.36]],
-      amp: [0.5, 0.5], nuke: [0.5, 0.05], void: [0.5, 0.7], holy: [0.5, 0.95], pads: [[0.2, 0.58, 0]] },
+      amp: [0.5, 0.5], nuke: [0.5, 0.05], void: [0.5, 0.7], holy: [0.5, 0.95], clear: [[0.2, 0.58]] },
     // Graveyard: the wrecks of a lost battle drifting at every angle round a dead red world, a burning world in two
     // corners, broken towers and spilt cargo among them; close fights from hull to hull
     g: { name: "Graveyard",
@@ -1245,14 +1244,14 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       wrecks: [["hull", 0.3, 0.17, 0.9], ["hull", 0.66, 0.36, -0.5], ["hull", 0.2, 0.76, 1.6], ["tower", 0.85, 0.12, 0.4], ["crates", 0.46, 0.1], ["hull", 0.42, 0.8, 2.6], ["tower", 0.06, 0.7, -0.3]],
       guns: [["minigun", 0.27, 0.36], ["scatter", 0.42, 0.21], ["orb", 0.76, 0.16], ["rail", 0.05, 0.3], ["shard", 0.84, 0.4], ["saw", 0.58, 0.4]],
       supplies: [["med", 0.36, 0.43], ["shield", 0.6, 0.07], ["bigmed", 0.94, 0.22]],
-      amp: [0.5, 0.29], nuke: [0.5, 0.03], void: [0.5, 0.71], holy: [0.5, 0.97], pads: [[0.2, 0.42, 0]] },
+      amp: [0.5, 0.29], nuke: [0.5, 0.03], void: [0.5, 0.71], holy: [0.5, 0.97], clear: [[0.2, 0.42]] },
     // Duel: almost empty. Two ice pillars on the line between the bases, two stations above and below the centre
     o: { name: "Duel",
       planets: [["ice", 0.32, 0.5, 130, 0]],
       wrecks: [["ring", 0.5, 0.2]],
       guns: [["rail", 0.2, 0.2], ["orb", 0.8, 0.2], ["laser", 0.5, 0.36], ["rocket", 0.06, 0.06], ["shard", 0.94, 0.06]],
       supplies: [["med", 0.33, 0.3], ["shield", 0.67, 0.3]],
-      amp: [0.5, 0.5], nuke: [0.5, 0.06], void: [0.5, 0.43], holy: [0.5, 0.94], pads: [[0.2, 0.36, 0]] }
+      amp: [0.5, 0.5], nuke: [0.5, 0.06], void: [0.5, 0.43], holy: [0.5, 0.94], clear: [[0.2, 0.36]] }
   };
   for (const [map, x, y] of [["c", .14, .42], ["a", .15, .38], ["y", .12, .27], ["r", .18, .38], ["s", .12, .43], ["w", .13, .29], ["i", .1, .3], ["g", .12, .26], ["o", .22, .3]]) ARENAS[map].supplies.push(["pads", x, y]);
   // an entry and its mirror through the centre (one entry when it sits on the centre)
@@ -1320,7 +1319,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       floor: ["#1d2328", "#262d33", "#39434a"], wall: ["#3d5868", "#2a3f4d", "#93c4d2"], accent: ["#e49a59", "#62d7e0"], void: "#060d16", style: "tread", lamp: "#ffd2a0",
       guns: [["scatter", 3, 9], ["minigun", 3, 12], ["rocket", 7, 3], ["rail", 10, 2], ["laser", 7, 7], ["orb", 8, 10], ["shard", 7, 17], ["mine", 3, 5], ["saw", 3, 15], ["gren", 7, 13]],
       supplies: [["med", 3, 7], ["shield", 7, 10], ["shield", 3, 11], ["bigmed", 13, 16], ["vial", 3, 8], ["vial", 3, 10], ["pads", 3, 16]],
-      mega: [10, 3], pads: [[5, 3, 0], [15, 17, Math.PI]],
+      mega: [10, 3],
       // [type, x, y (in cells, centre), turn]; each is mirrored through the middle
       props: [["crate", 1.3, 7.3, 0.1], ["crate", 1.75, 7.3, -0.05], ["crate", 1.3, 7.78, 0], ["drum", 5.62, 7.35], ["drum", 5.62, 12.62], ["crate", 1.3, 12.7, 0.2],
         ["panel", 9.0, 4.0, 0], ["crate", 12.4, 2.3, 0.15], ["drum", 8.3, 7.3], ["crate", 11.68, 12.7, -0.1], ["panel", 4.5, 17.0, Math.PI / 2], ["drum", 2.3, 17.65]],
@@ -1332,7 +1331,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       floor: ["#25211d", "#2e2924", "#4a4038"], wall: ["#5a5148", "#3b342e", "#e6c08a"], accent: ["#f0b43c", "#58c8e8"], void: "#0c0a09", style: "cargo", lamp: "#ffe6c0",
       guns: [["rocket", 2, 2], ["rail", 10, 1], ["scatter", 5, 5], ["minigun", 1, 6], ["laser", 7, 7], ["orb", 10, 6], ["shard", 6, 9], ["gamma", 5, 2], ["mine", 2, 15], ["gren", 15, 2]],
       supplies: [["med", 5, 6], ["shield", 8, 10], ["vial", 2, 8], ["vial", 2, 12], ["bigmed", 11, 15], ["pads", 13, 10], ["shield", 5, 4]],
-      mega: [10, 3], pads: [[4, 1, 0], [16, 19, Math.PI]],
+      mega: [10, 3],
       props: [["crate", 4.32, 4.32, 0], ["crate", 4.8, 4.3, 0.08], ["crate", 4.3, 4.8, -0.06], ["crate", 6.66, 6.62, 0.12], ["drum", 6.7, 4.3], ["drum", 4.3, 6.7],
         ["crate", 1.3, 1.3, 0.1], ["drum", 1.75, 1.28], ["panel", 1.5, 9.0, Math.PI / 2], ["panel", 9.0, 1.5, 0], ["crate", 7.25, 8.75, -0.15], ["drum", 7.25, 12.75],
         ["crate", 18.7, 1.3, -0.1], ["drum", 18.25, 1.28], ["crate", 12.75, 7.3, 0.2], ["panel", 5.0, 10.0, Math.PI / 2]],
@@ -1344,7 +1343,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       floor: ["#1f2328", "#282d33", "#454d55"], wall: ["#4b5562", "#2e3640", "#ffd34d"], accent: ["#ffd34d", "#5ad1ff"], void: "#05070a", style: "hangar", lamp: "#cfe4ff",
       guns: [["rocket", 5, 5], ["rail", 10, 1], ["scatter", 2, 2], ["minigun", 1, 10], ["laser", 8, 10], ["orb", 10, 5], ["shard", 2, 9], ["mine", 9, 2], ["saw", 5, 14], ["gren", 14, 1]],
       supplies: [["med", 3, 3], ["shield", 10, 7], ["vial", 1, 5], ["vial", 5, 1], ["bigmed", 7, 13], ["pads", 14, 7], ["shield", 4, 10]],
-      mega: [10, 3], pads: [[3, 1, 0], [17, 19, Math.PI]],
+      mega: [10, 3],
       props: [["crate", 7.3, 8.0, 0.05], ["crate", 7.78, 8.0, -0.1], ["crate", 7.55, 8.45, 0.2], ["drum", 12.6, 7.4], ["drum", 12.95, 7.6], ["crate", 8.6, 12.65, 0],
         ["panel", 6.5, 10.5, Math.PI / 2], ["crate", 3.6, 2.4, 0.1], ["drum", 1.4, 3.5], ["crate", 4.5, 7.6, -0.2], ["drum", 11.4, 4.4], ["panel", 10.5, 8.6, 0]],
       labels: [["HANGAR BAY", 10, 10, "#ffe08a"], ["DOCK 1", 2.5, 2.5, "#ffd34d"], ["DOCK 2", 17.5, 17.5, "#5ad1ff"]],
@@ -1355,7 +1354,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       floor: ["#1b1f27", "#232833", "#3a4252"], wall: ["#4a5262", "#2b303b", "#a8c4e0"], accent: ["#ff5a4a", "#7fd0ff"], void: "#02030a", style: "tread", lamp: "#ff9a8a",
       guns: [["rocket", 4, 7], ["scatter", 6, 13], ["laser", 7, 10], ["minigun", 3, 10], ["rail", 10, 2], ["gamma", 10, 7], ["shard", 1, 3], ["gren", 6, 6], ["orb", 14, 2], ["mine", 3, 14]],
       supplies: [["med", 3, 6], ["shield", 7, 14], ["vial", 6, 10], ["vial", 4, 10], ["bigmed", 10, 16], ["pads", 1, 10], ["shield", 8, 4]],
-      mega: [10, 3], pads: [[1, 6, Math.PI / 2], [19, 14, -Math.PI / 2]],
+      mega: [10, 3],
       props: [["crate", 4.6, 6.3, 0.1], ["crate", 5.3, 6.3, -0.1], ["drum", 7.6, 6.4], ["crate", 5.1, 14.6, -0.15], ["drum", 4.3, 13.4]],
       labels: [["ENGINES", 5, 10, "#ffb070"], ["BRIDGE", 15, 10, "#9fd4ff"], ["THE BREACH", 10, 10, "#c9b6ff"]]
     },
@@ -1364,7 +1363,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       floor: ["#231b1a", "#2d2321", "#4d3a33"], wall: ["#5e3d33", "#3a2522", "#ffb070"], accent: ["#ff8a4a", "#ffd27a"], void: "#0a0605", style: "inlay", lamp: "#ffc890",
       guns: [["rocket", 3, 3], ["rail", 10, 1], ["scatter", 2, 9], ["minigun", 10, 6], ["orb", 9, 10], ["laser", 5, 5], ["shard", 15, 3], ["gamma", 1, 5], ["mine", 5, 12], ["gren", 12, 1]],
       supplies: [["med", 1, 1], ["shield", 5, 9], ["vial", 3, 1], ["vial", 1, 3], ["bigmed", 10, 12], ["pads", 11, 4], ["shield", 8, 15]],
-      mega: [10, 3], pads: [[3, 6, Math.PI / 2], [17, 14, -Math.PI / 2]],
+      mega: [10, 3],
       props: [["crate", 1.3, 8.3, 0.1], ["crate", 1.3, 8.78, -0.05], ["crate", 4.7, 8.3, 0.15], ["drum", 8.3, 1.3], ["drum", 12.7, 4.7], ["crate", 11.7, 8.3, -0.1],
         ["panel", 4.0, 16.5, 0], ["drum", 19.6, 5.65], ["crate", 18.7, 4.7, 0.2], ["crate", 8.35, 4.6, -0.15]],
       labels: [["THE VAULT", 10, 10, "#ffcf8a"], ["WEST WING", 3, 10, "#ff8a4a"], ["EAST WING", 17, 10, "#ffd27a"]],
@@ -1529,8 +1528,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const spot = (type, x, y, P = GUN_PERIOD[type] || GUN_PERIOD_BASE) => ({ type, ...foundryPoint(x, y), P, off: 0 });
     const guns = st.guns.flatMap(([type, x, y]) => [spot(type, x, y), spot(type, 20 - x, 20 - y)]);
     arena = { guns, supplies: st.supplies.flatMap(([t, x, y]) => [spot(t, x, y, SUPPLIES[t].period), spot(t, 20 - x, 20 - y, SUPPLIES[t].period)]),
-      amp: spot("amp", 10, 10, AMP_PERIOD), nuke: null, holy: null,
-      pads: BOOST_PADS ? st.pads.map(([x, y, a]) => ({ ...foundryPoint(x, y), a })) : [] };
+      amp: spot("amp", 10, 10, AMP_PERIOD), nuke: null, holy: null };
     arena.supplies.push(spot("mega", ...st.mega, SUPPLIES.mega.period));
     PICKS = guns.length; SUPPLY_SLOTS = arena.supplies.length;
     det = [...wrecks, ...props]; rebuildBodies();
@@ -3148,7 +3146,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       taken.push({ x: 0.5, y: 0.5, r: R / W + 0.06 });
     }
     const planetList = mirrored(A.planets), wreckList = mirrored(A.wrecks);
-    const layoutSpots = [...A.guns, ...A.supplies].map(([, x, y]) => ({ x, y })).concat([A.amp, A.nuke, A.holy, A.void, ...(A.pads || [])].filter(Boolean).map(([x, y]) => ({ x, y })));
+    const layoutSpots = [...A.guns, ...A.supplies].map(([, x, y]) => ({ x, y })).concat([A.amp, A.nuke, A.holy, A.void, ...(A.clear || [])].filter(Boolean).map(([x, y]) => ({ x, y })));
     // the big arenas: a few more bodies like the ones already there, in the widest gaps
     for (let k = 0; k < big * 2; k++) {
       for (const [, x, y, R] of planetList) taken.push({ x, y, r: (R * rs + 300) / W });
@@ -3183,12 +3181,11 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       wrecks.push(b);
     });
     // the spots: the layout's own, then (Large / Huge) more pairs in the widest gaps, cycling through the map's guns
-    const guns = mirrored(A.guns), supplies = mirrored(A.supplies), padList = mirrored((A.pads || []).map(([x, y, d]) => ["", x, y, d]))
-      .map((p, i) => i % 2 ? [p[0], p[1], p[2], p[3] + 180] : p);   // a mirrored pad points the other way
+    const guns = mirrored(A.guns), supplies = mirrored(A.supplies), clearList = mirrored((A.clear || []).map(([x, y]) => ["", x, y]));
     const reach = list => list.map(([, x, y]) => ({ x, y, r: 0 }));
     const bodyReach = () => [...planets.map(p => ({ x: p.hx / W, y: p.hy / H, r: (p.rr + 120) / W })), ...wrecks.map(w => ({ x: w.bx / W, y: w.by / H, r: (w.rr + w.A + 120) / W })),
       ...moons.map(m => ({ x: m.p.hx / W, y: m.p.hy / H, r: 0 }))];
-    const spotsNow = () => [...taken, ...bodyReach(), ...reach(guns), ...reach(supplies), ...padList.map(([, x, y]) => ({ x, y, r: 0.02 })),
+    const spotsNow = () => [...taken, ...bodyReach(), ...reach(guns), ...reach(supplies), ...clearList.map(([, x, y]) => ({ x, y, r: 0.02 })),
       ...[A.amp, A.nuke, A.holy, A.void].filter(Boolean).map(([x, y]) => ({ x, y, r: 0 }))];
     for (let k = 0; k < big * 3; k++) {
       const at = widestGap(spotsNow(), 0.06, 0.05);
@@ -3204,8 +3201,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       nuke: A.nuke && (big || modeOf(code) === "n" || modeOf(code) === "x") ? spot(["nuke", ...A.nuke], 201, BOMB_CRATES.nuke.period) : null,
       holy: A.holy && (big || modeOf(code) === "x") ? spot(["holy", ...A.holy], 202, BOMB_CRATES.holy.period) : null,
       // the void bomb's crate: its own spot, where nukes lie out (mirroring the nuke's put it on the Quad's or the holy bomb's)
-      void: A.void && (big || modeOf(code) === "n" || modeOf(code) === "x") ? spot(["void", ...A.void], 203, BOMB_CRATES.void.period) : null,
-      pads: BOOST_PADS ? padList.map(([, fx, fy, deg]) => ({ x: fx * W, y: fy * H, a: deg / 57.2958 })) : []   // (their places are still kept clear)
+      void: A.void && (big || modeOf(code) === "n" || modeOf(code) === "x") ? spot(["void", ...A.void], 203, BOMB_CRATES.void.period) : null
     };
     PICKS = arena.guns.length; SUPPLY_SLOTS = arena.supplies.length;
     det = [...planets, ...moons, ...wrecks];
@@ -8226,46 +8222,9 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         else if (!b.attacker && Math.hypot(home.x - b.x, home.y - b.y) > 500) goal = home;   // guard
         if (goal) { routeGoal = goal; const gx = goal.x - b.x, gy = goal.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * w; dy += gy / gd * w; }
       }
-      if (roundLive && !MODES[MODE].noSupplies) for (const c of world.supplies) {
-        if (grabbed.has(c.key) || c.age < .05 || Math.hypot(c.x - b.x, c.y - b.y) > 56 || !applySupply(b, c.type)) continue;
-        grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
-        sfx(SUPPLIES[c.type].heal ? "heal" : "shield_get", .5, 1, c.x, c.y);
-      }
-      // Quad damage: anyone flying through it takes it, a player on the server (their screen only shows it) or a bot
-      const qd = world.amp;
-      if (roundLive && qd && !grabbed.has(qd.key) && Math.hypot(qd.x - b.x, qd.y - b.y) < 60) {
-        grabbed.add(qd.key); pushCapped(myGrabs, qd.key, 40); b.ampUntil = now + AMP_TIME;
-        if (!human) for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 100 + Math.random() * 300; puff(qd.x, qd.y, Math.cos(a) * v, Math.sin(a) * v, 0.8, 2.5, k % 2 ? "#5b9bff" : "#ffffff"); }
-        sfx("shield_get", 0.6, 0.7, qd.x, qd.y);
-      }
-      if (!MODES[MODE].only && roundLive) {
-        let best = null, bd = b.weapon === "fire" && td > 700 ? 1300 : 0;
-        // the guns on their spots and the two big bombs' crates (a nuke, the holy bomb): a bot takes any of them, and so
-        // does a player on the server (the teleporter is retired)
-        for (const c of [...world.picks, ...world.bombs]) {
-          if (grabbed.has(c.key) || c.age < 0.05) continue;
-          const d = Math.hypot(c.x - b.x, c.y - b.y);
-          if (d < 34 + 30) {   // picked up
-            grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
-            if (human) pilotGive(b, c.type, WEAPONS[c.type].ammo);
-            else { b.weapon = c.type; b.ammo = Math.ceil(WEAPONS[c.type].ammo * (c.type === "laser" ? 0.4 : 1)); }
-            if (c.type === "holy" || c.type === "nuke") announce(c.type === "holy" ? "HOLY BOMB TAKEN" : "NUKE TAKEN", b.name + " has it", WEAPONS[c.type].col);
-            for (let k = 0; k < 20; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 200; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.5, 2, WEAPONS[c.type].col); }
-            sfx("weapon_get", 0.5, 1, c.x, c.y);
-            best = null; break;
-          }
-          if (d < bd) { bd = d; best = c; }
-        }
-        for (const [gid, d] of gunDrops) {   // trophies count as crates
-          if (grabbed.has("W" + gid) || performance.now() - d.born < 600) continue;
-          const dd = Math.hypot(d.x - b.x, d.y - b.y);
-          if (dd < 64) { grabbed.add("W" + gid); pushCapped(myGrabs, "W" + gid, 40); if (human) pilotGive(b, d.type, d.ammo); else { b.weapon = d.type; b.ammo = d.ammo; } sfx("weapon_get", 0.5, 1, d.x, d.y); best = null; break; }
-          if (dd < bd) { bd = dd; best = d; }
-        }
-        // Quad damage draws a bot from twice as far as a gun does (and a gun in hand does not stop it)
-        if (qd && !grabbed.has(qd.key) && !human) { const dq = Math.hypot(qd.x - b.x, qd.y - b.y) / 2; if (dq < Math.max(bd, 900)) { bd = dq; best = qd; } }
-        if (best && !human) { routeGoal = best; const gx = best.x - b.x, gy = best.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * 1.4; dy += gy / gd * 1.4; }
-      }
+      pilotTakes(b, now, human);
+      const gun = !MODES[MODE].only && roundLive ? gunGoal(b, td, human) : null;
+      if (gun && !human) { routeGoal = gun; const gx = gun.x - b.x, gy = gun.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * 1.4; dy += gy / gd * 1.4; }
       const m = 260;   // keep off the fence
       if (!human) {
         if (b.x < m) dx += (m - b.x) / m * 2.5; if (b.x > W - m) dx -= (b.x - W + m) / m * 2.5;
@@ -8326,69 +8285,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         b.vx += Math.cos(a) * 900; b.vy += Math.sin(a) * 900; b.energy -= 25; b.dashAt = now; b.inv = Math.max(b.inv, now + 280);
       }
       b.dashReq = false;
-      if (human) {   // a player's pilot flies by the very function that flies their own bin on their screen (flyPilot)
-        // with controls that changed during the step: the old ones until they arrived, the new ones after, as the
-        // player's own screen flew them (it changed them when it sent them, a fixed trip earlier)
-        const parts = cmds ? [] : split ? [[b.prevIn, split], [human, dt - split]] : [[human, dt]];
-        let f = { crash: null, fence: null };
-        if (cmds) {
-          // Commands are flown against the clock, as Source and Overwatch do: each step adds its time to an allowance
-          // and each command spends CMD_DT of it, so sending them faster than time passes gains nothing (the queue
-          // just overflows). A delay of up to 8 commands (~133 ms, the network's jitter) is waited out; past that the
-          // last command is flown again, so the pilot never hangs in place, and as many late ones are skipped
-          // (the allowance grows by the clock, not by the step: a server running late drops steps, never a player's time)
-          const real = Number.isFinite(b.cqAt) ? Math.max(0, Math.min(0.5, (now - b.cqAt) / 1000)) : dt; b.cqAt = now;
-          b.cqBudget = Math.min(CMD_DT * 30, (b.cqBudget || 0) + real);
-          for (let n = 0; n < 3 && b.cqBudget >= CMD_DT - 1e-9; n++) {
-            let c;
-            // the next one is missing but later ones are here (lost or overtaken on the way): a moment's wait for it
-            // (cmdAck: the number of the last command flown; it is not the controls messages' number, ackSeq)
-            if (cmds.length && cmds[0].s !== (b.cmdAck || 0) + 1 && b.cmdAck && b.cqBudget < CMD_DT * 8) break;
-            // jkN: the spread's number for this command's shots, counted here one by one (from the first command, or a
-            // screen starting its count again at 1), so a screen cannot pick its numbers by skipping some; an honest
-            // one, sending them all, counts the same (c.s). A command flown again (below) has none
-            if (cmds.length) { c = cmds.shift(); b.lastCmd = c; b.cmdAck = c.s; b.jkN = b.jkN === undefined || c.s === 1 ? c.s : b.jkN + 1; c = { ...c, jk: b.jkN }; }
-            else if (b.cqBudget >= CMD_DT * 8) { c = b.lastCmd || { mx: 0, my: 0, aim: b.a, boost: false, brake: false, fire: false, alt: false, dash: b.dashDone || 0 }; b.cqOwed = Math.min(30, (b.cqOwed || 0) + 1); b.cqRepeats = (b.cqRepeats || 0) + 1; }
-            else break;
-            b.cqBudget -= CMD_DT;
-            // the trigger as this command held it, aimed as it was aimed, before the command's flight, as the player's
-            // screen fires before it flies its frame (Source and Overwatch fire from the user command the same way)
-            b.a = c.aim; human.fire = !!c.fire; human.alt = !!c.alt;
-            b.fireCd -= CMD_DT; b.altCd = (b.altCd || 0) - CMD_DT;   // (the cooldowns run by commands too, as on the player's screen)
-            b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; b.viewAt = c.va > 0 ? c.va : -1; b.jk = c.jk; pilotTriggers(b, CMD_DT, now); b.cmdWait = b.viewAt = -1; b.jk = undefined;
-            const g = pilotMove(b, c);
-            f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
-          }
-        }
-        for (const [inp, d] of parts) {
-          if (split) {
-            const m = Math.hypot(inp.mx, inp.my), px = m > 1 ? inp.mx / m : inp.mx, py = m > 1 ? inp.my / m : inp.my, e = 1 - Math.exp(-13 * d);
-            st.x += (px - st.x) * e; st.y += (py - st.y) * e;
-          }
-          const g = flyPilot(b, st.x, st.y, b.boosting, !!inp.brake, d, now, b.boosting || now - (b.dashAt || 0) < 350);
-          f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
-        }
-        if (!cmds) b.a = lerpAng(b.a, human.aim, 1 - Math.exp(-30 * dt));   // the nose follows the player's aim, as with mouse aim
-        if (f.crash && f.crash.hs > 60) impact(f.crash.x, f.crash.y, "#ffd9b0", Math.min(2, 0.4 + f.crash.hs / 450));
-        if (f.crash && f.crash.dmg > 0) botHurt(b, f.crash.dmg, "p", now, false);
-        if (f.fence && f.fence.dmg > 0) botHurt(b, f.fence.dmg, "p", now, false);
-        // the junk rocks bump it, as they bump my bin (updateJunk)
-        if (!cmds) for (const k of world.rocks) if (k && !grabbed.has(k.key) && k.age >= 0.6) collideRock(b, k);   // (commands meet them in pilotMove)
-      } else {   // a bot
-      thrustPilot(b, st.x, st.y, b.boosting, false, dt, b.L.speed);
-      slingshot(b, dt); padsFor(b, now);
-      if (Math.hypot(st.x, st.y) > 0.15) b.a = lerpAng(b.a, Math.atan2(st.y, st.x), 1 - Math.exp(-13 * dt));
-      gravityOn(b, dt);
-      b.x += b.vx * dt; b.y += b.vy * dt;
-      const pc = bounceOff(b, 40, 0.25, BIN_MASS);
-      if (pc && pc.vn < -200) {
-        impact(b.x - pc.nx * 40, b.y - pc.ny * 40, "#ffd9b0", 1.2);
-        const dmg = hurtsOnHit(pc.b) ? crashDmg(-pc.vn, false) : 0;
-        if (dmg > 0) botHurt(b, dmg, "p", now, false);
-      }
-      if (b.x < 40 || b.x > W - 40) { b.vx = -b.vx * 0.6; b.x = clamp(b.x, 40, W - 40); }
-      if (b.y < 40 || b.y > H - 40) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 40, H - 40); }
-      }
+      if (human) flyPlayer(b, st, human, cmds, split, dt, now);
+      else flyBot(b, st, dt, now);
       // shoot when the nose points at the target (where it will be)
       if (!b.cq) { b.fireCd -= dt; b.altCd = (b.altCd || 0) - dt; }   // (a player flown by commands: by each command, above)
       // shock combo: once its orb hangs near the target, a bot shoots the orb with the beam (harder bots do it more)
@@ -8417,6 +8315,115 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       shotsAtBot(b, now);
     }
     binContacts(now);
+  }
+  // what a pilot flies through is taken: supplies (health, armour) and Quad damage (a player on the server too: their
+  // screen only shows it)
+  function pilotTakes(b, now, human) {
+    if (roundLive && !MODES[MODE].noSupplies) for (const c of world.supplies) {
+      if (grabbed.has(c.key) || c.age < .05 || Math.hypot(c.x - b.x, c.y - b.y) > 56 || !applySupply(b, c.type)) continue;
+      grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
+      sfx(SUPPLIES[c.type].heal ? "heal" : "shield_get", .5, 1, c.x, c.y);
+    }
+    const qd = world.amp;
+    if (roundLive && qd && !grabbed.has(qd.key) && Math.hypot(qd.x - b.x, qd.y - b.y) < 60) {
+      grabbed.add(qd.key); pushCapped(myGrabs, qd.key, 40); b.ampUntil = now + AMP_TIME;
+      if (!human) for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 100 + Math.random() * 300; puff(qd.x, qd.y, Math.cos(a) * v, Math.sin(a) * v, 0.8, 2.5, k % 2 ? "#5b9bff" : "#ffffff"); }
+      sfx("shield_get", 0.6, 0.7, qd.x, qd.y);
+    }
+  }
+  // the guns on their spots, the big bombs' crates and trophies: the one it flies over is taken (by a bot, or a player on
+  // the server); the nearest worth going for is returned (Quad damage draws a bot from twice as far as a gun does)
+  function gunGoal(b, td, human) {
+    const qd = world.amp;
+    let best = null, bd = b.weapon === "fire" && td > 700 ? 1300 : 0;
+    for (const c of [...world.picks, ...world.bombs]) {
+      if (grabbed.has(c.key) || c.age < 0.05) continue;
+      const d = Math.hypot(c.x - b.x, c.y - b.y);
+      if (d < 34 + 30) {   // picked up
+        grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
+        if (human) pilotGive(b, c.type, WEAPONS[c.type].ammo);
+        else { b.weapon = c.type; b.ammo = Math.ceil(WEAPONS[c.type].ammo * (c.type === "laser" ? 0.4 : 1)); }
+        if (c.type === "holy" || c.type === "nuke") announce(c.type === "holy" ? "HOLY BOMB TAKEN" : "NUKE TAKEN", b.name + " has it", WEAPONS[c.type].col);
+        for (let k = 0; k < 20; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 200; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.5, 2, WEAPONS[c.type].col); }
+        sfx("weapon_get", 0.5, 1, c.x, c.y);
+        best = null; break;
+      }
+      if (d < bd) { bd = d; best = c; }
+    }
+    for (const [gid, d] of gunDrops) {   // trophies count as crates
+      if (grabbed.has("W" + gid) || performance.now() - d.born < 600) continue;
+      const dd = Math.hypot(d.x - b.x, d.y - b.y);
+      if (dd < 64) { grabbed.add("W" + gid); pushCapped(myGrabs, "W" + gid, 40); if (human) pilotGive(b, d.type, d.ammo); else { b.weapon = d.type; b.ammo = d.ammo; } sfx("weapon_get", 0.5, 1, d.x, d.y); best = null; break; }
+      if (dd < bd) { bd = dd; best = d; }
+    }
+    if (qd && !grabbed.has(qd.key) && !human) { const dq = Math.hypot(qd.x - b.x, qd.y - b.y) / 2; if (dq < Math.max(bd, 900)) { bd = dq; best = qd; } }
+    return best;
+  }
+  // a player's pilot on the server flies by the very function that flies their own bin on their screen (flyPilot)
+  function flyPlayer(b, st, human, cmds, split, dt, now) {
+    // with controls that changed during the step: the old ones until they arrived, the new ones after, as the
+    // player's own screen flew them (it changed them when it sent them, a fixed trip earlier)
+    const parts = cmds ? [] : split ? [[b.prevIn, split], [human, dt - split]] : [[human, dt]];
+    let f = { crash: null, fence: null };
+    if (cmds) {
+      // Commands are flown against the clock, as Source and Overwatch do: each step adds its time to an allowance
+      // and each command spends CMD_DT of it, so sending them faster than time passes gains nothing (the queue
+      // just overflows). A delay of up to 8 commands (~133 ms, the network's jitter) is waited out; past that the
+      // last command is flown again, so the pilot never hangs in place, and as many late ones are skipped
+      // (the allowance grows by the clock, not by the step: a server running late drops steps, never a player's time)
+      const real = Number.isFinite(b.cqAt) ? Math.max(0, Math.min(0.5, (now - b.cqAt) / 1000)) : dt; b.cqAt = now;
+      b.cqBudget = Math.min(CMD_DT * 30, (b.cqBudget || 0) + real);
+      for (let n = 0; n < 3 && b.cqBudget >= CMD_DT - 1e-9; n++) {
+        let c;
+        // the next one is missing but later ones are here (lost or overtaken on the way): a moment's wait for it
+        // (cmdAck: the number of the last command flown; it is not the controls messages' number, ackSeq)
+        if (cmds.length && cmds[0].s !== (b.cmdAck || 0) + 1 && b.cmdAck && b.cqBudget < CMD_DT * 8) break;
+        // jkN: the spread's number for this command's shots, counted here one by one (from the first command, or a
+        // screen starting its count again at 1), so a screen cannot pick its numbers by skipping some; an honest
+        // one, sending them all, counts the same (c.s). A command flown again (below) has none
+        if (cmds.length) { c = cmds.shift(); b.lastCmd = c; b.cmdAck = c.s; b.jkN = b.jkN === undefined || c.s === 1 ? c.s : b.jkN + 1; c = { ...c, jk: b.jkN }; }
+        else if (b.cqBudget >= CMD_DT * 8) { c = b.lastCmd || { mx: 0, my: 0, aim: b.a, boost: false, brake: false, fire: false, alt: false, dash: b.dashDone || 0 }; b.cqOwed = Math.min(30, (b.cqOwed || 0) + 1); b.cqRepeats = (b.cqRepeats || 0) + 1; }
+        else break;
+        b.cqBudget -= CMD_DT;
+        // the trigger as this command held it, aimed as it was aimed, before the command's flight, as the player's
+        // screen fires before it flies its frame (Source and Overwatch fire from the user command the same way)
+        b.a = c.aim; human.fire = !!c.fire; human.alt = !!c.alt;
+        b.fireCd -= CMD_DT; b.altCd = (b.altCd || 0) - CMD_DT;   // (the cooldowns run by commands too, as on the player's screen)
+        b.cmdWait = c.at ? Math.max(0, now - c.at) : -1; b.viewAt = c.va > 0 ? c.va : -1; b.jk = c.jk; pilotTriggers(b, CMD_DT, now); b.cmdWait = b.viewAt = -1; b.jk = undefined;
+        const g = pilotMove(b, c);
+        f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
+      }
+    }
+    for (const [inp, d] of parts) {
+      if (split) {
+        const m = Math.hypot(inp.mx, inp.my), px = m > 1 ? inp.mx / m : inp.mx, py = m > 1 ? inp.my / m : inp.my, e = 1 - Math.exp(-13 * d);
+        st.x += (px - st.x) * e; st.y += (py - st.y) * e;
+      }
+      const g = flyPilot(b, st.x, st.y, b.boosting, !!inp.brake, d, now, b.boosting || now - (b.dashAt || 0) < 350);
+      f = { crash: g.crash || f.crash, fence: g.fence || f.fence };
+    }
+    if (!cmds) b.a = lerpAng(b.a, human.aim, 1 - Math.exp(-30 * dt));   // the nose follows the player's aim, as with mouse aim
+    if (f.crash && f.crash.hs > 60) impact(f.crash.x, f.crash.y, "#ffd9b0", Math.min(2, 0.4 + f.crash.hs / 450));
+    if (f.crash && f.crash.dmg > 0) botHurt(b, f.crash.dmg, "p", now, false);
+    if (f.fence && f.fence.dmg > 0) botHurt(b, f.fence.dmg, "p", now, false);
+    // the junk rocks bump it, as they bump my bin (updateJunk)
+    if (!cmds) for (const k of world.rocks) if (k && !grabbed.has(k.key) && k.age >= 0.6) collideRock(b, k);   // (commands meet them in pilotMove)
+  }
+  // a bot flies by the same thrust and turning, bumping off what it meets
+  function flyBot(b, st, dt, now) {
+    thrustPilot(b, st.x, st.y, b.boosting, false, dt, b.L.speed);
+    slingshot(b, dt);
+    if (Math.hypot(st.x, st.y) > 0.15) b.a = lerpAng(b.a, Math.atan2(st.y, st.x), 1 - Math.exp(-13 * dt));
+    gravityOn(b, dt);
+    b.x += b.vx * dt; b.y += b.vy * dt;
+    const pc = bounceOff(b, 40, 0.25, BIN_MASS);
+    if (pc && pc.vn < -200) {
+      impact(b.x - pc.nx * 40, b.y - pc.ny * 40, "#ffd9b0", 1.2);
+      const dmg = hurtsOnHit(pc.b) ? crashDmg(-pc.vn, false) : 0;
+      if (dmg > 0) botHurt(b, dmg, "p", now, false);
+    }
+    if (b.x < 40 || b.x > W - 40) { b.vx = -b.vx * 0.6; b.x = clamp(b.x, 40, W - 40); }
+    if (b.y < 40 || b.y > H - 40) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 40, H - 40); }
   }
   // a bot's target: the nearest living pilot not on its side (me or anyone else, other bots included), within how far
   // it looks (further with a big bomb); [the pilot, how far] or [null, that range]
@@ -8863,23 +8870,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const s1 = Math.hypot(o.vx, o.vy);
     if (s1 > top) { const ns = top + (s1 - top) * Math.exp(-2.5 * dt); o.vx *= ns / s1; o.vy *= ns / s1; }
   }
-  // boost pads: fly over one and it flings you its way (at least PAD_V fast); the same for bots
-  const PAD_R = 70, PAD_V = 1500;
-  function padsFor(o, now) {
-    for (const p of arena.pads) {
-      if ((o.x - p.x) ** 2 + (o.y - p.y) ** 2 > PAD_R * PAD_R || now - (o.padAt || 0) < 700) continue;
-      o.padAt = now;
-      const ux = Math.cos(p.a), uy = Math.sin(p.a), along = o.vx * ux + o.vy * uy, lat = -o.vx * uy + o.vy * ux;
-      const v = Math.max(PAD_V, along + 500);
-      o.vx = ux * v - uy * lat * 0.3; o.vy = uy * v + ux * lat * 0.3;   // most of the sideways drift is cancelled
-      if (!replaying && onScreen(sx(p.x), sy(p.y), 200)) {
-        rings.push({ x: p.x, y: p.y, t: 0, r: 150, col: "120,255,220", warp: true, dur: 0.45, w: 10 });
-        for (let k = 0; k < 24; k++) { const a = p.a + Math.PI + (Math.random() - 0.5) * 0.8, s2 = 200 + Math.random() * 400; puff(p.x, p.y, Math.cos(a) * s2, Math.sin(a) * s2, 0.4, 2.4, k % 2 ? "#7dffd8" : "#ffffff"); }
-        sfx("dash", 0.9, 0.8, p.x, p.y);
-      }
-      if (o === me && !replaying) { camKick.x -= ux * 30; camKick.y -= uy * 30; shake = Math.max(shake, 0.12); }
-    }
-  }
   // the gravity slingshot: skimming past a planet fast and along its rim gives extra speed (up to boost speed),
   // with a streak of light off the hull: diving round planets is the quickest way about
   function slingshot(o, dt) {
@@ -8899,14 +8889,14 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   }
   // One step of a player's flight: the same function flies my bin here and a player's pilot on the server, so the
   // server's word on where I am agrees with what this screen predicted. Thrust (or a drift: with the brake and a
-  // direction the engine cuts and the bin slides on), gravity, the slingshot and pads, the move, then bumping off
+  // direction the engine cuts and the bin slides on), gravity, the slingshot, the move, then bumping off
   // bodies and the fence. It says what was hit and the damage that does; the caller shows it and applies it.
   // boosted: on boost or just dashed (a crash then hurts more)
   function flyPilot(o, sx_, sy_, boost, brake, dt, now, boosted) {
     const drift = brake && Math.hypot(sx_, sy_) > 0.3 && Math.hypot(o.vx, o.vy) > 150;
     if (drift) thrustPilot(o, 0, 0, false, false, dt);
     else thrustPilot(o, sx_, sy_, boost, brake, dt);
-    gravityOn(o, dt); slingshot(o, dt); padsFor(o, now);
+    gravityOn(o, dt); slingshot(o, dt);
     o.x += o.vx * dt; o.y += o.vy * dt;
     // walls, planets and moons: met as a car meets a wall: a dead bounce (e 0.25), the slide along it kept (scraping
     // sparks off it), and only a hard head-on hit hurts, a little
@@ -8946,7 +8936,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     return out;
   }
   function pilotMove(o, c, dt = CMD_DT) {
-    if (!Number.isFinite(o.mt)) { o.mt = 0; o.padAt = -1e9; }   // the command clock starts: a pad's wait from another clock is dropped
+    if (!Number.isFinite(o.mt)) o.mt = 0;   // the command clock starts
     o.mt += dt;
     const st = o.stick || (o.stick = { x: 0, y: 0 }), m = Math.hypot(c.mx, c.my), e = 1 - Math.exp(-13 * dt);
     st.x += ((m > 1 ? c.mx / m : c.mx) - st.x) * e; st.y += ((m > 1 ? c.my / m : c.my) - st.y) * e;
@@ -8985,7 +8975,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     }
     // the state ends each command in hundredths, on both sides alike (as Gaffer on Games quantizes): the server sends
     // exactly what it flies on from, small numbers the deltas shorten, and a replay from it is still exact
-    for (const k of MOVE_STATE) if (k !== "padAt") o[k] = Math.round(o[k] * 100) / 100;
+    for (const k of MOVE_STATE) o[k] = Math.round(o[k] * 100) / 100;
     st.x = Math.round(st.x * 1e4) / 1e4; st.y = Math.round(st.y * 1e4) / 1e4;
     return f;
   }
@@ -8993,7 +8983,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // allowance does not count the time spent dead
   function resetCmds(b) { if (!b.cq) return; b.cq.length = 0; b.cqBudget = 0; b.cqAt = undefined; b.cqOwed = 0; b.lastCmd = null; b.jkN = undefined; }   // (jkN: counted again from the next command)
   // what a command flight carries from one command to the next (sent by the server for the player's own pilot)
-  const MOVE_STATE = ["x", "y", "vx", "vy", "a", "energy", "regenWait", "dashCool", "dashFx", "dashDone", "mt", "padAt"];
+  const MOVE_STATE = ["x", "y", "vx", "vy", "a", "energy", "regenWait", "dashCool", "dashFx", "dashDone", "mt"];
   // (exact, not rounded: a bounce off a wall turns on fractions of a pixel, and the replay must bounce the same)
   const moveState = o => [...MOVE_STATE.map(k => o[k] || 0), o.stick?.x || 0, o.stick?.y || 0, o.boostOn ? 1 : 0];
   function setMoveState(o, v) {
@@ -11435,22 +11425,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     g.restore();
   }
   function drawPickups(now) {
-    for (const p of arena.pads) {   // boost pads: a glowing ring with chevrons running its way
-      const x = sx(p.x), y = sy(p.y);
-      if (!onScreen(x, y, 120)) continue;
-      g.save(); g.translate(x, y); g.rotate(p.a);
-      const pg = g.createRadialGradient(0, 0, 10, 0, 0, PAD_R + 20);
-      pg.addColorStop(0, "rgba(125,255,216,0.35)"); pg.addColorStop(1, "rgba(125,255,216,0)");
-      g.fillStyle = pg; g.beginPath(); g.arc(0, 0, PAD_R + 20, 0, 6.29); g.fill();
-      g.strokeStyle = "rgba(125,255,216,0.8)"; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, PAD_R, 0, 6.29); g.stroke();
-      g.lineWidth = 5; g.lineCap = "round"; g.lineJoin = "round";
-      for (let k = 0; k < 3; k++) {
-        const ph = ((now / 600 + k / 3) % 1), cx = -40 + ph * 80;
-        g.strokeStyle = `rgba(220,255,245,${Math.sin(ph * Math.PI) * 0.95})`;
-        g.beginPath(); g.moveTo(cx - 12, -18); g.lineTo(cx + 6, 0); g.lineTo(cx - 12, 18); g.stroke();
-      }
-      g.restore();
-    }
     // the spots: a faint pad marks each one; a taken one shows what comes back there and when
     for (const c of world.picks) drawPad(c, WEAPONS[c.type].col, c.type, now);
     for (const c of world.supplies) drawPad(c, SUPPLIES[c.type].col, SUPPLIES[c.type].heal ? "cross" : "shield", now);
@@ -12106,7 +12080,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     // the arena's shape: planets and wrecks as faint outlines
     mctx.fillStyle = "rgba(189,200,255,0.16)";
     for (const b of bodies) { if (b.dead || b.moon) continue; const [x, y] = P(b.x, b.y); mctx.beginPath(); mctx.arc(x, y, Math.max(2, (b.wreck ? b.rr * 0.7 : b.rr) * k), 0, 6.29); mctx.fill(); }
-    for (const p of arena.pads) { const [x, y] = P(p.x, p.y); mctx.save(); mctx.translate(x, y); mctx.rotate(p.a); mctx.fillStyle = "rgba(125,255,216,0.85)"; mctx.beginPath(); mctx.moveTo(6, 0); mctx.lineTo(-4, -4); mctx.lineTo(-4, 4); mctx.closePath(); mctx.fill(); mctx.restore(); }
     // the arena's spots, so they can be learned: bright while something lies there, faint while it is taken
     const dot = (c, col, r) => { if (!c) return; const [x, y] = P(c.x, c.y); mctx.globalAlpha = grabbed.has(c.key) ? 0.25 : 0.9; mctx.fillStyle = col; mctx.fillRect(x - r, y - r, r * 2, r * 2); };
     for (const c of world.picks) dot(c, WEAPONS[c.type].col, 2.5);

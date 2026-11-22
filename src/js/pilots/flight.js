@@ -15,23 +15,6 @@
     const s1 = Math.hypot(o.vx, o.vy);
     if (s1 > top) { const ns = top + (s1 - top) * Math.exp(-2.5 * dt); o.vx *= ns / s1; o.vy *= ns / s1; }
   }
-  // boost pads: fly over one and it flings you its way (at least PAD_V fast); the same for bots
-  const PAD_R = 70, PAD_V = 1500;
-  function padsFor(o, now) {
-    for (const p of arena.pads) {
-      if ((o.x - p.x) ** 2 + (o.y - p.y) ** 2 > PAD_R * PAD_R || now - (o.padAt || 0) < 700) continue;
-      o.padAt = now;
-      const ux = Math.cos(p.a), uy = Math.sin(p.a), along = o.vx * ux + o.vy * uy, lat = -o.vx * uy + o.vy * ux;
-      const v = Math.max(PAD_V, along + 500);
-      o.vx = ux * v - uy * lat * 0.3; o.vy = uy * v + ux * lat * 0.3;   // most of the sideways drift is cancelled
-      if (!replaying && onScreen(sx(p.x), sy(p.y), 200)) {
-        rings.push({ x: p.x, y: p.y, t: 0, r: 150, col: "120,255,220", warp: true, dur: 0.45, w: 10 });
-        for (let k = 0; k < 24; k++) { const a = p.a + Math.PI + (Math.random() - 0.5) * 0.8, s2 = 200 + Math.random() * 400; puff(p.x, p.y, Math.cos(a) * s2, Math.sin(a) * s2, 0.4, 2.4, k % 2 ? "#7dffd8" : "#ffffff"); }
-        sfx("dash", 0.9, 0.8, p.x, p.y);
-      }
-      if (o === me && !replaying) { camKick.x -= ux * 30; camKick.y -= uy * 30; shake = Math.max(shake, 0.12); }
-    }
-  }
   // the gravity slingshot: skimming past a planet fast and along its rim gives extra speed (up to boost speed),
   // with a streak of light off the hull: diving round planets is the quickest way about
   function slingshot(o, dt) {
@@ -51,14 +34,14 @@
   }
   // One step of a player's flight: the same function flies my bin here and a player's pilot on the server, so the
   // server's word on where I am agrees with what this screen predicted. Thrust (or a drift: with the brake and a
-  // direction the engine cuts and the bin slides on), gravity, the slingshot and pads, the move, then bumping off
+  // direction the engine cuts and the bin slides on), gravity, the slingshot, the move, then bumping off
   // bodies and the fence. It says what was hit and the damage that does; the caller shows it and applies it.
   // boosted: on boost or just dashed (a crash then hurts more)
   function flyPilot(o, sx_, sy_, boost, brake, dt, now, boosted) {
     const drift = brake && Math.hypot(sx_, sy_) > 0.3 && Math.hypot(o.vx, o.vy) > 150;
     if (drift) thrustPilot(o, 0, 0, false, false, dt);
     else thrustPilot(o, sx_, sy_, boost, brake, dt);
-    gravityOn(o, dt); slingshot(o, dt); padsFor(o, now);
+    gravityOn(o, dt); slingshot(o, dt);
     o.x += o.vx * dt; o.y += o.vy * dt;
     // walls, planets and moons: met as a car meets a wall: a dead bounce (e 0.25), the slide along it kept (scraping
     // sparks off it), and only a hard head-on hit hurts, a little
