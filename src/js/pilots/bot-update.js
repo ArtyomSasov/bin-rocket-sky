@@ -29,7 +29,11 @@
           wantBoost = td > 900;
         }
       } else {
-        b.wander += (Math.random() - 0.5) * dt * 1.5; dx = Math.cos(b.wander) * 0.7; dy = Math.sin(b.wander) * 0.7;
+        // nobody in sight: it goes hunting, toward the nearest enemy wherever it is (a big map's fights find each other),
+        // wandering only when there is nobody at all
+        const prey = botTarget(b, Infinity)[0];
+        if (prey) { const gx = prey.x - b.x, gy = prey.y - b.y, gd = Math.hypot(gx, gy) || 1; dx = gx / gd * 0.85; dy = gy / gd * 0.85; routeGoal = prey; }
+        else { b.wander += (Math.random() - 0.5) * dt * 1.5; dx = Math.cos(b.wander) * 0.7; dy = Math.sin(b.wander) * 0.7; }
       }
       if (bases && onTeam(b) && !human) {
         const ef = 1 - b.tm, home = bases[b.tm], thief = flagCarrier[b.tm];
@@ -244,9 +248,9 @@
     if (b.y < 40 || b.y > H - 40) { b.vy = -b.vy * 0.6; b.y = clamp(b.y, 40, H - 40); }
   }
   // a bot's target: the nearest living pilot not on its side (me or anyone else, other bots included), within how far
-  // it looks (further with a big bomb); [the pilot, how far] or [null, that range]
-  function botTarget(b) {
-    let tgt = null, td = botWeapon(b) === "holy" ? 3200 : botWeapon(b) === "nuke" || botWeapon(b) === "void" ? 2600 : 1700;
+  // it looks (further with a big bomb; range: another reach); [the pilot, how far] or [null, that range]
+  function botTarget(b, range) {
+    let tgt = null, td = range ?? (botWeapon(b) === "holy" ? 3200 : botWeapon(b) === "nuke" || botWeapon(b) === "void" ? 2600 : 1700);
     if (playing && !me.dead && !mates(b, me)) { const d = Math.hypot(me.x - b.x, me.y - b.y); if (d < td) { td = d; tgt = me; } }
     for (const [rid, r] of remotes) {
       if (rid === b.id || r.dead || Math.abs(r.x - b.x) > td || Math.abs(r.y - b.y) > td || mates(r, b)) continue;

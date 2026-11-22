@@ -24,7 +24,7 @@
       }
     } else altCharge = 0;
     const altReady = WEAPONS[me.weapon].quickAlt ? playing && roundLive && !me.dead && !guided && (!serverRun || srv.joined) && me.altCd <= 0 : ready;
-    if (altReady && altHeld && altW && !altW.charge && !altW.load) { triggerTick(dt, now, false, held); shoot(now, true); }
+    if (altReady && altHeld && altW && !altW.charge && !altW.load && !altW.view) { triggerTick(dt, now, false, held); shoot(now, true); }
     else if (triggerTick(dt, now, ready && fireCd <= 0 && !(altHeld && (altW?.charge || altW?.load)) && altCharge === 0, held)) shoot(now);
     if (me.weapon === "saw" && playing && roundLive && !me.dead && !serverRun) bladeTouch(me, now, charge, remotes);   // (on the server, the server judges it)
     if (me.weapon === "saw" && playing && roundLive && !me.dead) bladeGrind(me, now, charge);   // (what it cuts is shared, as every crater of mine is)

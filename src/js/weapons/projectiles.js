@@ -178,4 +178,4 @@
   };
   const DETONATOR = { shot: [K.DET, 0] }, MINE_DETONATOR = { shot: [K.MDET, 0] };
   // the pack's sound for each alt fire (the rest keep their own)
-  const ALT_SOUND = { fire: "", nuke: "p_ut_nuke_fire", mine: "p_fire_mine", scatter: "p_fire_nail", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_nova", gren: "p_fire_gren", rail: "p_fire_rail", shard: "p_ut_flak_alt" };
+  const ALT_SOUND = { fire: "", nuke: "p_ut_nuke_fire", mine: "p_fire_mine", scatter: "p_fire_nail", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_nova", gren: "p_fire_gren", rail: "p_fire_rail", shard: "p_ut_flak_alt", holy: "p_fire_gren", void: "p_fire_void" };   // (the bombs' short throw sounds as the long one; the Blood Blade's lunge whooshes: its own sfx)

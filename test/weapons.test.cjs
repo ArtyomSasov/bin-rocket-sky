@@ -227,3 +227,41 @@ test('every gun has a key of its own, the same whatever a pilot carries', { skip
     assert.deepEqual([r.pistol, r.blade], ['1', '2']);
   } finally { g.dispose(); }
 });
+
+test('the second modes: the Blood Blade lunges forward and strikes at once, a bomb\'s short throw falls short, the railgun\'s scope fires nothing', { skip }, async () => {
+  const { m, ids: [id], bots: [B] } = await duel('Gunner', 'Target');
+  try {
+    const K = m.game.__simConst.K, mine = kind => m.game.__simShots().filter(s => s.owner === id && s.kind === kind);
+    const still = () => hold(m, id, 1500, 1500, 0);
+    // the lunge
+    B.arsenal.saw = Infinity;
+    m.input(id, { w: gunIndex(m, 'saw'), aim: 0 }); run(m, 0.3, still);
+    const shots = B.st.shots;
+    m.input(id, { w: gunIndex(m, 'saw'), aim: 0, alt: true }); run(m, 1 / 30 * 1.01);
+    assert.ok(B.vx > 500, 'thrown forward: ' + Math.round(B.vx));
+    assert.ok(B.st.shots > shots && mine(K.SWORD).length, 'and swung at once');
+    m.input(id, { w: gunIndex(m, 'saw'), aim: 0, alt: false }); run(m, 1.5, still);   // (the lunge's own cooldown)
+    // the short throw: the same bomb, slower
+    for (const [gun, kind] of [['holy', K.HOLY], ['void', K.VOID]]) {
+      B.arsenal[gun] = 2;
+      m.input(id, { w: gunIndex(m, gun), aim: 0 }); run(m, 0.3, still);
+      m.input(id, { w: gunIndex(m, gun), aim: 0, fire: true }); run(m, 0.1, still);
+      const long = Math.hypot(mine(kind)[0].vx, mine(kind)[0].vy);
+      m.game.__simShots().length = 0;
+      m.input(id, { w: gunIndex(m, gun), aim: 0, fire: false }); run(m, 1.4, still);
+      m.input(id, { w: gunIndex(m, gun), aim: 0, alt: true }); run(m, 0.1, still);
+      const short = Math.hypot(mine(kind)[0].vx, mine(kind)[0].vy);
+      assert.ok(short < long * 0.6, `${gun}: ${Math.round(short)} against ${Math.round(long)}`);
+      m.game.__simShots().length = 0;
+      m.input(id, { w: gunIndex(m, gun), aim: 0, alt: false }); run(m, 1.4, still);
+    }
+    // the scope: held, nothing goes; the main trigger still fires
+    B.arsenal.rail = 5;
+    m.input(id, { w: gunIndex(m, 'rail'), aim: 0 }); run(m, 2, still);
+    const before = B.st.shots;
+    m.input(id, { w: gunIndex(m, 'rail'), aim: 0, alt: true }); run(m, 0.5, still);
+    assert.equal(B.st.shots, before, 'the scope fires nothing');
+    m.input(id, { w: gunIndex(m, 'rail'), aim: 0, alt: true, fire: true }); run(m, 0.2, still);
+    assert.ok(B.st.shots > before, 'the railgun fires while scoped');
+  } finally { m.dispose(); }
+});

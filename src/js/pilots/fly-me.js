@@ -69,7 +69,9 @@
     const lead = Math.min(vw, vh) * 0.2, sp2 = Math.hypot(me.vx, me.vy), lk = me.dead ? 0 : Math.min(1, sp2 / 900) * lead / (sp2 || 1);
     const ce = 1 - Math.exp(-2.5 * dt);
     const [mcx, mcy] = mouseAim() && playing && !me.dead ? cursorAt() : [vw / 2, vh / 2], lean = 0.22;   // mouse aim: the view leans toward the cursor
-    cam.lx += (me.vx * lk + (mcx - vw / 2) * lean - cam.lx) * ce; cam.ly += (me.vy * lk + (mcy - vh / 2) * lean - cam.ly) * ce;
+    const scoped = playing && !me.dead && !!WEAPONS[me.weapon]?.alt?.view && !!srv.trig?.altHeld, reach = Math.min(vw, vh) * 0.75;
+    if (scoped) { const ce3 = 1 - Math.exp(-5 * dt); cam.lx += (Math.cos(me.a) * reach - cam.lx) * ce3; cam.ly += (Math.sin(me.a) * reach - cam.ly) * ce3; }
+    else { cam.lx += (me.vx * lk + (mcx - vw / 2) * lean - cam.lx) * ce; cam.ly += (me.vy * lk + (mcy - vh / 2) * lean - cam.ly) * ce; }
     // dead: my own end first, then over to whoever killed me (while they live), until I am back
     const watch = me.dead && killerId && now > me.respawnAt - RESPAWN_MS + 900 ? remotes.get(killerId) : null;
     if (guided || now < camBackUntil) {   // riding along with the guided nuke, then easing back to the bin
@@ -79,8 +81,9 @@
       const to = watch && !watch.dead ? watch : me, ce2 = 1 - Math.exp(-4 * dt);
       cam.x += (to.x - cam.x) * ce2; cam.y += (to.y - cam.y) * ce2;
     } else { cam.x = me.x + srv.vox + cam.lx; cam.y = me.y + srv.voy + cam.ly; }   // (following the bin as drawn)
-    // on boost the view pulls back a little (and eases in again after): speed you can feel
-    const vzT = playing && !me.dead && boost ? 0.84 : 1;
+    // on boost the view pulls back a little (and eases in again after): speed you can feel; a railgun's scope (its alt,
+    // held) pulls it back further and carries it far out along the aim
+    const vzT = scoped ? 0.7 : playing && !me.dead && boost ? 0.84 : 1;
     viewZoom += (vzT - viewZoom) * (1 - Math.exp(-(vzT < viewZoom ? 2.2 : 1.4) * dt));
     applyView();
     engineHum(Math.hypot(me.vx, me.vy), drift ? 0 : me.thrust, me.boostFx, now, playing && roundLive && !me.dead);

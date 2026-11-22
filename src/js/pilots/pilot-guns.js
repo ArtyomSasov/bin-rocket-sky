@@ -101,7 +101,7 @@
     // (a quick alt has its own cooldown: the shock beam right after an orb)
     if (w.quickAlt && i.alt && alt && live && (b.altCd || 0) <= 0) { pilotShoot(b, now, k, true); return; }
     if (!ready) return;
-    if (i.alt && alt && !alt.load && !alt.charge && !w.quickAlt) pilotShoot(b, now, k, true);   // (a quick alt waits for its own cooldown, as the screen's does)
+    if (i.alt && alt && !alt.load && !alt.charge && !alt.view && !w.quickAlt) pilotShoot(b, now, k, true);   // (a quick alt waits for its own cooldown, as the screen's does)
     else if (i.fire && !w.charge) pilotShoot(b, now, k, false);
   }
   function pilotShoot(b, now, k, alt, mul = 1, rockets = 0) {

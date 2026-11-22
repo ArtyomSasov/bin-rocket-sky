@@ -69,14 +69,16 @@
                alt: { name: "Load rockets", load: true, cost: 1, cd: 0.9, shot: [K.ROCKET, 1350], kick: 200, feel: [18, 0.23, 96], sfx: ["rocket", 1, 0.8] } },
     // the void bomb: where it bursts (on whatever it touches, or at the end of its flight) a black hole opens for six
     // seconds, dragging in bins, shots, wrecks, rock and smoke, and eating what reaches it
-    void:    { name: "Void Bomb", ammo: 1, cd: 1.2, col: "#b06bff", shot: [K.VOID, 1000], kick: 140, feel: [26, 0.4, 110], sfx: ["rocket", 1, 0.4] },
+    void:    { name: "Void Bomb", ammo: 1, cd: 1.2, col: "#b06bff", shot: [K.VOID, 1000], kick: 140, feel: [26, 0.4, 110], sfx: ["rocket", 1, 0.4],
+      alt: { name: "Short throw", cost: 1, cd: 1.2, shot: [K.VOID, 480], kick: 70, feel: [26, 0.4, 110], sfx: ["rocket", 1, 0.4] } },
     nuke:    { name: "Nuke", ammo: 1, cd: 1.0, col: "#ffe14d", shot: [K.NUKE, 360], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.6],
                alt: { name: "Guided", cost: 1, cd: 1.0, shot: [K.NUKE, 420], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.5], guided: true } },
     scatter: { name: "Scatter gun", ammo: 12, cd: 0.7, col: "#ffd27a", shot: [K.PELLET, 1250], kick: 260, feel: [22, 0.3, 90], sfx: ["scatter", 1, 0.85], fx: "blast",
                quickAlt: true,   // (the hook has its own cooldown: the gun fires as soon as it lands)
                alt: { name: "Hook", cost: 0, cd: 2.5, shot: [K.HOOK, 2600], kick: 0, feel: [6, 0.1, 0], sfx: ["p_metal", 0.6, 1.3] } },
     // Precision single-shot weapon, with no alternate mode.
-    rail: { name: "Railgun", ammo: 5, cd: 1.8, col: "#d9a8ff", shot: [K.RAIL, 4200], kick: 320, feel: [26, 0.35, 90], sfx: ["rail", .9], fx: "rail" },
+    rail: { name: "Railgun", ammo: 5, cd: 1.8, col: "#d9a8ff", shot: [K.RAIL, 4200], kick: 320, feel: [26, 0.35, 90], sfx: ["rail", .9], fx: "rail",
+      alt: { name: "Scope", view: true } },   // held: the view reaches far along the aim (it fires nothing; the main trigger still does)
     // the prox launcher (Quake Team Arena): a mine flies like a grenade, sticks to the first rock or wall it meets,
     // arms, and goes off a beat after an enemy comes near; alt sets off all your mines at once
     mine:    { name: "Prox mines", ammo: 6, cd: 0.7, col: "#ff6b3c", shot: [K.MINE, 760], kick: 60, feel: [6, 0.08, 60], sfx: ["mine_drop", 0.8],
@@ -85,10 +87,12 @@
     orb:     { name: "Shock orb", ammo: 9, cd: 0.85, col: "#6fd8ff", shot: [K.ORB, 420], kick: 140, feel: [16, 0.18, 110], sfx: ["shield_get", 1, 0.9], fx: "plasma",
                quickAlt: true,   // (its beam has its own cooldown: it fires at once after an orb, to set the orb off)
                alt: { name: "Beam", cost: 1, cd: 0.6, shot: [K.SHOCK, 6400], kick: 70, feel: [8, 0.08, 60], sfx: ["laser", 0.8, 0.55], fx: "shock" } },
-    holy:    { name: "Holy bomb", ammo: 1, cd: 1.2, col: "#fff3b0", shot: [K.HOLY, 700], kick: 120, feel: [20, 0.3, 110], sfx: ["mine_drop", 1, 0.6] },
+    holy:    { name: "Holy bomb", ammo: 1, cd: 1.2, col: "#fff3b0", shot: [K.HOLY, 700], kick: 120, feel: [20, 0.3, 110], sfx: ["mine_drop", 1, 0.6],
+      alt: { name: "Short throw", cost: 1, cd: 1.2, shot: [K.HOLY, 330], kick: 60, feel: [20, 0.3, 110], sfx: ["mine_drop", 1, 0.6] } },
     // the Blood Blade: a red energy sword; each press a swing through the arc ahead, cutting whoever is in it
     // (charge: hold to wind it up, let go to strike; a full wind-up, 0.45 s, strikes at full strength)
-    saw:     { name: "Blood Blade", ammo: Infinity, cd: 0.75, charge: 0.45, col: "#ff2a3c", shot: [K.SWORD, 300], sword: true, kick: -160, feel: [10, 0.14, 0], sfx: ["dash", 0.7, 1.6] },
+    saw:     { name: "Blood Blade", ammo: Infinity, cd: 0.75, charge: 0.45, col: "#ff2a3c", shot: [K.SWORD, 300], sword: true, kick: -160, feel: [10, 0.14, 0], sfx: ["dash", 0.7, 1.6],
+      alt: { name: "Lunge", cost: 0, cd: 1.3, shot: [K.SWORD, 300], kick: -900, feel: [14, 0.2, 0], sfx: ["dash", 0.9, 1.2] } },   // a full swing at once, thrown forward with it
     // alt: set your gamma orb off where it is now
     gamma:   { name: "Demonic Orb", ammo: 2, cd: 1.6, col: "#7dff8a", shot: [K.GAMMA, 420], kick: 220, feel: [24, 0.35, 130], sfx: ["shield_get", 1, 0.5], fx: "gamma",
                alt: { name: "Detonate", detonate: true, cost: 0, cd: 0.3, sfx: ["hit", 0.6, 0.6] } },
