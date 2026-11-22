@@ -32,7 +32,7 @@
   let MODE = "d";
   const TEAM_NAME = ["Red", "Blue"], TEAM_HEX = ["#ff5a6e", "#4fa8ff"], TEAM_RGB = ["255,90,110", "79,168,255"];
   const WEAPON_KEYS = ["fire", "triple", "laser", "rocket", "nuke", "scatter", "rail", "mine", "orb", "bolt", "shard", "holy", "saw", "gamma", "tele", "minigun", "gauss", "nail", "gren", "gauntlet", "void"];
-  // the gun bar's order: the fireball and the gauntlet first, like Quake's 1 and 2
+  // the order guns are numbered in on the wire (the old fireball and gauntlet first, as they were: kept for older pages)
   const GUN_ORDER = ["fire", "gauntlet", ...WEAPON_KEYS.filter(k => k !== "fire" && k !== "gauntlet")];   // index is what goes over the network
   // rounds on the shared clock: ROUND_PLAY seconds of fighting (the lobby's time limit), then 15 seconds of results
   let ROUND_PLAY = 300, SCORE_LIMIT = 0;

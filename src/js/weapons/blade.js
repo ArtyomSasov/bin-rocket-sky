@@ -1,4 +1,4 @@
-  // ---------- the energy blades: the Blood Blade (heavy, red, wound up) and the Saber (the melee everyone carries) ----------
+  // ---------- the Blood Blade: a heavy red energy blade, wound up and swung ----------
   // Both are held in the right hand, outside the hull: at rest along the right flank pointing ahead; wound up, drawn
   // back over the right shoulder; a swing sweeps round the front from right to left (the Saber's next one back again),
   // the hilt circling just outside the bin and the blade pointing outward, so it never passes through the bin.
@@ -14,7 +14,7 @@
   // the Blood Blade bites whatever it touches, swung or not: at rest or wound up, a bin its beam lies across takes a
   // touch (K.MELEE, a small blow) every 0.45 s. Judged where its owner is judged (my screen; a server pilot on the
   // server), so the hit goes the way every hit goes. targets: [id, bin] pairs to try
-  const TOUCH_MS = 450;
+  const TOUCH_MS = 450, BLADE_TOUCH = { shot: [K.MELEE, 0], feel: [6, 0.1, 0], sfx: ["hit", 0.7, 0.7] };
   function bladeTouch(b, now, wind, targets) {
     if (b.swingAt && now - b.swingAt < (b.swingMs || SWING_MS)) return;   // mid-swing the swing itself cuts
     const P = bladePose(b, true, wind, now), rh = binR(b.lv || 1) + 4, L = (BLADE_REACH - rh * 0.6) * (1 + wind * 0.08);
@@ -25,7 +25,7 @@
       const t = clamp((o.x - hx) * ux + (o.y - hy) * uy, 0, L), cx = hx + ux * t, cy = hy + uy * t;
       if (Math.hypot(o.x - cx, o.y - cy) > binR(o.lv || 1) * 0.9) continue;
       seen.set(id, now);
-      volley(b, now, WEAPONS.gauntlet, { x: cx, y: cy });
+      volley(b, now, BLADE_TOUCH, { x: cx, y: cy });
     }
   }
   // and it cuts whatever solid it lies across (rock, a station's wall, a crate), swung or not: wherever along it the
@@ -47,14 +47,6 @@
     o.swingSide = side; o.swingAt = performance.now(); o.swingMs = SWING_MS;
     const dist = Math.hypot(o.x - me.x, o.y - me.y);
     if (dist < 1600) bladeSwing(1 - dist / 1600, clamp((o.x - me.x) / 900, -1, 1), true);
-  }
-  // a Saber swing: forehand from the right, or, right after one, backhand from the left where the last one ended
-  function saberSwing(o, now = performance.now()) {
-    if (now - (o.swingAt || 0) < SABER_MS * 0.85) return;
-    const back = o.swingMs === SABER_MS && o.swingSide === -1 && now - o.swingAt < SABER_MS + 420;
-    o.swingSide = back ? 1 : -1; o.swingAt = now; o.swingMs = SABER_MS;
-    const dist = Math.hypot(o.x - me.x, o.y - me.y);
-    if (dist < 1400) bladeSwing(0.75 * (1 - dist / 1400), clamp((o.x - me.x) / 900, -1, 1));
   }
   // the blade's pose round its bin: hilt at angle ph from the aim (+: to the right), blade pointing at ps from the aim;
   // tr: where the swing was a moment ago (for its smear), lit: how bright

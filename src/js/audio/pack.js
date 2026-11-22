@@ -14,10 +14,6 @@
     p_ut_rocket_load: ["ut/rocket-launcher-load.wav"],
     p_ut_rocket_boom: ["ut/rocket_explode.wav"],
     p_ut_rocket_fly: ["ut/rocket_fly.wav"],
-    p_ut_saw_travel: ["ut/saw-blade-travel.wav"],
-    p_ut_saw_ric: ["ut/saw-blade-ric.wav"],
-    p_ut_saw_alt: ["ut/saw-alt-fire.wav"],
-    p_ut_saw_fire: ["ut/saw-fire.wav"],
     p_ut_nuke_boom: ["ut/nuke-explode.wav"],
     p_ut_nuke_fly: ["ut/fly-nuke.wav"],
     p_ut_nuke_pick: ["ut/pick-nuke.wav"],
@@ -143,11 +139,11 @@
   }
   document.addEventListener("visibilitychange", () => { if (document.hidden) { for (const slot of Object.keys(packLoops)) packLoop(slot, null); } });
   // x, y: where it happens (quieter with distance, silent past ~2200); rate: pitch, with a little random spread
-  const SOUND_OVERRIDE = { fire: "p_ut_fire", p_fire_fire: "p_ut_fire", triple: "p_user_fire", crash: "p_metal", ram: "p_metal", dash: "p_warp",
+  const SOUND_OVERRIDE = { fire: "p_ut_fire", p_fire_fire: "p_ut_fire", crash: "p_metal", ram: "p_metal", dash: "p_warp",
     p_fire_gamma: "p_user_demonic", p_fire_minigun: "p_ut_mini_fire",
     p_fire_rocket: "p_ut_rocket_fire", p_boom_rocket: "p_ut_rocket_boom", p_fly_rocket: "p_ut_rocket_fly", p_change: "p_ut_draw",
     p_fire_laser: "p_ut_pulse_fire", p_loop_laser: "p_ut_pulse_bolt", p_stop_laser: "p_ut_pulse_down",
-    p_fire_saw: "p_ut_saw_fire", p_saw: "p_ut_saw_travel", p_fire_orb: "p_ut_shock_fire", p_fire_nuke: "p_ut_nuke_fire",
+    p_fire_orb: "p_ut_shock_fire", p_fire_nuke: "p_ut_nuke_fire",
     p_fire_shard: "p_ut_flak_fire", p_boom_shard: "p_ut_flak_boom", p_boom_nuke: "p_ut_nuke_boom", p_boom_holy: "p_user_massive",
     p_boom_gamma: "p_user_demonic_explosion",
     p_death: "p_user_explosion", boom_small: "p_blast", boom_bin: "p_user_explosion", boom_big: "p_blast_heavy", chunk: "p_metal" };

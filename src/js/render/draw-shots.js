@@ -35,34 +35,7 @@
       }
       return;
     }
-    if (s.kind === K.BOLT) {   // lightning: braided crackling strands from the gun to where the bolt has reached
-      let noise = (Math.floor(now / 45) + (s.ox * 17 + s.oy * 31) | 0) >>> 0;
-      const random = () => { noise = (Math.imul(noise, 1664525) + 1013904223) >>> 0; return noise / 4294967296; };
-      const x0 = x - (s.x - s.ox), y0 = y - (s.y - s.oy), L = Math.hypot(x - x0, y - y0) || 1, nx = (x - x0) / L, ny = (y - y0) / L;
-      const seg = Math.max(6, Math.min(16, L / 40) | 0), strand = amp => {
-        const p = [[x0, y0]];
-        for (let k = 1; k < seg; k++) { const t = k / seg, o = (random() - 0.5) * amp * Math.sin(t * Math.PI); p.push([x0 + (x - x0) * t - ny * o, y0 + (y - y0) * t + nx * o]); }
-        p.push([x, y]); return p;
-      };
-      const line = (p, w, c) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); p.forEach(([px, py], i) => i ? g.lineTo(px, py) : g.moveTo(px, py)); g.stroke(); };
-      g.lineJoin = "round"; g.lineCap = "round";
-      const pts = strand(30);
-      line(pts, 16, "rgba(90,160,255,0.22)");   // the wide glow
-      line(strand(44), 2, "rgba(170,140,255,0.7)");   // a violet strand twisting around
-      line(strand(36), 2, "rgba(150,230,255,0.8)");
-      line(pts, 5, "rgba(190,240,255,0.95)"); line(pts, 2, "#ffffff");   // the hot core
-      g.globalAlpha = 0.9; g.drawImage(dotSprite("#bfefff"), x - 28, y - 28, 56, 56); g.globalAlpha = 1;   // where it lands
-      g.drawImage(dotSprite("#d8f6ff"), x0 - 18, y0 - 18, 36, 36);   // and at the gun
-      for (let f = 0; f < (lowQ ? 1 : 3); f++) {   // forks splitting off the main bolt
-        let [fx, fy] = pts[1 + ((random() * (pts.length - 2)) | 0)], a = Math.atan2(ny, nx) + (random() < 0.5 ? 1 : -1) * (0.4 + random() * 0.6);
-        const fork = [[fx, fy]];
-        for (let k = 0; k < 3; k++) { a += (random() - 0.5) * 0.9; const st = 14 + random() * 18; fx += Math.cos(a) * st; fy += Math.sin(a) * st; fork.push([fx, fy]); }
-        for (const [w, c] of [[4, "rgba(120,200,255,0.3)"], [1.2, "rgba(220,248,255,0.9)"]]) {
-          g.strokeStyle = c; g.lineWidth = w; g.beginPath(); fork.forEach(([px, py], i) => i ? g.lineTo(px, py) : g.moveTo(px, py)); g.stroke();
-        }
-      }
-      return;
-    }
+
     if (s.kind === K.PISTOL || s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.DET) return;   // beams are drawn as beams; a detonator isn't seen
     if (s.kind === K.MELEE || s.kind === K.SWORD) return;   // a blow, a swing: the blade on the bin (and its trail) is what you see
     if (s.kind === K.NOVA) {   // the Plasma Nova: a swirling ball of green plasma, white at its heart, lightning crawling over it
@@ -205,16 +178,6 @@
       g.restore();
       return;
     }
-    if (s.kind === K.SAW || s.kind === K.SAW_ALT) {   // a spinning toothed blade
-      g.save(); g.translate(x, y); g.rotate(now / 25 + s.x * 0.01);
-      g.fillStyle = s.returning ? "rgba(70,255,210,0.4)" : "rgba(214,221,232,0.25)"; g.beginPath(); g.arc(0, 0, 22, 0, 6.29); g.fill();
-      g.fillStyle = s.kind === K.SAW_ALT ? "#ffae63" : "#d6dde8"; g.beginPath();
-      for (let k = 0; k < 24; k++) { const a = k / 24 * 6.283, r = k % 2 ? 11 : 16; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
-      g.closePath(); g.fill();
-      g.fillStyle = s.returning ? "#6fffe0" : "#5a6684"; g.beginPath(); g.arc(0, 0, 4, 0, 6.29); g.fill();
-      g.restore();
-      return;
-    }
     if (s.kind === K.GAMMA) {   // the demonic orb: a churning ball of hellfire in a shroud of green flame and smoke
       const speed = Math.hypot(s.vx, s.vy) || 1, ux = s.vx / speed, uy = s.vy / speed;
       g.save();
@@ -253,16 +216,7 @@
       g.beginPath(); g.ellipse(0, 0, heavy ? 9 : 6, heavy ? 4.5 : 2.6, 0, 0, 6.29); g.fill();
       g.restore(); return;
     }
-    if (s.kind === K.GAUSS) {   // a blue slug of light, thicker the more it was charged
-      const w = 3 + 9 * Math.min(1, s.m), L = 160 + 160 * Math.min(1, s.m);
-      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx)); g.lineCap = "round";
-      const lg = g.createLinearGradient(-L, 0, 0, 0);
-      lg.addColorStop(0, "rgba(80,140,255,0)"); lg.addColorStop(1, "rgba(160,210,255,0.95)");
-      g.strokeStyle = lg; g.lineWidth = w; g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
-      g.fillStyle = "#ffffff"; g.beginPath(); g.arc(0, 0, w * 0.6, 0, 6.29); g.fill();
-      g.restore();
-      return;
-    }
+
     if (s.kind === K.HOLY) {   // a golden orb under a halo; it pulses faster and shines wider as the fuse runs out
       const left = Math.max(0, s.life), hot = 1 - left / SHOTS[K.HOLY].life, pulse = 0.6 + 0.4 * Math.sin(now / (120 - 90 * hot));
       g.save(); g.translate(x, y);

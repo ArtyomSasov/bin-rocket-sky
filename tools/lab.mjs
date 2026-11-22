@@ -97,7 +97,7 @@ try {
       bin: `deathFx({ ...bots[0], x: me.x + 330, y: me.y, vx: 0, vy: 0, dead: false }, 3, 0, 0)`,
       void: `{ const h = hurtMe; hurtMe = () => {}; try { me.inv = 1e15; for (const b of bots) Object.assign(b, { x: me.x + 700 + Math.random() * 300, y: me.y + (Math.random() - 0.5) * 500, dead: false }); detonate({ kind: K.VOID, x: me.x + 500, y: me.y, mine: false, id: 'v1' }, performance.now()); for (let k = 0; k < 6; k++) explode(me.x + 300 + k * 60, me.y + 200, 30, 300); } finally { hurtMe = h; } }`,
       pulse: `{ bots[0] && Object.assign(bots[0], { x: me.x + 420, y: me.y, dead: false, lives: 30 }); cam.x = me.x + 200; cam.y = me.y; me.arsenal.laser = 999; selectWeapon("laser"); me.a = 0; let n = 0; const iv = setInterval(() => { me.a = 0; fireCd = 0; shoot(performance.now(), false); if (++n > 5) clearInterval(iv); }, 70); }`,
-      nova: `{ window.__dist = 520; me.arsenal.laser = 999; selectWeapon("laser"); me.a = 0; cam.x = me.x + 300; cam.y = me.y; fireCd = 0; railCharge = 0; altFiring = true; setTimeout(() => { altFiring = false; }, 1150); }`,
+      nova: `{ window.__dist = 520; me.arsenal.laser = 999; selectWeapon("laser"); me.a = 0; cam.x = me.x + 300; cam.y = me.y; fireCd = 0; altCharge = 0; altFiring = true; setTimeout(() => { altFiring = false; }, 1150); }`,
       // voidme: a void bursts 600 px to my right while I fly away from it at full thrust; __vd: my distance to it
       voidme: `{ window.__free = 1; me.x = W / 2; me.y = H / 2; me.vx = me.vy = 0; me.a = Math.PI; me.inv = 1e15; const h = hurtMe; hurtMe = () => {}; setTimeout(() => hurtMe = h, 4000);
         detonate({ kind: K.VOID, x: me.x + 600, y: me.y, mine: false, id: 'v9', owner: 'nobody' }, performance.now()); keys.add("KeyA"); window.__vd = [];

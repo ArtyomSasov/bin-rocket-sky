@@ -61,8 +61,6 @@
     // the starting gun: a laser pistol (the Enforcer's damage and pace, a red beam and the pulse gun's sound, pitched up)
     fire:    { name: "Laser pistol", ammo: Infinity, cd: 0.28, col: "#ff3b4e", shot: [K.PISTOL, 6000], jitter: 0.01, kick: 25, feel: [5, 0.05, 40], sfx: ["p_ut_fire", 0.75, 1],
                alt: { name: "Rapid fire", cost: 0, cd: 0.16, mul: 0.6, shot: [K.PISTOL, 6000], jitter: 0.085, kick: 35, feel: [6, 0.06, 45], sfx: ["p_ut_fire", 0.7, 1.4] } },   // (mul: each rapid shot is weaker: a spray up close, not the better gun)
-    triple:  { name: "Triple shot", ammo: 20, cd: 0.3, col: "#ffb43c", shot: [K.FIRE, 1000], spread: [-0.2, 0, 0.2], kick: 25, feel: [7, 0.07, 50], sfx: ["triple", 0.7],
-               alt: { name: "Focus", cost: 1, cd: 0.3, shot: [K.FIRE, 1050], spread: [-0.035, 0, 0.035], kick: 60, feel: [10, 0.13, 80], sfx: ["triple", 0.8, 0.9] } },
     // Pulse Gun: fast plasma spheres; alt: hold to charge a Plasma Nova, let go to throw it
     laser:   { name: "Pulse Gun", ammo: 80, cd: 0.12, col: "#a8ff55", shot: [K.PULSE_BOLT, 1500], kick: 6, feel: [3, 0.03, 30], sfx: ["p_ut_pulse_fire", .75, 1], fx: "pulse",
                alt: { name: "Plasma Nova", charge: 0.6, nova: true, cost: 5, cd: 0.6, shot: [K.NOVA, 1400], kick: 260, feel: [22, 0.3, 50], sfx: ["p_nova", 1, 1] } },
@@ -87,7 +85,6 @@
     orb:     { name: "Shock orb", ammo: 9, cd: 0.85, col: "#6fd8ff", shot: [K.ORB, 420], kick: 140, feel: [16, 0.18, 110], sfx: ["shield_get", 1, 0.9], fx: "plasma",
                quickAlt: true,   // (its beam has its own cooldown: it fires at once after an orb, to set the orb off)
                alt: { name: "Beam", cost: 1, cd: 0.6, shot: [K.SHOCK, 6400], kick: 70, feel: [8, 0.08, 60], sfx: ["laser", 0.8, 0.55], fx: "shock" } },
-    bolt:    { name: "Lightning", ammo: 60, cd: 0.11, col: "#bfefff", shot: [K.BOLT, 5600], kick: 4, feel: [2, 0.03, 35], sfx: ["laser", 0.22, 1.7] },
     holy:    { name: "Holy bomb", ammo: 1, cd: 1.2, col: "#fff3b0", shot: [K.HOLY, 700], kick: 120, feel: [20, 0.3, 110], sfx: ["mine_drop", 1, 0.6] },
     // the Blood Blade: a red energy sword; each press a swing through the arc ahead, cutting whoever is in it
     // (charge: hold to wind it up, let go to strike; a full wind-up, 0.45 s, strikes at full strength)
@@ -95,23 +92,15 @@
     // alt: set your gamma orb off where it is now
     gamma:   { name: "Demonic Orb", ammo: 2, cd: 1.6, col: "#7dff8a", shot: [K.GAMMA, 420], kick: 220, feel: [24, 0.35, 130], sfx: ["shield_get", 1, 0.5], fx: "gamma",
                alt: { name: "Detonate", detonate: true, cost: 0, cd: 0.3, sfx: ["hit", 0.6, 0.6] } },
-    tele:    { name: "Teleporter", ammo: 3, cd: 0.35, col: "#8ff0ff", shot: [K.BEACON, 1250], kick: 0, feel: [3, 0.02, 30], sfx: ["mine_drop", 0.7, 1.5] },
     // UT-style accurate primary and faster, less accurate alternative.
     // spin: [time between shots at a standstill, at full speed, seconds to spin up]: it winds up while the trigger is held
     minigun: { name: "Minigun", ammo: 100, cd: 0.09, spin: [0.17, 0.065, 0.85], jitter: 0.025, col: "#ffe08a", shot: [K.BULLET, 2600], kick: 22, feel: [4, 0.05, 42], sfx: ["p_ut_mini_fire", 0.65, 1], fx: "mini",
                alt: { name: "Rapid stream", cost: 1, cd: 0.045, jitter: 0.09, shot: [K.BULLET_ALT, 2600], kick: 16, feel: [3, 0.04, 36], sfx: ["p_ut_mini_alt", .65, 1], fx: "mini" } },
-    gauss:   { name: "Charge cannon", ammo: 6, cd: 1.4, charge: 1.1, col: "#7fb8ff", shot: [K.GAUSS, 3600], kick: 300, feel: [24, 0.35, 100], sfx: ["rail", 0.9, 0.75], fx: "rail" },
     // Flak Cannon: eight fragments lose energy after each ricochet.
     // alt: a flak shell that bursts into eight shards all round after a short flight (or on impact)
-    // Quake's three: a nailgun (a fan of nails that fly far, alt a piercing spike), a grenade launcher (grenades
-    // bounce off rock and go off after 2.5 s or on a bin, alt three at once), and the gauntlet everyone carries
-    // (hold fire: the blade spins and tears into a bin it touches; alt: a lunge forward with it)
-    nail:    { name: "Nailgun", ammo: 24, cd: 0.55, col: "#cfd6e2", shot: [K.NAIL, 1700], kick: 90, feel: [10, 0.12, 60], sfx: ["fire", 0.6, 1.6],
-               alt: { name: "Spike", cost: 2, cd: 1.0, shot: [K.SPIKE, 2600], kick: 200, feel: [16, 0.22, 80], sfx: ["rail", 0.6, 1.6] } },
+    // the grenade launcher: grenades bounce off rock and go off after 2.5 s or on a bin; alt three at once
     gren:    { name: "Grenade launcher", ammo: 8, cd: 0.8, col: "#8fd06a", shot: [K.GREN, 900], kick: 140, feel: [14, 0.18, 80], sfx: ["mine_drop", 0.9, 0.7],
                alt: { name: "Volley", cost: 3, cd: 1.5, shot: [K.GREN, 850], spread: [-0.25, 0, 0.25], kick: 260, feel: [20, 0.28, 100], sfx: ["mine_drop", 1, 0.6] } },
-    gauntlet: { name: "Saber", ammo: Infinity, cd: 0.4, col: "#ffcf5a", shot: [K.MELEE, 0], melee: true, kick: 0, feel: [6, 0.1, 0], sfx: ["hit", 0.7, 0.7],
-               alt: { name: "Lunge", cost: 0, cd: 0, lunge: true, sfx: ["dash", 0.8] } },
     shard:   { name: "Flak Cannon", ammo: 10, cd: 0.8, col: "#ff9a3c", shot: [K.SHARD, 1500], kick: 340, feel: [28, 0.42, 130], sfx: ["scatter", 1, 0.7], fx: "shard",
                alt: { name: "Flak shell", cost: 1, cd: 0.95, shot: [K.FLAK, 1100], kick: 220, feel: [20, 0.28, 110], sfx: ["scatter", 1, 0.55], fx: "shard" } }
   };
@@ -133,8 +122,6 @@
   balanceShot(K.SHOCK, { dmg: HP(40) });
   balanceShot(K.GAMMA, { life: 4.8 });
   WEAPONS.gamma.shot = [K.GAMMA, 340];
-  balanceShot(K.SAW, { dmg: HP(30) });
-  balanceShot(K.SAW_ALT, { dmg: HP(34) });
   balanceShot(K.BULLET, { dmg: HP(14), life: .5 });
   balanceShot(K.BULLET_ALT, { name: "explosive round", dmg: HP(16), life: 0.9, r: 6, col: "#ff7a2a", carve: 14, shove: 60 });   // bursts where it lands: SPLASH
   balanceShot(K.PELLET, { dmg: HP(12), life: 0.62 });   // real pellets in flight (not hitscan): ~1100 px of reach
@@ -159,15 +146,16 @@
   Object.assign(WEAPONS.scatter, { cd: 0.85, shot: [K.PELLET, 1800] });
   balanceShot(K.RAIL, { dmg: HP(100) });   // Quake 3's railgun: 100
   WEAPONS.rail.cd = 1.8; WEAPONS.gren.shot = [K.GREN, 1225];
-  WEAPONS.gauntlet.cd = .4; WEAPONS.mine.cd = .8;
+  WEAPONS.mine.cd = .8;
   WEAPONS.nuke.shot = [K.NUKE, 840]; WEAPONS.nuke.alt.shot = [K.NUKE, 840];
-  WEAPONS.nail.disabled = true; // keep wire IDs and other weapons' number keys stable
-  WEAPONS.tele.disabled = true; // the teleporter is retired (nobody used it); its wire number stays
-  for (const k of ["triple", "bolt", "gauss", "gauntlet"]) WEAPONS[k].disabled = true;   // retired too (never on a map); their wire numbers stay
+  // Retired guns: gone from the game, but their names keep their place in WEAPON_KEYS (the numbers on the wire) and in
+  // WEAPON_SLOTS (the keys after them stay put); anything naming one, or firing one of their shots, is refused
+  for (const k of ["triple", "bolt", "tele", "gauss", "nail", "gauntlet"]) WEAPONS[k] = { name: k, disabled: true, ammo: 0, shot: null };
+  const RETIRED_SHOTS = new Set([K.FIRE, K.BOLT, K.SAW, K.BEACON, K.TFRAG, K.GAUSS, K.NAIL, K.SPIKE, K.RECALL, K.SAW_ALT]);
   let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
-  const SPLASH = { [K.BULLET_ALT]: [100, HP(24), 0, 170], [K.FLAK]: [210, HP(70), 0, 400], [K.SAW_ALT]: [252, HP(34), 0, 350], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [330, HP(140), HP(25), 800], [K.NOVA]: [300, HP(150), 0, 900] };   // (Plasma Nova: a full one kills a bin at its heart)
+  const SPLASH = { [K.BULLET_ALT]: [100, HP(24), 0, 170], [K.FLAK]: [210, HP(70), 0, 400], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [330, HP(140), HP(25), 800], [K.NOVA]: [300, HP(150), 0, 900] };   // (Plasma Nova: a full one kills a bin at its heart)
   const GAMMA_ZAP = { r: 280, every: 0.45, dmg: HP(6) };
   const NOVA_ZAP = { r: 260, every: 0.12, dmg: HP(12) };   // the nova lashes every enemy this close to its path, by its charge   // the gamma orb zaps every enemy this close as it flies
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs

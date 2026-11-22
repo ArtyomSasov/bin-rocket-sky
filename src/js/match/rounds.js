@@ -77,8 +77,8 @@
       for (const b of bots) resetCmds(b);
       for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, shield: 0, beltArmor: 0, bodyArmor: 0, padsArmor: 0, lv: 1, xp: 0, vx: 0, vy: 0, ammo: 0, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0, weapon: "fire" });
       for (const b of bots) if (b.input) pilotArm(b);
-      me.fc = -1; me.caps = 0; me.heat = 0; me.overheat = false; railCharge = 0; charge = 0; cancelRocketLoad();
-      energy = 100; energyRegenAt = 0; dashReadyAt = 0; lungeReady = 0;
+      me.fc = -1; me.caps = 0; me.heat = 0; me.overheat = false; altCharge = 0; charge = 0; cancelRocketLoad();
+      energy = 100; energyRegenAt = 0; dashReadyAt = 0;
       flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
       grabbed.clear(); myGrabs.length = 0; drops.clear(); gunDrops.clear(); myDrops.length = 0; myGunDrops.length = 0;
       hulks.length = 0; frags.length = 0; debris.length = 0; melts.length = 0; scorches.length = 0; oilDrops.length = 0; oilStains.length = 0; chunks.length = 0; wallDrips.length = 0; casings.length = 0; meltLines.length = 0; cuts.length = 0; scars.length = 0; voids.length = 0; decalTiles.clear(); afterBlasts.length = 0; shockQueue.length = 0;

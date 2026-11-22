@@ -12,13 +12,13 @@
     }
     if (ENERGY_HIT.has(kind)) {
       scorchMark(b, x, y, 8 + carve * 0.8);
-      const hot = kind === K.FIRE ? "fire" : S.col;
+      const hot = S.col;
       for (let i = 0, m = Math.round(5 * q); i < m; i++) {   // embers and molten drops
         const a = out + (Math.random() - 0.5) * 2.4, v = 60 + Math.random() * 220;
         puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.35 + Math.random() * 0.5, 1.4 + Math.random() * 1.4, i % 2 ? "#ffb04a" : hot, i % 2 ? 5 : 3, 0, 0, 0.94);
       }
       puff(x, y, Math.cos(out) * 30, Math.sin(out) * 30, 1.2 + Math.random() * 0.8, 6 + Math.random() * 6, SMOKE_COLS[1], 2, 0, (Math.random() - 0.5) * 0.8, 0.95);   // a wisp of smoke
-      impacts.push({ x, y, t: 0, r: 90, col: kind === K.FIRE ? "255,160,80" : rgbStr(S.col), dur: 0.35, soft: 0.35 });
+      impacts.push({ x, y, t: 0, r: 90, col: rgbStr(S.col), dur: 0.35, soft: 0.35 });
       return;
     }
     if (!lowQ && Math.random() < 0.7) chunksOff(b, x, y, 1 + (Math.random() < 0.35 ? 1 : 0), 3 + carve * 0.25, 260);   // a small piece or two
@@ -127,7 +127,7 @@
     g.restore();
   }
   function carveBeam(s, rad) {
-    drilling = s.kind === K.RAIL || s.kind === K.GAUSS;
+    drilling = s.kind === K.RAIL;
     try { carveBeamOn(s, rad); } finally { drilling = false; }
   }
   function carveBeamOn(s, rad) {

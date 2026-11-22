@@ -1,7 +1,7 @@
   // ---------- fire & damage ----------
   // shots leave from the tip of the gun drawn on the wing (left and right in turn), not from the middle of the bin
-  const mountsOf = w => w === "laser" || w === "gauntlet" ? [[160, 96]] : ["nuke", "holy", "void", "bolt", "gamma", "tele", "gauss", "gauntlet", "saw"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // (the pistols: one in each hand, fired in turn)   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
-  const BARREL = { fire: 44, laser: 60, rocket: 50, triple: 42, nuke: 96, holy: 30, saw: 40, gamma: 44, tele: 28, minigun: 58, gauss: 80, scatter: 42, rail: 86, mine: -10, orb: 40, bolt: 56, shard: 48, nail: 54, gren: 44, gauntlet: 34 };   // tip, in mount units
+  const mountsOf = w => w === "laser" ? [[160, 96]] : ["nuke", "holy", "void", "gamma", "saw"].includes(w) ? [[256, 150]] : [[50, 126], [256, 150]];   // (the pistols: one in each hand, fired in turn)   // the laser: one emitter, on the nose   // art pixels, shared with drawMounts
+  const BARREL = { fire: 44, laser: 60, rocket: 50, nuke: 96, holy: 30, saw: 40, gamma: 44, minigun: 58, scatter: 42, rail: 86, mine: -10, orb: 40, shard: 48, gren: 44 };   // tip, in mount units
   // the tip of a pilot's gun (any pilot: me, a bot, a player's pilot on the server, which fires from the same tips),
   // the wing guns taking turns (p.gunSide). A player's shot fired by a flight command takes its hand from that
   // command's number (jk) and the gun's cooldown, which the screen and the server both know: counted shot by shot,
@@ -38,17 +38,17 @@
 
   // how someone else's shot sounds here (quieter with distance)
   // which gun a shot kind comes from, for a sound pack's gun sounds
-  const KIND_GUN = { [K.SWORD]: "saw", [K.PULSE_BOLT]: "laser", [K.PISTOL]: "fire", [K.SAW]: "saw", [K.SAW_ALT]: "saw", [K.NUKE]: "nuke", [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
-    [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.GREN]: "gren", [K.HROCKET]: "rocket", [K.GAUSS]: "rail", [K.SHARD]: "shard", [K.FLAK]: "shard" };
+  const KIND_GUN = { [K.SWORD]: "saw", [K.PULSE_BOLT]: "laser", [K.PISTOL]: "fire", [K.NUKE]: "nuke", [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
+    [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.GREN]: "gren", [K.HROCKET]: "rocket", [K.SHARD]: "shard", [K.FLAK]: "shard" };
   const shotSound = (kind, x, y, owner = "unknown") => {
     if (kind === K.BULLET_ALT) { stopContinuous(owner); packPlay("p_user_autocannon", 0.5, x, y); return; }   // an explosive round: each one a heavy thump
     if (kind === K.PULSE_BOLT || kind === K.LASER || kind === K.BULLET) { if (continuousFire(owner, kind === K.LASER || kind === K.PULSE_BOLT ? "laser" : "minigun", x, y, performance.now(), kind === K.BULLET_ALT || kind === K.LASER)) return; }
     if (kind !== K.PULSE_BOLT && kind !== K.LASER && kind !== K.BULLET) stopContinuous(owner);
     if (kind === K.NOVA) { packPlay("p_nova", 0.8, x, y); return; }
-    if (kind === K.SAW_ALT || kind === K.FLAK) { packPlay(kind === K.SAW_ALT ? "p_ut_saw_alt" : "p_ut_flak_alt", .8, x, y); return; }
+    if (kind === K.FLAK) { packPlay("p_ut_flak_alt", .8, x, y); return; }
     if (kind === K.SHOCK) { audioCue("shockBeam", x, y); return; }
     if (kind === K.PULSE) { audioCue("laserPulse", x, y); return; }
-    if (kind === K.MELEE || kind === K.SWORD) return;   // a blade's swing sounds as its bin swings it (saberSwing, swingStart)
+    if (kind === K.MELEE || kind === K.SWORD) return;   // a blade's swing sounds as its bin swings it (swingStart)
     if (KIND_GUN[kind] && packPlay("p_fire_" + KIND_GUN[kind], 0.75, x, y)) return;
     const [name, vol, pitch] = SHOTS[kind].sfx; sfx(name, vol, pitch, x, y);
   };
@@ -115,7 +115,7 @@
   // segment: without it a fireball or a rocket arrives on the victim's screen 150-250 px behind where its shooter
   // saw it. Homing, bouncing and sticking shots keep their own flight and start late instead.
   const straightShot = kind => STRAIGHT.has(kind);
-  const STRAIGHT = new Set([K.BULLET_ALT, K.PULSE_BOLT, K.SAW_ALT, K.BULLET, K.PELLET, K.SLUG, K.FIRE, K.ROCKET, K.FLAK, K.ORB, K.GAMMA]);
-  // dash, respawn and lunge protection: a protected bin is not there for a shot, which flies on through it instead
+  const STRAIGHT = new Set([K.BULLET_ALT, K.PULSE_BOLT, K.BULLET, K.PELLET, K.SLUG, K.ROCKET, K.FLAK, K.ORB, K.GAMMA]);
+  // dash and respawn protection: a protected bin is not there for a shot, which flies on through it instead
   // of stopping on it (my bots and I keep the time it ends, the others send a flag)
   const shielded = o => typeof o.inv === "number" ? performance.now() < o.inv : !!o.inv;

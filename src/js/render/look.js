@@ -1,7 +1,6 @@
   // weapon icons (24x24 SVG path data, even-odd fill): used on crates (canvas) and in the HUD (SVG)
   const ICONS = {
     fire: "M2 6h19v6h-9v3H9l-2 6H2l3-9H2ZM13 12v2h-2v-2Z",
-    triple: "M3 17a3 3 0 1 0 6 0a3 3 0 1 0-6 0ZM8.6 7.5a3.4 3.4 0 1 0 6.8 0a3.4 3.4 0 1 0-6.8 0ZM15 17a3 3 0 1 0 6 0a3 3 0 1 0-6 0ZM5.2 13.6L9.6 10.4L10.4 11.2L6.4 14.6ZM18.8 13.6L14.4 10.4L13.6 11.2L17.6 14.6Z",
     laser: "M2 10h9v6H2ZM5 16h3v4H5ZM11 9h6v2.5h-6ZM11 13.5h6v2.5h-6ZM18 9.5l4 3-4 3 1-3Z",
     rocket: "M2 9h15v6H2ZM6 15h3v4H6ZM8 7h4v2H8ZM17 9.5h2l3 2.5-3 2.5h-2Z",
     scatter: "M8 7.5h14V10H8ZM8 11h14v2.5H8ZM2 9l6-1.5V15l-6 1.5ZM11 14h6v3h-6Z",
@@ -9,7 +8,6 @@
     mine: "M12 6a6 6 0 1 0 0.01 0ZM12 10a2 2 0 1 0 0.01 0ZM11 1h2v4h-2zM11 19h2v4h-2zM1 11h4v2H1zM19 11h4v2h-4zM4.2 5.6l1.4-1.4 2.4 2.4-1.4 1.4zM16 17.4l1.4-1.4 2.4 2.4-1.4 1.4zM18.4 4.2l1.4 1.4-2.4 2.4-1.4-1.4zM4.2 18.4l2.4-2.4 1.4 1.4-2.4 2.4z",
     cross: "M9 3h6v6h6v6h-6v6H9v-6H3V9h6z",
     orb: "M2 10h8v6H2ZM5 16h3v4H5ZM10 11.5h8v3h-8ZM18 10.5h4v5h-4ZM14 4.5a3 3 0 1 0 0.01 0Z",
-    bolt: "M9 1h7l-4 7h5l-3 5h4L7 23l3-8H6l2-5H4z",
     shard: "M2 9h11v7H2ZM5 16h3v4H5ZM13 8h4v9h-4ZM17 9l5-2v3l-5 1ZM17 12h5v1.5h-5ZM17 14.5l5 1v3l-5-2Z",
     amp: "M12 0l2 3.3a8.8 8.8 0 0 1 6.7 6.7L24 12l-3.3 2a8.8 8.8 0 0 1-6.7 6.7L12 24l-2-3.3A8.8 8.8 0 0 1 3.3 14L0 12l3.3-2A8.8 8.8 0 0 1 10 3.3ZM13.4 7.5h-1.9L8 13v1.7h4.1V17h1.8v-2.3h1.4v-1.6h-1.4ZM12.1 10v3.1H10Z",   // Quad damage: a spiked sphere with a 4
     shield: "M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z",
@@ -18,12 +16,8 @@
     void: "M12 2a10 10 0 1 0 .01 0ZM12 6a6 6 0 1 1-.01 0ZM12 9a3 3 0 1 0 .01 0Z",
     saw: "M20.5 1.5l2 2-11 12.5-3.5.5.5-3.5ZM7.5 14l2.5 2.5-1.5 1.5 3 3-1.5 1.5-3-3-2 2-1.5-1.5 2-2-3-3L4 13.5l3 3Z",   // the Blood Blade (the saw's old slot)
     gamma: "M12 2a10 10 0 1 0 .01 0ZM12 5l-3 5 3 2-4 6 8-6-3-2 3-5Z",
-    tele: "M12 2a10 10 0 1 0 0.01 0ZM12 5a7 7 0 1 0 0.01 0ZM12 9.4a2.6 2.6 0 1 0 0.01 0Z",
     minigun: "M2 9h7v7H2ZM4 16h3v4H4ZM9 10h1v5H9ZM10 8.5h12v2H10ZM10 11.5h12v2H10ZM10 14.5h12v2H10Z",
-    gauss: "M2 10.5h4v3H2ZM8.5 10.5h2v3h-2ZM13 10.5h2v3h-2ZM17.5 10.5H22v3h-4.5ZM6 7h2.5v10H6ZM10.5 7H13v10h-2.5ZM15 7h2.5v10H15Z",
-    nail: "M2 9h10v7H2ZM5 16h3v4H5ZM6 4h4v5H6ZM12 10.5h6v4h-6ZM18 12h3l1.5.5-1.5.5h-3Z",
-    gren: "M2 10h7v6H2ZM4 16h3v4H4ZM13.5 7.5a4.5 4.5 0 1 0 0.01 0ZM18 10.5h4v3h-4Z",
-    gauntlet: "M20 2.5l1.5 1.5-11.2 11.2-1.5-1.5ZM8.3 14.7l1.5 1.5-1.6 1.6 1 1-1.4 1.4-1-1-2.6 2.6-1.4-1.4 2.6-2.6-1-1 1.4-1.4 1 1Z"   // the Saber
+    gren: "M2 10h7v6H2ZM4 16h3v4H4ZM13.5 7.5a4.5 4.5 0 1 0 0.01 0ZM18 10.5h4v3h-4Z"
   };
   const ICON_PATHS = Object.fromEntries(Object.entries(ICONS).map(([k, d]) => [k, new Path2D(d)]));
   const FIRE_KEYS = ["Space", "KeyF", "KeyJ", "Enter"];

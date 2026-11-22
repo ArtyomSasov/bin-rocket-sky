@@ -223,22 +223,10 @@
         const og = g.createRadialGradient(0, -32, 0, 0, -32, 14);
         og.addColorStop(0, "#ffffff"); og.addColorStop(0.5, `rgba(111,216,255,${0.7 + 0.3 * Math.sin(now / 120)})`); og.addColorStop(1, "rgba(111,216,255,0)");
         g.fillStyle = og; g.beginPath(); g.arc(0, -32, 14, 0, 6.29); g.fill();
-      } else if (weapon === "bolt") {   // two prongs with an arc crackling between them
-        g.fillStyle = "#3b2d5c"; rrect(-14, -10, 28, 18, 5); g.fill();
-        g.fillStyle = "#cfc6e8"; rrect(-11, -58, 6, 50, 3); g.fill(); rrect(5, -58, 6, 50, 3); g.fill();
-        g.strokeStyle = "#bfefff"; g.lineWidth = 2.5; g.beginPath(); g.moveTo(-8, -56);
-        for (let k = 1; k < 5; k++) g.lineTo(-8 + k * 4, -56 + (Math.random() - 0.5) * 10);
-        g.stroke();
       } else if (weapon === "shard") {   // a stubby cannon with glowing heat vents
         g.fillStyle = "#3b2d5c"; rrect(-15, -48, 30, 54, 7); g.fill();
         for (let k = 0; k < 3; k++) { g.fillStyle = `rgba(255,154,60,${0.6 + 0.4 * Math.sin(now / 150 + k)})`; g.fillRect(-11, -38 + k * 11, 22, 4); }
         g.fillStyle = "#1d1630"; g.beginPath(); g.arc(0, -48, 9, 0, 6.29); g.fill();
-      } else if (weapon === "triple") {
-        for (const bx of [-11, 0, 11]) {
-          g.fillStyle = "#6d5a8e"; rrect(bx - 3.5, -40, 7, 44, 3); g.fill();
-          g.fillStyle = "#ffb43c"; g.fillRect(bx - 3.5, -42, 7, 5);
-        }
-        g.fillStyle = "#3b2d5c"; rrect(-17, -6, 34, 12, 4); g.fill();
       } else if (weapon === "nuke") {
         g.fillStyle = "#1d1630"; g.beginPath(); g.moveTo(-18, 12); g.lineTo(-10, -4); g.lineTo(10, -4); g.lineTo(18, 12); g.fill();
         g.save(); rrect(-11, -78, 22, 82, 9); g.clip();
@@ -249,10 +237,6 @@
       } else if (weapon === "gamma") {   // a demonic orb mounted on the launcher
         g.fillStyle = "#3b2d5c"; rrect(-12, -20, 24, 26, 6); g.fill();
         drawDemonicOrb(0, -39, 18, now);
-      } else if (weapon === "tele") {   // a little dish with a cyan tip
-        g.fillStyle = "#3b2d5c"; rrect(-5, -24, 10, 28, 3); g.fill();
-        g.fillStyle = "#5a6684"; g.beginPath(); g.ellipse(0, -28, 16, 6, 0, 0, 6.29); g.fill();
-        g.fillStyle = "#8ff0ff"; g.beginPath(); g.arc(0, -38, 5 + Math.sin(now / 150), 0, 6.29); g.fill();
       } else if (weapon === "minigun") {   // a cluster of barrels that spins faster as it spins up
         g.fillStyle = "#3b2d5c"; rrect(-13, -14, 26, 20, 5); g.fill();
         const turn = barrelA;   // (spun up, the barrels blur into one)
@@ -264,10 +248,6 @@
           const hg = g.createLinearGradient(0, -66, 0, -30); hg.addColorStop(0, `rgba(255,${me.overheat ? 230 : 90},40,${0.85 * mountHeat})`); hg.addColorStop(1, "rgba(255,60,20,0)");
           g.fillStyle = hg; rrect(-10, -66, 20, 36, 4); g.fill(); g.globalCompositeOperation = "source-over";
         }
-      } else if (weapon === "gauss") {   // a long barrel in blue coils
-        g.fillStyle = "#3b2d5c"; rrect(-10, -6, 20, 16, 4); g.fill();
-        g.fillStyle = "#cfc6e8"; rrect(-4, -78, 8, 76, 3); g.fill();
-        for (let k = 0; k < 4; k++) { g.fillStyle = `rgba(127,184,255,${0.5 + 0.5 * Math.sin(now / 120 + k)})`; rrect(-8, -66 + k * 15, 16, 7, 3); g.fill(); }
       } else if (weapon === "gren") {   // the grenade launcher: a fat drum and a stubby wide tube
         g.fillStyle = "#3b2d5c"; rrect(-12, -10, 24, 18, 5); g.fill();
         g.fillStyle = "#4a7a3a"; g.beginPath(); g.arc(0, -16, 12, 0, 6.29); g.fill();

@@ -167,7 +167,7 @@
   }
   // what a body is made of, for how a hit looks on it
   const materialOf = b => b.wall || b.fixed || b.kind === "station" || b.kind === "drum" || b.kind === "panel" || (WRECK_PAL[b.kind] && b.kind !== "crate") ? "metal" : b.kind === "crate" ? "wood" : "rock";
-  const ENERGY_HIT = new Set([K.LASER, K.PISTOL, K.PULSE, K.PULSE_BOLT, K.SHOCK, K.BOLT, K.ORB, K.GAMMA, K.FIRE]);
+  const ENERGY_HIT = new Set([K.LASER, K.PISTOL, K.PULSE, K.PULSE_BOLT, K.SHOCK, K.ORB, K.GAMMA]);
   // a burn on a body's face (painted only where it still stands): black at the heart, scorched brown round it
   function scorchMark(b, x, y, r) {
     const [lx, ly] = toLocal(b, x, y), q = b.q;

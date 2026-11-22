@@ -13,20 +13,20 @@
     const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided && (!serverRun || srv.joined);   // on the server my shots are only shown (12c-server.js)
     const altW = WEAPONS[me.weapon].alt;
     rocketLoadTick(dt, now, altHeld, ready);
-    if (altW && altW.charge) {   // rail alt: hold to widen the cutter, release to open a short breach
+    if (altW && altW.charge) {   // a charged alt (the Plasma Nova): hold to charge, let go to fire
       if (altHeld && ready && me.arsenal[me.weapon] >= altW.cost) {
-        const was = railCharge; railCharge = Math.min(1, railCharge + dt / altW.charge);
-        if (Math.floor(was * 6) !== Math.floor(railCharge * 6)) sfx("p_charge", 0.3, 0.8 + railCharge * 0.5);
-        if (was < 1 && railCharge === 1) { if (altW.nova) { shoot(now, true); railCharge = 0; } else audioCue("chargeFull"); }   // (a full nova goes by itself: held, they keep coming)
+        const was = altCharge; altCharge = Math.min(1, altCharge + dt / altW.charge);
+        if (Math.floor(was * 6) !== Math.floor(altCharge * 6)) sfx("p_charge", 0.3, 0.8 + altCharge * 0.5);
+        if (was < 1 && altCharge === 1) { if (altW.nova) { shoot(now, true); altCharge = 0; } else audioCue("chargeFull"); }   // (a full nova goes by itself: held, they keep coming)
       } else {
         if (altHeld && ready && (me.arsenal[me.weapon] || 0) < altW.cost) rejectFire("NEED " + altW.cost + " AMMO", now);
-        if (railCharge > 0) { if (!altHeld && ready && me.arsenal[me.weapon] >= altW.cost) shoot(now, true); else audioCue("chargeCancel"); railCharge = 0; }
+        if (altCharge > 0) { if (!altHeld && ready && me.arsenal[me.weapon] >= altW.cost) shoot(now, true); else audioCue("chargeCancel"); altCharge = 0; }
       }
-    } else railCharge = 0;
+    } else altCharge = 0;
     me.heat = Math.max(0, (me.heat || 0) - 0.45 * dt); if (me.overheat && me.heat < 0.3) { me.overheat = false; renderAmmo(me.weapon); audioCue("ready"); }
     const altReady = WEAPONS[me.weapon].quickAlt ? playing && roundLive && !me.dead && !guided && (!serverRun || srv.joined) && me.altCd <= 0 : ready;
     if (altReady && altHeld && altW && !altW.charge && !altW.load) { triggerTick(dt, now, false, held); shoot(now, true); }
-    else if (triggerTick(dt, now, ready && fireCd <= 0 && !(altHeld && (altW?.charge || altW?.load)) && railCharge === 0, held) || (ready && me.weapon === "gauntlet" && now < (me.lungeUntil || 0))) shoot(now);   // a lunge lands blows too
+    else if (triggerTick(dt, now, ready && fireCd <= 0 && !(altHeld && (altW?.charge || altW?.load)) && altCharge === 0, held)) shoot(now);
     if (me.weapon === "saw" && playing && roundLive && !me.dead && !serverRun) bladeTouch(me, now, charge, remotes);   // (on the server, the server judges it)
     if (me.weapon === "saw" && playing && roundLive && !me.dead) bladeGrind(me, now, charge);   // (what it cuts is shared, as every crater of mine is)
   }

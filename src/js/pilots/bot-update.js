@@ -70,7 +70,7 @@
           if (d < 34 + 30) {   // picked up
             grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
             if (human) pilotGive(b, c.type, WEAPONS[c.type].ammo);
-            else { b.weapon = c.type; b.ammo = Math.ceil(WEAPONS[c.type].ammo * (c.type === "laser" || c.type === "bolt" ? 0.4 : 1)); }
+            else { b.weapon = c.type; b.ammo = Math.ceil(WEAPONS[c.type].ammo * (c.type === "laser" ? 0.4 : 1)); }
             if (c.type === "holy" || c.type === "nuke") announce(c.type === "holy" ? "HOLY BOMB TAKEN" : "NUKE TAKEN", b.name + " has it", WEAPONS[c.type].col);
             for (let k = 0; k < 20; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 200; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.5, 2, WEAPONS[c.type].col); }
             sfx("weapon_get", 0.5, 1, c.x, c.y);
@@ -257,7 +257,7 @@
         if (targetHit(s, b)) {
           if (pierces(s)) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
           shotBurst(s); hitConfirm(s, b.lv, b.x, b.y, remotes.get(b.id)); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
-          if (s.kind === K.BOLT || s.kind === K.LASER) boltChain(s, b.x, b.y, b.id, now);
+          if (s.kind === K.LASER) boltChain(s, b.x, b.y, b.id, now);
           botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx), invNow);
         }
       }

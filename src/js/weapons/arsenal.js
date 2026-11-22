@@ -52,7 +52,6 @@
     const armed = me.weapon === "mine" ? controlledShots("mine").filter(s => SHOTS[K.MINE].life - s.life >= MINE_ARM).length : 0;
     return WEAPONS[me.weapon].name + (Number.isFinite(n) ? " · " + n : "") + (me.overheat && alt && alt.heat ? " · OVERHEATED" : "") + (count ? " · ACTIVE " + count : "") + (me.weapon === "mine" && count ? " · ARMED " + armed : "")
       + (Number.isFinite(n) && n <= Math.max(1, Math.ceil(WEAPONS[me.weapon].ammo * 0.15)) ? " · LOW AMMO" : "")
-      + (me.weapon === "gauntlet" ? (performance.now() >= lungeReady ? " · LUNGE READY" : " · LUNGE " + Math.ceil((lungeReady - performance.now()) / 100) / 10 + "s") : "")
       + (alt ? " · " + (COARSE ? "ALT: " : "RMB: ") + alt.name + (alt.cost || alt.load ? " [" + (alt.load ? "1–3" : alt.cost) + " ammo]" : "") : "")
       + (me.weapon === "rocket" ? " · LOADED " + rocketLoad + "/3 · release ALT to fire" : ""); };
   // after a shot: just the numbers of that gun
@@ -85,7 +84,7 @@
   }
   function selectWeapon(k) {
     if (!hasWeapon(k) || k === me.weapon) return;
-    if (railCharge > 0) { railCharge = 0; audioCue("chargeCancel"); }
+    if (altCharge > 0) { altCharge = 0; audioCue("chargeCancel"); }
     cancelRocketLoad(); stopContinuous("me");
     me.weapon = k; fireCd = Math.max(fireCd, 0.15);
     packPlay("p_change", 0.6);

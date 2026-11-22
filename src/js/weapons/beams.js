@@ -1,5 +1,5 @@
   function railBeam(s) {
-    const {x, y, vx, vy} = s, v = Math.hypot(vx, vy) || 1, dx = vx / v, dy = vy / v, L = beamReach(s), big = s.kind === K.GAUSS;
+    const {x, y, vx, vy} = s, v = Math.hypot(vx, vy) || 1, dx = vx / v, dy = vy / v, L = beamReach(s), big = false;
     beams.push({ x1: x, y1: y, x2: x + dx * L, y2: y + dy * L, t: 0, big, cut: s.cut || 0 });
     if (beams.length > 12) beams.shift();
   }
@@ -16,18 +16,6 @@
       for (let k = 0; k < (lowQ ? 1 : 3); k++) { const a = Math.atan2(-dy, -dx) + (Math.random() - 0.5) * 2.2, sp = 80 + Math.random() * 260; puff(e.x, e.y, Math.cos(a) * sp, Math.sin(a) * sp, 0.25 + Math.random() * 0.25, 1.4 + Math.random() * 1.4, s.kind === K.SHOCK ? "#e4d2ff" : k % 2 ? "#bff9ff" : "#ffffff", 1, 0.05); }
       if (e.hit === "body" && Math.random() < 0.5) puff(e.x, e.y, (Math.random() - 0.5) * 30, -20 - Math.random() * 30, 0.6, 3 + Math.random() * 3, "rgb(255,140,60)", 1);   // the rock glows and melts
     }
-  }
-  // lightning locks on: the nearest visible enemy within ~13° of where you point and within reach gets the bolt
-  const BOLT_LOCK_R = 700, BOLT_LOCK_A = 0.22;
-  function boltLock(p, from) {
-    const ox = from ? from.x : p.x, oy = from ? from.y : p.y;
-    let best, score = Infinity;
-    for (const [id, r] of remotes) {
-      if (r.dead || id === p.id || mates(r, p)) continue;
-      const dx = r.x - ox, dy = r.y - oy, d = Math.hypot(dx, dy), da = Math.abs(angD(Math.atan2(dy, dx) - p.a));
-      if (d < BOLT_LOCK_R && da < BOLT_LOCK_A && clearAim(ox, oy, r.x, r.y) && d * (1 + da * 2) < score) { score = d * (1 + da * 2); best = Math.atan2(dy, dx); }
-    }
-    return best;
   }
   // and it jumps on: up to two more enemies close to the one it hit, each taking a little less
   const CHAIN_R = 340, CHAIN_DMG = 0.14, CHAIN_JUMPS = 2;   // the laser: one jump, shorter and weaker
@@ -49,9 +37,9 @@
       packPlay("p_hit_laser", 0.5, t.x, t.y);
       const dmg = (laser ? 0.1 : CHAIN_DMG * (1 - j * 0.25)) * (s.m || 1), cid = s.id + "c" + j;
       metricChild(s.id, cid);
-      if (best.id === "me") { if (hurt(now, dmg, false, K.BOLT, a)) { pushCapped(hitBy, cid, 12); if (me.dead) { meKilled(cid); killedBy(s.owner); } } }
-      else if (botById.has(best.id)) botHurt(botById.get(best.id), dmg, cid, now, false, K.BOLT, a);
-      else if (s.mine) hitConfirm({ ...s, kind: K.BOLT }, t.lv, t.x, t.y, t);
+      if (best.id === "me") { if (hurt(now, dmg, false, K.LASER, a)) { pushCapped(hitBy, cid, 12); if (me.dead) { meKilled(cid); killedBy(s.owner); } } }
+      else if (botById.has(best.id)) botHurt(botById.get(best.id), dmg, cid, now, false, K.LASER, a);
+      else if (s.mine) hitConfirm({ ...s, kind: K.LASER }, t.lv, t.x, t.y, t);
       x = t.x; y = t.y;
     }
   }

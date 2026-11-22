@@ -198,7 +198,7 @@
       return lamps;
     }
     const rgbOf = c => { if (c[0] === "#") { const v = parseInt(c.slice(1, 7), 16); return [(v >> 16 & 255) / 255, (v >> 8 & 255) / 255, (v & 255) / 255]; } const p = c.replace(/[^\d.,]/g, "").split(",").map(Number); return [p[0] / 255, p[1] / 255, p[2] / 255]; };
-    const SHOT_LIGHT = { [K.ROCKET]: [260, 0.55, 0.45], [K.HROCKET]: [260, 0.55, 0.45], [K.FIRE]: [170, 0.4, 0.3], [K.ORB]: [300, 0.6], [K.GAMMA]: [220, 0.3], [K.NUKE]: [380, 0.7, 0.6], [K.HOLY]: [420, 0.7, 0.3], [K.GREN]: [150, 0.3], [K.PULSE_BOLT]: [150, 0.35], [K.VOID]: [260, 0.5] };
+    const SHOT_LIGHT = { [K.ROCKET]: [260, 0.55, 0.45], [K.HROCKET]: [260, 0.55, 0.45], [K.ORB]: [300, 0.6], [K.GAMMA]: [220, 0.3], [K.NUKE]: [380, 0.7, 0.6], [K.HOLY]: [420, 0.7, 0.3], [K.GREN]: [150, 0.3], [K.PULSE_BOLT]: [150, 0.35], [K.VOID]: [260, 0.5] };
     function gatherLights(now) {
       const list = [], cx = cam.x, cy = cam.y, hw = vw / 2, hh = vh / 2;
       // score: what goes first when there are more than 16 (a lamp counts for less the further it is)

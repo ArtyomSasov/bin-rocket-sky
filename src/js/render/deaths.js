@@ -3,9 +3,9 @@
   // clean by a rail, 2 fried by electricity, 3 melted by plasma, 4 nailed (it flies on along the nail and is pinned to
   // the rock it meets), 5 burnt (it burns, chars and crumbles to ash), 6 sawn into four by a blade
   const DEATH_KINDS = 6;
-  const deathStyleOf = kind => kind === K.RAIL || kind === K.GAUSS || kind === K.SWORD ? 1
-    : kind === K.LASER || kind === K.BOLT || kind === K.GAMMA || kind === K.SHOCK || kind === K.PULSE ? 2 : kind === K.ORB ? 3
-    : kind === K.FIRE ? 5 : kind === K.SAW || kind === K.MELEE ? 6 : 0;
+  const deathStyleOf = kind => kind === K.RAIL || kind === K.SWORD ? 1
+    : kind === K.LASER || kind === K.GAMMA || kind === K.SHOCK || kind === K.PULSE ? 2 : kind === K.ORB ? 3
+    : kind === K.FIRE ? 5 : kind === K.MELEE ? 6 : 0;
   // pieces for a blast (2-4), a hulk sometimes for the rest
   const BLASTS = new Set([K.ROCKET, K.HROCKET, K.GREN, K.MINE, K.NUKE, K.HOLY, K.FLAK, K.SHARD, K.PELLET, K.SLUG]);
   const deathPiecesOf = kind => BLASTS.has(kind) ? 3 + Math.floor(Math.random() * 2) : 1 + Math.floor(Math.random() * 4);

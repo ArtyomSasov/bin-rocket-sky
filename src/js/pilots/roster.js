@@ -67,7 +67,7 @@
     if (b.lives <= 0) {
       if (b.weapon !== "fire" && !MODES[MODE].only) dropGun(b.x, b.y, b.weapon, b.input ? b.arsenal[b.weapon] : b.ammo);   // its trophy
       b.dead = true; b.respawnAt = now + 3000; b.fc = -1; b.weapon = "fire"; b.ampUntil = 0;
-      if (b.input) pilotArm(b);   // a player starts again with the fireball and the gauntlet
+      if (b.input) pilotArm(b);   // a player starts again with the laser pistol
       b.lv = levelAfterDeath(b.lv); b.xp = XP_STEPS[b.lv - 1]; b.ds = deathPiecesOf(kind); b.dk = deathStyleOf(kind); b.da = ang;
       b.st.deaths++; b.st.streak = 0;
       if (byHole) feedPush(`<span class="v">${esc(b.name)}</span> ${shotId === "p" ? "crashed into a planet" : "was swallowed by the black hole"}`);
@@ -89,7 +89,7 @@
   function botFire(b, now, mul = 1) {
     const w = botWeapon(b), pat = WEAPONS[w];
     if (w === "gamma" && shots.some(s => s.owner === b.id && s.kind === K.GAMMA && s.life > 0 && !s.boom)) return .3;
-    const gun = muzzleOf(b, w), s = volley(b, now, pat, gun, w === "bolt" ? boltLock(b, gun) : undefined, mul);   // from its gun's tip
+    const gun = muzzleOf(b, w), s = volley(b, now, pat, gun, undefined, mul);   // from its gun's tip
     if (w === "orb") b.orb = s;   // a bot can set its orb off with the beam (see updateBots)
     shotSound(pat.shot[0], b.x, b.y, b.id);
     b.vx -= Math.cos(b.a) * 25; b.vy -= Math.sin(b.a) * 25;

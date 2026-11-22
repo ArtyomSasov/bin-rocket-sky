@@ -21,8 +21,7 @@
       metricShot(s, p, pat);
       pilotLag(s, p, now);
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else shots.push(s);
-      if (kind === K.RAIL || kind === K.GAUSS) railBeam(s);
-      if (kind === K.GAUSS && mine) { myRails.set(id, { x: s.x, y: s.y, charged: true, cut: !!s.cut }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value); }
+      if (kind === K.RAIL) railBeam(s);
       if ((kind === K.MELEE || kind === K.SWORD) && mine) { myMelee.add(id); if (myMelee.size > 64) myMelee.delete(myMelee.values().next().value); }   // for Humiliation (only the recent ones: a kill is reported within seconds)
       if ((kind === K.BULLET || kind === K.BULLET_ALT || kind === K.PISTOL) && onScreen(sx(p.x), sy(p.y), 200) && Math.random() < 0.7) {   // a spent casing spins off the side
         const sd = Math.random() < 0.5 ? 1 : -1, cx = -by * sd, cy = bx * sd, v = 140 + Math.random() * 120;
@@ -37,29 +36,6 @@
       else { seenShots.set(id, performance.now()); p.shotLog.push({ at: now, d }); p.st.shots++; }
     }
     return s;
-  }
-  // Blades make one outbound pass and one return pass. Recall never resets a return hit list.
-  function returnSaw(s) {
-    if (s.returning) return;
-    if (s.mine) audioCue("sawReturn", s.x, s.y);
-    s.returning = true; s.hits = new Set();
-  }
-  function recallSaws(signal) {
-    if (signal.recalled) return;
-    signal.recalled = true;
-    for (const s of shots) if (s.kind === K.SAW && s.life > 0 && (signal.mine ? s.mine : !s.mine && s.owner === signal.owner)) returnSaw(s);
-  }
-  function steerSaw(s, dt) {
-    s.age = (s.age || 0) + dt;
-    if (s.age >= 0.55) returnSaw(s);
-    if (!s.returning) return;
-    const owner = s.mine ? me : botById.get(s.owner) || remotes.get(s.owner);
-    if (!owner || owner.dead) return; // keeps flying until its bounded lifetime expires
-    const dx = owner.x - s.x, dy = owner.y - s.y, d = Math.hypot(dx, dy), speed = 1750;
-    if (d < binR(owner.lv || 1) + 18) { s.life = 0; if (s.mine) audioCue("sawCatch"); return; }
-    // A short ricochet grace lets the blade escape a wall before homing resumes.
-    s.ricTime = Math.max(0, (s.ricTime || 0) - dt);
-    if (!s.ricTime) { const v = Math.min(speed, d / Math.max(dt, 0.001)); s.vx = dx / d * v; s.vy = dy / d * v; }
   }
   // a grenade hits rock or the fence: it clinks and rolls off
   function grenBounce(s) {
@@ -125,7 +101,7 @@
     if (s.kind === K.MINE) { blastFx(s); return; }
     if (SPLASH[s.kind]) blastFx(s);
     else {
-      const ev = s.kind === K.SHARD ? "p_ric" : s.kind === K.BULLET ? "p_hit_bullet" : s.kind === K.LASER || s.kind === K.BOLT ? "p_hit_laser" : s.kind === K.RAIL ? "p_boom_orb" : "";
+      const ev = s.kind === K.SHARD ? "p_ric" : s.kind === K.BULLET ? "p_hit_bullet" : s.kind === K.LASER ? "p_hit_laser" : s.kind === K.RAIL ? "p_boom_orb" : "";
       if (ev) packPlay(ev, 0.6, s.x, s.y); else sfx("hit", 0.55, 1.1, s.x, s.y);
     }
     if (s.kind === K.RAIL) sparkShower(s.x, s.y, s.vx / 4200, s.vy / 4200, 1.2);
@@ -148,11 +124,11 @@
     // a slug on a bin's metal: sparks thrown back off it, white-hot flecks, a spit of oil; energy on it: embers of its
     // colour scattering off the hull
     const sp = Math.hypot(s.vx, s.vy) || 1, ux = s.vx / sp, uy = s.vy / sp;
-    if (s.kind === K.BULLET || s.kind === K.BULLET_ALT || s.kind === K.GAUSS || s.kind === K.PELLET) {
-      sparkShower(s.x, s.y, -ux, -uy, s.kind === K.GAUSS ? 1.4 : 0.8);
+    if (s.kind === K.BULLET || s.kind === K.BULLET_ALT || s.kind === K.PELLET) {
+      sparkShower(s.x, s.y, -ux, -uy, 0.8);
       for (let k = 0, m = lowQ ? 3 : 7; k < m; k++) { const a = Math.atan2(-uy, -ux) + (Math.random() - 0.5) * 2.2, v = 350 + Math.random() * 550; puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.12 + Math.random() * 0.2, 0.8 + Math.random() * 0.8, k % 3 ? "#fff1b8" : "#ffb04a", 1, 0.05, 0, 0.92); }
       oilSplash(s.x, s.y, 3, 200, ux * 120, uy * 120);
-    } else if (s.kind === K.LASER || s.kind === K.PISTOL || s.kind === K.BOLT || s.kind === K.PULSE_BOLT || s.kind === K.SHOCK || s.kind === K.FIRE) {
+    } else if (s.kind === K.LASER || s.kind === K.PISTOL || s.kind === K.PULSE_BOLT || s.kind === K.SHOCK) {
       for (let k = 0, m = lowQ ? 3 : 8; k < m; k++) { const a = Math.random() * 6.283, v = 120 + Math.random() * 300; puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.25 + Math.random() * 0.35, 1.2 + Math.random() * 1.2, k % 2 ? SHOTS[s.kind].col : "#ffffff", 5, 0, 0, 0.93); }
     }
     impact(s.x, s.y, SHOTS[s.kind].col, s.kind === K.ROCKET || s.kind === K.RAIL ? 2 : 1);
@@ -205,6 +181,5 @@
     }
   };
   const DETONATOR = { shot: [K.DET, 0] }, MINE_DETONATOR = { shot: [K.MDET, 0] };
-  let lungeReady = 0;
   // the pack's sound for each alt fire (the rest keep their own)
-  const ALT_SOUND = { fire: "", saw: "p_ut_saw_alt", nuke: "p_ut_nuke_fire", mine: "p_fire_mine", scatter: "p_fire_nail", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_nova", gren: "p_fire_gren", rail: "p_fire_rail", shard: "p_ut_flak_alt" };
+  const ALT_SOUND = { fire: "", nuke: "p_ut_nuke_fire", mine: "p_fire_mine", scatter: "p_fire_nail", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_nova", gren: "p_fire_gren", rail: "p_fire_rail", shard: "p_ut_flak_alt" };

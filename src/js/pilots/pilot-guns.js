@@ -7,7 +7,7 @@
   function pilotArm(b) {
     const o = MODES[MODE].only;
     b.arsenal = o ? { [o]: Infinity } : { fire: Infinity }; b.weapon = o || "fire";
-    Object.assign(b, { rocketLoad: 0, loadFor: 0, spin: 0, charge: 0, cutCharge: 0, heat: 0, overheat: false });
+    Object.assign(b, { rocketLoad: 0, loadFor: 0, spin: 0, charge: 0, altCharge: 0, heat: 0, overheat: false });
     if (MODES[MODE].sandbox) for (const k of SANDBOX_GUNS) b.arsenal[k] = Infinity;   // the test range: everything, for ever (as baseArsenal)
   }
   const pilotShots = (b, kind) => shots.filter(s => s.owner === b.id && s.life > 0 && !s.boom && s.kind === kind);
@@ -70,7 +70,7 @@
     // the gun picked: one this pilot carries (the teleporter is a tool, on its own button)
     const pick = WEAPON_KEYS[i.w];
     if (!only && pick && pick !== b.weapon && pick in b.arsenal) {
-      b.weapon = pick; b.fireCd = Math.max(b.fireCd, 0.15); b.rocketLoad = b.loadFor = b.charge = b.cutCharge = 0;
+      b.weapon = pick; b.fireCd = Math.max(b.fireCd, 0.15); b.rocketLoad = b.loadFor = b.charge = b.altCharge = 0;
     }
     for (const k of ["gamma", "mine"]) if (b.arsenal[k] === 0 && !pilotShots(b, controlledKind(k)).length) {
       delete b.arsenal[k]; if (b.weapon === k) b.weapon = "fire";
@@ -89,10 +89,10 @@
         if (b.rocketLoad >= carried) { const n = b.rocketLoad; b.rocketLoad = b.loadFor = 0; pilotShoot(b, now, k, true, 1, n); }
       } else { const n = b.rocketLoad; b.rocketLoad = b.loadFor = 0; if (n && ready) pilotShoot(b, now, k, true, 1, n); }
     }
-    // the rail's cutter: alt held widens it, letting go fires it
+    // a charged alt (the Plasma Nova): held, it charges; full, it goes by itself; let go, it goes as charged
     if (alt && alt.charge) {
-      if (i.alt && ready && (b.arsenal[k] || 0) >= alt.cost) { b.cutCharge = Math.min(1, b.cutCharge + dt / alt.charge); if (alt.nova && b.cutCharge >= 1) { pilotShoot(b, now, k, true); b.cutCharge = 0; } }   // (a full nova goes by itself, as on the screen)
-      else { if (b.cutCharge > 0 && !i.alt && ready) pilotShoot(b, now, k, true); b.cutCharge = 0; }
+      if (i.alt && ready && (b.arsenal[k] || 0) >= alt.cost) { b.altCharge = Math.min(1, b.altCharge + dt / alt.charge); if (alt.nova && b.altCharge >= 1) { pilotShoot(b, now, k, true); b.altCharge = 0; } }   // (a full nova goes by itself, as on the screen)
+      else { if (b.altCharge > 0 && !i.alt && ready) pilotShoot(b, now, k, true); b.altCharge = 0; }
     }
     // the charge cannon: held charges it, letting go fires it
     if (w.charge) {
@@ -104,7 +104,7 @@
     if (w.quickAlt && i.alt && alt && live && (b.altCd || 0) <= 0) { pilotShoot(b, now, k, true); return; }
     if (!ready) return;
     if (i.alt && alt && !alt.load && !alt.charge && !w.quickAlt) pilotShoot(b, now, k, true);   // (a quick alt waits for its own cooldown, as the screen's does)
-    else if ((i.fire && !w.charge) || (k === "gauntlet" && now < (b.lungeUntil || 0))) pilotShoot(b, now, k, false);   // a lunge lands blows too
+    else if (i.fire && !w.charge) pilotShoot(b, now, k, false);
   }
   function pilotShoot(b, now, k, alt, mul = 1, rockets = 0) {
     const w = WEAPONS[k], ammo = b.arsenal[k] || 0, refuse = () => { b.fireCd = 0.2; };
@@ -114,21 +114,6 @@
     if (alt ? ammo < pat.cost : !(ammo > 0)) return refuse();
     if (!alt && k === "gamma" && pilotShots(b, K.GAMMA).length) return refuse();   // one orb at a time
     const ax = Math.cos(b.a), ay = Math.sin(b.a), r = binR(b.lv || 1);
-    if (alt && pat.recall) {
-      if (!shots.some(s => s.owner === b.id && s.kind === K.SAW && !s.returning && s.life > 0)) return refuse();
-      recallSaws(volley(b, now, pat, { x: b.x, y: b.y })); b.fireCd = pat.cd; return;
-    }
-    if (w.melee && !alt) {   // the gauntlet: a blow only lands on a bin within reach ahead
-      const nx = b.x + ax * (r + 14), ny = b.y + ay * (r + 14);
-      if (!bots.some(o => o !== b && !o.dead && !mates(o, b) && Math.hypot(o.x - nx, o.y - ny) < r + 60 + binR(o.lv || 1) - 20)) { b.fireCd = 0.05; return; }
-      b.fireCd = w.cd; volley(b, now, w, { x: nx, y: ny }); return;
-    }
-    if (alt && pat.lunge) {
-      if (now < (b.lungeReady || 0)) return;
-      b.lungeReady = now + 1200; b.lungeUntil = now + 450;
-      b.vx += ax * 950; b.vy += ay * 950; b.inv = Math.max(b.inv, now + 200); b.dashAt = now;
-      return;
-    }
     if (alt && pat.minedet) {
       if (!pilotShots(b, K.MINE).some(s => SHOTS[K.MINE].life - s.life >= MINE_ARM)) return refuse();
       volley(b, now, MINE_DETONATOR, { x: b.x, y: b.y }); b.fireCd = pat.cd; return;
@@ -142,15 +127,14 @@
       if (b.overheat) return;
       b.heat += pat.heat; if (b.heat >= 1) b.overheat = true;
     }
-    if (alt && pat.cutter) pat = { ...pat, cut: Math.round(24 + 48 * b.cutCharge) };
-    if (alt && pat.nova) mul *= 0.55 + 0.45 * b.cutCharge;
+    if (alt && pat.nova) mul *= 0.55 + 0.45 * b.altCharge;
     if (alt && pat.mul) mul *= pat.mul;   // (as the screen)   // (as the screen charges it)
     const cdMul = MODES[MODE].cdMul || 1;
     if (alt && w.quickAlt) { b.altCd = pat.cd; b.fireCd = Math.max(b.fireCd, 0.15); } else
     b.fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * b.spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
     const gun = muzzleOf(b, k);   // from the gun's tip, as the player's screen fires it
     if (alt && pat.shot[0] === K.LASER) { b.linkHeld = now - (b.linkAt || 0) < 400 ? (b.linkHeld || 0) + (now - b.linkAt) / 1000 : 0; b.linkAt = now; mul *= linkHeatOf(b.linkHeld); }   // (its beam heats held on, as a player's screen has it)
-    const shot = volley(b, now, pat, gun, (k === "bolt" && !alt) || (alt && pat.shot[0] === K.LASER) ? boltLock(b, gun) : undefined, mul);
+    const shot = volley(b, now, pat, gun, undefined, mul);
     if (pat.guided && shot) { shot.life = SHOTS[K.NUKE].life; b.guide = { shot, gb: b.input.gb || 0 }; }   // steered by the player from now on
     const kick = (pat.kick || 0) * (w.charge ? mul : 1);
     b.vx -= ax * kick; b.vy -= ay * kick;

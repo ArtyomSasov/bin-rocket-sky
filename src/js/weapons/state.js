@@ -4,7 +4,7 @@
   const controlledKind = k => ({ gamma: K.GAMMA, mine: K.MINE })[k];
   const controlledShots = k => shots.filter(s => (s.mine || mySrvShot(s)) && s.life > 0 && !s.boom && s.kind === controlledKind(k));
   const hasWeapon = k => !WEAPONS[k]?.disabled && (!!me.arsenal[k] || controlledShots(k).length > 0);
-  let rejectAt = -Infinity, lastWeaponStatus = "", wasLungeReady = true;
+  let rejectAt = -Infinity, lastWeaponStatus = "";
   function rejectFire(reason, now) {
     if (now - rejectAt < 700) return;
     rejectAt = now; audioCue("refuse");
@@ -17,9 +17,6 @@
     if (changed) renderWeapon();
     const status = chipText();
     if (status !== lastWeaponStatus) { lastWeaponStatus = status; renderAmmo(me.weapon); }
-    const ready = now >= lungeReady;
-    if (ready && !wasLungeReady && me.weapon === "gauntlet" && !me.dead) audioCue("ready");
-    wasLungeReady = ready;
   }
   // Slab intersection against permanent station walls only. Destructible terrain
   // retains its established blast behaviour. Touching a wall on the source side is allowed.
@@ -48,7 +45,6 @@
     scatter: "Hook: a chain flies out, bites into a wall or a bin and hauls you there, to fire point-blank; no ammo, 2.5 s to reload it.",
     shard: "Flak shell: a lofted shell explodes for up to 70 HP and releases five shards on impact or landing; 1 ammo.",
     gren: "Volley: three bouncing grenades to cover several routes; 3 ammo.",
-    gauntlet: "Lunge: free, forward-only melee approach; 1.2 s recharge and 0.2 s protection. Dash uses movement direction and costs energy.",
     void: "Void Bomb: a slow dark orb; where it bursts a black hole opens for six seconds and drags everything in. Get clear.",
     saw: "Blood Blade: hold to wind the red blade back over your shoulder, let go to sweep it through the arc ahead; the fuller the wind-up, the harder it cuts, through rock and walls too. No alternate fire.",
     mine: "Detonate works with zero ammo while your mines are active.",

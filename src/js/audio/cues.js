@@ -6,7 +6,6 @@
     shieldBreak: ["shield_hit", 0.95, 0.55, 600], shieldReady: ["shield_get", 0.45, 0.8, 1500],
     powerDown: ["p_powerdown", 0.5, 0.8, 800], flagReturn: ["p_ready", 0.7, 0.7, 800],
     event: ["p_event", 0.55, 0.75, 2000], ui: ["p_ui", 0.18, 1.1, 120],
-    sawCatch: ["p_change", 0.45, 1.1, 200], sawReturn: ["p_saw", 0.35, 1.55, 200],
     refuse: ["p_noammo", 0.65, 1, 700], lowAmmo: ["p_warning", 0.35, 1.4, 1000],
     chargeFull: ["p_ready", 0.65, 1.4, 500],
     chargeCancel: ["p_powerdown", 0.35, 1.2, 200],
@@ -93,12 +92,12 @@
     const ev = stationMap() ? { cyc: 0, active: false, warn: false } : eventAt(clockNow()), key = ev.cyc + ":" + (ev.warn ? "warn" : ev.active ? "active" : "quiet");
     if (key !== eventAudioKey) { if (ev.warn) audioCue("warning"); else if (ev.active) audioCue("event"); eventAudioKey = key; }
     packLoop("atmosphere", ev.active && ev.type === "blackhole" ? "p_blackhole" : "p_ambient", ev.active && ev.type === "blackhole" ? 0.12 : 0.025);
-    const nearby = shots.filter(s => s.life > 0 && !s.boom && [K.SAW,K.SAW_ALT,K.NUKE,K.ROCKET,K.HROCKET].includes(s.kind))
+    const nearby = shots.filter(s => s.life > 0 && !s.boom && [K.NUKE,K.ROCKET,K.HROCKET].includes(s.kind))
       .map(s => ({ s, d: Math.hypot(s.x-me.x,s.y-me.y) })).filter(o => o.d < 1200).sort((a,b)=>a.d-b.d).slice(0,6);
     const wanted = new Set();
     for (const {s,d} of nearby) {
       const slot = "flight:" + s.id; wanted.add(slot);
-      packLoop(slot, s.kind === K.NUKE ? "p_ut_nuke_fly" : s.kind === K.SAW || s.kind === K.SAW_ALT ? "p_ut_saw_travel" : "p_fly_rocket", 0);
+      packLoop(slot, s.kind === K.NUKE ? "p_ut_nuke_fly" : "p_fly_rocket", 0);
       const loop = packLoops[slot];
       if (loop) { loop.g.gain.setTargetAtTime((s.kind === K.NUKE ? .22 : .12) * (1-d/1200), audio.currentTime, .04); if(loop.pan)loop.pan.pan.value=clamp((s.x-me.x)/1000,-.85,.85); }
     }

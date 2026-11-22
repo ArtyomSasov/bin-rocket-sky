@@ -17,7 +17,7 @@
     // my own pilot on the server is no remote, but its shots come back the same way
     const peer = remotes.get(owner) || (owner && owner === srv.id ? srv : null);
     if (!peer || seenShots.size >= MAX_SEEN_SHOTS) return;
-    if (!Number.isInteger(f[5]) || f[5] < 0 || f[5] >= SHOTS.length || !f.slice(1, 5).every(Number.isFinite) || f.length < 6) return;
+    if (!Number.isInteger(f[5]) || f[5] < 0 || f[5] >= SHOTS.length || RETIRED_SHOTS.has(f[5]) || !f.slice(1, 5).every(Number.isFinite) || f.length < 6) return;
     if (peer.tag && !f[0].startsWith(peer.tag + ".")) return;
     noteShotKind(f[0], f[5]);
     if (!Number.isFinite(f[9]) || !Number.isFinite(sentAt)) return;
@@ -29,7 +29,7 @@
     if (age > 1200) return;
     const lag = clamp(age, 0, REWIND_MS);
     // m: Quad damage (x4) and the crown (x1.25), or the charge cannon's charge (0.25..1); anything else is ignored
-    const kind = f[5], m = (kind === K.GAUSS || kind === K.SWORD) && Number.isFinite(f[6]) ? clamp(f[6], 0.25, 5) : kind === K.PISTOL && Number.isFinite(f[6]) ? clamp(f[6], 0.5, remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now() ? QUAD * 1.25 : 1.25) : kind === K.NOVA && Number.isFinite(f[6]) ? clamp(f[6], 0.3, remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now() ? QUAD * 1.25 : 1.25) : kind === K.LASER && Number.isFinite(f[6]) ? clamp(f[6], LINK_MIN, LINK_HEAT * (remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now() ? QUAD * 1.25 : 1.25)) : [QUAD, 1.25, QUAD * 1.25].includes(f[6]) ? f[6] : 1;   // (a link beam heats up to LINK_HEAT; Quad only if the shooter is seen to carry it)
+    const kind = f[5], m = kind === K.SWORD && Number.isFinite(f[6]) ? clamp(f[6], 0.25, 5) : kind === K.PISTOL && Number.isFinite(f[6]) ? clamp(f[6], 0.5, remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now() ? QUAD * 1.25 : 1.25) : kind === K.NOVA && Number.isFinite(f[6]) ? clamp(f[6], 0.3, remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now() ? QUAD * 1.25 : 1.25) : kind === K.LASER && Number.isFinite(f[6]) ? clamp(f[6], LINK_MIN, LINK_HEAT * (remotes.get(owner)?.amp || botById.get(owner)?.ampUntil > performance.now() ? QUAD * 1.25 : 1.25)) : [QUAD, 1.25, QUAD * 1.25].includes(f[6]) ? f[6] : 1;   // (a link beam heats up to LINK_HEAT; Quad only if the shooter is seen to carry it)
     const x = clamp(num(f[1], 0), 0, W), y = clamp(num(f[2], 0), 0, H);
     // Keep an age bound relative to the newest state as well as to this packet.
     if (!fresh && Number.isFinite(peer.lastTs) && peer.lastTs - f[9] > 1200) return;
@@ -42,8 +42,6 @@
       catchup: straightShot(kind) && !serverRun ? lag / 1000 : 0,
       catchSlow: straightShot(kind) && serverRun ? lag / 1000 : 0, catchRate: lag / 1000 / 0.25,
       life: SHOTS[kind].life, hitTime: performance.now() - lag, mine: false, owner, bn: 0,
-      cut: kind === K.GAUSS && Number.isFinite(f[8]) && f[8] > 0 ? Math.round(clamp(f[8], 24, 72)) : 0,
-      pc: kind === K.FIRE && f[7] === 1
     };
     // a peer can send anything: cap what one owner (and everyone together) can keep alive here
     let own = 0, ownMines = 0, ownBombs = 0;   // a big bomb is heavy to play out (blast, choir): one owner gets two at once
@@ -51,7 +49,7 @@
     if (shots.length > 900 || own > 80 || (kind === K.MINE && ownMines >= 12) || (BOMBS[kind] && ownBombs >= 2)) return;
     seenShots.set(f[0], performance.now());
     if (kind === K.PELLET) scatterPellets(sh); else if (kind === K.SHARD) shardSpray(sh); else shots.push(sh);
-    if (kind === K.RAIL || kind === K.GAUSS) railBeam(sh);
+    if (kind === K.RAIL) railBeam(sh);
     if (!fresh) shotSound(kind, x, y, owner);   // a fresh one is fired here, with its own sound
     if (seenShots.size > 400) { const t = performance.now(); for (const [k, at] of seenShots) if (t - at > 5000) seenShots.delete(k); }
     return true;

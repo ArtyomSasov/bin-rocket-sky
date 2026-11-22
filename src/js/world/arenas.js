@@ -11,7 +11,7 @@
   // Each layout has its own deliberate weapon pool; large maps repeat its placements.
   // The Large and Huge arenas add a few more bodies and spots in the widest gaps (fixed too, see buildPlanets).
   // Gun respawn (s): a taken crate comes back at the start of its spot's next cycle
-  const GUN_PERIOD = { rocket: 30, gren: 30, orb: 30, mine: 30, shard: 26, tele: 26, gauss: 30, rail: 40, saw: 60, gamma: 75 }, GUN_PERIOD_BASE = 18;   // by how strong: common 18 s, strong ~30, the railgun 40, the Blood Blade 60, the demonic orb 75
+  const GUN_PERIOD = { rocket: 30, gren: 30, orb: 30, mine: 30, shard: 26, rail: 40, saw: 60, gamma: 75 }, GUN_PERIOD_BASE = 18;   // by how strong: common 18 s, strong ~30, the railgun 40, the Blood Blade 60, the demonic orb 75
   const ARENA_SCALE = { s: 0.72, m: 1, l: 1.2, x: 1.4 };   // body sizes per map size
   // the asteroid ring: rocks round the centre with wide gates towards the bases and the top and bottom
   const ringRocks = (r, angles, R) => angles.map((a, i) => ["rock", 0.5 + Math.cos(a / 57.3) * r, 0.5 + Math.sin(a / 57.3) * r, R + (i % 2) * 18, 0]);
