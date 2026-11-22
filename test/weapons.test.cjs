@@ -2,7 +2,7 @@
 // special mode does what it is for, and the numbers a screen predicts are the server's.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { skip, createMatch } = require('./helpers/game.cjs');
+const { skip, createMatch, loadGame } = require('./helpers/game.cjs');
 const { clock, run, hold, emptyField, gunIndex, wire } = require('./helpers/match.cjs');
 
 // two pilots in an empty Duel arena, the round open
@@ -203,19 +203,19 @@ test('a gun\'s spread is a function of the pilot\'s tag and the shot\'s number, 
       hold(m, id, 1200, 1200); m.input(id, { aim: 0, fire: true, w: gunIndex(m, 'minigun') });
       for (const s of m.game.__simShots()) if (s.owner === id && !seen.has(s.id)) seen.set(s.id, s);
     });
-    const hash = (a, b, c) => { let x = (Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263) + Math.imul(c | 0, 1442695041)) | 0; x = Math.imul(x ^ (x >>> 13), 1274126177); x ^= x >>> 16; return (x >>> 0) / 4294967296; };
-    const tagSeed = t => { let h = 7; for (let i = 0; i < t.length; i++) h = Math.imul(h, 31) + t.charCodeAt(i) | 0; return h; };
     const bullets = [...seen.values()].filter(s => s.kind === m.game.__simConst.K.BULLET);
     assert.ok(bullets.length >= 5);
-    for (const s of bullets) {
-      const n = parseInt(s.id.slice(s.id.lastIndexOf('.') + 1), 36), want = (hash(tagSeed(b.tag), n, 991) - 0.5) * 2 * 0.03375;
-      assert.ok(Math.abs(Math.atan2(s.vy, s.vx) - want) < 1e-9, `shot ${s.id}`);
-    }
+    const g = await loadGame();   // (the rule a screen predicts it by, from the game itself)
+    try {
+      for (const s of bullets) {
+        const n = parseInt(s.id.slice(s.id.lastIndexOf('.') + 1), 36), want = g.get(`shotJitter(${JSON.stringify(b.tag)}, ${n}, WEAPONS.minigun.jitter)`);
+        assert.ok(Math.abs(Math.atan2(s.vy, s.vx) - want) < 1e-9, `shot ${s.id}`);
+      }
+    } finally { g.dispose(); }
   } finally { m.dispose(); }
 });
 
 test('every gun has a key of its own, the same whatever a pilot carries', { skip }, async () => {
-  const { loadGame } = require('./helpers/game.cjs');
   const g = await loadGame();
   try {
     const r = g.get(`(() => { const all = WEAPON_SLOTS.filter(k => !WEAPONS[k].disabled), keys = all.map(weaponKey);

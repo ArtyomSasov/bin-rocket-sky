@@ -9,7 +9,7 @@
     refuse: ["p_noammo", 0.65, 1, 700], lowAmmo: ["p_warning", 0.35, 1.4, 1000],
     chargeCancel: ["p_powerdown", 0.35, 1.2, 200],
     shockCombo: ["p_ut_shock_combo", 1, 1, 120], shockBeam: ["p_ut_shock_alt", 0.9, 1, 100],
-    laserPulse: ["p_boom_orb", 0.75, 1.4, 150], demonicZap: ["p_hit_laser", 0.4, 0.6, 100],
+    demonicZap: ["p_hit_laser", 0.4, 0.6, 100],
     pickup: ["p_pickup", 0.4, 1, 80]
   };
   const cueTimes = new Map();
@@ -91,7 +91,7 @@
     const ev = stationMap() ? { cyc: 0, active: false, warn: false } : eventAt(clockNow()), key = ev.cyc + ":" + (ev.warn ? "warn" : ev.active ? "active" : "quiet");
     if (key !== eventAudioKey) { if (ev.warn) audioCue("warning"); else if (ev.active) audioCue("event"); eventAudioKey = key; }
     packLoop("atmosphere", ev.active && ev.type === "blackhole" ? "p_blackhole" : "p_ambient", ev.active && ev.type === "blackhole" ? 0.12 : 0.025);
-    const nearby = shots.filter(s => s.life > 0 && !s.boom && [K.NUKE,K.ROCKET,K.HROCKET].includes(s.kind))
+    const nearby = shots.filter(s => s.life > 0 && !s.boom && [K.NUKE,K.ROCKET].includes(s.kind))
       .map(s => ({ s, d: Math.hypot(s.x-me.x,s.y-me.y) })).filter(o => o.d < 1200).sort((a,b)=>a.d-b.d).slice(0,6);
     const wanted = new Set();
     for (const {s,d} of nearby) {

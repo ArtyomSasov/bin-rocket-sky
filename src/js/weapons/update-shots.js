@@ -39,20 +39,12 @@
         s.cased = true; const sh = s.mine ? me : remotes.get(s.owner) || botById.get(s.owner);
         if (sh && Math.hypot(sh.x - s.x, sh.y - s.y) < 140) { ejectCasing(s.x, s.y, Math.atan2(s.vy, s.vx), sh.vx || 0, sh.vy || 0); if (sh !== me) sh.spinVis = Math.min(1, (sh.spinVis || 0) + 0.12); }
       }
-      // Ripper discs retain their ricochet direction; no automatic recall.
       if (s.kind === K.DET) { detonateOrb(s); if (s.life <= 0) shots.splice(i, 1); continue; }   // inert: it only sets off its orb
       if (HITSCAN[s.kind] && !s.traced && s.life > 0) traceBeam(s);   // rail, laser, beams: the whole line, this very frame
       if (s.kind === K.MDET) { detonateMines(s); if (s.life <= 0) shots.splice(i, 1); continue; }   // ...and this one its pilot's mines
       if (s.kind === K.MINE && s.trigAt && now >= s.trigAt) s.life = 0;   // a triggered mine goes off
       if (s.life <= 0 && s.kind === K.FLAK) flakBurst(s);
       if (s.life <= 0) { if (SPLASH[s.kind]) splash(s, now); if (BOMBS[s.kind]) detonate(s, now); shots.splice(i, 1); continue; }
-      if (s.kind === K.HROCKET) steerRocket(s, stepDt);
-      if (s.kind === K.HROCKET && s.life > 0) for (const o of shots) {   // homing rockets are slow: any enemy shot can blow one up mid-air
-        if (o === s || o.life <= 0 || SHOTS[o.kind].inert || o.kind === K.MINE || (o.mine ? s.mine : o.owner === s.owner)) continue;
-        if (isTeams() && teamOfShot(o) !== undefined && teamOfShot(o) === teamOfShot(s)) continue;   // a teammate's shot passes it
-        if (segHit(o, s.x, s.y, 24)) { s.life = 0; if (!pierces(o)) o.life = 0; impact(s.x, s.y, "#ffb43c", 1.6); explode(s.x, s.y, 40, 300); sfx("boom_small", 0.8, 1.2, s.x, s.y); break; }
-      }
-      if (s.life <= 0) continue;   // shot down: it blows up (splash) at the start of next frame
       if (s.kind === K.MINE) {
         if (s.stuck) mineStick(s); else { const k = Math.exp(-1.6 * stepDt); s.vx *= k; s.vy *= k; }   // a prox mine slows in flight, then rides the rock it stuck to
         if (!s.trigAt && SHOTS[K.MINE].life - s.life >= MINE_ARM) {   // armed: an enemy coming within reach sets it ticking
@@ -135,11 +127,11 @@
       }
       if ((s.x < 0 || s.x > W || s.y < 0 || s.y > H) && SPLASH[s.kind]) splash(s, now);
       if (s.x < 0 || s.x > W || s.y < 0 || s.y > H) { if (!SPLASH[s.kind]) explode(clamp(s.x, 0, W), clamp(s.y, 0, H), 10, 160); shots.splice(i, 1); continue; }   // (a blast weapon has had its own)
-      if (s.kind === K.ROCKET || s.kind === K.HROCKET) {   // a smoke trail with fire licking out of the motor
+      if (s.kind === K.ROCKET) {   // a smoke trail with fire licking out of the motor
         const sp = Math.hypot(s.vx, s.vy) || 1, bx = s.x - s.vx / sp * 26, by = s.y - s.vy / sp * 26;
         if (Math.random() < stepDt * (lowQ ? 30 : 70)) puff(bx, by, -s.vx * 0.08 + (Math.random() - .5) * 50, -s.vy * 0.08 + (Math.random() - .5) * 50, 1.2 + Math.random() * 1.0, 6 + Math.random() * 6, "rgb(120,110,140)", 2);
         if (Math.random() < stepDt * 60) puff(bx, by, -s.vx * 0.4 + (Math.random() - .5) * 60, -s.vy * 0.4 + (Math.random() - .5) * 60, 0.2 + Math.random() * 0.2, 3 + Math.random() * 3, FIRE_COLS[(Math.random() * 3) | 0]);
-      } else if (s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.MELEE) {
+      } else if (s.kind === K.SHOCK || s.kind === K.MELEE) {
         // a beam is drawn as a beam; a blade's touch isn't seen
       } else if (s.kind === K.RAIL) {   // the slug leaves a glowing wake along its whole path
         for (let k = 0; k < 4; k++) { const f = Math.random(); puff(s.px + (s.x - s.px) * f, s.py + (s.y - s.py) * f, (Math.random() - .5) * 30, (Math.random() - .5) * 30, 0.5 + Math.random() * 0.4, 1.6 + Math.random() * 1.6, k % 2 ? "#ffb070" : "#ffffff"); }
@@ -147,8 +139,6 @@
         if (Math.random() < stepDt * (lowQ ? 40 : 90)) puff(s.x + (Math.random() - .5) * 30, s.y + (Math.random() - .5) * 30, -s.vx * 0.15 + (Math.random() - .5) * 60, -s.vy * 0.15 + (Math.random() - .5) * 60, 0.5 + Math.random() * 0.4, 2.5 + Math.random() * 3, Math.random() < 0.6 ? "#6fd8ff" : "#ffffff");
       } else if (s.kind === K.SHARD) {   // a hot trail that grows with every ricochet
         if (Math.random() < stepDt * (40 + s.bn * 25)) puff(s.x, s.y, -s.vx * 0.05, -s.vy * 0.05, 0.25 + s.bn * 0.05, 2 + s.bn * 0.6, s.bn ? "#ffe0a0" : "#ffc070");
-      } else if (s.kind === K.SLUG) {   // the slug drags a short hot trail
-        if (Math.random() < stepDt * 50) puff(s.x, s.y, -s.vx * 0.05, -s.vy * 0.05, 0.25, 2, Math.random() < 0.5 ? "#ffe7a0" : "#ffb43c");
       } else if (s.kind === K.PELLET || s.kind === K.MINE) {
         // pellets are too short-lived for a trail; mines just sit there blinking
       } else if (Math.random() < stepDt * 40) puff(s.x, s.y, -s.vx * 0.08 + (Math.random() - .5) * 60, -s.vy * 0.08 + (Math.random() - .5) * 60, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 2, FIRE_COLS[(Math.random() * 4) | 0]);

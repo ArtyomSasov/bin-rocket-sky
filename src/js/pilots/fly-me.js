@@ -87,4 +87,4 @@
   // damage lands with the beam you see, not when a fast slug would have got there. The rail bores through every body
   // to the fence (each bin on the line is hit once); the others stop at the first rock. The shot then spans that line
   // (px,py -> x,y) for one frame, so the usual hit checks (me, the others, my bots, orbs for a combo) see all of it.
-  const HITSCAN = { [K.BULLET]: 1, [K.PISTOL]: 1, [K.RAIL]: 1, [K.LASER]: 1, [K.SHOCK]: 1 };
+  const HITSCAN = { [K.BULLET]: 1, [K.PISTOL]: 1, [K.RAIL]: 1, [K.SHOCK]: 1 };

@@ -38,16 +38,15 @@
 
   // how someone else's shot sounds here (quieter with distance)
   // which gun a shot kind comes from, for a sound pack's gun sounds
-  const KIND_GUN = { [K.SWORD]: "saw", [K.PULSE_BOLT]: "laser", [K.PISTOL]: "fire", [K.NUKE]: "nuke", [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
-    [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.GREN]: "gren", [K.HROCKET]: "rocket", [K.SHARD]: "shard", [K.FLAK]: "shard" };
+  const KIND_GUN = { [K.SWORD]: "saw", [K.PULSE_BOLT]: "laser", [K.PISTOL]: "fire", [K.NUKE]: "nuke", [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
+    [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.GREN]: "gren", [K.SHARD]: "shard", [K.FLAK]: "shard" };
   const shotSound = (kind, x, y, owner = "unknown") => {
     if (kind === K.BULLET_ALT) { stopContinuous(owner); packPlay("p_user_autocannon", 0.5, x, y); return; }   // an explosive round: each one a heavy thump
-    if (kind === K.PULSE_BOLT || kind === K.LASER || kind === K.BULLET) { if (continuousFire(owner, kind === K.LASER || kind === K.PULSE_BOLT ? "laser" : "minigun", x, y, performance.now(), kind === K.BULLET_ALT || kind === K.LASER)) return; }
-    if (kind !== K.PULSE_BOLT && kind !== K.LASER && kind !== K.BULLET) stopContinuous(owner);
+    if (kind === K.PULSE_BOLT || kind === K.BULLET) { if (continuousFire(owner, kind === K.PULSE_BOLT ? "laser" : "minigun", x, y, performance.now())) return; }
+    if (kind !== K.PULSE_BOLT && kind !== K.BULLET) stopContinuous(owner);
     if (kind === K.NOVA) { packPlay("p_nova", 0.8, x, y); return; }
     if (kind === K.FLAK) { packPlay("p_ut_flak_alt", .8, x, y); return; }
     if (kind === K.SHOCK) { audioCue("shockBeam", x, y); return; }
-    if (kind === K.PULSE) { audioCue("laserPulse", x, y); return; }
     if (kind === K.MELEE || kind === K.SWORD) return;   // a blade's swing sounds as its bin swings it (swingStart)
     if (KIND_GUN[kind] && packPlay("p_fire_" + KIND_GUN[kind], 0.75, x, y)) return;
     const [name, vol, pitch] = SHOTS[kind].sfx; sfx(name, vol, pitch, x, y);
@@ -115,7 +114,7 @@
   // segment: without it a fireball or a rocket arrives on the victim's screen 150-250 px behind where its shooter
   // saw it. Homing, bouncing and sticking shots keep their own flight and start late instead.
   const straightShot = kind => STRAIGHT.has(kind);
-  const STRAIGHT = new Set([K.BULLET_ALT, K.PULSE_BOLT, K.BULLET, K.PELLET, K.SLUG, K.ROCKET, K.FLAK, K.ORB, K.GAMMA]);
+  const STRAIGHT = new Set([K.BULLET_ALT, K.PULSE_BOLT, K.BULLET, K.PELLET, K.ROCKET, K.FLAK, K.ORB, K.GAMMA]);
   // dash and respawn protection: a protected bin is not there for a shot, which flies on through it instead
   // of stopping on it (my bots and I keep the time it ends, the others send a flag)
   const shielded = o => typeof o.inv === "number" ? performance.now() < o.inv : !!o.inv;

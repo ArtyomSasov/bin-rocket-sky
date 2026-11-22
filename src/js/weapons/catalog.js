@@ -124,7 +124,6 @@
   balanceShot(K.BULLET, { dmg: HP(14), life: .5 });
   balanceShot(K.BULLET_ALT, { name: "explosive round", dmg: HP(16), life: 0.9, r: 6, col: "#ff7a2a", carve: 14, shove: 60 });   // bursts where it lands: SPLASH
   balanceShot(K.PELLET, { dmg: HP(12), life: 0.62 });   // real pellets in flight (not hitscan): ~1100 px of reach
-  balanceShot(K.SLUG, { dmg: HP(60), life: 1.4 });
   balanceShot(K.GREN, { dmg: HP(100) });
   balanceShot(K.MELEE, { name: "blade touch", dmg: HP(6) });   // the Blood Blade touching a bin when it isn't swung (bladeTouch)
   balanceShot(K.MINE, { dmg: HP(100) });
@@ -153,7 +152,7 @@
   let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
-  const SPLASH = { [K.BULLET_ALT]: [100, HP(24), 0, 170], [K.FLAK]: [210, HP(70), 0, 400], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [330, HP(140), HP(25), 800], [K.NOVA]: [300, HP(150), 0, 900] };   // (Plasma Nova: a full one kills a bin at its heart)
+  const SPLASH = { [K.BULLET_ALT]: [100, HP(24), 0, 170], [K.FLAK]: [210, HP(70), 0, 400], [K.MINE]: [262, HP(100), 0, 450], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [330, HP(140), HP(25), 800], [K.NOVA]: [300, HP(150), 0, 900] };   // (Plasma Nova: a full one kills a bin at its heart)
   const GAMMA_ZAP = { r: 280, every: 0.45, dmg: HP(6) };
   const NOVA_ZAP = { r: 260, every: 0.12, dmg: HP(12) };   // the nova lashes every enemy this close to its path, by its charge   // the gamma orb zaps every enemy this close as it flies
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs

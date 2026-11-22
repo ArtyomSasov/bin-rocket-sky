@@ -23,7 +23,6 @@
         if (altCharge > 0) { if (!altHeld && ready && me.arsenal[me.weapon] >= altW.cost) shoot(now, true); else audioCue("chargeCancel"); altCharge = 0; }
       }
     } else altCharge = 0;
-    me.heat = Math.max(0, (me.heat || 0) - 0.45 * dt); if (me.overheat && me.heat < 0.3) { me.overheat = false; renderAmmo(me.weapon); audioCue("ready"); }
     const altReady = WEAPONS[me.weapon].quickAlt ? playing && roundLive && !me.dead && !guided && (!serverRun || srv.joined) && me.altCd <= 0 : ready;
     if (altReady && altHeld && altW && !altW.charge && !altW.load) { triggerTick(dt, now, false, held); shoot(now, true); }
     else if (triggerTick(dt, now, ready && fireCd <= 0 && !(altHeld && (altW?.charge || altW?.load)) && altCharge === 0, held)) shoot(now);

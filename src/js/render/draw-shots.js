@@ -36,7 +36,7 @@
       return;
     }
 
-    if (s.kind === K.PISTOL || s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.DET) return;   // beams are drawn as beams; a detonator isn't seen
+    if (s.kind === K.PISTOL || s.kind === K.SHOCK || s.kind === K.DET) return;   // beams are drawn as beams; a detonator isn't seen
     if (s.kind === K.MELEE || s.kind === K.SWORD) return;   // a blow, a swing: the blade on the bin (and its trail) is what you see
     if (s.kind === K.NOVA) {   // the Plasma Nova: a swirling ball of green plasma, white at its heart, lightning crawling over it
       const c = Math.min(1, s.m || 1), r = 12 + 16 * c, a = Math.atan2(s.vy, s.vx);
@@ -84,15 +84,7 @@
       g.restore();
       return;
     }
-    if (s.kind === K.PULSE) {   // the laser's pulse: a wide crescent of light
-      const a = Math.atan2(s.vy, s.vx), k = s.life / SHOTS[K.PULSE].life;
-      g.save(); g.translate(x, y); g.rotate(a); g.lineCap = "round";
-      for (const [w, c] of [[22, `rgba(60,200,255,${0.3 * k + 0.1})`], [8, `rgba(160,250,255,${0.8 * k + 0.2})`], [3, "#ffffff"]]) {
-        g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.arc(-40, 0, 70, -0.75, 0.75); g.stroke();
-      }
-      g.restore();
-      return;
-    }
+
     if (s.kind === K.FLAK) {   // shell shadow and loft make its falling trajectory readable
       const height = flakHeight(s);
       g.fillStyle = "rgba(0,0,0,.4)"; g.beginPath(); g.ellipse(x, y + 8, 12 + height*.08, 5, 0, 0, Math.PI*2); g.fill();
@@ -116,17 +108,7 @@
       g.restore();
       return;
     }
-    if (s.kind === K.SLUG) {   // shotgun slug: one fat white-hot ball with a long streak
-      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
-      const lg = g.createLinearGradient(-80, 0, 0, 0);
-      lg.addColorStop(0, "rgba(255,150,40,0)"); lg.addColorStop(1, "rgba(255,240,190,0.95)");
-      g.strokeStyle = lg; g.lineWidth = 11; g.lineCap = "round";
-      g.beginPath(); g.moveTo(-80, 0); g.lineTo(0, 0); g.stroke();
-      g.fillStyle = "rgba(255,210,110,0.4)"; g.beginPath(); g.arc(0, 0, 16, 0, 6.29); g.fill();
-      g.fillStyle = "#fffaf0"; g.beginPath(); g.arc(0, 0, 6, 0, 6.29); g.fill();
-      g.restore();
-      return;
-    }
+
     if (s.kind === K.PELLET) {   // scatter pellet: a short hot streak
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
       const lg = g.createLinearGradient(-44, 0, 0, 0);
@@ -270,25 +252,8 @@
       g.globalCompositeOperation = "lighter";
       return;
     }
-    if (s.kind === K.LASER) {   // laser: a long bolt of light with a pulsing glow and a hot flare at the head
-      const a = Math.atan2(s.vy, s.vx), L = 130, pw = 1 + 0.25 * Math.sin(now / 30 + s.x);
-      g.save(); g.translate(x, y); g.rotate(a);
-      g.lineCap = "round";
-      const og = g.createLinearGradient(-L, 0, 0, 0);
-      og.addColorStop(0, "rgba(60,200,255,0)"); og.addColorStop(1, "rgba(60,200,255,0.35)");
-      g.strokeStyle = og; g.lineWidth = 18 * pw; g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
-      const lg = g.createLinearGradient(-L, 0, 0, 0);
-      lg.addColorStop(0, "rgba(125,249,255,0)"); lg.addColorStop(1, "rgba(160,250,255,0.85)");
-      g.strokeStyle = lg; g.lineWidth = 7; g.beginPath(); g.moveTo(-L * 0.9, 0); g.lineTo(0, 0); g.stroke();
-      g.strokeStyle = "rgba(255,255,255,0.95)"; g.lineWidth = 2.5;
-      g.beginPath(); g.moveTo(-L * 0.75, 0); g.lineTo(4, 0); g.stroke();
-      const hg = g.createRadialGradient(2, 0, 0, 2, 0, 16 * pw);
-      hg.addColorStop(0, "rgba(255,255,255,0.95)"); hg.addColorStop(1, "rgba(125,249,255,0)");
-      g.fillStyle = hg; g.beginPath(); g.arc(2, 0, 16 * pw, 0, 6.29); g.fill();
-      g.restore();
-      return;
-    }
-    if (s.kind === K.ROCKET || s.kind === K.HROCKET) {   // a rocket the size of a rocket (it used to be drawn twice as big)
+
+    if (s.kind === K.ROCKET) {   // a rocket the size of a rocket (it used to be drawn twice as big)
       const a = Math.atan2(s.vy, s.vx), fl = 1 + Math.sin(now / 25 + s.x) * 0.25;
       g.save(); g.translate(x, y); g.rotate(a); g.scale(1.15, 1.15);
       const fg = g.createLinearGradient(-34 * fl, 0, -8, 0);
@@ -300,13 +265,6 @@
       bg.addColorStop(0, "#f4f1ff"); bg.addColorStop(1, "#a59cc8");
       g.fillStyle = bg; rrect(-10, -4.5, 20, 9, 4); g.fill();
       g.fillStyle = "#ff5a6e"; g.beginPath(); g.moveTo(10, -4.5); g.quadraticCurveTo(18, 0, 10, 4.5); g.fill();
-      if (s.kind === K.HROCKET && Math.floor(now / 140 + s.x) % 2) {   // homing seeker light blinking on the nose
-        g.globalCompositeOperation = "lighter";
-        const sg = g.createRadialGradient(13, 0, 0, 13, 0, 9);
-        sg.addColorStop(0, "rgba(255,255,255,0.95)"); sg.addColorStop(1, "rgba(255,60,80,0)");
-        g.fillStyle = sg; g.beginPath(); g.arc(13, 0, 9, 0, 6.29); g.fill();
-        g.globalCompositeOperation = "source-over";
-      }
       g.globalCompositeOperation = "lighter";
       g.restore();
       return;

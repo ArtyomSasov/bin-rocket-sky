@@ -3,11 +3,10 @@
   // the input picks one, and both triggers work by the rules shoot() keeps for the local pilot
   // (11-weapons.js). What only a screen can do fires in its plain form: a guided nuke flies straight.
   //   input: { w: the gun's index in WEAPON_KEYS, fire, alt: the triggers held }
-  const PILOT_FALLBACK = ["fire", "nuke", "holy", "saw"];   // never switched to when a gun runs dry
   function pilotArm(b) {
     const o = MODES[MODE].only;
     b.arsenal = o ? { [o]: Infinity } : { fire: Infinity }; b.weapon = o || "fire";
-    Object.assign(b, { rocketLoad: 0, loadFor: 0, spin: 0, charge: 0, altCharge: 0, heat: 0, overheat: false });
+    Object.assign(b, { rocketLoad: 0, loadFor: 0, spin: 0, charge: 0, altCharge: 0 });
     if (MODES[MODE].sandbox) for (const k of SANDBOX_GUNS) b.arsenal[k] = Infinity;   // the test range: everything, for ever (as baseArsenal)
   }
   const pilotShots = (b, kind) => shots.filter(s => s.owner === b.id && s.life > 0 && !s.boom && s.kind === kind);
@@ -21,7 +20,7 @@
     b.arsenal[k] = Math.max(0, b.arsenal[k] - n);
     if (b.arsenal[k] > 0 || pilotShots(b, controlledKind(k)).length) return;   // mines and the orb stay to be set off
     delete b.arsenal[k];
-    if (b.weapon === k) b.weapon = WEAPON_KEYS.find(w => !PILOT_FALLBACK.includes(w) && b.arsenal[w]) || "fire";
+    if (b.weapon === k) b.weapon = WEAPON_KEYS.find(w => !NO_AUTO_PICK.includes(w) && b.arsenal[w]) || "fire";
   }
   // what the snapshot tells the player about their arsenal: [gun index, ammo] (-1: endless)
   const pilotArsenalWire = b => Object.entries(b.arsenal).map(([k, n]) => [WEAPON_KEYS.indexOf(k), Number.isFinite(n) ? Math.ceil(n) : -1]);
@@ -77,7 +76,6 @@
     }
     const k = only || b.weapon, w = WEAPONS[k], alt = w.alt, live = roundLive && !b.dead, ready = live && b.fireCd <= 0;
     if (k === "saw" && live) bladeTouch(b, now, b.charge || 0, bots.map(o => [o.id, o]));
-    b.heat = Math.max(0, b.heat - 0.45 * dt); if (b.overheat && b.heat < 0.3) b.overheat = false;
     b.spin = w.spin && i.fire && live ? Math.min(1, b.spin + dt / w.spin[2]) : Math.max(0, b.spin - dt * 1.5);
     // rockets, as rocketLoadTick has them: the press loads one, holding loads another every ROCKET_LOAD seconds; when
     // full (three, or what is carried) the salvo goes by itself, and letting go fires what is loaded
@@ -122,10 +120,6 @@
       const o = pilotShots(b, K.GAMMA).pop();
       if (!o) return refuse();
       volley(b, now, DETONATOR, { x: o.x, y: o.y }); b.fireCd = pat.cd; return;
-    }
-    if (alt && pat.heat) {
-      if (b.overheat) return;
-      b.heat += pat.heat; if (b.heat >= 1) b.overheat = true;
     }
     if (alt && pat.nova) mul *= 0.55 + 0.45 * b.altCharge;
     if (alt && pat.mul) mul *= pat.mul;   // (as the screen)   // (as the screen charges it)

@@ -3,7 +3,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { skip, createMatch, loadGame } = require('./helpers/game.cjs');
-const { run, emptyField } = require('./helpers/match.cjs');
+const { clock, run, emptyField, wire } = require('./helpers/match.cjs');
 
 const cmd = (s, mx, my, aim, boost, brake, dash) => [s, Math.round(mx * 1000), Math.round(my * 1000), Math.round(aim * 1000), (boost ? 1 : 0) | (brake ? 2 : 0), dash];
 const asCommand = e => ({ s: e[0], mx: e[1] / 1000, my: e[2] / 1000, aim: e[3] / 1000, boost: !!(e[4] & 1), brake: !!(e[4] & 2), dash: e[5] });
@@ -29,8 +29,8 @@ test('the server\'s state after any command, flown on with the commands after it
     const seen = {};
     for (let s = 1; s <= 240; s++) {
       m.input(id, { c: cmds.slice(Math.max(0, s - 4), s) });   // four at a time, as a page sends them
-      m.step(1 / 60, 2e6 + s * 1000 / 60);
-      const me = m.packet(2e6 + s * 1000 / 60).bots.find(e => e[0] === id)[1];
+      clock.t += 1000 / 60; m.step(1 / 60, clock.t);
+      const me = wire(m, id);
       if (s === 120) Object.assign(seen, { ak: me.ak, mv: me.mv });
       if (s === 240) Object.assign(seen, { endAk: me.ak, endMv: me.mv });
     }
@@ -47,7 +47,7 @@ test('crashing about a station, nothing but its commands moves a player\'s pilot
   const m = await createMatch({ code: 'm1x0kchk' });   // Cargo Deck: walls and props to bump into
   try {
     const id = m.addPilot('P'), b = m.game.__simBot(id), M = m.game.__simMove, shadow = { lv: 1, inv: 0 };
-    let t = 3e6; const step = () => { t += 1000 / 60; m.step(1 / 60, t); };
+    const step = () => { clock.t += 1000 / 60; m.step(1 / 60, clock.t); };
     for (let i = 0; i < 10; i++) step();
     let compared = 0;
     for (let s = 1; s <= 1500; s++) {
@@ -70,7 +70,7 @@ test('commands are flown against the clock: sent faster than time they gain noth
     const id = m.addPilot('Pilot'), b = m.game.__simBot(id);
     run(m, 0.1);
     Object.assign(b, { x: 600, y: 1300, vx: 0, vy: 0 });
-    let s = 0, t = 4e6; const step = () => { t += 1000 / 60; m.step(1 / 60, t); };
+    let s = 0; const step = () => { clock.t += 1000 / 60; m.step(1 / 60, clock.t); };
     for (let k = 0; k < 60; k++) { const c = []; for (let j = 0; j < 4; j++) c.push(cmd(++s, 1, 0, 0, false, false, 0)); m.input(id, { c }); step(); }
     assert.ok(b.mt <= 1.12, `a second flew ${(b.mt * 60).toFixed(0)} commands' worth, not 240`);
     for (let k = 0; k < 40; k++) m.input(id, { c: [] });

@@ -30,7 +30,9 @@
     for (const [, a, b] of String(code).slice(1).matchAll(/([01])([a-z0-9])/g)) o[a + (/\d/.test(b) ? "d" : "l")] = b;
     return { mode: o["1l"], map: o["0l"], time: o["1d"], score: o["0d"] };
   };
-  const mapThemeOf = code => MAPS[codeOpts(code).map] ? codeOpts(code).map : "c";
+  // the map a code names ("c" if none): asked many times a step (stationMap), so the last answer is kept
+  let themeCode = null, themeOf = "c";
+  const mapThemeOf = code => { if (code !== themeCode) { const m = codeOpts(code).map; themeCode = code; themeOf = MAPS[m] ? m : "c"; } return themeOf; };
   let W = 4200, H = 4200;
   const BOT = 84;                    // sprite size on screen
   const binR = lv => 14 + 26 * sizeOf(lv || 1);   // a bin's hit circle: the same on the victim's screen and the shooter's

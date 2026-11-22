@@ -1,4 +1,4 @@
-  // smoke over the bins, impact flashes, rail trails, chain lightning, shock rings, nuke blasts
+  // smoke over the bins, impact flashes, rail trails, zaps, shock rings, nuke blasts
   function drawBlastFx(now) {
     // smoke on top of the bins, so a damaged bin visibly smokes
     let hot = 0, fire = 0;
@@ -160,7 +160,7 @@
       }
       g.globalAlpha = 1;
     }
-    for (const q of arcs) {   // chain lightning
+    for (const q of arcs) {   // zaps and arcs
       const k = 1 - q.t / 0.3, x1 = sx(q.x1), y1 = sy(q.y1), x2 = sx(q.x2), y2 = sy(q.y2), L = Math.hypot(x2 - x1, y2 - y1) || 1, nx = (x2 - x1) / L, ny = (y2 - y1) / L;
       const pts = [[x1, y1]];
       for (let s2 = 1; s2 < 8; s2++) { const t = s2 / 8, o = (Math.random() - 0.5) * 30; pts.push([x1 + (x2 - x1) * t - ny * o, y1 + (y2 - y1) * t + nx * o]); }

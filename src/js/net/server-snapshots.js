@@ -148,7 +148,7 @@
     // A prediction this screen refused (too many shots alive) is not recorded, so the server's copy still shows.
     if (addRemoteShot(srv.id, d, Date.now(), true) === true) srv.pred.push({ kind: s.kind, at: performance.now(), n: srv.pseq - 1 }); if (srv.pred.length > 48) srv.pred.shift();
     stats.shots++;
-    return { ...s, mine: false, owner: srv.id, id: d[0] };   // for the caller: where it left from, whose it is (a saw recall), its id here
+    return { ...s, mine: false, owner: srv.id, id: d[0] };   // for the caller: where it left from, whose it is, its id here
   }
   // a shot of mine from the server that this screen already showed: the oldest shown one of its kind, if recent
   // (id: the server's id for it, which ends in the server's number for the shot: from it, how the numbering of my

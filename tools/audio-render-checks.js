@@ -62,9 +62,9 @@ async function checkContinuousAudio() {
     ok(!started.includes(packBuf.p_loop_minigun[0]),'no buzzing minigun loop');
     continuousFire('me','minigun',me.x,me.y,now+1000,true);ok(started.includes(packBuf.p_ut_mini_alt[0]),'alternate minigun sound');
     stopContinuous('me');ok(started.includes(packBuf.p_ut_mini_stop[0]),'minigun winddown');ok(!packLoops['fire:me'],'minigun stop');me.weapon=oldWeapon;
-    for(const id of ['laserA','laserB']) {remotes.set(id,{x:me.x+100,y:me.y,weapon:'laser'});shotSound(K.LASER,me.x+100,me.y,id);}
+    for(const id of ['laserA','laserB']) {remotes.set(id,{x:me.x+100,y:me.y,weapon:'laser'});shotSound(K.PULSE_BOLT,me.x+100,me.y,id);}
     ok(firingSounds.has('laserA')&&firingSounds.has('laserB'),'independent remote laser starts');
-    ok(packLoops['fire:laserA'].src.buffer===packBuf.p_ut_pulse_bolt[0],'remote Pulse beam uses supplied loop');
+    ok(packLoops['fire:laserA'].src.buffer===packBuf.p_ut_pulse_fire[0],'remote Pulse Gun fire uses its supplied recording');
     continuousAudioTick(now+2000);ok(!firingSounds.size,'stale remote beams stop');
     const saved=sfxVoices;sfxVoices=29;const count=started.length;sfx('hit',1);sfx('p_kill',0.5);sfx('p_warning',0.5);sfxVoices=saved;
     ok([sfxBuf.hit,packBuf.p_kill[0],packBuf.p_warning[0]].every(b=>b&&started.slice(count).includes(b)),'damage, kill and warning survive weapon voice exhaustion');

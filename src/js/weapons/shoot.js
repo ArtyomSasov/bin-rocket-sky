@@ -1,5 +1,5 @@
   // fire the gun in hand (alt: its alternate fire, which needs its full ammo cost)
-  // mul: the charge cannon's charge (0.25..1)
+  // mul: what the shots are multiplied by (Quad damage, a charge)
   function shoot(now, alt, mul = 1, loadedRockets = 0) {
     const k = me.weapon, w = WEAPONS[k];
     let pat = alt ? w.alt : w;
@@ -27,11 +27,6 @@
       volley(me, now, DETONATOR, { x: o.x, y: o.y }); fireCd = pat.cd; sfx(...pat.sfx);
       return;
     }
-    if (alt && pat.heat) {   // the minigun's burst heats the barrels; overheated, it must cool before it fires again
-      if (me.overheat) return;
-      me.heat = (me.heat || 0) + pat.heat;
-      if (me.heat >= 1) { me.overheat = true; floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: "OVERHEAT", gold: false }); sfx("shield_hit", 0.7, 0.6); }
-    }
     const cdMul = MODES[MODE].cdMul || 1;
     if (alt && w.quickAlt) { me.altCd = pat.cd; fireCd = Math.max(fireCd, 0.15); } else
     fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
@@ -53,7 +48,7 @@
     }
     if (!serverRun) spend(k, alt ? pat.cost : 1);   // on the server, ammo is its count
   }
-  // ---- the minigun spins up while the trigger is held; the charge cannon charges while held and fires on release
+  // ---- the minigun spins up while the trigger is held; the Blood Blade winds up while held and strikes on release
   let spin = 0, charge = 0, altCharge = 0;   // altCharge: a charged alt (the Plasma Nova), held
   let miniHeat = 0;   // how hot the minigun's barrels are: they smoke for a while after it stops
   const MINI_SMOKE = ["rgb(150,152,165)", "rgb(170,170,182)", "rgb(130,132,148)"];

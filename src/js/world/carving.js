@@ -3,7 +3,7 @@
     const t = performance.now(); if (t - surfT > 16) { surfT = t; surfN = 0; }
     if (++surfN > (lowQ ? 3 : 8)) return;
     const S = SHOTS[kind] || {}, carve = S.carve || 0, mat = materialOf(b), [nx, ny] = normalAt(b, x, y), out = Math.atan2(ny, nx), q = lowQ ? 0.5 : 1;
-    if (carve >= WALL_CARVE) {   // (rockets, grenades, mines, the orbs, gauss, the disc)
+    if (carve >= WALL_CARVE) {   // (rockets, grenades, mines, the orbs)
       const big = Math.max(carve, 40) * (b.wall ? WALL_GIVE : 1);
       chunksOff(b, x, y, Math.round((lowQ ? 3 : 7) + Math.random() * 3), big * 0.32, 380, b.wall ? 0.3 : 0.1);   // big pieces
       wallBreach(b, x, y, big);

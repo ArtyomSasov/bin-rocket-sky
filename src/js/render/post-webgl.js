@@ -149,7 +149,7 @@
         const big = m.r > 200, fire = !!m.flick;
         fluid.splat(m.x, m.y, m.r * 0.4, fire ? [0.26, 0.22, 0.21] : [0.34, 0.32, 0.34], big ? 1.1 : 0.8, 0, 0, m.r * 3.2);   // (thin: a blast's smoke must not hide the fight)
       }
-      for (const s of shots) if ((s.kind === K.ROCKET || s.kind === K.HROCKET || s.kind === K.NUKE) && s.life > 0) fluid.splat(s.x, s.y, 16, [0.5, 0.48, 0.5], 0.09, -s.vx * 0.25, -s.vy * 0.25);
+      for (const s of shots) if ((s.kind === K.ROCKET || s.kind === K.NUKE) && s.life > 0) fluid.splat(s.x, s.y, 16, [0.5, 0.48, 0.5], 0.09, -s.vx * 0.25, -s.vy * 0.25);
         else if (s.kind === K.GAMMA && s.life > 0) { const sp = Math.hypot(s.vx, s.vy) || 1; fluid.splat(s.x - s.vx / sp * 55 + (Math.random() - 0.5) * 30, s.y - s.vy / sp * 55 + (Math.random() - 0.5) * 30, 30, [0.05, 0.015, 0.025], 0.3, -s.vx * 0.4 + (Math.random() - 0.5) * 300, -s.vy * 0.4 + (Math.random() - 0.5) * 300); }   // its black smoke, left behind it
       // a bin stirs it as it passes, and its engine breathes smoke into it (much more on boost)
       const stir = o => {
@@ -198,7 +198,7 @@
       return lamps;
     }
     const rgbOf = c => { if (c[0] === "#") { const v = parseInt(c.slice(1, 7), 16); return [(v >> 16 & 255) / 255, (v >> 8 & 255) / 255, (v & 255) / 255]; } const p = c.replace(/[^\d.,]/g, "").split(",").map(Number); return [p[0] / 255, p[1] / 255, p[2] / 255]; };
-    const SHOT_LIGHT = { [K.ROCKET]: [260, 0.55, 0.45], [K.HROCKET]: [260, 0.55, 0.45], [K.ORB]: [300, 0.6], [K.GAMMA]: [220, 0.3], [K.NUKE]: [380, 0.7, 0.6], [K.HOLY]: [420, 0.7, 0.3], [K.GREN]: [150, 0.3], [K.PULSE_BOLT]: [150, 0.35], [K.VOID]: [260, 0.5] };
+    const SHOT_LIGHT = { [K.ROCKET]: [260, 0.55, 0.45], [K.ORB]: [300, 0.6], [K.GAMMA]: [220, 0.3], [K.NUKE]: [380, 0.7, 0.6], [K.HOLY]: [420, 0.7, 0.3], [K.GREN]: [150, 0.3], [K.PULSE_BOLT]: [150, 0.35], [K.VOID]: [260, 0.5] };
     function gatherLights(now) {
       const list = [], cx = cam.x, cy = cam.y, hw = vw / 2, hh = vh / 2;
       // score: what goes first when there are more than 16 (a lamp counts for less the further it is)

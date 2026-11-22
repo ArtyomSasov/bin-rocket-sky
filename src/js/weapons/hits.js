@@ -33,7 +33,7 @@
   function pelletShove(o, s, f = 150) { const v = Math.hypot(s.vx, s.vy) || 1; o.vx += s.vx / v * f; o.vy += s.vy / v * f; }
   // one volley from any pilot, me or a bot: the shots go out, get logged for the network, and the last one is returned
   // (muzzle effects start from it). pat: a weapon or its alt (shot, spread, back); from: the gun's muzzle, if known
-  // mul: extra damage (the charge cannon's charge), sent along with Overdrive's
+  // mul: extra damage (a charge, Quad damage), sent with the shot
   const FIRE_TWIN = { ...WEAPONS.fire, spread: [-0.05, 0.05] };
   // a gun's random spread follows from whose shot it is and its number, not from Math.random: the server's copy of a
   // player's shot then flies exactly where that player's screen showed it (12c-server.js learns the server's numbers)

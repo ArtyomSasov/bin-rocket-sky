@@ -10,7 +10,7 @@
   // the crosshair: a ring ahead of the bin on the line its shots take, in the gun's colour; red and tighter when
   // someone you can hurt is on that line
   function drawAim(now) {
-    if (charge > 0 && playing && !me.dead && !WEAPONS[me.weapon]?.sword) {   // (the sword shows its wind-up on the blade itself)   // the charge cannon filling up: a ring round the bin, white-hot when full
+    if (charge > 0 && playing && !me.dead && !WEAPONS[me.weapon]?.sword) {   // (the sword shows its wind-up on the blade itself)   // a charge filling up: a ring round the bin, white-hot when full
       const x = sx(me.x), y = sy(me.y), R = 70 * sizeOf(me.lv), full = charge >= 1;
       g.save(); g.lineCap = "round";
       g.strokeStyle = "rgba(127,184,255,0.25)"; g.lineWidth = 6; g.beginPath(); g.arc(x, y, R, 0, 6.29); g.stroke();

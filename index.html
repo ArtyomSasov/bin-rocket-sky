@@ -770,7 +770,9 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     for (const [, a, b] of String(code).slice(1).matchAll(/([01])([a-z0-9])/g)) o[a + (/\d/.test(b) ? "d" : "l")] = b;
     return { mode: o["1l"], map: o["0l"], time: o["1d"], score: o["0d"] };
   };
-  const mapThemeOf = code => MAPS[codeOpts(code).map] ? codeOpts(code).map : "c";
+  // the map a code names ("c" if none): asked many times a step (stationMap), so the last answer is kept
+  let themeCode = null, themeOf = "c";
+  const mapThemeOf = code => { if (code !== themeCode) { const m = codeOpts(code).map; themeCode = code; themeOf = MAPS[m] ? m : "c"; } return themeOf; };
   let W = 4200, H = 4200;
   const BOT = 84;                    // sprite size on screen
   const binR = lv => 14 + 26 * sizeOf(lv || 1);   // a bin's hit circle: the same on the victim's screen and the shooter's
@@ -918,7 +920,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   balanceShot(K.BULLET, { dmg: HP(14), life: .5 });
   balanceShot(K.BULLET_ALT, { name: "explosive round", dmg: HP(16), life: 0.9, r: 6, col: "#ff7a2a", carve: 14, shove: 60 });   // bursts where it lands: SPLASH
   balanceShot(K.PELLET, { dmg: HP(12), life: 0.62 });   // real pellets in flight (not hitscan): ~1100 px of reach
-  balanceShot(K.SLUG, { dmg: HP(60), life: 1.4 });
   balanceShot(K.GREN, { dmg: HP(100) });
   balanceShot(K.MELEE, { name: "blade touch", dmg: HP(6) });   // the Blood Blade touching a bin when it isn't swung (bladeTouch)
   balanceShot(K.MINE, { dmg: HP(100) });
@@ -947,7 +948,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
-  const SPLASH = { [K.BULLET_ALT]: [100, HP(24), 0, 170], [K.FLAK]: [210, HP(70), 0, 400], [K.MINE]: [262, HP(100), 0, 450], [K.HROCKET]: [308, HP(75), 0, 320], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [330, HP(140), HP(25), 800], [K.NOVA]: [300, HP(150), 0, 900] };   // (Plasma Nova: a full one kills a bin at its heart)
+  const SPLASH = { [K.BULLET_ALT]: [100, HP(24), 0, 170], [K.FLAK]: [210, HP(70), 0, 400], [K.MINE]: [262, HP(100), 0, 450], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [330, HP(140), HP(25), 800], [K.NOVA]: [300, HP(150), 0, 900] };   // (Plasma Nova: a full one kills a bin at its heart)
   const GAMMA_ZAP = { r: 280, every: 0.45, dmg: HP(6) };
   const NOVA_ZAP = { r: 260, every: 0.12, dmg: HP(12) };   // the nova lashes every enemy this close to its path, by its charge   // the gamma orb zaps every enemy this close as it flies
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
@@ -989,9 +990,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const scoreLimit = code => { const s = scoreOf(code); return s ? SCORE_OPTS[s][MODES[modeOf(code)].flags ? 1 : 0] : 0; };
   let MODE = "d";
   const TEAM_NAME = ["Red", "Blue"], TEAM_HEX = ["#ff5a6e", "#4fa8ff"], TEAM_RGB = ["255,90,110", "79,168,255"];
+  // the guns by their number on the wire (retired ones keep their place, so older pages still read the rest)
   const WEAPON_KEYS = ["fire", "triple", "laser", "rocket", "nuke", "scatter", "rail", "mine", "orb", "bolt", "shard", "holy", "saw", "gamma", "tele", "minigun", "gauss", "nail", "gren", "gauntlet", "void"];
-  // the order guns are numbered in on the wire (the old fireball and gauntlet first, as they were: kept for older pages)
-  const GUN_ORDER = ["fire", "gauntlet", ...WEAPON_KEYS.filter(k => k !== "fire" && k !== "gauntlet")];   // index is what goes over the network
   // rounds on the shared clock: ROUND_PLAY seconds of fighting (the lobby's time limit), then 15 seconds of results
   let ROUND_PLAY = 300, SCORE_LIMIT = 0;
   const ROUND_BREAK = 15;
@@ -2689,7 +2689,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     refuse: ["p_noammo", 0.65, 1, 700], lowAmmo: ["p_warning", 0.35, 1.4, 1000],
     chargeCancel: ["p_powerdown", 0.35, 1.2, 200],
     shockCombo: ["p_ut_shock_combo", 1, 1, 120], shockBeam: ["p_ut_shock_alt", 0.9, 1, 100],
-    laserPulse: ["p_boom_orb", 0.75, 1.4, 150], demonicZap: ["p_hit_laser", 0.4, 0.6, 100],
+    demonicZap: ["p_hit_laser", 0.4, 0.6, 100],
     pickup: ["p_pickup", 0.4, 1, 80]
   };
   const cueTimes = new Map();
@@ -2771,7 +2771,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const ev = stationMap() ? { cyc: 0, active: false, warn: false } : eventAt(clockNow()), key = ev.cyc + ":" + (ev.warn ? "warn" : ev.active ? "active" : "quiet");
     if (key !== eventAudioKey) { if (ev.warn) audioCue("warning"); else if (ev.active) audioCue("event"); eventAudioKey = key; }
     packLoop("atmosphere", ev.active && ev.type === "blackhole" ? "p_blackhole" : "p_ambient", ev.active && ev.type === "blackhole" ? 0.12 : 0.025);
-    const nearby = shots.filter(s => s.life > 0 && !s.boom && [K.NUKE,K.ROCKET,K.HROCKET].includes(s.kind))
+    const nearby = shots.filter(s => s.life > 0 && !s.boom && [K.NUKE,K.ROCKET].includes(s.kind))
       .map(s => ({ s, d: Math.hypot(s.x-me.x,s.y-me.y) })).filter(o => o.d < 1200).sort((a,b)=>a.d-b.d).slice(0,6);
     const wanted = new Set();
     for (const {s,d} of nearby) {
@@ -3423,7 +3423,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   }
   // what a body is made of, for how a hit looks on it
   const materialOf = b => b.wall || b.fixed || b.kind === "station" || b.kind === "drum" || b.kind === "panel" || (WRECK_PAL[b.kind] && b.kind !== "crate") ? "metal" : b.kind === "crate" ? "wood" : "rock";
-  const ENERGY_HIT = new Set([K.LASER, K.PISTOL, K.PULSE, K.PULSE_BOLT, K.SHOCK, K.ORB, K.GAMMA]);
+  const ENERGY_HIT = new Set([K.PISTOL, K.PULSE_BOLT, K.SHOCK, K.ORB, K.GAMMA]);
   // a burn on a body's face (painted only where it still stands): black at the heart, scorched brown round it
   function scorchMark(b, x, y, r) {
     const [lx, ly] = toLocal(b, x, y), q = b.q;
@@ -3562,7 +3562,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const t = performance.now(); if (t - surfT > 16) { surfT = t; surfN = 0; }
     if (++surfN > (lowQ ? 3 : 8)) return;
     const S = SHOTS[kind] || {}, carve = S.carve || 0, mat = materialOf(b), [nx, ny] = normalAt(b, x, y), out = Math.atan2(ny, nx), q = lowQ ? 0.5 : 1;
-    if (carve >= WALL_CARVE) {   // (rockets, grenades, mines, the orbs, gauss, the disc)
+    if (carve >= WALL_CARVE) {   // (rockets, grenades, mines, the orbs)
       const big = Math.max(carve, 40) * (b.wall ? WALL_GIVE : 1);
       chunksOff(b, x, y, Math.round((lowQ ? 3 : 7) + Math.random() * 3), big * 0.32, 380, b.wall ? 0.3 : 0.1);   // big pieces
       wallBreach(b, x, y, big);
@@ -4271,38 +4271,39 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const raw = x + v * dt, phase = mod(raw - 40, 2 * (hi - 40));
     return [bounceIn(raw, 40, hi), phase < hi - 40 ? v : -v];
   }
-  // only where rock i is at that moment (no object, no key): a quick look before the whole rock is made. What it
-  // needs of the hashes is kept per rock: its offset for ever, its course for the round of the period it is on
+  // What a rock's hashes give it is kept per rock: its offset in the period for ever, and its course (where it set
+  // off, how fast, how big, how it spins, its key) for the round of the period it is on, so neither the world's tick
+  // nor a player's command (rockAt) works them out again each time
   const rockMemo = [];
-  function rockAt(i, now) {
+  function rockCourse(i, now) {
     let mm = rockMemo[i];
     if (!mm || mm.W !== W || mm.H !== H) mm = rockMemo[i] = { off: hash(i, 9, 9) * ROCK_PERIOD, gen: NaN, W, H };
-    const tt = now / 1000 + mm.off, gen = Math.floor(tt / ROCK_PERIOD), motion = rockMotion.get(i);
-    if (motion && motion.gen === gen) { const dt = Math.max(0, (now - motion.at) / 1000); rockXY[0] = bounceIn(motion.x + motion.vx * dt, 40, W - 40); rockXY[1] = bounceIn(motion.y + motion.vy * dt, 40, H - 40); return rockXY; }
+    const tt = now / 1000 + mm.off, gen = Math.floor(tt / ROCK_PERIOD);
     if (mm.gen !== gen) {
       const ang = hash(i, gen, 21) * 6.283, sp = 50 + hash(i, gen, 22) * 90;
-      mm.gen = gen; mm.x0 = hash(i, gen, 23) * W; mm.y0 = hash(i, gen, 24) * H; mm.vx = Math.cos(ang) * sp; mm.vy = Math.sin(ang) * sp;
+      Object.assign(mm, { gen, x0: hash(i, gen, 23) * W, y0: hash(i, gen, 24) * H, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+        r: 22 + hash(i, gen, 25) * 18, h26: hash(i, gen, 26), key: "m" + i + ":" + gen });
     }
-    const age = tt - gen * ROCK_PERIOD;
-    rockXY[0] = bounceIn(mm.x0 + mm.vx * age, 40, W - 40); rockXY[1] = bounceIn(mm.y0 + mm.vy * age, 40, H - 40);
+    mm.age = tt - gen * ROCK_PERIOD;
+    return mm;
+  }
+  // only where rock i is at that moment (no object, no key): a quick look before the whole rock is made
+  const rockXY = [0, 0];
+  function rockAt(i, now) {
+    const mm = rockCourse(i, now), motion = rockMotion.get(i);
+    if (motion && motion.gen === mm.gen) { const dt = Math.max(0, (now - motion.at) / 1000); rockXY[0] = bounceIn(motion.x + motion.vx * dt, 40, W - 40); rockXY[1] = bounceIn(motion.y + motion.vy * dt, 40, H - 40); return rockXY; }
+    rockXY[0] = bounceIn(mm.x0 + mm.vx * mm.age, 40, W - 40); rockXY[1] = bounceIn(mm.y0 + mm.vy * mm.age, 40, H - 40);
     return rockXY;
   }
-  const rockXY = [0, 0];
   function rock(i, now) {
-    const tt = now / 1000 + hash(i, 9, 9) * ROCK_PERIOD;
-    const gen = Math.floor(tt / ROCK_PERIOD), age = tt - gen * ROCK_PERIOD;
-    const ang = hash(i, gen, 21) * 6.283, sp = 50 + hash(i, gen, 22) * 90;
+    const mm = rockCourse(i, now), gen = mm.gen, age = mm.age;
     const motion = rockMotion.get(i);
     if (motion && motion.gen !== gen) rockMotion.delete(i);
     const moved = motion && motion.gen === gen;
     const dt = moved ? Math.max(0, (now - motion.at) / 1000) : age;
-    const [x, vx] = rockAxis(moved ? motion.x : hash(i, gen, 23) * W, moved ? motion.vx : Math.cos(ang) * sp, dt, W - 40);
-    const [y, vy] = rockAxis(moved ? motion.y : hash(i, gen, 24) * H, moved ? motion.vy : Math.sin(ang) * sp, dt, H - 40);
-    return {
-      key: "m" + i + ":" + gen, slot: i, gen, x, y, vx, vy,
-      r: 22 + hash(i, gen, 25) * 18, seed: i * 977 + gen,
-      spin: age * (hash(i, gen, 26) - 0.5) * 2, age
-    };
+    const [x, vx] = rockAxis(moved ? motion.x : mm.x0, moved ? motion.vx : mm.vx, dt, W - 40);
+    const [y, vy] = rockAxis(moved ? motion.y : mm.y0, moved ? motion.vy : mm.vy, dt, H - 40);
+    return { key: mm.key, slot: i, gen, x, y, vx, vy, r: mm.r, seed: i * 977 + gen, spin: age * (mm.h26 - 0.5) * 2, age };
   }
   // Exchange normal momentum with restitution 0.6. Tangential velocity is unchanged.
   function collideRock(pilot, k) {
@@ -5201,10 +5202,10 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // the rock it meets), 5 burnt (it burns, chars and crumbles to ash), 6 sawn into four by a blade
   const DEATH_KINDS = 6;
   const deathStyleOf = kind => kind === K.RAIL || kind === K.SWORD ? 1
-    : kind === K.LASER || kind === K.GAMMA || kind === K.SHOCK || kind === K.PULSE ? 2 : kind === K.ORB ? 3
+    : kind === K.GAMMA || kind === K.SHOCK ? 2 : kind === K.ORB ? 3
     : kind === K.FIRE ? 5 : kind === K.MELEE ? 6 : 0;
   // pieces for a blast (2-4), a hulk sometimes for the rest
-  const BLASTS = new Set([K.ROCKET, K.HROCKET, K.GREN, K.MINE, K.NUKE, K.HOLY, K.FLAK, K.SHARD, K.PELLET, K.SLUG]);
+  const BLASTS = new Set([K.ROCKET, K.GREN, K.MINE, K.NUKE, K.HOLY, K.FLAK, K.SHARD, K.PELLET]);
   const deathPiecesOf = kind => BLASTS.has(kind) ? 3 + Math.floor(Math.random() * 2) : 1 + Math.floor(Math.random() * 4);
   // A bin killed by a blast, a slug, lightning or a blade is first thrown by the blow: it flies off the way the killing
   // shot went, tumbling, burning and trailing smoke, sparks and oil, and goes up where it slams into something (or
@@ -5536,16 +5537,15 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
 
   // how someone else's shot sounds here (quieter with distance)
   // which gun a shot kind comes from, for a sound pack's gun sounds
-  const KIND_GUN = { [K.SWORD]: "saw", [K.PULSE_BOLT]: "laser", [K.PISTOL]: "fire", [K.NUKE]: "nuke", [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.SLUG]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
-    [K.LASER]: "laser", [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.GREN]: "gren", [K.HROCKET]: "rocket", [K.SHARD]: "shard", [K.FLAK]: "shard" };
+  const KIND_GUN = { [K.SWORD]: "saw", [K.PULSE_BOLT]: "laser", [K.PISTOL]: "fire", [K.NUKE]: "nuke", [K.BULLET]: "minigun", [K.PELLET]: "scatter", [K.ROCKET]: "rocket", [K.ORB]: "orb", [K.RAIL]: "rail",
+    [K.GAMMA]: "gamma", [K.MINE]: "mine", [K.GREN]: "gren", [K.SHARD]: "shard", [K.FLAK]: "shard" };
   const shotSound = (kind, x, y, owner = "unknown") => {
     if (kind === K.BULLET_ALT) { stopContinuous(owner); packPlay("p_user_autocannon", 0.5, x, y); return; }   // an explosive round: each one a heavy thump
-    if (kind === K.PULSE_BOLT || kind === K.LASER || kind === K.BULLET) { if (continuousFire(owner, kind === K.LASER || kind === K.PULSE_BOLT ? "laser" : "minigun", x, y, performance.now(), kind === K.BULLET_ALT || kind === K.LASER)) return; }
-    if (kind !== K.PULSE_BOLT && kind !== K.LASER && kind !== K.BULLET) stopContinuous(owner);
+    if (kind === K.PULSE_BOLT || kind === K.BULLET) { if (continuousFire(owner, kind === K.PULSE_BOLT ? "laser" : "minigun", x, y, performance.now())) return; }
+    if (kind !== K.PULSE_BOLT && kind !== K.BULLET) stopContinuous(owner);
     if (kind === K.NOVA) { packPlay("p_nova", 0.8, x, y); return; }
     if (kind === K.FLAK) { packPlay("p_ut_flak_alt", .8, x, y); return; }
     if (kind === K.SHOCK) { audioCue("shockBeam", x, y); return; }
-    if (kind === K.PULSE) { audioCue("laserPulse", x, y); return; }
     if (kind === K.MELEE || kind === K.SWORD) return;   // a blade's swing sounds as its bin swings it (swingStart)
     if (KIND_GUN[kind] && packPlay("p_fire_" + KIND_GUN[kind], 0.75, x, y)) return;
     const [name, vol, pitch] = SHOTS[kind].sfx; sfx(name, vol, pitch, x, y);
@@ -5613,7 +5613,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // segment: without it a fireball or a rocket arrives on the victim's screen 150-250 px behind where its shooter
   // saw it. Homing, bouncing and sticking shots keep their own flight and start late instead.
   const straightShot = kind => STRAIGHT.has(kind);
-  const STRAIGHT = new Set([K.BULLET_ALT, K.PULSE_BOLT, K.BULLET, K.PELLET, K.SLUG, K.ROCKET, K.FLAK, K.ORB, K.GAMMA]);
+  const STRAIGHT = new Set([K.BULLET_ALT, K.PULSE_BOLT, K.BULLET, K.PELLET, K.ROCKET, K.FLAK, K.ORB, K.GAMMA]);
   // dash and respawn protection: a protected bin is not there for a shot, which flies on through it instead
   // of stopping on it (my bots and I keep the time it ends, the others send a flag)
   const shielded = o => typeof o.inv === "number" ? performance.now() < o.inv : !!o.inv;
@@ -5706,11 +5706,11 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     return found ? Math.min(range, first + 0.5) : range;
   }
   const pierces = s => SHOTS[s.kind].pierce || !!s.pc;   // rail-like shots, and fireballs from Lv 7
-  // Piercing shots hit each target once per pass; a recalled saw gets one new return pass.
+  // Piercing shots hit each target once.
   function railOnce(s, key) { if (!s.hits) s.hits = new Set(); if (s.hits.has(key)) return false; s.hits.add(key); return true; }
   // its beam is drawn at once along the whole path, so the shot reads as instant
   const beams = [];
-  const arcs = [];   // lightning jumping from the bin it hit to the next one
+  const arcs = [];   // crackling arcs between two points (zaps, blasts, fire), drawn for a moment
   const BEAM_T = 1.1;   // a rail trail lingers: the hot core goes fast, the spiral slowly unwinds
   function beamReach(s) {
     const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v;
@@ -5720,7 +5720,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     // The station shell blocks even penetrating weapons; old maps keep their terrain cutting.
     // An inner wall stops it too, where it is still standing, unless the beam is heavy enough to break it (it cuts
     // its way through: carveBeam)
-    // (a rail or gauss slug drills into it: it bores RAIL_DRILL px into the wall and stops there, so a wall is drilled
+    // (a rail slug drills into it: it bores RAIL_DRILL px into the wall and stops there, so a wall is drilled
     // through by a few shots in one place, not shot through by one)
     const heavy = (s.cut || SHOTS[s.kind].carve) >= WALL_CARVE || s.kind === K.RAIL, drill = false;   // (a rail slug cuts clean through)
     for (const b of bodies) if (b.fixed || (b.wall && !b.dead && !b.free && !heavy)) {
@@ -5754,21 +5754,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       if (e.hit === "body" && Math.random() < 0.5) puff(e.x, e.y, (Math.random() - 0.5) * 30, -20 - Math.random() * 30, 0.6, 3 + Math.random() * 3, "rgb(255,140,60)", 1);   // the rock glows and melts
     }
   }
-  // homing: turns gently toward the nearest enemy ahead of it, never faster than a bin flies, so boost or a dash escapes it
-  function steerRocket(s, dt) {
-    const cur = Math.atan2(s.vy, s.vx);
-    let best = null, bd = 1100;
-    const consider = (o, x, y) => {
-      const d = Math.hypot(x - s.x, y - s.y);
-      if (d < bd && Math.abs(angD(Math.atan2(y - s.y, x - s.x) - cur)) < 1.25) { bd = d; best = { x, y }; }
-    };
-    if (canHurt(s, me, "me")) consider(me, me.x, me.y);
-    for (const [id, r] of remotes) if (!botById.has(id) && canHurt(s, r, id)) consider(r, r.x, r.y);   // my bots: from bots below
-    for (const b of bots) if (canHurt(s, b, b.id) && !(s.mine && botById.has(b.id))) consider(b, b.x, b.y);
-    const na = best ? cur + clamp(angD(Math.atan2(best.y - s.y, best.x - s.x) - cur), -2.3 * dt, 2.3 * dt) : cur;
-    const sp = Math.min(560, Math.hypot(s.vx, s.vy) + 380 * dt);
-    s.vx = Math.cos(na) * sp; s.vy = Math.sin(na) * sp;
-  }
   // the blast of a rocket or a plasma orb, wherever it ends: everyone sees it, and it hurts me and my bots nearby
   // (whoever took the direct hit, s.direct, already got its damage)
   function splash(s, now) {
@@ -5778,7 +5763,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     s.splashed = true;
     const [R0, hi, lo, push] = SPLASH[s.kind], m = s.m || 1;
     // blasts dig: grenades, mines and homing rockets that go off near rock bite craters out of it
-    const dig = { [K.GREN]: 62, [K.MINE]: 58, [K.HROCKET]: 46 }[s.kind], own = s.mine || botById.has(s.owner);
+    const dig = { [K.GREN]: 62, [K.MINE]: 58 }[s.kind], own = s.mine || botById.has(s.owner);
     if (dig && !s.surfFx) { const b = solidAny(s.x, s.y) || bodies.find(o => !o.dead && Math.hypot(o.x - s.x, o.y - s.y) - o.r < dig * 0.6); if (b) { s.surfFx = true; surfaceHit(b, s.x, s.y, s.kind); } }   // (the breach, seen by everyone; before the crater, so its pieces have a face to come from)
     if (dig) for (const b of [...bodies]) if (Math.hypot(b.x - s.x, b.y - s.y) - b.r < dig && (own || b.free)) carveAt(b, s.x, s.y, dig, own);
     const hit = (o, id, rad) => {
@@ -5922,7 +5907,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   function pelletShove(o, s, f = 150) { const v = Math.hypot(s.vx, s.vy) || 1; o.vx += s.vx / v * f; o.vy += s.vy / v * f; }
   // one volley from any pilot, me or a bot: the shots go out, get logged for the network, and the last one is returned
   // (muzzle effects start from it). pat: a weapon or its alt (shot, spread, back); from: the gun's muzzle, if known
-  // mul: extra damage (the charge cannon's charge), sent along with Overdrive's
+  // mul: extra damage (a charge, Quad damage), sent with the shot
   const FIRE_TWIN = { ...WEAPONS.fire, spread: [-0.05, 0.05] };
   // a gun's random spread follows from whose shot it is and its number, not from Math.random: the server's copy of a
   // player's shot then flies exactly where that player's screen showed it (12c-server.js learns the server's numbers)
@@ -6031,12 +6016,11 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (s.kind === K.MINE) { blastFx(s); return; }
     if (SPLASH[s.kind]) blastFx(s);
     else {
-      const ev = s.kind === K.SHARD ? "p_ric" : s.kind === K.BULLET ? "p_hit_bullet" : s.kind === K.LASER ? "p_hit_laser" : s.kind === K.RAIL ? "p_boom_orb" : "";
+      const ev = s.kind === K.SHARD ? "p_ric" : s.kind === K.BULLET ? "p_hit_bullet" : s.kind === K.RAIL ? "p_boom_orb" : "";
       if (ev) packPlay(ev, 0.6, s.x, s.y); else sfx("hit", 0.55, 1.1, s.x, s.y);
     }
     if (s.kind === K.RAIL) sparkShower(s.x, s.y, s.vx / 4200, s.vy / 4200, 1.2);
     if (s.kind === K.PELLET) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
-    if (s.kind === K.SLUG) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
     if (s.kind === K.SHARD) { sparkShower(s.x, s.y, s.vx / 1300, s.vy / 1300, 1.1); shake = Math.max(shake, 0.08); }
     if (s.kind === K.SWORD || s.kind === K.MELEE) {   // a blade bites: the cut of light, the glint, the warp, the spray, its clash
       const heavy = s.kind === K.SWORD, own = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
@@ -6058,7 +6042,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       sparkShower(s.x, s.y, -ux, -uy, 0.8);
       for (let k = 0, m = lowQ ? 3 : 7; k < m; k++) { const a = Math.atan2(-uy, -ux) + (Math.random() - 0.5) * 2.2, v = 350 + Math.random() * 550; puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.12 + Math.random() * 0.2, 0.8 + Math.random() * 0.8, k % 3 ? "#fff1b8" : "#ffb04a", 1, 0.05, 0, 0.92); }
       oilSplash(s.x, s.y, 3, 200, ux * 120, uy * 120);
-    } else if (s.kind === K.LASER || s.kind === K.PISTOL || s.kind === K.PULSE_BOLT || s.kind === K.SHOCK) {
+    } else if (s.kind === K.PISTOL || s.kind === K.PULSE_BOLT || s.kind === K.SHOCK) {
       for (let k = 0, m = lowQ ? 3 : 8; k < m; k++) { const a = Math.random() * 6.283, v = 120 + Math.random() * 300; puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.25 + Math.random() * 0.35, 1.2 + Math.random() * 1.2, k % 2 ? SHOTS[s.kind].col : "#ffffff", 5, 0, 0, 0.93); }
     }
     impact(s.x, s.y, SHOTS[s.kind].col, s.kind === K.ROCKET || s.kind === K.RAIL ? 2 : 1);
@@ -6114,7 +6098,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // the pack's sound for each alt fire (the rest keep their own)
   const ALT_SOUND = { fire: "", nuke: "p_ut_nuke_fire", mine: "p_fire_mine", scatter: "p_fire_nail", rocket: "p_fire_rocket", orb: "p_hit_laser", laser: "p_nova", gren: "p_fire_gren", rail: "p_fire_rail", shard: "p_ut_flak_alt" };
   // fire the gun in hand (alt: its alternate fire, which needs its full ammo cost)
-  // mul: the charge cannon's charge (0.25..1)
+  // mul: what the shots are multiplied by (Quad damage, a charge)
   function shoot(now, alt, mul = 1, loadedRockets = 0) {
     const k = me.weapon, w = WEAPONS[k];
     let pat = alt ? w.alt : w;
@@ -6142,11 +6126,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       volley(me, now, DETONATOR, { x: o.x, y: o.y }); fireCd = pat.cd; sfx(...pat.sfx);
       return;
     }
-    if (alt && pat.heat) {   // the minigun's burst heats the barrels; overheated, it must cool before it fires again
-      if (me.overheat) return;
-      me.heat = (me.heat || 0) + pat.heat;
-      if (me.heat >= 1) { me.overheat = true; floaters.push({ x: me.x, y: me.y - 60, t: 0, txt: "OVERHEAT", gold: false }); sfx("shield_hit", 0.7, 0.6); }
-    }
     const cdMul = MODES[MODE].cdMul || 1;
     if (alt && w.quickAlt) { me.altCd = pat.cd; fireCd = Math.max(fireCd, 0.15); } else
     fireCd = alt ? pat.cd : w.spin ? (w.spin[0] + (w.spin[1] - w.spin[0]) * spin) * cdMul : w.charge ? 0.3 : w.cd * cdMul;
@@ -6168,7 +6147,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     }
     if (!serverRun) spend(k, alt ? pat.cost : 1);   // on the server, ammo is its count
   }
-  // ---- the minigun spins up while the trigger is held; the charge cannon charges while held and fires on release
+  // ---- the minigun spins up while the trigger is held; the Blood Blade winds up while held and strikes on release
   let spin = 0, charge = 0, altCharge = 0;   // altCharge: a charged alt (the Plasma Nova), held
   let miniHeat = 0;   // how hot the minigun's barrels are: they smoke for a while after it stops
   const MINI_SMOKE = ["rgb(150,152,165)", "rgb(170,170,182)", "rgb(130,132,148)"];
@@ -6305,8 +6284,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (me.arsenal[k] > 0 || controlledShots(k).length) { renderAmmo(k); return; }
     delete me.arsenal[k];
     packPlay("p_noammo", 0.8);   // the empty click
-    // out of ammo: fall back to another gun you carry (never auto-pick the nuke), else the fireball
-    me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && w !== "holy" && w !== "void" && w !== "saw" && me.arsenal[w]) || "fire";
+    // out of ammo: fall back to another gun you carry (NO_AUTO_PICK aside), else the pistol
+    me.weapon = WEAPON_KEYS.find(w => !NO_AUTO_PICK.includes(w) && me.arsenal[w]) || "fire";
     renderWeapon();
   }
   // quick dodge: a burst forward (or toward where you steer) with a moment of invulnerability
@@ -6339,7 +6318,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const ammoFill = k => Number.isFinite(me.arsenal[k]) ? Math.min(1, (me.arsenal[k] || 0) / WEAPONS[k].ammo) : 1;
   const chipText = () => { const n = me.arsenal[me.weapon] || 0, alt = WEAPONS[me.weapon].alt, count = controlledShots(me.weapon).length;
     const armed = me.weapon === "mine" ? controlledShots("mine").filter(s => SHOTS[K.MINE].life - s.life >= MINE_ARM).length : 0;
-    return WEAPONS[me.weapon].name + (Number.isFinite(n) ? " · " + n : "") + (me.overheat && alt && alt.heat ? " · OVERHEATED" : "") + (count ? " · ACTIVE " + count : "") + (me.weapon === "mine" && count ? " · ARMED " + armed : "")
+    return WEAPONS[me.weapon].name + (Number.isFinite(n) ? " · " + n : "") + (count ? " · ACTIVE " + count : "") + (me.weapon === "mine" && count ? " · ARMED " + armed : "")
       + (Number.isFinite(n) && n <= Math.max(1, Math.ceil(WEAPONS[me.weapon].ammo * 0.15)) ? " · LOW AMMO" : "")
       + (alt ? " · " + (COARSE ? "ALT: " : "RMB: ") + alt.name + (alt.cost || alt.load ? " [" + (alt.load ? "1–3" : alt.cost) + " ammo]" : "") : "")
       + (me.weapon === "rocket" ? " · LOADED " + rocketLoad + "/3 · release ALT to fire" : ""); };
@@ -6593,6 +6572,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   }
 
   // Stable controls are independent of inventory and mode; protocol IDs stay in WEAPON_KEYS.
+  // never picked by themselves when the gun in hand runs dry (the pistol is the last resort; bombs and the blade are a choice)
+  const NO_AUTO_PICK = ["fire", "nuke", "holy", "void", "saw"];
   const WEAPON_SLOTS = ["fire", "saw", "minigun", "scatter", "rocket", "gren", "laser", "orb", "rail", "nail", "shard", "mine", "gamma", "nuke", "holy", "void"];
   const weaponKey = k => { const i = WEAPON_SLOTS.indexOf(k); return i < 0 ? "Q/E" : (i >= 10 ? "Alt+" : "") + ((i % 10 + 1) % 10); };
   const controlledKind = k => ({ gamma: K.GAMMA, mine: K.MINE })[k];
@@ -7751,7 +7732,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     // A prediction this screen refused (too many shots alive) is not recorded, so the server's copy still shows.
     if (addRemoteShot(srv.id, d, Date.now(), true) === true) srv.pred.push({ kind: s.kind, at: performance.now(), n: srv.pseq - 1 }); if (srv.pred.length > 48) srv.pred.shift();
     stats.shots++;
-    return { ...s, mine: false, owner: srv.id, id: d[0] };   // for the caller: where it left from, whose it is (a saw recall), its id here
+    return { ...s, mine: false, owner: srv.id, id: d[0] };   // for the caller: where it left from, whose it is, its id here
   }
   // a shot of mine from the server that this screen already showed: the oldest shown one of its kind, if recent
   // (id: the server's id for it, which ends in the server's number for the shot: from it, how the numbering of my
@@ -7928,25 +7909,20 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     class Add { constructor(k, c) { this.k = k; this.c = c; } }   // c: in hundredths
     const cents = v => { const c = Math.round(v * 100); return Number.isSafeInteger(c) && c / 100 === v ? c : null; };
     const isObj = v => v !== null && typeof v === "object" && !Array.isArray(v);
-    function eq(a, b) {
-      if (a === b) return true;
-      if (typeof a !== "object" || typeof b !== "object" || a === null || b === null || Array.isArray(a) !== Array.isArray(b)) return false;
-      if (Array.isArray(a)) { if (a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (!eq(a[i], b[i])) return false; return true; }
-      const ka = Object.keys(a);
-      if (ka.length !== Object.keys(b).length) return false;
-      for (const k of ka) if (!Object.prototype.hasOwnProperty.call(b, k) || !eq(a[k], b[k])) return false;
-      return true;
-    }
     // what turns a into b (both plain JSON: no undefined, no NaN)
+    // (one pass: a part whose every piece is SAME is SAME itself, so nothing is compared twice)
     function diff(a, b) {
-      if (eq(a, b)) return SAME;
+      if (a === b) return SAME;
       if (isObj(a) && isObj(b)) {
-        const o = {};
-        for (const k of Object.keys(b)) { const d = Object.prototype.hasOwnProperty.call(a, k) ? diff(a[k], b[k]) : b[k]; if (d !== SAME) o[k] = d; }
-        for (const k of Object.keys(a)) if (!Object.prototype.hasOwnProperty.call(b, k)) o[k] = GONE;
-        return new Patch(o);
+        const o = {}; let changed = false;
+        for (const k of Object.keys(b)) { const d = Object.prototype.hasOwnProperty.call(a, k) ? diff(a[k], b[k]) : b[k]; if (d !== SAME) { o[k] = d; changed = true; } }
+        for (const k of Object.keys(a)) if (!Object.prototype.hasOwnProperty.call(b, k)) { o[k] = GONE; changed = true; }
+        return changed ? new Patch(o) : SAME;
       }
-      if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) return new List(a.map((v, i) => diff(v, b[i])));
+      if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
+        let changed = false; const l = a.map((v, i) => { const d = diff(v, b[i]); if (d !== SAME) changed = true; return d; });
+        return changed ? new List(l) : SAME;
+      }
       if (typeof a === "number" && typeof b === "number") {   // a small step costs fewer bytes than the new value
         if (Number.isSafeInteger(a) && Number.isSafeInteger(b) && Math.abs(b - a) < Math.abs(b)) return new Add(b - a, false);
         const ca = cents(a), cb = cents(b);
@@ -8055,7 +8031,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       if (!r.end()) throw new Error("trailing bytes");
       return { q, base, d };
     }
-    return { SAME, GONE, diff, patch, eq, frame, unframe };
+    return { SAME, GONE, diff, patch, frame, unframe };
   })();
   // ---------- weapon crates, supplies, Overdrive and the big bombs: fixed spots on the arena ----------
   // Each spot always holds the same thing (see 01b-arenas.js) and keeps it until someone takes it: nothing expires.
@@ -8597,11 +8573,10 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // the input picks one, and both triggers work by the rules shoot() keeps for the local pilot
   // (11-weapons.js). What only a screen can do fires in its plain form: a guided nuke flies straight.
   //   input: { w: the gun's index in WEAPON_KEYS, fire, alt: the triggers held }
-  const PILOT_FALLBACK = ["fire", "nuke", "holy", "saw"];   // never switched to when a gun runs dry
   function pilotArm(b) {
     const o = MODES[MODE].only;
     b.arsenal = o ? { [o]: Infinity } : { fire: Infinity }; b.weapon = o || "fire";
-    Object.assign(b, { rocketLoad: 0, loadFor: 0, spin: 0, charge: 0, altCharge: 0, heat: 0, overheat: false });
+    Object.assign(b, { rocketLoad: 0, loadFor: 0, spin: 0, charge: 0, altCharge: 0 });
     if (MODES[MODE].sandbox) for (const k of SANDBOX_GUNS) b.arsenal[k] = Infinity;   // the test range: everything, for ever (as baseArsenal)
   }
   const pilotShots = (b, kind) => shots.filter(s => s.owner === b.id && s.life > 0 && !s.boom && s.kind === kind);
@@ -8615,7 +8590,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     b.arsenal[k] = Math.max(0, b.arsenal[k] - n);
     if (b.arsenal[k] > 0 || pilotShots(b, controlledKind(k)).length) return;   // mines and the orb stay to be set off
     delete b.arsenal[k];
-    if (b.weapon === k) b.weapon = WEAPON_KEYS.find(w => !PILOT_FALLBACK.includes(w) && b.arsenal[w]) || "fire";
+    if (b.weapon === k) b.weapon = WEAPON_KEYS.find(w => !NO_AUTO_PICK.includes(w) && b.arsenal[w]) || "fire";
   }
   // what the snapshot tells the player about their arsenal: [gun index, ammo] (-1: endless)
   const pilotArsenalWire = b => Object.entries(b.arsenal).map(([k, n]) => [WEAPON_KEYS.indexOf(k), Number.isFinite(n) ? Math.ceil(n) : -1]);
@@ -8671,7 +8646,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     }
     const k = only || b.weapon, w = WEAPONS[k], alt = w.alt, live = roundLive && !b.dead, ready = live && b.fireCd <= 0;
     if (k === "saw" && live) bladeTouch(b, now, b.charge || 0, bots.map(o => [o.id, o]));
-    b.heat = Math.max(0, b.heat - 0.45 * dt); if (b.overheat && b.heat < 0.3) b.overheat = false;
     b.spin = w.spin && i.fire && live ? Math.min(1, b.spin + dt / w.spin[2]) : Math.max(0, b.spin - dt * 1.5);
     // rockets, as rocketLoadTick has them: the press loads one, holding loads another every ROCKET_LOAD seconds; when
     // full (three, or what is carried) the salvo goes by itself, and letting go fires what is loaded
@@ -8716,10 +8690,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       const o = pilotShots(b, K.GAMMA).pop();
       if (!o) return refuse();
       volley(b, now, DETONATOR, { x: o.x, y: o.y }); b.fireCd = pat.cd; return;
-    }
-    if (alt && pat.heat) {
-      if (b.overheat) return;
-      b.heat += pat.heat; if (b.heat >= 1) b.overheat = true;
     }
     if (alt && pat.nova) mul *= 0.55 + 0.45 * b.altCharge;
     if (alt && pat.mul) mul *= pat.mul;   // (as the screen)   // (as the screen charges it)
@@ -8855,7 +8825,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         if (altCharge > 0) { if (!altHeld && ready && me.arsenal[me.weapon] >= altW.cost) shoot(now, true); else audioCue("chargeCancel"); altCharge = 0; }
       }
     } else altCharge = 0;
-    me.heat = Math.max(0, (me.heat || 0) - 0.45 * dt); if (me.overheat && me.heat < 0.3) { me.overheat = false; renderAmmo(me.weapon); audioCue("ready"); }
     const altReady = WEAPONS[me.weapon].quickAlt ? playing && roundLive && !me.dead && !guided && (!serverRun || srv.joined) && me.altCd <= 0 : ready;
     if (altReady && altHeld && altW && !altW.charge && !altW.load) { triggerTick(dt, now, false, held); shoot(now, true); }
     else if (triggerTick(dt, now, ready && fireCd <= 0 && !(altHeld && (altW?.charge || altW?.load)) && altCharge === 0, held)) shoot(now);
@@ -9189,7 +9158,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // damage lands with the beam you see, not when a fast slug would have got there. The rail bores through every body
   // to the fence (each bin on the line is hit once); the others stop at the first rock. The shot then spans that line
   // (px,py -> x,y) for one frame, so the usual hit checks (me, the others, my bots, orbs for a combo) see all of it.
-  const HITSCAN = { [K.BULLET]: 1, [K.PISTOL]: 1, [K.RAIL]: 1, [K.LASER]: 1, [K.SHOCK]: 1 };
+  const HITSCAN = { [K.BULLET]: 1, [K.PISTOL]: 1, [K.RAIL]: 1, [K.SHOCK]: 1 };
   function traceBeam(s) {
     s.traced = true; s.expireAfterStep = true;
     const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v, pierce = pierces(s);
@@ -9223,7 +9192,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       if (beams.length > 256) beams.splice(0, beams.length - 256);
     }
     s.beamHit = stop ? "body" : max < reach ? "bin" : null;
-    if (s.kind === K.LASER || s.kind === K.SHOCK) laserBeam(s, s.owner);
+    if (s.kind === K.SHOCK) laserBeam(s, s.owner);
     s.life = Math.min(s.life, 1e-4);   // one frame of hits, then gone
   }
   const spotHeard = new Set();
@@ -9302,20 +9271,12 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         s.cased = true; const sh = s.mine ? me : remotes.get(s.owner) || botById.get(s.owner);
         if (sh && Math.hypot(sh.x - s.x, sh.y - s.y) < 140) { ejectCasing(s.x, s.y, Math.atan2(s.vy, s.vx), sh.vx || 0, sh.vy || 0); if (sh !== me) sh.spinVis = Math.min(1, (sh.spinVis || 0) + 0.12); }
       }
-      // Ripper discs retain their ricochet direction; no automatic recall.
       if (s.kind === K.DET) { detonateOrb(s); if (s.life <= 0) shots.splice(i, 1); continue; }   // inert: it only sets off its orb
       if (HITSCAN[s.kind] && !s.traced && s.life > 0) traceBeam(s);   // rail, laser, beams: the whole line, this very frame
       if (s.kind === K.MDET) { detonateMines(s); if (s.life <= 0) shots.splice(i, 1); continue; }   // ...and this one its pilot's mines
       if (s.kind === K.MINE && s.trigAt && now >= s.trigAt) s.life = 0;   // a triggered mine goes off
       if (s.life <= 0 && s.kind === K.FLAK) flakBurst(s);
       if (s.life <= 0) { if (SPLASH[s.kind]) splash(s, now); if (BOMBS[s.kind]) detonate(s, now); shots.splice(i, 1); continue; }
-      if (s.kind === K.HROCKET) steerRocket(s, stepDt);
-      if (s.kind === K.HROCKET && s.life > 0) for (const o of shots) {   // homing rockets are slow: any enemy shot can blow one up mid-air
-        if (o === s || o.life <= 0 || SHOTS[o.kind].inert || o.kind === K.MINE || (o.mine ? s.mine : o.owner === s.owner)) continue;
-        if (isTeams() && teamOfShot(o) !== undefined && teamOfShot(o) === teamOfShot(s)) continue;   // a teammate's shot passes it
-        if (segHit(o, s.x, s.y, 24)) { s.life = 0; if (!pierces(o)) o.life = 0; impact(s.x, s.y, "#ffb43c", 1.6); explode(s.x, s.y, 40, 300); sfx("boom_small", 0.8, 1.2, s.x, s.y); break; }
-      }
-      if (s.life <= 0) continue;   // shot down: it blows up (splash) at the start of next frame
       if (s.kind === K.MINE) {
         if (s.stuck) mineStick(s); else { const k = Math.exp(-1.6 * stepDt); s.vx *= k; s.vy *= k; }   // a prox mine slows in flight, then rides the rock it stuck to
         if (!s.trigAt && SHOTS[K.MINE].life - s.life >= MINE_ARM) {   // armed: an enemy coming within reach sets it ticking
@@ -9398,11 +9359,11 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       }
       if ((s.x < 0 || s.x > W || s.y < 0 || s.y > H) && SPLASH[s.kind]) splash(s, now);
       if (s.x < 0 || s.x > W || s.y < 0 || s.y > H) { if (!SPLASH[s.kind]) explode(clamp(s.x, 0, W), clamp(s.y, 0, H), 10, 160); shots.splice(i, 1); continue; }   // (a blast weapon has had its own)
-      if (s.kind === K.ROCKET || s.kind === K.HROCKET) {   // a smoke trail with fire licking out of the motor
+      if (s.kind === K.ROCKET) {   // a smoke trail with fire licking out of the motor
         const sp = Math.hypot(s.vx, s.vy) || 1, bx = s.x - s.vx / sp * 26, by = s.y - s.vy / sp * 26;
         if (Math.random() < stepDt * (lowQ ? 30 : 70)) puff(bx, by, -s.vx * 0.08 + (Math.random() - .5) * 50, -s.vy * 0.08 + (Math.random() - .5) * 50, 1.2 + Math.random() * 1.0, 6 + Math.random() * 6, "rgb(120,110,140)", 2);
         if (Math.random() < stepDt * 60) puff(bx, by, -s.vx * 0.4 + (Math.random() - .5) * 60, -s.vy * 0.4 + (Math.random() - .5) * 60, 0.2 + Math.random() * 0.2, 3 + Math.random() * 3, FIRE_COLS[(Math.random() * 3) | 0]);
-      } else if (s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.MELEE) {
+      } else if (s.kind === K.SHOCK || s.kind === K.MELEE) {
         // a beam is drawn as a beam; a blade's touch isn't seen
       } else if (s.kind === K.RAIL) {   // the slug leaves a glowing wake along its whole path
         for (let k = 0; k < 4; k++) { const f = Math.random(); puff(s.px + (s.x - s.px) * f, s.py + (s.y - s.py) * f, (Math.random() - .5) * 30, (Math.random() - .5) * 30, 0.5 + Math.random() * 0.4, 1.6 + Math.random() * 1.6, k % 2 ? "#ffb070" : "#ffffff"); }
@@ -9410,8 +9371,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         if (Math.random() < stepDt * (lowQ ? 40 : 90)) puff(s.x + (Math.random() - .5) * 30, s.y + (Math.random() - .5) * 30, -s.vx * 0.15 + (Math.random() - .5) * 60, -s.vy * 0.15 + (Math.random() - .5) * 60, 0.5 + Math.random() * 0.4, 2.5 + Math.random() * 3, Math.random() < 0.6 ? "#6fd8ff" : "#ffffff");
       } else if (s.kind === K.SHARD) {   // a hot trail that grows with every ricochet
         if (Math.random() < stepDt * (40 + s.bn * 25)) puff(s.x, s.y, -s.vx * 0.05, -s.vy * 0.05, 0.25 + s.bn * 0.05, 2 + s.bn * 0.6, s.bn ? "#ffe0a0" : "#ffc070");
-      } else if (s.kind === K.SLUG) {   // the slug drags a short hot trail
-        if (Math.random() < stepDt * 50) puff(s.x, s.y, -s.vx * 0.05, -s.vy * 0.05, 0.25, 2, Math.random() < 0.5 ? "#ffe7a0" : "#ffb43c");
       } else if (s.kind === K.PELLET || s.kind === K.MINE) {
         // pellets are too short-lived for a trail; mines just sit there blinking
       } else if (Math.random() < stepDt * 40) puff(s.x, s.y, -s.vx * 0.08 + (Math.random() - .5) * 60, -s.vy * 0.08 + (Math.random() - .5) * 60, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 2, FIRE_COLS[(Math.random() * 4) | 0]);
@@ -9944,7 +9903,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       for (const b of bots) resetCmds(b);
       for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, shield: 0, beltArmor: 0, bodyArmor: 0, padsArmor: 0, lv: 1, xp: 0, vx: 0, vy: 0, ammo: 0, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0, weapon: "fire" });
       for (const b of bots) if (b.input) pilotArm(b);
-      me.fc = -1; me.caps = 0; me.heat = 0; me.overheat = false; altCharge = 0; charge = 0; cancelRocketLoad();
+      me.fc = -1; me.caps = 0; altCharge = 0; charge = 0; cancelRocketLoad();
       energy = 100; energyRegenAt = 0; dashReadyAt = 0;
       flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
       grabbed.clear(); myGrabs.length = 0; drops.clear(); gunDrops.clear(); myDrops.length = 0; myGunDrops.length = 0;
@@ -10256,7 +10215,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       return;
     }
 
-    if (s.kind === K.PISTOL || s.kind === K.LASER || s.kind === K.SHOCK || s.kind === K.DET) return;   // beams are drawn as beams; a detonator isn't seen
+    if (s.kind === K.PISTOL || s.kind === K.SHOCK || s.kind === K.DET) return;   // beams are drawn as beams; a detonator isn't seen
     if (s.kind === K.MELEE || s.kind === K.SWORD) return;   // a blow, a swing: the blade on the bin (and its trail) is what you see
     if (s.kind === K.NOVA) {   // the Plasma Nova: a swirling ball of green plasma, white at its heart, lightning crawling over it
       const c = Math.min(1, s.m || 1), r = 12 + 16 * c, a = Math.atan2(s.vy, s.vx);
@@ -10304,15 +10263,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       g.restore();
       return;
     }
-    if (s.kind === K.PULSE) {   // the laser's pulse: a wide crescent of light
-      const a = Math.atan2(s.vy, s.vx), k = s.life / SHOTS[K.PULSE].life;
-      g.save(); g.translate(x, y); g.rotate(a); g.lineCap = "round";
-      for (const [w, c] of [[22, `rgba(60,200,255,${0.3 * k + 0.1})`], [8, `rgba(160,250,255,${0.8 * k + 0.2})`], [3, "#ffffff"]]) {
-        g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.arc(-40, 0, 70, -0.75, 0.75); g.stroke();
-      }
-      g.restore();
-      return;
-    }
+
     if (s.kind === K.FLAK) {   // shell shadow and loft make its falling trajectory readable
       const height = flakHeight(s);
       g.fillStyle = "rgba(0,0,0,.4)"; g.beginPath(); g.ellipse(x, y + 8, 12 + height*.08, 5, 0, 0, Math.PI*2); g.fill();
@@ -10336,17 +10287,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       g.restore();
       return;
     }
-    if (s.kind === K.SLUG) {   // shotgun slug: one fat white-hot ball with a long streak
-      g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
-      const lg = g.createLinearGradient(-80, 0, 0, 0);
-      lg.addColorStop(0, "rgba(255,150,40,0)"); lg.addColorStop(1, "rgba(255,240,190,0.95)");
-      g.strokeStyle = lg; g.lineWidth = 11; g.lineCap = "round";
-      g.beginPath(); g.moveTo(-80, 0); g.lineTo(0, 0); g.stroke();
-      g.fillStyle = "rgba(255,210,110,0.4)"; g.beginPath(); g.arc(0, 0, 16, 0, 6.29); g.fill();
-      g.fillStyle = "#fffaf0"; g.beginPath(); g.arc(0, 0, 6, 0, 6.29); g.fill();
-      g.restore();
-      return;
-    }
+
     if (s.kind === K.PELLET) {   // scatter pellet: a short hot streak
       g.save(); g.translate(x, y); g.rotate(Math.atan2(s.vy, s.vx));
       const lg = g.createLinearGradient(-44, 0, 0, 0);
@@ -10490,25 +10431,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       g.globalCompositeOperation = "lighter";
       return;
     }
-    if (s.kind === K.LASER) {   // laser: a long bolt of light with a pulsing glow and a hot flare at the head
-      const a = Math.atan2(s.vy, s.vx), L = 130, pw = 1 + 0.25 * Math.sin(now / 30 + s.x);
-      g.save(); g.translate(x, y); g.rotate(a);
-      g.lineCap = "round";
-      const og = g.createLinearGradient(-L, 0, 0, 0);
-      og.addColorStop(0, "rgba(60,200,255,0)"); og.addColorStop(1, "rgba(60,200,255,0.35)");
-      g.strokeStyle = og; g.lineWidth = 18 * pw; g.beginPath(); g.moveTo(-L, 0); g.lineTo(0, 0); g.stroke();
-      const lg = g.createLinearGradient(-L, 0, 0, 0);
-      lg.addColorStop(0, "rgba(125,249,255,0)"); lg.addColorStop(1, "rgba(160,250,255,0.85)");
-      g.strokeStyle = lg; g.lineWidth = 7; g.beginPath(); g.moveTo(-L * 0.9, 0); g.lineTo(0, 0); g.stroke();
-      g.strokeStyle = "rgba(255,255,255,0.95)"; g.lineWidth = 2.5;
-      g.beginPath(); g.moveTo(-L * 0.75, 0); g.lineTo(4, 0); g.stroke();
-      const hg = g.createRadialGradient(2, 0, 0, 2, 0, 16 * pw);
-      hg.addColorStop(0, "rgba(255,255,255,0.95)"); hg.addColorStop(1, "rgba(125,249,255,0)");
-      g.fillStyle = hg; g.beginPath(); g.arc(2, 0, 16 * pw, 0, 6.29); g.fill();
-      g.restore();
-      return;
-    }
-    if (s.kind === K.ROCKET || s.kind === K.HROCKET) {   // a rocket the size of a rocket (it used to be drawn twice as big)
+
+    if (s.kind === K.ROCKET) {   // a rocket the size of a rocket (it used to be drawn twice as big)
       const a = Math.atan2(s.vy, s.vx), fl = 1 + Math.sin(now / 25 + s.x) * 0.25;
       g.save(); g.translate(x, y); g.rotate(a); g.scale(1.15, 1.15);
       const fg = g.createLinearGradient(-34 * fl, 0, -8, 0);
@@ -10520,13 +10444,6 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       bg.addColorStop(0, "#f4f1ff"); bg.addColorStop(1, "#a59cc8");
       g.fillStyle = bg; rrect(-10, -4.5, 20, 9, 4); g.fill();
       g.fillStyle = "#ff5a6e"; g.beginPath(); g.moveTo(10, -4.5); g.quadraticCurveTo(18, 0, 10, 4.5); g.fill();
-      if (s.kind === K.HROCKET && Math.floor(now / 140 + s.x) % 2) {   // homing seeker light blinking on the nose
-        g.globalCompositeOperation = "lighter";
-        const sg = g.createRadialGradient(13, 0, 0, 13, 0, 9);
-        sg.addColorStop(0, "rgba(255,255,255,0.95)"); sg.addColorStop(1, "rgba(255,60,80,0)");
-        g.fillStyle = sg; g.beginPath(); g.arc(13, 0, 9, 0, 6.29); g.fill();
-        g.globalCompositeOperation = "source-over";
-      }
       g.globalCompositeOperation = "lighter";
       g.restore();
       return;
@@ -11026,9 +10943,9 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         for (let k = 0; k < 6; k++) { const ph = turn + k * 1.047, off = Math.sin(ph) * 7, front = Math.cos(ph) > 0; if (!front) continue; g.fillStyle = k % 2 ? "#8a7fb0" : "#cfc6e8"; rrect(off - 2.5, -64, 5, 52, 2); g.fill(); }
         g.fillStyle = "#2a2140"; for (const yy of [-56, -38]) g.fillRect(-9, yy, 18, 3);   // the barrel clamps
         g.fillStyle = "#ffe08a"; g.fillRect(-9, -66, 18, 4);
-        if (mountHeat > 0.05) {   // the barrels glow red-hot as it spins (and white-hot when it overheats)
+        if (mountHeat > 0.05) {   // the barrels glow red-hot as it spins
           g.globalCompositeOperation = "lighter";
-          const hg = g.createLinearGradient(0, -66, 0, -30); hg.addColorStop(0, `rgba(255,${me.overheat ? 230 : 90},40,${0.85 * mountHeat})`); hg.addColorStop(1, "rgba(255,60,20,0)");
+          const hg = g.createLinearGradient(0, -66, 0, -30); hg.addColorStop(0, `rgba(255,90,40,${0.85 * mountHeat})`); hg.addColorStop(1, "rgba(255,60,20,0)");
           g.fillStyle = hg; rrect(-10, -66, 20, 36, 4); g.fill(); g.globalCompositeOperation = "source-over";
         }
       } else if (weapon === "gren") {   // the grenade launcher: a fat drum and a stubby wide tube
@@ -11060,7 +10977,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // the crosshair: a ring ahead of the bin on the line its shots take, in the gun's colour; red and tighter when
   // someone you can hurt is on that line
   function drawAim(now) {
-    if (charge > 0 && playing && !me.dead && !WEAPONS[me.weapon]?.sword) {   // (the sword shows its wind-up on the blade itself)   // the charge cannon filling up: a ring round the bin, white-hot when full
+    if (charge > 0 && playing && !me.dead && !WEAPONS[me.weapon]?.sword) {   // (the sword shows its wind-up on the blade itself)   // a charge filling up: a ring round the bin, white-hot when full
       const x = sx(me.x), y = sy(me.y), R = 70 * sizeOf(me.lv), full = charge >= 1;
       g.save(); g.lineCap = "round";
       g.strokeStyle = "rgba(127,184,255,0.25)"; g.lineWidth = 6; g.beginPath(); g.arc(x, y, R, 0, 6.29); g.stroke();
@@ -11196,7 +11113,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (jk) { g.rotate(b.joltA); g.scale(1 - jk, 1 + jk * 0.8); g.rotate(-b.joltA); }   // (squashed along the blow, bulging across it)
     g.scale(pose.scaleX, 1);
     drawWings(lv, s);
-    mountHeat = isMe ? Math.max(spin, Math.min(1, me.heat || 0)) : 0;
+    mountHeat = isMe ? spin : 0;
     // a minigun's barrels turn with its spin (mine: the trigger's spin-up; another's: how hard it has been firing)
     { const sv = isMe ? spin : (b.spinVis = Math.max(0, (b.spinVis || 0) - Math.min(0.1, (now - (b.spinT || now)) / 1000) * 1.2)), dtv = Math.min(0.1, (now - (b.barrelT || now)) / 1000);
       b.spinT = b.barrelT = now; b.barrelA = (b.barrelA || 0) + (0.4 + sv * sv * 30) * dtv; barrelA = b.barrelA; if (!isMe) mountHeat = Math.max(mountHeat, sv * 0.8); }
@@ -11870,7 +11787,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       g.fillText((killer ? "Killed by " + killer + " · " : "Boom! ") + "back in " + Math.max(1, Math.ceil((me.respawnAt - now) / 1000)) + "…", vw / 2, vh / 2);
     }
   }
-  // smoke over the bins, impact flashes, rail trails, chain lightning, shock rings, nuke blasts
+  // smoke over the bins, impact flashes, rail trails, zaps, shock rings, nuke blasts
   function drawBlastFx(now) {
     // smoke on top of the bins, so a damaged bin visibly smokes
     let hot = 0, fire = 0;
@@ -12032,7 +11949,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       }
       g.globalAlpha = 1;
     }
-    for (const q of arcs) {   // chain lightning
+    for (const q of arcs) {   // zaps and arcs
       const k = 1 - q.t / 0.3, x1 = sx(q.x1), y1 = sy(q.y1), x2 = sx(q.x2), y2 = sy(q.y2), L = Math.hypot(x2 - x1, y2 - y1) || 1, nx = (x2 - x1) / L, ny = (y2 - y1) / L;
       const pts = [[x1, y1]];
       for (let s2 = 1; s2 < 8; s2++) { const t = s2 / 8, o = (Math.random() - 0.5) * 30; pts.push([x1 + (x2 - x1) * t - ny * o, y1 + (y2 - y1) * t + nx * o]); }
@@ -12276,12 +12193,14 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     roundTick(now);
     for (let i = 0; i < world.supplies.length; i++) world.supplies[i] = supply(i, wt);
     // a black hole drags the junk and the pick-ups in too; what it swallows is gone (on every screen alike)
-    for (const o of [...world.sparks, ...world.rocks, ...world.picks, ...world.supplies, ...world.bombs, world.amp]) {
-      if (o && !(o.slot !== undefined && rockMotion.has(o.slot)) && holePull(o, wt, 0) > 0.9 && !grabbed.has(o.key)) {
-        grabbed.add(o.key);   // swallowed: gone (a spot's item comes back on its next cycle)
-        const ev = eventAt(wt); if (ev.type === "blackhole") swallowFx(o.x, o.y, blackHole(ev), o.type ? (WEAPONS[o.type] || SUPPLIES[o.type] || {}).col || "#c38bff" : "#ffffff");
+    const ev = eventAt(wt);
+    if (ev.type === "blackhole" && ev.et > 0 && ev.et < EV_LEN + HOLE_BACK)   // (only while a hole is open or easing back: see holePull)
+      for (const list of [world.sparks, world.rocks, world.picks, world.supplies, world.bombs, [world.amp]]) for (const o of list) {
+        if (o && !(o.slot !== undefined && rockMotion.has(o.slot)) && holePull(o, wt, 0) > 0.9 && !grabbed.has(o.key)) {
+          grabbed.add(o.key);   // swallowed: gone (a spot's item comes back on its next cycle)
+          swallowFx(o.x, o.y, blackHole(ev), o.type ? (WEAPONS[o.type] || SUPPLIES[o.type] || {}).col || "#c38bff" : "#ffffff");
+        }
       }
-    }
   }
   let resCheckAt = 0;
   function frame(now) {
@@ -12537,7 +12456,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         const big = m.r > 200, fire = !!m.flick;
         fluid.splat(m.x, m.y, m.r * 0.4, fire ? [0.26, 0.22, 0.21] : [0.34, 0.32, 0.34], big ? 1.1 : 0.8, 0, 0, m.r * 3.2);   // (thin: a blast's smoke must not hide the fight)
       }
-      for (const s of shots) if ((s.kind === K.ROCKET || s.kind === K.HROCKET || s.kind === K.NUKE) && s.life > 0) fluid.splat(s.x, s.y, 16, [0.5, 0.48, 0.5], 0.09, -s.vx * 0.25, -s.vy * 0.25);
+      for (const s of shots) if ((s.kind === K.ROCKET || s.kind === K.NUKE) && s.life > 0) fluid.splat(s.x, s.y, 16, [0.5, 0.48, 0.5], 0.09, -s.vx * 0.25, -s.vy * 0.25);
         else if (s.kind === K.GAMMA && s.life > 0) { const sp = Math.hypot(s.vx, s.vy) || 1; fluid.splat(s.x - s.vx / sp * 55 + (Math.random() - 0.5) * 30, s.y - s.vy / sp * 55 + (Math.random() - 0.5) * 30, 30, [0.05, 0.015, 0.025], 0.3, -s.vx * 0.4 + (Math.random() - 0.5) * 300, -s.vy * 0.4 + (Math.random() - 0.5) * 300); }   // its black smoke, left behind it
       // a bin stirs it as it passes, and its engine breathes smoke into it (much more on boost)
       const stir = o => {
@@ -12586,7 +12505,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       return lamps;
     }
     const rgbOf = c => { if (c[0] === "#") { const v = parseInt(c.slice(1, 7), 16); return [(v >> 16 & 255) / 255, (v >> 8 & 255) / 255, (v & 255) / 255]; } const p = c.replace(/[^\d.,]/g, "").split(",").map(Number); return [p[0] / 255, p[1] / 255, p[2] / 255]; };
-    const SHOT_LIGHT = { [K.ROCKET]: [260, 0.55, 0.45], [K.HROCKET]: [260, 0.55, 0.45], [K.ORB]: [300, 0.6], [K.GAMMA]: [220, 0.3], [K.NUKE]: [380, 0.7, 0.6], [K.HOLY]: [420, 0.7, 0.3], [K.GREN]: [150, 0.3], [K.PULSE_BOLT]: [150, 0.35], [K.VOID]: [260, 0.5] };
+    const SHOT_LIGHT = { [K.ROCKET]: [260, 0.55, 0.45], [K.ORB]: [300, 0.6], [K.GAMMA]: [220, 0.3], [K.NUKE]: [380, 0.7, 0.6], [K.HOLY]: [420, 0.7, 0.3], [K.GREN]: [150, 0.3], [K.PULSE_BOLT]: [150, 0.35], [K.VOID]: [260, 0.5] };
     function gatherLights(now) {
       const list = [], cx = cam.x, cy = cam.y, hw = vw / 2, hh = vh / 2;
       // score: what goes first when there are more than 16 (a lamp counts for less the further it is)

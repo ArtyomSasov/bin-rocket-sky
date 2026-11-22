@@ -31,7 +31,7 @@
       if (beams.length > 256) beams.splice(0, beams.length - 256);
     }
     s.beamHit = stop ? "body" : max < reach ? "bin" : null;
-    if (s.kind === K.LASER || s.kind === K.SHOCK) laserBeam(s, s.owner);
+    if (s.kind === K.SHOCK) laserBeam(s, s.owner);
     s.life = Math.min(s.life, 1e-4);   // one frame of hits, then gone
   }
   const spotHeard = new Set();

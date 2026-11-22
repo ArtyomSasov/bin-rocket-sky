@@ -87,11 +87,11 @@
     return found ? Math.min(range, first + 0.5) : range;
   }
   const pierces = s => SHOTS[s.kind].pierce || !!s.pc;   // rail-like shots, and fireballs from Lv 7
-  // Piercing shots hit each target once per pass; a recalled saw gets one new return pass.
+  // Piercing shots hit each target once.
   function railOnce(s, key) { if (!s.hits) s.hits = new Set(); if (s.hits.has(key)) return false; s.hits.add(key); return true; }
   // its beam is drawn at once along the whole path, so the shot reads as instant
   const beams = [];
-  const arcs = [];   // lightning jumping from the bin it hit to the next one
+  const arcs = [];   // crackling arcs between two points (zaps, blasts, fire), drawn for a moment
   const BEAM_T = 1.1;   // a rail trail lingers: the hot core goes fast, the spiral slowly unwinds
   function beamReach(s) {
     const v = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / v, dy = s.vy / v;
@@ -101,7 +101,7 @@
     // The station shell blocks even penetrating weapons; old maps keep their terrain cutting.
     // An inner wall stops it too, where it is still standing, unless the beam is heavy enough to break it (it cuts
     // its way through: carveBeam)
-    // (a rail or gauss slug drills into it: it bores RAIL_DRILL px into the wall and stops there, so a wall is drilled
+    // (a rail slug drills into it: it bores RAIL_DRILL px into the wall and stops there, so a wall is drilled
     // through by a few shots in one place, not shot through by one)
     const heavy = (s.cut || SHOTS[s.kind].carve) >= WALL_CARVE || s.kind === K.RAIL, drill = false;   // (a rail slug cuts clean through)
     for (const b of bodies) if (b.fixed || (b.wall && !b.dead && !b.free && !heavy)) {

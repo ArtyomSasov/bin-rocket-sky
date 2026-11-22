@@ -1,4 +1,6 @@
   // Stable controls are independent of inventory and mode; protocol IDs stay in WEAPON_KEYS.
+  // never picked by themselves when the gun in hand runs dry (the pistol is the last resort; bombs and the blade are a choice)
+  const NO_AUTO_PICK = ["fire", "nuke", "holy", "void", "saw"];
   const WEAPON_SLOTS = ["fire", "saw", "minigun", "scatter", "rocket", "gren", "laser", "orb", "rail", "nail", "shard", "mine", "gamma", "nuke", "holy", "void"];
   const weaponKey = k => { const i = WEAPON_SLOTS.indexOf(k); return i < 0 ? "Q/E" : (i >= 10 ? "Alt+" : "") + ((i % 10 + 1) % 10); };
   const controlledKind = k => ({ gamma: K.GAMMA, mine: K.MINE })[k];

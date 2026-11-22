@@ -13,25 +13,20 @@
     class Add { constructor(k, c) { this.k = k; this.c = c; } }   // c: in hundredths
     const cents = v => { const c = Math.round(v * 100); return Number.isSafeInteger(c) && c / 100 === v ? c : null; };
     const isObj = v => v !== null && typeof v === "object" && !Array.isArray(v);
-    function eq(a, b) {
-      if (a === b) return true;
-      if (typeof a !== "object" || typeof b !== "object" || a === null || b === null || Array.isArray(a) !== Array.isArray(b)) return false;
-      if (Array.isArray(a)) { if (a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (!eq(a[i], b[i])) return false; return true; }
-      const ka = Object.keys(a);
-      if (ka.length !== Object.keys(b).length) return false;
-      for (const k of ka) if (!Object.prototype.hasOwnProperty.call(b, k) || !eq(a[k], b[k])) return false;
-      return true;
-    }
     // what turns a into b (both plain JSON: no undefined, no NaN)
+    // (one pass: a part whose every piece is SAME is SAME itself, so nothing is compared twice)
     function diff(a, b) {
-      if (eq(a, b)) return SAME;
+      if (a === b) return SAME;
       if (isObj(a) && isObj(b)) {
-        const o = {};
-        for (const k of Object.keys(b)) { const d = Object.prototype.hasOwnProperty.call(a, k) ? diff(a[k], b[k]) : b[k]; if (d !== SAME) o[k] = d; }
-        for (const k of Object.keys(a)) if (!Object.prototype.hasOwnProperty.call(b, k)) o[k] = GONE;
-        return new Patch(o);
+        const o = {}; let changed = false;
+        for (const k of Object.keys(b)) { const d = Object.prototype.hasOwnProperty.call(a, k) ? diff(a[k], b[k]) : b[k]; if (d !== SAME) { o[k] = d; changed = true; } }
+        for (const k of Object.keys(a)) if (!Object.prototype.hasOwnProperty.call(b, k)) { o[k] = GONE; changed = true; }
+        return changed ? new Patch(o) : SAME;
       }
-      if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) return new List(a.map((v, i) => diff(v, b[i])));
+      if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
+        let changed = false; const l = a.map((v, i) => { const d = diff(v, b[i]); if (d !== SAME) changed = true; return d; });
+        return changed ? new List(l) : SAME;
+      }
       if (typeof a === "number" && typeof b === "number") {   // a small step costs fewer bytes than the new value
         if (Number.isSafeInteger(a) && Number.isSafeInteger(b) && Math.abs(b - a) < Math.abs(b)) return new Add(b - a, false);
         const ca = cents(a), cb = cents(b);
@@ -140,5 +135,5 @@
       if (!r.end()) throw new Error("trailing bytes");
       return { q, base, d };
     }
-    return { SAME, GONE, diff, patch, eq, frame, unframe };
+    return { SAME, GONE, diff, patch, frame, unframe };
   })();

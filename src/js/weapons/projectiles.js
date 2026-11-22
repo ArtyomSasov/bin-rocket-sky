@@ -101,12 +101,11 @@
     if (s.kind === K.MINE) { blastFx(s); return; }
     if (SPLASH[s.kind]) blastFx(s);
     else {
-      const ev = s.kind === K.SHARD ? "p_ric" : s.kind === K.BULLET ? "p_hit_bullet" : s.kind === K.LASER ? "p_hit_laser" : s.kind === K.RAIL ? "p_boom_orb" : "";
+      const ev = s.kind === K.SHARD ? "p_ric" : s.kind === K.BULLET ? "p_hit_bullet" : s.kind === K.RAIL ? "p_boom_orb" : "";
       if (ev) packPlay(ev, 0.6, s.x, s.y); else sfx("hit", 0.55, 1.1, s.x, s.y);
     }
     if (s.kind === K.RAIL) sparkShower(s.x, s.y, s.vx / 4200, s.vy / 4200, 1.2);
     if (s.kind === K.PELLET) sparkShower(s.x, s.y, s.vx / 1250, s.vy / 1250, 0.5);
-    if (s.kind === K.SLUG) { sparkShower(s.x, s.y, s.vx / 1900, s.vy / 1900, 1); shake = Math.max(shake, 0.1); }
     if (s.kind === K.SHARD) { sparkShower(s.x, s.y, s.vx / 1300, s.vy / 1300, 1.1); shake = Math.max(shake, 0.08); }
     if (s.kind === K.SWORD || s.kind === K.MELEE) {   // a blade bites: the cut of light, the glint, the warp, the spray, its clash
       const heavy = s.kind === K.SWORD, own = s.mine || (serverRun && s.owner === srv.id) ? me : botById.get(s.owner) || remotes.get(s.owner);
@@ -128,7 +127,7 @@
       sparkShower(s.x, s.y, -ux, -uy, 0.8);
       for (let k = 0, m = lowQ ? 3 : 7; k < m; k++) { const a = Math.atan2(-uy, -ux) + (Math.random() - 0.5) * 2.2, v = 350 + Math.random() * 550; puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.12 + Math.random() * 0.2, 0.8 + Math.random() * 0.8, k % 3 ? "#fff1b8" : "#ffb04a", 1, 0.05, 0, 0.92); }
       oilSplash(s.x, s.y, 3, 200, ux * 120, uy * 120);
-    } else if (s.kind === K.LASER || s.kind === K.PISTOL || s.kind === K.PULSE_BOLT || s.kind === K.SHOCK) {
+    } else if (s.kind === K.PISTOL || s.kind === K.PULSE_BOLT || s.kind === K.SHOCK) {
       for (let k = 0, m = lowQ ? 3 : 8; k < m; k++) { const a = Math.random() * 6.283, v = 120 + Math.random() * 300; puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.25 + Math.random() * 0.35, 1.2 + Math.random() * 1.2, k % 2 ? SHOTS[s.kind].col : "#ffffff", 5, 0, 0, 0.93); }
     }
     impact(s.x, s.y, SHOTS[s.kind].col, s.kind === K.ROCKET || s.kind === K.RAIL ? 2 : 1);

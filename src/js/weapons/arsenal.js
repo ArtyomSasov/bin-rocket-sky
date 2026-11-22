@@ -16,8 +16,8 @@
     if (me.arsenal[k] > 0 || controlledShots(k).length) { renderAmmo(k); return; }
     delete me.arsenal[k];
     packPlay("p_noammo", 0.8);   // the empty click
-    // out of ammo: fall back to another gun you carry (never auto-pick the nuke), else the fireball
-    me.weapon = WEAPON_KEYS.find(w => w !== "fire" && w !== "nuke" && w !== "holy" && w !== "void" && w !== "saw" && me.arsenal[w]) || "fire";
+    // out of ammo: fall back to another gun you carry (NO_AUTO_PICK aside), else the pistol
+    me.weapon = WEAPON_KEYS.find(w => !NO_AUTO_PICK.includes(w) && me.arsenal[w]) || "fire";
     renderWeapon();
   }
   // quick dodge: a burst forward (or toward where you steer) with a moment of invulnerability
@@ -50,7 +50,7 @@
   const ammoFill = k => Number.isFinite(me.arsenal[k]) ? Math.min(1, (me.arsenal[k] || 0) / WEAPONS[k].ammo) : 1;
   const chipText = () => { const n = me.arsenal[me.weapon] || 0, alt = WEAPONS[me.weapon].alt, count = controlledShots(me.weapon).length;
     const armed = me.weapon === "mine" ? controlledShots("mine").filter(s => SHOTS[K.MINE].life - s.life >= MINE_ARM).length : 0;
-    return WEAPONS[me.weapon].name + (Number.isFinite(n) ? " · " + n : "") + (me.overheat && alt && alt.heat ? " · OVERHEATED" : "") + (count ? " · ACTIVE " + count : "") + (me.weapon === "mine" && count ? " · ARMED " + armed : "")
+    return WEAPONS[me.weapon].name + (Number.isFinite(n) ? " · " + n : "") + (count ? " · ACTIVE " + count : "") + (me.weapon === "mine" && count ? " · ARMED " + armed : "")
       + (Number.isFinite(n) && n <= Math.max(1, Math.ceil(WEAPONS[me.weapon].ammo * 0.15)) ? " · LOW AMMO" : "")
       + (alt ? " · " + (COARSE ? "ALT: " : "RMB: ") + alt.name + (alt.cost || alt.load ? " [" + (alt.load ? "1–3" : alt.cost) + " ammo]" : "") : "")
       + (me.weapon === "rocket" ? " · LOADED " + rocketLoad + "/3 · release ALT to fire" : ""); };

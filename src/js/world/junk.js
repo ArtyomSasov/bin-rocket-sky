@@ -7,38 +7,39 @@
     const raw = x + v * dt, phase = mod(raw - 40, 2 * (hi - 40));
     return [bounceIn(raw, 40, hi), phase < hi - 40 ? v : -v];
   }
-  // only where rock i is at that moment (no object, no key): a quick look before the whole rock is made. What it
-  // needs of the hashes is kept per rock: its offset for ever, its course for the round of the period it is on
+  // What a rock's hashes give it is kept per rock: its offset in the period for ever, and its course (where it set
+  // off, how fast, how big, how it spins, its key) for the round of the period it is on, so neither the world's tick
+  // nor a player's command (rockAt) works them out again each time
   const rockMemo = [];
-  function rockAt(i, now) {
+  function rockCourse(i, now) {
     let mm = rockMemo[i];
     if (!mm || mm.W !== W || mm.H !== H) mm = rockMemo[i] = { off: hash(i, 9, 9) * ROCK_PERIOD, gen: NaN, W, H };
-    const tt = now / 1000 + mm.off, gen = Math.floor(tt / ROCK_PERIOD), motion = rockMotion.get(i);
-    if (motion && motion.gen === gen) { const dt = Math.max(0, (now - motion.at) / 1000); rockXY[0] = bounceIn(motion.x + motion.vx * dt, 40, W - 40); rockXY[1] = bounceIn(motion.y + motion.vy * dt, 40, H - 40); return rockXY; }
+    const tt = now / 1000 + mm.off, gen = Math.floor(tt / ROCK_PERIOD);
     if (mm.gen !== gen) {
       const ang = hash(i, gen, 21) * 6.283, sp = 50 + hash(i, gen, 22) * 90;
-      mm.gen = gen; mm.x0 = hash(i, gen, 23) * W; mm.y0 = hash(i, gen, 24) * H; mm.vx = Math.cos(ang) * sp; mm.vy = Math.sin(ang) * sp;
+      Object.assign(mm, { gen, x0: hash(i, gen, 23) * W, y0: hash(i, gen, 24) * H, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+        r: 22 + hash(i, gen, 25) * 18, h26: hash(i, gen, 26), key: "m" + i + ":" + gen });
     }
-    const age = tt - gen * ROCK_PERIOD;
-    rockXY[0] = bounceIn(mm.x0 + mm.vx * age, 40, W - 40); rockXY[1] = bounceIn(mm.y0 + mm.vy * age, 40, H - 40);
+    mm.age = tt - gen * ROCK_PERIOD;
+    return mm;
+  }
+  // only where rock i is at that moment (no object, no key): a quick look before the whole rock is made
+  const rockXY = [0, 0];
+  function rockAt(i, now) {
+    const mm = rockCourse(i, now), motion = rockMotion.get(i);
+    if (motion && motion.gen === mm.gen) { const dt = Math.max(0, (now - motion.at) / 1000); rockXY[0] = bounceIn(motion.x + motion.vx * dt, 40, W - 40); rockXY[1] = bounceIn(motion.y + motion.vy * dt, 40, H - 40); return rockXY; }
+    rockXY[0] = bounceIn(mm.x0 + mm.vx * mm.age, 40, W - 40); rockXY[1] = bounceIn(mm.y0 + mm.vy * mm.age, 40, H - 40);
     return rockXY;
   }
-  const rockXY = [0, 0];
   function rock(i, now) {
-    const tt = now / 1000 + hash(i, 9, 9) * ROCK_PERIOD;
-    const gen = Math.floor(tt / ROCK_PERIOD), age = tt - gen * ROCK_PERIOD;
-    const ang = hash(i, gen, 21) * 6.283, sp = 50 + hash(i, gen, 22) * 90;
+    const mm = rockCourse(i, now), gen = mm.gen, age = mm.age;
     const motion = rockMotion.get(i);
     if (motion && motion.gen !== gen) rockMotion.delete(i);
     const moved = motion && motion.gen === gen;
     const dt = moved ? Math.max(0, (now - motion.at) / 1000) : age;
-    const [x, vx] = rockAxis(moved ? motion.x : hash(i, gen, 23) * W, moved ? motion.vx : Math.cos(ang) * sp, dt, W - 40);
-    const [y, vy] = rockAxis(moved ? motion.y : hash(i, gen, 24) * H, moved ? motion.vy : Math.sin(ang) * sp, dt, H - 40);
-    return {
-      key: "m" + i + ":" + gen, slot: i, gen, x, y, vx, vy,
-      r: 22 + hash(i, gen, 25) * 18, seed: i * 977 + gen,
-      spin: age * (hash(i, gen, 26) - 0.5) * 2, age
-    };
+    const [x, vx] = rockAxis(moved ? motion.x : mm.x0, moved ? motion.vx : mm.vx, dt, W - 40);
+    const [y, vy] = rockAxis(moved ? motion.y : mm.y0, moved ? motion.vy : mm.vy, dt, H - 40);
+    return { key: mm.key, slot: i, gen, x, y, vx, vy, r: mm.r, seed: i * 977 + gen, spin: age * (mm.h26 - 0.5) * 2, age };
   }
   // Exchange normal momentum with restitution 0.6. Tangential velocity is unchanged.
   function collideRock(pilot, k) {

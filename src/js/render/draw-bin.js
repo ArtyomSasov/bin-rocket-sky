@@ -243,9 +243,9 @@
         for (let k = 0; k < 6; k++) { const ph = turn + k * 1.047, off = Math.sin(ph) * 7, front = Math.cos(ph) > 0; if (!front) continue; g.fillStyle = k % 2 ? "#8a7fb0" : "#cfc6e8"; rrect(off - 2.5, -64, 5, 52, 2); g.fill(); }
         g.fillStyle = "#2a2140"; for (const yy of [-56, -38]) g.fillRect(-9, yy, 18, 3);   // the barrel clamps
         g.fillStyle = "#ffe08a"; g.fillRect(-9, -66, 18, 4);
-        if (mountHeat > 0.05) {   // the barrels glow red-hot as it spins (and white-hot when it overheats)
+        if (mountHeat > 0.05) {   // the barrels glow red-hot as it spins
           g.globalCompositeOperation = "lighter";
-          const hg = g.createLinearGradient(0, -66, 0, -30); hg.addColorStop(0, `rgba(255,${me.overheat ? 230 : 90},40,${0.85 * mountHeat})`); hg.addColorStop(1, "rgba(255,60,20,0)");
+          const hg = g.createLinearGradient(0, -66, 0, -30); hg.addColorStop(0, `rgba(255,90,40,${0.85 * mountHeat})`); hg.addColorStop(1, "rgba(255,60,20,0)");
           g.fillStyle = hg; rrect(-10, -66, 20, 36, 4); g.fill(); g.globalCompositeOperation = "source-over";
         }
       } else if (weapon === "gren") {   // the grenade launcher: a fat drum and a stubby wide tube

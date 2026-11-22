@@ -1,18 +1,3 @@
-  // homing: turns gently toward the nearest enemy ahead of it, never faster than a bin flies, so boost or a dash escapes it
-  function steerRocket(s, dt) {
-    const cur = Math.atan2(s.vy, s.vx);
-    let best = null, bd = 1100;
-    const consider = (o, x, y) => {
-      const d = Math.hypot(x - s.x, y - s.y);
-      if (d < bd && Math.abs(angD(Math.atan2(y - s.y, x - s.x) - cur)) < 1.25) { bd = d; best = { x, y }; }
-    };
-    if (canHurt(s, me, "me")) consider(me, me.x, me.y);
-    for (const [id, r] of remotes) if (!botById.has(id) && canHurt(s, r, id)) consider(r, r.x, r.y);   // my bots: from bots below
-    for (const b of bots) if (canHurt(s, b, b.id) && !(s.mine && botById.has(b.id))) consider(b, b.x, b.y);
-    const na = best ? cur + clamp(angD(Math.atan2(best.y - s.y, best.x - s.x) - cur), -2.3 * dt, 2.3 * dt) : cur;
-    const sp = Math.min(560, Math.hypot(s.vx, s.vy) + 380 * dt);
-    s.vx = Math.cos(na) * sp; s.vy = Math.sin(na) * sp;
-  }
   // the blast of a rocket or a plasma orb, wherever it ends: everyone sees it, and it hurts me and my bots nearby
   // (whoever took the direct hit, s.direct, already got its damage)
   function splash(s, now) {
@@ -22,7 +7,7 @@
     s.splashed = true;
     const [R0, hi, lo, push] = SPLASH[s.kind], m = s.m || 1;
     // blasts dig: grenades, mines and homing rockets that go off near rock bite craters out of it
-    const dig = { [K.GREN]: 62, [K.MINE]: 58, [K.HROCKET]: 46 }[s.kind], own = s.mine || botById.has(s.owner);
+    const dig = { [K.GREN]: 62, [K.MINE]: 58 }[s.kind], own = s.mine || botById.has(s.owner);
     if (dig && !s.surfFx) { const b = solidAny(s.x, s.y) || bodies.find(o => !o.dead && Math.hypot(o.x - s.x, o.y - s.y) - o.r < dig * 0.6); if (b) { s.surfFx = true; surfaceHit(b, s.x, s.y, s.kind); } }   // (the breach, seen by everyone; before the crater, so its pieces have a face to come from)
     if (dig) for (const b of [...bodies]) if (Math.hypot(b.x - s.x, b.y - s.y) - b.r < dig && (own || b.free)) carveAt(b, s.x, s.y, dig, own);
     const hit = (o, id, rad) => {

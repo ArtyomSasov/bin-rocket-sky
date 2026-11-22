@@ -75,7 +75,7 @@
     if (jk) { g.rotate(b.joltA); g.scale(1 - jk, 1 + jk * 0.8); g.rotate(-b.joltA); }   // (squashed along the blow, bulging across it)
     g.scale(pose.scaleX, 1);
     drawWings(lv, s);
-    mountHeat = isMe ? Math.max(spin, Math.min(1, me.heat || 0)) : 0;
+    mountHeat = isMe ? spin : 0;
     // a minigun's barrels turn with its spin (mine: the trigger's spin-up; another's: how hard it has been firing)
     { const sv = isMe ? spin : (b.spinVis = Math.max(0, (b.spinVis || 0) - Math.min(0.1, (now - (b.spinT || now)) / 1000) * 1.2)), dtv = Math.min(0.1, (now - (b.barrelT || now)) / 1000);
       b.spinT = b.barrelT = now; b.barrelA = (b.barrelA || 0) + (0.4 + sv * sv * 30) * dtv; barrelA = b.barrelA; if (!isMe) mountHeat = Math.max(mountHeat, sv * 0.8); }

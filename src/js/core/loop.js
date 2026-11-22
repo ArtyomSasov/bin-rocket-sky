@@ -31,12 +31,14 @@
     roundTick(now);
     for (let i = 0; i < world.supplies.length; i++) world.supplies[i] = supply(i, wt);
     // a black hole drags the junk and the pick-ups in too; what it swallows is gone (on every screen alike)
-    for (const o of [...world.sparks, ...world.rocks, ...world.picks, ...world.supplies, ...world.bombs, world.amp]) {
-      if (o && !(o.slot !== undefined && rockMotion.has(o.slot)) && holePull(o, wt, 0) > 0.9 && !grabbed.has(o.key)) {
-        grabbed.add(o.key);   // swallowed: gone (a spot's item comes back on its next cycle)
-        const ev = eventAt(wt); if (ev.type === "blackhole") swallowFx(o.x, o.y, blackHole(ev), o.type ? (WEAPONS[o.type] || SUPPLIES[o.type] || {}).col || "#c38bff" : "#ffffff");
+    const ev = eventAt(wt);
+    if (ev.type === "blackhole" && ev.et > 0 && ev.et < EV_LEN + HOLE_BACK)   // (only while a hole is open or easing back: see holePull)
+      for (const list of [world.sparks, world.rocks, world.picks, world.supplies, world.bombs, [world.amp]]) for (const o of list) {
+        if (o && !(o.slot !== undefined && rockMotion.has(o.slot)) && holePull(o, wt, 0) > 0.9 && !grabbed.has(o.key)) {
+          grabbed.add(o.key);   // swallowed: gone (a spot's item comes back on its next cycle)
+          swallowFx(o.x, o.y, blackHole(ev), o.type ? (WEAPONS[o.type] || SUPPLIES[o.type] || {}).col || "#c38bff" : "#ffffff");
+        }
       }
-    }
   }
   let resCheckAt = 0;
   function frame(now) {
