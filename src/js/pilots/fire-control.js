@@ -10,7 +10,7 @@
   // the trigger, for dt seconds: cooldown, charge, rocket loading, and the shots it lets go
   function fireTick(dt, now, held, altHeld) {
     fireCd -= dt; me.altCd = (me.altCd || 0) - dt;
-    const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided && (!serverRun || srv.joined);   // on the server my shots are only shown (12c-server.js)
+    const ready = playing && roundLive && !me.dead && fireCd <= 0 && !guided && (!serverRun || srv.joined);   // on the server my shots are only shown (net/server-client.js)
     const altW = WEAPONS[me.weapon].alt;
     rocketLoadTick(dt, now, altHeld, ready);
     if (altW && altW.charge) {   // a charged alt (the Plasma Nova): hold to charge, let go to fire

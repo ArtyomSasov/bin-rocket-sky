@@ -148,11 +148,10 @@
   // the shot kinds a peer may send: what the guns fire (either mode), the Blood Blade's touch and the two detonators.
   // Anything else (a retired gun's shots, kinds no gun makes any more) is refused on arrival
   const WIRE_SHOTS = new Set([K.MELEE, K.DET, K.MDET, ...Object.values(WEAPONS).flatMap(w => [w.shot, w.alt?.shot]).filter(Boolean).map(s => s[0])]);
-  let PICKS = 0;   // weapon spots on this arena (see 01b-arenas.js)
+  let PICKS = 0;   // weapon spots on this arena (see world/arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
   const SPLASH = { [K.BULLET_ALT]: [100, HP(24), 0, 170], [K.FLAK]: [210, HP(70), 0, 400], [K.MINE]: [262, HP(100), 0, 450], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [330, HP(140), HP(25), 800], [K.NOVA]: [300, HP(150), 0, 900] };   // (Plasma Nova: a full one kills a bin at its heart)
-  const GAMMA_ZAP = { r: 280, every: 0.45, dmg: HP(6) };
   const NOVA_ZAP = { r: 260, every: 0.12, dmg: HP(12) };   // the nova lashes every enemy this close to its path, by its charge   // the gamma orb zaps every enemy this close as it flies
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
   // a station's inner wall gives only to heavy weapons (a crater of WALL_CARVE or more: rockets, grenades, mines, the

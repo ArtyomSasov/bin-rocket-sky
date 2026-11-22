@@ -104,7 +104,7 @@
     if (lastShield > 0 && me.shield === 0) audioCue("shieldBreak");
     if (lastShield < 0.6 && me.shield >= 0.6) audioCue("shieldReady");
     lastShield = me.shield;
-    const low = me.lives <= maxLivesOf(me.lv) * 0.25;
+    const low = me.lives <= LIVES * 0.25;
     if (low && !lowHealthWarned) audioCue("warning");
     lowHealthWarned = low;
     const power = now < me.ampUntil;

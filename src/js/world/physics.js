@@ -3,7 +3,6 @@
   // piece of a broken bin a quarter, a scrap of debris almost nothing; loose rubble weighs what its rock does (its
   // cells' area, rock half again as dense as a bin); planets, moons, wrecks and walls do not move (Infinity).
   const BIN_AREA = Math.PI * 30 * 30;
-  const binMass = lv => sizeOf(lv || 1) ** 2;
   const rubbleMass = b => Math.max(0.04, b.mass * b.cs * b.cs / BIN_AREA * 1.5);
   const debrisMass = d => Math.max(0.003, 0.012 * ((d.size || 4) / 5) ** 2);
   // two things meeting along n (from b to a): momentum kept, the bounce by e (0 dead, 1 elastic); returns the impulse

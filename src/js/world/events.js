@@ -107,7 +107,7 @@
     }
 
     if (!ev.active || !playing || me.dead || !roundLive) return;   // events leave you alone during the results break
-    const mr = 30 * sizeOf(me.lv);
+    const mr = 30;
 
     if (ev.type === "blackhole") holeOnMe(blackHole(ev), dt, now);
 
@@ -147,7 +147,6 @@
             me.score += 15; showScore();
             floaters.push({ x: p.x, y: p.y, t: 0, txt: "UFO +15", gold: true });
             explode(p.x, p.y, 80, 340); sfx("boom_bin", 1, 1.1, p.x, p.y);
-            gainXp(5, now);
             break;
           }
         }
@@ -162,13 +161,12 @@
       for (let i = 0; i < GOLD_N; i++) {
         const gd = goldDrop(ev, i);
         if (!gd || grabbed.has(gd.key) || gd.age < 0.3) continue;
-        if (Math.hypot(gd.x - me.x, gd.y - me.y) < 22 + 30 * sizeOf(me.lv)) {
+        if (Math.hypot(gd.x - me.x, gd.y - me.y) < 52) {
           grabbed.add(gd.key); pushCapped(myGrabs, gd.key, 40);
           me.score += 5; showScore();
           floaters.push({ x: gd.x, y: gd.y, t: 0, txt: "+5", gold: true });
           for (let k = 0; k < 24; k++) { const a = Math.random() * 6.28, v = 80 + Math.random() * 200; puff(gd.x, gd.y, Math.cos(a) * v, Math.sin(a) * v, 0.7, 2.2, "#ffd36b"); }
           audioCue("pickup");
-          gainXp(5, now);
         }
       }
     }

@@ -1,7 +1,7 @@
   // ---------- networking ----------
   // State and recent shots travel together; every connected broker receives the same sequence.
   const net = { send() {}, shot() {}, shotsInState: true, hz: 8 };
-  const MAX_REMOTES = 128, MAX_DROPS = 256, MAX_SEEN_SHOTS = 4096, MAX_CREDITS = 16384;
+  const MAX_REMOTES = 128, MAX_SEEN_SHOTS = 4096, MAX_CREDITS = 16384;
   const netDot = document.getElementById("netDot"), netText = document.getElementById("netText");
   const shareBtn = document.getElementById("shareBtn"), codeBtn = document.getElementById("codeBtn");
   function copyText(text, btn, label, done) {

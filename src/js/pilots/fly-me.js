@@ -5,7 +5,7 @@
     // fast to where you push, so you can turn and shoot back the way you came. X alone is the air brake
     let drift = false, lit = false;
     if (serverRun && !srv.placed && playing) { me.vx = me.vy = 0; return; }   // waiting for the server to say where I am
-    const wr = WALL_R * sizeOf(me.lv), a0 = me.a, cmdMode = serverRun && srv.joined && playing && !me.dead;
+    const wr = WALL_R, a0 = me.a, cmdMode = serverRun && srv.joined && playing && !me.dead;
     if (cmdMode) boost = !!me.boosting;
     if (playing && !me.dead) {
       // (in a command flight the facing turns after: the commands carry the aim this frame's shots went out with)
@@ -33,18 +33,18 @@
         if (f.fence.dmg > 0) hurt(now, f.fence.dmg); else shake = Math.max(shake, 0.12);
       }
       if (drift && Math.abs(angD(Math.atan2(me.vy, me.vx) - me.a)) > 0.6 && Math.random() < 50 * dt) {   // the hull scrubs sideways: smoke off both flanks
-        const s = 26 * sizeOf(me.lv), nx = -Math.sin(me.a), ny = Math.cos(me.a), side = Math.random() < 0.5 ? 1 : -1;
+        const s = 26, nx = -Math.sin(me.a), ny = Math.cos(me.a), side = Math.random() < 0.5 ? 1 : -1;
         puff(me.x + nx * s * side, me.y + ny * s * side, nx * side * 60 + (Math.random() - 0.5) * 40, ny * side * 60 + (Math.random() - 0.5) * 40, 0.6, 3 + Math.random() * 3, "rgb(190,200,225)", 2);
       }
       if (braking && !drift && Math.hypot(me.vx, me.vy) > 60 && Math.random() < 40 * dt) {   // retro jets puffing out of the nose
-        const fx = me.x + Math.cos(me.a) * 30 * sizeOf(me.lv), fy = me.y + Math.sin(me.a) * 30 * sizeOf(me.lv);
+        const fx = me.x + Math.cos(me.a) * 30, fy = me.y + Math.sin(me.a) * 30;
         puff(fx, fy, Math.cos(me.a) * 220 + me.vx, Math.sin(me.a) * 220 + me.vy, 0.35, 3 + Math.random() * 3, "#cfe8ff", 2);
       }
     } else {   // the start screen's idle drift, or a wreck waiting to respawn
       if (!playing) { me.vx = Math.cos(now / 2400) * 120; me.vy = Math.sin(now / 3100) * 90 - 40; }
       if (me.dead) { me.vx = me.vy = 0; } else gravityOn(me, dt);
       me.x += me.vx * dt; me.y += me.vy * dt;
-      if (!me.dead) bounceOff(me, wr, 0.7, binMass(me.lv));
+      if (!me.dead) bounceOff(me, wr, 0.7, BIN_MASS);
       if (me.x < wr || me.x > W - wr) { me.x = clamp(me.x, wr, W - wr); me.vx = -me.vx * 0.7 + Math.sign(W / 2 - me.x) * 220; }
       if (me.y < wr || me.y > H - wr) { me.y = clamp(me.y, wr, H - wr); me.vy = -me.vy * 0.7 + Math.sign(H / 2 - me.y) * 220; }
     }

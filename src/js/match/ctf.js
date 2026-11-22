@@ -22,11 +22,11 @@
     if (roundLive && playing && !me.dead && onTeam(me) && !serverRun) actors.push([me, myTag]);   // the server carries my flags itself
     if (roundLive) for (const b of bots) if (!b.dead && onTeam(b)) actors.push([b, b.tag]);
     for (const [o, tag] of actors) {
-      const ef = 1 - o.tm, reach = 70 + 26 * sizeOf(o.lv || 1);
+      const ef = 1 - o.tm, reach = 96;
       if (o.fc !== ef && !flagCarrier[ef] && Math.hypot(o.x - bases[ef].x, o.y - bases[ef].y) < reach) { o.fc = ef; flagCarrier[ef] = { id: tag, o }; }
       else if (o.fc === ef && !flagCarrier[o.tm] && Math.hypot(o.x - bases[o.tm].x, o.y - bases[o.tm].y) < reach) {
         o.fc = -1; o.caps = (o.caps || 0) + 1; flagCarrier[ef] = null;
-        if (o === me) { me.score += 25; showScore(); gainXp(10, now); }
+        if (o === me) { me.score += 25; showScore(); }
       }
     }
     // tell everyone what happened to each flag

@@ -145,7 +145,7 @@ try {
   const shot = await evaluate(a, `(()=>{__t.me.weapon='fire';__t.shoot(performance.now());return __t.myShotLog.at(-1).d[0]})()`);
   await until(b, `__t.seenShots.has(${JSON.stringify(shot)})`);
   const knocked = await evaluate(a, `(()=>{const t=__t,k=t.world.rocks.find(k=>k.age>1&&k.age<15&&k.x>200&&k.y>200),old=k.vx;
-    t.me.x=k.x-k.r-25;t.me.y=k.y;t.me.vx=k.vx+400;t.me.vy=k.vy;t.me.lv=1;t.me.dead=false;
+    t.me.x=k.x-k.r-25;t.me.y=k.y;t.me.vx=k.vx+400;t.me.vy=k.vy;t.me.dead=false;
     t.updateJunk(0.016,performance.now());const result={slot:k.slot,gen:k.gen,vx:k.vx,old};
     t.me.x=100;t.me.y=100;t.me.vx=t.me.vy=0;return result;})()`);
   assert.ok(knocked.vx>knocked.old);
@@ -228,7 +228,7 @@ try {
   await join(lagA,'Lag shooter');await join(lagB,'Lag victim',false);
   await until(lagA, "[...__t.remotes.values()].some(r=>r.name==='Lag victim')");
   await until(lagB, "[...__t.remotes.values()].some(r=>r.name==='Lag shooter')");
-  for(const p of [lagA,lagB]) await evaluate(p, 'window.__pauseGame=true;__t.isolate();for(let i=0;i<30;i++) __t.gotPing(140);__t.me.lv=1;__t.me.dead=false;__t.me.inv=0;__t.me.shield=0;__t.me.lives=10;__t.me.vx=__t.me.vy=0;__t.me.a=0;__t.me.ampUntil=0');
+  for(const p of [lagA,lagB]) await evaluate(p, 'window.__pauseGame=true;__t.isolate();for(let i=0;i<30;i++) __t.gotPing(140);__t.me.dead=false;__t.me.inv=0;__t.me.shield=0;__t.me.lives=10;__t.me.vx=__t.me.vy=0;__t.me.a=0;__t.me.ampUntil=0');
   await evaluate(lagA, '__t.me.x=100;__t.me.y=600;__t.netSend(1,performance.now())');
   await evaluate(lagB, '__t.me.x=600;__t.me.y=600;__t.netSend(1,performance.now())');
   await wait(250);
@@ -367,7 +367,7 @@ try {
   assert.match(await evaluate(foundry,"document.getElementById('roundInfo').textContent"),/next round in 15s/);
   await evaluate(foundry,'__t.setEnd(__t.clockNow()-15001);__t.roundTick(performance.now())');
   assert.equal(await evaluate(foundry,'__t.me.caps'),0);
-  assert.equal(await evaluate(foundry,'__t.bots.every(b=>b.lv===1&&b.xp===0&&b.st.kills===0)'),true);
+  assert.equal(await evaluate(foundry,'__t.bots.every(b=>b.st.kills===0)'),true);
   console.log('PASS score-limit finish, guest clock and full round reset');
   const preview=await page();
   await send('Page.navigate',{url:url+'/audio-preview.html'},preview);

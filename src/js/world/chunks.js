@@ -45,7 +45,7 @@
     const all = [];
     for (const c of chunks) all.push([c, c.r * 0.8, 0.02 * (c.r / 8) ** 2, "spin"]);
     for (const f of frags) all.push([f, f.s * 0.25, 0.25 * (f.s / BOT) ** 2, "spin"]);
-    for (const h of hulks) all.push([h, 30 * sizeOf(h.lv), 0.35 * binMass(h.lv), "hulk"]);
+    for (const h of hulks) all.push([h, 30, 0.35 * BIN_MASS, "hulk"]);
     if (all.length < 2 && !chunks.length) return;
     pieceGrid.clear();
     const C = 96, key = (i, j) => i * 4096 + j;
@@ -79,7 +79,7 @@
     for (const r of remotes.values()) if (!r.dead) bins.push(r);
     for (const b of bots) if (!b.dead && !remotes.has(b.id)) bins.push(b);
     for (const b of bins) {
-      const BR = 30 * sizeOf(b.lv || 1), i0 = Math.floor((b.x - BR - 60) / C), i1 = Math.floor((b.x + BR + 60) / C), j0 = Math.floor((b.y - BR - 60) / C), j1 = Math.floor((b.y + BR + 60) / C);
+      const BR = 30, i0 = Math.floor((b.x - BR - 60) / C), i1 = Math.floor((b.x + BR + 60) / C), j0 = Math.floor((b.y - BR - 60) / C), j1 = Math.floor((b.y + BR + 60) / C);
       for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const l = pieceGrid.get(key(i, j)); if (l) for (const n of l) if (!(b === me && all[n][3] === "hulk")) meet(all[n], [b, BR, Infinity]); }   // (my bin and a hulk meet in updateFx, both moving)
     }
   }

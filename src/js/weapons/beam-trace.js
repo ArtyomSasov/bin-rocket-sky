@@ -47,8 +47,8 @@
       for (let k = 1; k <= n; k++) {
         const px = s.x + (nx - s.x) * k / n, py = s.y + (ny - s.y) * k / n;
         let o = null;
-        for (const [rid, r] of remotes) if (rid !== s.owner && !r.dead && Math.hypot(r.x - px, r.y - py) < binR(r.lv || 1) + 4) { o = [rid, r]; break; }
-        if (!o && !mineHere && playing && !me.dead && Math.hypot(me.x - px, me.y - py) < binR(me.lv) + 4) o = ["me", me];
+        for (const [rid, r] of remotes) if (rid !== s.owner && !r.dead && Math.hypot(r.x - px, r.y - py) < BIN_R + 4) { o = [rid, r]; break; }
+        if (!o && !mineHere && playing && !me.dead && Math.hypot(me.x - px, me.y - py) < BIN_R + 4) o = ["me", me];
         if (o || solidAny(px, py)) {
           s.latch = o ? { id: o[0], dx: px - o[1].x, dy: py - o[1].y } : { x: px, y: py }; s.x = px; s.y = py; s.vx = s.vy = 0; s.held = 0; s.life = 1;
           sparkShower(px, py, -(nx - s.x), -(ny - s.y), 0.6); impact(px, py, "#dfe6f0", 0.6);
@@ -64,7 +64,7 @@
     if (o) { s.x = o.x + L.dx * 0.6; s.y = o.y + L.dy * 0.6; }   // (a bin: held to it as it moves)
     s.held += dt; s.life = 1; s.expireAfterStep = false;
     const dx = s.x - sh.x, dy = s.y - sh.y, d = Math.hypot(dx, dy) || 1;
-    if (d < binR(sh.lv || 1) + (o ? binR(o.lv || 1) + 10 : 30) || s.held > HOOK_HOLD) return true;   // there
+    if (d < BIN_R + (o ? BIN_R + 10 : 30) || s.held > HOOK_HOLD) return true;   // there
     const hauls = mineHere || (botById.get(s.owner) || {}).input;
     if (hauls) { const k = Math.min(1, dt * 14); sh.vx += (dx / d * HOOK_PULL - sh.vx) * k; sh.vy += (dy / d * HOOK_PULL - sh.vy) * k; }
     return false;

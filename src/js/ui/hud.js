@@ -39,8 +39,7 @@
       if (r.dead) continue;
       const [x, y] = P(r.x, r.y);
       mctx.fillStyle = isTeams() && onTeam(r) ? TEAM_HEX[r.tm] : `hsl(${r.hue} 90% 70%)`;
-      mctx.beginPath(); mctx.arc(x, y, 4.5 + r.lv * 0.3, 0, 6.29); mctx.fill();
-      if (r.lv >= MAX_LV) { mctx.strokeStyle = "#ffd36b"; mctx.lineWidth = 2; mctx.beginPath(); mctx.arc(x, y, 10 + Math.sin(now / 200) * 2, 0, 6.29); mctx.stroke(); }   // the crown: seen by all
+      mctx.beginPath(); mctx.arc(x, y, 4.8, 0, 6.29); mctx.fill();
     }
     if (bases) for (const t of [0, 1]) {   // pads and flags
       const [bx, by] = P(bases[t].x, bases[t].y), c = flagCarrier[t], [fx, fy] = c ? P(c.o.x, c.o.y) : [bx, by];

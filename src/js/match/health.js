@@ -1,7 +1,7 @@
   // ---------- hearts ----------
   const heartsEl = document.getElementById("hearts");
   const hpFill = document.getElementById("hpFill"), hpNum = document.getElementById("hpNum");
-  const hpPct = b => Math.max(0, Math.ceil(b.lives / maxLivesOf(b.lv || 1) * 100));
+  const hpPct = b => Math.max(0, Math.ceil(b.lives / LIVES * 100));
   function renderHearts(hit) {
     const pct = me.dead ? 0 : hpPct(me);
     hpFill.style.width = Math.min(100, pct) + "%"; hpNum.textContent = pct + " HP";
@@ -11,8 +11,6 @@
     if (hit) { heartsEl.classList.remove("hit"); void heartsEl.offsetWidth; heartsEl.classList.add("hit"); }
   }
   renderHearts(false);
-  function renderLevel() { if (me.shield > 0) renderShield(); }
-  renderLevel();
 
 
   // Separate UT armor layers; shield is the total replicated to other screens.

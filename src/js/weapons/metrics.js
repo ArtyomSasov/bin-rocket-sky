@@ -3,7 +3,7 @@
   const weaponMetrics = new Map(), metricShots = new Map(), metricConfirmations = new Set();
   const metricRow = (weapon, pilot, alt = false) => {
     const info = { round: stats.round, map: mapThemeOf(worldCode), size: mapKey, mode: MODE,
-      actor: pilot === me ? "player" : "bot", level: pilot.lv || 1, weapon, fireMode: alt ? "alt" : "primary" };
+      actor: pilot === me ? "player" : "bot", weapon, fireMode: alt ? "alt" : "primary" };
     const key = JSON.stringify(info);
     if (!weaponMetrics.has(key)) {
       if (weaponMetrics.size >= 512) weaponMetrics.delete(weaponMetrics.keys().next().value);

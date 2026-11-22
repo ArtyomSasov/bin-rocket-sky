@@ -139,7 +139,7 @@
   function makeHulk(b, zap, quiet) {
     const life = Infinity;   // stays until the round ends
     hulks.push({ x: b.x, y: b.y, vx: (b.vx || 0) * 0.5 + (Math.random() - 0.5) * 60, vy: (b.vy || 0) * 0.5 + (Math.random() - 0.5) * 60,
-                 a: b.a, spin: (Math.random() - 0.5) * (zap ? 0.6 : 1.6), lv: b.lv || 1, ck: b.ck, life, max: life, born: performance.now(), zap: !!zap });
+                 a: b.a, spin: (Math.random() - 0.5) * (zap ? 0.6 : 1.6), ck: b.ck, life, max: life, born: performance.now(), zap: !!zap });
     if (hulks.length > 30) hulks.shift();
     if (zap || quiet) return;
     explode(b.x, b.y, 30, 240);
@@ -192,7 +192,7 @@
     const thrust = clamp(b.thrust || 0, 0, 1.4);
     return { a: b.a + Math.PI / 2 - SPRITE_TILT + Math.sin(now / 300 + b.x * 0.01) * 0.018 + (b.bank || 0) * 0.35,
       scaleX: 1 - Math.abs(b.bank || 0) * 0.3,
-      s: BOT * sizeOf(b.lv || 1) * (1 + Math.sin(now / 85 + (b.hue || 0)) * 0.005 * thrust) };
+      s: BOT * (1 + Math.sin(now / 85 + (b.hue || 0)) * 0.005 * thrust) };
   }
   function exhaustJets(b, now) {
     const p = binPose(b, now), thrust = clamp(Math.max(b.boostFx === 2 || b.boost === 2 ? 1 : 0, b.thrust || 0), 0, 1.4), delta = angD(thrustAngle(b) - b.a);
@@ -245,6 +245,6 @@
       const age = Math.random() * dt; // spread along the moving nozzle's path, even at low FPS
       puff(j.x - (b.vx || 0) * age, j.y - (b.vy || 0) * age,
         Math.cos(a) * speed + (b.vx || 0) * 0.7, Math.sin(a) * speed + (b.vy || 0) * 0.7,
-        0.16 + Math.random() * 0.22, (2 + Math.random() * 3) * sizeOf(b.lv || 1), "#ffd23f", k % 5 === 0 ? 1 : 3);
+        0.16 + Math.random() * 0.22, (2 + Math.random() * 3), "#ffd23f", k % 5 === 0 ? 1 : 3);
     }
   }

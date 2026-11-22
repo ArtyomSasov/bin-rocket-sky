@@ -21,7 +21,7 @@
     : type === "crates" ? [230 + rnd(1) * 40, 170 + rnd(2) * 40] : type === "skip" ? [250 + rnd(1) * 50, 130 + rnd(2) * 20]
     : type === "truck" ? [380 + rnd(1) * 60, 150 + rnd(2) * 20] : type === "wheelie" ? [150 + rnd(1) * 30, 210 + rnd(2) * 40]
     : type === "bales" ? [230 + rnd(1) * 40, 180 + rnd(2) * 30] : [300 + rnd(1) * 60, 120 + rnd(2) * 30];
-  // the arena's fixed spots in world units: guns, supplies, Overdrive and the two big bombs (see 01b-arenas.js)
+  // the arena's fixed spots in world units: guns, supplies, Overdrive and the two big bombs (see world/arenas.js)
   let arena = { guns: [], supplies: [], amp: null, nuke: null, holy: null, void: null, pads: [] };
   // the Large and Huge arenas: more pairs in the widest gaps, found the same way every time (no randomness)
   function widestGap(taken, pad, edge) {

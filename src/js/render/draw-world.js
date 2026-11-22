@@ -32,17 +32,6 @@
     g.restore();
   }
   function drawPickups(now) {
-    for (const [id, d] of drops) {
-      const age = now - d.born, fade = age > DROP_LIFE - 3000 && Math.floor(now / 120) % 2 ? 0.35 : 1;
-      g.globalAlpha = fade;
-      for (let j = 0; j < d.n; j++) {
-        const st = dropStar(d, id, j, now);
-        if (grabbed.has(st.key)) continue;
-        const x = sx(st.x), y = sy(st.y);
-        if (onScreen(x, y, 30)) drawSpark(x, y, 8, false, now, 1);
-      }
-      g.globalAlpha = 1;
-    }
     for (const p of arena.pads) {   // boost pads: a glowing ring with chevrons running its way
       const x = sx(p.x), y = sy(p.y);
       if (!onScreen(x, y, 120)) continue;
@@ -103,12 +92,11 @@
   // dead bins: hulks, fragments, melting bins, debris
   function drawWreckage(now) {
     for (const h of hulks) {
-      const x = sx(h.x), y = sy(h.y), s = BOT * sizeOf(h.lv);
+      const x = sx(h.x), y = sy(h.y), s = BOT;
       if (!onScreen(x, y, s)) continue;
       const char = h.burn ? clamp((now - h.burn) / 2600, 0, 1) : 0;   // burning: it chars black, then crumbles (fades)
       g.globalAlpha = Math.min(1, h.life / 2) * (h.burn ? Math.min(1, Math.max(0, (4200 - (now - h.burn)) / 800)) : 1);
       g.save(); g.translate(x, y); g.rotate(h.a + Math.PI / 2 - SPRITE_TILT);
-      drawWings(h.lv, s);
       if (body) g.drawImage(darkBody(h.ck || [0, 0, 0, 0, 0], h.zap ? 0.8 : 0.58 - 0.45 * char), -s / 2, -s / 2, s, s);
       if (h.burn && now >= h.burn && char < 1) {   // the embers glowing through
         g.globalCompositeOperation = "lighter"; g.globalAlpha *= 0.5 * (1 - char * 0.6) * (0.7 + 0.3 * Math.sin(now / 60));
@@ -196,7 +184,7 @@
     g.globalAlpha = 1;
     for (const s of shots) {
       const x = sx(s.x), y = sy(s.y);
-      if (!(s.traced && (s.kind === K.BULLET || s.kind === K.PELLET)) && onScreen(x, y, s.kind === K.GAMMA ? GAMMA_ZAP.r : 60)) drawShot(s, x, y, now);
+      if (!(s.traced && (s.kind === K.BULLET || s.kind === K.PELLET)) && onScreen(x, y, s.kind === K.GAMMA ? 120 : 60)) drawShot(s, x, y, now);
     }
     for (const m of maws) {   // a demonic orb drinking everything in: it swells and its heart races before it bursts
       const x = sx(m.x), y = sy(m.y), k = Math.min(1, m.t / GAMMA_SUCK.t);

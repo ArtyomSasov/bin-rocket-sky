@@ -3,12 +3,11 @@
     creditBots(hitBy, false); creditBots(koBy, true);   // bots that hit or killed me
     const holes = holesNow();
     for (const b of bots) {
-      if (!b.dead && roundLive) botXp(b, dt * 0.35);   // what a player gets from sparks: about 20 XP a minute
       while (b.shotLog.length && now - b.shotLog[0].at > 700) b.shotLog.shift();
       if (b.dead) {
         if (now < b.respawnAt) continue;
         clearArmor(b);
-        Object.assign(b, { dead: false, lives: maxLivesOf(b.lv), inv: now + 2000, ...spawnPoint(b.tm), vx: 0, vy: 0, charge: 0 });
+        Object.assign(b, { dead: false, lives: LIVES, inv: now + 2000, ...spawnPoint(b.tm), vx: 0, vy: 0, charge: 0 });
         resetCmds(b);
       }
       const human = b.input;   // flown by a player: the AI below only steers the others
@@ -48,7 +47,7 @@
       }
       // Quad damage: anyone flying through it takes it, a player on the server (their screen only shows it) or a bot
       const qd = world.amp;
-      if (roundLive && qd && !grabbed.has(qd.key) && Math.hypot(qd.x - b.x, qd.y - b.y) < 30 + 30 * sizeOf(b.lv || 1)) {
+      if (roundLive && qd && !grabbed.has(qd.key) && Math.hypot(qd.x - b.x, qd.y - b.y) < 60) {
         grabbed.add(qd.key); pushCapped(myGrabs, qd.key, 40); b.ampUntil = now + AMP_TIME;
         if (!human) for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 100 + Math.random() * 300; puff(qd.x, qd.y, Math.cos(a) * v, Math.sin(a) * v, 0.8, 2.5, k % 2 ? "#5b9bff" : "#ffffff"); }
         sfx("shield_get", 0.6, 0.7, qd.x, qd.y);
@@ -195,7 +194,7 @@
       if (Math.hypot(st.x, st.y) > 0.15) b.a = lerpAng(b.a, Math.atan2(st.y, st.x), 1 - Math.exp(-13 * dt));
       gravityOn(b, dt);
       b.x += b.vx * dt; b.y += b.vy * dt;
-      const pc = bounceOff(b, 40, 0.25, binMass(b.lv));
+      const pc = bounceOff(b, 40, 0.25, BIN_MASS);
       if (pc && pc.vn < -200) {
         impact(b.x - pc.nx * 40, b.y - pc.ny * 40, "#ffd9b0", 1.2);
         const dmg = hurtsOnHit(pc.b) ? crashDmg(-pc.vn, false) : 0;
@@ -250,8 +249,8 @@
     for (const [rid, r] of remotes) {
       if (botById.has(rid) || r.dead || !(r.boost > 0) || !r.tag || mates(r, b)) continue;
       const dx = b.x - r.x, dy = b.y - r.y, d = Math.hypot(dx, dy) || 1;
-      if (d < 31 * (sizeOf(r.lv || 1) + sizeOf(b.lv || 1))) {   // (their bin is theirs to move: only mine takes the blow here)
-        const nx = dx / d, ny = dy / d, mb = binMass(b.lv), mr = binMass(r.lv), vn = (b.vx - (r.vx || 0)) * nx + (b.vy - (r.vy || 0)) * ny;
+      if (d < 62) {   // (their bin is theirs to move: only mine takes the blow here)
+        const nx = dx / d, ny = dy / d, mb = BIN_MASS, mr = BIN_MASS, vn = (b.vx - (r.vx || 0)) * nx + (b.vy - (r.vy || 0)) * ny;
         if (vn < 0) {
           const j = -1.5 * vn / (1 / mb + 1 / mr), dmg = knockDmg(j / mb);
           b.vx += j * nx / mb; b.vy += j * ny / mb;
@@ -270,7 +269,7 @@
       if (s.kind === K.MINE && SHOTS[K.MINE].life - s.life < MINE_ARM) continue;
       if (targetHit(s, b)) {
         if (pierces(s)) { if (!railOnce(s, b.id)) continue; } else { s.life = 0; s.direct = b.id; }
-        shotBurst(s); hitConfirm(s, b.lv, b.x, b.y, remotes.get(b.id)); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
+        shotBurst(s); hitConfirm(s, b.x, b.y, remotes.get(b.id)); if (SHOTS[s.kind].shove) pelletShove(b, s, SHOTS[s.kind].shove);
         botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx), invNow);
       }
     }

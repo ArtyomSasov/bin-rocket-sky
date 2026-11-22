@@ -10,13 +10,13 @@
     const q = c => (c[0] >> 4 << 4) + "," + (c[1] >> 4 << 4) + "," + (c[2] >> 4 << 4), key = q(pal.core) + "|" + q(pal.mid) + "|" + q(pal.outer) + (boost ? "b" : "");
     let c = plumeCols.get(key);
     if (!c) { c = [boost ? "rgb(215,235,255)" : `rgb(${q(pal.core)})`, `rgb(${q(pal.core)})`, `rgb(${q(pal.mid)})`, `rgb(${q(pal.outer)})`, "rgb(120,30,14)"];
-      c.own = pal !== TIERS[0] && !(pal.outer[0] > 200 && pal.outer[1] < 120 && pal.outer[2] < 80);   // (an orange fire uses real flame; other colours their glow)
+      c.own = pal !== FLAME && !(pal.outer[0] > 200 && pal.outer[1] < 120 && pal.outer[2] < 80);   // (an orange fire uses real flame; other colours their glow)
       plumeCols.set(key, c); }
     return c;
   }
   function emitPlume(b, dt, boost) {
     if (dt <= 0) return;
-    const jets = exhaustJets(b, performance.now()), pal = b.flamePal || tierOf(b.lv || 1), cols = plumeColsOf(pal, boost), q = lowQ ? 0.45 : 1;
+    const jets = exhaustJets(b, performance.now()), pal = b.flamePal || FLAME, cols = plumeColsOf(pal, boost), q = lowQ ? 0.45 : 1;
     for (const j of jets) {
       if (j.power < 0.05) continue;
       // the jet itself is drawn on the bin (drawJet); these are the flame licks torn off its end, which live in the
@@ -78,12 +78,12 @@
   // dash: a flash at the nozzle, sparks thrown back (no ring: it read as a circle round whoever dashed)
   function dashBurst(b) {
     const jet = exhaustJets({ ...b, thrust: Math.max(1, b.thrust || 0) }, performance.now()).sort((a, b) => b.power - a.power)[0];
-    const A = jet.a - Math.PI, sz = sizeOf(b.lv || 1), tx = jet.x, ty = jet.y;
-    impacts.push({ x: tx, y: ty, t: 0, r: 90 * sz, col: "#ffd23f" });
+    const A = jet.a - Math.PI, tx = jet.x, ty = jet.y;
+    impacts.push({ x: tx, y: ty, t: 0, r: 90, col: "#ffd23f" });
     for (let k = 0; k < (lowQ ? 12 : 30); k++) {
       const a = A + Math.PI + (Math.random() - 0.5) * 0.9, v = 400 + Math.random() * 500;
       puff(tx, ty, Math.cos(a) * v, Math.sin(a) * v, 0.25 + Math.random() * 0.25, 1.2 + Math.random(), k % 2 ? "#fff6c8" : "#ffb43c", 1);
     }
   }
   // a hurt bin smokes; on its last life it also throws sparks
-  const damageOf = b => 1 - b.lives / maxLivesOf(b.lv || 1);
+  const damageOf = b => 1 - b.lives / LIVES;

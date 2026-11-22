@@ -57,7 +57,7 @@
     if (miniHeat > 0) {   // hot barrels smoke once the firing stops, thinning as they cool
       const firing = held && me.weapon === "minigun" && playing && !me.dead;
       if (!firing && me.weapon === "minigun" && !me.dead && Math.random() < miniHeat * dt * (lowQ ? 20 : 55)) {
-        const R = 46 * sizeOf(me.lv), nx = me.x + Math.cos(me.a) * R, ny = me.y + Math.sin(me.a) * R;
+        const R = 46, nx = me.x + Math.cos(me.a) * R, ny = me.y + Math.sin(me.a) * R;
         puff(nx, ny, me.vx * 0.8 + (Math.random() - 0.5) * 30, me.vy * 0.8 - 25 - Math.random() * 30, 1.1 + Math.random() * 0.9, 7 + Math.random() * 7, MINI_SMOKE[Math.random() * 3 | 0], 2);
       }
       miniHeat = Math.max(0, miniHeat - dt * (firing ? 0 : 0.3));

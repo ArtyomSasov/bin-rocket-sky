@@ -19,9 +19,9 @@
       return (lo + (hi - lo) * (1 - d / R)) * m;
     };
     const pushed = new Set();
-    const dm = hit(me, "me", 26 * sizeOf(me.lv));
+    const dm = hit(me, "me", 26);
     if (dm) hurtMe(s, now, dm);
-    for (const b of bots) { const db = hit(b, b.id, 26 * sizeOf(b.lv || 1)); if (db) botHurt(b, db * selfMul(s, b.id), s.id, now, false, s.kind); }
+    for (const b of bots) { const db = hit(b, b.id, 26); if (db) botHurt(b, db * selfMul(s, b.id), s.id, now, false, s.kind); }
     // and its shock wave runs on past the blast: whoever and whatever it reaches (bins, wreckage, pieces, sparks,
     // shots) is thrown out from the middle, the harder the nearer (those the blast itself threw are not thrown twice)
     waves.push({ x: s.x, y: s.y, t: 0, r: 0, max: R0 * 2.4, dur: 0.32, power: push * 1.6 * Math.min(2, m), mine: s.mine || botById.has(s.owner), hit: pushed, small: true });

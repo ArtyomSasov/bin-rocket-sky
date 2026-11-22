@@ -34,12 +34,6 @@
     }
     return false;
   }
-  function clearAim(x, y, tx, ty) {
-    if (fixedCover(x, y, tx, ty)) return false;
-    const d = Math.hypot(tx - x, ty - y), steps = Math.ceil(d / 4);
-    for (let i = 1; i < steps; i++) if (solidAny(x + (tx - x) * i / steps, y + (ty - y) * i / steps)) return false;
-    return true;
-  }
 
   const ALT_HINTS = {
     fire: "Laser pistol: instant accurate red beams; alternate fire is faster with wider spread. Unlimited starting ammo.",

@@ -62,7 +62,7 @@ test('whatever a peer sends, the page neither breaks nor makes a pilot of it wit
       if (d > 3 || r < 0.3) return [NaN, Infinity, -1, 1e308, '', 'x'.repeat(50), null, true, 0, 3.5, '__proto__', 'constructor'][Math.floor(random() * 12)];
       if (r < 0.6) return Array.from({ length: Math.floor(random() * 6) }, () => junk(d + 1));
       const o = {};
-      for (const k of ['q', 'x', 'y', 'vx', 'vy', 'a', 'd', 'ds', 'dk', 'n', 'ck', 'h', 'f', 'hb', 'ko', 'bots', 'mc', 'rd', 'ts', 'tm', 'fc', 'g', 'cv', 'terrain', 'dr', 'wd', 'st', 'bw', 'lv', 'wp']) if (random() < 0.3) o[k] = junk(d + 1);
+      for (const k of ['q', 'x', 'y', 'vx', 'vy', 'a', 'd', 'ds', 'dk', 'n', 'ck', 'h', 'f', 'hb', 'ko', 'bots', 'mc', 'rd', 'ts', 'tm', 'fc', 'g', 'cv', 'terrain', 'wd', 'st', 'bw', 'wp']) if (random() < 0.3) o[k] = junk(d + 1);
       return o;
     };
     g.ev('globalThis.__junk = []');

@@ -1,6 +1,6 @@
 // A match simulated on the server: the game's own rules (see headless.mjs) stepped at a fixed rate, with
 // everything that only shows or sounds switched off. Players are pilots driven by their input (addPilot in
-// src/js/15-bots.js), judged by the same code as the bots.
+// src/js/pilots/bot-update.js), judged by the same code as the bots.
 import { loadGame } from "./headless.mjs";
 
 // Runs inside the game's scope. Function declarations there are ordinary bindings, so the server replaces the
@@ -13,7 +13,7 @@ const HITLOG = `
       if (s.kind === K.PISTOL && botById.get(s.owner)?.input && o.id !== s.owner) {
         const p = hitPose(s, o), dx = s.x - s.px, dy = s.y - s.py, L = Math.hypot(dx, dy) || 1, perp = ((p.x - s.px) * dy - (p.y - s.py) * dx) / L, along = ((p.x - s.px) * dx + (p.y - s.py) * dy) / L;
         if (r || Math.abs(perp) < 90 && along > -90 && along < L + 90) console.log("HITLOG " + JSON.stringify({ t: Date.now(), id: s.id, r, perp: Math.round(perp), along: Math.round(along), L: Math.round(L),
-          rad: Math.round(binR(p.lv) + shotRadius(s)), rew: Math.round(performance.now() - (s.hitTime || performance.now())), hist: p !== o, dead: !!p.dead, life: +s.life.toFixed(3) }));
+          rad: Math.round(BIN_R + shotRadius(s)), rew: Math.round(performance.now() - (s.hitTime || performance.now())), hist: p !== o, dead: !!p.dead, life: +s.life.toFixed(3) }));
       }
       return r; };
   }
@@ -97,7 +97,7 @@ const BRIDGE = `
       parts.length = 0; impacts.length = 0; rings.length = 0; floaters.length = 0; arcs.length = 0; beams.length = 0; lasers.length = 0;
       hulks.length = 0; frags.length = 0; debris.length = 0;
     },
-    // what everyone receives, in the form a lobby host's state has always had (src/js/12-network.js reads it): the
+    // what everyone receives, in the form a lobby host's state has always had (src/js/net/server-snapshots.js reads it): the
     // round clock, every pilot with its shots, hits and kills, and what changed in the world. Building it also
     // shows the pilots to each other (bots aim at what they see), so it is built at the send rate even unwatched
     packet(now) {
@@ -105,7 +105,6 @@ const BRIDGE = `
         bots: botStates(now), g: myGrabs.slice(),
         cv: myCarves.filter(e => performance.now() - e.at < 4000).slice(-128).map(e => e.d),
         terrain: nextTerrain() || undefined, rk: nextRockMotion(), rb: rubbleWire() || undefined,
-        dr: myDrops.filter(d => Date.now() - d[4] < DROP_LIFE).slice(-3).map(d => d.slice(0, 4)),
         wd: myGunDrops.filter(d => Date.now() - d[5] < GUN_DROP_LIFE).slice(-3).map(d => d.slice(0, 5)) };
     },
     pilot: id => botById.has(id) ? pilotView(botById.get(id)) : null,
@@ -130,7 +129,7 @@ export function cleanInput(i = {}) {
     s: count(i.s),   // s: the controls' number, counted up by the player's screen with each message
     gx: unit(i.gx), gy: unit(i.gy), gb: count(i.gb),   // a guided nuke: the stick steering it, and the count of blow-ups
     // c: the newest flight commands, [number, stick x, stick y (thousandths), facing (thousandths of a radian),
-    // boost 1 + brake 2, dash count] (pilotMove in src/js/17-update.js); a few repeat in each message, for losses
+    // boost 1 + brake 2, dash count] (pilotMove in src/js/pilots/commands.js); a few repeat in each message, for losses
     ...(Array.isArray(i.c) ? { c: i.c.slice(-16).filter(e => Array.isArray(e) && e.length >= 6 && e.length <= 8 && e.every(Number.isSafeInteger) && e[0] > 0).map(e => ({
       ct: e.length >= 7 && Number.isFinite(i.cb) ? i.cb - Math.max(0, Math.min(5000, e[6])) : 0,
       // va: the moment of the others their screen showed as it made this command (their 8th number: how long before vb,

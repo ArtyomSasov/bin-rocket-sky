@@ -126,10 +126,10 @@
       }
       // the bins too (they throw shadows from lamps and blasts), as discs
       mq.setTransform(1, 0, 0, 1, 0, 0); mq.fillStyle = "#000";
-      const disc = (x, y, lv) => { mq.beginPath(); mq.arc(x * k, y * k, binR(lv || 1) * 0.75 * k, 0, 6.29); mq.fill(); };
-      if (playing && !me.dead) disc(me.x, me.y, me.lv);
-      for (const r of remotes.values()) if (!r.dead) disc(r.x, r.y, r.lv);
-      for (const b of bots) if (!b.dead) disc(b.x, b.y, b.lv);
+      const disc = (x, y) => { mq.beginPath(); mq.arc(x * k, y * k, BIN_R * 0.75 * k, 0, 6.29); mq.fill(); };
+      if (playing && !me.dead) disc(me.x, me.y);
+      for (const r of remotes.values()) if (!r.dead) disc(r.x, r.y);
+      for (const b of bots) if (!b.dead) disc(b.x, b.y);
       use(3, maskTex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, mask);
     }

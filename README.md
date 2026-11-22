@@ -65,7 +65,7 @@ libraries also refresh the offline cache; opening the standalone download keeps 
 
 ## Arena balance
 
-Combat progression is disabled: fixed 100 HP and hitbox size, no passive XP perks, no level loss on death.
+No combat progression: every pilot has 100 HP and the same size, from the first spawn to the last.
 Health Pack heals 20 up to 100; Vial heals 5 and Big Keg heals 100 up to 199.
 Thigh Pads hold 50 armor (50% absorption); Body Armor holds 100 (75%); Shield Belt holds 150 (100%).
 Armor refills its own layer instead of stacking repeatedly. Belt replaces other layers; total armor caps at 150.

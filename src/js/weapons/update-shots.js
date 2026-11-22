@@ -49,7 +49,7 @@
         if (s.stuck) mineStick(s); else { const k = Math.exp(-1.6 * stepDt); s.vx *= k; s.vy *= k; }   // a prox mine slows in flight, then rides the rock it stuck to
         if (!s.trigAt && SHOTS[K.MINE].life - s.life >= MINE_ARM) {   // armed: an enemy coming within reach sets it ticking
           let near = canHurt(s, me, "me") && playing && Math.hypot(me.x - s.x, me.y - s.y) < 150;
-          if (!near) for (const [rid, r] of remotes) if (canHurt(s, r, rid) && Math.hypot(r.x - s.x, r.y - s.y) < 150 + binR(r.lv || 1) * 0.5) { near = true; break; }
+          if (!near) for (const [rid, r] of remotes) if (canHurt(s, r, rid) && Math.hypot(r.x - s.x, r.y - s.y) < 150 + BIN_R * 0.5) { near = true; break; }
           if (near) { s.trigAt = now + 250; packPlay("p_tick_mine", 0.8, s.x, s.y); }
         }
       }
@@ -144,7 +144,7 @@
       } else if (Math.random() < stepDt * 40) puff(s.x, s.y, -s.vx * 0.08 + (Math.random() - .5) * 60, -s.vy * 0.08 + (Math.random() - .5) * 60, 0.25 + Math.random() * 0.25, 1.5 + Math.random() * 2, FIRE_COLS[(Math.random() * 4) | 0]);
       // a round that only just misses me whizzes by
       if (!s.mine && !s.whiz && playing && !me.dead && (s.kind === K.BULLET || s.kind === K.PELLET || s.kind === K.SHARD || s.kind === K.RAIL) && now - whizAt > 120
-          && segHit(s, me.x, me.y, binR(me.lv) + 140) && !segHit(s, me.x, me.y, binR(me.lv))) { s.whiz = true; whizAt = now; packPlay("p_whiz", 0.7, s.x, s.y); }
+          && segHit(s, me.x, me.y, BIN_R + 140) && !segHit(s, me.x, me.y, BIN_R)) { s.whiz = true; whizAt = now; packPlay("p_whiz", 0.7, s.x, s.y); }
       // a rocket or an orb flying past roars by (yours too, once, as it leaves)
       if (!s.flyby && s.kind === K.ORB && playing && !me.dead && Math.hypot(s.x - me.x, s.y - me.y) < (s.mine ? 200 : 380)) {
         s.flyby = true; packPlay(s.kind === K.ORB ? "p_fly_orb" : "p_fly_rocket", s.mine ? 0.35 : 0.7, s.x, s.y);

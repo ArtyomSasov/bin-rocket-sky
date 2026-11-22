@@ -29,7 +29,7 @@
   // the thrown wreck goes up: in its own death's way, where it is now and moving as it moves
   function wreckBlows(h) {
     const d = h.dying;
-    deathStyle({ x: h.x, y: h.y, vx: h.vx, vy: h.vy, a: h.a, lv: h.lv, ck: h.ck }, d.ds, d.dk, d.da);
+    deathStyle({ x: h.x, y: h.y, vx: h.vx, vy: h.vy, a: h.a, ck: h.ck }, d.ds, d.dk, d.da);
   }
   function deathStyle(b, ds, dk, da) {
     if (dk === 1) railCut(b, da);
@@ -49,14 +49,14 @@
   }
   // sawn into four: two cuts across each other, red-hot edges, a storm of sparks
   function sawDeath(b, da) {
-    const sz = sizeOf(b.lv || 1), s = BOT * sz, rot = b.a + Math.PI / 2 - SPRITE_TILT, a = da - rot;
+    const s = BOT, rot = b.a + Math.PI / 2 - SPRITE_TILT, a = da - rot;
     for (const piece of quarterSprite(a))
-      addFrag(b, piece, s, rot, renderPiece(piece, s, b.lv || 1, b.ck || [0, 0, 0, 0, 0], "255,170,80", "255,240,200", 2), (wx, wy) => {
+      addFrag(b, piece, s, rot, renderPiece(piece, s, b.ck || [0, 0, 0, 0, 0], "255,170,80", "255,240,200", 2), (wx, wy) => {
         const d = Math.hypot(wx, wy) || 1, v = 120 + Math.random() * 90;
         return [wx / d * v + (b.vx || 0) * 0.3, wy / d * v + (b.vy || 0) * 0.3, (Math.random() - 0.5) * 3];
       });
     for (let k = 0; k < (lowQ ? 20 : 60); k++) { const a2 = Math.random() * 6.283, v = 200 + Math.random() * 500; puff(b.x, b.y, Math.cos(a2) * v, Math.sin(a2) * v, 0.3 + Math.random() * 0.5, 1 + Math.random() * 1.4, k % 3 ? "#ffd27a" : "#ffffff", 1, 0.05); }
-    impacts.push({ x: b.x, y: b.y, t: 0, r: 90 * sz, col: "#ffcf5a" });
+    impacts.push({ x: b.x, y: b.y, t: 0, r: 90, col: "#ffcf5a" });
     bladeClash(clamp((b.x - me.x) / 900, -1, 1));
   }
   // the sprite square cut by two lines through its middle at right angles (angle a, sprite frame): four pieces
@@ -102,9 +102,9 @@
   }
   // railgun: the slug saws the bin clean in two along its path; the halves drift apart with glowing violet cuts
   function railCut(b, da) {
-    const sz = sizeOf(b.lv || 1), s = BOT * sz, rot = b.a + Math.PI / 2 - SPRITE_TILT, nx = -Math.sin(da), ny = Math.cos(da);
+    const s = BOT, rot = b.a + Math.PI / 2 - SPRITE_TILT, nx = -Math.sin(da), ny = Math.cos(da);
     for (const piece of sliceSprite(da - rot, (Math.random() - 0.5) * 36))
-      addFrag(b, piece, s, rot, renderPiece(piece, s, b.lv || 1, b.ck || [0, 0, 0, 0, 0], "255,120,30", "255,236,190", 2.4), (wx, wy) => {
+      addFrag(b, piece, s, rot, renderPiece(piece, s, b.ck || [0, 0, 0, 0, 0], "255,120,30", "255,236,190", 2.4), (wx, wy) => {
         const sg = Math.sign(wx * nx + wy * ny) || 1, v = 160 + Math.random() * 90;   // the halves part across the cut, thrown on along the slug's path
         return [nx * sg * v + Math.cos(da) * 380 + (b.vx || 0) * 0.3, ny * sg * v + Math.sin(da) * 380 + (b.vy || 0) * 0.3, sg * (0.8 + Math.random() * 1.2)];
       });
@@ -114,23 +114,22 @@
       const a = da + (Math.random() < 0.5 ? 1.57 : -1.57) + (Math.random() - 0.5) * 0.7, v = 160 + Math.random() * 380;
       puff(px, py, Math.cos(a) * v, Math.sin(a) * v, 0.35 + Math.random() * 0.5, 1 + Math.random(), k % 3 ? "#ffb04a" : "#fff1b8", k % 4 ? 3 : 1, 0.05);   // molten drops and sparks
     }
-    meltLines.push({ x1: b.x - Math.cos(da) * L / 2, y1: b.y - Math.sin(da) * L / 2, x2: b.x + Math.cos(da) * L / 2, y2: b.y + Math.sin(da) * L / 2, w: 10 * sz, t: 0, dur: 1.6 });   // the cut glows where it went
+    meltLines.push({ x1: b.x - Math.cos(da) * L / 2, y1: b.y - Math.sin(da) * L / 2, x2: b.x + Math.cos(da) * L / 2, y2: b.y + Math.sin(da) * L / 2, w: 10, t: 0, dur: 1.6 });   // the cut glows where it went
     oilSplash(b.x, b.y, 16, 300, Math.cos(da) * 300, Math.sin(da) * 300);
-    impacts.push({ x: b.x, y: b.y, t: 0, r: 100 * sz, col: "#fff1d0" });
-    impacts.push({ x: b.x, y: b.y, t: 0, r: 200 * sz, col: "255,150,70", dur: 0.9, soft: 0.5, flick: Math.random() * 6.28 });
-    rings.push({ x: b.x, y: b.y, t: 0, r: 170 * sz, col: "255,200,150", dur: 0.4, w: 6 });
+    impacts.push({ x: b.x, y: b.y, t: 0, r: 100, col: "#fff1d0" });
+    impacts.push({ x: b.x, y: b.y, t: 0, r: 200, col: "255,150,70", dur: 0.9, soft: 0.5, flick: Math.random() * 6.28 });
+    rings.push({ x: b.x, y: b.y, t: 0, r: 170, col: "255,200,150", dur: 0.4, w: 6 });
     smoke(b.x, b.y, lowQ ? 4 : 10, 50, 2);
     sfx("chunk", 1, 0.7, b.x, b.y);
   }
   // laser or lightning: the charge fries it where it is; the charred shell twitches with arcs, then smokes
   function electrocute(b) {
-    const sz = sizeOf(b.lv || 1);
     makeHulk(b, true);
     const h = hulks[hulks.length - 1];
     h.burn = performance.now() + 900; h.life = h.max = 5.1;
-    impacts.push({ x: b.x, y: b.y, t: 0, r: 140 * sz, col: "#bfefff" });
-    impacts.push({ x: b.x, y: b.y, t: -0.12, r: 100 * sz, col: "#6fc2ff" });
-    rings.push({ x: b.x, y: b.y, t: 0, r: 180 * sz, col: "150,220,255", dur: 0.35, w: 5 });
+    impacts.push({ x: b.x, y: b.y, t: 0, r: 140, col: "#bfefff" });
+    impacts.push({ x: b.x, y: b.y, t: -0.12, r: 100, col: "#6fc2ff" });
+    rings.push({ x: b.x, y: b.y, t: 0, r: 180, col: "150,220,255", dur: 0.35, w: 5 });
     for (let k = 0; k < (lowQ ? 16 : 44); k++) {
       const a = Math.random() * 6.28, v = 200 + Math.random() * 500;
       puff(b.x, b.y, Math.cos(a) * v, Math.sin(a) * v, 0.3 + Math.random() * 0.4, 1 + Math.random(), k % 2 ? "#bfefff" : "#ffffff", 1, 0.05);
@@ -141,18 +140,18 @@
   // plasma: the bin glows white-hot, slumps and drips like wax, then cools into molten blobs
   const melts = [];
   function meltDown(b) {
-    const sz = sizeOf(b.lv || 1), s = BOT * sz;
-    const [img] = renderPiece({ poly: [[0, 0], [320, 0], [320, 320], [0, 320]], edges: [], cx: 160, cy: 160 }, s, b.lv || 1, b.ck || [0, 0, 0, 0, 0]);
+    const s = BOT;
+    const [img] = renderPiece({ poly: [[0, 0], [320, 0], [320, 320], [0, 320]], edges: [], cx: 160, cy: 160 }, s, b.ck || [0, 0, 0, 0, 0]);
     const hot = document.createElement("canvas"); hot.width = img.width; hot.height = img.height;
     const hq = hot.getContext("2d"), gr = hq.createLinearGradient(0, 0, 0, hot.height);
     hq.drawImage(img, 0, 0); hq.globalCompositeOperation = "source-in";
     gr.addColorStop(0, "#ffe7a0"); gr.addColorStop(0.5, "#ff9a30"); gr.addColorStop(1, "#e8400e");
     hq.fillStyle = gr; hq.fillRect(0, 0, hot.width, hot.height);
     const drip = Array.from({ length: 10 }, () => 0.5 + Math.random() * 0.9);
-    melts.push({ x: b.x, y: b.y, vx: (b.vx || 0) * 0.3, vy: (b.vy || 0) * 0.3, a: b.a + Math.PI / 2 - SPRITE_TILT, img, hot, s, sz, drip, t: 0 });
+    melts.push({ x: b.x, y: b.y, vx: (b.vx || 0) * 0.3, vy: (b.vy || 0) * 0.3, a: b.a + Math.PI / 2 - SPRITE_TILT, img, hot, s, drip, t: 0 });
     if (melts.length > 8) melts.shift();
-    impacts.push({ x: b.x, y: b.y, t: 0, r: 130 * sz, col: "#9fe8ff" });
-    rings.push({ x: b.x, y: b.y, t: 0, r: 170 * sz, col: "160,235,255", dur: 0.45, w: 8 });
+    impacts.push({ x: b.x, y: b.y, t: 0, r: 130, col: "#9fe8ff" });
+    rings.push({ x: b.x, y: b.y, t: 0, r: 170, col: "160,235,255", dur: 0.45, w: 8 });
     sfx("shield_hit", 0.9, 0.55, b.x, b.y); sfx("boom_small", 0.6, 0.7, b.x, b.y);
   }
   const MELT_T = 2.6;
@@ -167,7 +166,7 @@
       }
       if (Math.random() < 5 * dt) smoke(m.x + (Math.random() - 0.5) * m.s * 0.5, m.y + (Math.random() - 0.5) * m.s * 0.5, 1, 15, 1.6);
       if (m.t >= MELT_T) {   // set: a few glowing blobs of slag drift away
-        for (let n = 0; n < (lowQ ? 4 : 7); n++) { const a = Math.random() * 6.28, v = 20 + Math.random() * 70; addDebris(m.x + Math.cos(down) * m.s * 0.3, m.y + Math.sin(down) * m.s * 0.3, Math.cos(a) * v + m.vx, Math.sin(a) * v + m.vy, (4 + Math.random() * 6) * m.sz, n % 2 ? "#7a4a3a" : "#5a3a40"); }
+        for (let n = 0; n < (lowQ ? 4 : 7); n++) { const a = Math.random() * 6.28, v = 20 + Math.random() * 70; addDebris(m.x + Math.cos(down) * m.s * 0.3, m.y + Math.sin(down) * m.s * 0.3, Math.cos(a) * v + m.vx, Math.sin(a) * v + m.vy, (4 + Math.random() * 6), n % 2 ? "#7a4a3a" : "#5a3a40"); }
         smoke(m.x, m.y, lowQ ? 4 : 10, 40, 2.5);
         melts.splice(i, 1);
       }

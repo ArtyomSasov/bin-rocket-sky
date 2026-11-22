@@ -7,12 +7,12 @@
     const list = bots.filter(b => !b.dead);
     if (!serverRun && playing && !me.dead) list.push(me);
     for (let i = 0; i < list.length; i++) for (let k = i + 1; k < list.length; k++) {
-      const a = list[i], b = list[k], R = 31 * (sizeOf(a.lv || 1) + sizeOf(b.lv || 1));
+      const a = list[i], b = list[k], R = 62;
       const dx = a.x - b.x, dy = a.y - b.y;
       if (Math.abs(dx) >= R || Math.abs(dy) >= R) continue;
       const d = Math.hypot(dx, dy);
       if (d >= R || d <= 0.01) continue;
-      const nx = dx / d, ny = dy / d, ma = binMass(a.lv), mb = binMass(b.lv), over = R - d;
+      const nx = dx / d, ny = dy / d, ma = BIN_MASS, mb = BIN_MASS, over = R - d;
       a.x += nx * over * mb / (ma + mb); a.y += ny * over * mb / (ma + mb); b.x -= nx * over * ma / (ma + mb); b.y -= ny * over * ma / (ma + mb);
       const j = collide(a, ma, b, mb, nx, ny, 0.5);
       if (j <= 0) continue;

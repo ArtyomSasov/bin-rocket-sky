@@ -6,13 +6,12 @@
       for (let i = 0; i < SLOTS; i++) {
         const s = world.sparks[i];
         if (grabbed.has(s.key) || s.age < 0.04) continue;
-        if (Math.hypot(wrapD(s.x - me.x, W), wrapD(s.y - me.y, H)) < 22 + 30 * sizeOf(me.lv) + magnet()) {
+        if (Math.hypot(wrapD(s.x - me.x, W), wrapD(s.y - me.y, H)) < 52 + magnet()) {
           grabbed.add(s.key); pushCapped(myGrabs, s.key, 40);
           const val = s.gold ? 5 : 1;
           me.score += val;
           showScore();
           floaters.push({ x: s.x, y: s.y, t: 0, txt: "+" + val, gold: s.gold });
-          gainXp(val, now);
           for (let k = 0; k < (s.gold ? 30 : 14); k++) {
             const a = Math.random() * 6.28, v = 60 + Math.random() * 200;
             puff(s.x, s.y, Math.cos(a) * v, Math.sin(a) * v, 0.5 + Math.random() * 0.6, 1.5 + Math.random() * 2, s.gold ? "#ffd36b" : "#ffffff");
@@ -21,27 +20,11 @@
         }
       }
     }
-    // spilled stars
-    for (const [id, d] of drops) {
-      if (now - d.born > DROP_LIFE) { drops.delete(id); continue; }
-      if (!playing || me.dead) continue;
-      for (let j = 0; j < d.n; j++) {
-        const st = dropStar(d, id, j, now);
-        if (!st.ready || grabbed.has(st.key)) continue;
-        if (Math.hypot(st.x - me.x, st.y - me.y) < 22 + 30 * sizeOf(me.lv) + magnet()) {
-          grabbed.add(st.key); pushCapped(myGrabs, st.key, 40);
-          me.score += 1; showScore();
-          for (let k = 0; k < 8; k++) { const a = Math.random() * 6.28; puff(st.x, st.y, Math.cos(a) * 120, Math.sin(a) * 120, 0.4, 1.8, "#ffe3f6"); }
-          audioCue("pickup");
-          gainXp(1, now);
-        }
-      }
-    }
     // trophies: a dead pilot's gun, with its ammo
     for (const [id, d] of gunDrops) {
       if (now - d.born > GUN_DROP_LIFE) { gunDrops.delete(id); continue; }
       const key = "W" + id;
-      if (!playing || me.dead || grabbed.has(key) || now - d.born < 600 || Math.hypot(d.x - me.x, d.y - me.y) > 30 + 30 * sizeOf(me.lv) + magnet()) continue;
+      if (!playing || me.dead || grabbed.has(key) || now - d.born < 600 || Math.hypot(d.x - me.x, d.y - me.y) > 60 + magnet()) continue;
       grabbed.add(key); pushCapped(myGrabs, key, 40);
       const w = WEAPONS[d.type];
       me.arsenal[d.type] = Number.isFinite(w.ammo) ? Math.min(w.ammo * 2, (me.arsenal[d.type] || 0) + d.ammo) : Infinity;   // (a blade never runs out)
@@ -54,7 +37,7 @@
     if (playing && !me.dead) {
       for (const c of world.supplies) {
         if (grabbed.has(c.key) || c.age < 0.05) continue;
-        if (Math.hypot(c.x - me.x, c.y - me.y) > 26 + 30 * sizeOf(me.lv) + magnet()) continue;
+        if (Math.hypot(c.x - me.x, c.y - me.y) > 56 + magnet()) continue;
         const sp = SUPPLIES[c.type];
         if (!applySupply(me, c.type)) continue;
         grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
@@ -66,7 +49,7 @@
       }
     }
     // Overdrive
-    if (!serverRun && playing && !me.dead && world.amp && !grabbed.has(world.amp.key) && Math.hypot(world.amp.x - me.x, world.amp.y - me.y) < 30 + 30 * sizeOf(me.lv) + magnet()) {
+    if (!serverRun && playing && !me.dead && world.amp && !grabbed.has(world.amp.key) && Math.hypot(world.amp.x - me.x, world.amp.y - me.y) < 60 + magnet()) {
       const c = world.amp;
       grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
       me.ampUntil = now + AMP_TIME;
@@ -84,7 +67,7 @@
     if (playing && !me.dead) {
       for (const c of [...world.picks, ...world.bombs]) {
         if (grabbed.has(c.key) || c.age < (BOMB_CRATES[c.type] ? 0.01 : 0.05)) continue;
-        if (Math.hypot(c.x - me.x, c.y - me.y) < 26 + 30 * sizeOf(me.lv) + magnet()) {
+        if (Math.hypot(c.x - me.x, c.y - me.y) < 56 + magnet()) {
           grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
           const w = WEAPONS[c.type];
           const had = !!me.arsenal[c.type];   // a gun you already carry just gets more ammo; a new one joins the gun bar

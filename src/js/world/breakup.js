@@ -28,7 +28,7 @@
     if (b.prop && !b.free && !b.dead && b.mass < b.mass0 * 0.5) { collapseProp(b); return; }
     if (b.planet && !b.free && b.mass < b.mass0 * 0.15) {
       destroyPlanet(b, now);
-      if (b.lastOwn && playing) { me.score += 25; showScore(); gainXp(5, now); floaters.push({ x: b.x, y: b.y - 80, t: 0, txt: "PLANET +25", gold: true }); }
+      if (b.lastOwn && playing) { me.score += 25; showScore(); floaters.push({ x: b.x, y: b.y - 80, t: 0, txt: "PLANET +25", gold: true }); }
       setFree(b, 0, 0);
       for (const m of moons) if (m.p === b && !m.free) setFree(m, -Math.sin(m.a) * m.dir * 60, Math.cos(m.a) * m.dir * 60);
       rebuildBodies();

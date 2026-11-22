@@ -46,7 +46,7 @@
     out.altCost = alt;
   }
   for (const b of T.bots) b.fireCd = 0;
-  for (let i = 0; i < 7; i++) T.deathFx({ x: m.x + 200, y: m.y + i * 30, vx: 0, vy: 0, a: 0, lv: 3, ck: [0, 0, 0, 0, 0] }, 3, i, 0.4);
+  for (let i = 0; i < 7; i++) T.deathFx({ x: m.x + 200, y: m.y + i * 30, vx: 0, vy: 0, a: 0, ck: [0, 0, 0, 0, 0] }, 3, i, 0.4);
   const fr = []; let last = performance.now();
   await new Promise(res => { const loop = t => { fr.push(t - last); last = t; if (fr.length < 600) requestAnimationFrame(loop); else res(); }; requestAnimationFrame(loop); });
   fr.sort((a, b) => a - b); out.frame = fr[300].toFixed(1) + "/" + fr[570].toFixed(1);

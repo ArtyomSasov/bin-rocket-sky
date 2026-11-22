@@ -1,5 +1,5 @@
   // ---------- weapon crates, supplies, Overdrive and the big bombs: fixed spots on the arena ----------
-  // Each spot always holds the same thing (see 01b-arenas.js) and keeps it until someone takes it: nothing expires.
+  // Each spot always holds the same thing (see world/arenas.js) and keeps it until someone takes it: nothing expires.
   // A taken one comes back at the start of its spot's next cycle on the shared clock, so every screen agrees
   // without any messages; the empty pad shows how long that is. age is how far into the cycle it came back
   // (1 when it has been lying there all along); wait is the seconds until the spot's next cycle.

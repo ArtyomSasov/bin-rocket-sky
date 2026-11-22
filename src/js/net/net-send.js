@@ -2,7 +2,7 @@
   function netSend(dt, now) {
     const elapsed = Math.max(dt, Math.min(0.25, (now - lastNetTick) / 1000)); lastNetTick = now;
     sendAcc += elapsed; slowAcc += elapsed;
-    if (playing && !serverRun && sendAcc >= 1 / net.hz) {   // on the server only my controls go out (12c-server.js)
+    if (playing && !serverRun && sendAcc >= 1 / net.hz) {   // on the server only my controls go out (net/server-client.js)
       sendAcc %= 1 / net.hz;   // keep the remainder: frames don't divide the interval evenly, and dropping it sent 7.5 a second for 8
       const msg = {
         q: ++sendSeq, mc: matchReady ? [matchRound, matchStart, matchEnd] : undefined, rd: stats.round, hb: hitBy, ko: koBy, ts: Date.now(), x: Math.round(me.x), y: Math.round(me.y),
@@ -14,11 +14,10 @@
       };
       const slow = {
         tm: me.tm ?? -1, fc: me.fc ?? -1, cp: [stats.round, me.caps || 0], pg: Math.round(myPing / 10) * 10, bc: bots.length ? [bots.length, bots[0].level] : 0,
-        tg: myTag, n: me.name, h: me.hue, ck: me.ck, s: me.score, l: Math.round(me.lives * 100) / 100, am: amped(me, now) ? 1 : 0, lv: me.lv, sh: Math.round(me.shield * 100) / 100, wp: WEAPON_KEYS.indexOf(me.weapon), g: myGrabs, hb: hitBy, ko: koBy,
+        tg: myTag, n: me.name, h: me.hue, ck: me.ck, s: me.score, l: Math.round(me.lives * 100) / 100, am: amped(me, now) ? 1 : 0, sh: Math.round(me.shield * 100) / 100, wp: WEAPON_KEYS.indexOf(me.weapon), g: myGrabs, hb: hitBy, ko: koBy,
         st: [stats.round, stats.kills, stats.deaths, stats.shots, stats.hits, stats.best],
         // Keep live deltas within the packet budget; rolling terrain snapshots repair older holes.
         cv: myCarves.filter(e => performance.now() - e.at < 4000).slice(-128).map(e => e.d),
-        dr: myDrops.filter(d => Date.now() - d[4] < DROP_LIFE).slice(-3).map(d => d.slice(0, 4)),
         wd: myGunDrops.filter(d => Date.now() - d[5] < GUN_DROP_LIFE).slice(-3).map(d => d.slice(0, 5))
       };
       const sig = JSON.stringify(slow);

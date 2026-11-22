@@ -62,7 +62,7 @@
     o.x += o.vx * dt; o.y += o.vy * dt;
     // walls, planets and moons: met as a car meets a wall: a dead bounce (e 0.25), the slide along it kept (scraping
     // sparks off it), and only a hard head-on hit hurts, a little
-    const wr = WALL_R * sizeOf(o.lv || 1), pc = bounceOff(o, wr, 0.25, binMass(o.lv));
+    const wr = WALL_R, pc = bounceOff(o, wr, 0.25, BIN_MASS);
     let crash = null, fence = null;
     if (pc) {
       const big = hurtsOnHit(pc.b), hs = -pc.vn, slide = Math.abs(o.vx * -pc.ny + o.vy * pc.nx);

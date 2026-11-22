@@ -1,9 +1,9 @@
   function nukeTouches(s) {
     // (my own nuke never sets itself off on me: on the game server the one shown here is the server's, not "mine")
-    if (!s.mine && !mySrvShot(s) && playing && !me.dead && segHit(s, me.x, me.y, 20 + 26 * sizeOf(me.lv))) return true;
-    for (const [id, r] of remotes) if (!r.dead && id !== s.owner && segHit(s, r.x, r.y, 20 + 26 * sizeOf(r.lv))) return true;
+    if (!s.mine && !mySrvShot(s) && playing && !me.dead && segHit(s, me.x, me.y, 46)) return true;
+    for (const [id, r] of remotes) if (!r.dead && id !== s.owner && segHit(s, r.x, r.y, 46)) return true;
     // and the pilots flown here: my bots, or on the server every pilot (players included), which are not "remotes" there
-    for (const b of bots) if (!b.dead && b.id !== s.owner && !(s.mine && b === me) && segHit(s, b.x, b.y, 20 + 26 * sizeOf(b.lv || 1))) return true;
+    for (const b of bots) if (!b.dead && b.id !== s.owner && !(s.mine && b === me) && segHit(s, b.x, b.y, 46)) return true;
     for (const k of world.rocks) if (!grabbed.has(k.key) && k.age >= 0.6 && segHit(s, k.x, k.y, k.r + 10)) return true;
     return false;
   }
@@ -126,7 +126,7 @@
     }
     if (ev.active && ev.type === "aliens") for (let u = 0; u < UFO_N; u++) {
       const key = "e" + ev.cyc + "u" + u, p = ufoPos(ev, u, ev.et);
-      if (!grabbed.has(key) && Math.hypot(p.x - x, p.y - y) < R) { take(key, 15); gainXp(5, now); }
+      if (!grabbed.has(key) && Math.hypot(p.x - x, p.y - y) < R) { take(key, 15); }
     }
     showScore();
   }

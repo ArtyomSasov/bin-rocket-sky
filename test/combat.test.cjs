@@ -72,11 +72,3 @@ test('health and armour: a med kit stops at 100%, a keg reaches 199%; armour soa
   } finally { g.dispose(); }
 });
 
-test('a pilot\'s level grows its power, never its health or its size', { skip }, async () => {
-  const g = await loadGame();
-  try {
-    const r = g.get('({ size1: binR(1), size9: binR(9), lives: maxLivesOf ? [maxLivesOf(1), maxLivesOf(9)] : null })');
-    assert.equal(r.size1, r.size9, 'the same hitbox at every level');
-    if (r.lives) assert.equal(r.lives[0], r.lives[1], 'the same health at every level');
-  } finally { g.dispose(); }
-});

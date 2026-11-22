@@ -46,7 +46,7 @@
     const now = performance.now(), keep = 400 + (myPing || 100) * 2;
     let owed = 0; for (const h of srv.hits) if (h.rid === rid && now - h.at < keep) owed += h.dmg || 0;
     if (Number.isFinite(r.lives) && r.lives + (r.shield || 0) - owed <= 0) return;
-    hitConfirm({ ...s, mine: true }, r.lv, r.x, r.y, r);
+    hitConfirm({ ...s, mine: true }, r.x, r.y, r);
     srv.hits.push({ rid, at: now, dmg: shotDmg(s) }); srv.report.hs++;   // (hs: hits shown at once; hc: of them, confirmed; hn: confirmed hits not shown)
     if (srv.hits.length > 64) srv.hits.shift();
   }

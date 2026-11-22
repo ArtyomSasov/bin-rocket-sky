@@ -15,7 +15,7 @@ export const FAR = 2600;    // px from the player: beyond this a pilot is brough
 const KEEP = 64;            // snapshots each stream remembers (two seconds at 30 a second)
 // what a pilot's state carries only now and then (names and looks every 10th step, the rest when it changes; see
 // botWire): in a delta stream it is carried on from the snapshot before, so it costs nothing while it stays
-const STICKY = ["n", "h", "ck", "s", "lv", "wp", "st", "tg", "tm", "fc", "cp", "sh"];
+const STICKY = ["n", "h", "ck", "s", "wp", "st", "tg", "tm", "fc", "cp", "sh"];
 
 export function deltaStream() { return { sent: new Map(), ack: 0, ter: new Map(), got: new Set() }; }
 // the player confirms it holds snapshot q (got: the ones it said so of, which certainly reached it)

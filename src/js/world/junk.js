@@ -43,15 +43,14 @@
   }
   // Exchange normal momentum with restitution 0.6. Tangential velocity is unchanged.
   function collideRock(pilot, k) {
-    const dx = pilot.x - k.x, dy = pilot.y - k.y, d = Math.hypot(dx, dy), R = k.r + 26 * sizeOf(pilot.lv);
+    const dx = pilot.x - k.x, dy = pilot.y - k.y, d = Math.hypot(dx, dy), R = k.r + 26;
     if (d >= R || d <= 0.01) return 0;
     const nx = dx / d, ny = dy / d;
     pilot.x += nx * (R - d); pilot.y += ny * (R - d);
     const vn = (pilot.vx - k.vx) * nx + (pilot.vy - k.vy) * ny;
     if (vn >= 0) return 0;
-    const binMass = sizeOf(pilot.lv) ** 2, rockMass = (k.r / 30) ** 2;
-    const impulse = -1.6 * vn / (1 / binMass + 1 / rockMass);
-    pilot.vx += impulse * nx / binMass; pilot.vy += impulse * ny / binMass;
+    const rockMass = (k.r / 30) ** 2, impulse = -1.6 * vn / (1 / BIN_MASS + 1 / rockMass);
+    pilot.vx += impulse * nx / BIN_MASS; pilot.vy += impulse * ny / BIN_MASS;
     if (replaying) return -vn;   // (a replay of my commands bounces my bin only: the rock was bumped the first time)
     k.vx -= impulse * nx / rockMass; k.vy -= impulse * ny / rockMass;
     rockMotion.set(k.slot, { slot: k.slot, gen: k.gen, at: clockNow(), x: k.x, y: k.y, vx: k.vx, vy: k.vy, by: myTag });

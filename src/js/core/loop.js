@@ -10,7 +10,6 @@
     grabbed.prune(120000);
     pruneNetwork(t);
     pruneRockMotion(clockNow());
-    while (myDrops.length && Date.now() - myDrops[0][4] > DROP_LIFE) myDrops.shift();
     while (myGunDrops.length && Date.now() - myGunDrops[0][5] > GUN_DROP_LIFE) myGunDrops.shift();
     for (const [id, d] of gunDrops) if (t - d.born > GUN_DROP_LIFE) gunDrops.delete(id);
   }, 1000);
@@ -60,7 +59,7 @@
     update(now < hitStopUntil ? 0 : dt, now); draw(now);
     if (!playing) drawPreview(now);
     else { drawMinimap(now); renderEnergy(); }
-    if (post) post.frame(dt);   // the WebGL look over the finished frame (20b-post.js)
+    if (post) post.frame(dt);   // the WebGL look over the finished frame (render/post-webgl.js)
     const cur = playing && mouseAim() ? (settings.aim === "off" || me.dead ? "crosshair" : "none") : "";
     if (cv.style.cursor !== cur) cv.style.cursor = cur;
   }

@@ -66,7 +66,7 @@
     if (!r) {
       if (!hasPos || remotes.size >= MAX_REMOTES) return false;   // a flyer appears once we know where it is
       r = { x: clamp(p.x, 0, W), y: clamp(p.y, 0, H), a: num(p.a, 0), ta: num(p.a, 0), tx: p.x, ty: p.y, vx: 0, vy: 0,
-            q: -1, name: "Bin", hue: 200, ck: [0, 0, 0, 0, 0], score: 0, lv: 1, lives: LIVES, thrust: 0, dead: false, inv: false };
+            q: -1, name: "Bin", hue: 200, ck: [0, 0, 0, 0, 0], score: 0, lives: LIVES, thrust: 0, dead: false, inv: false };
       remotes.set(id, r);
     }
     // Reordered snapshots can contain an unseen shot even though their movement is obsolete.
@@ -118,7 +118,6 @@
     if (Number.isFinite(p.h)) r.hue = p.h % 360;
     if (Array.isArray(p.ck) && p.ck.length === 5 && p.ck.every(Number.isInteger)) r.ck = cleanCustom(p.ck);
     if (Number.isFinite(p.s)) r.score = Math.max(0, Math.floor(p.s));
-    r.lv = 1;
     if (Array.isArray(p.st) && p.st.length === 6 && p.st.every(Number.isInteger)) r.st = p.st;   // [round, kills, deaths, shots, hits, best]
     if (Number.isInteger(p.wp)) r.weapon = WEAPONS[WEAPON_KEYS[p.wp]] ? WEAPON_KEYS[p.wp] : "fire";
     if (Number.isFinite(p.sh)) r.shield = clamp(p.sh, 0, MAX_SHIELD);
@@ -139,11 +138,6 @@
   function applyWorld(id, p) {
     if (Array.isArray(p.cv)) applyRemoteCarves(id, p.cv);
     if (p.rd === stats.round && Array.isArray(p.g)) for (const k of p.g.slice(0, 48)) if (typeof k === "string" && /^[a-zA-Z][a-z0-9.:]{1,20}$/.test(k) && (grabbed.has(k) || grabbed.size < 16384)) grabbed.add(k);   // only pick-up keys
-    if (p.rd === stats.round && Array.isArray(p.dr)) for (const d of p.dr.slice(0, 3)) {
-      if (drops.size >= MAX_DROPS) break;
-      if (!Array.isArray(d) || typeof d[0] !== "string" || d[0].length > 10 || drops.has(d[0])) continue;
-      drops.set(d[0], { x: clamp(num(d[1], 0), 0, W), y: clamp(num(d[2], 0), 0, H), n: clamp(Math.floor(num(d[3], 0)), 0, 40), born: performance.now() });
-    }
     if (p.rd === stats.round && Array.isArray(p.wd)) for (const d of p.wd.slice(0, 3)) {   // trophies: a dead pilot's gun and its ammo
       if (gunDrops.size >= 64) break;
       if (!Array.isArray(d) || typeof d[0] !== "string" || !/^[a-z0-9]{2,16}$/.test(d[0]) || gunDrops.has(d[0])) continue;
@@ -178,7 +172,6 @@
     for (const k of ko) if (mine(k) && !credited.has("ko" + id + ":" + k)) {
       credited.add("ko" + id + ":" + k); me.score += 5; floaters.push({ x: r.x, y: r.y - 50, t: 0, txt: "KILL " + r.name, gold: true });
       if (serverRun && !hb.includes(k)) serverHitShown(id);   // (the killing shot comes as a kill, not a hit: it confirms the hit shown too)
-      gainXp(killXp(me.lv, r.lv || 1), performance.now());
       metricPeer(k, id, true);
       killStyle(k, r);
       stats.kills++; stats.streak++; stats.best = Math.max(stats.best, stats.streak);
@@ -233,6 +226,5 @@
 
   function pruneNetwork(now) {
     for (const [id, r] of remotes) if (!botById.has(id) && now - r.seen > 7000) removeRemote(id);
-    for (const [id, d] of drops) if (now - d.born > DROP_LIFE) drops.delete(id);
   }
 

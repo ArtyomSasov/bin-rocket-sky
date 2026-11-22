@@ -3,19 +3,19 @@
   const myMelee = new Set();
   const pendingHitFx = new Map();
   function predictHit(s, id, r) {
-    pendingHitFx.set(id + ":" + s.id, { s, at: performance.now(), lv: r.lv });
+    pendingHitFx.set(id + ":" + s.id, { s, at: performance.now() });
     if (pendingHitFx.size > 256) pendingHitFx.delete(pendingHitFx.keys().next().value);
   }
   function confirmShotHit(id, shotId, r) {
     const key = id + ":" + shotId, pending = pendingHitFx.get(key);
     if (!pending) return;
     pendingHitFx.delete(key);
-    if (performance.now() - pending.at < 2000) hitConfirm(pending.s, pending.lv, r.x, r.y, r);
+    if (performance.now() - pending.at < 2000) hitConfirm(pending.s, r.x, r.y, r);
   }
   function killStyle(k, victim) {
     if (k.includes(".ram") || myMelee.has(k)) { setTimeout(() => announce("HUMILIATION", "rammed " + victim.name, "#ff8a5a", 3), 1400); return; }
   }
-  function hitConfirm(s, lv, x, y, target) {
+  function hitConfirm(s, x, y, target) {
     const t0 = performance.now();
     // Impressive, as Quake 3 gives it: two rail hits in a row, a miss in between starting the count again (a shot that
     // pierces two pilots counts once). On the server the shot is the one shown here (its id), offline my own
@@ -23,7 +23,7 @@
     if (target) target.hitAt = t0;
     if (s.mine && shotDmg(s) >= 0.9) hitStopUntil = Math.max(hitStopUntil, t0 + (s.kind === K.RAIL ? 70 : 45));   // a heavy hit lands: the world stops for a beat
     if (!s.mine) return;
-    const pct = Math.max(1, Math.round(shotDmg(s) / maxLivesOf(lv || 1) * 100));
+    const pct = Math.max(1, Math.round(shotDmg(s) / LIVES * 100));
     floaters.push({ x: x + (Math.random() - 0.5) * 30, y: y - 40, t: 0, txt: "-" + pct + "%", hit: true, col: SHOTS[s.kind].col, big: pct >= 40 });
     const t = performance.now();
     if (t - hitTickAt > 60) { hitTickAt = t; sfx("hit", 0.4, 1.8); }
@@ -34,6 +34,6 @@
   // mul: extra damage (a charge, Quad damage), sent with the shot
   const FIRE_TWIN = { ...WEAPONS.fire, spread: [-0.05, 0.05] };
   // a gun's random spread follows from whose shot it is and its number, not from Math.random: the server's copy of a
-  // player's shot then flies exactly where that player's screen showed it (12c-server.js learns the server's numbers)
+  // player's shot then flies exactly where that player's screen showed it (net/server-client.js learns the server's numbers)
   const tagSeed = t => { let h = 7; for (let i = 0; i < t.length; i++) h = Math.imul(h, 31) + t.charCodeAt(i) | 0; return h; };
   const shotJitter = (tag, n, j) => (hash(tagSeed(String(tag || "")), n, 991) - 0.5) * 2 * j;

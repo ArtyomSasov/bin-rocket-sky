@@ -49,8 +49,8 @@
     Object.assign(me, spawnPoint(me.tm));
     for (const b of bots) Object.assign(b, spawnPoint(b.tm));
     const shown = code.toUpperCase();
-    if (serverRun) { serverStart(code); return; }   // the authoritative server (12c-server.js)
-    if (localRun) { lanStart(code); return; }   // the local room (12b-lan.js): WebRTC to the devices nearby
+    if (serverRun) { serverStart(code); return; }   // the authoritative server (net/server-client.js)
+    if (localRun) { lanStart(code); return; }   // the local room (net/lan.js): WebRTC to the devices nearby
     if (offlineRun || !online) {
       // nobody else is here: the bots fly in this browser, nothing is sent and the lobby is not announced. Rounds run
       // on the shared clock (so everyone in a lobby is in the same one); alone, the clock is shifted so that a fresh

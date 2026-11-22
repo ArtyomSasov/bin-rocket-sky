@@ -251,10 +251,10 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
 .clist dd { margin: 0; color: var(--ink); }
 .keys { font-size: 12px; color: var(--muted); line-height: 1.6; }
 kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; color: var(--ink); }
-.lv { display: grid; gap: 4px; margin-left: 6px; align-self: center; }
-.lv b { font: 700 13px var(--display); color: var(--teal); white-space: nowrap; }
-.xpbar { display: block; width: 64px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.15); overflow: hidden; }
-.xpbar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--teal), var(--flame)); transition: width .3s; }
+.energy { display: grid; gap: 4px; margin-left: 6px; align-self: center; }
+.energy b { font: 700 13px var(--display); color: var(--teal); white-space: nowrap; }
+.meter { display: block; width: 64px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.15); overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #7df9ff, #ffffff); }
 .wpn { align-self: center; margin-left: 6px; font: 700 12px var(--display); color: var(--ink); background: rgba(255,255,255,.08); border: 1px solid var(--line); border-radius: 8px; padding: 3px 7px; white-space: nowrap; }
 .wpn { display: inline-flex; align-items: center; gap: 5px; }
 .ampchip { align-self: center; margin-left: 6px; font: 700 12px var(--display); color: #8fb8ff; border: 1px solid #5b9bff; border-radius: 8px; padding: 3px 7px; white-space: nowrap; box-shadow: 0 0 12px rgba(91,155,255,.6); animation: pulse 1s ease-in-out infinite; }
@@ -292,7 +292,6 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   background: radial-gradient(circle at 50% 40%, #ffd2a0, #ff7a3c 60%, #c2401e);
 }
 .boostbtn svg { width: 28px; height: 28px; fill: #10302d; }
-.xpbar.nrg i { background: linear-gradient(90deg, #7df9ff, #ffffff); transition: none; }
 .minimap {
   position: fixed;
   left: max(16px, env(safe-area-inset-left, 0px));
@@ -367,7 +366,7 @@ kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 
   body.playing .status { display: none; }
   body.playing .score { padding: 5px 9px; gap: 7px; font-size: 11px; opacity: .92; }
   body.playing .score > b { font-size: 18px; }
-  body.playing .score > span:first-of-type, body.playing .score .wpn, body.playing .score .xpbar:not(.nrg) { display: none; }
+  body.playing .score > span:first-of-type, body.playing .score .wpn { display: none; }
   body.playing .board { padding: 5px 9px; font-size: 11px; min-width: 0; max-width: 42vw; opacity: .9; cursor: pointer; }
   body.playing .board h2, body.playing .board .bhead { display: none; }
   body.playing .board, body.playing .board.folded { padding-right: 34px; }
@@ -494,11 +493,11 @@ details.controls[open] .clist { margin-top: 8px; }
   body.playing .fe svg { width: 10px; height: 10px; vertical-align: -1px; }
   body.playing .event { left: auto; right: max(12px, env(safe-area-inset-right, 0px)); transform: none; top: calc(var(--hud-bottom, 100px) + 70px); max-width: calc(58vw - 12px); text-align: right; white-space: normal; }
   body.playing .event { border-radius: 12px; }
-  body.playing .score #lvNum { display: none; }
+  body.playing .score #energyLabel { display: none; }
   body.playing .match-hud .score { flex-wrap: nowrap; align-items: center; }
   body.playing .score .hp b { font-size: 13px; white-space: nowrap; }
-  body.playing .score .lv { min-width: 0; }
-  body.playing .score .xpbar.nrg { width: 54px; }
+  body.playing .score .energy { min-width: 0; }
+  body.playing .score .meter { width: 54px; }
   body.playing .score .hpbar { width: 54px; }
   body.playing .altbtn { font-size: 10px; }
 }
@@ -508,7 +507,7 @@ details.controls[open] .clist { margin-top: 8px; }
 .srv-rooms > span { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #ffcf8a; }
 .srv-join { display: grid; gap: 2px; text-align: left; padding: 10px 14px; font-size: 15px; }
 .srv-join small { font: 600 12px var(--body); opacity: .8; }
-/* the WebGL look over the game's canvas (20b-post.js): shown instead of it, never in the way of the mouse */
+/* the WebGL look over the game's canvas (render/post-webgl.js): shown instead of it, never in the way of the mouse */
 #post { position: fixed; inset: 0; width: 100%; height: 100%; display: none; pointer-events: none; }
 /* chat: lines over the mini map, fading out; the line to type in opens with T */
 .chat { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(60px + 160px + 18px + env(safe-area-inset-bottom, 0px)); width: min(420px, calc(100vw - 32px)); display: grid; gap: 6px; pointer-events: none; z-index: 5; }
@@ -525,8 +524,8 @@ details.controls[open] .clist { margin-top: 8px; }
 body.playing .match-hud .score { padding: 5px 10px; gap: 6px; flex-wrap: nowrap; align-items: center; }
 body.playing .score > b { font-size: 22px; line-height: 1; }
 body.playing .score > span:not([class]) { display: none; }   /* ("points": the number speaks for itself) */
-body.playing .lv { gap: 2px; margin-left: 2px; }
-body.playing .lv b { font-size: 10px; letter-spacing: .06em; }
+body.playing .energy { gap: 2px; margin-left: 2px; }
+body.playing .energy b { font-size: 10px; letter-spacing: .06em; }
 body.playing .hp .hpbar { width: 64px; height: 7px; }
 body.playing .hp b { font-size: 12px; }
 body.playing .wpn { font-size: 11px; padding: 2px 6px; margin-left: 2px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

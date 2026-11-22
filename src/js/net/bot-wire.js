@@ -29,7 +29,7 @@
       if (b.input) { m.ar = pilotArsenalWire(b); m.ak = (b.cq ? b.cmdAck : b.ackSeq) || 0; m.ag = Math.round(now - (b.ackAt ?? now)); m.en = Math.round(b.energy);
         if (b.cq) m.mv = moveState(b);
         m.al = [b.beltArmor || 0, b.bodyArmor || 0, b.padsArmor || 0].map(v => Math.round(v * 1000) / 1000); }   // the armour, layer by layer   // flown by commands: exactly where its last one left it (the screen flies the rest again)
-      if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, lv: 1, wp: WEAPON_KEYS.indexOf(botWeapon(b)), tg: b.tag,
+      if (full) Object.assign(m, { n: b.name, h: b.hue, ck: b.ck, s: b.st.kills * 5, wp: WEAPON_KEYS.indexOf(botWeapon(b)), tg: b.tag,
         st: [stats.round, b.st.kills, b.st.deaths, b.st.shots, b.st.hits, b.st.best] });
       applyRemote(b.id, m);   // show it here
       out.push([b.id, botWire(b, m, full)]);

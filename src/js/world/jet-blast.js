@@ -11,7 +11,7 @@
       if (th < 0.2 || Math.abs(b.x - cam.x) > vw || Math.abs(b.y - cam.y) > vh) continue;
       const j = exhaustJets(b, performance.now()).find(o => o.main) || null;
       if (!j) continue;
-      const ux = Math.cos(j.a), uy = Math.sin(j.a), L = (boost ? 340 : 170) * sizeOf(b.lv || 1), F = (boost ? 2600 : 900) * Math.min(1.2, th) * dt;
+      const ux = Math.cos(j.a), uy = Math.sin(j.a), L = (boost ? 340 : 170), F = (boost ? 2600 : 900) * Math.min(1.2, th) * dt;
       const push = (o, w) => {
         const dx = o.x - j.x, dy = o.y - j.y, along = dx * ux + dy * uy;
         if (along < 0 || along > L) return;

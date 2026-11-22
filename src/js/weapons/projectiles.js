@@ -1,7 +1,7 @@
   function volley(p, now, pat, from, aim, mul = 1) {
     metricVolley(p, pat);
     const mine = p === me, [kind, speed] = pat.shot, amp = (ampLeft(p, now) > 0 ? QUAD : 1) * mul, ride = kind === K.GREN || kind === K.HOLY || kind === K.MINE ? .6 : 0;
-    const base = (aim ?? p.a) + (pat.back ? Math.PI : 0), sz = sizeOf(p.lv || 1);
+    const base = (aim ?? p.a) + (pat.back ? Math.PI : 0);
     let s, vi = 0;
     // the spread's number: a player's shot fired by a flight command is numbered by that command (jk) and its place in
     // the volley, which the screen and the server both know exactly; any other by the shot count
@@ -10,7 +10,7 @@
       const n = Number.isSafeInteger(jk) ? jk * 16 + (vi++ & 15) : mine ? (serverRun ? srv.pseq + srv.seqOff : shotSeq) : p.seq, tag = mine ? (serverRun ? srv.tag : myTag) : p.tag;
       const ja = pat.jitter ? shotJitter(tag, n, pat.jitter) : 0, bx = Math.cos(base + da + ja), by = Math.sin(base + da + ja);
       const id = (mine ? myTag : p.tag) + "." + (mine ? shotSeq++ : p.seq++).toString(36);
-      const ox = from ? from.x : p.x + bx * 42 * sz, oy = from ? from.y : p.y + by * 42 * sz;
+      const ox = from ? from.x : p.x + bx * 42, oy = from ? from.y : p.y + by * 42;
       // a shot keeps only the part of the bin's speed along its own line: it flies exactly where the gun points
       // (sideways drift no longer bends it off the crosshair), and firing ahead while flying fast still adds reach
       const fwd = speed > 0 ? Math.max(0, p.vx * bx + p.vy * by) * ride : 0;

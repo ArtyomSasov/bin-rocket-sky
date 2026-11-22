@@ -111,7 +111,7 @@
     if (rockets) pat = { ...pat, cost: rockets, spread: Array.from({ length: rockets }, (_, j) => (j - (rockets - 1) / 2) * .14) };
     if (alt ? ammo < pat.cost : !(ammo > 0)) return refuse();
     if (!alt && k === "gamma" && pilotShots(b, K.GAMMA).length) return refuse();   // one orb at a time
-    const ax = Math.cos(b.a), ay = Math.sin(b.a), r = binR(b.lv || 1);
+    const ax = Math.cos(b.a), ay = Math.sin(b.a), r = BIN_R;
     if (alt && pat.minedet) {
       if (!pilotShots(b, K.MINE).some(s => SHOTS[K.MINE].life - s.life >= MINE_ARM)) return refuse();
       volley(b, now, MINE_DETONATOR, { x: b.x, y: b.y }); b.fireCd = pat.cd; return;

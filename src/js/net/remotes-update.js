@@ -24,8 +24,8 @@
       const dx = wrapD(me.x - r.x, W), dy = wrapD(me.y - r.y, H), d = Math.hypot(dx, dy);
       // touching another pilot's bin: struck by weight (binContacts' rules), only my bin moved here (theirs is theirs,
       // or the server's); on the server its own contact is the one that counts, mine only shows it at once
-      if (playing && !me.dead && d < 31 * (sizeOf(me.lv) + sizeOf(r.lv || 1)) && d > 0.01) {
-        const nx = dx / d, ny = dy / d, ma = binMass(me.lv), mr = binMass(r.lv), over = 31 * (sizeOf(me.lv) + sizeOf(r.lv || 1)) - d;
+      if (playing && !me.dead && d < 62 && d > 0.01) {
+        const nx = dx / d, ny = dy / d, ma = BIN_MASS, mr = BIN_MASS, over = 62 - d;
         me.x += nx * over * mr / (ma + mr); me.y += ny * over * mr / (ma + mr);
         const vn = (me.vx - (r.vx || 0)) * nx + (me.vy - (r.vy || 0)) * ny;
         if (vn < 0) {

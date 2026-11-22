@@ -8,12 +8,12 @@
   const swingEase = k => 1 - Math.pow(1 - k, 2.2);
   // where the blade is now: from the bin's edge out to its tip, swept round as the swing goes (owner: the bin swinging)
   function swordSweep(s, owner) {
-    const k = Math.min(1, 1 - s.life / SHOTS[K.SWORD].life), a = s.sa - SWING_ARC / 2 * SWING_SIDE + SWING_ARC * SWING_SIDE * swingEase(k), r0 = binR(owner.lv || 1) * 0.6;
+    const k = Math.min(1, 1 - s.life / SHOTS[K.SWORD].life), a = s.sa - SWING_ARC / 2 * SWING_SIDE + SWING_ARC * SWING_SIDE * swingEase(k), r0 = BIN_R * 0.6;
     s.px = owner.x + Math.cos(a) * r0; s.py = owner.y + Math.sin(a) * r0; s.x = owner.x + Math.cos(a) * BLADE_REACH; s.y = owner.y + Math.sin(a) * BLADE_REACH;
   }
   // the blade's line in a pose P, its bin at (x, y): hilt (hx, hy) at rh from the centre, pointing (ux, uy), L long
   function bladeLine(b, P, wind, x, y) {
-    const rh = binR(b.lv || 1) + 4, ha = b.a + P.ph, da = b.a + P.ps;
+    const rh = BIN_R + 4, ha = b.a + P.ph, da = b.a + P.ps;
     return { rh, L: (BLADE_REACH - rh * 0.6) * (1 + wind * 0.08), hx: x + Math.cos(ha) * rh, hy: y + Math.sin(ha) * rh, ux: Math.cos(da), uy: Math.sin(da) };
   }
   // the Blood Blade bites whatever it touches, swung or not: at rest or wound up, a bin its beam lies across takes a
@@ -27,7 +27,7 @@
     for (const [id, o] of targets) {
       if (!o || o === b || o.dead || mates(o, b) || now - (seen.get(id) || 0) < TOUCH_MS) continue;
       const t = clamp((o.x - hx) * ux + (o.y - hy) * uy, 0, L), cx = hx + ux * t, cy = hy + uy * t;
-      if (Math.hypot(o.x - cx, o.y - cy) > binR(o.lv || 1) * 0.9) continue;
+      if (Math.hypot(o.x - cx, o.y - cy) > BIN_R * 0.9) continue;
       seen.set(id, now);
       volley(b, now, BLADE_TOUCH, { x: cx, y: cy });
     }
@@ -68,7 +68,7 @@
   // the blade on its bin (x, y: the bin on screen), drawn over it: a hilt of dark metal and a beam of light in its
   // colour with a white-hot core, quivering; mid-swing a smear of light follows it round
   function drawBlade(b, x, y, wind, now) {
-    const P = bladePose(b, wind, now), sz = sizeOf(b.lv || 1), A = b.a, { rh, L, hx, hy, ux, uy } = bladeLine(b, P, wind, x, y);
+    const P = bladePose(b, wind, now), A = b.a, { rh, L, hx, hy, ux, uy } = bladeLine(b, P, wind, x, y);
     const col = "255,40,60";
     const flick = 0.9 + 0.06 * Math.sin(now / 17 + (b.hue || 0)) + 0.04 * Math.sin(now / 7.3), lit = P.lit * flick;
     const tx = hx + ux * L, ty = hy + uy * L;
@@ -86,20 +86,20 @@
     }
     // the hilt: back from the emitter toward the bin
     g.globalCompositeOperation = "source-over";
-    const hl = 17 * sz, bx = hx - ux * hl, by = hy - uy * hl;
-    g.strokeStyle = "#1c2028"; g.lineWidth = 7.5 * sz; g.beginPath(); g.moveTo(bx, by); g.lineTo(hx, hy); g.stroke();
-    g.strokeStyle = "#a9b4c4"; g.lineWidth = 5 * sz; g.beginPath(); g.moveTo(bx + ux * hl * 0.1, by + uy * hl * 0.1); g.lineTo(hx - ux * hl * 0.45, hy - uy * hl * 0.45); g.stroke();
-    g.strokeStyle = "#3a4250"; g.lineWidth = 6.5 * sz; g.beginPath(); g.moveTo(hx - ux * hl * 0.3, hy - uy * hl * 0.3); g.lineTo(hx, hy); g.stroke();
-    g.strokeStyle = "#ff4050"; g.lineWidth = 2; g.beginPath(); g.moveTo(hx - ux * hl * 0.6 - uy * 3 * sz, hy - uy * hl * 0.6 + ux * 3 * sz); g.lineTo(hx - ux * hl * 0.6 + uy * 3 * sz, hy - uy * hl * 0.6 - ux * 3 * sz); g.stroke();   // its switch
+    const hl = 17, bx = hx - ux * hl, by = hy - uy * hl;
+    g.strokeStyle = "#1c2028"; g.lineWidth = 7.5; g.beginPath(); g.moveTo(bx, by); g.lineTo(hx, hy); g.stroke();
+    g.strokeStyle = "#a9b4c4"; g.lineWidth = 5; g.beginPath(); g.moveTo(bx + ux * hl * 0.1, by + uy * hl * 0.1); g.lineTo(hx - ux * hl * 0.45, hy - uy * hl * 0.45); g.stroke();
+    g.strokeStyle = "#3a4250"; g.lineWidth = 6.5; g.beginPath(); g.moveTo(hx - ux * hl * 0.3, hy - uy * hl * 0.3); g.lineTo(hx, hy); g.stroke();
+    g.strokeStyle = "#ff4050"; g.lineWidth = 2; g.beginPath(); g.moveTo(hx - ux * hl * 0.6 - uy * 3, hy - uy * hl * 0.6 + ux * 3); g.lineTo(hx - ux * hl * 0.6 + uy * 3, hy - uy * hl * 0.6 - ux * 3); g.stroke();   // its switch
     // the beam: a wide soft glow, a coloured body, a white core, a hot emitter and a rounded tip
     g.globalCompositeOperation = "lighter";
     for (const [w, c, al] of [[26, col, 0.13], [14, col, 0.38], [8, col, 0.8], [3.6, "255,255,255", 0.95]]) {
-      g.strokeStyle = `rgba(${c},${Math.min(1, al * lit)})`; g.lineWidth = w * sz * (1 + wind * 0.25); g.beginPath(); g.moveTo(hx, hy); g.lineTo(tx, ty); g.stroke();
+      g.strokeStyle = `rgba(${c},${Math.min(1, al * lit)})`; g.lineWidth = w * (1 + wind * 0.25); g.beginPath(); g.moveTo(hx, hy); g.lineTo(tx, ty); g.stroke();
     }
-    g.globalAlpha = Math.min(1, 0.7 * lit); g.drawImage(dotSprite(`rgb(${col})`), hx - 16 * sz, hy - 16 * sz, 32 * sz, 32 * sz); g.globalAlpha = 1;
+    g.globalAlpha = Math.min(1, 0.7 * lit); g.drawImage(dotSprite(`rgb(${col})`), hx - 16, hy - 16, 32, 32); g.globalAlpha = 1;
     if (wind > 0.98 && !lowQ) {   // wound up full: arcs crackle along it
       g.strokeStyle = "rgba(255,220,225,0.85)"; g.lineWidth = 1.4;
-      for (let k = 0; k < 2; k++) { g.beginPath(); for (let i = 0; i <= 6; i++) { const f = i / 6, o = (Math.random() - 0.5) * 14 * sz; g.lineTo(hx + ux * L * f - uy * o, hy + uy * L * f + ux * o); } g.stroke(); }
+      for (let k = 0; k < 2; k++) { g.beginPath(); for (let i = 0; i <= 6; i++) { const f = i / 6, o = (Math.random() - 0.5) * 14; g.lineTo(hx + ux * L * f - uy * o, hy + uy * L * f + ux * o); } g.stroke(); }
     }
     g.restore();
   }

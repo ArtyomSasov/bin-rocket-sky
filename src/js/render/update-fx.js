@@ -2,7 +2,7 @@
   function updateFx(dt, now) {
     rebuildSolidGrid(now);
     // flying through smoke and sparks shoves them aside (faster = harder)
-    const meSp = Math.hypot(me.vx, me.vy), pushR = 46 * sizeOf(me.lv), pushR2 = pushR * pushR, canPush = playing && !me.dead && meSp > 60;
+    const meSp = Math.hypot(me.vx, me.vy), pushR = 46, pushR2 = pushR * pushR, canPush = playing && !me.dead && meSp > 60;
     // the planets pull the heavy bits (sparks, embers, hot blobs, burning chunks): near one they arc down onto it
     // and bounce off its ground (smoke and fire clouds float)
     const gp = planets.filter(q => !q.dead && !q.free && q.mass > 0);
@@ -53,39 +53,38 @@
       const drag = Math.exp(-(stationMap() ? 1.4 : 0.015) * dt);   // space: practically no drag; a deck: it skids to rest
       if (!h.rest) { h.x += h.vx * dt; h.y += h.vy * dt; } h.vx *= drag; h.vy *= drag; h.a += h.spin * dt;
       if (stationMap()) h.spin *= Math.exp(-1.8 * dt);
-      const pc = h.dying ? bounceOff(h, 30 * sizeOf(h.lv), 0.8, 0.35 * binMass(h.lv)) : wreckFalls(h, 30 * sizeOf(h.lv), dt, now, 0.35 * binMass(h.lv));   // (a thrown one flies until it blows)
+      const pc = h.dying ? bounceOff(h, 30, 0.8, 0.35 * BIN_MASS) : wreckFalls(h, 30, dt, now, 0.35 * BIN_MASS);   // (a thrown one flies until it blows)
       if (h.dying) {   // a bin thrown by the blow that killed it: burning as it flies, until it slams into something
-        const d = h.dying, sz2 = sizeOf(h.lv);
+        const d = h.dying;
         d.fuse -= dt; d.age = (d.age || 0) + dt;
-        if (Math.random() < (lowQ ? 25 : 60) * dt) puff(h.x + (Math.random() - 0.5) * 30 * sz2, h.y + (Math.random() - 0.5) * 30 * sz2, -h.vx * 0.2 + (Math.random() - 0.5) * 60, -h.vy * 0.2 + (Math.random() - 0.5) * 60, 0.3 + Math.random() * 0.3, (8 + Math.random() * 8) * sz2, "fire", 4, 0, 0, 0.9, 0.2);
-        if (Math.random() < (lowQ ? 10 : 25) * dt) puff(h.x, h.y, -h.vx * 0.1, -h.vy * 0.1, 1 + Math.random(), (6 + Math.random() * 6) * sz2, SMOKE_COLS[0], 2, 0, (Math.random() - 0.5), 0.95);
+        if (Math.random() < (lowQ ? 25 : 60) * dt) puff(h.x + (Math.random() - 0.5) * 30, h.y + (Math.random() - 0.5) * 30, -h.vx * 0.2 + (Math.random() - 0.5) * 60, -h.vy * 0.2 + (Math.random() - 0.5) * 60, 0.3 + Math.random() * 0.3, (8 + Math.random() * 8), "fire", 4, 0, 0, 0.9, 0.2);
+        if (Math.random() < (lowQ ? 10 : 25) * dt) puff(h.x, h.y, -h.vx * 0.1, -h.vy * 0.1, 1 + Math.random(), (6 + Math.random() * 6), SMOKE_COLS[0], 2, 0, (Math.random() - 0.5), 0.95);
         if (Math.random() < 12 * dt) { const a = Math.random() * 6.28; puff(h.x, h.y, Math.cos(a) * 300, Math.sin(a) * 300, 0.2, 1, "#fff1b8", 1, 0.05); }
         if (Math.random() < 8 * dt) oilSplash(h.x, h.y, 1, 60, h.vx * 0.3, h.vy * 0.3);
         const slam = pc && -pc.vn > 120, edge = h.x < 60 || h.x > W - 60 || h.y < 60 || h.y > H - 60;
         let hitBin = false;
         if (d.age > 0.12) {   // (not the one it was killed by, beside it as it dies)
-          for (const r of remotes.values()) if (!r.dead && Math.hypot(r.x - h.x, r.y - h.y) < 60 * sz2) hitBin = true;
-          if (!me.dead && playing && Math.hypot(me.x - h.x, me.y - h.y) < 60 * sz2) hitBin = true;
+          for (const r of remotes.values()) if (!r.dead && Math.hypot(r.x - h.x, r.y - h.y) < 60) hitBin = true;
+          if (!me.dead && playing && Math.hypot(me.x - h.x, me.y - h.y) < 60) hitBin = true;
         }
         if (slam || edge || hitBin || d.fuse <= 0) { hulks.splice(i, 1); wreckBlows(h); continue; }
       }
       if (h.burn) {   // burning: flames lick up off it, then it crumbles to ash
-        const bt = (now - h.burn) / 1000, sz1 = sizeOf(h.lv);
-        if (bt >= 0 && bt < 3.2 && Math.random() < (lowQ ? 20 : 50) * dt) puff(h.x + (Math.random() - 0.5) * 50 * sz1, h.y + (Math.random() - 0.5) * 50 * sz1, (Math.random() - 0.5) * 40, -60 - Math.random() * 80, 0.5 + Math.random() * 0.4, 3 + Math.random() * 4, FIRE_COLS[(Math.random() * 4) | 0]);
+        const bt = (now - h.burn) / 1000;
+        if (bt >= 0 && bt < 3.2 && Math.random() < (lowQ ? 20 : 50) * dt) puff(h.x + (Math.random() - 0.5) * 50, h.y + (Math.random() - 0.5) * 50, (Math.random() - 0.5) * 40, -60 - Math.random() * 80, 0.5 + Math.random() * 0.4, 3 + Math.random() * 4, FIRE_COLS[(Math.random() * 4) | 0]);
         if (bt > 3.4 && !h.ashed) { h.ashed = true; for (let k = 0; k < (lowQ ? 20 : 50); k++) { const a = Math.random() * 6.28, v = 30 + Math.random() * 120; puff(h.x, h.y, Math.cos(a) * v, Math.sin(a) * v, 1.2 + Math.random(), 2 + Math.random() * 3, k % 2 ? "rgb(60,56,62)" : "rgb(120,112,110)", 2); } }
       }
       if (h.x < 40 || h.x > W - 40) { h.vx = -h.vx; h.x = clamp(h.x, 40, W - 40); }
       if (h.y < 40 || h.y > H - 40) { h.vy = -h.vy; h.y = clamp(h.y, 40, H - 40); }
-      const sz = sizeOf(h.lv);
       const hAge = (now - h.born) / 1000;
-      if (hAge < 15 && Math.random() < (lowQ ? 6 : 14) * dt) puff(h.x + (Math.random() - 0.5) * 40 * sz, h.y + (Math.random() - 0.5) * 40 * sz, (Math.random() - 0.5) * 40, (Math.random() - 0.5) * 40, 1.6, 4 + Math.random() * 4, "rgb(52,46,64)", 2);
+      if (hAge < 15 && Math.random() < (lowQ ? 6 : 14) * dt) puff(h.x + (Math.random() - 0.5) * 40, h.y + (Math.random() - 0.5) * 40, (Math.random() - 0.5) * 40, (Math.random() - 0.5) * 40, 1.6, 4 + Math.random() * 4, "rgb(52,46,64)", 2);
       if (h.zap && hAge < 2.8) {
         if (Math.random() < 10 * dt) { const a = Math.random() * 6.28, v = 150 + Math.random() * 300; puff(h.x, h.y, Math.cos(a) * v, Math.sin(a) * v, 0.25 + Math.random() * 0.3, 1 + Math.random(), Math.random() < 0.5 ? "#bfefff" : "#ffffff", 1, 0.05); }
-        if (Math.random() < 3 * dt) { impact(h.x + (Math.random() - 0.5) * 40 * sz, h.y + (Math.random() - 0.5) * 40 * sz, "#9fe8ff", 0.5); sfx("laser", 0.25, 2 + Math.random(), h.x, h.y); }
-      } else if (hAge < 6 && Math.random() < 2.5 * dt) impact(h.x + (Math.random() - 0.5) * 50 * sz, h.y + (Math.random() - 0.5) * 50 * sz, "#ff9a2e", 0.5);
+        if (Math.random() < 3 * dt) { impact(h.x + (Math.random() - 0.5) * 40, h.y + (Math.random() - 0.5) * 40, "#9fe8ff", 0.5); sfx("laser", 0.25, 2 + Math.random(), h.x, h.y); }
+      } else if (hAge < 6 && Math.random() < 2.5 * dt) impact(h.x + (Math.random() - 0.5) * 50, h.y + (Math.random() - 0.5) * 50, "#ff9a2e", 0.5);
       // it is solid: bump off it
       const dx = me.x - h.x, dy = me.y - h.y, d = Math.hypot(dx, dy);
-      if (playing && !me.dead && d > 0.01 && d < 31 * (sizeOf(me.lv) + sz) && (!h.bump || now - h.bump > 300)) {
+      if (playing && !me.dead && d > 0.01 && d < 62 && (!h.bump || now - h.bump > 300)) {
         h.bump = now;
         // a wreck is a shell, lighter than a live bin: momentum shared by weight (a third of a bin's), restitution 0.4, so
         // flying into it knocks it away and barely slows me, and one drifting into me at rest nudges me only a little.
@@ -113,7 +112,7 @@
     }
     for (const s of shots) {
       if (s.life <= 0 || SHOTS[s.kind].inert || s.kind === K.MINE) continue;
-      for (const o of hulks) if (segHit(s, o.x, o.y, 34 * sizeOf(o.lv)) && (!pierces(s) || railOnce(s, o))) { const pk = pierces(s) ? 0.03 : 0.08; o.rest = null; o.vx += s.vx * pk; o.vy += s.vy * pk; o.spin += (Math.random() - 0.5); if (!pierces(s)) s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.8); break; }
+      for (const o of hulks) if (segHit(s, o.x, o.y, 34) && (!pierces(s) || railOnce(s, o))) { const pk = pierces(s) ? 0.03 : 0.08; o.rest = null; o.vx += s.vx * pk; o.vy += s.vy * pk; o.spin += (Math.random() - 0.5); if (!pierces(s)) s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.8); break; }
       if (s.life <= 0) continue;
       for (const o of frags) if (segHit(s, o.x, o.y, o.s * 0.3)) { o.rest = null; o.vx += s.vx * 0.12; o.vy += s.vy * 0.12; o.spin += (Math.random() - 0.5) * 2; s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.6); break; }
     }
@@ -129,7 +128,7 @@
       if (d.x < 0 || d.x > W) { d.vx = -d.vx; d.x = clamp(d.x, 0, W); }
       if (d.y < 0 || d.y > H) { d.vy = -d.vy; d.y = clamp(d.y, 0, H); }
       const ddx = d.x - me.x, ddy = d.y - me.y, dd = Math.hypot(ddx, ddy);
-      if (playing && !me.dead && dd < 34 * sizeOf(me.lv) && dd > 0.01) { d.rest = null; const pv = Math.max(120, Math.hypot(me.vx, me.vy)); d.vx = ddx / dd * pv; d.vy = ddy / dd * pv; d.vr += (Math.random() - 0.5) * 4; }
+      if (playing && !me.dead && dd < 34 && dd > 0.01) { d.rest = null; const pv = Math.max(120, Math.hypot(me.vx, me.vy)); d.vx = ddx / dd * pv; d.vy = ddy / dd * pv; d.vr += (Math.random() - 0.5) * 4; }
       if ((now - d.born) / 1000 < 3 && Math.random() < (lowQ ? 1 : 3) * dt) puff(d.x, d.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 1.2, 2 + Math.random() * 2, "rgb(80,72,98)", 2);
     }
     for (let i = impacts.length - 1; i >= 0; i--) { impacts[i].t += dt; if (impacts[i].t > (impacts[i].dur || 0.22)) impacts.splice(i, 1); }

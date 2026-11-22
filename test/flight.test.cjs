@@ -35,7 +35,7 @@ test('the server\'s state after any command, flown on with the commands after it
       if (s === 240) Object.assign(seen, { endAk: me.ak, endMv: me.mv });
     }
     assert.equal(seen.endAk, 240, 'every command flown once');
-    const M = m.game.__simMove, o = { lv: 1, inv: 0 };
+    const M = m.game.__simMove, o = { inv: 0 };
     M.setMoveState(o, seen.mv);
     for (const e of cmds) if (e[0] > seen.ak) M.pilotMove(o, asCommand(e));
     const end = M.moveState(o);
@@ -46,7 +46,7 @@ test('the server\'s state after any command, flown on with the commands after it
 test('crashing about a station, nothing but its commands moves a player\'s pilot', { skip }, async () => {
   const m = await createMatch({ code: 'm1x0kchk' });   // Cargo Deck: walls and props to bump into
   try {
-    const id = m.addPilot('P'), b = m.game.__simBot(id), M = m.game.__simMove, shadow = { lv: 1, inv: 0 };
+    const id = m.addPilot('P'), b = m.game.__simBot(id), M = m.game.__simMove, shadow = { inv: 0 };
     const step = () => { clock.t += 1000 / 60; m.step(1 / 60, clock.t); };
     for (let i = 0; i < 10; i++) step();
     let compared = 0;
@@ -84,7 +84,7 @@ test('a bin meeting a junk rock: momentum is shared and nothing is gained; the r
   const g = await loadGame(), h = await loadGame();
   try {
     const r = g.get(`(() => {
-      const k = { slot: 0, gen: 0, x: 1000, y: 1000, vx: 0, vy: 0, r: 30 }, p = { x: 1000 - 30 - 25, y: 1000, vx: 300, vy: 0, lv: 1 };
+      const k = { slot: 0, gen: 0, x: 1000, y: 1000, vx: 0, vy: 0, r: 30 }, p = { x: 1000 - 30 - 25, y: 1000, vx: 300, vy: 0 };
       collideRock(p, k);
       return { sum: p.vx + k.vx, e0: 300 * 300, e1: p.vx * p.vx + k.vx * k.vx, rockMoves: k.vx > 0 };
     })()`);

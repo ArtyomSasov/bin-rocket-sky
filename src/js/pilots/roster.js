@@ -11,7 +11,7 @@
       const id = "pb" + Math.random().toString(36).slice(2, 8);
       const b = { id, tag: "b" + Math.random().toString(36).slice(2, 7), name: BOT_NAMES[(bots.length) % BOT_NAMES.length] + " (bot)", L, level,
         hue: Math.floor(Math.random() * 360), ck: [Math.floor(Math.random() * 7), Math.floor(Math.random() * 6), Math.floor(Math.random() * 5), Math.floor(Math.random() * 5), Math.floor(Math.random() * 6)],
-        ...spawnPoint(), vx: 0, vy: 0, a: Math.random() * 6.28, lives: LIVES, lv: 1, xp: 0, dead: false, respawnAt: 0, inv: 0, ds: 0,
+        ...spawnPoint(), vx: 0, vy: 0, a: Math.random() * 6.28, lives: LIVES, dead: false, respawnAt: 0, inv: 0, ds: 0,
         fireCd: 1 + Math.random(), side: Math.random() < 0.5 ? 1 : -1, wander: Math.random() * 6.28, seq: 0, q: 0,
         weapon: "fire", shotLog: [], hitBy: [], koBy: [], st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 } };
       bots.push(b); botById.set(id, b);
@@ -47,11 +47,10 @@
       if (botCredited.has(key) || botCredited.size >= MAX_CREDITS) continue;
       for (const b of bots) if (b.id !== victim && k.startsWith(b.tag + ".")) {
         botCredited.add(key);
-        if (ko) { b.st.kills++; b.st.streak++; b.st.best = Math.max(b.st.best, b.st.streak); botXp(b, 10); } else { b.st.hits++; botXp(b, 1); }
+        if (ko) { b.st.kills++; b.st.streak++; b.st.best = Math.max(b.st.best, b.st.streak); } else b.st.hits++;
       }
     }
   }
-  function botXp(b) { b.lv = 1; b.xp = 0; }
   // past: a player's hitscan shot judged where the bot was when they fired (lag compensation): its invulnerability
   // then was checked there (targetHit); one it gained since (a dash) does not take the hit back
   function botHurt(b, dmg, shotId, now, force, kind = -1, ang = 0, past = false) {
@@ -68,7 +67,7 @@
       if (b.weapon !== "fire" && !MODES[MODE].only) dropGun(b.x, b.y, b.weapon, b.input ? b.arsenal[b.weapon] : b.ammo);   // its trophy
       b.dead = true; b.respawnAt = now + 3000; b.fc = -1; b.weapon = "fire"; b.ampUntil = 0;
       if (b.input) pilotArm(b);   // a player starts again with the laser pistol
-      b.lv = levelAfterDeath(b.lv); b.xp = XP_STEPS[b.lv - 1]; b.ds = deathPiecesOf(kind); b.dk = deathStyleOf(kind); b.da = ang;
+      b.ds = deathPiecesOf(kind); b.dk = deathStyleOf(kind); b.da = ang;
       b.st.deaths++; b.st.streak = 0;
       if (byHole) feedPush(`<span class="v">${esc(b.name)}</span> ${shotId === "p" ? "crashed into a planet" : "was swallowed by the black hole"}`);
       else pushCapped(b.koBy, shotId, 12);

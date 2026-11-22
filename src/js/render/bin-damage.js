@@ -4,12 +4,12 @@
     const dmg = damageOf(b);
     if (dmg <= 0) return;
     if (dmg > 0.3 && Math.random() < (dmg - 0.2) * 9 * dt) oilSplash(b.x - Math.cos(b.a) * 20, b.y - Math.sin(b.a) * 20, 1, 40, (b.vx || 0) * 0.2, (b.vy || 0) * 0.2);   // a leak
-    const sz = sizeOf(b.lv || 1), bx = Math.cos(b.a), by = Math.sin(b.a);
+    const bx = Math.cos(b.a), by = Math.sin(b.a);
     if (Math.random() < dmg * (lowQ ? 10 : 26) * dt) {
-      const ox = (Math.random() - 0.5) * 40 * sz, oy = (Math.random() - 0.5) * 40 * sz;
+      const ox = (Math.random() - 0.5) * 40, oy = (Math.random() - 0.5) * 40;
       puff(b.x + ox, b.y + oy, -bx * 70 + (Math.random() - 0.5) * 50, -by * 70 + (Math.random() - 0.5) * 50, 1.3 + Math.random() * 0.9, 3.5 + Math.random() * 3.5, dmg > 0.6 ? "rgb(52,46,64)" : "rgb(105,97,124)", 2);
     }
-    if (dmg > 0.6 && Math.random() < 5 * dt) impact(b.x + (Math.random() - 0.5) * 50 * sz, b.y + (Math.random() - 0.5) * 50 * sz, "#ff9a2e", 0.4);
+    if (dmg > 0.6 && Math.random() < 5 * dt) impact(b.x + (Math.random() - 0.5) * 50, b.y + (Math.random() - 0.5) * 50, "#ff9a2e", 0.4);
   }
   // a bin blowing apart: fireball, shock ring, tumbling pieces of its own colours, sparks and smoke
   // real pieces of the ship: the sprite (with wings and armour) is cut along jagged lines from a point
@@ -55,9 +55,9 @@
       return { poly, edges: [cuts[i], cuts[j]], cx, cy };
     });
   }
-  // draw a piece once into its own canvas (art + wings + armour, clipped), plus a second canvas with the
+  // draw a piece once into its own canvas (the art, clipped), plus a second canvas with the
   // hot fracture lines kept only where the piece has paint, so nothing glows in empty space
-  function renderPiece(piece, s, lv, ck, hot = "255,140,50", core = "255,240,200", lw = 1) {
+  function renderPiece(piece, s, ck, hot = "255,140,50", core = "255,240,200", lw = 1) {
     const res = 1.5, cw = Math.ceil(s * res), mk = () => { const c = document.createElement("canvas"); c.width = c.height = cw; return c; };
     const base = mk(), glow = mk(), bctx = base.getContext("2d"), gctx = glow.getContext("2d");
     const P = (px, py) => [(px / 320 - 0.5) * s, (py / 320 - 0.5) * s];
@@ -66,9 +66,7 @@
       g = bctx; TS = 1;
       bctx.setTransform(res, 0, 0, res, cw / 2, cw / 2);
       bctx.beginPath(); piece.poly.forEach(([px, py], i) => { const [X, Y] = P(px, py); i ? bctx.lineTo(X, Y) : bctx.moveTo(X, Y); }); bctx.closePath(); bctx.clip();
-      drawWings(lv, s);
       if (body) bctx.drawImage(darkBody(ck, 0.12), -s / 2, -s / 2, s, s);
-      drawArmor(lv, s, 0, true);
       drawDamage(0.4, s, 0, 0);
     } finally { g = main; TS = mainTS; }
     gctx.setTransform(res, 0, 0, res, cw / 2, cw / 2);
@@ -83,8 +81,8 @@
     return [base, glow];
   }
   function shatter(b, n) {
-    const s = BOT * sizeOf(b.lv || 1), rot = b.a + Math.PI / 2 - SPRITE_TILT;
-    for (const piece of cutSprite(n)) addFrag(b, piece, s, rot, renderPiece(piece, s, b.lv || 1, b.ck || [0, 0, 0, 0, 0]), (wx, wy) => {
+    const s = BOT, rot = b.a + Math.PI / 2 - SPRITE_TILT;
+    for (const piece of cutSprite(n)) addFrag(b, piece, s, rot, renderPiece(piece, s, b.ck || [0, 0, 0, 0, 0]), (wx, wy) => {
       const d = Math.hypot(wx, wy) || 1, v = 70 + Math.random() * 150;   // flung out from the middle
       return [wx / d * v + (b.vx || 0) * 0.7, wy / d * v + (b.vy || 0) * 0.7, (Math.random() - 0.5) * 1.3];   // (carrying on the way it flew)
     });
@@ -132,19 +130,19 @@
   }
   function binExplosion(b, n) {
     shove(b.x, b.y, 320, 420);
-    const [bodyCol, lidCol] = binColors(b.ck), sz = sizeOf(b.lv || 1), q = lowQ ? 0.35 : 1;
+    const [bodyCol, lidCol] = binColors(b.ck), q = lowQ ? 0.35 : 1;
     // the fuel goes up: the layered blast, a second puff of fire a beat later off to one side, the view warping
-    explode(b.x, b.y, 110, 400 * Math.sqrt(sz));
+    explode(b.x, b.y, 110, 400);
     const a2 = Math.random() * 6.28;
     for (let k = 0; k < 8 * q; k++) {
       const a = Math.random() * 6.28, v = 30 + Math.random() * 90;
-      puff(b.x + Math.cos(a2) * 26 * sz, b.y + Math.sin(a2) * 26 * sz, Math.cos(a) * v, Math.sin(a) * v, 0.7 + Math.random() * 0.5, (14 + Math.random() * 10) * sz, FIRE_RAMP[0], 4, 0, 0, 0.9, 0.15 + Math.random() * 0.2);
+      puff(b.x + Math.cos(a2) * 26, b.y + Math.sin(a2) * 26, Math.cos(a) * v, Math.sin(a) * v, 0.7 + Math.random() * 0.5, (14 + Math.random() * 10), FIRE_RAMP[0], 4, 0, 0, 0.9, 0.15 + Math.random() * 0.2);
     }
     if (Math.hypot(b.x - me.x, b.y - me.y) < 1400) sfx("boom_bin", 1, 1, b.x, b.y);
     shatter(b, n); breakupPops(n);
     oilSplash(b.x, b.y, 34, 480, (b.vx || 0) * 0.3, (b.vy || 0) * 0.3);   // its oil, everywhere
     for (let k = 0; k < (lowQ ? 3 : 6); k++) {
       const a = Math.random() * 6.28, v = 60 + Math.random() * 200;
-      addDebris(b.x, b.y, Math.cos(a) * v + (b.vx || 0) * 0.3, Math.sin(a) * v + (b.vy || 0) * 0.3, (4 + Math.random() * 7) * sz, k % 3 ? bodyCol : lidCol);
+      addDebris(b.x, b.y, Math.cos(a) * v + (b.vx || 0) * 0.3, Math.sin(a) * v + (b.vy || 0) * 0.3, (4 + Math.random() * 7), k % 3 ? bodyCol : lidCol);
     }
   }

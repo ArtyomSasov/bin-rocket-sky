@@ -1,7 +1,6 @@
   function drawBot(b, x, y, now, isMe) {
-    const lv = b.lv || 1, sz = sizeOf(lv), tier = tierOf(lv), S = BOT * sz;
+    const S = BOT;
     if (b.blink && Math.floor(now / 90) % 2) g.globalAlpha = 0.35;
-    // aura from Lv 4
     const shield = isMe ? me.shield : b.shield || 0;
     if (shield > 0) {
       const hit = isMe ? Math.max(0, 1 - (now - shieldHitAt) / 300) : 0;
@@ -11,24 +10,6 @@
       g.strokeStyle = `rgba(190,230,255,${0.25 + 0.05 * shield + 0.6 * hit})`; g.lineWidth = 1.5;
       g.beginPath(); g.arc(x, y, br * (0.93 + 0.02 * Math.sin(now / 200)), 0, 6.29); g.stroke();
     }
-    if (tier.aura && !lowQ) {
-      const ar = S * (0.78 + 0.06 * Math.sin(now / 300));
-      const au = g.createRadialGradient(x, y, S * 0.15, x, y, ar);
-      au.addColorStop(0, `rgba(${tier.aura},0.38)`); au.addColorStop(1, `rgba(${tier.aura},0)`);
-      g.fillStyle = au; g.beginPath(); g.arc(x, y, ar, 0, 6.29); g.fill();
-    }
-    // orbiting stars, one per two levels (behind the bin on the far side)
-    const orbs = Math.floor(lv / 2);
-    const orbit = front => {
-      for (let o = 0; o < orbs; o++) {
-        const a = now / 650 + o * 6.283 / orbs, inFront = Math.sin(a) > 0;
-        if (inFront !== front) continue;
-        g.fillStyle = tier.aura ? `rgb(${tier.aura})` : "#ffffff";
-        starPath(x + Math.cos(a) * S * 0.7, y + Math.sin(a) * S * 0.3, 3 + lv * 0.45, now / 400 + o);
-        g.fill();
-      }
-    };
-    orbit(false);
 
     if (amped(b, now)) {   // Quad damage: a blue aura around the bin
       g.globalCompositeOperation = "lighter";
@@ -39,7 +20,7 @@
     }
     const pose = binPose(b, now), s = pose.s;
     const fl = b.ck ? customVal(b.ck, "flame") : null;
-    const firePal = fl === "rainbow" ? rainbowFlame(now) : fl ? FLAMES[fl] : tier;
+    const firePal = fl === "rainbow" ? rainbowFlame(now) : fl ? FLAMES[fl] : FLAME;
     const bf = isMe ? me.boostFx : b.boost || 0;
     const burst = isMe ? Math.max(0, 1 - (now - me.dashAt) / 350) : bf === 2 ? 1 : 0;
     const sputter = Number.isFinite(b.lives) && damageOf(b) > 0.6 ? 0.65 + 0.35 * Math.abs(Math.sin(now / 47 + b.x)) : 1;
@@ -74,7 +55,6 @@
     g.save(); g.translate(x, y); g.rotate(pose.a);
     if (jk) { g.rotate(b.joltA); g.scale(1 - jk, 1 + jk * 0.8); g.rotate(-b.joltA); }   // (squashed along the blow, bulging across it)
     g.scale(pose.scaleX, 1);
-    drawWings(lv, s);
     mountHeat = isMe ? spin : 0;
     // a minigun's barrels turn with its spin (mine: the trigger's spin-up; another's: how hard it has been firing)
     { const sv = isMe ? spin : (b.spinVis = Math.max(0, (b.spinVis || 0) - Math.min(0.1, (now - (b.spinT || now)) / 1000) * 1.2)), dtv = Math.min(0.1, (now - (b.barrelT || now)) / 1000);
@@ -94,17 +74,15 @@
       if (hf > 0) { g.globalAlpha = hf * 0.85; g.drawImage(whiteBody(teamCk(b) || [0, 0, 0, 0, 0]), -s / 2, -s / 2, s, s); g.globalAlpha = 1; }
     } else { g.fillStyle = "#4fd6c8"; g.fillRect(-s / 3, -s / 3, s / 1.5, s / 1.5); }
     const hat = b.ck ? customVal(b.ck, "hat") : null;
-    drawArmor(lv, s, now, !hat);
     if (Number.isFinite(b.lives)) drawDamage(damageOf(b), s, now, x);
     if (hat) drawHat(hat, s, now);
     g.restore();
     { const wpn = isMe ? me.weapon : b.weapon;   // a blade in hand: held outside the hull, over it
       if (wpn === "saw") drawBlade(isMe ? me : b, x, y, isMe ? charge : b.charge || b.wind || 0, now); }
-    orbit(true);
     g.globalAlpha = 1;
 
     if (!isMe && Number.isFinite(b.lives)) {
-      const f = Math.max(0, Math.min(1, b.lives / maxLivesOf(lv))), bw = 54, by = y + S * 0.42 + 6;
+      const f = Math.max(0, Math.min(1, b.lives / LIVES)), bw = 54, by = y + S * 0.42 + 6;
       g.fillStyle = "rgba(0,0,0,0.45)"; rrect(x - bw / 2 - 1, by - 1, bw + 2, 7, 3); g.fill();
       g.fillStyle = f > 0.6 ? "#4fe39a" : f > 0.3 ? "#ffc23d" : "#ff4d5e"; rrect(x - bw / 2, by, bw * f, 5, 2.5); g.fill();
     }
@@ -113,7 +91,7 @@
     if (label) {
       g.font = `700 ${13 * TS}px ` + DISPLAY_FONT;
       g.textAlign = "center";
-      const top = y - S * (lv >= 8 || hat ? 0.62 : 0.46) - 22 * TS;
+      const top = y - S * (hat ? 0.62 : 0.46) - 22 * TS;
       g.fillStyle = "rgba(20,12,40,0.55)";
       const w = g.measureText(label).width + 12 * TS;
       rrect(x - w / 2, top, w, 19 * TS, 9 * TS); g.fill();

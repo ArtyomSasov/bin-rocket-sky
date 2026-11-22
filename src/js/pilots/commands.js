@@ -2,7 +2,7 @@
   // A command is the controls for one fixed slice of flight (CMD_DT): the stick, the facing, boost, brake and the dash
   // count. The player's screen flies each one the moment it makes it, and sends it; the server flies the very same
   // one, once, with the same function and slice. The server then says where the pilot is after its last command,
-  // and the screen flies the commands the server has not had yet again from there (reconcile in 12c-server.js): only
+  // and the screen flies the commands the server has not had yet again from there (reconcile in net/reconcile.js): only
   // what really differs (a hit, a bump into something that moved) is left to correct. Its timers run on its own
   // command clock (mt), so both sides count them alike whenever the commands arrive.
   const CMD_DT = 1 / 60;
@@ -79,7 +79,7 @@
   // touching another pilot pushes you off it (harder if it rams you on boost, softer if you ram it): kick, or 0
   // my flight: thrust with inertia, gravity, bumping off bodies and the fence, facing, exhaust
   // on the game server my flight goes as commands, one every CMD_DT of frame time (pilotMove): made, flown here and
-  // kept until the server has flown it too (12c-server.js sends them and reconciles)
+  // kept until the server has flown it too (net/server-client.js sends them and reconciles)
   function flyCmds(dt, braking) {
     srv.acc = Math.min((srv.acc || 0) + dt, CMD_DT * 8);
     const c0 = me.ctl || {}, r3 = v => Math.round(num(v, 0) * 1000) / 1000;

@@ -12,15 +12,3 @@
     for (const [rid, r] of remotes) if (!botById.has(rid) && !r.dead && canHurt(s, r, rid) && near(r)) { zap(r); any = true; }   // they judge their own
     if (any && Math.hypot(s.x - me.x, s.y - me.y) < 1500) packPlay("p_hit_laser", 0.5, s.x, s.y);
   }
-  // ---- the gamma orb zaps every enemy near it as it flies (each victim judges its own zaps, like any hit)
-  function gammaZap(s, dt, now) {
-    s.zap = (s.zap || 0) - dt;
-    if (s.zap > 0) return;
-    s.zap = GAMMA_ZAP.every;
-    const near = o => Math.hypot(o.x - s.x, o.y - s.y) < GAMMA_ZAP.r && !fixedCover(s.x, s.y, o.x, o.y), zap = o => arcs.push({ x1: s.x, y1: s.y, x2: o.x, y2: o.y, t: 0, col: "125,255,138" });
-    let any = false;
-    if (playing && !me.dead && canHurt(s, me, "me") && near(me)) { zap(me); any = true; hurtMe(s, now, GAMMA_ZAP.dmg * s.m, K.GAMMA); }
-    for (const b of bots) if (!b.dead && canHurt(s, b, b.id) && near(b)) { zap(b); any = true; botHurt(b, GAMMA_ZAP.dmg * s.m, s.id, now, false, K.GAMMA); }
-    for (const [rid, r] of remotes) if (!botById.has(rid) && !r.dead && canHurt(s, r, rid) && near(r)) { zap(r); any = true; }   // they judge their own
-    if (any) audioCue("demonicZap", s.x, s.y);
-  }

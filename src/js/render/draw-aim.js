@@ -1,17 +1,8 @@
-  function starPath(x, y, r, rot) {
-    g.beginPath();
-    for (let i = 0; i < 10; i++) {
-      const a = rot + i * Math.PI / 5, l = i % 2 ? r * 0.45 : r;
-      g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l);
-    }
-    g.closePath();
-  }
-
   // the crosshair: a ring ahead of the bin on the line its shots take, in the gun's colour; red and tighter when
   // someone you can hurt is on that line
   function drawAim(now) {
     if (charge > 0 && playing && !me.dead && !WEAPONS[me.weapon]?.sword) {   // (the sword shows its wind-up on the blade itself)   // a charge filling up: a ring round the bin, white-hot when full
-      const x = sx(me.x), y = sy(me.y), R = 70 * sizeOf(me.lv), full = charge >= 1;
+      const x = sx(me.x), y = sy(me.y), R = 70, full = charge >= 1;
       g.save(); g.lineCap = "round";
       g.strokeStyle = "rgba(127,184,255,0.25)"; g.lineWidth = 6; g.beginPath(); g.arc(x, y, R, 0, 6.29); g.stroke();
       g.strokeStyle = full && Math.floor(now / 90) % 2 ? "#ffffff" : "#7fb8ff"; g.lineWidth = 6;
@@ -29,7 +20,7 @@
       g.restore();
     }
     if (rocketLoad > 0 && playing && !me.dead) {   // rockets loading: three segments round the bin, the next one filling, and a rocket for each loaded one
-      const x = sx(me.x), y = sy(me.y), R = 70 * sizeOf(me.lv), avail = Math.min(ROCKET_MAX, me.arsenal.rocket || 0);
+      const x = sx(me.x), y = sy(me.y), R = 70, avail = Math.min(ROCKET_MAX, me.arsenal.rocket || 0);
       const part = Math.min(1, (rocketLoadTime % ROCKET_LOAD) / ROCKET_LOAD), seg = 6.283 / ROCKET_MAX, gap = 0.18;
       g.save(); g.lineCap = "round";
       for (let i = 0; i < ROCKET_MAX; i++) {
@@ -47,12 +38,12 @@
     }
     if ((settings.aim === "off" && !aimLocked()) || !playing || me.dead || guided) return;
     const w = WEAPONS[me.weapon], col = w.col || "#ffb43c", a = me.a + (w.back ? Math.PI : 0), ca = Math.cos(a), sa = Math.sin(a);
-    const D = (w.back ? 120 : 250) * sizeOf(me.lv), x0 = sx(me.x), y0 = sy(me.y);
+    const D = (w.back ? 120 : 250), x0 = sx(me.x), y0 = sy(me.y);
     let lock = false;
     for (const [id, r] of remotes) {   // anyone near the line of fire, within reach
       if (r.dead || mates(r, me)) continue;
       const dx = r.x - me.x, dy = r.y - me.y, along = dx * ca + dy * sa, off = Math.abs(-dx * sa + dy * ca);
-      if (along > 0 && along < 1300 && off < 30 + 26 * sizeOf(r.lv || 1)) { lock = true; break; }
+      if (along > 0 && along < 1300 && off < 56) { lock = true; break; }
     }
     const big = settings.aim === "big", own = { white: "#ffffff", green: "#5dff8a", red: "#ff5a5a" }[settings.aimCol];
     let x = x0 + ca * D, y = y0 + sa * D;
@@ -61,7 +52,7 @@
     g.save();
     g.globalAlpha = 0.28; g.strokeStyle = c; g.lineWidth = 1.5; g.setLineDash([6, 8]);
     const Lx = Math.hypot(x - x0, y - y0) || 1, ex = x - (x - x0) / Lx * R, ey = y - (y - y0) / Lx * R;
-    if (Lx > 40 * sizeOf(me.lv) + R) { g.beginPath(); g.moveTo(x0 + ca * 40 * sizeOf(me.lv), y0 + sa * 40 * sizeOf(me.lv)); g.lineTo(ex, ey); g.stroke(); }
+    if (Lx > 40 + R) { g.beginPath(); g.moveTo(x0 + ca * 40, y0 + sa * 40); g.lineTo(ex, ey); g.stroke(); }
     g.setLineDash([]); g.globalAlpha = 0.9; g.lineWidth = big ? 3 : 2;
     g.translate(x, y); g.rotate(now / 900);
     g.beginPath(); g.arc(0, 0, R, 0, 6.29); g.stroke();

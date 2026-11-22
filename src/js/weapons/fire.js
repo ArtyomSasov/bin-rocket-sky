@@ -11,7 +11,7 @@
     const jk = p === me ? (serverRun ? srv.jk : undefined) : p.jk, cd = p === me ? fireCd : p.fireCd;
     const side = Number.isSafeInteger(jk) && cd > 0 ? Math.floor(jk / Math.max(1, Math.round(cd / CMD_DT))) : (p.gunSide = (p.gunSide || 0) + 1);
     const ms = mountsOf(weapon), [mx, my] = ms[side % ms.length];
-    const S = BOT * sizeOf(p.lv || 1), t = (BARREL[weapon] ?? 44) * S / 320 * 1.35, R = p.a + Math.PI / 2 - SPRITE_TILT;
+    const S = BOT, t = (BARREL[weapon] ?? 44) * S / 320 * 1.35, R = p.a + Math.PI / 2 - SPRITE_TILT;
     // sprite frame: the mount, then along its tilted barrel; then into the world the way drawBot rotates the bin
     const lx = (mx / 320 - 0.5) * S + Math.sin(SPRITE_TILT) * t, ly = (my / 320 - 0.5) * S - Math.cos(SPRITE_TILT) * t;
     return { x: p.x + lx * Math.cos(R) - ly * Math.sin(R), y: p.y + lx * Math.sin(R) + ly * Math.cos(R) };
@@ -99,14 +99,14 @@
     audioCue("shockCombo", x, y);
     if (s.mine) { floaters.push({ x, y: y - 60, t: 0, txt: s.kind === K.SHOCK ? "SHOCK COMBO!" : "COMBO!", gold: true }); if (s.kind === K.SHOCK) announce("SHOCK COMBO", "", "#c9a4ff", 1.5); }
     if (s.kind === K.SHOCK) for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283; arcs.push({ x1: x, y1: y, x2: x + Math.cos(a) * R, y2: y + Math.sin(a) * R, t: 0, col: "190,150,255" }); }
-    if (canHurt(s, me, "me", true) && !fixedCover(x, y, me.x, me.y) && d < R + 26 * sizeOf(me.lv)) {
+    if (canHurt(s, me, "me", true) && !fixedCover(x, y, me.x, me.y) && d < R + 26) {
       me.vx += (me.x - x) / (d || 1) * 700; me.vy += (me.y - y) / (d || 1) * 700;
       hurtMe(s, now, base * Math.max(0.25, 1 - d / R), K.ORB);
     }
     for (const b of bots) {
       if (!canHurt(s, b, b.id, true) || fixedCover(x, y, b.x, b.y)) continue;
       const bd = Math.hypot(b.x - x, b.y - y);
-      if (bd < R + 26 * sizeOf(b.lv || 1)) { b.vx += (b.x - x) / (bd || 1) * 700; b.vy += (b.y - y) / (bd || 1) * 700; botHurt(b, base * Math.max(0.25, 1 - bd / R) * selfMul(s, b.id), s.id, now, false, K.ORB); }
+      if (bd < R + 26) { b.vx += (b.x - x) / (bd || 1) * 700; b.vy += (b.y - y) / (bd || 1) * 700; botHurt(b, base * Math.max(0.25, 1 - bd / R) * selfMul(s, b.id), s.id, now, false, K.ORB); }
     }
   }
   const REWIND_MS = 250;

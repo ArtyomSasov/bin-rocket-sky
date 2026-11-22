@@ -63,7 +63,7 @@
     } else if (round === matchRound && Math.abs(start - matchStart) < 1 && end && (!matchEnd || end < matchEnd)) matchEnd = end;
   }
   // armour (in lives, like health): it takes only ARMOR_SOAK of each hit, the rest still hurts; at most MAX_SHIELD
-  const SUPPLY_PERIOD = 20, MAX_SHIELD = 4.5, ARMOR_SOAK = 0.75; let SUPPLY_SLOTS = 0;
+  const MAX_SHIELD = 4.5, ARMOR_SOAK = 0.75; let SUPPLY_SLOTS = 0;
   // the big bombs: one huge blast each. Inside kill nothing survives; out to R the damage falls from 4 to 1.5 lives.
   // The holy bomb is thrown, bounces, sings a choir sing seconds before its fuse runs out, then outdoes the nuke
   const BOOM_LIFE = 4;

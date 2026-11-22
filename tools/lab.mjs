@@ -25,10 +25,10 @@ const hook = `window.__e = s => eval(s);
 window.__lab = {
   sounds: [],
   // an empty arena: nothing in the way, nothing happening, nothing to pick up
-  clear() { bodies.length = 0; det.length = 0; planets.length = 0; ROCKS = 0; world.rocks.length = 0; SUPPLY_SLOTS = 0; PICKS = 0; world.picks.length = 0; world.supplies.length = 0; world.bombs.length = 0; world.amp = null; drops.clear(); gunDrops.clear(); },
+  clear() { bodies.length = 0; det.length = 0; planets.length = 0; ROCKS = 0; world.rocks.length = 0; SUPPLY_SLOTS = 0; PICKS = 0; world.picks.length = 0; world.supplies.length = 0; world.bombs.length = 0; world.amp = null; gunDrops.clear(); },
   // dummies: the bots, parked in a row ahead of me, never firing back, healed between guns
   park(dist) { bots.forEach((b, i) => Object.assign(b, { x: me.x + dist, y: me.y + (i - (bots.length - 1) / 2) * 170, vx: 0, vy: 0, a: Math.PI, fireCd: 1e9, dead: false, inv: 0 })); },
-  heal() { for (const b of bots) { b.lives = maxLivesOf(b.lv); clearArmor(b); b.dead = false; } },
+  heal() { for (const b of bots) { b.lives = LIVES; clearArmor(b); b.dead = false; } },
   hp() { return bots.reduce((s, b) => s + (b.dead ? 0 : b.lives) + (b.shield || 0), 0); },
   deaths() { return bots.reduce((s, b) => s + b.st.deaths, 0); }
 };
@@ -107,7 +107,7 @@ try {
         const iv = setInterval(() => { const v = holesNow().find(h => h.v); if (v) __vd.push(Math.round(Math.hypot(v.x - me.x, v.y - me.y))); }, 250); setTimeout(() => { clearInterval(iv); keys.clear(); window.__free = 0; }, 3000); } }`,
       jolt: `{ window.__free = 1; me.x = W / 2; me.y = H / 2; me.vx = me.vy = 0; me.a = 0; setTimeout(() => { me.vx = -1100; me.vy = 300; }, 120); setTimeout(() => { me.vx = me.vy = 0; }, 900); }`,
       fall: `{ window.__keepWorld = 1; buildPlanets(worldCode); rebuildBodies(); const p = planets.filter(p => !p.free && !p.dead).sort((a, b) => b.rr - a.rr)[0]; me.x = p.x - 330; me.y = p.y - p.rr - 140; cam.x = me.x; cam.y = me.y; me.vx = me.vy = 0; me.inv = 1e15;
-        makeHulk({ x: p.x - 120, y: p.y - p.rr - 330, vx: 160, vy: 40, a: 0.3, lv: 1, ck: me.ck }); const h = hulks[hulks.length - 1]; h.spin = 3; window.__fallP = p; }`,
+        makeHulk({ x: p.x - 120, y: p.y - p.rr - 330, vx: 160, vy: 40, a: 0.3, ck: me.ck }); const h = hulks[hulks.length - 1]; h.spin = 3; window.__fallP = p; }`,
       sword: `{ window.__dist = 125; me.x = W * 0.3; me.y = H * 0.3; cam.x = me.x; cam.y = me.y; bots[0] && Object.assign(bots[0], { lives: 3 }); me.arsenal.saw = 30; selectWeapon("saw"); fireCd = 0; charge = 0; keys.add("KeyF"); setTimeout(() => keys.delete("KeyF"), 520); }`,
       railkill: `deathFx({ ...bots[0], x: me.x + 250, y: me.y, vx: 0, vy: 0, dead: false }, 2, 1, 0.2)`,
       binthrown: `deathFx({ ...bots[0], x: me.x + 150, y: me.y, vx: 0, vy: 0, dead: false }, 3, 0, 0.3)`,

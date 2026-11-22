@@ -2,7 +2,7 @@
   const me = {
     x: rndIn(W, 300), y: rndIn(H, 300), vx: 0, vy: -40, a: -Math.PI / 2,
     thrust: 0, score: 0, name: "", hue: Math.floor(Math.random() * 360), ck: [0, 0, 0, 0, 0],
-    lives: LIVES, dead: false, respawnAt: 0, inv: 0, xp: 0, lv: 1, weapon: "fire", arsenal: { fire: Infinity }, ampUntil: 0, carry: 0, ds: 0, shield: 0, boostFx: 0, dashAt: -1e9, bank: 0, boostOn: false
+    lives: LIVES, dead: false, respawnAt: 0, inv: 0, weapon: "fire", arsenal: { fire: Infinity }, ampUntil: 0, ds: 0, shield: 0, boostFx: 0, dashAt: -1e9, bank: 0, boostOn: false
   };
   let myTag = Math.random().toString(36).slice(2, 7);   // on the authoritative server, the tag it gives my pilot
   let shotSeq = 0, fireCd = 0, firing = false, altFiring = false, shake = 0, hurtFlash = 0;
@@ -12,16 +12,12 @@
   const seenShots = new Map();   // shot id -> when first seen
   const hitBy = [], koBy = []; // shot ids that hit / knocked me out (shooter reads these for credit)
   const credited = new Set();
-  // stars spilled by a destroyed bin: id -> {x, y, n, born}; shared through presence
-  const drops = new Map();
-  const myDrops = [];          // [id, x, y, n, bornMs] of my own recent spills
   let deaths = 0;
   // trophies: the gun a pilot dies with drops where it died, with its ammo, for 15 s; anyone may take it
   const gunDrops = new Map();   // id -> { x, y, type, ammo, born }
   const myGunDrops = [];        // [id, x, y, gun index, ammo, bornMs]: mine and my bots', sent with my state
   const GUN_DROP_LIFE = 15000;
   let gunDropSeq = 0;
-  const DROP_LIFE = 20000;
   const remotes = new Map();   // id -> remote bot
   // "slot:gen" of pick-ups already taken by anyone; a key is forgotten two minutes after it was last taken,
   // by when its item has long been replaced by the next generation

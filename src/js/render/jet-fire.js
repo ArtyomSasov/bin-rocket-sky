@@ -86,40 +86,4 @@
     g.fillStyle = hg; g.beginPath(); g.arc(0, 2, hr, 0, 6.29); g.fill();
     g.globalCompositeOperation = "source-over";
   }
-  function drawFlame(len, wid, now, seed, tier, bend = 0, billow = 0) {
-    const t = now / 1000;
-    g.globalCompositeOperation = "lighter";
-    const layers = [[tier.outer, 1, 1, 0.7], [tier.mid, 0.72, 0.8, 0.85], [tier.core, 0.4, 0.55, 0.95]];
-    for (let k = 0; k < layers.length; k++) {
-      const [c, wf, lf, al] = layers[k];
-      for (let tongue = -1; tongue <= 1; tongue++) {
-        if (k === 2 && tongue !== 0) continue;
-        const ph = seed + tongue * 1.7 + k * 0.9;
-        const L = len * lf * (tongue ? 0.6 : 1) * (0.84 + 0.1 * Math.sin(t * 29 + ph) + 0.07 * Math.sin(t * 47 + ph * 2.3));
-        const w = wid * wf * (tongue ? 0.55 : 1);
-        const ox = tongue * wid * 0.27;
-        const sway = Math.sin(t * 13 + ph) * w * 0.35 + Math.sin(t * 23 + ph) * w * 0.12 + bend * (k === 2 ? 0.5 : 1);   // (it trails as the bin swings)
-        const gr = g.createLinearGradient(0, 0, 0, L);
-        gr.addColorStop(0, `rgba(${c},${al})`); gr.addColorStop(0.55, `rgba(${c},${al * 0.65})`); gr.addColorStop(1, `rgba(${c},0)`);
-        g.fillStyle = gr;
-        g.beginPath();
-        g.moveTo(ox - w / 2, 0);
-        g.bezierCurveTo(ox - w * 0.65, L * 0.35, ox + sway - w * 0.22, L * 0.7, ox + sway * 1.6, L);
-        g.bezierCurveTo(ox + sway + w * 0.22, L * 0.7, ox + w * 0.65, L * 0.35, ox + w / 2, 0);
-        g.closePath(); g.fill();
-      }
-    }
-    // billowing fire inside the jet (the blasts' own flame textures), more and brighter on boost, bent with it
-    for (let k = 0, n = Math.round(billow); k < n; k++) {
-      const f = (k + 0.5) / n, yy = len * f * 0.85, d = wid * (1.3 + f * 1.4) * (0.85 + 0.15 * Math.sin(t * 31 + k + seed));
-      g.globalAlpha = 0.55 * (1 - f * 0.6); g.save(); g.translate(bend * f * f * 1.4, yy); g.rotate(t * 3 + k * 1.7 + seed);
-      g.drawImage(fireSprite(Math.min(7, 1 + k + (f * 3 | 0)), ((t * 24) | 0) + k & 3), -d / 2, -d / 2, d, d); g.restore();
-    }
-    g.globalAlpha = 1;
-    const hr = wid * (0.85 + 0.1 * Math.sin(t * 37 + seed)) * (billow > 2 ? 1.6 : 1);
-    const hg = g.createRadialGradient(0, wid * 0.15, 0, 0, wid * 0.15, hr);
-    hg.addColorStop(0, `rgba(${tier.core},0.65)`); hg.addColorStop(1, `rgba(${tier.mid},0)`);
-    g.fillStyle = hg; g.beginPath(); g.arc(0, wid * 0.15, hr, 0, 6.29); g.fill();
-    g.globalCompositeOperation = "source-over";
-  }
 

@@ -12,7 +12,7 @@
       const absorbed = absorbArmor(me, dmg);   // armour soaks part of the hit, the rest gets through
       dmg = Math.round((dmg - absorbed) * 1000) / 1000;   // no float dust left behind
       shieldHitAt = now; renderShield();
-      impacts.push({ x: me.x, y: me.y, t: 0, r: 90 * sizeOf(me.lv), col: "#6fc2ff" });
+      impacts.push({ x: me.x, y: me.y, t: 0, r: 90, col: "#6fc2ff" });
       sfx("shield_hit", 0.8);
       if (dmg <= 0) { me.hazardAt = now + 600; shake = Math.max(shake, 0.15); return true; }
     }
@@ -28,17 +28,14 @@
       me.dk = deathStyleOf(kind); me.da = ang;
       deathFx(me, me.ds, me.dk, me.da);
       me.dead = true; me.respawnAt = now + 3000; me.vx = me.vy = 0;
-      spillStars(now);
       const trophy = me.weapon !== "fire" ? me.weapon : owned().find(k => k !== "fire");
       if (trophy && !MODES[MODE].only) dropGun(me.x, me.y, trophy, me.arsenal[trophy]);
-      me.lv = levelAfterDeath(me.lv); me.xp = XP_STEPS[me.lv - 1];   // no progression penalty
       baseArsenal(); me.ampUntil = 0; me.fc = -1; renderWeapon();   // its guns are lost with it (and a carried flag goes home)
-      renderLevel();
+      renderShield();
       packPlay("p_death", 0.7);
     } else explode(me.x, me.y, 18, 180);
     return true;
   }
-  function gainXp(v) { me.carry += v; } // salvage still belongs to its game mode; no combat progression
   // a trophy: the gun drops where its pilot died (mine, or one of my bots')
   function dropGun(x, y, type, ammo) {
     if (!(ammo > 0) || !Number.isFinite(ammo)) return;
@@ -46,16 +43,10 @@
     pushCapped(myGunDrops, d, 6);
     gunDrops.set(id, { x: d[1], y: d[2], type, ammo: d[4], born: performance.now() });
   }
-  function spillStars() { me.carry = 0; }   // stars are gone from the game: nothing is spilled
-  function dropStar(d, id, j, now) {
-    const hs = strHash(id), a = hash(j, hs, 41) * 6.283 + j, r = 50 + hash(j, hs, 42) * 190;
-    const k = Math.min(1, (now - d.born) / 600), e = 1 - (1 - k) * (1 - k);
-    return { key: "d" + id + "." + j, x: clamp(d.x + Math.cos(a) * r * e, 40, W - 40), y: clamp(d.y + Math.sin(a) * r * e, 40, H - 40), ready: k >= 1 };
-  }
   function respawn(now) {
     killer = "";
     audioCue("respawn");
-    me.dead = false; me.lives = maxLivesOf(me.lv); me.inv = now + 2000; clearArmor(me); renderShield();
+    me.dead = false; me.lives = LIVES; me.inv = now + 2000; clearArmor(me); renderShield();
     Object.assign(me, spawnPoint(me.tm)); me.vx = 0; me.vy = -60;
     renderHearts(false);
   }
