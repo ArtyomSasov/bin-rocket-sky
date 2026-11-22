@@ -1,6 +1,29 @@
   // particles, wreckage, fragments, flashes, rings, floating text
   function updateFx(dt, now) {
     rebuildSolidGrid(now);
+    updateParts(dt, now);
+    shockTick(now); updateOil(dt); updateChunks(dt); updateDrips(dt); updateCasings(dt); updateMelt(dt); jetBlast(dt); updateCuts(dt); updatePlume(dt);
+    for (let i = afterBlasts.length - 1; i >= 0; i--) if (now >= afterBlasts[i].at) {
+      const b = afterBlasts[i]; afterBlasts.splice(i, 1);
+      if (b.o) {   // a piece of a broken bin popping where it has flown to: a kick to it, sparks, a little fire
+        if (!frags.includes(b.o)) continue;
+        const o = b.o, a = Math.random() * 6.28;
+        explode(o.x, o.y, 12, b.speed); sparkShower(o.x, o.y, Math.cos(a), Math.sin(a), 0.9);
+        o.vx += Math.cos(a) * 120; o.vy += Math.sin(a) * 120; o.spin += (Math.random() - 0.5) * 4;
+        shake = Math.max(shake, Math.hypot(o.x - me.x, o.y - me.y) < 900 ? 0.12 : 0);
+      } else explode(b.x, b.y, 14, b.speed);
+    }
+    const partCap = lowQ ? MAX_PARTS / 3 : MAX_PARTS;
+    if (parts.length > partCap) parts.splice(0, parts.length - partCap);
+    updateMelts(dt);
+    updateHulks(dt, now);
+    updateFrags(dt, now);
+    wreckHits();
+    updateDebris(dt, now);
+    ageEffects(dt);
+  }
+  // sparks, smoke, embers and fire clouds: they fly, fall onto planets, and are shoved aside by my bin
+  function updateParts(dt, now) {
     // flying through smoke and sparks shoves them aside (faster = harder)
     const meSp = Math.hypot(me.vx, me.vy), pushR = 46, pushR2 = pushR * pushR, canPush = playing && !me.dead && meSp > 60;
     // the planets pull the heavy bits (sparks, embers, hot blobs, burning chunks): near one they arc down onto it
@@ -32,20 +55,9 @@
         else puff(p.x, p.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 0.8 + Math.random() * 0.6, 3 + Math.random() * 3, SMOKE_COLS[1], 2, 0, 0, 0.94, 0.3);
       }
     }
-    shockTick(now); updateOil(dt); updateChunks(dt); updateDrips(dt); updateCasings(dt); updateMelt(dt); jetBlast(dt); updateCuts(dt); updatePlume(dt);
-    for (let i = afterBlasts.length - 1; i >= 0; i--) if (now >= afterBlasts[i].at) {
-      const b = afterBlasts[i]; afterBlasts.splice(i, 1);
-      if (b.o) {   // a piece of a broken bin popping where it has flown to: a kick to it, sparks, a little fire
-        if (!frags.includes(b.o)) continue;
-        const o = b.o, a = Math.random() * 6.28;
-        explode(o.x, o.y, 12, b.speed); sparkShower(o.x, o.y, Math.cos(a), Math.sin(a), 0.9);
-        o.vx += Math.cos(a) * 120; o.vy += Math.sin(a) * 120; o.spin += (Math.random() - 0.5) * 4;
-        shake = Math.max(shake, Math.hypot(o.x - me.x, o.y - me.y) < 900 ? 0.12 : 0);
-      } else explode(b.x, b.y, 14, b.speed);
-    }
-    const partCap = lowQ ? MAX_PARTS / 3 : MAX_PARTS;
-    if (parts.length > partCap) parts.splice(0, parts.length - partCap);
-    updateMelts(dt);
+  }
+  // wrecks: they fall, slide, burn and blow up
+  function updateHulks(dt, now) {
     for (let i = hulks.length - 1; i >= 0; i--) {
       const h = hulks[i];
       h.life -= dt;
@@ -98,6 +110,9 @@
         sfx("crash", Math.min(0.6, 0.15 + j / 600));
       }
     }
+  }
+  // a dead bin's pieces
+  function updateFrags(dt, now) {
     for (let i = frags.length - 1; i >= 0; i--) {
       const f = frags[i];
       f.life -= dt;
@@ -110,12 +125,17 @@
       if (f.y < 0 || f.y > H) { f.vy = -f.vy; f.y = clamp(f.y, 0, H); }
       if ((now - f.born) / 1000 < 4 && Math.random() < (lowQ ? 3 : 8) * dt) puff(f.x, f.y, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30, 1.4, 3 + Math.random() * 3, "rgb(60,54,72)", 2);
     }
+  }
+  // shots knock wrecks and pieces about
+  function wreckHits() {
     for (const s of shots) {
       if (s.life <= 0 || SHOTS[s.kind].inert || s.kind === K.MINE) continue;
       for (const o of hulks) if (segHit(s, o.x, o.y, 34) && (!pierces(s) || railOnce(s, o))) { const pk = pierces(s) ? 0.03 : 0.08; o.rest = null; o.vx += s.vx * pk; o.vy += s.vy * pk; o.spin += (Math.random() - 0.5); if (!pierces(s)) s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.8); break; }
       if (s.life <= 0) continue;
       for (const o of frags) if (segHit(s, o.x, o.y, o.s * 0.3)) { o.rest = null; o.vx += s.vx * 0.12; o.vy += s.vy * 0.12; o.spin += (Math.random() - 0.5) * 2; s.life = 0; impact(s.x, s.y, "#d9c8ff", 0.6); break; }
     }
+  }
+  function updateDebris(dt, now) {
     // wreckage drifts (almost no drag in space), spins, bounces off the fence, smoulders at first
     // (on a station's deck it scrapes along and comes to rest; in space it drifts on)
     const drift = Math.exp(-(stationMap() ? 1.4 : 0.015) * dt);
@@ -131,6 +151,9 @@
       if (playing && !me.dead && dd < 34 && dd > 0.01) { d.rest = null; const pv = Math.max(120, Math.hypot(me.vx, me.vy)); d.vx = ddx / dd * pv; d.vy = ddy / dd * pv; d.vr += (Math.random() - 0.5) * 4; }
       if ((now - d.born) / 1000 < 3 && Math.random() < (lowQ ? 1 : 3) * dt) puff(d.x, d.y, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, 1.2, 2 + Math.random() * 2, "rgb(80,72,98)", 2);
     }
+  }
+  // the short-lived effects grow old and go: flashes, beams, arcs, rings, blasts, floating numbers
+  function ageEffects(dt) {
     for (let i = impacts.length - 1; i >= 0; i--) { impacts[i].t += dt; if (impacts[i].t > (impacts[i].dur || 0.22)) impacts.splice(i, 1); }
     for (let i = beams.length - 1; i >= 0; i--) { beams[i].t += dt; if (beams[i].t > (beams[i].duration || (beams[i].pistol ? .12 : BEAM_T))) beams.splice(i, 1); }
     for (let i = lasers.length - 1; i >= 0; i--) { lasers[i].t += dt; if (lasers[i].t > (lasers[i].shock ? 0.35 : LASER_T)) lasers.splice(i, 1); }

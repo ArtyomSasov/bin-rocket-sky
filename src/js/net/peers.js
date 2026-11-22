@@ -58,6 +58,8 @@
     return true;
   }
   // Messages are partial: fast ones carry only motion, slow ones add name/look/score/lists.
+  // the shots a pilot's state carries (this round's only; a reordered, older state's too: they may be new to me)
+  const remoteShots = (id, p) => { if (p.rd === stats.round && Array.isArray(p.f)) for (const f of p.f.slice(0, 24)) addRemoteShot(id, f, p.ts); };
   function applyRemote(id, p) {
     if (!p || typeof p !== "object" || Array.isArray(p) || !Number.isSafeInteger(p.q) || p.q < 0) return false;
     if ("ds" in p && (!Number.isInteger(p.ds) || p.ds < 0 || p.ds > 4)) return false;
@@ -72,7 +74,7 @@
     // Reordered snapshots can contain an unseen shot even though their movement is obsolete.
     if (p.q <= r.q) {
       applyCombatReports(id, p, r);
-      if (p.rd === stats.round && Array.isArray(p.f)) for (const f of p.f.slice(0, 24)) addRemoteShot(id, f, p.ts);
+      remoteShots(id, p);
       return false;
     }
     r.seen = performance.now();
@@ -124,7 +126,7 @@
     if (Number.isFinite(p.pg)) r.ping = clamp(p.pg, 0, 5000);
     if ("am" in p) r.amp = p.am >= 1;   // (a player on the server: the seconds it has left)
     if (Number.isFinite(p.l)) r.lives = clamp(p.l, 0, LIVES * 1.99);
-    if (p.rd === stats.round && Array.isArray(p.f)) for (const f of p.f.slice(0, 24)) addRemoteShot(id, f, p.ts);
+    remoteShots(id, p);
     if (Array.isArray(p.gw) && p.gw.length === 6 && typeof p.gw[0] === "string" && p.gw.slice(1).every(Number.isFinite)) guideRemote(id, p.gw);
     applyWorld(id, p);
     // Event IDs belong to one round; old reports must not survive a round reset.

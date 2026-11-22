@@ -1,5 +1,18 @@
   // smoke over the bins, impact flashes, rail trails, zaps, shock rings, nuke blasts
   function drawBlastFx(now) {
+    drawSmoke(now);
+    g.globalCompositeOperation = "lighter"; g.globalAlpha = 1;   // (the light of what follows adds up)
+    drawImpacts(now);
+    g.globalAlpha = 1;
+    drawBeams(now);
+    drawLasers(now);
+    drawArcs(now);
+    drawRings(now);
+    g.globalCompositeOperation = "source-over";
+    drawBooms(now);
+  }
+  // smoke over the bins, lit from inside while it is fresh, and the fireballs' clouds
+  function drawSmoke(now) {
     // smoke on top of the bins, so a damaged bin visibly smokes
     let hot = 0, fire = 0;
     for (const p of parts) {
@@ -44,7 +57,9 @@
       g.save(); g.translate(x, y); g.rotate(p.rot + a * p.vr * 0.05);
       g.drawImage(fireSprite(i, (p.rot * 3) | 0, rampOf(p.col)), -d / 2, -d / 2, d, d); g.restore();
     }
-    g.globalAlpha = 1;
+  }
+  // the flash where something hit
+  function drawImpacts(now) {
     for (const m of impacts) {
       if (m.t < 0) continue;   // delayed flash
       const k = m.t / (m.dur || 0.22), x = sx(m.x), y = sy(m.y);
@@ -62,7 +77,9 @@
       fg.addColorStop(0, "rgba(255,255,240,1)"); fg.addColorStop(0.35, m.col); fg.addColorStop(1, "rgba(255,120,40,0)");
       g.globalAlpha = 1 - k; g.fillStyle = fg; g.beginPath(); g.arc(x, y, r, 0, 6.29); g.fill();
     }
-    g.globalAlpha = 1;
+  }
+  // rail trails and the other beams
+  function drawBeams(now) {
     for (const b of beams) {
       if (b.round !== undefined) {
         const dx = b.x2 - b.x1, dy = b.y2 - b.y1, distance = Math.hypot(dx, dy);
@@ -114,6 +131,9 @@
         g.stroke();
       }
     }
+  }
+  // the electric beams
+  function drawLasers(now) {
     // the laser: one electric beam per shooter (the newest pulse; at 12 a second they'd fan out otherwise): a wide
     // cold glow, a cyan body, a white-hot core, three jagged arcs crackling round it, bolts of energy running up it,
     // a flare at the emitter and a spray of sparks where it lands. The shock beam is a thinner violet one.
@@ -159,6 +179,9 @@
       }
       g.globalAlpha = 1;
     }
+  }
+  // zaps and arcs
+  function drawArcs(now) {
     for (const q of arcs) {   // zaps and arcs
       const k = 1 - q.t / 0.3, x1 = sx(q.x1), y1 = sy(q.y1), x2 = sx(q.x2), y2 = sy(q.y2), L = Math.hypot(x2 - x1, y2 - y1) || 1, nx = (x2 - x1) / L, ny = (y2 - y1) / L;
       const pts = [[x1, y1]];
@@ -168,6 +191,9 @@
         g.strokeStyle = c; g.lineWidth = w; g.beginPath(); pts.forEach(([px, py], i) => i ? g.lineTo(px, py) : g.moveTo(px, py)); g.stroke();
       }
     }
+  }
+  // shock rings
+  function drawRings(now) {
     for (const q of rings) {
       if (q.t < 0) continue;
       const x = sx(q.x), y = sy(q.y), k = q.t / (q.dur || 0.6), e = 1 - (1 - k) * (1 - k);
@@ -189,7 +215,9 @@
       g.strokeStyle = `rgba(${q.col},${0.7 * (1 - k)})`; g.lineWidth = (q.w || 10) * (1 - k) + 1.5;
       g.beginPath(); g.arc(x, y, q.r * e, 0, 6.29); g.stroke();
     }
-    g.globalCompositeOperation = "source-over";
+  }
+  // the big blasts
+  function drawBooms(now) {
     for (const b of booms) {
       const x = sx(b.x), y = sy(b.y), T = b.t;
       const R = b.R;

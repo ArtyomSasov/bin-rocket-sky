@@ -14,10 +14,7 @@
       if (b.free || b.dead || b.fixed || !(b.moon || b.wreck)) continue;
       if ((b.x - o.x) ** 2 + (b.y - o.y) ** 2 > ((b.r || 0) + 400) ** 2) continue;   // (far: it cannot come into reach within the clock's difference)
       (out || (out = [])).push([b, b.x, b.y, b.a]);
-      const s = t / 1000;
-      if (b.moon) { const a = TAU_MOD(b.ph + b.dir * 6.283 * s / b.period); b.x = b.p.hx + Math.cos(a) * b.orbit; b.y = b.p.hy + Math.sin(a) * b.orbit; b.a = a; }
-      else { const w = Math.sin(s / b.T * 6.283 + b.ph) * b.A; b.x = b.bx + Math.cos(b.dirA) * w; b.y = b.by + Math.sin(b.dirA) * w; b.a = TAU_MOD(b.a0 + b.spin * s); }
-      holePull(b, t, 0.2);
+      poseBody(b, t);
     }
     return out;
   }
