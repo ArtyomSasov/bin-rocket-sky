@@ -7878,18 +7878,28 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     class Add { constructor(k, c) { this.k = k; this.c = c; } }   // c: in hundredths
     const cents = v => { const c = Math.round(v * 100); return Number.isSafeInteger(c) && c / 100 === v ? c : null; };
     const isObj = v => v !== null && typeof v === "object" && !Array.isArray(v);
-    // what turns a into b (both plain JSON: no undefined, no NaN)
-    // (one pass: a part whose every piece is SAME is SAME itself, so nothing is compared twice)
-    function diff(a, b) {
+    // what turns a into b (both plain JSON, never changed afterwards: no undefined, no NaN)
+    // (one pass: a part whose every piece is SAME is SAME itself, so nothing is compared twice). memo (a Map, optional):
+    // the difference of each pair of parts already worked out, so the players of one snapshot, whose messages are
+    // made of the same parts (the others' entries) built on the same base, share it rather than each compare again
+    function diff(a, b, memo) {
       if (a === b) return SAME;
+      if (!memo || a === null || b === null || typeof a !== "object" || typeof b !== "object") return diffParts(a, b, memo);
+      let seen = memo.get(a);
+      if (!seen) memo.set(a, seen = new Map());
+      let d = seen.get(b);
+      if (d === undefined) seen.set(b, d = diffParts(a, b, memo));
+      return d;
+    }
+    function diffParts(a, b, memo) {
       if (isObj(a) && isObj(b)) {
         const o = {}; let changed = false;
-        for (const k of Object.keys(b)) { const d = Object.prototype.hasOwnProperty.call(a, k) ? diff(a[k], b[k]) : b[k]; if (d !== SAME) { o[k] = d; changed = true; } }
+        for (const k of Object.keys(b)) { const d = Object.prototype.hasOwnProperty.call(a, k) ? diff(a[k], b[k], memo) : b[k]; if (d !== SAME) { o[k] = d; changed = true; } }
         for (const k of Object.keys(a)) if (!Object.prototype.hasOwnProperty.call(b, k)) { o[k] = GONE; changed = true; }
         return changed ? new Patch(o) : SAME;
       }
       if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
-        let changed = false; const l = a.map((v, i) => { const d = diff(v, b[i]); if (d !== SAME) changed = true; return d; });
+        let changed = false; const l = a.map((v, i) => { const d = diff(v, b[i], memo); if (d !== SAME) changed = true; return d; });
         return changed ? new List(l) : SAME;
       }
       if (typeof a === "number" && typeof b === "number") {   // a small step costs fewer bytes than the new value
@@ -7919,9 +7929,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       ADD: 15, ADDC: 16, KEY: 17, KREF: 32 };   // KREF + i (up to 255): the i-th key of this message again
     const MAGIC = 0xb5, VERSION = 2;
     const enc = new TextEncoder(), dec = new TextDecoder();
+    let scratch = new Uint8Array(4096);   // the writers' scratch space (one message is written at a time; done() copies it out)
     function writer() {
-      let buf = new Uint8Array(4096), n = 0;
-      const room = k => { if (n + k > buf.length) { const nb = new Uint8Array(Math.max(buf.length * 2, n + k)); nb.set(buf); buf = nb; } };
+      let buf = scratch, n = 0;
+      const room = k => { if (n + k > buf.length) { const nb = new Uint8Array(Math.max(buf.length * 2, n + k)); nb.set(buf); buf = scratch = nb; } };
       const byte = v => { room(1); buf[n++] = v; };
       const uvar = v => { room(8); while (v >= 128) { buf[n++] = (v % 128) | 128; v = Math.floor(v / 128); } buf[n++] = v; };
       const str = s => {
@@ -7934,6 +7945,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       const zig = v => uvar(v < 0 ? -2 * v - 1 : 2 * v);
       const key = k => { const i = keys.get(k); if (i !== undefined) return byte(T.KREF + i); byte(T.KEY); str(k); if (keys.size < 256 - T.KREF) keys.set(k, keys.size); };
       function value(v) {
+        if (typeof v === "number") {
+          const a = Math.abs(v);
+          if (Number.isSafeInteger(v)) { byte(v < 0 ? T.NINT : T.UINT); return uvar(a); }
+          const c = Math.round(a * 100);
+          if (Number.isSafeInteger(c) && c / 100 === a) { byte(v < 0 ? T.NDEC : T.UDEC); return uvar(c); }   // two decimals: exact again as c / 100
+          byte(T.F64); f64[0] = v; room(8); buf.set(f64b, n); n += 8; return;
+        }
         if (v === SAME) return byte(T.SAME);
         if (v === GONE) return byte(T.GONE);
         if (v instanceof Patch) { const ks = Object.keys(v.o); byte(T.PATCH); uvar(ks.length); for (const k of ks) { key(k); value(v.o[k]); } return; }
@@ -7942,13 +7960,6 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         if (v === null || v === undefined) return byte(T.NULL);
         if (v === false) return byte(T.FALSE);
         if (v === true) return byte(T.TRUE);
-        if (typeof v === "number") {
-          const a = Math.abs(v);
-          if (Number.isSafeInteger(v)) { byte(v < 0 ? T.NINT : T.UINT); return uvar(a); }
-          const c = Math.round(a * 100);
-          if (Number.isSafeInteger(c) && c / 100 === a) { byte(v < 0 ? T.NDEC : T.UDEC); return uvar(c); }   // two decimals: exact again as c / 100
-          byte(T.F64); f64[0] = v; room(8); buf.set(f64b, n); n += 8; return;
-        }
         if (typeof v === "string") { byte(T.STR); return str(v); }
         if (Array.isArray(v)) { byte(T.ARR); uvar(v.length); for (const x of v) value(x); return; }
         const ks = Object.keys(v).filter(k => v[k] !== undefined);

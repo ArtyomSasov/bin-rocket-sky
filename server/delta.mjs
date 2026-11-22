@@ -51,7 +51,7 @@ export function shareFrame(room, plain) {
     for (const k of PRIVATE) if (k in e[1]) { m ||= { ...e[1] }; delete m[k]; }
     return m ? [e[0], m] : e;
   }) : null;
-  return { full, pub, ter: Array.isArray(full.terrain) ? JSON.stringify(full.terrain) : null };
+  return { full, pub, ter: Array.isArray(full.terrain) ? JSON.stringify(full.terrain) : null, memo: new Map() };   // memo: SNAP_DELTA.diff's
 }
 // the message for one player: shared from shareFrame (or a plain snapshot, shared for this player alone), me the
 // player's pilot id
@@ -81,7 +81,7 @@ export function deltaFrame(st, shared, me) {
       st.ter.set(t[1], { val, qs });   // (it counts as had once a snapshot carrying it is confirmed)
     }
   }
-  const bytes = SNAP_DELTA.frame(plain.q, base ? st.ack : 0, base ? SNAP_DELTA.diff(base, view) : view);
+  const bytes = SNAP_DELTA.frame(plain.q, base ? st.ack : 0, base ? SNAP_DELTA.diff(base, view, shared.memo) : view);
   st.sent.set(plain.q, view);
   for (const q of st.sent.keys()) { if (q > plain.q - KEEP) break; st.sent.delete(q); if (st.ack === q) st.ack = 0; }
   return bytes;
