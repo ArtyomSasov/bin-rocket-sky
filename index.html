@@ -4309,6 +4309,15 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const raw = x + v * dt, phase = mod(raw - 40, 2 * (hi - 40));
     return [bounceIn(raw, 40, hi), phase < hi - 40 ? v : -v];
   }
+  // only where rock i is at that moment (no object, no key): a quick look before the whole rock is made
+  function rockAt(i, now) {
+    const tt = now / 1000 + hash(i, 9, 9) * ROCK_PERIOD, gen = Math.floor(tt / ROCK_PERIOD), motion = rockMotion.get(i);
+    if (motion && motion.gen === gen) { const dt = Math.max(0, (now - motion.at) / 1000); rockXY[0] = bounceIn(motion.x + motion.vx * dt, 40, W - 40); rockXY[1] = bounceIn(motion.y + motion.vy * dt, 40, H - 40); return rockXY; }
+    const age = tt - gen * ROCK_PERIOD, ang = hash(i, gen, 21) * 6.283, sp = 50 + hash(i, gen, 22) * 90;
+    rockXY[0] = bounceIn(hash(i, gen, 23) * W + Math.cos(ang) * sp * age, 40, W - 40); rockXY[1] = bounceIn(hash(i, gen, 24) * H + Math.sin(ang) * sp * age, 40, H - 40);
+    return rockXY;
+  }
+  const rockXY = [0, 0];
   function rock(i, now) {
     const tt = now / 1000 + hash(i, 9, 9) * ROCK_PERIOD;
     const gen = Math.floor(tt / ROCK_PERIOD), age = tt - gen * ROCK_PERIOD;
@@ -6030,7 +6039,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else if (kind === K.NAIL) nailSpray(s); else shots.push(s);
       if (kind === K.RAIL || kind === K.GAUSS) railBeam(s);
       if (kind === K.GAUSS && mine) { myRails.set(id, { x: s.x, y: s.y, charged: true, cut: !!s.cut }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value); }
-      if ((kind === K.MELEE || kind === K.SWORD) && mine) myMelee.add(id);   // for Humiliation
+      if ((kind === K.MELEE || kind === K.SWORD) && mine) { myMelee.add(id); if (myMelee.size > 64) myMelee.delete(myMelee.values().next().value); }   // for Humiliation (only the recent ones: a kill is reported within seconds)
       if ((kind === K.BULLET || kind === K.BULLET_ALT || kind === K.PISTOL) && onScreen(sx(p.x), sy(p.y), 200) && Math.random() < 0.7) {   // a spent casing spins off the side
         const sd = Math.random() < 0.5 ? 1 : -1, cx = -by * sd, cy = bx * sd, v = 140 + Math.random() * 120;
         puff(ox, oy, cx * v - bx * 60 + p.vx * 0.8, cy * v - by * 60 + p.vy * 0.8, 0.5 + Math.random() * 0.3, 1.8, "#e8c060");
@@ -7659,12 +7668,33 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     document.getElementById("boardTitle").textContent = "Server · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
     setStatus(false, "Server · connecting…");
     if (!SERVER_URL) { setStatus(false, "Server · no valid address"); return; }
-    const ws = new WebSocket(SERVER_URL);
+    srv.code = code;
+    serverConnect();
+    setInterval(() => { const ws = srv.ws; if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "ping", c: performance.now() })); }, 1000);
+    // every 10 s the server hears how the connection is doing here (numbers only), for its own summary of the network
+    setInterval(() => {
+      const ws = srv.ws;
+      if (!ws || ws.readyState !== 1 || !srv.joined) return;
+      ws.send(JSON.stringify({ t: "net", p: Math.round(myPing || 0), j: Math.round(srv.jit), s: srv.report.stalls, g: Math.round(srv.report.maxGap), f: Math.round(1 / (frameAvg || 1 / 60)), h: [srv.report.hs, srv.report.hc, srv.report.hn] }));
+      srv.report = { stalls: 0, maxGap: 0, hs: 0, hc: 0, hn: 0 };
+    }, 10000);
+    setInterval(sendControls, 1000 / 30);
+    // leaving the page: the server lets my pilot go at once (a connection that only dropped keeps it for me a while)
+    addEventListener("pagehide", () => { srv.leaving = true; const ws = srv.ws; if (ws && ws.readyState === 1) try { ws.send(JSON.stringify({ t: "bye" })); } catch {} });
+  }
+  // what the server says when it will not have me: no use trying again
+  const SERVER_FATAL = /^(bad code|server full|room full|you already have a room|idle)$/;
+  // a connection to the server (again after it dropped: with my pilot's key, rk, the server gives me back my own
+  // pilot, score and guns, if I am back within its 20 s; tried again after 0.5, 1, 2, 4 and then every 8 s, a minute in all)
+  function serverConnect() {
+    const ws = new WebSocket(SERVER_URL), code = srv.code;
     srv.ws = ws;
     ws.binaryType = "arraybuffer";
-    srv.snaps = new Map(); srv.snapQ = 0; srv.placed = false;
-    ws.onopen = () => ws.send(JSON.stringify({ t: "join", code, name: me.name, bots: botChoice.n, level: botChoice.level, pub: !joining, bin: 1, rtc: window.RTCPeerConnection ? 1 : 0 }));   // a new game is listed, as online lobbies are; a room opened by typing a code is not
+    srv.snaps = new Map(); srv.snapQ = 0;
+    if (!srv.rk) srv.placed = false;
+    ws.onopen = () => ws.send(JSON.stringify({ t: "join", code, name: me.name, bots: botChoice.n, level: botChoice.level, pub: !joining, bin: 1, rtc: window.RTCPeerConnection ? 1 : 0, rk: srv.rk || undefined }));   // a new game is listed, as online lobbies are; a room opened by typing a code is not
     ws.onmessage = e => {
+      if (srv.ws !== ws) return;
       if (e.data instanceof ArrayBuffer) { receiveDelta(new Uint8Array(e.data)); return; }
       if (typeof e.data !== "string" || e.data.length > 262144) return;
       let m; try { m = JSON.parse(e.data); } catch { return; }
@@ -7674,19 +7704,23 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       else if (m.t === "chat" && typeof m.m === "string") chatShow(String(m.n || "Pilot"), m.m, m.id === srv.id, String(m.id || ""));
       else if (m.t === "rtc" && typeof m.sdp === "string" && m.sdp.length < 16384) answerRtc(ws, m.sdp).catch(() => {});
       else if (m.t === "welcome" && typeof m.id === "string") {
-        srv.id = m.id; srv.joined = true; srv.sendHz = clamp(num(m.sendHz, 15), 1, 60);
+        if (srv.id && m.id !== srv.id) srv.placed = false;   // came back too late: a new pilot, placed by the server
+        if (srv.tries && m.resumed) announce("RECONNECTED", "back in the game", "#8fffb0", 2, true);
+        srv.id = m.id; srv.rk = typeof m.rk === "string" ? m.rk : ""; srv.joined = true; srv.tries = 0; srv.err = ""; srv.sendHz = clamp(num(m.sendHz, 15), 1, 60);
         setStatus(true, "Server · " + code.toUpperCase() + " · online");
       } else if (m.t === "error") { srv.err = String(m.reason || "").slice(0, 40); announce("SERVER", srv.err, "#ff8a8a", 2, true); }
     };
-    ws.onclose = () => { srv.joined = false; try { srv.pc?.close(); } catch {} srv.dc = null; setStatus(false, "Server · disconnected" + (srv.err ? " · " + srv.err : "")); };
-    setInterval(() => { if (ws.readyState === 1) ws.send(JSON.stringify({ t: "ping", c: performance.now() })); }, 1000);
-    // every 10 s the server hears how the connection is doing here (numbers only), for its own summary of the network
-    setInterval(() => {
-      if (ws.readyState !== 1 || !srv.joined) return;
-      ws.send(JSON.stringify({ t: "net", p: Math.round(myPing || 0), j: Math.round(srv.jit), s: srv.report.stalls, g: Math.round(srv.report.maxGap), f: Math.round(1 / (frameAvg || 1 / 60)), h: [srv.report.hs, srv.report.hc, srv.report.hn] }));
-      srv.report = { stalls: 0, maxGap: 0, hs: 0, hc: 0, hn: 0 };
-    }, 10000);
-    setInterval(sendControls, 1000 / 30);
+    ws.onclose = () => {
+      if (srv.ws !== ws) return;
+      srv.joined = false; try { srv.pc?.close(); } catch {} srv.pc = null; srv.dc = null;
+      if (!srv.leaving && !SERVER_FATAL.test(srv.err) && (srv.tries || 0) < 10) {
+        const wait = Math.min(8000, 500 * 2 ** (srv.tries || 0)); srv.tries = (srv.tries || 0) + 1;
+        setStatus(false, "Server · reconnecting…");
+        setTimeout(serverConnect, wait);
+        return;
+      }
+      setStatus(false, "Server · disconnected" + (srv.err ? " · " + srv.err : ""));
+    };
   }
   // my controls, as they are now: sent from the frame that uses them (so the server flies them as early as it can),
   // when they change and at least four times a second. Each message is numbered: the server says which number its
@@ -8714,7 +8748,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       if (j > 350) { sparkShower(cx, cy, -ny, nx, Math.min(1.5, j / 600)); sparkShower(cx, cy, ny, -nx, Math.min(1.5, j / 600)); oilSplash(cx, cy, Math.min(16, j / 60), Math.min(420, j * 0.5), (a.vx + b.vx) / 2, (a.vy + b.vy) / 2); }
       sfx("ram", Math.min(1, 0.3 + j / 900), 1, cx, cy);
       if ((a === me || b === me) && j > 350) shake = Math.max(shake, Math.min(0.6, j / 1500));
-      if (!roundLive || mates(a, b) || now - ((a.knocks ||= new Map()).get(b) || 0) < 300) continue;
+      if (!roundLive || mates(a, b) || now - ((a.knocks ||= new WeakMap()).get(b) || 0) < 300) continue;
       a.knocks.set(b, now);
       const hit = (o, other, dv, rammer, rammed) => {
         const dmg = knockDmg(dv) * (rammer && !rammed ? 0.4 : 1);
@@ -9251,6 +9285,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     // the junk rocks, where they were at the moment the command was made (ct, on the shared clock they move by): the
     // screen and the server meet each rock in the same place, whenever each flies the command
     if (c.ct > 0) for (let i = 0; i < ROCKS; i++) {
+      const at = rockAt(i, c.ct);
+      if ((at[0] - o.x) ** 2 + (at[1] - o.y) ** 2 > 140 ** 2) continue;   // (far: the whole rock is not worth making; the biggest reach is 40 + 60)
       const k = rock(i, c.ct);
       if (k.age < 0.6 || grabbed.has(k.key) || (k.x - o.x) ** 2 + (k.y - o.y) ** 2 > (k.r + 60) ** 2) continue;
       const sp = collideRock(o, k);

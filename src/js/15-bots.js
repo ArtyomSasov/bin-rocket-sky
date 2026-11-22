@@ -387,7 +387,7 @@
       if (j > 350) { sparkShower(cx, cy, -ny, nx, Math.min(1.5, j / 600)); sparkShower(cx, cy, ny, -nx, Math.min(1.5, j / 600)); oilSplash(cx, cy, Math.min(16, j / 60), Math.min(420, j * 0.5), (a.vx + b.vx) / 2, (a.vy + b.vy) / 2); }
       sfx("ram", Math.min(1, 0.3 + j / 900), 1, cx, cy);
       if ((a === me || b === me) && j > 350) shake = Math.max(shake, Math.min(0.6, j / 1500));
-      if (!roundLive || mates(a, b) || now - ((a.knocks ||= new Map()).get(b) || 0) < 300) continue;
+      if (!roundLive || mates(a, b) || now - ((a.knocks ||= new WeakMap()).get(b) || 0) < 300) continue;
       a.knocks.set(b, now);
       const hit = (o, other, dv, rammer, rammed) => {
         const dmg = knockDmg(dv) * (rammer && !rammed ? 0.4 : 1);

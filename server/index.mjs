@@ -16,6 +16,7 @@
 //                    { t: "pong", c, s }     { t: "error", reason }
 import http from "node:http";
 import { isIPv6 } from "node:net";
+import { randomBytes } from "node:crypto";
 import { WebSocketServer } from "ws";
 import { createMatch } from "./sim/sim.mjs";
 import { deltaStream, deltaFrame, ackSnapshot } from "./delta.mjs";
@@ -38,6 +39,7 @@ const AFK_MS = +env("AFK_MS", 120000);            // a player who sends no contr
 const ORIGINS = env("ORIGINS", "https://artyomsasov.github.io,http://localhost:8000,http://127.0.0.1:8000").split(",").filter(Boolean);
 const TICK_HZ = +env("TICK_HZ", 60), SEND_EVERY = Math.max(1, Math.round(TICK_HZ / 30)), STEP = 1 / TICK_HZ;   // 60 steps (as a 60 fps screen flies) and 30 snapshots a second
 const CODE = /^[a-z0-9]{4,16}$/;
+const RESUME_MS = +env("RESUME_MS", 20000);   // a player whose connection drops keeps their pilot this long, to come back to it
 const RTT_CAP = 300;   // ms: the round trip a player is credited with at most (their shots are judged at most REWIND_MS = 250 ms back)
 
 const rooms = new Map();   // code -> room
@@ -45,7 +47,7 @@ const log = (...a) => console.log(new Date().toISOString(), ...a);
 
 function openRoom(code, bots, level) {
   const match = createMatch({ code, bots: Math.max(0, Math.min(24, Math.floor(Number(bots) || 0))), level: ["easy", "normal", "hard"].includes(level) ? level : "normal" });
-  const room = { code, match, clients: new Set(), emptySince: performance.now(), last: performance.now(), acc: 0, ticks: 0, slowTicks: 0 };
+  const room = { code, match, clients: new Set(), held: new Map(), emptySince: performance.now(), last: performance.now(), acc: 0, ticks: 0, slowTicks: 0 };
   // a fixed step on the real clock: after a stall it catches up a few steps, never more (no spiral of death)
   room.timer = setInterval(() => {
     const now = performance.now();
@@ -63,6 +65,8 @@ function openRoom(code, bots, level) {
   return room;
 }
 function closeRoom(room) {
+  for (const h of room.held.values()) clearTimeout(h.timer);
+  room.held.clear();
   clearInterval(room.timer); room.match.dispose(); rooms.delete(room.code);
   for (const c of room.clients) c.close(1001, "room closed");
   log("room closed", room.code, "rooms", rooms.size);
@@ -85,7 +89,7 @@ function broadcast(room, now) {
   }
 }
 // rooms nobody has been in for a while are closed
-setInterval(() => { for (const r of rooms.values()) if (!r.clients.size && performance.now() - r.emptySince > ROOM_IDLE_MS) closeRoom(r); }, 5000).unref();
+setInterval(() => { for (const r of rooms.values()) if (!r.clients.size && !r.held.size && performance.now() - r.emptySince > ROOM_IDLE_MS) closeRoom(r); }, 5000).unref();
 
 const server = http.createServer((req, res) => {
   if (req.url === "/health") {
@@ -194,6 +198,7 @@ wss.on("connection", (ws, req) => {
     if (binary || tokens < 1) return; tokens--;
     let m; try { m = JSON.parse(data); } catch { return; }
     if (!m || typeof m !== "object") return;
+    if (m.t === "bye") { ws.leaving = true; return; }   // the page is leaving: its pilot goes at once
     if (m.t === "ping") { send(ws, { t: "pong", c: Number.isFinite(m.c) ? m.c : 0, s: Date.now() }); return; }
     if (m.t === "in") { if (room && id) { room.match.input(id, m); ws.lastInput = now; if (ws.delta) ackSnapshot(ws.delta, m.sa); } return; }
     if (m.t === "sa") { if (ws.delta) ackSnapshot(ws.delta, m.q); return; }   // a snapshot confirmed between controls
@@ -225,7 +230,7 @@ wss.on("connection", (ws, req) => {
       if (!r) {
         // full? An empty room (kept a minute for someone to come back) gives way to a new game at once; past that,
         // another room opens while the memory allows it; only then is the server full
-        if (rooms.size >= MAX_ROOMS) for (const o of [...rooms.values()]) if (!o.clients.size) { closeRoom(o); if (rooms.size < MAX_ROOMS) break; }
+        if (rooms.size >= MAX_ROOMS) for (const o of [...rooms.values()]) if (!o.clients.size && !o.held.size) { closeRoom(o); if (rooms.size < MAX_ROOMS) break; }
         // (one room over MAX_ROOMS at most, whatever the memory says: rooms opened at once have not grown yet)
         const memOk = ROOM_MEM_MB > 0 && rooms.size < MAX_ROOMS + 1 && process.memoryUsage().rss / 1e6 < ROOM_MEM_MB;
         if (rooms.size >= MAX_ROOMS && !memOk) { send(ws, { t: "error", reason: "server full" }); ws.close(1013); return; }
@@ -233,25 +238,45 @@ wss.on("connection", (ws, req) => {
         if ([...rooms.values()].filter(o => o.opener === addr).length >= ROOMS_PER_IP) { send(ws, { t: "error", reason: "you already have a room" }); ws.close(1013); return; }
         r = openRoom(code, m.bots, m.level); r.opener = addr; r.pub = m.pub === true;
       }
-      if (r.clients.size >= MAX_PLAYERS) { send(ws, { t: "error", reason: "room full" }); ws.close(1013); return; }
-      const pid = r.match.addPilot(cleanName(m.name));
+      // back after a dropped connection: the pilot kept for them (its key, rk, was theirs alone), or still held by
+      // their old socket if the server has not noticed it go yet (that one is let go)
+      const rk = typeof m.rk === "string" && /^[0-9a-f]{32}$/.test(m.rk) ? m.rk : null;
+      const held = rk ? r.held.get(rk) : null, old = !held && rk ? r.byRk?.get(rk) : null;
+      if (held) { clearTimeout(held.timer); r.held.delete(rk); }
+      else if (old) { old.replaced = true; r.clients.delete(old); r.byRk.delete(rk); old.terminate(); }
+      else if (r.clients.size + r.held.size >= MAX_PLAYERS) { send(ws, { t: "error", reason: "room full" }); ws.close(1013); return; }
+      const back = held || old, pid = held ? held.pid : old ? old.pid : r.match.addPilot(cleanName(m.name));
       if (!pid) { send(ws, { t: "error", reason: "room full" }); ws.close(1013); return; }
       room = r; id = pid; room.clients.add(ws); done();
+      ws.rk = back ? rk : randomBytes(16).toString("hex");
+      r.byRk ||= new Map(); r.byRk.set(ws.rk, ws);
       ws.pid = pid; if (m.bin === 1) ws.delta = deltaStream();   // a page that rebuilds binary deltas gets them
       // and a page that can, a data channel for them (and its controls) as well
       if (ws.delta && m.rtc === 1 && rtcReady) ws.rtcOffered = true, ws.rtc = openRtc(pid, sdp => send(ws, { t: "rtc", sdp }), text => handle(text, false), () => { ws.rtc = null; });
-      send(ws, { t: "welcome", id, code, tickHz: TICK_HZ, sendHz: TICK_HZ / SEND_EVERY, serverTime: Date.now() });
-      log("join", code, id, "players", room.clients.size, ws.rtc ? "webrtc offered" : "");
+      send(ws, { t: "welcome", id, code, tickHz: TICK_HZ, sendHz: TICK_HZ / SEND_EVERY, serverTime: Date.now(), rk: ws.rk, resumed: back ? 1 : 0 });
+      log(back ? "resume" : "join", code, id, "players", room.clients.size, ws.rtc ? "webrtc offered" : "");
     }
   }
-  ws.on("close", () => {
+  ws.on("close", code => {
     ws.rtc?.close();
     perIp.set(addr, perIp.get(addr) - 1); if (!perIp.get(addr)) perIp.delete(addr);
-    if (!room) return;
-    const rep = room.match.pilot(id)?.repeats || 0;   // (read before the pilot goes)
-    room.clients.delete(ws); room.match.removePilot(id);
+    if (!room || ws.replaced) return;   // (replaced: its player came back on another socket)
+    room.byRk?.delete(ws.rk);
+    room.clients.delete(ws);
     if (!room.clients.size) room.emptySince = performance.now();
-    log("leave", room.code, id, "players", room.clients.size);
+    const rep = room.match.pilot(id)?.repeats || 0;   // (read before the pilot goes)
+    // a connection that dropped (1006: no closing handshake, as when a phone changes network; not one closed on
+    // purpose: the page left, or was let go for idling) keeps its pilot a while, its controls let go, for the player
+    // to come back to; a room being closed keeps nothing
+    if (RESUME_MS > 0 && code === 1006 && rooms.get(room.code) === room && !ws.leaving && !ws.idle) {
+      try { room.match.release(id); } catch {}
+      const r = room, pid = id, rk = ws.rk;
+      r.held.set(rk, { pid, timer: setTimeout(() => { if (r.held.delete(rk)) { try { r.match.removePilot(pid); } catch {} if (!r.clients.size) r.emptySince = performance.now(); log("leave", r.code, pid, "(did not come back)"); } }, RESUME_MS) });
+      log("dropped", room.code, id, "players", room.clients.size, "held", room.held.size);
+    } else {
+      room.match.removePilot(id);
+      log("leave", room.code, id, "players", room.clients.size);
+    }
     const a = ws.net;   // the player's network, for deciding what to improve: averages over their stay
     if (a?.n) log("net", id, `${a.n * 10}s`, "ping", Math.round(a.p / a.n), "jitter", Math.round(a.j / a.n), "stalls/min", +(a.s / (a.n / 6)).toFixed(1), "worst gap", Math.round(a.g), "fps", Math.round(a.f / a.n), "hits shown", a.hs, "confirmed", a.hs ? Math.round(100 * a.hc / a.hs) + "%" : "-", "unshown", a.hn, "cmd repeats", rep, ws.rtcUsed ? "webrtc" : "websocket");
   });
@@ -262,7 +287,7 @@ setInterval(() => {
   const now = performance.now();
   for (const ws of wss.clients) {
     if (!ws.alive) { ws.terminate(); continue; }
-    if (now - ws.lastInput > AFK_MS) { send(ws, { t: "error", reason: "idle" }); ws.close(4000, "idle"); continue; }
+    if (now - ws.lastInput > AFK_MS) { ws.idle = true; send(ws, { t: "error", reason: "idle" }); ws.close(4000, "idle"); continue; }
     ws.alive = false; ws.pingAt = performance.now(); ws.ping();
   }
 }, Math.min(15000, AFK_MS / 2)).unref();

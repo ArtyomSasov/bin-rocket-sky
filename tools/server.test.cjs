@@ -257,3 +257,42 @@ test('chat goes to everyone in the room under the sender’s name, cleaned, cut 
   assert.ok(spam >= 1 && spam <= 4, `${spam} of 10 got through`);
   a.close(); b.close();
 });
+
+test('a dropped connection keeps its pilot a while: back with its key, the same pilot; a page that says bye leaves at once', { skip }, async () => {
+  const room = 'm1d0oresume';
+  const a = client(); await a.opened;
+  a.sendJ({ t: 'join', code: room, name: 'Dropper', bots: 0 });
+  const hi = await a.next(m => m.t === 'welcome');
+  assert.match(hi.rk, /^[0-9a-f]{32}$/); assert.equal(hi.resumed, 0);
+  const r = srv.rooms.get(room);
+  r.match.input(hi.id, { fire: true, mx: 1, my: 0, aim: 0, s: 1 });
+  a.terminate();   // the connection drops (no bye)
+  await new Promise(res => setTimeout(res, 300));
+  assert.ok(r.match.pilot(hi.id), 'the pilot is kept for its player');
+  assert.equal(r.held.size, 1);
+  assert.equal(r.match.game.__simBot(hi.id).input.fire, false, 'its controls let go');
+  // someone else's key does not take it
+  const x = client(); await x.opened;
+  x.sendJ({ t: 'join', code: room, name: 'Other', bots: 0, rk: '0'.repeat(32) });
+  const xi = await x.next(m => m.t === 'welcome');
+  assert.notEqual(xi.id, hi.id); assert.equal(xi.resumed, 0);
+  // the player is back: the same pilot
+  const b = client(); await b.opened;
+  b.sendJ({ t: 'join', code: room, name: 'Dropper', bots: 0, rk: hi.rk });
+  const back = await b.next(m => m.t === 'welcome');
+  assert.equal(back.id, hi.id); assert.equal(back.resumed, 1); assert.equal(r.held.size, 0);
+  // back again on a third socket while the second is still open: it takes the pilot over
+  const c = client(); await c.opened;
+  c.sendJ({ t: 'join', code: room, name: 'Dropper', bots: 0, rk: hi.rk });
+  const again = await c.next(m => m.t === 'welcome');
+  assert.equal(again.id, hi.id);
+  await new Promise(res => setTimeout(res, 200));
+  assert.equal(b.readyState, WebSocket.CLOSED, 'the old socket is let go');
+  assert.ok(r.match.pilot(hi.id), 'and the pilot stays');
+  // leaving on purpose: gone at once
+  c.sendJ({ t: 'bye' }); c.close();
+  await new Promise(res => setTimeout(res, 300));
+  assert.equal(r.match.pilot(hi.id), null, 'a page that left takes its pilot with it');
+  assert.equal(r.held.size, 0);
+  x.close();
+});

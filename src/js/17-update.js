@@ -208,6 +208,8 @@
     // the junk rocks, where they were at the moment the command was made (ct, on the shared clock they move by): the
     // screen and the server meet each rock in the same place, whenever each flies the command
     if (c.ct > 0) for (let i = 0; i < ROCKS; i++) {
+      const at = rockAt(i, c.ct);
+      if ((at[0] - o.x) ** 2 + (at[1] - o.y) ** 2 > 140 ** 2) continue;   // (far: the whole rock is not worth making; the biggest reach is 40 + 60)
       const k = rock(i, c.ct);
       if (k.age < 0.6 || grabbed.has(k.key) || (k.x - o.x) ** 2 + (k.y - o.y) ** 2 > (k.r + 60) ** 2) continue;
       const sp = collideRock(o, k);

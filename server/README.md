@@ -18,7 +18,7 @@ server/deploy/deploy.sh root@HOST HOST-IP-WITH-DASHES.sslip.io
 ```
 
 `deploy/deploy.sh` copies `src/js` and `server/` to the droplet, builds the image there and runs two containers
-in their own Docker network: `brs-game` (450 MB, 0.6 CPU, one room) and `brs-caddy` (TLS; port 80 answers the
+in their own Docker network: `brs-game` (450 MB, 0.85 CPU, one room; a second while the memory allows) and `brs-caddy` (TLS; port 80 answers the
 certificate check, the game is served on 8443). Nothing else on the host is touched.
 Live: `wss://134-122-60-131.sslip.io:8443`, health at `https://134-122-60-131.sslip.io:8443/health`.
 

@@ -71,6 +71,13 @@ const BRIDGE = `
       if (i.s && i.s < b.input.s) return;
       if (!b.prevIn) b.prevIn = { ...b.input }; Object.assign(b.input, i); b.inAt = at;
     },
+    // a player whose connection dropped: their controls let go (the last command, flown again while none come, no
+    // longer steers, boosts or fires), until they come back or their pilot goes
+    release(id) {
+      const b = botById.get(id); if (!b || !b.input) return;
+      Object.assign(b.input, { mx: 0, my: 0, fire: false, alt: false, boost: false, brake: false, gx: 0, gy: 0 });
+      if (b.lastCmd) b.lastCmd = { ...b.lastCmd, mx: 0, my: 0, boost: false, brake: false, fire: false, alt: false };
+    },
     rtt(id, ms) { const b = botById.get(id); if (b && b.input) b.rtt = ms; },
     // one fixed step: the shared-clock world and the simulation
     step(dt, now) {
@@ -145,6 +152,7 @@ export function createMatch({ code = "m1d0c", bots = 0, level = "normal" } = {})
     removePilot: id => sim.removePilot(id),
     input: (id, i, at = performance.now()) => sim.input(id, cleanInput(i), at),
     // the player's round trip (ms), measured by the server: how far back their shots are judged (at most 250 ms)
+    release: id => sim.release(id),
     rtt: (id, ms) => sim.rtt(id, Math.max(0, Math.min(1000, Number(ms) || 0))),
     pilot: id => sim.pilot(id),
     get pilots() { return sim.pilots; },

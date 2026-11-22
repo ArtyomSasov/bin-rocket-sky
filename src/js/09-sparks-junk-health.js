@@ -19,6 +19,15 @@
     const raw = x + v * dt, phase = mod(raw - 40, 2 * (hi - 40));
     return [bounceIn(raw, 40, hi), phase < hi - 40 ? v : -v];
   }
+  // only where rock i is at that moment (no object, no key): a quick look before the whole rock is made
+  function rockAt(i, now) {
+    const tt = now / 1000 + hash(i, 9, 9) * ROCK_PERIOD, gen = Math.floor(tt / ROCK_PERIOD), motion = rockMotion.get(i);
+    if (motion && motion.gen === gen) { const dt = Math.max(0, (now - motion.at) / 1000); rockXY[0] = bounceIn(motion.x + motion.vx * dt, 40, W - 40); rockXY[1] = bounceIn(motion.y + motion.vy * dt, 40, H - 40); return rockXY; }
+    const age = tt - gen * ROCK_PERIOD, ang = hash(i, gen, 21) * 6.283, sp = 50 + hash(i, gen, 22) * 90;
+    rockXY[0] = bounceIn(hash(i, gen, 23) * W + Math.cos(ang) * sp * age, 40, W - 40); rockXY[1] = bounceIn(hash(i, gen, 24) * H + Math.sin(ang) * sp * age, 40, H - 40);
+    return rockXY;
+  }
+  const rockXY = [0, 0];
   function rock(i, now) {
     const tt = now / 1000 + hash(i, 9, 9) * ROCK_PERIOD;
     const gen = Math.floor(tt / ROCK_PERIOD), age = tt - gen * ROCK_PERIOD;

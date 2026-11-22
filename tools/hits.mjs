@@ -17,7 +17,8 @@ const web = createServer(async (req, res) => { try { const n = decodeURIComponen
 await new Promise(r => web.listen(0, '127.0.0.1', r));
 const origin = `http://127.0.0.1:${web.address().port}`, gport = 18000 + Math.floor(Math.random() * 1000);
 const pport = gport + 1000;
-const proxy = net.createServer(c => { const u = net.connect(gport, '127.0.0.1'); const D = +(process.env.DELAY || 0);
+const links = new Set();   // DROP=1: every connection through the proxy, to cut them all at once (as a phone changing network does)
+const proxy = net.createServer(c => { const u = net.connect(gport, '127.0.0.1'); links.add(c); c.on('close', () => links.delete(c)); const D = +(process.env.DELAY || 0);
   c.on('data', d => setTimeout(() => u.write(d), D)); u.on('data', d => setTimeout(() => c.write(d), D)); c.on('close', () => u.destroy()); u.on('close', () => c.destroy()); c.on('error', () => {}); u.on('error', () => {}); });
 await new Promise(r => proxy.listen(pport, '127.0.0.1', r));
 const game = spawn('node', ['index.mjs'], { cwd: root + '/server', env: { ...process.env, PORT: String(gport), ORIGINS: origin, BRS_NO_SIGNALS: '1', MAX_ROOMS: '2', BRS_HITLOG: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -81,6 +82,15 @@ try {
   console.log('RESULT', JSON.stringify(r), 'confirmed', r.hs ? Math.round(100 * r.hc / r.hs) + '%' : '-');
   console.log('CORRECTIONS', JSON.stringify(await A(`(() => { const e = __err.filter(Number.isFinite), n = e.length, c = k => e.filter(x => x > k).length; return { n, over2: c(2), over10: c(10), over30: c(30), max: Math.round(Math.max(0, ...e.filter(x => x < 300))) }; })()`)));
   if (process.env.SHOTS) { const { writeFile } = await import('node:fs/promises'); for (let i = 0; i < 12; i++) { await wait(200); await writeFile(process.env.SHOTS + '/' + GUN + '-' + i + '.png', Buffer.from(await A.shot(), 'base64')); } }
+  if (process.env.DROP) {   // the connections drop with no goodbye: each page comes back to its own pilot
+    const before = await A('[srv.id, me.arsenal ? Object.keys(me.arsenal).length : 0, stats.kills, me.score]');
+    for (const c of links) c.destroy();
+    await wait(400); const mid = await A('document.getElementById("status")?.textContent || ""');
+    await wait(6000);
+    const after = await A('[srv.id, me.arsenal ? Object.keys(me.arsenal).length : 0, stats.kills, me.score, srv.joined, document.getElementById("status")?.textContent || ""]');
+    console.log('DROP before', JSON.stringify(before), 'during', JSON.stringify(mid), 'after', JSON.stringify(after), 'same pilot', before[0] === after[0] && after[4]);
+    console.log('DROP server', glog.split('\n').filter(l => / (dropped|resume|leave|join) /.test(l)).map(l => l.slice(25)).join(' | '));
+  }
   if (process.env.PROBE) for (let i = 0; i < 6; i++) { await wait(300); console.log('PROBE', JSON.stringify(await A(process.env.PROBE))); }
   if (GUN === 'void') { console.log('PULL shooter', JSON.stringify(await A('__pull'))); console.log('PULL target', JSON.stringify(await B('__pull'))); }
   if (GUN === 'rocket' || GUN === 'nova') console.log('VOLLEY', JSON.stringify(await A('__vol')));

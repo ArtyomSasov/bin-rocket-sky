@@ -25,12 +25,33 @@
     document.getElementById("boardTitle").textContent = "Server · " + MODES[MODE].label + " · " + MAPS[mapThemeOf(code)].label;
     setStatus(false, "Server · connecting…");
     if (!SERVER_URL) { setStatus(false, "Server · no valid address"); return; }
-    const ws = new WebSocket(SERVER_URL);
+    srv.code = code;
+    serverConnect();
+    setInterval(() => { const ws = srv.ws; if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "ping", c: performance.now() })); }, 1000);
+    // every 10 s the server hears how the connection is doing here (numbers only), for its own summary of the network
+    setInterval(() => {
+      const ws = srv.ws;
+      if (!ws || ws.readyState !== 1 || !srv.joined) return;
+      ws.send(JSON.stringify({ t: "net", p: Math.round(myPing || 0), j: Math.round(srv.jit), s: srv.report.stalls, g: Math.round(srv.report.maxGap), f: Math.round(1 / (frameAvg || 1 / 60)), h: [srv.report.hs, srv.report.hc, srv.report.hn] }));
+      srv.report = { stalls: 0, maxGap: 0, hs: 0, hc: 0, hn: 0 };
+    }, 10000);
+    setInterval(sendControls, 1000 / 30);
+    // leaving the page: the server lets my pilot go at once (a connection that only dropped keeps it for me a while)
+    addEventListener("pagehide", () => { srv.leaving = true; const ws = srv.ws; if (ws && ws.readyState === 1) try { ws.send(JSON.stringify({ t: "bye" })); } catch {} });
+  }
+  // what the server says when it will not have me: no use trying again
+  const SERVER_FATAL = /^(bad code|server full|room full|you already have a room|idle)$/;
+  // a connection to the server (again after it dropped: with my pilot's key, rk, the server gives me back my own
+  // pilot, score and guns, if I am back within its 20 s; tried again after 0.5, 1, 2, 4 and then every 8 s, a minute in all)
+  function serverConnect() {
+    const ws = new WebSocket(SERVER_URL), code = srv.code;
     srv.ws = ws;
     ws.binaryType = "arraybuffer";
-    srv.snaps = new Map(); srv.snapQ = 0; srv.placed = false;
-    ws.onopen = () => ws.send(JSON.stringify({ t: "join", code, name: me.name, bots: botChoice.n, level: botChoice.level, pub: !joining, bin: 1, rtc: window.RTCPeerConnection ? 1 : 0 }));   // a new game is listed, as online lobbies are; a room opened by typing a code is not
+    srv.snaps = new Map(); srv.snapQ = 0;
+    if (!srv.rk) srv.placed = false;
+    ws.onopen = () => ws.send(JSON.stringify({ t: "join", code, name: me.name, bots: botChoice.n, level: botChoice.level, pub: !joining, bin: 1, rtc: window.RTCPeerConnection ? 1 : 0, rk: srv.rk || undefined }));   // a new game is listed, as online lobbies are; a room opened by typing a code is not
     ws.onmessage = e => {
+      if (srv.ws !== ws) return;
       if (e.data instanceof ArrayBuffer) { receiveDelta(new Uint8Array(e.data)); return; }
       if (typeof e.data !== "string" || e.data.length > 262144) return;
       let m; try { m = JSON.parse(e.data); } catch { return; }
@@ -40,19 +61,23 @@
       else if (m.t === "chat" && typeof m.m === "string") chatShow(String(m.n || "Pilot"), m.m, m.id === srv.id, String(m.id || ""));
       else if (m.t === "rtc" && typeof m.sdp === "string" && m.sdp.length < 16384) answerRtc(ws, m.sdp).catch(() => {});
       else if (m.t === "welcome" && typeof m.id === "string") {
-        srv.id = m.id; srv.joined = true; srv.sendHz = clamp(num(m.sendHz, 15), 1, 60);
+        if (srv.id && m.id !== srv.id) srv.placed = false;   // came back too late: a new pilot, placed by the server
+        if (srv.tries && m.resumed) announce("RECONNECTED", "back in the game", "#8fffb0", 2, true);
+        srv.id = m.id; srv.rk = typeof m.rk === "string" ? m.rk : ""; srv.joined = true; srv.tries = 0; srv.err = ""; srv.sendHz = clamp(num(m.sendHz, 15), 1, 60);
         setStatus(true, "Server · " + code.toUpperCase() + " · online");
       } else if (m.t === "error") { srv.err = String(m.reason || "").slice(0, 40); announce("SERVER", srv.err, "#ff8a8a", 2, true); }
     };
-    ws.onclose = () => { srv.joined = false; try { srv.pc?.close(); } catch {} srv.dc = null; setStatus(false, "Server · disconnected" + (srv.err ? " · " + srv.err : "")); };
-    setInterval(() => { if (ws.readyState === 1) ws.send(JSON.stringify({ t: "ping", c: performance.now() })); }, 1000);
-    // every 10 s the server hears how the connection is doing here (numbers only), for its own summary of the network
-    setInterval(() => {
-      if (ws.readyState !== 1 || !srv.joined) return;
-      ws.send(JSON.stringify({ t: "net", p: Math.round(myPing || 0), j: Math.round(srv.jit), s: srv.report.stalls, g: Math.round(srv.report.maxGap), f: Math.round(1 / (frameAvg || 1 / 60)), h: [srv.report.hs, srv.report.hc, srv.report.hn] }));
-      srv.report = { stalls: 0, maxGap: 0, hs: 0, hc: 0, hn: 0 };
-    }, 10000);
-    setInterval(sendControls, 1000 / 30);
+    ws.onclose = () => {
+      if (srv.ws !== ws) return;
+      srv.joined = false; try { srv.pc?.close(); } catch {} srv.pc = null; srv.dc = null;
+      if (!srv.leaving && !SERVER_FATAL.test(srv.err) && (srv.tries || 0) < 10) {
+        const wait = Math.min(8000, 500 * 2 ** (srv.tries || 0)); srv.tries = (srv.tries || 0) + 1;
+        setStatus(false, "Server · reconnecting…");
+        setTimeout(serverConnect, wait);
+        return;
+      }
+      setStatus(false, "Server · disconnected" + (srv.err ? " · " + srv.err : ""));
+    };
   }
   // my controls, as they are now: sent from the frame that uses them (so the server flies them as early as it can),
   // when they change and at least four times a second. Each message is numbered: the server says which number its

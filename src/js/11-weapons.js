@@ -493,7 +493,7 @@
       if (kind === K.PELLET) scatterPellets(s); else if (kind === K.SHARD) shardSpray(s); else if (kind === K.NAIL) nailSpray(s); else shots.push(s);
       if (kind === K.RAIL || kind === K.GAUSS) railBeam(s);
       if (kind === K.GAUSS && mine) { myRails.set(id, { x: s.x, y: s.y, charged: true, cut: !!s.cut }); if (myRails.size > 20) myRails.delete(myRails.keys().next().value); }
-      if ((kind === K.MELEE || kind === K.SWORD) && mine) myMelee.add(id);   // for Humiliation
+      if ((kind === K.MELEE || kind === K.SWORD) && mine) { myMelee.add(id); if (myMelee.size > 64) myMelee.delete(myMelee.values().next().value); }   // for Humiliation (only the recent ones: a kill is reported within seconds)
       if ((kind === K.BULLET || kind === K.BULLET_ALT || kind === K.PISTOL) && onScreen(sx(p.x), sy(p.y), 200) && Math.random() < 0.7) {   // a spent casing spins off the side
         const sd = Math.random() < 0.5 ? 1 : -1, cx = -by * sd, cy = bx * sd, v = 140 + Math.random() * 120;
         puff(ox, oy, cx * v - bx * 60 + p.vx * 0.8, cy * v - by * 60 + p.vy * 0.8, 0.5 + Math.random() * 0.3, 1.8, "#e8c060");

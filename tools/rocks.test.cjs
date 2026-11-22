@@ -51,3 +51,11 @@ test('malformed, out-of-range, future and expired motion cannot create state',()
  }
  c.applyRockMotion([null,[],[1]]);assert.equal(c.motion.size,0);
 });
+test('the quick look at a rock (rockAt, before pilotMove makes it whole) puts it exactly where rock() does',()=>{
+ const {c}=setup();
+ const real=(a,b,d)=>{let x=(Math.imul(a|0,374761393)+Math.imul(b|0,668265263)+Math.imul(d|0,1442695041))|0;x=Math.imul(x^(x>>>13),1274126177);x^=x>>>16;return (x>>>0)/4294967296;};
+ c.hash=real;
+ c.motion.set(3,{gen:c.rock(3,7777).gen,at:7000,x:500,y:600,vx:120,vy:-80});
+ {const k=c.rock(3,7777),a=c.rockAt(3,7777);assert.ok(Math.abs(k.x-500-120*0.777)<1e-6||k.x!==500);assert.equal(a[0],k.x);assert.equal(a[1],k.y);}   // (a rock knocked off its course)
+ for(let i=0;i<36;i++)for(const t of [0,5000,7777,123456,9e6]){const k=c.rock(i,t),a=c.rockAt(i,t);assert.equal(a[0],k.x,`x ${i} ${t}`);assert.equal(a[1],k.y,`y ${i} ${t}`);}
+});
