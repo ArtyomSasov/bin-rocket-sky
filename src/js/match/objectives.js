@@ -17,10 +17,12 @@
   }
   let hillHolder = null;   // the one holding it now (for its drawing), or null: nobody or a fight on it
   function hillTick(dt, now) {
+    const was = hillHolder;
     hillHolder = null;
     if (!hill) return;
     const on = hillPilots();
     if (on.length === 1) hillHolder = on[0];
+    if (playing && was !== hillHolder && (was === me || hillHolder === me)) sfx(hillHolder === me ? "p_ready" : "p_powerdown", 0.7);   // the hill is mine, or no longer
     const actors = [];
     if (roundLive && playing && !serverRun) actors.push(me);   // (on the server, the server holds my hill)
     if (roundLive) actors.push(...bots);
@@ -69,7 +71,7 @@
     for (const o of actors) {
       if (!o.dead && !o.heatWon) {   // the last one standing
         o.heatWon = true; o.caps = (o.caps || 0) + 1; o.lives = LIVES;
-        if (o === me) { me.score += 10; showScore(); renderHearts(false); announce("LAST BIN STANDING", "you win the heat", "#ffd36b", 2); }
+        if (o === me) { me.score += 10; showScore(); renderHearts(false); announce("LAST BIN STANDING", "you win the heat", "#ffd36b", 2); sfx("v_win", 1); }
       }
       if (o.dead && !Number.isFinite(o.respawnAt)) o.respawnAt = now + 2500;   // the next heat
     }

@@ -80,7 +80,7 @@
   // as the pieces follow from its cells), a drum with a burst of flame
   // a drum goes up when it breaks: a blast as a rocket's (up to 75 HP, throwing all round it); each screen judges its
   // own pilots, the server its pilots, so it hurts whoever is near: a trap to shove or shoot an enemy into
-  const drumBlast = b => splash({ kind: K.ROCKET, x: b.x, y: b.y, vx: 0, vy: 0, m: 1, life: 0, owner: "drum", id: "drum." + b.id + "." + stats.round }, performance.now());
+  const drumBlast = b => (sfx("boom_big", 0.9, 0.85, b.x, b.y), sfx("p_metal", 0.8, 0.7, b.x, b.y), splash({ kind: K.ROCKET, x: b.x, y: b.y, vx: 0, vy: 0, m: 1, life: 0, owner: "drum", id: "drum." + b.id + "." + stats.round }, performance.now()));
   // A station's inner walls grow back: every REGROW_S on the shared clock (so every screen and the server grow them
   // alike), each broken wall gets back up to REGROW_N of its missing cells, those next to what still stands, never
   // within reach of a pilot (none is walled in). A hole closes in some seconds; a breach stays open while it is used

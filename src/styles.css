@@ -577,8 +577,11 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
 /* touch screens: the kill feed under the mini map (which is top right there), the arsenal scrolled with a finger */
 @media (max-width: 1050px), (pointer: coarse) { body.playing .feed { top: calc(var(--hud-bottom, 60px) + 130px); } }
 @media (pointer: coarse) { body.playing .slot { touch-action: pan-x; } body.playing .minimap { top: calc(var(--hud-bottom, 60px) + 8px); right: max(10px, env(safe-area-inset-right, 0px)); left: auto; width: 104px; height: 104px; } }
-.hud-tools #chatBtn { display: none; }
-@media (pointer: coarse) { body.playing .hud-tools #chatBtn { display: inline-block; } }
+.hud-tools #chatBtn, .hud-tools #emoteBtn { display: none; }
+@media (pointer: coarse) { body.playing .hud-tools #chatBtn { display: inline-block; } body.playing .hud-tools #emoteBtn { display: grid; } }
+/* a touch screen's emotes (a keyboard has G, H, V): a small row under the buttons */
+.emote-pick { position: absolute; top: calc(100% + 6px); right: 0; display: flex; gap: 6px; }
+.emote-pick[hidden] { display: none; }
 @media (max-width: 700px) { body.playing .announce { top: calc(var(--hud-bottom, 60px) + 120px); } body.playing .announce b { font-size: 28px; } }
 /* a phone: Back / Next / Take off stay at the bottom of the screen while the form scrolls under them */
 @media (max-width: 600px), (max-height: 600px) {

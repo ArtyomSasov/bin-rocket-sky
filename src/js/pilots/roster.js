@@ -90,6 +90,27 @@
     return td < 950;
   }
   // fires once; returns the gun's reload time
+  // a bot's second mode, where it is simple and worth it: [nearest, furthest] it is used at (a grenade volley and a
+  // flak shell at middle range, explosive rounds and rapid fire close, the Blood Blade's lunge as it closes in, the big
+  // bombs' short throw at a near target). Its cooldown, or 0 when it is not the moment
+  const ALT_BAND = { fire: [0, 700], minigun: [0, 600], gren: [400, 1100], shard: [500, 1100], saw: [140, 360], holy: [800, 1700], void: [400, 1000] };
+  const ALT_CHANCE = { easy: 0.15, normal: 0.35, hard: 0.6 };
+  function botAlt(b, now, td) {
+    const w = botWeapon(b), band = ALT_BAND[w], pat = WEAPONS[w].alt;
+    if (!band || !pat || !pat.shot || td < band[0] || td > band[1] || Math.random() > ALT_CHANCE[b.level]) return 0;
+    if (w !== "fire" && w !== "saw" && !MODES[MODE].only && (b.ammo || 0) < (pat.cost || 1)) return 0;
+    volley(b, now, pat, muzzleOf(b, w));
+    shotSound(pat.shot[0], b.x, b.y, b.id);
+    if (w !== "fire" && w !== "saw" && !MODES[MODE].only && (b.ammo -= pat.cost || 1) <= 0) b.weapon = "fire";
+    return pat.cd || WEAPONS[w].cd;
+  }
+  // a bot sets its Demonic Orb off when an enemy is near it (the orb's own alt)
+  function botDetonate(b, now) {
+    const o = shots.find(s => s.owner === b.id && s.kind === K.GAMMA && s.life > 0 && !s.boom);
+    if (!o) return;
+    const near = q => q && !q.dead && !mates(q, b) && Math.hypot(q.x - o.x, q.y - o.y) < 190;
+    if ((playing && near(me)) || [...remotes].some(([id, r]) => id !== b.id && near(r))) volley(b, now, DETONATOR, { x: o.x, y: o.y });
+  }
   function botFire(b, now, mul = 1) {
     const w = botWeapon(b), pat = WEAPONS[w];
     if (w === "gamma" && shots.some(s => s.owner === b.id && s.kind === K.GAMMA && s.life > 0 && !s.boom)) return .3;

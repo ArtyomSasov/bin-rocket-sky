@@ -7,11 +7,14 @@
     if (!EMOTES[kind] || now - (o.emAt || -1e9) < 700) return;   // (not too often)
     o.emSeq = (o.emSeq || 0) + 1; o.emKind = kind; o.emAt = now;
     if (o === me) myEmote = [me.emSeq, kind];
+    emoteSound(o);
   }
   const emoteWire = (o, now) => o.emAt && now - o.emAt < EMOTE_MS ? [o.emSeq, o.emKind] : undefined;
+  const emoteSound = o => { const k = EMOTES[o.emKind]; sfx(k === "gg" ? "p_ui" : k === "flip" ? "dash" : "p_spot", 0.6, k === "wiggle" ? 1.3 : 1, o.x, o.y); };
   function takeEmote(o, em, now) {   // from a pilot's state: shown once, when its number changes
     if (!Array.isArray(em) || !Number.isSafeInteger(em[0]) || !EMOTES[em[1]] || em[0] === o.emSeq) return;
     o.emSeq = em[0]; o.emKind = em[1]; o.emAt = now;
+    emoteSound(o);
   }
   // how an emote moves the bin (drawBot): [extra turn, x scale, lift], and its words (drawn over it)
   function emotePose(b, now) {
@@ -32,4 +35,11 @@
     g.beginPath(); g.moveTo(x - 6 * TS, by + h / 2 - 1); g.lineTo(x, by + h / 2 + 7 * TS); g.lineTo(x + 6 * TS, by + h / 2 - 1); g.fill();
     g.fillStyle = "#1d1630"; g.fillText("GG", x, by + 6 * TS);
     g.restore();
+  }
+  // a touch screen has no keys: the GG button opens a row of the three (and closes after one, or a second tap)
+  {
+    const btn = document.getElementById("emoteBtn"), pickEl = document.getElementById("emotePick");
+    const show = on => { pickEl.hidden = !on; btn.setAttribute("aria-expanded", String(on)); };
+    btn.addEventListener("click", e => { e.stopPropagation(); show(pickEl.hidden); });
+    for (const b of pickEl.children) b.addEventListener("click", e => { e.stopPropagation(); if (playing && !me.dead) emote(me, +b.dataset.em, performance.now()); show(false); });
   }

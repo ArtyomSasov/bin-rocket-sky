@@ -9,9 +9,14 @@
   // a look with nothing locked in it (a locked choice goes back to the original)
   const freeLook = ck => CUSTOM_KEYS.map((key, i) => lockedBy(key, CUSTOM[key].items[ck[i]]?.[1]) ? 0 : ck[i] || 0);
   function recordRound(won) {
+    const before = Object.entries(UNLOCKS).flatMap(([key, vals]) => Object.keys(vals).filter(v => lockedBy(key, v)).map(v => [key, v]));
     profile.rounds++; profile.kills += stats.kills; profile.deaths += stats.deaths; profile.best = Math.max(profile.best, stats.best);
     if (won) profile.wins++;
     store.set("binrocket.profile", JSON.stringify(profile));
+    for (const [key, v] of before) if (!lockedBy(key, v)) {   // earned this round
+      const item = CUSTOM[key].items.find(it => it[1] === v);
+      setTimeout(() => { announce("UNLOCKED", item[0] + " · " + CUSTOM[key].label.toLowerCase() + " in your look", "#ffd36b", 3); sfx("p_charge", 0.8); }, 2500);
+    }
     showProfile();
   }
   function showProfile() {

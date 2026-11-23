@@ -2,6 +2,8 @@
     if (!bots.length) return;
     creditBots(hitBy, false); creditBots(koBy, true);   // bots that hit or killed me
     const holes = holesNow();
+    // Last Bin Standing: how many still fly (a bot that is badly hurt hides when few are left)
+    const standing = MODES[MODE].lastStanding ? bots.filter(o => !o.dead).length + [...remotes].filter(([id, r]) => !botById.has(id) && !r.dead).length + (playing && !me.dead ? 1 : 0) : 99;
     for (const b of bots) {
       while (b.shotLog.length && now - b.shotLog[0].at > 700) b.shotLog.shift();
       if (b.dead) {
@@ -20,7 +22,11 @@
       else if (tgt) {
         const fly = td / 1000 * 0.8, px = tgt.x + (tgt.vx || 0) * fly - (b.vx || 0) * fly * 0.6, py = tgt.y + (tgt.vy || 0) * fly - (b.vy || 0) * fly * 0.6;
         aimA = Math.atan2(py - b.y, px - b.x);
-        if (now < (b.breakUntil || 0)) { dx = Math.cos(b.breakA); dy = Math.sin(b.breakA); }   // breaking off, then looping back
+        const drum = stationMap() ? drumBy(tgt, b) : null;   // a drum by its target: shot instead, to blow it up under them
+        if (drum) aimA = Math.atan2(drum.y - b.y, drum.x - b.x);
+        if (standing <= 3 && b.lives < LIVES * 0.45) {   // Last Bin Standing, few left and badly hurt: it runs and hides
+          dx = -Math.cos(aimA); dy = -Math.sin(aimA); wantBoost = true;
+        } else if (now < (b.breakUntil || 0)) { dx = Math.cos(b.breakA); dy = Math.sin(b.breakA); }   // breaking off, then looping back
         else if (td < 240) {
           b.breakUntil = now + 450 + Math.random() * 500; b.side = Math.random() < 0.5 ? 1 : -1;
           b.breakA = aimA + b.side * (1.3 + Math.random() * 0.5); dx = Math.cos(b.breakA); dy = Math.sin(b.breakA);
@@ -134,9 +140,12 @@
         b.charge = Math.min(1, (b.charge || 0) + dt / WEAPONS.saw.charge);
         if (b.charge >= 1) { botFire(b, now, b.charge); b.charge = 0; b.fireCd = Math.max(b.L.cd, WEAPONS.saw.cd * 1.3) * (0.7 + Math.random() * 0.6); }
       }
+      else if (tgt && roundLive && Math.abs(angD(aimA - b.a)) < 0.22 + b.L.aim && b.fireCd <= 0 && (b.altCdAt || 0) < now && (b.altUse = botAlt(b, now, td))) {   // its second mode, now and then
+        b.fireCd = Math.max(b.L.cd, b.altUse * 1.3) * (0.7 + Math.random() * 0.6); b.altCdAt = now + 1500; }
       else if (tgt && roundLive && botInRange(b, td) && Math.abs(angD(aimA - b.a)) < 0.22 + b.L.aim && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
         const md = MODES[MODE];
         b.fireCd = (md.botCd ? b.L.cd * md.botCd : cd < 0.15 ? cd * 2 : Math.max(b.L.cd, cd * 1.3)) * (0.7 + Math.random() * 0.6); }
+      if (!human && botWeapon(b) === "gamma") botDetonate(b, now);
       botRammed(b, now);
       recordHitPose(b, now);
       shotsAtBot(b, now);
@@ -297,4 +306,9 @@
         botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx), invNow);
       }
     }
+  }
+  // a loose drum close by a bot's target (within 200) and within its reach: worth shooting, to blow it up under them
+  function drumBy(tgt, b) {
+    for (const r of rubble) if (r.prop && r.kind === "drum" && !r.dead && Math.hypot(r.x - tgt.x, r.y - tgt.y) < 200 && Math.hypot(r.x - b.x, r.y - b.y) < 1000) return r;
+    return null;
   }

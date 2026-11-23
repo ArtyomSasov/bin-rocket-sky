@@ -586,8 +586,11 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
 /* touch screens: the kill feed under the mini map (which is top right there), the arsenal scrolled with a finger */
 @media (max-width: 1050px), (pointer: coarse) { body.playing .feed { top: calc(var(--hud-bottom, 60px) + 130px); } }
 @media (pointer: coarse) { body.playing .slot { touch-action: pan-x; } body.playing .minimap { top: calc(var(--hud-bottom, 60px) + 8px); right: max(10px, env(safe-area-inset-right, 0px)); left: auto; width: 104px; height: 104px; } }
-.hud-tools #chatBtn { display: none; }
-@media (pointer: coarse) { body.playing .hud-tools #chatBtn { display: inline-block; } }
+.hud-tools #chatBtn, .hud-tools #emoteBtn { display: none; }
+@media (pointer: coarse) { body.playing .hud-tools #chatBtn { display: inline-block; } body.playing .hud-tools #emoteBtn { display: grid; } }
+/* a touch screen's emotes (a keyboard has G, H, V): a small row under the buttons */
+.emote-pick { position: absolute; top: calc(100% + 6px); right: 0; display: flex; gap: 6px; }
+.emote-pick[hidden] { display: none; }
 @media (max-width: 700px) { body.playing .announce { top: calc(var(--hud-bottom, 60px) + 120px); } body.playing .announce b { font-size: 28px; } }
 /* a phone: Back / Next / Take off stay at the bottom of the screen while the form scrolls under them */
 @media (max-width: 600px), (max-height: 600px) {
@@ -610,7 +613,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
 <div class="event" id="eventBanner" hidden></div>
 <div class="match-hud"><div class="match-header">
 <div class="match-clock chip" id="roundInfo" role="timer" aria-label="Round timer">Round 1 · 5:00</div>
-<div class="hud-tools"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><button type="button" id="chatBtn" aria-label="Chat">Chat</button><button type="button" id="scoreBtn" aria-controls="scoreboard" aria-expanded="false">Scores <span>Tab</span></button></div>
+<div class="hud-tools"><button type="button" class="gear" id="gearBtn" aria-label="Graphics settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.2 0 1.8l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a5 5 0 0 1 0-1.8l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></button><button type="button" id="chatBtn" aria-label="Chat">Chat</button><button type="button" class="gear" id="emoteBtn" aria-label="Emotes" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20Zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16ZM8.5 8.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM7.6 14h8.8a4.6 4.6 0 0 1-8.8 0Z"/></svg></button><div class="emote-pick" id="emotePick" hidden><button type="button" data-em="0">GG</button><button type="button" data-em="1">Wiggle</button><button type="button" data-em="2">Flip</button></div><button type="button" id="scoreBtn" aria-controls="scoreboard" aria-expanded="false">Scores <span>Tab</span></button></div>
 </div>
 <div class="score chip"><b id="score">0</b><span>points</span><span class="energy"><b id="energyLabel">ENERGY</b><span class="meter" title="Boost energy"><i id="nrgFill"></i></span></span><span class="hp" id="hearts" role="img" aria-label="Health 100%"><span class="hpbar"><i id="hpFill"></i></span><b id="hpNum">100%</b></span><span class="shieldchip" id="shieldChip" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z"/></svg><b id="shieldNum">0</b></span><span class="ampchip" id="ampChip" hidden></span><span class="wpn" id="wpn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg>Enforcer</span></div>
 </div>
@@ -1542,7 +1545,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // as the pieces follow from its cells), a drum with a burst of flame
   // a drum goes up when it breaks: a blast as a rocket's (up to 75 HP, throwing all round it); each screen judges its
   // own pilots, the server its pilots, so it hurts whoever is near: a trap to shove or shoot an enemy into
-  const drumBlast = b => splash({ kind: K.ROCKET, x: b.x, y: b.y, vx: 0, vy: 0, m: 1, life: 0, owner: "drum", id: "drum." + b.id + "." + stats.round }, performance.now());
+  const drumBlast = b => (sfx("boom_big", 0.9, 0.85, b.x, b.y), sfx("p_metal", 0.8, 0.7, b.x, b.y), splash({ kind: K.ROCKET, x: b.x, y: b.y, vx: 0, vy: 0, m: 1, life: 0, owner: "drum", id: "drum." + b.id + "." + stats.round }, performance.now()));
   // A station's inner walls grow back: every REGROW_S on the shared clock (so every screen and the server grow them
   // alike), each broken wall gets back up to REGROW_N of its missing cells, those next to what still stands, never
   // within reach of a pilot (none is walled in). A hole closes in some seconds; a breach stays open while it is used
@@ -8299,10 +8302,12 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   }
   let hillHolder = null;   // the one holding it now (for its drawing), or null: nobody or a fight on it
   function hillTick(dt, now) {
+    const was = hillHolder;
     hillHolder = null;
     if (!hill) return;
     const on = hillPilots();
     if (on.length === 1) hillHolder = on[0];
+    if (playing && was !== hillHolder && (was === me || hillHolder === me)) sfx(hillHolder === me ? "p_ready" : "p_powerdown", 0.7);   // the hill is mine, or no longer
     const actors = [];
     if (roundLive && playing && !serverRun) actors.push(me);   // (on the server, the server holds my hill)
     if (roundLive) actors.push(...bots);
@@ -8351,7 +8356,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     for (const o of actors) {
       if (!o.dead && !o.heatWon) {   // the last one standing
         o.heatWon = true; o.caps = (o.caps || 0) + 1; o.lives = LIVES;
-        if (o === me) { me.score += 10; showScore(); renderHearts(false); announce("LAST BIN STANDING", "you win the heat", "#ffd36b", 2); }
+        if (o === me) { me.score += 10; showScore(); renderHearts(false); announce("LAST BIN STANDING", "you win the heat", "#ffd36b", 2); sfx("v_win", 1); }
       }
       if (o.dead && !Number.isFinite(o.respawnAt)) o.respawnAt = now + 2500;   // the next heat
     }
@@ -8469,6 +8474,27 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     return td < 950;
   }
   // fires once; returns the gun's reload time
+  // a bot's second mode, where it is simple and worth it: [nearest, furthest] it is used at (a grenade volley and a
+  // flak shell at middle range, explosive rounds and rapid fire close, the Blood Blade's lunge as it closes in, the big
+  // bombs' short throw at a near target). Its cooldown, or 0 when it is not the moment
+  const ALT_BAND = { fire: [0, 700], minigun: [0, 600], gren: [400, 1100], shard: [500, 1100], saw: [140, 360], holy: [800, 1700], void: [400, 1000] };
+  const ALT_CHANCE = { easy: 0.15, normal: 0.35, hard: 0.6 };
+  function botAlt(b, now, td) {
+    const w = botWeapon(b), band = ALT_BAND[w], pat = WEAPONS[w].alt;
+    if (!band || !pat || !pat.shot || td < band[0] || td > band[1] || Math.random() > ALT_CHANCE[b.level]) return 0;
+    if (w !== "fire" && w !== "saw" && !MODES[MODE].only && (b.ammo || 0) < (pat.cost || 1)) return 0;
+    volley(b, now, pat, muzzleOf(b, w));
+    shotSound(pat.shot[0], b.x, b.y, b.id);
+    if (w !== "fire" && w !== "saw" && !MODES[MODE].only && (b.ammo -= pat.cost || 1) <= 0) b.weapon = "fire";
+    return pat.cd || WEAPONS[w].cd;
+  }
+  // a bot sets its Demonic Orb off when an enemy is near it (the orb's own alt)
+  function botDetonate(b, now) {
+    const o = shots.find(s => s.owner === b.id && s.kind === K.GAMMA && s.life > 0 && !s.boom);
+    if (!o) return;
+    const near = q => q && !q.dead && !mates(q, b) && Math.hypot(q.x - o.x, q.y - o.y) < 190;
+    if ((playing && near(me)) || [...remotes].some(([id, r]) => id !== b.id && near(r))) volley(b, now, DETONATOR, { x: o.x, y: o.y });
+  }
   function botFire(b, now, mul = 1) {
     const w = botWeapon(b), pat = WEAPONS[w];
     if (w === "gamma" && shots.some(s => s.owner === b.id && s.kind === K.GAMMA && s.life > 0 && !s.boom)) return .3;
@@ -8483,6 +8509,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (!bots.length) return;
     creditBots(hitBy, false); creditBots(koBy, true);   // bots that hit or killed me
     const holes = holesNow();
+    // Last Bin Standing: how many still fly (a bot that is badly hurt hides when few are left)
+    const standing = MODES[MODE].lastStanding ? bots.filter(o => !o.dead).length + [...remotes].filter(([id, r]) => !botById.has(id) && !r.dead).length + (playing && !me.dead ? 1 : 0) : 99;
     for (const b of bots) {
       while (b.shotLog.length && now - b.shotLog[0].at > 700) b.shotLog.shift();
       if (b.dead) {
@@ -8501,7 +8529,11 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       else if (tgt) {
         const fly = td / 1000 * 0.8, px = tgt.x + (tgt.vx || 0) * fly - (b.vx || 0) * fly * 0.6, py = tgt.y + (tgt.vy || 0) * fly - (b.vy || 0) * fly * 0.6;
         aimA = Math.atan2(py - b.y, px - b.x);
-        if (now < (b.breakUntil || 0)) { dx = Math.cos(b.breakA); dy = Math.sin(b.breakA); }   // breaking off, then looping back
+        const drum = stationMap() ? drumBy(tgt, b) : null;   // a drum by its target: shot instead, to blow it up under them
+        if (drum) aimA = Math.atan2(drum.y - b.y, drum.x - b.x);
+        if (standing <= 3 && b.lives < LIVES * 0.45) {   // Last Bin Standing, few left and badly hurt: it runs and hides
+          dx = -Math.cos(aimA); dy = -Math.sin(aimA); wantBoost = true;
+        } else if (now < (b.breakUntil || 0)) { dx = Math.cos(b.breakA); dy = Math.sin(b.breakA); }   // breaking off, then looping back
         else if (td < 240) {
           b.breakUntil = now + 450 + Math.random() * 500; b.side = Math.random() < 0.5 ? 1 : -1;
           b.breakA = aimA + b.side * (1.3 + Math.random() * 0.5); dx = Math.cos(b.breakA); dy = Math.sin(b.breakA);
@@ -8615,9 +8647,12 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         b.charge = Math.min(1, (b.charge || 0) + dt / WEAPONS.saw.charge);
         if (b.charge >= 1) { botFire(b, now, b.charge); b.charge = 0; b.fireCd = Math.max(b.L.cd, WEAPONS.saw.cd * 1.3) * (0.7 + Math.random() * 0.6); }
       }
+      else if (tgt && roundLive && Math.abs(angD(aimA - b.a)) < 0.22 + b.L.aim && b.fireCd <= 0 && (b.altCdAt || 0) < now && (b.altUse = botAlt(b, now, td))) {   // its second mode, now and then
+        b.fireCd = Math.max(b.L.cd, b.altUse * 1.3) * (0.7 + Math.random() * 0.6); b.altCdAt = now + 1500; }
       else if (tgt && roundLive && botInRange(b, td) && Math.abs(angD(aimA - b.a)) < 0.22 + b.L.aim && b.fireCd <= 0) { const cd = botFire(b, now);   // rapid guns fire faster than the bot's usual pace, slow guns slower
         const md = MODES[MODE];
         b.fireCd = (md.botCd ? b.L.cd * md.botCd : cd < 0.15 ? cd * 2 : Math.max(b.L.cd, cd * 1.3)) * (0.7 + Math.random() * 0.6); }
+      if (!human && botWeapon(b) === "gamma") botDetonate(b, now);
       botRammed(b, now);
       recordHitPose(b, now);
       shotsAtBot(b, now);
@@ -8778,6 +8813,11 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         botHurt(b, shotDmg(s), s.id, now, false, s.kind, Math.atan2(s.vy, s.vx), invNow);
       }
     }
+  }
+  // a loose drum close by a bot's target (within 200) and within its reach: worth shooting, to blow it up under them
+  function drumBy(tgt, b) {
+    for (const r of rubble) if (r.prop && r.kind === "drum" && !r.dead && Math.hypot(r.x - tgt.x, r.y - tgt.y) < 200 && Math.hypot(r.x - b.x, r.y - b.y) < 1000) return r;
+    return null;
   }
   // Bins meeting bins (bots, players' pilots on the server, and my own bin when this page runs the bots): each pair
   // once, pushed apart by their overlap (the lighter further) and struck by weight (collide, a fairly dead bounce,
@@ -11264,11 +11304,14 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (!EMOTES[kind] || now - (o.emAt || -1e9) < 700) return;   // (not too often)
     o.emSeq = (o.emSeq || 0) + 1; o.emKind = kind; o.emAt = now;
     if (o === me) myEmote = [me.emSeq, kind];
+    emoteSound(o);
   }
   const emoteWire = (o, now) => o.emAt && now - o.emAt < EMOTE_MS ? [o.emSeq, o.emKind] : undefined;
+  const emoteSound = o => { const k = EMOTES[o.emKind]; sfx(k === "gg" ? "p_ui" : k === "flip" ? "dash" : "p_spot", 0.6, k === "wiggle" ? 1.3 : 1, o.x, o.y); };
   function takeEmote(o, em, now) {   // from a pilot's state: shown once, when its number changes
     if (!Array.isArray(em) || !Number.isSafeInteger(em[0]) || !EMOTES[em[1]] || em[0] === o.emSeq) return;
     o.emSeq = em[0]; o.emKind = em[1]; o.emAt = now;
+    emoteSound(o);
   }
   // how an emote moves the bin (drawBot): [extra turn, x scale, lift], and its words (drawn over it)
   function emotePose(b, now) {
@@ -11289,6 +11332,13 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     g.beginPath(); g.moveTo(x - 6 * TS, by + h / 2 - 1); g.lineTo(x, by + h / 2 + 7 * TS); g.lineTo(x + 6 * TS, by + h / 2 - 1); g.fill();
     g.fillStyle = "#1d1630"; g.fillText("GG", x, by + 6 * TS);
     g.restore();
+  }
+  // a touch screen has no keys: the GG button opens a row of the three (and closes after one, or a second tap)
+  {
+    const btn = document.getElementById("emoteBtn"), pickEl = document.getElementById("emotePick");
+    const show = on => { pickEl.hidden = !on; btn.setAttribute("aria-expanded", String(on)); };
+    btn.addEventListener("click", e => { e.stopPropagation(); show(pickEl.hidden); });
+    for (const b of pickEl.children) b.addEventListener("click", e => { e.stopPropagation(); if (playing && !me.dead) emote(me, +b.dataset.em, performance.now()); show(false); });
   }
   // b: the pilot itself (what this keeps on it between frames: its jolt, its barrels' turn, its fire's colours, lives on);
   // look: how it is shown this frame (blink: protected, so it flickers; name: its label, if not its own name)
@@ -12919,9 +12969,14 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // a look with nothing locked in it (a locked choice goes back to the original)
   const freeLook = ck => CUSTOM_KEYS.map((key, i) => lockedBy(key, CUSTOM[key].items[ck[i]]?.[1]) ? 0 : ck[i] || 0);
   function recordRound(won) {
+    const before = Object.entries(UNLOCKS).flatMap(([key, vals]) => Object.keys(vals).filter(v => lockedBy(key, v)).map(v => [key, v]));
     profile.rounds++; profile.kills += stats.kills; profile.deaths += stats.deaths; profile.best = Math.max(profile.best, stats.best);
     if (won) profile.wins++;
     store.set("binrocket.profile", JSON.stringify(profile));
+    for (const [key, v] of before) if (!lockedBy(key, v)) {   // earned this round
+      const item = CUSTOM[key].items.find(it => it[1] === v);
+      setTimeout(() => { announce("UNLOCKED", item[0] + " · " + CUSTOM[key].label.toLowerCase() + " in your look", "#ffd36b", 3); sfx("p_charge", 0.8); }, 2500);
+    }
     showProfile();
   }
   function showProfile() {

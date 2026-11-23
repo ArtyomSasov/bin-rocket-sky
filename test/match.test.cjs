@@ -98,13 +98,13 @@ test('a pilot that dies is back after the respawn time, at a spot away from its 
   try {
     run(m, 1);
     const G = m.game, [victim, ...rest] = G.__simBots();
-    for (const b of rest) Object.assign(b, { x: 300, y: 300, vx: 0, vy: 0, fireCd: 1e9 });   // every enemy in one corner
-    run(m, 0.1);
+    const corner = () => { for (const b of rest) Object.assign(b, { x: 300, y: 300, vx: 0, vy: 0, fireCd: 1e9, dead: false }); };   // every enemy kept in one corner
+    run(m, 0.1, corner);
     G.__simHurt(victim.id, 99);
     assert.equal(victim.dead, true);
-    run(m, G.__simConst.RESPAWN_MS / 1000 - 0.3);
+    run(m, G.__simConst.RESPAWN_MS / 1000 - 0.3, corner);
     assert.equal(victim.dead, true, 'still waiting');
-    run(m, 0.6);
+    run(m, 0.6, corner);
     assert.equal(victim.dead, false, 'back in');
     const near = Math.min(...rest.map(b => Math.hypot(b.x - victim.x, b.y - victim.y)));
     assert.ok(near > 1200, `born ${Math.round(near)} px from the nearest enemy`);
