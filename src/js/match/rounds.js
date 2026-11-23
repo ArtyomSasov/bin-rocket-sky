@@ -25,12 +25,12 @@
     const shooters = rows.filter(r => r.shots >= 10);
     const pick = (list, f) => list.length ? list.reduce((a, b) => f(b) > f(a) ? b : a) : null;
     const awards = [
-      ["Most kills", pick(rows, r => r.kills), r => r.kills + " kills"],
+      ["Most kills", pick(rows.filter(r => r.kills > 0), r => r.kills), r => r.kills + " kills"],
       ["Sharpshooter", pick(shooters, r => acc(r)), r => acc(r) + "% of shots hit"],
       ["Stormtrooper", shooters.length > 1 ? pick(shooters, r => -acc(r)) : null, r => "only " + acc(r) + "% hit"],
-      ["Untouchable", rows.length > 1 ? pick(rows, r => -r.deaths) : null, r => r.deaths + " deaths"],
-      ["Rampage", pick(rows, r => r.best), r => r.best + " kills in a row"],
-      ["Kamikaze", rows.length > 1 ? pick(rows, r => r.deaths) : null, r => r.deaths + " deaths"]
+      ["Untouchable", rows.some(r => r.deaths > 0) ? pick(rows, r => -r.deaths) : null, r => r.deaths + " deaths"],   // (only when someone died)
+      ["Rampage", pick(rows.filter(r => r.best >= 2), r => r.best), r => r.best + " kills in a row"],
+      ["Kamikaze", rows.length > 1 ? pick(rows.filter(r => r.deaths > 0), r => r.deaths) : null, r => r.deaths + " deaths"]
     ].filter(([, who]) => who);
     const card = document.getElementById("resultsCard");
     card.innerHTML = `<h2>Round ${roundNo} over</h2>
@@ -133,12 +133,14 @@
     return { k, c, lead: goalOf(MODE) ? (c[0] - c[1] || k[0] - k[1]) : k[0] - k[1] };
   }
   function renderBoard() {
+    const goal = goalOf(MODE);
+    document.getElementById("boardCols").textContent = (goal ? goal[0].toUpperCase() + goal.slice(1) + " · " : "") + "Kills / Deaths · Points";
     const rows = playerRows();
     rows.sort(comparePlayers);
     const shown = rows;
     const team = [];
     if (isTeams()) {   // the two teams first: kills, or captures in CTF
-      const t = teamTotals(), goal = goalOf(MODE);
+      const t = teamTotals();
       for (const i of [0, 1]) {
         const li = document.createElement("li"); li.className = "team";
         const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = TEAM_NAME[i] + " team"; nm.style.color = TEAM_HEX[i];

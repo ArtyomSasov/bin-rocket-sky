@@ -16,6 +16,16 @@
     for (let k = 0; k < 40; k++) { const y = H / 2 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 120; if (!inBody(x, y, 260)) return { x, y }; }
     return { x, y: H / 2 };
   }
+  // a pilot added in a team mode (a bot, or a player on the server: the server sets the mode first) joins the smaller
+  // side, every other one an attacker
+  function joinTeam(b) {
+    const n = [0, 0];
+    if (playing && onTeam(me)) n[me.tm]++;
+    for (const o of bots) if (o !== b && onTeam(o)) n[o.tm]++;
+    for (const [id, r] of remotes) if (!botById.has(id) && onTeam(r)) n[r.tm]++;
+    b.tm = n[0] <= n[1] ? 0 : 1; b.attacker = bots.filter(o => o.tm === b.tm).length % 4 < 2;
+    if (bases) Object.assign(b, spawnPoint(b.tm));
+  }
   // join the smaller team (a tie keeps the given one); my bots fill in, starting with the other side
   function pickTeam(tie) {
     const n = [0, 0];

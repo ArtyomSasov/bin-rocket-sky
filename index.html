@@ -88,6 +88,7 @@ body {
 .rcard th:first-child, .rcard td:first-child { text-align: left; }
 .rcard td { text-align: right; padding: 5px 6px; border-top: 1px solid var(--line); }
 .rcard tr.me td { background: rgba(79,214,200,.12); }
+@media (max-width: 480px) { .card.rcard { padding: 16px 12px; } .rcard table { font-size: 12px; } .rcard th { font-size: 9px; letter-spacing: 0; padding: 4px 3px; } .rcard td { padding: 5px 3px; } }   /* a phone: the whole table fits */
 .awards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
 .award { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: grid; gap: 2px; }
 .award b { font: 700 13px var(--display); color: var(--teal); }
@@ -216,7 +217,7 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
 .pick .vol { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; }
 .pick .vol input { width: 100%; accent-color: var(--accent, #6ff0c8); min-height: 28px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
-.cards button { display: grid; gap: 2px; text-align: left; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,.04); color: var(--ink);
+.cards button { display: grid; gap: 2px; align-content: start; text-align: left; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,.04); color: var(--ink);
   border: 1px solid var(--line); box-shadow: none; font: 700 13px var(--display); }
 .cards button small { font: 600 11px var(--body); color: var(--muted); }
 .cards button[aria-pressed="true"] { background: rgba(79,214,200,.2); border-color: var(--teal); }
@@ -613,7 +614,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
 </div>
 <div class="score chip"><b id="score">0</b><span>points</span><span class="energy"><b id="energyLabel">ENERGY</b><span class="meter" title="Boost energy"><i id="nrgFill"></i></span></span><span class="hp" id="hearts" role="img" aria-label="Health 100%"><span class="hpbar"><i id="hpFill"></i></span><b id="hpNum">100%</b></span><span class="shieldchip" id="shieldChip" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z"/></svg><b id="shieldNum">0</b></span><span class="ampchip" id="ampChip" hidden></span><span class="wpn" id="wpn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg>Enforcer</span></div>
 </div>
-<div class="board chip" id="scoreboard" hidden><h2 id="boardTitle">Flyers</h2><div class="ping" id="pingInfo"></div><div class="bhead"><span>Pilot</span><span>Kills / Deaths · Points</span></div><ol id="board"></ol></div>
+<div class="board chip" id="scoreboard" hidden><h2 id="boardTitle">Flyers</h2><div class="ping" id="pingInfo"></div><div class="bhead"><span>Pilot</span><span id="boardCols">Kills / Deaths · Points</span></div><ol id="board"></ol></div>
 <div class="feed" id="feed" aria-live="off"></div>
 <div class="lockhint chip" id="lockHint" hidden>Click to take the mouse · Esc lets it go</div>
 <div class="announce" id="announce"></div>
@@ -752,17 +753,17 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const MAPS = {
     f: { name: "Foundry", label: "Foundry", hint: "industrial corridors, three routes", station: true },
     k: { name: "Cargo Deck", label: "Cargo Deck", hint: "a ring corridor round a cargo hall, crates to smash", station: true },
-    h: { name: "Hangar", label: "Hangar · NEW", hint: "one huge hangar bay, corridors all round", station: true },
-    d: { name: "Derelict", label: "Derelict · NEW", hint: "a cruiser broken in two, open space round it", station: true },
-    v: { name: "Vault", label: "Vault · NEW", hint: "nine rooms and narrow doors, the vault in the middle", station: true },
+    h: { name: "Hangar", label: "Hangar", hint: "one huge hangar bay, corridors all round", station: true },
+    d: { name: "Derelict", label: "Derelict", hint: "a cruiser broken in two, open space round it", station: true },
+    v: { name: "Vault", label: "Vault", hint: "nine rooms and narrow doors, the vault in the middle", station: true },
     c: { name: "Twin Worlds", label: "Twin Worlds", hint: "two giants, an open centre" },
     a: { name: "The Ring", label: "The Ring", hint: "a ring of asteroids, four gates", lumpy: true },
     y: { name: "Drydocks", label: "Drydocks", hint: "rows of moored hulls" },
     r: { name: "Downtown", label: "Downtown", hint: "tower blocks, a main street" },
     s: { name: "Orrery", label: "Orrery", hint: "a sun and its planets", star: true },
     w: { name: "The Tip", label: "The Tip", hint: "trucks, skips, a landfill hill" },
-    i: { name: "Frost Belt", label: "Frost Belt · NEW", hint: "an ice belt across the middle, a frozen hull" },
-    g: { name: "Graveyard", label: "Graveyard · NEW", hint: "a lost fleet's wrecks round a dead red world" },
+    i: { name: "Frost Belt", label: "Frost Belt", hint: "an ice belt across the middle, a frozen hull" },
+    g: { name: "Graveyard", label: "Graveyard", hint: "a lost fleet's wrecks round a dead red world" },
     o: { name: "Duel", label: "Duel", hint: "nearly empty: duels" }
   };
 
@@ -4091,6 +4092,16 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const x = t ? W - Math.max(380, W * 0.1) : Math.max(380, W * 0.1);
     for (let k = 0; k < 40; k++) { const y = H / 2 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 120; if (!inBody(x, y, 260)) return { x, y }; }
     return { x, y: H / 2 };
+  }
+  // a pilot added in a team mode (a bot, or a player on the server: the server sets the mode first) joins the smaller
+  // side, every other one an attacker
+  function joinTeam(b) {
+    const n = [0, 0];
+    if (playing && onTeam(me)) n[me.tm]++;
+    for (const o of bots) if (o !== b && onTeam(o)) n[o.tm]++;
+    for (const [id, r] of remotes) if (!botById.has(id) && onTeam(r)) n[r.tm]++;
+    b.tm = n[0] <= n[1] ? 0 : 1; b.attacker = bots.filter(o => o.tm === b.tm).length % 4 < 2;
+    if (bases) Object.assign(b, spawnPoint(b.tm));
   }
   // join the smaller team (a tie keeps the given one); my bots fill in, starting with the other side
   function pickTeam(tie) {
@@ -8383,6 +8394,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         fireCd: 1 + Math.random(), side: Math.random() < 0.5 ? 1 : -1, wander: Math.random() * 6.28, seq: 0, q: 0,
         weapon: "fire", shotLog: [], hitBy: [], koBy: [], st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 } };
       bots.push(b); botById.set(id, b);
+      if (isTeams()) joinTeam(b);
     }
   }
   // a pilot flown from outside, like a player on the authoritative server: a bot whose stick, aim and triggers
@@ -10154,12 +10166,12 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const shooters = rows.filter(r => r.shots >= 10);
     const pick = (list, f) => list.length ? list.reduce((a, b) => f(b) > f(a) ? b : a) : null;
     const awards = [
-      ["Most kills", pick(rows, r => r.kills), r => r.kills + " kills"],
+      ["Most kills", pick(rows.filter(r => r.kills > 0), r => r.kills), r => r.kills + " kills"],
       ["Sharpshooter", pick(shooters, r => acc(r)), r => acc(r) + "% of shots hit"],
       ["Stormtrooper", shooters.length > 1 ? pick(shooters, r => -acc(r)) : null, r => "only " + acc(r) + "% hit"],
-      ["Untouchable", rows.length > 1 ? pick(rows, r => -r.deaths) : null, r => r.deaths + " deaths"],
-      ["Rampage", pick(rows, r => r.best), r => r.best + " kills in a row"],
-      ["Kamikaze", rows.length > 1 ? pick(rows, r => r.deaths) : null, r => r.deaths + " deaths"]
+      ["Untouchable", rows.some(r => r.deaths > 0) ? pick(rows, r => -r.deaths) : null, r => r.deaths + " deaths"],   // (only when someone died)
+      ["Rampage", pick(rows.filter(r => r.best >= 2), r => r.best), r => r.best + " kills in a row"],
+      ["Kamikaze", rows.length > 1 ? pick(rows.filter(r => r.deaths > 0), r => r.deaths) : null, r => r.deaths + " deaths"]
     ].filter(([, who]) => who);
     const card = document.getElementById("resultsCard");
     card.innerHTML = `<h2>Round ${roundNo} over</h2>
@@ -10262,12 +10274,14 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     return { k, c, lead: goalOf(MODE) ? (c[0] - c[1] || k[0] - k[1]) : k[0] - k[1] };
   }
   function renderBoard() {
+    const goal = goalOf(MODE);
+    document.getElementById("boardCols").textContent = (goal ? goal[0].toUpperCase() + goal.slice(1) + " · " : "") + "Kills / Deaths · Points";
     const rows = playerRows();
     rows.sort(comparePlayers);
     const shown = rows;
     const team = [];
     if (isTeams()) {   // the two teams first: kills, or captures in CTF
-      const t = teamTotals(), goal = goalOf(MODE);
+      const t = teamTotals();
       for (const i of [0, 1]) {
         const li = document.createElement("li"); li.className = "team";
         const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = TEAM_NAME[i] + " team"; nm.style.color = TEAM_HEX[i];
@@ -11487,7 +11501,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       if (ev.warn || ev.active) {
         bannerEl.hidden = false;
         bannerEl.style.setProperty("--ev", info.col);
-        bannerEl.textContent = ev.warn ? info.warn + " · " + Math.ceil(EV_START - ev.ph) + "…" : info.on + " · " + Math.ceil(EV_LEN - ev.et) + "s";
+        bannerEl.textContent = ev.warn ? info.warn + " · in " + Math.ceil(EV_START - ev.ph) + "s" : info.on + " · " + Math.ceil(EV_LEN - ev.et) + "s";
         bannerEl.classList.toggle("warn", ev.warn);
       } else bannerEl.hidden = true;
     }

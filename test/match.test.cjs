@@ -222,3 +222,15 @@ test('a station\'s crates are loose: a pilot flying into one shoves it, and it s
     assert.ok(Math.hypot(crate.vx, crate.vy) < 5, 'and at rest again');
   } finally { m.dispose(); }
 });
+
+test('in a team mode on the server every pilot, bot or player, is on a side, and the sides are even', { skip }, async () => {
+  for (const code of ['m1c0k', 'm1t0c']) {
+    const m = await createMatch({ code, bots: 6 });
+    try {
+      m.addPilot('P'); m.addPilot('Q'); run(m, 0.2);
+      const tms = m.game.__simBots().map(b => b.tm), n0 = tms.filter(t => t === 0).length, n1 = tms.filter(t => t === 1).length;
+      assert.equal(n0 + n1, tms.length, code + ': everyone on a side');
+      assert.ok(Math.abs(n0 - n1) <= 1, `${code}: ${n0} against ${n1}`);
+    } finally { m.dispose(); }
+  }
+});

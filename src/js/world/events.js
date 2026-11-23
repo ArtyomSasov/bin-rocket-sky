@@ -101,7 +101,7 @@
       if (ev.warn || ev.active) {
         bannerEl.hidden = false;
         bannerEl.style.setProperty("--ev", info.col);
-        bannerEl.textContent = ev.warn ? info.warn + " · " + Math.ceil(EV_START - ev.ph) + "…" : info.on + " · " + Math.ceil(EV_LEN - ev.et) + "s";
+        bannerEl.textContent = ev.warn ? info.warn + " · in " + Math.ceil(EV_START - ev.ph) + "s" : info.on + " · " + Math.ceil(EV_LEN - ev.et) + "s";
         bannerEl.classList.toggle("warn", ev.warn);
       } else bannerEl.hidden = true;
     }

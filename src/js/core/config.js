@@ -9,17 +9,17 @@
   const MAPS = {
     f: { name: "Foundry", label: "Foundry", hint: "industrial corridors, three routes", station: true },
     k: { name: "Cargo Deck", label: "Cargo Deck", hint: "a ring corridor round a cargo hall, crates to smash", station: true },
-    h: { name: "Hangar", label: "Hangar · NEW", hint: "one huge hangar bay, corridors all round", station: true },
-    d: { name: "Derelict", label: "Derelict · NEW", hint: "a cruiser broken in two, open space round it", station: true },
-    v: { name: "Vault", label: "Vault · NEW", hint: "nine rooms and narrow doors, the vault in the middle", station: true },
+    h: { name: "Hangar", label: "Hangar", hint: "one huge hangar bay, corridors all round", station: true },
+    d: { name: "Derelict", label: "Derelict", hint: "a cruiser broken in two, open space round it", station: true },
+    v: { name: "Vault", label: "Vault", hint: "nine rooms and narrow doors, the vault in the middle", station: true },
     c: { name: "Twin Worlds", label: "Twin Worlds", hint: "two giants, an open centre" },
     a: { name: "The Ring", label: "The Ring", hint: "a ring of asteroids, four gates", lumpy: true },
     y: { name: "Drydocks", label: "Drydocks", hint: "rows of moored hulls" },
     r: { name: "Downtown", label: "Downtown", hint: "tower blocks, a main street" },
     s: { name: "Orrery", label: "Orrery", hint: "a sun and its planets", star: true },
     w: { name: "The Tip", label: "The Tip", hint: "trucks, skips, a landfill hill" },
-    i: { name: "Frost Belt", label: "Frost Belt · NEW", hint: "an ice belt across the middle, a frozen hull" },
-    g: { name: "Graveyard", label: "Graveyard · NEW", hint: "a lost fleet's wrecks round a dead red world" },
+    i: { name: "Frost Belt", label: "Frost Belt", hint: "an ice belt across the middle, a frozen hull" },
+    g: { name: "Graveyard", label: "Graveyard", hint: "a lost fleet's wrecks round a dead red world" },
     o: { name: "Duel", label: "Duel", hint: "nearly empty: duels" }
   };
 

@@ -79,6 +79,7 @@ body {
 .rcard th:first-child, .rcard td:first-child { text-align: left; }
 .rcard td { text-align: right; padding: 5px 6px; border-top: 1px solid var(--line); }
 .rcard tr.me td { background: rgba(79,214,200,.12); }
+@media (max-width: 480px) { .card.rcard { padding: 16px 12px; } .rcard table { font-size: 12px; } .rcard th { font-size: 9px; letter-spacing: 0; padding: 4px 3px; } .rcard td { padding: 5px 3px; } }   /* a phone: the whole table fits */
 .awards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
 .award { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: grid; gap: 2px; }
 .award b { font: 700 13px var(--display); color: var(--teal); }
@@ -207,7 +208,7 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
 .pick .vol { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; }
 .pick .vol input { width: 100%; accent-color: var(--accent, #6ff0c8); min-height: 28px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
-.cards button { display: grid; gap: 2px; text-align: left; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,.04); color: var(--ink);
+.cards button { display: grid; gap: 2px; align-content: start; text-align: left; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,.04); color: var(--ink);
   border: 1px solid var(--line); box-shadow: none; font: 700 13px var(--display); }
 .cards button small { font: 600 11px var(--body); color: var(--muted); }
 .cards button[aria-pressed="true"] { background: rgba(79,214,200,.2); border-color: var(--teal); }

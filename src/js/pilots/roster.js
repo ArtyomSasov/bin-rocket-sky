@@ -15,6 +15,7 @@
         fireCd: 1 + Math.random(), side: Math.random() < 0.5 ? 1 : -1, wander: Math.random() * 6.28, seq: 0, q: 0,
         weapon: "fire", shotLog: [], hitBy: [], koBy: [], st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 } };
       bots.push(b); botById.set(id, b);
+      if (isTeams()) joinTeam(b);
     }
   }
   // a pilot flown from outside, like a player on the authoritative server: a bot whose stick, aim and triggers
