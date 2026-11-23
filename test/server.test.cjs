@@ -47,7 +47,10 @@ test('the server\'s games share a budget of AI bots: one opened while another fl
     const bots = code => srv.rooms.get(code).match.bots;
     assert.equal(bots('m1d0obudgeta'), 16);
     assert.equal(bots('m1d0obudgetb'), 6, 'the second game: what is left of 20, at least 6');
-  } finally { for (const c of [a, b]) { c.sendJ({ t: 'bye' }); c.close(); } }
+  } finally {
+    for (const c of [a, b]) { c.sendJ({ t: 'bye' }); c.close(); }
+    for (let i = 0; i < 100 && [...srv.rooms.values()].some(r => r.clients.size); i++) await new Promise(r => setTimeout(r, 20));   // (until the server has let them go)
+  }
 });
 
 test('a player joins a room, gets snapshots, and flies by the input it sends', { skip }, async () => {
@@ -139,7 +142,10 @@ test('the server refuses another site’s page, a bad code and too many rooms fr
     const extra = client(); await extra.opened; extra.sendJ({ t: 'join', code: 'm1d0othird' });
     assert.equal((await extra.next(m => m.t === 'error')).reason, 'you already have a room');
     extra.close();
-  } finally { for (const c of [one, two]) { c.sendJ({ t: 'bye' }); c.close(); } }
+  } finally {
+    for (const c of [one, two]) { c.sendJ({ t: 'bye' }); c.close(); }
+    for (let i = 0; i < 100 && [...srv.rooms.values()].some(r => r.clients.size); i++) await new Promise(r => setTimeout(r, 20));
+  }
 });
 
 test('/health shows counts, never room codes, and no cross-site access', { skip }, async () => {

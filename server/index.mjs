@@ -236,9 +236,10 @@ wss.on("connection", (ws, req) => {
         // (one room over MAX_ROOMS at most, whatever the memory says: rooms opened at once have not grown yet)
         const memOk = ROOM_MEM_MB > 0 && rooms.size < MAX_ROOMS + 1 && process.memoryUsage().rss / 1e6 < ROOM_MEM_MB;
         if (rooms.size >= MAX_ROOMS && !memOk) { send(ws, { t: "error", reason: "server full" }); ws.close(1013); return; }
-        // one address opens few rooms at a time, so nobody can take every room for themselves (an empty one it left
-        // does not count: it gives way anyway)
-        if ([...rooms.values()].filter(o => o.opener === addr && (o.clients.size || o.held.size)).length >= ROOMS_PER_IP) { send(ws, { t: "error", reason: "you already have a room" }); ws.close(1013); return; }
+        // one address opens few rooms at a time, so nobody can take every room for themselves; a game it opened and left
+        // empty is closed as it opens a new one (it would only stand idle, its bots flying for nobody)
+        for (const o of [...rooms.values()]) if (o.opener === addr && !o.clients.size && !o.held.size) closeRoom(o);
+        if ([...rooms.values()].filter(o => o.opener === addr).length >= ROOMS_PER_IP) { send(ws, { t: "error", reason: "you already have a room" }); ws.close(1013); return; }
         r = openRoom(code, m.bots, m.level); r.opener = addr; r.pub = m.pub === true;
       }
       // back after a dropped connection: the pilot kept for them (its key, rk, was theirs alone), or still held by
