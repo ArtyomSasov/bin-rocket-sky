@@ -73,7 +73,6 @@
     MOVE_STATE.forEach((k, i) => o[k] = v[i]);
     o.stick = { x: v[MOVE_STATE.length], y: v[MOVE_STATE.length + 1] }; o.boostOn = o.boosting = !!v[MOVE_STATE.length + 2];
   }
-  // touching another pilot pushes you off it (harder if it rams you on boost, softer if you ram it): kick, or 0
   // my flight: thrust with inertia, gravity, bumping off bodies and the fence, facing, exhaust
   // on the game server my flight goes as commands, one every CMD_DT of frame time (pilotMove): made, flown here and
   // kept until the server has flown it too (net/server-client.js sends them and reconciles)
@@ -102,6 +101,7 @@
   // but no longer spin it (shooting while standing still used to flip it round and round)
   function faceMe(dt, drift) {
     const steerMag = Math.hypot(steer.x, steer.y), sp = Math.hypot(me.vx, me.vy);
+    dt *= performance.now() < (me.stunUntil || 0) ? 0.2 : 1;   // just knocked aside by a heavy hit: the nose comes back slowly (spinKick)
     if (playing && !me.dead && pad.on && pad.aimUntil > performance.now()) me.a = lerpAng(me.a, pad.aim, 1 - Math.exp(-30 * dt));   // a gamepad's right stick aims
     else if (playing && !me.dead && mouseAim()) {   // mouse aim: the nose follows the cursor, quick but not instant
       const [cx, cy] = cursorAt();

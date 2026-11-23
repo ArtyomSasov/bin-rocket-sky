@@ -45,10 +45,22 @@
   }
   // a collision's damage, from the change of speed felt (dv, px/s): nothing under 300 (a bump), then rising steeply
   const knockDmg = dv => dv > 300 ? (dv - 300) * 0.0016 : 0;
+  // rammed by a pilot on boost (or dashing): the blow hurts twice as much and throws you RAM_PUSH further off
+  const RAM_DMG = 2, RAM_PUSH = 380;
+  // a heavy hit (30 HP or more) knocks the bin's nose aside, the harder the further, away from where the shot came
+  // from, and for a moment it comes back slowly (faceMe): the aim is thrown off. ang: the shot's way (or a guess)
+  function spinKick(o, dmg, ang, now) {
+    if (!(dmg >= 0.9) || o.dead) return;
+    const side = Math.sin(ang - o.a) >= 0 ? 1 : -1;
+    o.a += side * Math.min(0.9, dmg * 0.35); o.stunUntil = now + 250;
+  }
   // o (its mass mo; omitted: heavy, as before) against the bodies: the fixed ones throw it back; loose rubble takes its
   // share of the blow by weight (a bin ploughs through grit, a boulder stops it)
-  function bounceOff(o, rad, k, mo) {
+  // props: false leaves a station's loose crates out (a player's command flight: they move, so it could not be flown
+  // again exactly; propContacts meets them), "only" meets just them
+  function bounceOff(o, rad, k, mo, props = true) {
     for (const b of bodies) {
+      if (b.prop ? props === false : props === "only") continue;
       const dx = o.x - b.x, dy = o.y - b.y;
       if (dx * dx + dy * dy > (b.r + rad) ** 2) continue;
       let nx = 0, ny = 0, hits = 0;

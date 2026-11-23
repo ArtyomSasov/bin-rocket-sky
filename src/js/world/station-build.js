@@ -78,6 +78,48 @@
   }
   // once worn down past half, a prop gives way: what is left comes apart in a few pieces (on every screen the same,
   // as the pieces follow from its cells), a drum with a burst of flame
+  // a drum goes up when it breaks: a blast as a rocket's (up to 75 HP, throwing all round it); each screen judges its
+  // own pilots, the server its pilots, so it hurts whoever is near: a trap to shove or shoot an enemy into
+  const drumBlast = b => splash({ kind: K.ROCKET, x: b.x, y: b.y, vx: 0, vy: 0, m: 1, life: 0, owner: "drum", id: "drum." + b.id + "." + stats.round }, performance.now());
+  // A station's inner walls grow back: every REGROW_S on the shared clock (so every screen and the server grow them
+  // alike), each broken wall gets back up to REGROW_N of its missing cells, those next to what still stands, never
+  // within reach of a pilot (none is walled in). A hole closes in some seconds; a breach stays open while it is used
+  const REGROW_S = 3, REGROW_N = 8, REGROW_CLEAR = 70;
+  let regrowSlot = -1;
+  const regrowSlotNow = () => Math.floor(clockNow() / 1000 / REGROW_S);
+  function regrowWalls(slot) {   // slot: the REGROW_S tick of the shared clock (regrowSlotNow)
+    if (slot === regrowSlot) return;
+    regrowSlot = slot;
+    const pilots = bots.filter(o => !o.dead);
+    if (playing && !me.dead) pilots.push(me);
+    for (const [id, r] of remotes) if (!botById.has(id) && !r.dead) pilots.push(r);
+    for (const b of det) {
+      if (!b.wall || b.dead || b.mass >= b.mass0) continue;
+      const { gw, gh, cs } = b, back = [];
+      for (let i = 0; i < b.cells.length && back.length < REGROW_N; i++) {
+        if (b.cells[i] || !b.initialCells[i]) continue;
+        const x = i % gw, y = (i - x) / gw;
+        if (!(x > 0 && b.cells[i - 1] || x < gw - 1 && b.cells[i + 1] || y > 0 && b.cells[i - gw] || y < gh - 1 && b.cells[i + gw])) continue;
+        const [wx, wy] = toWorld(b, (x + 0.5) * cs, (y + 0.5) * cs);
+        if (pilots.some(o => Math.abs(o.x - wx) < REGROW_CLEAR && Math.abs(o.y - wy) < REGROW_CLEAR)) continue;
+        back.push(i);
+      }
+      restoreCells(b, back);
+    }
+  }
+  // cells back as they were built: solid again, and their art painted anew (only where something is drawn)
+  function restoreCells(b, list) {
+    if (!list.length) return;
+    for (const i of list) b.cells[i] = 1;
+    b.mass += list.length;
+    if (window.BRS_BODY_CANVAS || !b.paint) return;   // (the server draws nothing)
+    const art = bodyCanvas(); art.width = b.cv.width; art.height = b.cv.height;
+    const aq = art.getContext("2d"); aq.scale(BODY_RES, BODY_RES);
+    paintStationWall({ q: aq }, ...b.paint);
+    b.q.save(); b.q.globalCompositeOperation = "source-over";
+    for (const i of list) { const x = (i % b.gw) * b.cs, y = Math.floor(i / b.gw) * b.cs; b.q.drawImage(art, x * BODY_RES, y * BODY_RES, b.cs * BODY_RES, b.cs * BODY_RES, x, y, b.cs, b.cs); }
+    b.q.restore();
+  }
   function collapseProp(b) {
     const { gw, gh } = b, nx = gw > gh * 2 ? 3 : 2, ny = gh > gw * 2 ? 3 : 2, groups = new Map();
     for (let k = 0; k < b.cells.length; k++) if (b.cells[k]) {
@@ -86,7 +128,7 @@
       groups.get(key).push(k);
     }
     for (const list of groups.values()) breakAway(b, list);
-    if (b.kind === "drum") explode(b.x, b.y, 30, 200);
+    if (b.kind === "drum") drumBlast(b);
     else smoke(b.x, b.y, lowQ ? 3 : 7, 70, 1.4);
     sfx("chunk", 0.8, b.kind === "panel" ? 1.4 : 0.8, b.x, b.y);
     b.dead = true; rebuildBodies();
@@ -103,7 +145,7 @@
       const b = newBody("f" + wrecks.length, "station", (x - start) * unit, unit, unit / 12);
       Object.assign(b, { fixed: hull, wall: !hull, hx: (start + x) * unit / 2, hy: (y + 0.5) * unit });
       b.x = b.hx; b.y = b.hy;
-      paintStationWall(b, start, x, y, unit, st);
+      paintStationWall(b, start, x, y, unit, st); b.paint = [start, x, y, unit, st];   // (kept: a wall regrows its art: regrowWalls)
       cellsFromArt(b); wrecks.push(b);
     }
     const props = [];
@@ -117,7 +159,11 @@
       amp: spot("amp", 10, 10, AMP_PERIOD), nuke: null, holy: null };
     arena.supplies.push(spot("mega", ...st.mega, SUPPLIES.mega.period));
     PICKS = guns.length; SUPPLY_SLOTS = arena.supplies.length;
-    det = [...wrecks, ...props]; rebuildBodies();
+    // the crates and drums are loose on the deck: a bin flying into one shoves it (by weight), a blast throws it, and
+    // it scrapes to a stop (as any loose piece: bodyTick). Named by their place, so the server says where each is
+    det = [...wrecks];
+    for (const p of props) { p.key = p.id; setFree(p, 0, 0, 0); p.freedAt = 0; }
+    rebuildBodies();
   }
   // the floor: one tile of tread plate per station, painted once (a cell is a single drawImage)
   const floorCache = new Map();

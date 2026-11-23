@@ -60,7 +60,7 @@
     const key = victimId + ":" + shotId;
     if (killSeen.has(key) || killSeen.size >= MAX_CREDITS || !roundLive) return;
     killSeen.add(key);
-    const k = tagOwner(shotId.split(".")[0]), killer = k ? k.name : "Someone", ram = shotId.includes(".ram");
+    const k = tagOwner(shotId.split(".")[0]), killer = k ? k.name : shotId.startsWith("drum.") ? "A drum" : "Someone", ram = shotId.includes(".ram");
     if (k?.me && victimId !== "me") showKillNotice(victim);
     const icon = ram ? RAM_ICON : ICONS[killWeapon(shotId) || (k ? k.weapon : "fire")] || ICONS.fire;
     feedPush(`<span class="k">${esc(killer)}</span><svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="${icon}"/></svg><span class="v">${esc(victim)}</span>`, k && k.me || victim === (me.name || "You"));

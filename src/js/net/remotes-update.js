@@ -37,7 +37,8 @@
           sfx("ram", Math.min(1, 0.3 + j / 900));
           // what I feel hurts me (offline and between browsers: on the server only its snapshots change my health); if
           // they rammed me, the credit is theirs, and I report it
-          const dmg = knockDmg(dv) * (mineRam && !rammed ? 0.4 : 1);
+          const dmg = knockDmg(dv) * (mineRam && !rammed ? 0.4 : rammed && !mineRam ? RAM_DMG : 1);
+          if (rammed && !mineRam && !serverRun) { me.vx += nx * RAM_PUSH; me.vy += ny * RAM_PUSH; }   // (thrown off: on the server, its word)
           if (!serverRun && dmg > 0 && !mates(r, me) && roundLive && (!r.knockAt || now - r.knockAt > 300)) {
             r.knockAt = now;
             const id = rammed && !mineRam && r.tag ? r.tag + ".ram" + Math.floor(now) : null;

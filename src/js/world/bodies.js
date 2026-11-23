@@ -2,7 +2,7 @@
   // They move on the shared clock, so every player has the same ones. Each player reports the craters its own shots
   // (and its bots' shots) make and everyone applies them, so holes match. Pieces that break off become free rubble
   // that each player simulates on its own. A new round rebuilds everything.
-  const PLANET_G = 320;   // px/s² at the surface of a whole 250-radius planet
+  const PLANET_G = 520;   // px/s² at the surface of a whole 250-radius planet
   const PLANET_PAL = {
     gas:  { base: "#c98a5a", bands: ["#e8b27a", "#9c5f3c", "#f3d3a0", "#b7714a"], glow: "255,190,130" },
     ice:  { base: "#8fc9e8", bands: ["#d8f3ff", "#6aa6cf", "#bfe6f7"], glow: "160,225,255" },

@@ -889,7 +889,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     laser:   { name: "Pulse Gun", ammo: 80, cd: 0.12, col: "#a8ff55", shot: [K.PULSE_BOLT, 1500], kick: 6, feel: [3, 0.03, 30], sfx: ["p_ut_pulse_fire", .75, 1], fx: "pulse",
                alt: { name: "Plasma Nova", charge: 0.6, nova: true, cost: 5, cd: 0.6, shot: [K.NOVA, 1400], kick: 260, feel: [22, 0.3, 50], sfx: ["p_nova", 1, 1] } },
     // rockets as in Quake: straight and fast (about 2.4x a bin's speed), dodgeable by reading them; alt three slow homing ones
-    rocket:  { name: "Rocket launcher", ammo: 8, cd: 0.8, col: "#ff5a6e", shot: [K.ROCKET, 1350], kick: 120, feel: [12, 0.16, 70], sfx: ["rocket", 0.8],
+    rocket:  { name: "Rocket launcher", ammo: 8, cd: 0.8, col: "#ff5a6e", shot: [K.ROCKET, 1350], kick: 280, feel: [12, 0.16, 70], sfx: ["rocket", 0.8],
                alt: { name: "Load rockets", load: true, cost: 1, cd: 0.9, shot: [K.ROCKET, 1350], kick: 200, feel: [18, 0.23, 96], sfx: ["rocket", 1, 0.8] } },
     // the void bomb: where it bursts (on whatever it touches, or at the end of its flight) a black hole opens for six
     // seconds, dragging in bins, shots, wrecks, rock and smoke, and eating what reaches it
@@ -897,11 +897,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       alt: { name: "Short throw", cost: 1, cd: 1.2, shot: [K.VOID, 480], kick: 70, feel: [26, 0.4, 110], sfx: ["rocket", 1, 0.4] } },
     nuke:    { name: "Nuke", ammo: 1, cd: 1.0, col: "#ffe14d", shot: [K.NUKE, 360], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.6],
                alt: { name: "Guided", cost: 1, cd: 1.0, shot: [K.NUKE, 420], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.5], guided: true } },
-    scatter: { name: "Scatter gun", ammo: 12, cd: 0.7, col: "#ffd27a", shot: [K.PELLET, 1250], kick: 260, feel: [22, 0.3, 90], sfx: ["scatter", 1, 0.85], fx: "blast",
+    scatter: { name: "Scatter gun", ammo: 12, cd: 0.7, col: "#ffd27a", shot: [K.PELLET, 1250], kick: 560, feel: [22, 0.3, 90], sfx: ["scatter", 1, 0.85], fx: "blast",
                quickAlt: true,   // (the hook has its own cooldown: the gun fires as soon as it lands)
                alt: { name: "Hook", cost: 0, cd: 2.5, shot: [K.HOOK, 2600], kick: 0, feel: [6, 0.1, 0], sfx: ["p_metal", 0.6, 1.3] } },
     // Precision single-shot weapon, with no alternate mode.
-    rail: { name: "Railgun", ammo: 5, cd: 1.8, col: "#d9a8ff", shot: [K.RAIL, 4200], kick: 320, feel: [26, 0.35, 90], sfx: ["rail", .9], fx: "rail",
+    rail: { name: "Railgun", ammo: 5, cd: 1.8, col: "#d9a8ff", shot: [K.RAIL, 4200], kick: 650, feel: [26, 0.35, 90], sfx: ["rail", .9], fx: "rail",
       alt: { name: "Scope", view: true } },   // held: the view reaches far along the aim (it fires nothing; the main trigger still does)
     // the prox launcher (Quake Team Arena): a mine flies like a grenade, sticks to the first rock or wall it meets,
     // arms, and goes off a beat after an enemy comes near; alt sets off all your mines at once
@@ -979,6 +979,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   let PICKS = 0;   // weapon spots on this arena (see world/arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
+  // a hit throws its target back along the shot (px/s): the light guns a nudge, the heavy ones a real shove (the rest
+  // keep their own, set with their numbers above)
+  const KNOCK = { [K.FIRE]: 80, [K.PISTOL]: 50, [K.BULLET]: 45, [K.BULLET_ALT]: 120, [K.PULSE_BOLT]: 90, [K.ROCKET]: 450, [K.NOVA]: 400 };
+  for (const [k, v] of Object.entries(KNOCK)) SHOTS[k].shove = Math.max(SHOTS[k].shove || 0, v);
   const SPLASH = { [K.BULLET_ALT]: [100, HP(24), 0, 170], [K.FLAK]: [210, HP(70), 0, 400], [K.MINE]: [262, HP(100), 0, 450], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [330, HP(140), HP(25), 800], [K.NOVA]: [300, HP(150), 0, 900] };   // (Plasma Nova: a full one kills a bin at its heart)
   const NOVA_ZAP = { r: 260, every: 0.12, dmg: HP(12) };   // the nova lashes every enemy this close to its path, by its charge   // the gamma orb zaps every enemy this close as it flies
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs
@@ -1549,6 +1553,48 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   }
   // once worn down past half, a prop gives way: what is left comes apart in a few pieces (on every screen the same,
   // as the pieces follow from its cells), a drum with a burst of flame
+  // a drum goes up when it breaks: a blast as a rocket's (up to 75 HP, throwing all round it); each screen judges its
+  // own pilots, the server its pilots, so it hurts whoever is near: a trap to shove or shoot an enemy into
+  const drumBlast = b => splash({ kind: K.ROCKET, x: b.x, y: b.y, vx: 0, vy: 0, m: 1, life: 0, owner: "drum", id: "drum." + b.id + "." + stats.round }, performance.now());
+  // A station's inner walls grow back: every REGROW_S on the shared clock (so every screen and the server grow them
+  // alike), each broken wall gets back up to REGROW_N of its missing cells, those next to what still stands, never
+  // within reach of a pilot (none is walled in). A hole closes in some seconds; a breach stays open while it is used
+  const REGROW_S = 3, REGROW_N = 8, REGROW_CLEAR = 70;
+  let regrowSlot = -1;
+  const regrowSlotNow = () => Math.floor(clockNow() / 1000 / REGROW_S);
+  function regrowWalls(slot) {   // slot: the REGROW_S tick of the shared clock (regrowSlotNow)
+    if (slot === regrowSlot) return;
+    regrowSlot = slot;
+    const pilots = bots.filter(o => !o.dead);
+    if (playing && !me.dead) pilots.push(me);
+    for (const [id, r] of remotes) if (!botById.has(id) && !r.dead) pilots.push(r);
+    for (const b of det) {
+      if (!b.wall || b.dead || b.mass >= b.mass0) continue;
+      const { gw, gh, cs } = b, back = [];
+      for (let i = 0; i < b.cells.length && back.length < REGROW_N; i++) {
+        if (b.cells[i] || !b.initialCells[i]) continue;
+        const x = i % gw, y = (i - x) / gw;
+        if (!(x > 0 && b.cells[i - 1] || x < gw - 1 && b.cells[i + 1] || y > 0 && b.cells[i - gw] || y < gh - 1 && b.cells[i + gw])) continue;
+        const [wx, wy] = toWorld(b, (x + 0.5) * cs, (y + 0.5) * cs);
+        if (pilots.some(o => Math.abs(o.x - wx) < REGROW_CLEAR && Math.abs(o.y - wy) < REGROW_CLEAR)) continue;
+        back.push(i);
+      }
+      restoreCells(b, back);
+    }
+  }
+  // cells back as they were built: solid again, and their art painted anew (only where something is drawn)
+  function restoreCells(b, list) {
+    if (!list.length) return;
+    for (const i of list) b.cells[i] = 1;
+    b.mass += list.length;
+    if (window.BRS_BODY_CANVAS || !b.paint) return;   // (the server draws nothing)
+    const art = bodyCanvas(); art.width = b.cv.width; art.height = b.cv.height;
+    const aq = art.getContext("2d"); aq.scale(BODY_RES, BODY_RES);
+    paintStationWall({ q: aq }, ...b.paint);
+    b.q.save(); b.q.globalCompositeOperation = "source-over";
+    for (const i of list) { const x = (i % b.gw) * b.cs, y = Math.floor(i / b.gw) * b.cs; b.q.drawImage(art, x * BODY_RES, y * BODY_RES, b.cs * BODY_RES, b.cs * BODY_RES, x, y, b.cs, b.cs); }
+    b.q.restore();
+  }
   function collapseProp(b) {
     const { gw, gh } = b, nx = gw > gh * 2 ? 3 : 2, ny = gh > gw * 2 ? 3 : 2, groups = new Map();
     for (let k = 0; k < b.cells.length; k++) if (b.cells[k]) {
@@ -1557,7 +1603,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       groups.get(key).push(k);
     }
     for (const list of groups.values()) breakAway(b, list);
-    if (b.kind === "drum") explode(b.x, b.y, 30, 200);
+    if (b.kind === "drum") drumBlast(b);
     else smoke(b.x, b.y, lowQ ? 3 : 7, 70, 1.4);
     sfx("chunk", 0.8, b.kind === "panel" ? 1.4 : 0.8, b.x, b.y);
     b.dead = true; rebuildBodies();
@@ -1574,7 +1620,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       const b = newBody("f" + wrecks.length, "station", (x - start) * unit, unit, unit / 12);
       Object.assign(b, { fixed: hull, wall: !hull, hx: (start + x) * unit / 2, hy: (y + 0.5) * unit });
       b.x = b.hx; b.y = b.hy;
-      paintStationWall(b, start, x, y, unit, st);
+      paintStationWall(b, start, x, y, unit, st); b.paint = [start, x, y, unit, st];   // (kept: a wall regrows its art: regrowWalls)
       cellsFromArt(b); wrecks.push(b);
     }
     const props = [];
@@ -1588,7 +1634,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       amp: spot("amp", 10, 10, AMP_PERIOD), nuke: null, holy: null };
     arena.supplies.push(spot("mega", ...st.mega, SUPPLIES.mega.period));
     PICKS = guns.length; SUPPLY_SLOTS = arena.supplies.length;
-    det = [...wrecks, ...props]; rebuildBodies();
+    // the crates and drums are loose on the deck: a bin flying into one shoves it (by weight), a blast throws it, and
+    // it scrapes to a stop (as any loose piece: bodyTick). Named by their place, so the server says where each is
+    det = [...wrecks];
+    for (const p of props) { p.key = p.id; setFree(p, 0, 0, 0); p.freedAt = 0; }
+    rebuildBodies();
   }
   // the floor: one tile of tread plate per station, painted once (a cell is a single drawImage)
   const floorCache = new Map();
@@ -2883,7 +2933,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // They move on the shared clock, so every player has the same ones. Each player reports the craters its own shots
   // (and its bots' shots) make and everyone applies them, so holes match. Pieces that break off become free rubble
   // that each player simulates on its own. A new round rebuilds everything.
-  const PLANET_G = 320;   // px/s² at the surface of a whole 250-radius planet
+  const PLANET_G = 520;   // px/s² at the surface of a whole 250-radius planet
   const PLANET_PAL = {
     gas:  { base: "#c98a5a", bands: ["#e8b27a", "#9c5f3c", "#f3d3a0", "#b7714a"], glow: "255,190,130" },
     ice:  { base: "#8fc9e8", bands: ["#d8f3ff", "#6aa6cf", "#bfe6f7"], glow: "160,225,255" },
@@ -3807,6 +3857,12 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       b.mass -= removed; b.dirty = true;
       sweepOrphans(b, 0, b.gw - 1, 0, b.gh - 1);
     }
+    // a wall grows back (regrowWalls): on the game server its word on which cells stand brings mine back too
+    if (serverRun && b.wall) {
+      const back = [];
+      for (let i = 0; i < b.cells.length; i++) if (!b.cells[i] && b.initialCells[i] && !(bytes.charCodeAt(i >> 3) & (1 << (i & 7)))) back.push(i);
+      restoreCells(b, back);
+    }
   }
 
   // ---------- breaking apart: cut-off pieces fly away as rubble; a planet whittled down to its last 15% blows apart ----------
@@ -3836,7 +3892,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       comps.forEach((c, i) => { if (i !== main && (!b.wall || c.length < Math.max(24, b.mass0 * 0.06))) breakAway(b, c); });
       rebuildBodies();
     }
-    if (b.prop && !b.free && !b.dead && b.mass < b.mass0 * 0.5) { collapseProp(b); return; }
+    if (b.prop && !b.dead && b.mass < b.mass0 * 0.5) { collapseProp(b); return; }
     if (b.planet && !b.free && b.mass < b.mass0 * 0.15) {
       destroyPlanet(b, now);
       if (b.lastOwn && playing) { me.score += 25; showScore(); floaters.push({ x: b.x, y: b.y - 80, t: 0, txt: "PLANET +25", gold: true }); }
@@ -3881,7 +3937,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       for (let k = 0; k < (lowQ ? 3 : 8); k++) { const a = Math.random() * 6.28, v = 20 + Math.random() * 70; puff(x + (Math.random() - 0.5) * f.hw, y + (Math.random() - 0.5) * f.hh, Math.cos(a) * v + f.vx, Math.sin(a) * v + f.vy, 1.2 + Math.random(), 7 + Math.random() * 8, k % 2 ? bodyCol(b) : "rgb(90,80,100)", 2); }
       for (let k = 0; k < Math.min(5, list.length >> 3); k++) { const a = Math.random() * 6.28, v = 40 + Math.random() * 110; addDebris(x, y, Math.cos(a) * v + f.vx, Math.sin(a) * v + f.vy, 3 + Math.random() * 5, bodyCol(b), 6 + Math.random() * 4); }
       sfx("chunk", Math.min(0.9, 0.3 + list.length / 120), 0.7 + Math.random() * 0.3, x, y);
-      while (rubble.length > 50) { const old = rubble.shift(); old.dead = true; }
+      for (let i = 0; rubble.length - countProps() > 50 && i < rubble.length; ) { if (rubble[i].prop) { i++; continue; } rubble[i].dead = true; rubble.splice(i, 1); }   // (the oldest pieces go; a station's crates stay)
     } else {
       for (let k = 0; k < Math.min(6, list.length); k++) { const a = Math.random() * 6.28, v = 40 + Math.random() * 120; addDebris(x, y, Math.cos(a) * v, Math.sin(a) * v, 4 + Math.random() * 6, bodyCol(b)); }
     }
@@ -3911,6 +3967,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // every frame: shared poses, rubble drifting, and pending break-ups
   function bodyTick(now, dt) {
     posesAt(clockNow(), dt);
+    if (stationMap()) regrowWalls(regrowSlotNow());
     // (on a station's deck a loose piece scrapes along the floor and comes to rest; in space it drifts on)
     const deck = stationMap(), drag = Math.exp(-(deck ? 1.6 : 0.02) * dt), spinDrag = Math.exp(-(deck ? 2 : 0.05) * dt);
     for (const b of rubble) {
@@ -3933,7 +3990,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // throws dust, and a small piece hitting very hard crumbles to grit. Rubble-on-rubble is left out (cheap, and
   // the pieces are few). Only the rubble itself is changed: shared terrain is cut by shots alone.
   // a piece of rubble falls apart into grit
+  const countProps = () => { let n = 0; for (const r of rubble) if (r.prop) n++; return n; };
   function crumble(r) {
+    if (r.prop && r.kind === "drum" && !r.dead) drumBlast(r);
     for (let k = 0; k < Math.min(8, 2 + (r.mass >> 3)); k++) { const a = Math.random() * 6.28, v = 30 + Math.random() * 120; addDebris(r.x, r.y, Math.cos(a) * v + r.vx * 0.3, Math.sin(a) * v + r.vy * 0.3, 2.5 + Math.random() * 4, bodyCol(r), 4 + Math.random() * 4); }
     r.dead = true;
   }
@@ -3980,7 +4039,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (!all && b.wx !== undefined && Math.abs(b.x - b.wx) < 1.5 && Math.abs(b.y - b.wy) < 1.5 && Math.abs(b.a - b.wa) < 0.02) continue;
       b.wx = b.x; b.wy = b.y; b.wa = b.a;
       out.push([b.key, Math.round(b.x), Math.round(b.y), Math.round(b.a * 100), Math.round(b.vx), Math.round(b.vy), Math.round(b.va * 100)]);
-      if (out.length >= 60) break;
+      if (out.length >= 120) break;
     }
     return out.length || all ? { all, list: out } : null;
   }
@@ -3988,7 +4047,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (!w || typeof w !== "object" || !Array.isArray(w.list)) return;
     const byKey = new Map(); for (const b of rubble) if (!b.dead && b.key) byKey.set(b.key, b);
     const seen = new Set(), now = performance.now();
-    for (const e of w.list.slice(0, 60)) {
+    for (const e of w.list.slice(0, 120)) {
       if (!Array.isArray(e) || e.length !== 7 || typeof e[0] !== "string" || e[0].length > 80 || !e.slice(1).every(Number.isFinite)) continue;
       seen.add(e[0]);
       const b = byKey.get(e[0]);
@@ -4088,14 +4147,29 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     return o;
   }
   // planets pull, less as they are chipped away
+  const pullAt = (p, d) => PLANET_G * (p.rr / 250) * (p.rr / Math.max(d, p.rr)) ** 2 * (1 - d / (p.rr * 4)) * (p.mass / p.mass0);
   function gravityOn(o, dt) {
     for (const p of planets) {
       if (p.dead || p.free) continue;
-      const dx = p.x - o.x, dy = p.y - o.y, d = Math.hypot(dx, dy), R = p.rr;
-      if (d > R * 4 || d < 1) continue;
-      const acc = PLANET_G * (R / 250) * (R / Math.max(d, R)) ** 2 * (1 - d / (R * 4)) * (p.mass / p.mass0);
+      const dx = p.x - o.x, dy = p.y - o.y, d = Math.hypot(dx, dy);
+      if (d > p.rr * 4 || d < 1) continue;
+      const acc = pullAt(p, d);
       o.vx += dx / d * acc * dt; o.vy += dy / d * acc * dt;
     }
+  }
+  // in orbit: close round a planet, flying along it at about the speed that keeps a body circling there. Off the
+  // throttle a bin then coasts on without slowing (thrustPilot), so it can circle and shoot
+  function inOrbit(o) {
+    const v = Math.hypot(o.vx, o.vy);
+    if (v < 150) return false;
+    for (const p of planets) {
+      if (p.dead || p.free) continue;
+      const dx = o.x - p.x, dy = o.y - p.y, d = Math.hypot(dx, dy);
+      if (d < p.rr + 30 || d > p.rr * 2.6) continue;
+      const tang = Math.abs(dx * o.vy - dy * o.vx) / (d * v), vc = Math.sqrt(pullAt(p, d) * d);
+      if (tang > 0.85 && v > vc * 0.65 && v < vc * 1.5) return true;
+    }
+    return false;
   }
   // a round thing of radius rad against the solid cells: push it out and bounce it; free rubble gets shoved back
   function ringHits(b, o, rad) {
@@ -4105,7 +4179,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // only something big hurts when you fly into it: planets, moons and whole wrecks; small rubble just gets knocked aside
   const hurtsOnHit = b => b.mass >= 150;
   // crash damage grows with how hard you hit, small even at full boost (in lives: Lv 1 has 3)
-  const crashDmg = (hs, boosting) => hs < 380 ? 0 : Math.min(0.25, (boosting ? 0.1 : 0.05) * (hs - 300) / 300);   // (a hard head-on hit only, and a little)
+  // walls, planets and the fence are soft: a bin bounces off them (WALL_BOUNCE of its speed into them) and is hurt only
+  // by a very hard head-on hit, a little
+  const WALL_BOUNCE = 0.6;
+  const crashDmg = (hs, boosting) => hs < 650 ? 0 : Math.min(0.15, (boosting ? 0.06 : 0.03) * (hs - 600) / 300);
   // ---------- mass and collisions: one set of weights for everything ----------
   // Masses in "bins": a Lv 1 bin weighs 1, a bigger one with its area. A wreck's hulk is a shell (a third of a bin), a
   // piece of a broken bin a quarter, a scrap of debris almost nothing; loose rubble weighs what its rock does (its
@@ -4153,10 +4230,22 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   }
   // a collision's damage, from the change of speed felt (dv, px/s): nothing under 300 (a bump), then rising steeply
   const knockDmg = dv => dv > 300 ? (dv - 300) * 0.0016 : 0;
+  // rammed by a pilot on boost (or dashing): the blow hurts twice as much and throws you RAM_PUSH further off
+  const RAM_DMG = 2, RAM_PUSH = 380;
+  // a heavy hit (30 HP or more) knocks the bin's nose aside, the harder the further, away from where the shot came
+  // from, and for a moment it comes back slowly (faceMe): the aim is thrown off. ang: the shot's way (or a guess)
+  function spinKick(o, dmg, ang, now) {
+    if (!(dmg >= 0.9) || o.dead) return;
+    const side = Math.sin(ang - o.a) >= 0 ? 1 : -1;
+    o.a += side * Math.min(0.9, dmg * 0.35); o.stunUntil = now + 250;
+  }
   // o (its mass mo; omitted: heavy, as before) against the bodies: the fixed ones throw it back; loose rubble takes its
   // share of the blow by weight (a bin ploughs through grit, a boulder stops it)
-  function bounceOff(o, rad, k, mo) {
+  // props: false leaves a station's loose crates out (a player's command flight: they move, so it could not be flown
+  // again exactly; propContacts meets them), "only" meets just them
+  function bounceOff(o, rad, k, mo, props = true) {
     for (const b of bodies) {
+      if (b.prop ? props === false : props === "only") continue;
       const dx = o.x - b.x, dy = o.y - b.y;
       if (dx * dx + dy * dy > (b.r + rad) ** 2) continue;
       let nx = 0, ny = 0, hits = 0;
@@ -6599,6 +6688,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (dmg <= 0) { me.hazardAt = now + 600; shake = Math.max(shake, 0.15); return true; }
     }
     me.lives = Math.max(0, Math.round((me.lives - dmg) * 1000) / 1000);
+    spinKick(me, dmg, ang, now);
     me.hitAt = now;
     hurtFlash = Math.min(1, hurtFlash + 0.35 + dmg * 0.4);
     me.hazardAt = now + 600; shake = Math.max(shake, 0.12 + Math.min(0.3, dmg * 0.2));
@@ -7698,7 +7788,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (!m.am) me.ampUntil = 0; else if (Math.abs(left - m.am) > 1.2) me.ampUntil = now + m.am * 1000;
     }
     if (Number.isFinite(m.sh) && m.sh !== me.shield) { me.shield = clamp(m.sh, 0, MAX_SHIELD); renderShield(); }
-    if (Number.isFinite(m.l) && m.l !== me.lives) { const hit = m.l < me.lives; me.lives = clamp(m.l, 0, LIVES * 1.99); renderHearts(hit); if (hit && !me.dead) { me.hitAt = now; hurtFlash = Math.min(1, hurtFlash + 0.4); } }
+    if (Number.isFinite(m.l) && m.l !== me.lives) { const hit = m.l < me.lives; if (hit) spinKick(me, me.lives - m.l, me.a + (Math.random() < 0.5 ? 1 : -1), now); me.lives = clamp(m.l, 0, LIVES * 1.99); renderHearts(hit); if (hit && !me.dead) { me.hitAt = now; hurtFlash = Math.min(1, hurtFlash + 0.4); } }
     if (m.d === 1 && !me.dead) {   // the server's verdict: I died
       me.dead = true; me.diedAt = now; me.respawnAt = now + respawnDelay(); me.vx = me.vy = 0;
       me.ds = clamp(Math.floor(num(m.ds, 2)), 0, 4); me.dk = clamp(Math.floor(num(m.dk, 0)), 0, DEATH_KINDS); me.da = num(m.da, 0);
@@ -8353,6 +8443,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     dmg -= absorbed;
     if (!shotId.startsWith(b.tag + ".")) metricDamage(shotId, absorbed + Math.min(b.lives, dmg), b.lives <= dmg);
     b.lives = Math.round((b.lives - dmg) * 1000) / 1000;
+    if (!b.input) spinKick(b, dmg, ang, now);   // (a player's nose is their screen's to throw: it does, from the snapshot)
     if (!b.input && Math.random() < ({ easy: 0.15, normal: 0.35, hard: 0.6 })[b.level]) b.dashReq = true;   // an AI bot dodges when hit (a player dashes when they choose)
     const shown = remotes.get(b.id); if (shown) shown.hitAt = performance.now();
     const byHole = shotId === "x" || shotId === "p";   // the black hole or a planet: nobody gets credit
@@ -8634,7 +8725,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     if (Math.hypot(st.x, st.y) > 0.15) b.a = lerpAng(b.a, Math.atan2(st.y, st.x), 1 - Math.exp(-13 * dt));
     gravityOn(b, dt);
     b.x += b.vx * dt; b.y += b.vy * dt;
-    const pc = bounceOff(b, 40, 0.25, BIN_MASS);
+    const pc = bounceOff(b, 40, WALL_BOUNCE, BIN_MASS);
     if (pc && pc.vn < -200) {
       impact(b.x - pc.nx * 40, b.y - pc.ny * 40, "#ffd9b0", 1.2);
       const dmg = hurtsOnHit(pc.b) ? crashDmg(-pc.vn, false) : 0;
@@ -8667,8 +8758,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if (d < 62) {   // (their bin is theirs to move: only mine takes the blow here)
         const nx = dx / d, ny = dy / d, mb = BIN_MASS, mr = BIN_MASS, vn = (b.vx - (r.vx || 0)) * nx + (b.vy - (r.vy || 0)) * ny;
         if (vn < 0) {
-          const j = -1.5 * vn / (1 / mb + 1 / mr), dmg = knockDmg(j / mb);
-          b.vx += j * nx / mb; b.vy += j * ny / mb;
+          const j = -1.5 * vn / (1 / mb + 1 / mr), dmg = knockDmg(j / mb) * RAM_DMG;
+          b.vx += j * nx / mb + nx * RAM_PUSH; b.vy += j * ny / mb + ny * RAM_PUSH;
           if (dmg > 0 && (!b.rammedBy || now - b.rammedBy > 300)) { b.rammedBy = now; botHurt(b, dmg, r.tag + ".ram" + Math.floor(now), now, false); }
         }
       }
@@ -8715,19 +8806,28 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       if ((a === me || b === me) && j > 350) shake = Math.max(shake, Math.min(0.6, j / 1500));
       if (!roundLive || mates(a, b) || now - ((a.knocks ||= new WeakMap()).get(b) || 0) < 300) continue;
       a.knocks.set(b, now);
-      const hit = (o, other, dv, rammer, rammed) => {
-        const dmg = knockDmg(dv) * (rammer && !rammed ? 0.4 : 1);
+      const hit = (o, other, dv, rammer, rammed, ux, uy) => {
+        if (rammed && !rammer && !(o === me && serverRun)) { o.vx += ux * RAM_PUSH; o.vy += uy * RAM_PUSH; }   // thrown off by a ram
+        const dmg = knockDmg(dv) * (rammer && !rammed ? 0.4 : rammed && !rammer ? RAM_DMG : 1);
         if (dmg <= 0) return;
         const id = rammed && !rammer && other.tag ? other.tag + ".ram" + Math.floor(now) : (o === me ? myTag : o.tag || "x") + ".crash" + Math.floor(now);
         if (o === me) { if (hurt(now, dmg) && rammed && other.tag) { pushCapped(hitBy, id, 12); if (me.dead) { meKilled(id); } } }
         else botHurt(o, dmg, rammed && !rammer ? id : "p", now, false);
       };
-      hit(a, b, dvA, ramA, ramB); hit(b, a, dvB, ramB, ramA);
+      hit(a, b, dvA, ramA, ramB, nx, ny); hit(b, a, dvB, ramB, ramA, -nx, -ny);
     }
   }
   // all bots travel inside my own state message (one publish per tick, whatever the bot count):
   // brokers rate-limit per client, and six bots sending separately would blow past that
   let botTick = 0;
+  // a station's loose crates and drums against the pilots flown by commands (me, a player on the server): met here, in
+  // the world's step as other pilots are, not in the flight (where a crate that has moved since could not be flown
+  // again exactly); a bin shoves a crate by weight and is pushed back. (Bots meet them in their own flight.)
+  function propContacts() {
+    const fliers = bots.filter(b => b.input && !b.dead);
+    if (playing && !me.dead && !serverRun) fliers.push(me);   // (on the server, its word on where I am)
+    for (const o of fliers) bounceOff(o, WALL_R, WALL_BOUNCE, BIN_MASS, "only");
+  }
   // what of a bot's state goes on the wire. With 24 bots the host's packet was ~8 KB, eight times a second, and a
   // fifth of it repeated what never changes: the clock and round (the receiver takes the host's), the tag, team,
   // flag and captures (sent when they change and on every full tick), a living bot's death pose, empty lists
@@ -8966,7 +9066,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const key = victimId + ":" + shotId;
     if (killSeen.has(key) || killSeen.size >= MAX_CREDITS || !roundLive) return;
     killSeen.add(key);
-    const k = tagOwner(shotId.split(".")[0]), killer = k ? k.name : "Someone", ram = shotId.includes(".ram");
+    const k = tagOwner(shotId.split(".")[0]), killer = k ? k.name : shotId.startsWith("drum.") ? "A drum" : "Someone", ram = shotId.includes(".ram");
     if (k?.me && victimId !== "me") showKillNotice(victim);
     const icon = ram ? RAM_ICON : ICONS[killWeapon(shotId) || (k ? k.weapon : "fire")] || ICONS.fire;
     feedPush(`<span class="k">${esc(killer)}</span><svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="${icon}"/></svg><span class="v">${esc(victim)}</span>`, k && k.me || victim === (me.name || "You"));
@@ -9088,7 +9188,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       o.vx += ux * kk; o.vy += uy * kk;
       const lat = -o.vx * uy + o.vy * ux, ld = lat * (1 - Math.exp(-1.2 * dt));   // sideways slip fades, slowly: a turn carries a drift, as a ship's does
       o.vx += uy * ld; o.vy -= ux * ld;
-    } else { const d = Math.exp(-0.28 * dt); o.vx *= d; o.vy *= d; }   // (off the throttle it glides on)
+    } else if (!inOrbit(o)) { const d = Math.exp(-0.28 * dt); o.vx *= d; o.vy *= d; }   // (off the throttle it glides on; in orbit, it keeps circling)
     if (braking) { const s = Math.hypot(o.vx, o.vy), ns = Math.max(0, s - 1000 * dt); if (s > 1) { o.vx *= ns / s; o.vy *= ns / s; } }
     const s1 = Math.hypot(o.vx, o.vy);
     if (s1 > top) { const ns = top + (s1 - top) * Math.exp(-2.5 * dt); o.vx *= ns / s1; o.vy *= ns / s1; }
@@ -9121,9 +9221,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     else thrustPilot(o, sx_, sy_, boost, brake, dt);
     gravityOn(o, dt); slingshot(o, dt);
     o.x += o.vx * dt; o.y += o.vy * dt;
-    // walls, planets and moons: met as a car meets a wall: a dead bounce (e 0.25), the slide along it kept (scraping
-    // sparks off it), and only a hard head-on hit hurts, a little
-    const wr = WALL_R, pc = bounceOff(o, wr, 0.25, BIN_MASS);
+    // walls, planets and moons: a soft bounce (WALL_BOUNCE), the slide along it kept (scraping sparks off it), and only
+    // a very hard head-on hit hurts, a little
+    const wr = WALL_R, pc = bounceOff(o, wr, WALL_BOUNCE, BIN_MASS, false);
     let crash = null, fence = null;
     if (pc) {
       const big = hurtsOnHit(pc.b), hs = -pc.vn, slide = Math.abs(o.vx * -pc.ny + o.vy * pc.nx);
@@ -9132,9 +9232,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     const hitX = o.x < wr ? wr : o.x > W - wr ? W - wr : null, hitY = o.y < wr ? wr : o.y > H - wr ? H - wr : null;
     if (hitX !== null || hitY !== null) {   // the fence: bounced back in, and hurt if it was fast
       const hitSpeed = Math.hypot(o.vx, o.vy);
-      if (hitX !== null) { o.x = hitX; o.vx = -o.vx * 0.3 + Math.sign(W / 2 - o.x) * 60; }
-      if (hitY !== null) { o.y = hitY; o.vy = -o.vy * 0.3 + Math.sign(H / 2 - o.y) * 60; }
-      fence = { hitSpeed, x: hitX !== null ? (hitX < W / 2 ? 0 : W) : o.x, y: hitY !== null ? (hitY < H / 2 ? 0 : H) : o.y, dmg: hitSpeed > 500 ? 0.15 : 0 };
+      if (hitX !== null) { o.x = hitX; o.vx = -o.vx * WALL_BOUNCE + Math.sign(W / 2 - o.x) * 60; }
+      if (hitY !== null) { o.y = hitY; o.vy = -o.vy * WALL_BOUNCE + Math.sign(H / 2 - o.y) * 60; }
+      fence = { hitSpeed, x: hitX !== null ? (hitX < W / 2 ? 0 : W) : o.x, y: hitY !== null ? (hitY < H / 2 ? 0 : H) : o.y, dmg: crashDmg(hitSpeed, false) };
     }
     return { drift, crash, fence };
   }
@@ -9213,7 +9313,6 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     MOVE_STATE.forEach((k, i) => o[k] = v[i]);
     o.stick = { x: v[MOVE_STATE.length], y: v[MOVE_STATE.length + 1] }; o.boostOn = o.boosting = !!v[MOVE_STATE.length + 2];
   }
-  // touching another pilot pushes you off it (harder if it rams you on boost, softer if you ram it): kick, or 0
   // my flight: thrust with inertia, gravity, bumping off bodies and the fence, facing, exhaust
   // on the game server my flight goes as commands, one every CMD_DT of frame time (pilotMove): made, flown here and
   // kept until the server has flown it too (net/server-client.js sends them and reconciles)
@@ -9242,6 +9341,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   // but no longer spin it (shooting while standing still used to flip it round and round)
   function faceMe(dt, drift) {
     const steerMag = Math.hypot(steer.x, steer.y), sp = Math.hypot(me.vx, me.vy);
+    dt *= performance.now() < (me.stunUntil || 0) ? 0.2 : 1;   // just knocked aside by a heavy hit: the nose comes back slowly (spinKick)
     if (playing && !me.dead && pad.on && pad.aimUntil > performance.now()) me.a = lerpAng(me.a, pad.aim, 1 - Math.exp(-30 * dt));   // a gamepad's right stick aims
     else if (playing && !me.dead && mouseAim()) {   // mouse aim: the nose follows the cursor, quick but not instant
       const [cx, cy] = cursorAt();
@@ -9705,7 +9805,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
           sfx("ram", Math.min(1, 0.3 + j / 900));
           // what I feel hurts me (offline and between browsers: on the server only its snapshots change my health); if
           // they rammed me, the credit is theirs, and I report it
-          const dmg = knockDmg(dv) * (mineRam && !rammed ? 0.4 : 1);
+          const dmg = knockDmg(dv) * (mineRam && !rammed ? 0.4 : rammed && !mineRam ? RAM_DMG : 1);
+          if (rammed && !mineRam && !serverRun) { me.vx += nx * RAM_PUSH; me.vy += ny * RAM_PUSH; }   // (thrown off: on the server, its word)
           if (!serverRun && dmg > 0 && !mates(r, me) && roundLive && (!r.knockAt || now - r.knockAt > 300)) {
             r.knockAt = now;
             const id = rammed && !mineRam && r.tag ? r.tag + ".ram" + Math.floor(now) : null;
@@ -10025,6 +10126,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     updateJunk(dt, now);
     updateEvents(dt, now);
     updateBots(dt, now);
+    if (stationMap()) propContacts();
     continuousAudioTick(now);
     ctfTick(now);
     hillTick(dt, now);

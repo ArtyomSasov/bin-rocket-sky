@@ -25,7 +25,7 @@
       comps.forEach((c, i) => { if (i !== main && (!b.wall || c.length < Math.max(24, b.mass0 * 0.06))) breakAway(b, c); });
       rebuildBodies();
     }
-    if (b.prop && !b.free && !b.dead && b.mass < b.mass0 * 0.5) { collapseProp(b); return; }
+    if (b.prop && !b.dead && b.mass < b.mass0 * 0.5) { collapseProp(b); return; }
     if (b.planet && !b.free && b.mass < b.mass0 * 0.15) {
       destroyPlanet(b, now);
       if (b.lastOwn && playing) { me.score += 25; showScore(); floaters.push({ x: b.x, y: b.y - 80, t: 0, txt: "PLANET +25", gold: true }); }
@@ -70,7 +70,7 @@
       for (let k = 0; k < (lowQ ? 3 : 8); k++) { const a = Math.random() * 6.28, v = 20 + Math.random() * 70; puff(x + (Math.random() - 0.5) * f.hw, y + (Math.random() - 0.5) * f.hh, Math.cos(a) * v + f.vx, Math.sin(a) * v + f.vy, 1.2 + Math.random(), 7 + Math.random() * 8, k % 2 ? bodyCol(b) : "rgb(90,80,100)", 2); }
       for (let k = 0; k < Math.min(5, list.length >> 3); k++) { const a = Math.random() * 6.28, v = 40 + Math.random() * 110; addDebris(x, y, Math.cos(a) * v + f.vx, Math.sin(a) * v + f.vy, 3 + Math.random() * 5, bodyCol(b), 6 + Math.random() * 4); }
       sfx("chunk", Math.min(0.9, 0.3 + list.length / 120), 0.7 + Math.random() * 0.3, x, y);
-      while (rubble.length > 50) { const old = rubble.shift(); old.dead = true; }
+      for (let i = 0; rubble.length - countProps() > 50 && i < rubble.length; ) { if (rubble[i].prop) { i++; continue; } rubble[i].dead = true; rubble.splice(i, 1); }   // (the oldest pieces go; a station's crates stay)
     } else {
       for (let k = 0; k < Math.min(6, list.length); k++) { const a = Math.random() * 6.28, v = 40 + Math.random() * 120; addDebris(x, y, Math.cos(a) * v, Math.sin(a) * v, 4 + Math.random() * 6, bodyCol(b)); }
     }
@@ -100,6 +100,7 @@
   // every frame: shared poses, rubble drifting, and pending break-ups
   function bodyTick(now, dt) {
     posesAt(clockNow(), dt);
+    if (stationMap()) regrowWalls(regrowSlotNow());
     // (on a station's deck a loose piece scrapes along the floor and comes to rest; in space it drifts on)
     const deck = stationMap(), drag = Math.exp(-(deck ? 1.6 : 0.02) * dt), spinDrag = Math.exp(-(deck ? 2 : 0.05) * dt);
     for (const b of rubble) {
@@ -122,7 +123,9 @@
   // throws dust, and a small piece hitting very hard crumbles to grit. Rubble-on-rubble is left out (cheap, and
   // the pieces are few). Only the rubble itself is changed: shared terrain is cut by shots alone.
   // a piece of rubble falls apart into grit
+  const countProps = () => { let n = 0; for (const r of rubble) if (r.prop) n++; return n; };
   function crumble(r) {
+    if (r.prop && r.kind === "drum" && !r.dead) drumBlast(r);
     for (let k = 0; k < Math.min(8, 2 + (r.mass >> 3)); k++) { const a = Math.random() * 6.28, v = 30 + Math.random() * 120; addDebris(r.x, r.y, Math.cos(a) * v + r.vx * 0.3, Math.sin(a) * v + r.vy * 0.3, 2.5 + Math.random() * 4, bodyCol(r), 4 + Math.random() * 4); }
     r.dead = true;
   }

@@ -243,7 +243,7 @@
     if (Math.hypot(st.x, st.y) > 0.15) b.a = lerpAng(b.a, Math.atan2(st.y, st.x), 1 - Math.exp(-13 * dt));
     gravityOn(b, dt);
     b.x += b.vx * dt; b.y += b.vy * dt;
-    const pc = bounceOff(b, 40, 0.25, BIN_MASS);
+    const pc = bounceOff(b, 40, WALL_BOUNCE, BIN_MASS);
     if (pc && pc.vn < -200) {
       impact(b.x - pc.nx * 40, b.y - pc.ny * 40, "#ffd9b0", 1.2);
       const dmg = hurtsOnHit(pc.b) ? crashDmg(-pc.vn, false) : 0;
@@ -276,8 +276,8 @@
       if (d < 62) {   // (their bin is theirs to move: only mine takes the blow here)
         const nx = dx / d, ny = dy / d, mb = BIN_MASS, mr = BIN_MASS, vn = (b.vx - (r.vx || 0)) * nx + (b.vy - (r.vy || 0)) * ny;
         if (vn < 0) {
-          const j = -1.5 * vn / (1 / mb + 1 / mr), dmg = knockDmg(j / mb);
-          b.vx += j * nx / mb; b.vy += j * ny / mb;
+          const j = -1.5 * vn / (1 / mb + 1 / mr), dmg = knockDmg(j / mb) * RAM_DMG;
+          b.vx += j * nx / mb + nx * RAM_PUSH; b.vy += j * ny / mb + ny * RAM_PUSH;
           if (dmg > 0 && (!b.rammedBy || now - b.rammedBy > 300)) { b.rammedBy = now; botHurt(b, dmg, r.tag + ".ram" + Math.floor(now), now, false); }
         }
       }

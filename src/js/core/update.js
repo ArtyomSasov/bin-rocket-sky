@@ -15,6 +15,7 @@
     updateJunk(dt, now);
     updateEvents(dt, now);
     updateBots(dt, now);
+    if (stationMap()) propContacts();
     continuousAudioTick(now);
     ctfTick(now);
     hillTick(dt, now);

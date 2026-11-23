@@ -62,6 +62,7 @@
     dmg -= absorbed;
     if (!shotId.startsWith(b.tag + ".")) metricDamage(shotId, absorbed + Math.min(b.lives, dmg), b.lives <= dmg);
     b.lives = Math.round((b.lives - dmg) * 1000) / 1000;
+    if (!b.input) spinKick(b, dmg, ang, now);   // (a player's nose is their screen's to throw: it does, from the snapshot)
     if (!b.input && Math.random() < ({ easy: 0.15, normal: 0.35, hard: 0.6 })[b.level]) b.dashReq = true;   // an AI bot dodges when hit (a player dashes when they choose)
     const shown = remotes.get(b.id); if (shown) shown.hitAt = performance.now();
     const byHole = shotId === "x" || shotId === "p";   // the black hole or a planet: nobody gets credit

@@ -212,5 +212,11 @@
       b.mass -= removed; b.dirty = true;
       sweepOrphans(b, 0, b.gw - 1, 0, b.gh - 1);
     }
+    // a wall grows back (regrowWalls): on the game server its word on which cells stand brings mine back too
+    if (serverRun && b.wall) {
+      const back = [];
+      for (let i = 0; i < b.cells.length; i++) if (!b.cells[i] && b.initialCells[i] && !(bytes.charCodeAt(i >> 3) & (1 << (i & 7)))) back.push(i);
+      restoreCells(b, back);
+    }
   }
 

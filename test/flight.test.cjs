@@ -44,8 +44,9 @@ test('the server\'s state after any command, flown on with the commands after it
 });
 
 test('crashing about a station, nothing but its commands moves a player\'s pilot', { skip }, async () => {
-  const m = await createMatch({ code: 'm1x0kchk' });   // Cargo Deck: walls and props to bump into
+  const m = await createMatch({ code: 'm1x0kchk' });   // Cargo Deck: walls to bump into
   try {
+    for (const r of m.game.__simTerrain.rubble()) r.dead = true;   // (its loose crates shove a pilot outside its commands, as other pilots do)
     const id = m.addPilot('P'), b = m.game.__simBot(id), M = m.game.__simMove, shadow = { inv: 0 };
     const step = () => { clock.t += 1000 / 60; m.step(1 / 60, clock.t); };
     for (let i = 0; i < 10; i++) step();

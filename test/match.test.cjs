@@ -193,3 +193,32 @@ test('a player on the server flies the look they chose (everyone sees their bin,
     assert.equal(m.game.__simBot(a).hue, 77);
   } finally { m.dispose(); }
 });
+
+test('a drum on a station goes up when it breaks, and hurts whoever is near it', { skip }, async () => {
+  const m = await createMatch({ code: 'm1d0k' });
+  try {
+    const a = m.addPilot('A'); run(m, 0.2);
+    const A = m.game.__simBot(a), drum = m.game.__simTerrain.rubble().find(b => b.prop && b.kind === 'drum' && !b.dead);
+    assert.ok(drum, 'Cargo Deck has drums');
+    const near = () => hold(m, a, drum.x + 110, drum.y), before = A.lives;
+    run(m, 0.2, near);
+    for (let i = 0; i < 12 && !drum.dead; i++) { m.game.__simTerrain.carveAt(drum, drum.x + (i % 3 - 1) * 12, drum.y + (Math.floor(i / 3) % 3 - 1) * 12, 24, true); run(m, 0.2, near); }
+    assert.ok(drum.dead, 'broken');
+    assert.ok(A.lives < before, `hurt by the blast: ${before} -> ${A.lives}`);
+  } finally { m.dispose(); }
+});
+
+test('a station\'s crates are loose: a pilot flying into one shoves it, and it scrapes to a stop', { skip }, async () => {
+  const m = await createMatch({ code: 'm1d0k' });
+  try {
+    const a = m.addPilot('A'); run(m, 0.2);
+    const A = m.game.__simBot(a), crate = m.game.__simTerrain.rubble().find(b => b.prop && b.kind === 'crate' && !b.dead);
+    const x0 = crate.x, y0 = crate.y;
+    Object.assign(A, { x: crate.x - 160, y: crate.y, vx: 700, vy: 0, inv: 0 });
+    run(m, 0.6);
+    const moved = Math.hypot(crate.x - x0, crate.y - y0);
+    assert.ok(moved > 15, 'shoved ' + Math.round(moved) + ' px');
+    run(m, 4);
+    assert.ok(Math.hypot(crate.vx, crate.vy) < 5, 'and at rest again');
+  } finally { m.dispose(); }
+});

@@ -87,3 +87,21 @@ test('a Rotation lobby plays a different map every round, going round them all (
     assert.equal(r.label, 'Rotation');
   } finally { g.dispose(); }
 });
+
+test('a station\'s broken inner wall grows back, but never over a pilot', { skip }, async () => {
+  const { createMatch } = require('./helpers/game.cjs'), { run, hold } = require('./helpers/match.cjs');
+  const m = await createMatch({ code: 'm1d0f' });
+  try {
+    const a = m.addPilot('A'); run(m, 0.2);
+    const wall = m.game.__simTerrain.det().find(b => b.wall && !b.dead && b.gw > 20);
+    for (let k = -1; k <= 1; k++) m.game.__simTerrain.carveAt(wall, wall.x + k * 40, wall.y, 40, true);
+    const hole = wall.mass0 - wall.mass;
+    assert.ok(hole > 20, hole + ' cells blown out');
+    for (let k = 1; k <= 7; k++) { hold(m, a, 300, 300); m.game.__simTerrain.regrow(1e6 + k); run(m, 0.1); }   // (seven ticks of its clock: 21 s)
+    assert.ok(wall.mass0 - wall.mass < hole / 3, `grown back: ${hole} missing, ${wall.mass0 - wall.mass} after 21 s`);
+    for (let k = -1; k <= 1; k++) m.game.__simTerrain.carveAt(wall, wall.x + k * 40, wall.y, 40, true);
+    const hole2 = wall.mass0 - wall.mass;
+    for (let k = 8; k <= 14; k++) { hold(m, a, wall.x, wall.y); m.game.__simTerrain.regrow(1e6 + k); run(m, 0.1, () => hold(m, a, wall.x, wall.y)); }   // a pilot sits in the breach
+    assert.ok(wall.mass0 - wall.mass > hole2 / 4, 'not over the pilot in it');
+  } finally { m.dispose(); }
+});

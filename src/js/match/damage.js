@@ -17,6 +17,7 @@
       if (dmg <= 0) { me.hazardAt = now + 600; shake = Math.max(shake, 0.15); return true; }
     }
     me.lives = Math.max(0, Math.round((me.lives - dmg) * 1000) / 1000);
+    spinKick(me, dmg, ang, now);
     me.hitAt = now;
     hurtFlash = Math.min(1, hurtFlash + 0.35 + dmg * 0.4);
     me.hazardAt = now + 600; shake = Math.max(shake, 0.12 + Math.min(0.3, dmg * 0.2));

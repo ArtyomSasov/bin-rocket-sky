@@ -61,7 +61,7 @@
       if (!m.am) me.ampUntil = 0; else if (Math.abs(left - m.am) > 1.2) me.ampUntil = now + m.am * 1000;
     }
     if (Number.isFinite(m.sh) && m.sh !== me.shield) { me.shield = clamp(m.sh, 0, MAX_SHIELD); renderShield(); }
-    if (Number.isFinite(m.l) && m.l !== me.lives) { const hit = m.l < me.lives; me.lives = clamp(m.l, 0, LIVES * 1.99); renderHearts(hit); if (hit && !me.dead) { me.hitAt = now; hurtFlash = Math.min(1, hurtFlash + 0.4); } }
+    if (Number.isFinite(m.l) && m.l !== me.lives) { const hit = m.l < me.lives; if (hit) spinKick(me, me.lives - m.l, me.a + (Math.random() < 0.5 ? 1 : -1), now); me.lives = clamp(m.l, 0, LIVES * 1.99); renderHearts(hit); if (hit && !me.dead) { me.hitAt = now; hurtFlash = Math.min(1, hurtFlash + 0.4); } }
     if (m.d === 1 && !me.dead) {   // the server's verdict: I died
       me.dead = true; me.diedAt = now; me.respawnAt = now + respawnDelay(); me.vx = me.vy = 0;
       me.ds = clamp(Math.floor(num(m.ds, 2)), 0, 4); me.dk = clamp(Math.floor(num(m.dk, 0)), 0, DEATH_KINDS); me.da = num(m.da, 0);

@@ -65,7 +65,7 @@
     laser:   { name: "Pulse Gun", ammo: 80, cd: 0.12, col: "#a8ff55", shot: [K.PULSE_BOLT, 1500], kick: 6, feel: [3, 0.03, 30], sfx: ["p_ut_pulse_fire", .75, 1], fx: "pulse",
                alt: { name: "Plasma Nova", charge: 0.6, nova: true, cost: 5, cd: 0.6, shot: [K.NOVA, 1400], kick: 260, feel: [22, 0.3, 50], sfx: ["p_nova", 1, 1] } },
     // rockets as in Quake: straight and fast (about 2.4x a bin's speed), dodgeable by reading them; alt three slow homing ones
-    rocket:  { name: "Rocket launcher", ammo: 8, cd: 0.8, col: "#ff5a6e", shot: [K.ROCKET, 1350], kick: 120, feel: [12, 0.16, 70], sfx: ["rocket", 0.8],
+    rocket:  { name: "Rocket launcher", ammo: 8, cd: 0.8, col: "#ff5a6e", shot: [K.ROCKET, 1350], kick: 280, feel: [12, 0.16, 70], sfx: ["rocket", 0.8],
                alt: { name: "Load rockets", load: true, cost: 1, cd: 0.9, shot: [K.ROCKET, 1350], kick: 200, feel: [18, 0.23, 96], sfx: ["rocket", 1, 0.8] } },
     // the void bomb: where it bursts (on whatever it touches, or at the end of its flight) a black hole opens for six
     // seconds, dragging in bins, shots, wrecks, rock and smoke, and eating what reaches it
@@ -73,11 +73,11 @@
       alt: { name: "Short throw", cost: 1, cd: 1.2, shot: [K.VOID, 480], kick: 70, feel: [26, 0.4, 110], sfx: ["rocket", 1, 0.4] } },
     nuke:    { name: "Nuke", ammo: 1, cd: 1.0, col: "#ffe14d", shot: [K.NUKE, 360], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.6],
                alt: { name: "Guided", cost: 1, cd: 1.0, shot: [K.NUKE, 420], kick: 160, feel: [30, 0.5, 120], sfx: ["rocket", 1, 0.5], guided: true } },
-    scatter: { name: "Scatter gun", ammo: 12, cd: 0.7, col: "#ffd27a", shot: [K.PELLET, 1250], kick: 260, feel: [22, 0.3, 90], sfx: ["scatter", 1, 0.85], fx: "blast",
+    scatter: { name: "Scatter gun", ammo: 12, cd: 0.7, col: "#ffd27a", shot: [K.PELLET, 1250], kick: 560, feel: [22, 0.3, 90], sfx: ["scatter", 1, 0.85], fx: "blast",
                quickAlt: true,   // (the hook has its own cooldown: the gun fires as soon as it lands)
                alt: { name: "Hook", cost: 0, cd: 2.5, shot: [K.HOOK, 2600], kick: 0, feel: [6, 0.1, 0], sfx: ["p_metal", 0.6, 1.3] } },
     // Precision single-shot weapon, with no alternate mode.
-    rail: { name: "Railgun", ammo: 5, cd: 1.8, col: "#d9a8ff", shot: [K.RAIL, 4200], kick: 320, feel: [26, 0.35, 90], sfx: ["rail", .9], fx: "rail",
+    rail: { name: "Railgun", ammo: 5, cd: 1.8, col: "#d9a8ff", shot: [K.RAIL, 4200], kick: 650, feel: [26, 0.35, 90], sfx: ["rail", .9], fx: "rail",
       alt: { name: "Scope", view: true } },   // held: the view reaches far along the aim (it fires nothing; the main trigger still does)
     // the prox launcher (Quake Team Arena): a mine flies like a grenade, sticks to the first rock or wall it meets,
     // arms, and goes off a beat after an enemy comes near; alt sets off all your mines at once
@@ -155,6 +155,10 @@
   let PICKS = 0;   // weapon spots on this arena (see world/arenas.js)
   // blasts that hurt everyone around them (besides whoever took the direct hit): [radius, most damage at the
   // centre, least at the rim (in lives), push]
+  // a hit throws its target back along the shot (px/s): the light guns a nudge, the heavy ones a real shove (the rest
+  // keep their own, set with their numbers above)
+  const KNOCK = { [K.FIRE]: 80, [K.PISTOL]: 50, [K.BULLET]: 45, [K.BULLET_ALT]: 120, [K.PULSE_BOLT]: 90, [K.ROCKET]: 450, [K.NOVA]: 400 };
+  for (const [k, v] of Object.entries(KNOCK)) SHOTS[k].shove = Math.max(SHOTS[k].shove || 0, v);
   const SPLASH = { [K.BULLET_ALT]: [100, HP(24), 0, 170], [K.FLAK]: [210, HP(70), 0, 400], [K.MINE]: [262, HP(100), 0, 450], [K.GREN]: [262, HP(100), 0, 420], [K.ROCKET]: [308, HP(75), 0, 320], [K.ORB]: [98, HP(55), 0, 380], [K.GAMMA]: [330, HP(140), HP(25), 800], [K.NOVA]: [300, HP(150), 0, 900] };   // (Plasma Nova: a full one kills a bin at its heart)
   const NOVA_ZAP = { r: 260, every: 0.12, dmg: HP(12) };   // the nova lashes every enemy this close to its path, by its charge   // the gamma orb zaps every enemy this close as it flies
   const DMG_UNIT = 0.35;   // one fireball: planets and UFOs count damage in fireballs

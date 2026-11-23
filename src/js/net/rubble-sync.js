@@ -9,7 +9,7 @@
       if (!all && b.wx !== undefined && Math.abs(b.x - b.wx) < 1.5 && Math.abs(b.y - b.wy) < 1.5 && Math.abs(b.a - b.wa) < 0.02) continue;
       b.wx = b.x; b.wy = b.y; b.wa = b.a;
       out.push([b.key, Math.round(b.x), Math.round(b.y), Math.round(b.a * 100), Math.round(b.vx), Math.round(b.vy), Math.round(b.va * 100)]);
-      if (out.length >= 60) break;
+      if (out.length >= 120) break;
     }
     return out.length || all ? { all, list: out } : null;
   }
@@ -17,7 +17,7 @@
     if (!w || typeof w !== "object" || !Array.isArray(w.list)) return;
     const byKey = new Map(); for (const b of rubble) if (!b.dead && b.key) byKey.set(b.key, b);
     const seen = new Set(), now = performance.now();
-    for (const e of w.list.slice(0, 60)) {
+    for (const e of w.list.slice(0, 120)) {
       if (!Array.isArray(e) || e.length !== 7 || typeof e[0] !== "string" || e[0].length > 80 || !e.slice(1).every(Number.isFinite)) continue;
       seen.add(e[0]);
       const b = byKey.get(e[0]);

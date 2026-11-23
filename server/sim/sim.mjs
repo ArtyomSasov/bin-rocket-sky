@@ -31,11 +31,11 @@ const BRIDGE = `
   globalThis.__simConst = { WEAPON_KEYS, K, RESPAWN_MS };   // protocol numbers and rules, for tests and tools
   globalThis.__simHurt = (id, dmg) => botHurt(botById.get(id), dmg, "x", performance.now(), true);   // a blow from nowhere, for tests
   globalThis.__simShots = () => shots;   // the shots in flight, for tests and tools
-  globalThis.__simTerrain = { rubble: () => rubble, det: () => det, carveAt, shove,   // for tests and tools
+  globalThis.__simTerrain = { rubble: () => rubble, det: () => det, carveAt, shove, regrow: slot => regrowWalls(slot),   // for tests and tools
     empty() { bodies.length = 0; planets.length = 0; ROCKS = 0; world.rocks.length = 0; eventAt = () => ({ cyc: 0, ph: 0, et: 0, type: "meteors", active: false, warn: false }); } };   // an open field (tests of timing, where a passing moon must not be in the way)
   // where things lie on a station, for tests: the pick-up spots, the props, the cell size and which cells are floor
   globalThis.__simArena = () => ({ spots: [...arena.guns, ...arena.supplies, arena.amp].filter(Boolean).map(o => [o.x, o.y]),
-    props: det.filter(b => b.prop).map(b => [b.x, b.y, Math.max(b.hw, b.hh)]), unit: W / FOUNDRY_N, open: stationMap() ? (x, y) => foundryOpen(x, y) : null });
+    props: [...det, ...rubble].filter(b => b.prop && !b.dead).map(b => [b.x, b.y, Math.max(b.hw, b.hh)]), unit: W / FOUNDRY_N, open: stationMap() ? (x, y) => foundryOpen(x, y) : null });
   globalThis.__simQuad = () => world.amp;   // the Quad damage pick-up as it lies now (null while taken)
   globalThis.__simMove = { pilotMove, moveState, setMoveState };   // a player's command flight, for tests
   globalThis.__simDet = () => det.map(b => b.cells.join(""));   // every body's solid cells, to compare with a browser
@@ -113,7 +113,7 @@ const BRIDGE = `
     get bots() { let n = 0; for (const b of bots) if (!b.input) n++; return n; },
     get pilots() { return bots.map(pilotView); },
     get info() {
-      return { map: MAPS[mapThemeOf(worldCode)].name, mode: MODE, round: stats.round, live: roundLive, bodies: bodies.length, walls: bodies.filter(b => b.fixed).length, innerWalls: det.filter(b => b.wall && !b.dead && !b.free).length, props: det.filter(b => b.prop && !b.dead).length,
+      return { map: MAPS[mapThemeOf(worldCode)].name, mode: MODE, round: stats.round, live: roundLive, bodies: bodies.length, walls: bodies.filter(b => b.fixed).length, innerWalls: det.filter(b => b.wall && !b.dead && !b.free).length, props: rubble.filter(b => b.prop && !b.dead).length,
         solidCells: bodies.reduce((s, b) => s + b.mass, 0), shots: shots.length,
         kills: bots.reduce((s, b) => s + b.st.kills, 0), deaths: bots.reduce((s, b) => s + b.st.deaths, 0) };
     }

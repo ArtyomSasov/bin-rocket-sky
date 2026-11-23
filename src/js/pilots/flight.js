@@ -10,7 +10,7 @@
       o.vx += ux * kk; o.vy += uy * kk;
       const lat = -o.vx * uy + o.vy * ux, ld = lat * (1 - Math.exp(-1.2 * dt));   // sideways slip fades, slowly: a turn carries a drift, as a ship's does
       o.vx += uy * ld; o.vy -= ux * ld;
-    } else { const d = Math.exp(-0.28 * dt); o.vx *= d; o.vy *= d; }   // (off the throttle it glides on)
+    } else if (!inOrbit(o)) { const d = Math.exp(-0.28 * dt); o.vx *= d; o.vy *= d; }   // (off the throttle it glides on; in orbit, it keeps circling)
     if (braking) { const s = Math.hypot(o.vx, o.vy), ns = Math.max(0, s - 1000 * dt); if (s > 1) { o.vx *= ns / s; o.vy *= ns / s; } }
     const s1 = Math.hypot(o.vx, o.vy);
     if (s1 > top) { const ns = top + (s1 - top) * Math.exp(-2.5 * dt); o.vx *= ns / s1; o.vy *= ns / s1; }
@@ -43,9 +43,9 @@
     else thrustPilot(o, sx_, sy_, boost, brake, dt);
     gravityOn(o, dt); slingshot(o, dt);
     o.x += o.vx * dt; o.y += o.vy * dt;
-    // walls, planets and moons: met as a car meets a wall: a dead bounce (e 0.25), the slide along it kept (scraping
-    // sparks off it), and only a hard head-on hit hurts, a little
-    const wr = WALL_R, pc = bounceOff(o, wr, 0.25, BIN_MASS);
+    // walls, planets and moons: a soft bounce (WALL_BOUNCE), the slide along it kept (scraping sparks off it), and only
+    // a very hard head-on hit hurts, a little
+    const wr = WALL_R, pc = bounceOff(o, wr, WALL_BOUNCE, BIN_MASS, false);
     let crash = null, fence = null;
     if (pc) {
       const big = hurtsOnHit(pc.b), hs = -pc.vn, slide = Math.abs(o.vx * -pc.ny + o.vy * pc.nx);
@@ -54,9 +54,9 @@
     const hitX = o.x < wr ? wr : o.x > W - wr ? W - wr : null, hitY = o.y < wr ? wr : o.y > H - wr ? H - wr : null;
     if (hitX !== null || hitY !== null) {   // the fence: bounced back in, and hurt if it was fast
       const hitSpeed = Math.hypot(o.vx, o.vy);
-      if (hitX !== null) { o.x = hitX; o.vx = -o.vx * 0.3 + Math.sign(W / 2 - o.x) * 60; }
-      if (hitY !== null) { o.y = hitY; o.vy = -o.vy * 0.3 + Math.sign(H / 2 - o.y) * 60; }
-      fence = { hitSpeed, x: hitX !== null ? (hitX < W / 2 ? 0 : W) : o.x, y: hitY !== null ? (hitY < H / 2 ? 0 : H) : o.y, dmg: hitSpeed > 500 ? 0.15 : 0 };
+      if (hitX !== null) { o.x = hitX; o.vx = -o.vx * WALL_BOUNCE + Math.sign(W / 2 - o.x) * 60; }
+      if (hitY !== null) { o.y = hitY; o.vy = -o.vy * WALL_BOUNCE + Math.sign(H / 2 - o.y) * 60; }
+      fence = { hitSpeed, x: hitX !== null ? (hitX < W / 2 ? 0 : W) : o.x, y: hitY !== null ? (hitY < H / 2 ? 0 : H) : o.y, dmg: crashDmg(hitSpeed, false) };
     }
     return { drift, crash, fence };
   }
