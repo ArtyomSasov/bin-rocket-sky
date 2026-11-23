@@ -75,10 +75,11 @@
     return true;
   }
   const selfMul = (s, id) => id === s.owner ? SELF_DMG : 1;
-  // Flak Cannon: one network record becomes eight deterministic fragments.
+  // Flak Cannon: one network record becomes eight deterministic fragments, in a fan of some 20° (2026-11-23: 30° left
+  // it nothing past point-blank)
   function shardSpray(s) {
     for (let k = 0; k < 8; k++) {
-      const da = (k - 3.5) * 0.075, f = 0.82 + ((k * 3) % 8) * 0.035, c = Math.cos(da), sn = Math.sin(da);
+      const da = (k - 3.5) * 0.05, f = 0.82 + ((k * 3) % 8) * 0.035, c = Math.cos(da), sn = Math.sin(da);
       metricChild(s.id, s.id + "s" + k);
       shots.push({ ...s, id: s.id + "s" + k, vx: (s.vx * c - s.vy * sn) * f, vy: (s.vx * sn + s.vy * c) * f, bn: 0 });
     }

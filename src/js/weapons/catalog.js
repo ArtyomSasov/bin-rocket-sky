@@ -118,7 +118,7 @@
   balanceShot(K.PISTOL, { dmg: HP(17), col: "#ff3b4e" });
   balanceShot(K.NOVA, { dmg: HP(60) });   // the Plasma Nova's direct hit, by its charge (its burst: SPLASH)   // the laser pistol: red sparks where it lands
   balanceShot(K.ROCKET, { dmg: HP(75) });
-  balanceShot(K.PULSE_BOLT, { dmg: HP(24) });
+  balanceShot(K.PULSE_BOLT, { dmg: HP(18) });   // (2026-11-23: 24 out-killed every gun at every range)
   balanceShot(K.SHARD, { dmg: HP(16), life: 1.15 });
   balanceShot(K.FLAK, { dmg: HP(70), life: .8 });
   balanceShot(K.ORB, { dmg: HP(55), life: 4, r: 16 });
@@ -132,7 +132,7 @@
   balanceShot(K.MELEE, { name: "blade touch", dmg: HP(6) });   // the Blood Blade touching a bin when it isn't swung (bladeTouch)
   balanceShot(K.MINE, { dmg: HP(100) });
   Object.assign(WEAPONS.fire, { cd: .4 }); Object.assign(WEAPONS.fire.alt, { cd: .2 });
-  Object.assign(WEAPONS.laser, { cd: .16, shot: [K.PULSE_BOLT, 2400] });
+  Object.assign(WEAPONS.laser, { cd: .16, shot: [K.PULSE_BOLT, 1800] });   // (a bolt to dodge far off)
   const LINK_MIN = 0.6, LINK_HEAT = 1.8;   // how hot a beam is drawn (render: its colour runs from cool to hot over this range of its strength)
   Object.assign(WEAPONS.rocket, { shot: [K.ROCKET, 1260] }); WEAPONS.rocket.alt.shot = [K.ROCKET, 1260];
   Object.assign(WEAPONS.orb, { shot: [K.ORB, 650] });

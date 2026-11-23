@@ -928,7 +928,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   balanceShot(K.PISTOL, { dmg: HP(17), col: "#ff3b4e" });
   balanceShot(K.NOVA, { dmg: HP(60) });   // the Plasma Nova's direct hit, by its charge (its burst: SPLASH)   // the laser pistol: red sparks where it lands
   balanceShot(K.ROCKET, { dmg: HP(75) });
-  balanceShot(K.PULSE_BOLT, { dmg: HP(24) });
+  balanceShot(K.PULSE_BOLT, { dmg: HP(18) });   // (2026-11-23: 24 out-killed every gun at every range)
   balanceShot(K.SHARD, { dmg: HP(16), life: 1.15 });
   balanceShot(K.FLAK, { dmg: HP(70), life: .8 });
   balanceShot(K.ORB, { dmg: HP(55), life: 4, r: 16 });
@@ -942,7 +942,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   balanceShot(K.MELEE, { name: "blade touch", dmg: HP(6) });   // the Blood Blade touching a bin when it isn't swung (bladeTouch)
   balanceShot(K.MINE, { dmg: HP(100) });
   Object.assign(WEAPONS.fire, { cd: .4 }); Object.assign(WEAPONS.fire.alt, { cd: .2 });
-  Object.assign(WEAPONS.laser, { cd: .16, shot: [K.PULSE_BOLT, 2400] });
+  Object.assign(WEAPONS.laser, { cd: .16, shot: [K.PULSE_BOLT, 1800] });   // (a bolt to dodge far off)
   const LINK_MIN = 0.6, LINK_HEAT = 1.8;   // how hot a beam is drawn (render: its colour runs from cool to hot over this range of its strength)
   Object.assign(WEAPONS.rocket, { shot: [K.ROCKET, 1260] }); WEAPONS.rocket.alt.shot = [K.ROCKET, 1260];
   Object.assign(WEAPONS.orb, { shot: [K.ORB, 650] });
@@ -5732,10 +5732,11 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     return true;
   }
   const selfMul = (s, id) => id === s.owner ? SELF_DMG : 1;
-  // Flak Cannon: one network record becomes eight deterministic fragments.
+  // Flak Cannon: one network record becomes eight deterministic fragments, in a fan of some 20° (2026-11-23: 30° left
+  // it nothing past point-blank)
   function shardSpray(s) {
     for (let k = 0; k < 8; k++) {
-      const da = (k - 3.5) * 0.075, f = 0.82 + ((k * 3) % 8) * 0.035, c = Math.cos(da), sn = Math.sin(da);
+      const da = (k - 3.5) * 0.05, f = 0.82 + ((k * 3) % 8) * 0.035, c = Math.cos(da), sn = Math.sin(da);
       metricChild(s.id, s.id + "s" + k);
       shots.push({ ...s, id: s.id + "s" + k, vx: (s.vx * c - s.vy * sn) * f, vy: (s.vx * sn + s.vy * c) * f, bn: 0 });
     }
