@@ -82,7 +82,7 @@
   }
   function shatter(b, n) {
     const s = BOT, rot = b.a + Math.PI / 2 - SPRITE_TILT;
-    for (const piece of cutSprite(n)) addFrag(b, piece, s, rot, renderPiece(piece, s, b.ck || [0, 0, 0, 0, 0]), (wx, wy) => {
+    for (const piece of cutSprite(n)) addFrag(b, piece, s, rot, renderPiece(piece, s, b.ck || NO_LOOK), (wx, wy) => {
       const d = Math.hypot(wx, wy) || 1, v = 70 + Math.random() * 150;   // flung out from the middle
       return [wx / d * v + (b.vx || 0) * 0.7, wy / d * v + (b.vy || 0) * 0.7, (Math.random() - 0.5) * 1.3];   // (carrying on the way it flew)
     });

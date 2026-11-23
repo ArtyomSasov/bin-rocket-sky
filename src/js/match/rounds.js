@@ -46,13 +46,16 @@
   // round bookkeeping, run every frame
   let shownRound = -1, resultsFor = -1, resultsAt = 0, preparedFor = -1;
   // the round is over: the announcer tells you how it went (only when someone else took part)
-  function roundEndVoice() {
+  // did I (or my team) come first? null: no contest (alone, or a draw)
+  function roundWon() {
     const rows = playerRows();
-    if (rows.length < 2) return;
+    if (rows.length < 2) return null;
     rows.sort(comparePlayers);
-    if (isTeams() ? teamTotals().lead === 0 : comparePlayers(rows[0], rows[1]) === 0) return;
-    const top = rows[0];
-    const won = isTeams() ? (teamTotals().lead || 0) * (me.tm === 0 ? 1 : -1) > 0 : top.me && stats.kills > 0;
+    if (isTeams() ? teamTotals().lead === 0 : comparePlayers(rows[0], rows[1]) === 0) return null;
+    return isTeams() ? (teamTotals().lead || 0) * (me.tm === 0 ? 1 : -1) > 0 : rows[0].me && (stats.kills > 0 || me.caps > 0);
+  }
+  function roundEndVoice(won) {
+    if (won === null) return;
     setTimeout(() => { const line = won ? (stats.deaths === 0 ? "v_flawless" : "v_win") : "v_lose"; sfx(line, 1); }, 600);
   }
   let decidedRound = -1;
@@ -115,7 +118,7 @@
       info.classList.toggle("last", rd.left < 30);
     } else {
       info.textContent = "Results · next round in " + Math.ceil(rd.next) + "s";
-      if (playing && resultsFor !== rd.idx) roundEndVoice();
+      if (playing && resultsFor !== rd.idx) { const won = roundWon(); recordRound(won); roundEndVoice(won); }
       if (playing && rd.next < 2.6 && preparedFor !== rd.idx) { preparedFor = rd.idx; sfx("v_prepare", 1); }
       // refresh once a second so late state updates from other pilots still land in the table
       if (playing && (resultsFor !== rd.idx || now - resultsAt > 1000)) { resultsFor = rd.idx; resultsAt = now; showResults(rd.idx - (firstRoundIdx ?? rd.idx) + 1); }

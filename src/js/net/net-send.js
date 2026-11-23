@@ -10,7 +10,8 @@
         t: me.thrust > 0.3 ? 1 : 0, b: me.boostFx, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0, ds: me.dead ? me.ds : 0,
         dk: me.dead ? me.dk : 0, da: me.dead ? +me.da.toFixed(2) : 0, tm: me.tm ?? -1,   // the team rides every message: shots need it
         td: Number.isFinite(me.tdir) ? +me.tdir.toFixed(2) : undefined,   // which way I push (the jets show it)
-        bw: me.weapon === "saw" && charge > 0 && !me.dead ? +charge.toFixed(2) : undefined   // the Blood Blade wound up this far (others see it drawn back)
+        bw: me.weapon === "saw" && charge > 0 && !me.dead ? +charge.toFixed(2) : undefined,   // the Blood Blade wound up this far (others see it drawn back)
+        em: emoteWire(me, now)   // an emote just made
       };
       const slow = {
         tm: me.tm ?? -1, fc: me.fc ?? -1, cp: [stats.round, me.caps || 0], pg: Math.round(myPing / 10) * 10, bc: bots.length ? [bots.length, bots[0].level] : 0,

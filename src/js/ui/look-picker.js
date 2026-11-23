@@ -9,7 +9,7 @@
     drawBot({ ...me, thrust: 0.9, a: -Math.PI / 2 + Math.sin(now / 900) * 0.25 }, 60, 66, now, true, { name: "" });   // low enough for a hat or halo
     } finally { g = main; TS = mainTS; }
   }
-  me.ck = cleanCustom((() => { try { return JSON.parse(store.get("binrocket.custom")); } catch { return null; } })());
+  me.ck = freeLook(cleanCustom((() => { try { return JSON.parse(store.get("binrocket.custom")); } catch { return null; } })()));
   const optsEl = document.getElementById("customOpts");
   const swatchBg = (key, val) => key === "body" ? (val === null ? "#4fd6c8" : toneCss(val, 65, 55))
     : key === "lid" ? (val === null ? "#9d8fc8" : toneCss(val, 45, 60))
@@ -37,6 +37,7 @@
       b.dataset.key = key; b.dataset.i = i;
       b.setAttribute("aria-pressed", String(me.ck[CUSTOM_KEYS.indexOf(key)] === i));
       b.addEventListener("click", () => {
+        if (lockedBy(key, val)) return;
         const ck = me.ck.slice(); ck[CUSTOM_KEYS.indexOf(key)] = i;
         setLook(ck);   // others see it with my next state
       });
@@ -45,8 +46,17 @@
     row.append(lab, sws); el.appendChild(row);
   }
   }
+  // the looks earned with the profile: shown, but not to be had until then (marked again as the profile grows)
+  function markLocks() {
+    for (const p of lookPanels) for (const b of p.querySelectorAll(".sw")) {
+      const [name, val] = CUSTOM[b.dataset.key].items[b.dataset.i], lock = lockedBy(b.dataset.key, val);
+      b.classList.toggle("locked", !!lock); b.title = lock ? `${name} · ${lock[1]} ${lock[0]} to unlock` : name;
+      if (lock) b.setAttribute("aria-disabled", "true"); else b.removeAttribute("aria-disabled");
+    }
+  }
   lookPicker(optsEl);
   lookPicker(document.getElementById("menuLook"));
   document.getElementById("randomLook").addEventListener("click", () => {
-    setLook(CUSTOM_KEYS.map(key => Math.floor(Math.random() * CUSTOM[key].items.length)));
+    setLook(freeLook(CUSTOM_KEYS.map(key => Math.floor(Math.random() * CUSTOM[key].items.length))));
   });
+  showProfile();

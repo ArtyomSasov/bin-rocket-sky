@@ -47,13 +47,14 @@ const BRIDGE = `
       addBots(n, level);
       for (const b of bots) Object.assign(b, spawnPoint(b.tm));
     },
-    addPilot(name) { const b = addPilot(name); if (!b) return null; Object.assign(b, spawnPoint(b.tm)); return b.id; },
+    addPilot(name, look) { const b = addPilot(name, look); if (!b) return null; Object.assign(b, spawnPoint(b.tm)); return b.id; },
     removePilot(id) { removePilot(id); },
     // at: when it arrived (the server's clock). Older controls arriving after newer ones (the data channel keeps no
     // order) are dropped. The controls a step started with are kept, so the step can fly them
     // until that moment and the new ones after it, as the player's screen did (see the split in updateBots)
     input(id, i, at) {
       const b = botById.get(id); if (!b || !b.input) return;
+      if (i.em) takeEmote(b, i.em, performance.now());   // an emote: shown to everyone with its pilot's state
       // flight commands queue up in their own order, each flown once: a repeat of one already had is skipped, and one
       // that comes late (the data channel keeps no order) still goes in its place
       if (i.c && i.c.length) {
@@ -128,6 +129,7 @@ export function cleanInput(i = {}) {
   return { mx, my, aim: Number.isFinite(i.aim) ? Math.atan2(Math.sin(i.aim), Math.cos(i.aim)) : 0, fire: i.fire === true, alt: i.alt === true,
     boost: i.boost === true, brake: i.brake === true, dash: count(i.dash), w: Number.isInteger(i.w) && i.w >= 0 && i.w < 64 ? i.w : -1,
     s: count(i.s),   // s: the controls' number, counted up by the player's screen with each message
+    em: Array.isArray(i.em) && Number.isSafeInteger(i.em[0]) && Number.isInteger(i.em[1]) ? [i.em[0], i.em[1]] : null,   // an emote
     gx: unit(i.gx), gy: unit(i.gy), gb: count(i.gb),   // a guided nuke: the stick steering it, and the count of blow-ups
     // c: the newest flight commands, [number, stick x, stick y (thousandths), facing (thousandths of a radian),
     // boost 1 + brake 2, dash count] (pilotMove in src/js/pilots/commands.js); a few repeat in each message, for losses
@@ -149,7 +151,7 @@ export function createMatch({ code = "m1d0c", bots = 0, level = "normal" } = {})
     // stamped with the moment the step stands for, not the moment the timer fired: the steps are evenly spaced in
     // simulated time, so a screen that places them on a timeline (interpolation) sees even motion
     packet: (now = performance.now()) => { game.__setNow(now); const p = sim.packet(now); p.ts = Math.round(performance.timeOrigin + now); return p; },
-    addPilot: name => sim.addPilot(name),
+    addPilot: (name, look) => sim.addPilot(name, look),   // look: { ck, hue } the player chose
     removePilot: id => sim.removePilot(id),
     input: (id, i, at = performance.now()) => sim.input(id, cleanInput(i), at),
     // the player's round trip (ms), measured by the server: how far back their shots are judged (at most 250 ms)

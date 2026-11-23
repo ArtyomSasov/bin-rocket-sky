@@ -15,7 +15,7 @@ test('what a player sends is clamped to what a stick, an angle and buttons can s
   assert.ok(Math.abs(i.aim - (7 - 2 * Math.PI)) < 1e-12, 'an angle is wrapped');
   assert.deepEqual({ fire: i.fire, boost: i.boost, dash: i.dash }, { fire: false, boost: true, dash: 0 });
   assert.deepEqual(cleanInput({ mx: NaN, aim: Infinity, dash: 2.5, w: 99, alt: 1, c: [[1, 2], 'x', [0, 0, 0, 0, 0, 0]] }),
-    { mx: 0, my: 0, aim: 0, fire: false, alt: false, boost: false, brake: false, dash: 0, w: -1, s: 0, gx: 0, gy: 0, gb: 0, c: [], ld: -1 });
+    { mx: 0, my: 0, aim: 0, fire: false, alt: false, boost: false, brake: false, dash: 0, w: -1, s: 0, em: null, gx: 0, gy: 0, gb: 0, c: [], ld: -1 });
 });
 
 test('the server\'s state after any command, flown on with the commands after it, is exactly its state after the last', { skip }, async () => {

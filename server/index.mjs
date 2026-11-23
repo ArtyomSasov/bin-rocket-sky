@@ -243,7 +243,7 @@ wss.on("connection", (ws, req) => {
       if (held) { clearTimeout(held.timer); r.held.delete(rk); }
       else if (old) { old.replaced = true; r.clients.delete(old); r.byRk.delete(rk); old.terminate(); }
       else if (r.clients.size + r.held.size >= MAX_PLAYERS) { send(ws, { t: "error", reason: "room full" }); ws.close(1013); return; }
-      const back = held || old, pid = held ? held.pid : old ? old.pid : r.match.addPilot(cleanName(m.name));
+      const back = held || old, pid = held ? held.pid : old ? old.pid : r.match.addPilot(cleanName(m.name), { ck: Array.isArray(m.ck) ? m.ck.slice(0, 16) : null, hue: Number(m.h) });
       if (!pid) { send(ws, { t: "error", reason: "room full" }); ws.close(1013); return; }
       room = r; id = pid; room.clients.add(ws); done();
       ws.rk = back ? rk : randomBytes(16).toString("hex");

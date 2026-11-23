@@ -54,9 +54,10 @@
     b.jvx = b.vx || 0; b.jvy = b.vy || 0;
     if (jdv > 380 && !b.dead && jdv < 4000) { const k = Math.min(1, (jdv - 300) / 1200); if (k > (b.joltK || 0) * Math.exp(-(now - (b.joltAt || 0)) / 140)) { b.joltAt = now; b.joltK = k; b.joltA = Math.atan2((b.vy || 0) - pvy, (b.vx || 0) - pvx) - pose.a; } }
     const jt = (now - (b.joltAt || -1e9)) / 1000, jk = jt < 0.6 ? (b.joltK || 0) * Math.exp(-jt / 0.14) * Math.cos(jt * 38) * 0.22 : 0;
-    g.save(); g.translate(x, y); g.rotate(pose.a);
+    const emo = emotePose(b, now);   // an emote: a wiggle, a flip
+    g.save(); g.translate(x, y + (emo ? emo[2] : 0)); g.rotate(pose.a + (emo ? emo[0] : 0));
     if (jk) { g.rotate(b.joltA); g.scale(1 - jk, 1 + jk * 0.8); g.rotate(-b.joltA); }   // (squashed along the blow, bulging across it)
-    g.scale(pose.scaleX, 1);
+    g.scale(pose.scaleX * (emo ? emo[1] : 1), 1);
     mountHeat = isMe ? spin : 0;
     // a minigun's barrels turn with its spin (mine: the trigger's spin-up; another's: how hard it has been firing)
     { const sv = isMe ? spin : (b.spinVis = Math.max(0, (b.spinVis || 0) - Math.min(0.1, (now - (b.spinT || now)) / 1000) * 1.2)), dtv = Math.min(0.1, (now - (b.barrelT || now)) / 1000);
@@ -65,7 +66,7 @@
     if (body) {
       g.drawImage(b.ck ? tintedBody(teamCk(b)) : body, -s / 2, -s / 2, s, s);
       if (!lowQ) {   // light on the hull: a sheen from the top left that stays put as it turns, and its engines' glow on its stern
-        const ckL = teamCk(b) || [0, 0, 0, 0, 0], loc = a => a - pose.a;
+        const ckL = teamCk(b) || NO_LOOK, loc = a => a - pose.a;
         g.globalCompositeOperation = "lighter";
         g.globalAlpha = 0.22; g.drawImage(litBody(ckL, loc(-2.36), "rgba(255,255,255,1)"), -s / 2, -s / 2, s, s);
         const th = Math.max(bf ? 1 : 0, Math.min(1.4, b.thrust || 0));
@@ -73,10 +74,12 @@
         g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
       }
       const hf = b.hitAt ? Math.min(1, 1 - (now - b.hitAt) / 120) : 0;   // just hit: a white flash
-      if (hf > 0) { g.globalAlpha = hf * 0.85; g.drawImage(whiteBody(teamCk(b) || [0, 0, 0, 0, 0]), -s / 2, -s / 2, s, s); g.globalAlpha = 1; }
+      if (hf > 0) { g.globalAlpha = hf * 0.85; g.drawImage(whiteBody(teamCk(b) || NO_LOOK), -s / 2, -s / 2, s, s); g.globalAlpha = 1; }
     } else { g.fillStyle = "#4fd6c8"; g.fillRect(-s / 3, -s / 3, s / 1.5, s / 1.5); }
     const hat = b.ck ? customVal(b.ck, "hat") : null;
     if (Number.isFinite(b.lives)) drawDamage(damageOf(b), s, now, x);
+    const sticker = b.ck ? customVal(b.ck, "sticker") : null;
+    if (sticker) drawSticker(sticker, s);
     if (hat) drawHat(hat, s, now);
     g.restore();
     { const wpn = isMe ? me.weapon : b.weapon;   // a blade in hand: held outside the hull, over it
@@ -89,6 +92,7 @@
       g.fillStyle = f > 0.6 ? "#4fe39a" : f > 0.3 ? "#ffc23d" : "#ff4d5e"; rrect(x - bw / 2, by, bw * f, 5, 2.5); g.fill();
     }
 
+    drawEmoteWords(b, x, y, now, S);
     const label = look.name ?? b.name ?? "";
     if (label) {
       g.font = `700 ${13 * TS}px ` + DISPLAY_FONT;

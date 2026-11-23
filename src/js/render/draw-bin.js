@@ -4,6 +4,27 @@
     const c = (dh, sat, l) => hsl2rgb((h + dh) % 360, sat, l).map(Math.round);
     return { outer: c(0, 1, 0.55), mid: c(40, 1, 0.65), core: c(80, 1, 0.9) };
   }
+  // a sticker on the bin's front, in the art's frame: a white-edged vinyl shape, slightly turned
+  function drawSticker(kind, s) {
+    const [cx, cy] = [(86 / 320 - 0.5) * s, (158 / 320 - 0.5) * s], u = s * 0.012;   // (the lower left of its front, clear of the face)
+    g.save(); g.translate(cx, cy); g.rotate(-0.12); g.lineJoin = "round"; g.lineCap = "round";
+    const shape = () => {
+      g.beginPath();
+      if (kind === "star") for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = (i % 2 ? 4.5 : 10) * u; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+      else if (kind === "heart") { g.moveTo(0, 8 * u); g.bezierCurveTo(-13 * u, -1 * u, -7 * u, -11 * u, 0, -4 * u); g.bezierCurveTo(7 * u, -11 * u, 13 * u, -1 * u, 0, 8 * u); }
+      else if (kind === "bolt") { g.moveTo(2 * u, -11 * u); g.lineTo(-6 * u, 1 * u); g.lineTo(0, 1 * u); g.lineTo(-3 * u, 11 * u); g.lineTo(6 * u, -2 * u); g.lineTo(0, -2 * u); }
+      else g.arc(0, 0, 10 * u, 0, 6.29);   // smile, skull, recycle: a round sticker, drawn on below
+      g.closePath();
+    };
+    const col = { star: "#ffd23f", heart: "#ff5a6e", bolt: "#7df9ff", smile: "#ffe66b", skull: "#eef2f8", recycle: "#3ad06a", trophy: "#ffc83d" }[kind] || "#ffffff";
+    shape(); g.strokeStyle = "#ffffff"; g.lineWidth = 3.2 * u; g.stroke(); g.fillStyle = col; g.fill();
+    g.strokeStyle = "#1d1630"; g.fillStyle = "#1d1630"; g.lineWidth = 1.6 * u;
+    if (kind === "smile") { g.beginPath(); g.arc(-3.5 * u, -2.5 * u, 1.4 * u, 0, 6.29); g.arc(3.5 * u, -2.5 * u, 1.4 * u, 0, 6.29); g.fill(); g.beginPath(); g.arc(0, 1 * u, 5 * u, 0.2, Math.PI - 0.2); g.stroke(); }
+    else if (kind === "skull") { g.beginPath(); g.arc(-3.5 * u, -1.5 * u, 2.4 * u, 0, 6.29); g.arc(3.5 * u, -1.5 * u, 2.4 * u, 0, 6.29); g.fill(); for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(i * 2.6 * u, 4 * u); g.lineTo(i * 2.6 * u, 7.5 * u); g.stroke(); } }
+    else if (kind === "trophy") { g.fillStyle = "#8a5a10"; g.beginPath(); g.moveTo(-4.5 * u, -5 * u); g.lineTo(4.5 * u, -5 * u); g.quadraticCurveTo(4.5 * u, 2 * u, 0, 2.5 * u); g.quadraticCurveTo(-4.5 * u, 2 * u, -4.5 * u, -5 * u); g.fill(); g.fillRect(-1 * u, 2.5 * u, 2 * u, 2.5 * u); g.fillRect(-3.5 * u, 5 * u, 7 * u, 1.6 * u); }   // a cup
+    else if (kind === "recycle") { g.strokeStyle = "#ffffff"; for (let i = 0; i < 3; i++) { const a = i * 2.094 - Math.PI / 2; g.beginPath(); g.arc(0, 0, 5.5 * u, a + 0.35, a + 1.75); g.stroke(); const ea = a + 1.75, ex = Math.cos(ea) * 5.5 * u, ey = Math.sin(ea) * 5.5 * u; g.beginPath(); g.moveTo(ex + Math.cos(ea - 2.4) * 2.6 * u, ey + Math.sin(ea - 2.4) * 2.6 * u); g.lineTo(ex, ey); g.lineTo(ex + Math.cos(ea + 0.8) * 2.6 * u, ey + Math.sin(ea + 0.8) * 2.6 * u); g.stroke(); } }
+    g.restore();
+  }
   // hats sit on the lid in the art's frame (same anchor as the crown)
   function drawHat(hat, s, now) {
     const [cx0, cy0] = [(176 / 320 - 0.5) * s, (30 / 320 - 0.5) * s], u = s * 0.012;
@@ -45,6 +66,13 @@
       g.fillStyle = "#c8ff2a"; g.beginPath(); g.arc(0, 0, 15 * u, Math.PI, 0); g.closePath(); g.fill();
       g.fillStyle = "#d8dde4"; g.fillRect(-15 * u, -5 * u, 30 * u, 4 * u);
       g.fillStyle = "#c8ff2a"; g.beginPath(); g.arc(0, -15 * u, 4 * u, 0, 6.29); g.fill();
+    } else if (hat === "crown") {   // a gold crown with three jewels (earned: see ui/profile.js)
+      const cg = g.createLinearGradient(0, -14 * u, 0, 4 * u);
+      cg.addColorStop(0, "#fff6c8"); cg.addColorStop(1, "#d39a22");
+      g.fillStyle = cg; g.strokeStyle = "#7a4f08"; g.lineWidth = u * 0.8;
+      g.beginPath(); g.moveTo(-14 * u, 3 * u); g.lineTo(-16 * u, -10 * u); g.lineTo(-8 * u, -4 * u); g.lineTo(0, -15 * u);
+      g.lineTo(8 * u, -4 * u); g.lineTo(16 * u, -10 * u); g.lineTo(14 * u, 3 * u); g.closePath(); g.fill(); g.stroke();
+      for (const [gx, gc] of [[-8, "#ff5a6e"], [0, "#4fd6c8"], [8, "#c38bff"]]) { g.fillStyle = gc; g.beginPath(); g.arc(gx * u, -1 * u, 2.2 * u, 0, 6.29); g.fill(); }
     } else if (hat === "recycle") {   // three green recycling arrows chasing round above the lid
       g.translate(0, -18 * u); g.scale(1, 0.45); g.rotate(now / 700);
       g.fillStyle = "#3ad06a"; g.strokeStyle = "#1e7a40"; g.lineWidth = 1.2 * u;

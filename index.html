@@ -239,6 +239,9 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
 .sw[aria-pressed="true"] { border-color: #ffffff; box-shadow: 0 0 0 2px var(--flame); }
 .sw.txt { background: rgba(255,255,255,.08); border-color: var(--line); }
 .sw.txt[aria-pressed="true"] { border-color: #ffffff; background: rgba(79,214,200,.25); }
+.sw.locked { opacity: .3; cursor: not-allowed; }
+.profile { margin-top: 6px; font-size: 12px; color: var(--muted); }
+.profile:empty { display: none; }
 .card h1 { margin: 0; font: 700 34px/1 var(--display); letter-spacing: .01em; text-wrap: balance; }
 .card h1 em { font-style: normal; color: var(--teal); }
 .card p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
@@ -720,6 +723,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       <div class="pilot-side">
         <input id="nameInput" maxlength="14" autocomplete="off" placeholder="Pilot name" aria-label="Pilot name">
         <details class="more look"><summary>Change the look</summary><div class="opts" id="customOpts"></div></details>
+        <div class="profile" id="profileLine"></div>
       </div>
     </section>
 
@@ -1089,17 +1093,22 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     // the bin lid colours of household collections: recycling, garden, food, general waste, glass
     lid:   { label: "Lid",   items: [["Lavender", null], ["Navy", 222], ["Red", 2], ["Mint", 155], ["Rose", 318], ["Amber", 38],
                                      ["Recycling blue", [212, 1.3, 0.85]], ["Garden green", [120, 1.1, 0.75]], ["Food brown", [28, 0.75, 0.6]], ["General black", [230, 0.1, 0.4]], ["Glass purple", [275, 1, 0.8]]] },
-    flame: { label: "Fire",  items: [["Classic", null], ["Blue", "blue"], ["Green", "green"], ["Pink", "pink"], ["Rainbow", "rainbow"], ["Toxic", "toxic"]] },
+    flame: { label: "Fire",  items: [["Classic", null], ["Blue", "blue"], ["Green", "green"], ["Pink", "pink"], ["Rainbow", "rainbow"], ["Toxic", "toxic"], ["Gold", "gold"]] },
     trail: { label: "Trail", items: [["Sparkle", null], ["Fire", "fire"], ["Ice", "ice"], ["Gold", "gold"], ["Rainbow", "rainbow"], ["Litter", "litter"], ["Eco", "eco"]] },
     hat:   { label: "Hat",   items: [["None", null], ["Party", "party"], ["Top hat", "tophat"], ["Halo", "halo"], ["Bow", "bow"], ["Cap", "cap"],
-                                     ["Hard hat", "hardhat"], ["Traffic cone", "cone"], ["Hi-vis beanie", "hivis"], ["Recycling", "recycle"]] }
+                                     ["Hard hat", "hardhat"], ["Traffic cone", "cone"], ["Hi-vis beanie", "hivis"], ["Recycling", "recycle"], ["Crown", "crown"]] },
+    // a sticker on the bin's front, and how the bin goes when it dies (by default: by what killed it)
+    sticker: { label: "Sticker", items: [["None", null], ["Star", "star"], ["Heart", "heart"], ["Smile", "smile"], ["Bolt", "bolt"], ["Skull", "skull"], ["Recycle", "recycle"], ["Trophy", "trophy"]] },
+    death: { label: "Death", items: [["By weapon", null], ["Confetti", "confetti"], ["Litter", "litter"]] }
   };
-  const CUSTOM_KEYS = ["body", "lid", "flame", "trail", "hat"];
+  const CUSTOM_KEYS = ["body", "lid", "flame", "trail", "hat", "sticker", "death"];
+  const NO_LOOK = CUSTOM_KEYS.map(() => 0);   // the original look (a look from an older page is shorter: the rest are 0)
   const FLAMES = {
     blue:  { outer: [60, 120, 255], mid: [80, 200, 255],  core: [225, 250, 255] },
     green: { outer: [40, 200, 90],  mid: [140, 255, 120], core: [235, 255, 215] },
     pink:  { outer: [255, 60, 160], mid: [255, 140, 210], core: [255, 236, 250] },
-    toxic: { outer: [120, 255, 30], mid: [210, 255, 80], core: [245, 255, 210] }
+    toxic: { outer: [120, 255, 30], mid: [210, 255, 80], core: [245, 255, 210] },
+    gold:  { outer: [230, 150, 30], mid: [255, 215, 90], core: [255, 252, 225] }
   };
   const TRAILS = {
     fire: ["#fff3b0", "#ffd23f", "#ff9a2e", "#ff5a1f"],
@@ -1116,7 +1125,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // team modes paint every bin's body and lid in its team's colour (the rest of the look stays the pilot's own)
   const TEAM_SKIN = [{ body: 352, lid: 8 }, { body: 212, lid: 226 }];   // hues: Red, Blue
   const customVal = (ck, key) => ck.team !== undefined && TEAM_SKIN[ck.team][key] !== undefined ? TEAM_SKIN[ck.team][key]
-    : CUSTOM[key].items[ck[CUSTOM_KEYS.indexOf(key)]][1];
+    : (CUSTOM[key].items[ck[CUSTOM_KEYS.indexOf(key)]] || CUSTOM[key].items[0])[1];
 
   const img = new Image(); img.src = window.BRS_SPRITE || "bot.png";   // the one-file game carries the sprite inside
   const holyImg = new Image(); holyImg.src = window.BRS_HOLY || "holy.png";   // the holy bomb's skin
@@ -2097,7 +2106,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // ---------- state ----------
   const me = {
     x: rndIn(W, 300), y: rndIn(H, 300), vx: 0, vy: -40, a: -Math.PI / 2,
-    thrust: 0, score: 0, name: "", hue: Math.floor(Math.random() * 360), ck: [0, 0, 0, 0, 0],
+    thrust: 0, score: 0, name: "", hue: Math.floor(Math.random() * 360), ck: NO_LOOK.slice(),
     lives: LIVES, dead: false, respawnAt: 0, inv: 0, weapon: "fire", arsenal: { fire: Infinity }, ampUntil: 0, ds: 0, shield: 0, boostFx: 0, dashAt: -1e9, bank: 0, boostOn: false
   };
   let myTag = Math.random().toString(36).slice(2, 7);   // on the authoritative server, the tag it gives my pilot
@@ -2177,6 +2186,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     wakeAudio();
     if (e.target.tagName === "INPUT") return;
     keys.add(e.code);
+    if (playing && !me.dead && !e.repeat && e.code in EMOTE_KEYS) emote(me, EMOTE_KEYS[e.code], performance.now());
     if (playing && (e.code.startsWith("Arrow") || e.code === "Space")) e.preventDefault();
   });
   addEventListener("keydown", e => {
@@ -4010,7 +4020,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const isTeams = () => !!MODES[MODE].teams;
   const onTeam = o => o.tm === 0 || o.tm === 1;   // tm is 0, 1 or undefined (outside team modes, or not heard yet)
   // a pilot's look as drawn: in team modes the body and lid take the team colour
-  const teamCk = o => isTeams() && onTeam(o) ? Object.assign((o.ck || [0, 0, 0, 0, 0]).slice(), { team: o.tm }) : o.ck;
+  const teamCk = o => isTeams() && onTeam(o) ? Object.assign((o.ck || NO_LOOK).slice(), { team: o.tm }) : o.ck;
   const mates = (a, b) => isTeams() && onTeam(a) && a.tm === b.tm;
   function baseArsenal() {
     const o = MODES[MODE].only;
@@ -5168,7 +5178,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   }
   function shatter(b, n) {
     const s = BOT, rot = b.a + Math.PI / 2 - SPRITE_TILT;
-    for (const piece of cutSprite(n)) addFrag(b, piece, s, rot, renderPiece(piece, s, b.ck || [0, 0, 0, 0, 0]), (wx, wy) => {
+    for (const piece of cutSprite(n)) addFrag(b, piece, s, rot, renderPiece(piece, s, b.ck || NO_LOOK), (wx, wy) => {
       const d = Math.hypot(wx, wy) || 1, v = 70 + Math.random() * 150;   // flung out from the middle
       return [wx / d * v + (b.vx || 0) * 0.7, wy / d * v + (b.vy || 0) * 0.7, (Math.random() - 0.5) * 1.3];   // (carrying on the way it flew)
     });
@@ -5249,6 +5259,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const THROWN = new Set([0, 2, 6]);   // (a rail slug cuts it in two where it is: railCut)
   function deathFx(b, ds, dk, da) {
     b = { ...b, ck: teamCk(b) };   // the wreck keeps the colours the bin flew in
+    const own = b.ck ? customVal(b.ck, "death") : null;   // a death of its pilot's choosing, whatever killed it
+    if (own) { (own === "confetti" ? confettiDeath : litterDeath)(b); return; }
     if (THROWN.has(dk) && Number.isFinite(da)) {
       makeHulk(b, false, true);
       const h = hulks[hulks.length - 1], sp = 650 + Math.random() * 350;
@@ -5259,6 +5271,28 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       return;
     }
     deathStyle(b, ds, dk, da);
+  }
+  // Confetti: the bin pops like a party popper, a burst of tumbling coloured paper and streamers
+  const CONFETTI = ["#ff6b6b", "#ffd23f", "#6bff95", "#6bd5ff", "#c38bff", "#ff7bea", "#ffffff"];
+  function confettiDeath(b) {
+    rings.push({ x: b.x, y: b.y, t: 0, r: 170, col: "255,230,120", dur: 0.35, w: 8 });
+    impact(b.x, b.y, "#fff6d0", 1.2);
+    for (let k = 0; k < (lowQ ? 40 : 110); k++) {
+      const a = Math.random() * 6.283, v = 150 + Math.random() * 520, col = CONFETTI[k % CONFETTI.length];
+      if (k % 3) addDebris(b.x, b.y, Math.cos(a) * v + (b.vx || 0) * 0.3, Math.sin(a) * v + (b.vy || 0) * 0.3, 2 + Math.random() * 3, col, 2 + Math.random() * 1.5);
+      else puff(b.x, b.y, Math.cos(a) * v * 1.3, Math.sin(a) * v * 1.3, 0.5 + Math.random() * 0.4, 1.5, col, 1, 0.05, (Math.random() - 0.5) * 6);   // streamers, curling
+    }
+    sfx("p_pickup", 0.9, 1.4, b.x, b.y); sfx("crash", 0.4, 1.6, b.x, b.y);
+  }
+  // Litter: the bin tips over and spills its rubbish (paper, cans and wrappers) as an empty bin tumbles away
+  function litterDeath(b) {
+    makeHulk(b, false, true);   // (quietly: no blast, it just tips over)
+    for (let k = 0; k < (lowQ ? 18 : 45); k++) {
+      const a = Math.random() * 6.283, v = 60 + Math.random() * 320;
+      addDebris(b.x, b.y, Math.cos(a) * v + (b.vx || 0) * 0.5, Math.sin(a) * v + (b.vy || 0) * 0.5, 3 + Math.random() * 5, TRAILS.litter[k % TRAILS.litter.length], 6 + Math.random() * 4);
+    }
+    for (let k = 0; k < 12; k++) { const a = Math.random() * 6.283, v = 40 + Math.random() * 120; puff(b.x, b.y, Math.cos(a) * v, Math.sin(a) * v, 0.8 + Math.random() * 0.6, 4 + Math.random() * 4, "rgb(120,110,100)", 2); }   // a puff of grime
+    sfx("crash", 0.8, 0.9, b.x, b.y); sfx("p_metal", 0.6, 1.1, b.x, b.y);
   }
   // the thrown wreck goes up: in its own death's way, where it is now and moving as it moves
   function wreckBlows(h) {
@@ -5285,7 +5319,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   function sawDeath(b, da) {
     const s = BOT, rot = b.a + Math.PI / 2 - SPRITE_TILT, a = da - rot;
     for (const piece of quarterSprite(a))
-      addFrag(b, piece, s, rot, renderPiece(piece, s, b.ck || [0, 0, 0, 0, 0], "255,170,80", "255,240,200", 2), (wx, wy) => {
+      addFrag(b, piece, s, rot, renderPiece(piece, s, b.ck || NO_LOOK, "255,170,80", "255,240,200", 2), (wx, wy) => {
         const d = Math.hypot(wx, wy) || 1, v = 120 + Math.random() * 90;
         return [wx / d * v + (b.vx || 0) * 0.3, wy / d * v + (b.vy || 0) * 0.3, (Math.random() - 0.5) * 3];
       });
@@ -5338,7 +5372,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   function railCut(b, da) {
     const s = BOT, rot = b.a + Math.PI / 2 - SPRITE_TILT, nx = -Math.sin(da), ny = Math.cos(da);
     for (const piece of sliceSprite(da - rot, (Math.random() - 0.5) * 36))
-      addFrag(b, piece, s, rot, renderPiece(piece, s, b.ck || [0, 0, 0, 0, 0], "255,120,30", "255,236,190", 2.4), (wx, wy) => {
+      addFrag(b, piece, s, rot, renderPiece(piece, s, b.ck || NO_LOOK, "255,120,30", "255,236,190", 2.4), (wx, wy) => {
         const sg = Math.sign(wx * nx + wy * ny) || 1, v = 160 + Math.random() * 90;   // the halves part across the cut, thrown on along the slug's path
         return [nx * sg * v + Math.cos(da) * 380 + (b.vx || 0) * 0.3, ny * sg * v + Math.sin(da) * 380 + (b.vy || 0) * 0.3, sg * (0.8 + Math.random() * 1.2)];
       });
@@ -5375,7 +5409,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const melts = [];
   function meltDown(b) {
     const s = BOT;
-    const [img] = renderPiece({ poly: [[0, 0], [320, 0], [320, 320], [0, 320]], edges: [], cx: 160, cy: 160 }, s, b.ck || [0, 0, 0, 0, 0]);
+    const [img] = renderPiece({ poly: [[0, 0], [320, 0], [320, 320], [0, 320]], edges: [], cx: 160, cy: 160 }, s, b.ck || NO_LOOK);
     const hot = document.createElement("canvas"); hot.width = img.width; hot.height = img.height;
     const hq = hot.getContext("2d"), gr = hq.createLinearGradient(0, 0, 0, hot.height);
     hq.drawImage(img, 0, 0); hq.globalCompositeOperation = "source-in";
@@ -6884,7 +6918,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (!r) {
       if (!hasPos || remotes.size >= MAX_REMOTES) return false;   // a flyer appears once we know where it is
       r = { x: clamp(p.x, 0, W), y: clamp(p.y, 0, H), a: num(p.a, 0), ta: num(p.a, 0), tx: p.x, ty: p.y, vx: 0, vy: 0,
-            q: -1, name: "Bin", hue: 200, ck: [0, 0, 0, 0, 0], score: 0, lives: LIVES, thrust: 0, dead: false, inv: false };
+            q: -1, name: "Bin", hue: 200, ck: NO_LOOK, score: 0, lives: LIVES, thrust: 0, dead: false, inv: false };
       remotes.set(id, r);
     }
     // Reordered snapshots can contain an unseen shot even though their movement is obsolete.
@@ -6934,7 +6968,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (Array.isArray(p.cp) && Number.isInteger(p.cp[1])) { r.cpRound = p.cp[0]; r.caps = clamp(p.cp[1], 0, 99); }
     if (typeof p.n === "string") r.name = p.n.slice(0, 14);
     if (Number.isFinite(p.h)) r.hue = p.h % 360;
-    if (Array.isArray(p.ck) && p.ck.length === 5 && p.ck.every(Number.isInteger)) r.ck = cleanCustom(p.ck);
+    if (Array.isArray(p.ck) && p.ck.length >= 5 && p.ck.length <= CUSTOM_KEYS.length && p.ck.every(Number.isInteger)) r.ck = cleanCustom(p.ck);
     if (Number.isFinite(p.s)) r.score = Math.max(0, Math.floor(p.s));
     if (Array.isArray(p.st) && p.st.length === 6 && p.st.every(Number.isInteger)) r.st = p.st;   // [round, kills, deaths, shots, hits, best]
     if (Number.isInteger(p.wp)) r.weapon = WEAPONS[WEAPON_KEYS[p.wp]] ? WEAPON_KEYS[p.wp] : "fire";
@@ -6942,6 +6976,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (Number.isFinite(p.pg)) r.ping = clamp(p.pg, 0, 5000);
     if ("am" in p) r.amp = p.am >= 1;   // (a player on the server: the seconds it has left)
     if (Number.isFinite(p.l)) r.lives = clamp(p.l, 0, LIVES * 1.99);
+    takeEmote(r, p.em, performance.now());
     remoteShots(id, p);
     if (Array.isArray(p.gw) && p.gw.length === 6 && typeof p.gw[0] === "string" && p.gw.slice(1).every(Number.isFinite)) guideRemote(id, p.gw);
     applyWorld(id, p);
@@ -7471,7 +7506,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     ws.binaryType = "arraybuffer";
     srv.snaps = new Map(); srv.snapQ = 0;
     if (!srv.rk) srv.placed = false;
-    ws.onopen = () => ws.send(JSON.stringify({ t: "join", code, name: me.name, bots: botChoice.n, level: botChoice.level, pub: !joining, bin: 1, rtc: window.RTCPeerConnection ? 1 : 0, rk: srv.rk || undefined }));   // a new game is listed, as online lobbies are; a room opened by typing a code is not
+    ws.onopen = () => ws.send(JSON.stringify({ t: "join", code, name: me.name, ck: me.ck, h: me.hue, bots: botChoice.n, level: botChoice.level, pub: !joining, bin: 1, rtc: window.RTCPeerConnection ? 1 : 0, rk: srv.rk || undefined }));   // a new game is listed, as online lobbies are; a room opened by typing a code is not
     ws.onmessage = e => {
       if (srv.ws !== ws) return;
       if (e.data instanceof ArrayBuffer) { receiveDelta(new Uint8Array(e.data)); return; }
@@ -7510,7 +7545,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const c = me.ctl || {}, i = { t: "in", mx: +num(c.mx, 0).toFixed(3), my: +num(c.my, 0).toFixed(3), aim: +me.a.toFixed(3),
       fire: !!c.fire && !me.dead && playing, alt: !!c.alt && !me.dead && playing, boost: !!c.boost, brake: !!c.brake && !me.dead, dash: srv.dashN,
       w: WEAPON_KEYS.indexOf(me.weapon), ld: Math.round(srv.interp / 5) * 5,
-      gx: +num(srv.gx, 0).toFixed(3), gy: +num(srv.gy, 0).toFixed(3), gb: srv.gb || 0 };   // a guided nuke's stick and blow-ups   // ld: how far in the past I see the others (for lag compensation)
+      gx: +num(srv.gx, 0).toFixed(3), gy: +num(srv.gy, 0).toFixed(3), gb: srv.gb || 0, em: emoteWire(me, performance.now()) };   // a guided nuke's stick and blow-ups   // ld: how far in the past I see the others (for lag compensation)
     const sig = JSON.stringify(i), t = performance.now(), fresh = srv.cs > srv.sentCs;   // fresh: flight commands not sent yet
     if (!fresh && (sig === srv.lastIn ? t - srv.lastInAt < 250 : t - srv.lastInAt < 14)) return;   // at most one a frame (the server allows 90 a second)
     srv.lastIn = sig; srv.lastInAt = t;
@@ -8252,7 +8287,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     for (let i = 0; i < n; i++) {
       const id = "pb" + Math.random().toString(36).slice(2, 8);
       const b = { id, tag: "b" + Math.random().toString(36).slice(2, 7), name: BOT_NAMES[(bots.length) % BOT_NAMES.length] + " (bot)", L, level,
-        hue: Math.floor(Math.random() * 360), ck: [Math.floor(Math.random() * 7), Math.floor(Math.random() * 6), Math.floor(Math.random() * 5), Math.floor(Math.random() * 5), Math.floor(Math.random() * 6)],
+        hue: Math.floor(Math.random() * 360), ck: [Math.floor(Math.random() * 7), Math.floor(Math.random() * 6), Math.floor(Math.random() * 5), Math.floor(Math.random() * 5), Math.floor(Math.random() * 6), Math.random() < 0.4 ? 1 + Math.floor(Math.random() * 6) : 0, 0],
         ...spawnPoint(), vx: 0, vy: 0, a: Math.random() * 6.28, lives: LIVES, dead: false, respawnAt: 0, inv: 0, ds: 0,
         fireCd: 1 + Math.random(), side: Math.random() < 0.5 ? 1 : -1, wander: Math.random() * 6.28, seq: 0, q: 0,
         weapon: "fire", shotLog: [], hitBy: [], koBy: [], st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 } };
@@ -8263,7 +8298,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // come from b.input instead of the AI, judged by exactly the same rules (see server/sim)
   //   input: { mx, my: the stick (-1..1), aim: radians, fire, boost: booleans, dash: a counter, +1 per dash }
   // A full arena makes room by retiring an AI bot; with only players left there is no room (null).
-  function addPilot(name) {
+  // look: { ck, hue } the player chose (their screen sends it with the join), so everyone sees the bin they picked
+  function addPilot(name, look = {}) {
     if (bots.length >= MAX_BOTS) {
       const ai = bots.findLast(b => !b.input);
       if (!ai) return null;
@@ -8274,6 +8310,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (bots.length === before) return null;
     const b = bots[bots.length - 1];
     b.name = String(name || "Pilot").slice(0, 14); b.input = { mx: 0, my: 0, aim: b.a, fire: false, alt: false, boost: false, brake: false, dash: 0, w: -1, s: 0 }; b.ackSeq = 0; b.energy = 100; b.dashDone = 0; b.fireCd = 0;   // a bot's opening pause is not for players
+    if (Array.isArray(look.ck)) b.ck = cleanCustom(look.ck);
+    if (Number.isFinite(look.hue)) b.hue = Math.floor(look.hue) % 360;
     pilotArm(b);
     return b;
   }
@@ -8289,7 +8327,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       if (botCredited.has(key) || botCredited.size >= MAX_CREDITS) continue;
       for (const b of bots) if (b.id !== victim && k.startsWith(b.tag + ".")) {
         botCredited.add(key);
-        if (ko) { b.st.kills++; b.st.streak++; b.st.best = Math.max(b.st.best, b.st.streak); } else b.st.hits++;
+        if (ko) { b.st.kills++; b.st.streak++; b.st.best = Math.max(b.st.best, b.st.streak); if (!b.input && Math.random() < 0.3) emote(b, Math.random() < 0.5 ? 0 : 1, performance.now()); } else b.st.hits++;   // (a bot sometimes says GG, or wiggles)
       }
     }
   }
@@ -8701,6 +8739,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         bw: b.charge > 0 && !b.dead && botWeapon(b) === "saw" ? +b.charge.toFixed(2) : undefined   // its Blood Blade wound up this far
       };
       m.sh = b.shield || 0;
+      m.em = emoteWire(b, now);
       m.am = Math.ceil(ampLeft(b, now));   // Quad damage: the seconds it has left
       // a player's own HUD (the guns they carry), and which of their controls this state already holds:
       // ak, the last one applied; ag, for how long (ms, including this step), so their screen can compare
@@ -9926,7 +9965,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         t: me.thrust > 0.3 ? 1 : 0, b: me.boostFx, d: me.dead ? 1 : 0, i: now < me.inv ? 1 : 0, ds: me.dead ? me.ds : 0,
         dk: me.dead ? me.dk : 0, da: me.dead ? +me.da.toFixed(2) : 0, tm: me.tm ?? -1,   // the team rides every message: shots need it
         td: Number.isFinite(me.tdir) ? +me.tdir.toFixed(2) : undefined,   // which way I push (the jets show it)
-        bw: me.weapon === "saw" && charge > 0 && !me.dead ? +charge.toFixed(2) : undefined   // the Blood Blade wound up this far (others see it drawn back)
+        bw: me.weapon === "saw" && charge > 0 && !me.dead ? +charge.toFixed(2) : undefined,   // the Blood Blade wound up this far (others see it drawn back)
+        em: emoteWire(me, now)   // an emote just made
       };
       const slow = {
         tm: me.tm ?? -1, fc: me.fc ?? -1, cp: [stats.round, me.caps || 0], pg: Math.round(myPing / 10) * 10, bc: bots.length ? [bots.length, bots[0].level] : 0,
@@ -10032,13 +10072,16 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // round bookkeeping, run every frame
   let shownRound = -1, resultsFor = -1, resultsAt = 0, preparedFor = -1;
   // the round is over: the announcer tells you how it went (only when someone else took part)
-  function roundEndVoice() {
+  // did I (or my team) come first? null: no contest (alone, or a draw)
+  function roundWon() {
     const rows = playerRows();
-    if (rows.length < 2) return;
+    if (rows.length < 2) return null;
     rows.sort(comparePlayers);
-    if (isTeams() ? teamTotals().lead === 0 : comparePlayers(rows[0], rows[1]) === 0) return;
-    const top = rows[0];
-    const won = isTeams() ? (teamTotals().lead || 0) * (me.tm === 0 ? 1 : -1) > 0 : top.me && stats.kills > 0;
+    if (isTeams() ? teamTotals().lead === 0 : comparePlayers(rows[0], rows[1]) === 0) return null;
+    return isTeams() ? (teamTotals().lead || 0) * (me.tm === 0 ? 1 : -1) > 0 : rows[0].me && (stats.kills > 0 || me.caps > 0);
+  }
+  function roundEndVoice(won) {
+    if (won === null) return;
     setTimeout(() => { const line = won ? (stats.deaths === 0 ? "v_flawless" : "v_win") : "v_lose"; sfx(line, 1); }, 600);
   }
   let decidedRound = -1;
@@ -10101,7 +10144,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       info.classList.toggle("last", rd.left < 30);
     } else {
       info.textContent = "Results · next round in " + Math.ceil(rd.next) + "s";
-      if (playing && resultsFor !== rd.idx) roundEndVoice();
+      if (playing && resultsFor !== rd.idx) { const won = roundWon(); recordRound(won); roundEndVoice(won); }
       if (playing && rd.next < 2.6 && preparedFor !== rd.idx) { preparedFor = rd.idx; sfx("v_prepare", 1); }
       // refresh once a second so late state updates from other pilots still land in the table
       if (playing && (resultsFor !== rd.idx || now - resultsAt > 1000)) { resultsFor = rd.idx; resultsAt = now; showResults(rd.idx - (firstRoundIdx ?? rd.idx) + 1); }
@@ -10824,6 +10867,27 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const c = (dh, sat, l) => hsl2rgb((h + dh) % 360, sat, l).map(Math.round);
     return { outer: c(0, 1, 0.55), mid: c(40, 1, 0.65), core: c(80, 1, 0.9) };
   }
+  // a sticker on the bin's front, in the art's frame: a white-edged vinyl shape, slightly turned
+  function drawSticker(kind, s) {
+    const [cx, cy] = [(86 / 320 - 0.5) * s, (158 / 320 - 0.5) * s], u = s * 0.012;   // (the lower left of its front, clear of the face)
+    g.save(); g.translate(cx, cy); g.rotate(-0.12); g.lineJoin = "round"; g.lineCap = "round";
+    const shape = () => {
+      g.beginPath();
+      if (kind === "star") for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = (i % 2 ? 4.5 : 10) * u; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+      else if (kind === "heart") { g.moveTo(0, 8 * u); g.bezierCurveTo(-13 * u, -1 * u, -7 * u, -11 * u, 0, -4 * u); g.bezierCurveTo(7 * u, -11 * u, 13 * u, -1 * u, 0, 8 * u); }
+      else if (kind === "bolt") { g.moveTo(2 * u, -11 * u); g.lineTo(-6 * u, 1 * u); g.lineTo(0, 1 * u); g.lineTo(-3 * u, 11 * u); g.lineTo(6 * u, -2 * u); g.lineTo(0, -2 * u); }
+      else g.arc(0, 0, 10 * u, 0, 6.29);   // smile, skull, recycle: a round sticker, drawn on below
+      g.closePath();
+    };
+    const col = { star: "#ffd23f", heart: "#ff5a6e", bolt: "#7df9ff", smile: "#ffe66b", skull: "#eef2f8", recycle: "#3ad06a", trophy: "#ffc83d" }[kind] || "#ffffff";
+    shape(); g.strokeStyle = "#ffffff"; g.lineWidth = 3.2 * u; g.stroke(); g.fillStyle = col; g.fill();
+    g.strokeStyle = "#1d1630"; g.fillStyle = "#1d1630"; g.lineWidth = 1.6 * u;
+    if (kind === "smile") { g.beginPath(); g.arc(-3.5 * u, -2.5 * u, 1.4 * u, 0, 6.29); g.arc(3.5 * u, -2.5 * u, 1.4 * u, 0, 6.29); g.fill(); g.beginPath(); g.arc(0, 1 * u, 5 * u, 0.2, Math.PI - 0.2); g.stroke(); }
+    else if (kind === "skull") { g.beginPath(); g.arc(-3.5 * u, -1.5 * u, 2.4 * u, 0, 6.29); g.arc(3.5 * u, -1.5 * u, 2.4 * u, 0, 6.29); g.fill(); for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(i * 2.6 * u, 4 * u); g.lineTo(i * 2.6 * u, 7.5 * u); g.stroke(); } }
+    else if (kind === "trophy") { g.fillStyle = "#8a5a10"; g.beginPath(); g.moveTo(-4.5 * u, -5 * u); g.lineTo(4.5 * u, -5 * u); g.quadraticCurveTo(4.5 * u, 2 * u, 0, 2.5 * u); g.quadraticCurveTo(-4.5 * u, 2 * u, -4.5 * u, -5 * u); g.fill(); g.fillRect(-1 * u, 2.5 * u, 2 * u, 2.5 * u); g.fillRect(-3.5 * u, 5 * u, 7 * u, 1.6 * u); }   // a cup
+    else if (kind === "recycle") { g.strokeStyle = "#ffffff"; for (let i = 0; i < 3; i++) { const a = i * 2.094 - Math.PI / 2; g.beginPath(); g.arc(0, 0, 5.5 * u, a + 0.35, a + 1.75); g.stroke(); const ea = a + 1.75, ex = Math.cos(ea) * 5.5 * u, ey = Math.sin(ea) * 5.5 * u; g.beginPath(); g.moveTo(ex + Math.cos(ea - 2.4) * 2.6 * u, ey + Math.sin(ea - 2.4) * 2.6 * u); g.lineTo(ex, ey); g.lineTo(ex + Math.cos(ea + 0.8) * 2.6 * u, ey + Math.sin(ea + 0.8) * 2.6 * u); g.stroke(); } }
+    g.restore();
+  }
   // hats sit on the lid in the art's frame (same anchor as the crown)
   function drawHat(hat, s, now) {
     const [cx0, cy0] = [(176 / 320 - 0.5) * s, (30 / 320 - 0.5) * s], u = s * 0.012;
@@ -10865,6 +10929,13 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       g.fillStyle = "#c8ff2a"; g.beginPath(); g.arc(0, 0, 15 * u, Math.PI, 0); g.closePath(); g.fill();
       g.fillStyle = "#d8dde4"; g.fillRect(-15 * u, -5 * u, 30 * u, 4 * u);
       g.fillStyle = "#c8ff2a"; g.beginPath(); g.arc(0, -15 * u, 4 * u, 0, 6.29); g.fill();
+    } else if (hat === "crown") {   // a gold crown with three jewels (earned: see ui/profile.js)
+      const cg = g.createLinearGradient(0, -14 * u, 0, 4 * u);
+      cg.addColorStop(0, "#fff6c8"); cg.addColorStop(1, "#d39a22");
+      g.fillStyle = cg; g.strokeStyle = "#7a4f08"; g.lineWidth = u * 0.8;
+      g.beginPath(); g.moveTo(-14 * u, 3 * u); g.lineTo(-16 * u, -10 * u); g.lineTo(-8 * u, -4 * u); g.lineTo(0, -15 * u);
+      g.lineTo(8 * u, -4 * u); g.lineTo(16 * u, -10 * u); g.lineTo(14 * u, 3 * u); g.closePath(); g.fill(); g.stroke();
+      for (const [gx, gc] of [[-8, "#ff5a6e"], [0, "#4fd6c8"], [8, "#c38bff"]]) { g.fillStyle = gc; g.beginPath(); g.arc(gx * u, -1 * u, 2.2 * u, 0, 6.29); g.fill(); }
     } else if (hat === "recycle") {   // three green recycling arrows chasing round above the lid
       g.translate(0, -18 * u); g.scale(1, 0.45); g.rotate(now / 700);
       g.fillStyle = "#3ad06a"; g.strokeStyle = "#1e7a40"; g.lineWidth = 1.2 * u;
@@ -11067,6 +11138,41 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     g.fillStyle = c; g.beginPath(); g.arc(0, 0, 2, 0, 6.29); g.fill();
     g.restore();
   }
+  // ---------- emotes: a pilot says something with its bin (G: "GG", H: a wiggle, V: a flip) ----------
+  // Each goes out with the pilot's state as [its number, its kind] for a moment (EMOTE_MS); every screen shows it when
+  // the number changes. Bots wiggle now and then after a kill
+  const EMOTES = ["gg", "wiggle", "flip"], EMOTE_KEYS = { KeyG: 0, KeyH: 1, KeyV: 2 }, EMOTE_MS = 1300;
+  let myEmote = null;   // [number, kind] of my last one
+  function emote(o, kind, now) {
+    if (!EMOTES[kind] || now - (o.emAt || -1e9) < 700) return;   // (not too often)
+    o.emSeq = (o.emSeq || 0) + 1; o.emKind = kind; o.emAt = now;
+    if (o === me) myEmote = [me.emSeq, kind];
+  }
+  const emoteWire = (o, now) => o.emAt && now - o.emAt < EMOTE_MS ? [o.emSeq, o.emKind] : undefined;
+  function takeEmote(o, em, now) {   // from a pilot's state: shown once, when its number changes
+    if (!Array.isArray(em) || !Number.isSafeInteger(em[0]) || !EMOTES[em[1]] || em[0] === o.emSeq) return;
+    o.emSeq = em[0]; o.emKind = em[1]; o.emAt = now;
+  }
+  // how an emote moves the bin (drawBot): [extra turn, x scale, lift], and its words (drawn over it)
+  function emotePose(b, now) {
+    const t = b.emAt ? (now - b.emAt) / EMOTE_MS : 9;
+    if (t < 0 || t > 1) return null;
+    const kind = EMOTES[b.emKind];
+    if (kind === "wiggle") return [Math.sin(t * 6.283 * 3) * 0.35 * (1 - t), 1, 0];
+    if (kind === "flip") return [0, Math.cos(Math.min(1, t * 1.6) * 6.283 * 2) , -Math.sin(Math.min(1, t * 1.6) * Math.PI) * 18];
+    return [0, 1, 0];
+  }
+  function drawEmoteWords(b, x, y, now, S) {
+    const t = b.emAt ? (now - b.emAt) / EMOTE_MS : 9;
+    if (t < 0 || t > 1 || EMOTES[b.emKind] !== "gg") return;
+    const a = t < 0.15 ? t / 0.15 : t > 0.8 ? (1 - t) / 0.2 : 1, by = y - S * 0.75 - 14 * TS - t * 16;
+    g.save(); g.globalAlpha = a; g.font = `800 ${18 * TS}px ` + DISPLAY_FONT; g.textAlign = "center";
+    const w = g.measureText("GG").width + 18 * TS, h = 26 * TS;
+    g.fillStyle = "rgba(255,255,255,0.92)"; g.beginPath(); g.roundRect(x - w / 2, by - h / 2, w, h, 9 * TS); g.fill();
+    g.beginPath(); g.moveTo(x - 6 * TS, by + h / 2 - 1); g.lineTo(x, by + h / 2 + 7 * TS); g.lineTo(x + 6 * TS, by + h / 2 - 1); g.fill();
+    g.fillStyle = "#1d1630"; g.fillText("GG", x, by + 6 * TS);
+    g.restore();
+  }
   // b: the pilot itself (what this keeps on it between frames: its jolt, its barrels' turn, its fire's colours, lives on);
   // look: how it is shown this frame (blink: protected, so it flickers; name: its label, if not its own name)
   function drawBot(b, x, y, now, isMe, look = {}) {
@@ -11123,9 +11229,10 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     b.jvx = b.vx || 0; b.jvy = b.vy || 0;
     if (jdv > 380 && !b.dead && jdv < 4000) { const k = Math.min(1, (jdv - 300) / 1200); if (k > (b.joltK || 0) * Math.exp(-(now - (b.joltAt || 0)) / 140)) { b.joltAt = now; b.joltK = k; b.joltA = Math.atan2((b.vy || 0) - pvy, (b.vx || 0) - pvx) - pose.a; } }
     const jt = (now - (b.joltAt || -1e9)) / 1000, jk = jt < 0.6 ? (b.joltK || 0) * Math.exp(-jt / 0.14) * Math.cos(jt * 38) * 0.22 : 0;
-    g.save(); g.translate(x, y); g.rotate(pose.a);
+    const emo = emotePose(b, now);   // an emote: a wiggle, a flip
+    g.save(); g.translate(x, y + (emo ? emo[2] : 0)); g.rotate(pose.a + (emo ? emo[0] : 0));
     if (jk) { g.rotate(b.joltA); g.scale(1 - jk, 1 + jk * 0.8); g.rotate(-b.joltA); }   // (squashed along the blow, bulging across it)
-    g.scale(pose.scaleX, 1);
+    g.scale(pose.scaleX * (emo ? emo[1] : 1), 1);
     mountHeat = isMe ? spin : 0;
     // a minigun's barrels turn with its spin (mine: the trigger's spin-up; another's: how hard it has been firing)
     { const sv = isMe ? spin : (b.spinVis = Math.max(0, (b.spinVis || 0) - Math.min(0.1, (now - (b.spinT || now)) / 1000) * 1.2)), dtv = Math.min(0.1, (now - (b.barrelT || now)) / 1000);
@@ -11134,7 +11241,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (body) {
       g.drawImage(b.ck ? tintedBody(teamCk(b)) : body, -s / 2, -s / 2, s, s);
       if (!lowQ) {   // light on the hull: a sheen from the top left that stays put as it turns, and its engines' glow on its stern
-        const ckL = teamCk(b) || [0, 0, 0, 0, 0], loc = a => a - pose.a;
+        const ckL = teamCk(b) || NO_LOOK, loc = a => a - pose.a;
         g.globalCompositeOperation = "lighter";
         g.globalAlpha = 0.22; g.drawImage(litBody(ckL, loc(-2.36), "rgba(255,255,255,1)"), -s / 2, -s / 2, s, s);
         const th = Math.max(bf ? 1 : 0, Math.min(1.4, b.thrust || 0));
@@ -11142,10 +11249,12 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
       }
       const hf = b.hitAt ? Math.min(1, 1 - (now - b.hitAt) / 120) : 0;   // just hit: a white flash
-      if (hf > 0) { g.globalAlpha = hf * 0.85; g.drawImage(whiteBody(teamCk(b) || [0, 0, 0, 0, 0]), -s / 2, -s / 2, s, s); g.globalAlpha = 1; }
+      if (hf > 0) { g.globalAlpha = hf * 0.85; g.drawImage(whiteBody(teamCk(b) || NO_LOOK), -s / 2, -s / 2, s, s); g.globalAlpha = 1; }
     } else { g.fillStyle = "#4fd6c8"; g.fillRect(-s / 3, -s / 3, s / 1.5, s / 1.5); }
     const hat = b.ck ? customVal(b.ck, "hat") : null;
     if (Number.isFinite(b.lives)) drawDamage(damageOf(b), s, now, x);
+    const sticker = b.ck ? customVal(b.ck, "sticker") : null;
+    if (sticker) drawSticker(sticker, s);
     if (hat) drawHat(hat, s, now);
     g.restore();
     { const wpn = isMe ? me.weapon : b.weapon;   // a blade in hand: held outside the hull, over it
@@ -11158,6 +11267,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       g.fillStyle = f > 0.6 ? "#4fe39a" : f > 0.3 ? "#ffc23d" : "#ff4d5e"; rrect(x - bw / 2, by, bw * f, 5, 2.5); g.fill();
     }
 
+    drawEmoteWords(b, x, y, now, S);
     const label = look.name ?? b.name ?? "";
     if (label) {
       g.font = `700 ${13 * TS}px ` + DISPLAY_FONT;
@@ -11656,7 +11766,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       const char = h.burn ? clamp((now - h.burn) / 2600, 0, 1) : 0;   // burning: it chars black, then crumbles (fades)
       g.globalAlpha = Math.min(1, h.life / 2) * (h.burn ? Math.min(1, Math.max(0, (4200 - (now - h.burn)) / 800)) : 1);
       g.save(); g.translate(x, y); g.rotate(h.a + Math.PI / 2 - SPRITE_TILT);
-      if (body) g.drawImage(darkBody(h.ck || [0, 0, 0, 0, 0], h.zap ? 0.8 : 0.58 - 0.45 * char), -s / 2, -s / 2, s, s);
+      if (body) g.drawImage(darkBody(h.ck || NO_LOOK, h.zap ? 0.8 : 0.58 - 0.45 * char), -s / 2, -s / 2, s, s);
       if (h.burn && now >= h.burn && char < 1) {   // the embers glowing through
         g.globalCompositeOperation = "lighter"; g.globalAlpha *= 0.5 * (1 - char * 0.6) * (0.7 + 0.3 * Math.sin(now / 60));
         g.drawImage(dotSprite("#ff6a1f"), -s * 0.5, -s * 0.5, s, s); g.globalCompositeOperation = "source-over";
@@ -12650,8 +12760,9 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     ["Dash", `tap ${KEY(shift)} — a quick dodge forward`],
     ["Boost", `hold ${KEY(shift)} — uses the blue energy bar`],
     ["Weapon", `fixed ${KEY("1")}–${KEY("9")} / ${KEY("0")}; ${KEY("Alt")}+${KEY("1")}–${KEY("6")} for extras; ${KEY("Q")} / ${KEY("E")} or click a gun`],
-    ["Alt fire", `right mouse button or ${KEY("C")}: available per weapon — Pulse beam, Flak shell, Shock beam, Demonic zone / manual detonation, loaded rockets (hold/release), Stinger shards, slug, mine detonation, explosive Ripper disc`],
+    ["Alt fire", `right mouse button or ${KEY("C")}: every gun has one — rapid fire, explosive rounds, hook, flak shell, grenade volley, loaded rockets, Plasma Nova, shock beam, railgun scope, blade lunge, mine and orb detonation, guided nuke, the big bombs' short throw`],
     ["Chat", `${KEY("T")} to type, Enter sends, Esc closes`],
+    ["Emotes", `${KEY("G")} says GG, ${KEY("H")} wiggles, ${KEY("V")} flips — everyone sees it`],
     ["Brake / drift", `hold ${KEY("X")} to brake; ${KEY("X")} + a direction drifts: you slide on while the nose swings round (shoot back)`],
     ["Health & armor", "100 HP on spawn; Health Pack +20 (cap 100), Vial +5 and Big Keg +100 (cap 199). Body Armor absorbs 75%; Shield Belt absorbs all damage until depleted. No levels or XP bonuses."]] });
   const CONTROLS = {
@@ -12664,7 +12775,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       ["Dash", "tap the teal button — a quick dodge forward"],
       ["Boost", "hold the teal button"],
       ["Weapon", "tap a gun in the bar above the fire button"],
-      ["Alt fire", "the small orange button above the fire button (shock beam, rockets, shotgun, mines, saws)"],
+      ["Alt fire", "the small orange button above the fire button: each gun's second mode (see the gun bar)"],
       ["Health & armor", "100 HP on spawn; Health Pack +20 (cap 100), Vial +5 and Big Keg +100 (cap 199). Body Armor absorbs 75%; Shield Belt absorbs all damage until depleted. No levels or XP bonuses."]] }
   };
   function detectDevice() {
@@ -12680,6 +12791,27 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   document.getElementById("ctrlTitle").textContent = "Controls · " + CONTROLS[myDevice].label;
   document.getElementById("clist").innerHTML = CONTROLS[myDevice].rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
 
+  // ---------- the profile: what this browser's pilot has done, over every game ----------
+  // Kept in this browser (nothing is sent anywhere). A round played adds its kills, deaths and best streak, and a win
+  // when the pilot (or its team) came first. A few looks are earned with it (UNLOCKS); the rest are free from the start
+  const profile = (() => { try { const p = JSON.parse(store.get("binrocket.profile")); if (p && typeof p === "object") return p; } catch {} return {}; })();
+  for (const k of ["rounds", "wins", "kills", "deaths", "best"]) if (!Number.isSafeInteger(profile[k]) || profile[k] < 0) profile[k] = 0;
+  // key -> value -> [what counts, how many]
+  const UNLOCKS = { flame: { gold: ["kills", 25] }, sticker: { trophy: ["wins", 5] }, hat: { crown: ["kills", 100] } };
+  const lockedBy = (key, val) => { const u = UNLOCKS[key] && UNLOCKS[key][val]; return u && profile[u[0]] < u[1] ? u : null; };
+  // a look with nothing locked in it (a locked choice goes back to the original)
+  const freeLook = ck => CUSTOM_KEYS.map((key, i) => lockedBy(key, CUSTOM[key].items[ck[i]]?.[1]) ? 0 : ck[i] || 0);
+  function recordRound(won) {
+    profile.rounds++; profile.kills += stats.kills; profile.deaths += stats.deaths; profile.best = Math.max(profile.best, stats.best);
+    if (won) profile.wins++;
+    store.set("binrocket.profile", JSON.stringify(profile));
+    showProfile();
+  }
+  function showProfile() {
+    const el = document.getElementById("profileLine");
+    if (el) el.textContent = profile.rounds ? `${profile.rounds} rounds · ${profile.wins} won · ${profile.kills} kills · best streak ${profile.best}` : "";
+    markLocks();
+  }
   // ---------- the start card: the pilot's look (a preview and the pickers) ----------
   const pv = document.getElementById("preview"), pctx = pv.getContext("2d");
   function drawPreview(now) {
@@ -12691,7 +12823,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     drawBot({ ...me, thrust: 0.9, a: -Math.PI / 2 + Math.sin(now / 900) * 0.25 }, 60, 66, now, true, { name: "" });   // low enough for a hat or halo
     } finally { g = main; TS = mainTS; }
   }
-  me.ck = cleanCustom((() => { try { return JSON.parse(store.get("binrocket.custom")); } catch { return null; } })());
+  me.ck = freeLook(cleanCustom((() => { try { return JSON.parse(store.get("binrocket.custom")); } catch { return null; } })()));
   const optsEl = document.getElementById("customOpts");
   const swatchBg = (key, val) => key === "body" ? (val === null ? "#4fd6c8" : toneCss(val, 65, 55))
     : key === "lid" ? (val === null ? "#9d8fc8" : toneCss(val, 45, 60))
@@ -12719,6 +12851,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       b.dataset.key = key; b.dataset.i = i;
       b.setAttribute("aria-pressed", String(me.ck[CUSTOM_KEYS.indexOf(key)] === i));
       b.addEventListener("click", () => {
+        if (lockedBy(key, val)) return;
         const ck = me.ck.slice(); ck[CUSTOM_KEYS.indexOf(key)] = i;
         setLook(ck);   // others see it with my next state
       });
@@ -12727,11 +12860,20 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     row.append(lab, sws); el.appendChild(row);
   }
   }
+  // the looks earned with the profile: shown, but not to be had until then (marked again as the profile grows)
+  function markLocks() {
+    for (const p of lookPanels) for (const b of p.querySelectorAll(".sw")) {
+      const [name, val] = CUSTOM[b.dataset.key].items[b.dataset.i], lock = lockedBy(b.dataset.key, val);
+      b.classList.toggle("locked", !!lock); b.title = lock ? `${name} · ${lock[1]} ${lock[0]} to unlock` : name;
+      if (lock) b.setAttribute("aria-disabled", "true"); else b.removeAttribute("aria-disabled");
+    }
+  }
   lookPicker(optsEl);
   lookPicker(document.getElementById("menuLook"));
   document.getElementById("randomLook").addEventListener("click", () => {
-    setLook(CUSTOM_KEYS.map(key => Math.floor(Math.random() * CUSTOM[key].items.length)));
+    setLook(freeLook(CUSTOM_KEYS.map(key => Math.floor(Math.random() * CUSTOM[key].items.length))));
   });
+  showProfile();
   // ---------- the start card: the pilot's name, new game (mode, map, bots, in steps) or a friend's code ----------
   const nameInput = document.getElementById("nameInput");
   nameInput.value = store.get("binrocket.name") || "Bin-" + Math.floor(10 + Math.random() * 89);

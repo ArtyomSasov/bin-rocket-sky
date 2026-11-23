@@ -51,7 +51,7 @@
     ws.binaryType = "arraybuffer";
     srv.snaps = new Map(); srv.snapQ = 0;
     if (!srv.rk) srv.placed = false;
-    ws.onopen = () => ws.send(JSON.stringify({ t: "join", code, name: me.name, bots: botChoice.n, level: botChoice.level, pub: !joining, bin: 1, rtc: window.RTCPeerConnection ? 1 : 0, rk: srv.rk || undefined }));   // a new game is listed, as online lobbies are; a room opened by typing a code is not
+    ws.onopen = () => ws.send(JSON.stringify({ t: "join", code, name: me.name, ck: me.ck, h: me.hue, bots: botChoice.n, level: botChoice.level, pub: !joining, bin: 1, rtc: window.RTCPeerConnection ? 1 : 0, rk: srv.rk || undefined }));   // a new game is listed, as online lobbies are; a room opened by typing a code is not
     ws.onmessage = e => {
       if (srv.ws !== ws) return;
       if (e.data instanceof ArrayBuffer) { receiveDelta(new Uint8Array(e.data)); return; }
@@ -90,7 +90,7 @@
     const c = me.ctl || {}, i = { t: "in", mx: +num(c.mx, 0).toFixed(3), my: +num(c.my, 0).toFixed(3), aim: +me.a.toFixed(3),
       fire: !!c.fire && !me.dead && playing, alt: !!c.alt && !me.dead && playing, boost: !!c.boost, brake: !!c.brake && !me.dead, dash: srv.dashN,
       w: WEAPON_KEYS.indexOf(me.weapon), ld: Math.round(srv.interp / 5) * 5,
-      gx: +num(srv.gx, 0).toFixed(3), gy: +num(srv.gy, 0).toFixed(3), gb: srv.gb || 0 };   // a guided nuke's stick and blow-ups   // ld: how far in the past I see the others (for lag compensation)
+      gx: +num(srv.gx, 0).toFixed(3), gy: +num(srv.gy, 0).toFixed(3), gb: srv.gb || 0, em: emoteWire(me, performance.now()) };   // a guided nuke's stick and blow-ups   // ld: how far in the past I see the others (for lag compensation)
     const sig = JSON.stringify(i), t = performance.now(), fresh = srv.cs > srv.sentCs;   // fresh: flight commands not sent yet
     if (!fresh && (sig === srv.lastIn ? t - srv.lastInAt < 250 : t - srv.lastInAt < 14)) return;   // at most one a frame (the server allows 90 a second)
     srv.lastIn = sig; srv.lastInAt = t;

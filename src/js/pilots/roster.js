@@ -10,7 +10,7 @@
     for (let i = 0; i < n; i++) {
       const id = "pb" + Math.random().toString(36).slice(2, 8);
       const b = { id, tag: "b" + Math.random().toString(36).slice(2, 7), name: BOT_NAMES[(bots.length) % BOT_NAMES.length] + " (bot)", L, level,
-        hue: Math.floor(Math.random() * 360), ck: [Math.floor(Math.random() * 7), Math.floor(Math.random() * 6), Math.floor(Math.random() * 5), Math.floor(Math.random() * 5), Math.floor(Math.random() * 6)],
+        hue: Math.floor(Math.random() * 360), ck: [Math.floor(Math.random() * 7), Math.floor(Math.random() * 6), Math.floor(Math.random() * 5), Math.floor(Math.random() * 5), Math.floor(Math.random() * 6), Math.random() < 0.4 ? 1 + Math.floor(Math.random() * 6) : 0, 0],
         ...spawnPoint(), vx: 0, vy: 0, a: Math.random() * 6.28, lives: LIVES, dead: false, respawnAt: 0, inv: 0, ds: 0,
         fireCd: 1 + Math.random(), side: Math.random() < 0.5 ? 1 : -1, wander: Math.random() * 6.28, seq: 0, q: 0,
         weapon: "fire", shotLog: [], hitBy: [], koBy: [], st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 } };
@@ -21,7 +21,8 @@
   // come from b.input instead of the AI, judged by exactly the same rules (see server/sim)
   //   input: { mx, my: the stick (-1..1), aim: radians, fire, boost: booleans, dash: a counter, +1 per dash }
   // A full arena makes room by retiring an AI bot; with only players left there is no room (null).
-  function addPilot(name) {
+  // look: { ck, hue } the player chose (their screen sends it with the join), so everyone sees the bin they picked
+  function addPilot(name, look = {}) {
     if (bots.length >= MAX_BOTS) {
       const ai = bots.findLast(b => !b.input);
       if (!ai) return null;
@@ -32,6 +33,8 @@
     if (bots.length === before) return null;
     const b = bots[bots.length - 1];
     b.name = String(name || "Pilot").slice(0, 14); b.input = { mx: 0, my: 0, aim: b.a, fire: false, alt: false, boost: false, brake: false, dash: 0, w: -1, s: 0 }; b.ackSeq = 0; b.energy = 100; b.dashDone = 0; b.fireCd = 0;   // a bot's opening pause is not for players
+    if (Array.isArray(look.ck)) b.ck = cleanCustom(look.ck);
+    if (Number.isFinite(look.hue)) b.hue = Math.floor(look.hue) % 360;
     pilotArm(b);
     return b;
   }
@@ -47,7 +50,7 @@
       if (botCredited.has(key) || botCredited.size >= MAX_CREDITS) continue;
       for (const b of bots) if (b.id !== victim && k.startsWith(b.tag + ".")) {
         botCredited.add(key);
-        if (ko) { b.st.kills++; b.st.streak++; b.st.best = Math.max(b.st.best, b.st.streak); } else b.st.hits++;
+        if (ko) { b.st.kills++; b.st.streak++; b.st.best = Math.max(b.st.best, b.st.streak); if (!b.input && Math.random() < 0.3) emote(b, Math.random() < 0.5 ? 0 : 1, performance.now()); } else b.st.hits++;   // (a bot sometimes says GG, or wiggles)
       }
     }
   }

@@ -15,6 +15,8 @@
   const THROWN = new Set([0, 2, 6]);   // (a rail slug cuts it in two where it is: railCut)
   function deathFx(b, ds, dk, da) {
     b = { ...b, ck: teamCk(b) };   // the wreck keeps the colours the bin flew in
+    const own = b.ck ? customVal(b.ck, "death") : null;   // a death of its pilot's choosing, whatever killed it
+    if (own) { (own === "confetti" ? confettiDeath : litterDeath)(b); return; }
     if (THROWN.has(dk) && Number.isFinite(da)) {
       makeHulk(b, false, true);
       const h = hulks[hulks.length - 1], sp = 650 + Math.random() * 350;
@@ -25,6 +27,28 @@
       return;
     }
     deathStyle(b, ds, dk, da);
+  }
+  // Confetti: the bin pops like a party popper, a burst of tumbling coloured paper and streamers
+  const CONFETTI = ["#ff6b6b", "#ffd23f", "#6bff95", "#6bd5ff", "#c38bff", "#ff7bea", "#ffffff"];
+  function confettiDeath(b) {
+    rings.push({ x: b.x, y: b.y, t: 0, r: 170, col: "255,230,120", dur: 0.35, w: 8 });
+    impact(b.x, b.y, "#fff6d0", 1.2);
+    for (let k = 0; k < (lowQ ? 40 : 110); k++) {
+      const a = Math.random() * 6.283, v = 150 + Math.random() * 520, col = CONFETTI[k % CONFETTI.length];
+      if (k % 3) addDebris(b.x, b.y, Math.cos(a) * v + (b.vx || 0) * 0.3, Math.sin(a) * v + (b.vy || 0) * 0.3, 2 + Math.random() * 3, col, 2 + Math.random() * 1.5);
+      else puff(b.x, b.y, Math.cos(a) * v * 1.3, Math.sin(a) * v * 1.3, 0.5 + Math.random() * 0.4, 1.5, col, 1, 0.05, (Math.random() - 0.5) * 6);   // streamers, curling
+    }
+    sfx("p_pickup", 0.9, 1.4, b.x, b.y); sfx("crash", 0.4, 1.6, b.x, b.y);
+  }
+  // Litter: the bin tips over and spills its rubbish (paper, cans and wrappers) as an empty bin tumbles away
+  function litterDeath(b) {
+    makeHulk(b, false, true);   // (quietly: no blast, it just tips over)
+    for (let k = 0; k < (lowQ ? 18 : 45); k++) {
+      const a = Math.random() * 6.283, v = 60 + Math.random() * 320;
+      addDebris(b.x, b.y, Math.cos(a) * v + (b.vx || 0) * 0.5, Math.sin(a) * v + (b.vy || 0) * 0.5, 3 + Math.random() * 5, TRAILS.litter[k % TRAILS.litter.length], 6 + Math.random() * 4);
+    }
+    for (let k = 0; k < 12; k++) { const a = Math.random() * 6.283, v = 40 + Math.random() * 120; puff(b.x, b.y, Math.cos(a) * v, Math.sin(a) * v, 0.8 + Math.random() * 0.6, 4 + Math.random() * 4, "rgb(120,110,100)", 2); }   // a puff of grime
+    sfx("crash", 0.8, 0.9, b.x, b.y); sfx("p_metal", 0.6, 1.1, b.x, b.y);
   }
   // the thrown wreck goes up: in its own death's way, where it is now and moving as it moves
   function wreckBlows(h) {
@@ -51,7 +75,7 @@
   function sawDeath(b, da) {
     const s = BOT, rot = b.a + Math.PI / 2 - SPRITE_TILT, a = da - rot;
     for (const piece of quarterSprite(a))
-      addFrag(b, piece, s, rot, renderPiece(piece, s, b.ck || [0, 0, 0, 0, 0], "255,170,80", "255,240,200", 2), (wx, wy) => {
+      addFrag(b, piece, s, rot, renderPiece(piece, s, b.ck || NO_LOOK, "255,170,80", "255,240,200", 2), (wx, wy) => {
         const d = Math.hypot(wx, wy) || 1, v = 120 + Math.random() * 90;
         return [wx / d * v + (b.vx || 0) * 0.3, wy / d * v + (b.vy || 0) * 0.3, (Math.random() - 0.5) * 3];
       });
@@ -104,7 +128,7 @@
   function railCut(b, da) {
     const s = BOT, rot = b.a + Math.PI / 2 - SPRITE_TILT, nx = -Math.sin(da), ny = Math.cos(da);
     for (const piece of sliceSprite(da - rot, (Math.random() - 0.5) * 36))
-      addFrag(b, piece, s, rot, renderPiece(piece, s, b.ck || [0, 0, 0, 0, 0], "255,120,30", "255,236,190", 2.4), (wx, wy) => {
+      addFrag(b, piece, s, rot, renderPiece(piece, s, b.ck || NO_LOOK, "255,120,30", "255,236,190", 2.4), (wx, wy) => {
         const sg = Math.sign(wx * nx + wy * ny) || 1, v = 160 + Math.random() * 90;   // the halves part across the cut, thrown on along the slug's path
         return [nx * sg * v + Math.cos(da) * 380 + (b.vx || 0) * 0.3, ny * sg * v + Math.sin(da) * 380 + (b.vy || 0) * 0.3, sg * (0.8 + Math.random() * 1.2)];
       });
@@ -141,7 +165,7 @@
   const melts = [];
   function meltDown(b) {
     const s = BOT;
-    const [img] = renderPiece({ poly: [[0, 0], [320, 0], [320, 320], [0, 320]], edges: [], cx: 160, cy: 160 }, s, b.ck || [0, 0, 0, 0, 0]);
+    const [img] = renderPiece({ poly: [[0, 0], [320, 0], [320, 320], [0, 320]], edges: [], cx: 160, cy: 160 }, s, b.ck || NO_LOOK);
     const hot = document.createElement("canvas"); hot.width = img.width; hot.height = img.height;
     const hq = hot.getContext("2d"), gr = hq.createLinearGradient(0, 0, 0, hot.height);
     hq.drawImage(img, 0, 0); hq.globalCompositeOperation = "source-in";

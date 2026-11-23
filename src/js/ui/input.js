@@ -8,6 +8,7 @@
     wakeAudio();
     if (e.target.tagName === "INPUT") return;
     keys.add(e.code);
+    if (playing && !me.dead && !e.repeat && e.code in EMOTE_KEYS) emote(me, EMOTE_KEYS[e.code], performance.now());
     if (playing && (e.code.startsWith("Arrow") || e.code === "Space")) e.preventDefault();
   });
   addEventListener("keydown", e => {

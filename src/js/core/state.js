@@ -1,7 +1,7 @@
   // ---------- state ----------
   const me = {
     x: rndIn(W, 300), y: rndIn(H, 300), vx: 0, vy: -40, a: -Math.PI / 2,
-    thrust: 0, score: 0, name: "", hue: Math.floor(Math.random() * 360), ck: [0, 0, 0, 0, 0],
+    thrust: 0, score: 0, name: "", hue: Math.floor(Math.random() * 360), ck: NO_LOOK.slice(),
     lives: LIVES, dead: false, respawnAt: 0, inv: 0, weapon: "fire", arsenal: { fire: Infinity }, ampUntil: 0, ds: 0, shield: 0, boostFx: 0, dashAt: -1e9, bank: 0, boostOn: false
   };
   let myTag = Math.random().toString(36).slice(2, 7);   // on the authoritative server, the tag it gives my pilot

@@ -30,17 +30,22 @@
     // the bin lid colours of household collections: recycling, garden, food, general waste, glass
     lid:   { label: "Lid",   items: [["Lavender", null], ["Navy", 222], ["Red", 2], ["Mint", 155], ["Rose", 318], ["Amber", 38],
                                      ["Recycling blue", [212, 1.3, 0.85]], ["Garden green", [120, 1.1, 0.75]], ["Food brown", [28, 0.75, 0.6]], ["General black", [230, 0.1, 0.4]], ["Glass purple", [275, 1, 0.8]]] },
-    flame: { label: "Fire",  items: [["Classic", null], ["Blue", "blue"], ["Green", "green"], ["Pink", "pink"], ["Rainbow", "rainbow"], ["Toxic", "toxic"]] },
+    flame: { label: "Fire",  items: [["Classic", null], ["Blue", "blue"], ["Green", "green"], ["Pink", "pink"], ["Rainbow", "rainbow"], ["Toxic", "toxic"], ["Gold", "gold"]] },
     trail: { label: "Trail", items: [["Sparkle", null], ["Fire", "fire"], ["Ice", "ice"], ["Gold", "gold"], ["Rainbow", "rainbow"], ["Litter", "litter"], ["Eco", "eco"]] },
     hat:   { label: "Hat",   items: [["None", null], ["Party", "party"], ["Top hat", "tophat"], ["Halo", "halo"], ["Bow", "bow"], ["Cap", "cap"],
-                                     ["Hard hat", "hardhat"], ["Traffic cone", "cone"], ["Hi-vis beanie", "hivis"], ["Recycling", "recycle"]] }
+                                     ["Hard hat", "hardhat"], ["Traffic cone", "cone"], ["Hi-vis beanie", "hivis"], ["Recycling", "recycle"], ["Crown", "crown"]] },
+    // a sticker on the bin's front, and how the bin goes when it dies (by default: by what killed it)
+    sticker: { label: "Sticker", items: [["None", null], ["Star", "star"], ["Heart", "heart"], ["Smile", "smile"], ["Bolt", "bolt"], ["Skull", "skull"], ["Recycle", "recycle"], ["Trophy", "trophy"]] },
+    death: { label: "Death", items: [["By weapon", null], ["Confetti", "confetti"], ["Litter", "litter"]] }
   };
-  const CUSTOM_KEYS = ["body", "lid", "flame", "trail", "hat"];
+  const CUSTOM_KEYS = ["body", "lid", "flame", "trail", "hat", "sticker", "death"];
+  const NO_LOOK = CUSTOM_KEYS.map(() => 0);   // the original look (a look from an older page is shorter: the rest are 0)
   const FLAMES = {
     blue:  { outer: [60, 120, 255], mid: [80, 200, 255],  core: [225, 250, 255] },
     green: { outer: [40, 200, 90],  mid: [140, 255, 120], core: [235, 255, 215] },
     pink:  { outer: [255, 60, 160], mid: [255, 140, 210], core: [255, 236, 250] },
-    toxic: { outer: [120, 255, 30], mid: [210, 255, 80], core: [245, 255, 210] }
+    toxic: { outer: [120, 255, 30], mid: [210, 255, 80], core: [245, 255, 210] },
+    gold:  { outer: [230, 150, 30], mid: [255, 215, 90], core: [255, 252, 225] }
   };
   const TRAILS = {
     fire: ["#fff3b0", "#ffd23f", "#ff9a2e", "#ff5a1f"],
@@ -57,7 +62,7 @@
   // team modes paint every bin's body and lid in its team's colour (the rest of the look stays the pilot's own)
   const TEAM_SKIN = [{ body: 352, lid: 8 }, { body: 212, lid: 226 }];   // hues: Red, Blue
   const customVal = (ck, key) => ck.team !== undefined && TEAM_SKIN[ck.team][key] !== undefined ? TEAM_SKIN[ck.team][key]
-    : CUSTOM[key].items[ck[CUSTOM_KEYS.indexOf(key)]][1];
+    : (CUSTOM[key].items[ck[CUSTOM_KEYS.indexOf(key)]] || CUSTOM[key].items[0])[1];
 
   const img = new Image(); img.src = window.BRS_SPRITE || "bot.png";   // the one-file game carries the sprite inside
   const holyImg = new Image(); holyImg.src = window.BRS_HOLY || "holy.png";   // the holy bomb's skin

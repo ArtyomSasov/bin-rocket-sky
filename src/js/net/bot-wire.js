@@ -23,6 +23,7 @@
         bw: b.charge > 0 && !b.dead && botWeapon(b) === "saw" ? +b.charge.toFixed(2) : undefined   // its Blood Blade wound up this far
       };
       m.sh = b.shield || 0;
+      m.em = emoteWire(b, now);
       m.am = Math.ceil(ampLeft(b, now));   // Quad damage: the seconds it has left
       // a player's own HUD (the guns they carry), and which of their controls this state already holds:
       // ak, the last one applied; ag, for how long (ms, including this step), so their screen can compare

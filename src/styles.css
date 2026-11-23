@@ -230,6 +230,9 @@ button.ghost { background: transparent; color: var(--ink); box-shadow: none; bor
 .sw[aria-pressed="true"] { border-color: #ffffff; box-shadow: 0 0 0 2px var(--flame); }
 .sw.txt { background: rgba(255,255,255,.08); border-color: var(--line); }
 .sw.txt[aria-pressed="true"] { border-color: #ffffff; background: rgba(79,214,200,.25); }
+.sw.locked { opacity: .3; cursor: not-allowed; }
+.profile { margin-top: 6px; font-size: 12px; color: var(--muted); }
+.profile:empty { display: none; }
 .card h1 { margin: 0; font: 700 34px/1 var(--display); letter-spacing: .01em; text-wrap: balance; }
 .card h1 em { font-style: normal; color: var(--teal); }
 .card p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }

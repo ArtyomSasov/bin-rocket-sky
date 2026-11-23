@@ -81,7 +81,7 @@
       const char = h.burn ? clamp((now - h.burn) / 2600, 0, 1) : 0;   // burning: it chars black, then crumbles (fades)
       g.globalAlpha = Math.min(1, h.life / 2) * (h.burn ? Math.min(1, Math.max(0, (4200 - (now - h.burn)) / 800)) : 1);
       g.save(); g.translate(x, y); g.rotate(h.a + Math.PI / 2 - SPRITE_TILT);
-      if (body) g.drawImage(darkBody(h.ck || [0, 0, 0, 0, 0], h.zap ? 0.8 : 0.58 - 0.45 * char), -s / 2, -s / 2, s, s);
+      if (body) g.drawImage(darkBody(h.ck || NO_LOOK, h.zap ? 0.8 : 0.58 - 0.45 * char), -s / 2, -s / 2, s, s);
       if (h.burn && now >= h.burn && char < 1) {   // the embers glowing through
         g.globalCompositeOperation = "lighter"; g.globalAlpha *= 0.5 * (1 - char * 0.6) * (0.7 + 0.3 * Math.sin(now / 60));
         g.drawImage(dotSprite("#ff6a1f"), -s * 0.5, -s * 0.5, s, s); g.globalCompositeOperation = "source-over";

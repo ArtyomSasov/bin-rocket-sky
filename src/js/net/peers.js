@@ -68,7 +68,7 @@
     if (!r) {
       if (!hasPos || remotes.size >= MAX_REMOTES) return false;   // a flyer appears once we know where it is
       r = { x: clamp(p.x, 0, W), y: clamp(p.y, 0, H), a: num(p.a, 0), ta: num(p.a, 0), tx: p.x, ty: p.y, vx: 0, vy: 0,
-            q: -1, name: "Bin", hue: 200, ck: [0, 0, 0, 0, 0], score: 0, lives: LIVES, thrust: 0, dead: false, inv: false };
+            q: -1, name: "Bin", hue: 200, ck: NO_LOOK, score: 0, lives: LIVES, thrust: 0, dead: false, inv: false };
       remotes.set(id, r);
     }
     // Reordered snapshots can contain an unseen shot even though their movement is obsolete.
@@ -118,7 +118,7 @@
     if (Array.isArray(p.cp) && Number.isInteger(p.cp[1])) { r.cpRound = p.cp[0]; r.caps = clamp(p.cp[1], 0, 99); }
     if (typeof p.n === "string") r.name = p.n.slice(0, 14);
     if (Number.isFinite(p.h)) r.hue = p.h % 360;
-    if (Array.isArray(p.ck) && p.ck.length === 5 && p.ck.every(Number.isInteger)) r.ck = cleanCustom(p.ck);
+    if (Array.isArray(p.ck) && p.ck.length >= 5 && p.ck.length <= CUSTOM_KEYS.length && p.ck.every(Number.isInteger)) r.ck = cleanCustom(p.ck);
     if (Number.isFinite(p.s)) r.score = Math.max(0, Math.floor(p.s));
     if (Array.isArray(p.st) && p.st.length === 6 && p.st.every(Number.isInteger)) r.st = p.st;   // [round, kills, deaths, shots, hits, best]
     if (Number.isInteger(p.wp)) r.weapon = WEAPONS[WEAPON_KEYS[p.wp]] ? WEAPON_KEYS[p.wp] : "fire";
@@ -126,6 +126,7 @@
     if (Number.isFinite(p.pg)) r.ping = clamp(p.pg, 0, 5000);
     if ("am" in p) r.amp = p.am >= 1;   // (a player on the server: the seconds it has left)
     if (Number.isFinite(p.l)) r.lives = clamp(p.l, 0, LIVES * 1.99);
+    takeEmote(r, p.em, performance.now());
     remoteShots(id, p);
     if (Array.isArray(p.gw) && p.gw.length === 6 && typeof p.gw[0] === "string" && p.gw.slice(1).every(Number.isFinite)) guideRemote(id, p.gw);
     applyWorld(id, p);

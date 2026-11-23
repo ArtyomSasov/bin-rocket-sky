@@ -8,8 +8,9 @@
     ["Dash", `tap ${KEY(shift)} — a quick dodge forward`],
     ["Boost", `hold ${KEY(shift)} — uses the blue energy bar`],
     ["Weapon", `fixed ${KEY("1")}–${KEY("9")} / ${KEY("0")}; ${KEY("Alt")}+${KEY("1")}–${KEY("6")} for extras; ${KEY("Q")} / ${KEY("E")} or click a gun`],
-    ["Alt fire", `right mouse button or ${KEY("C")}: available per weapon — Pulse beam, Flak shell, Shock beam, Demonic zone / manual detonation, loaded rockets (hold/release), Stinger shards, slug, mine detonation, explosive Ripper disc`],
+    ["Alt fire", `right mouse button or ${KEY("C")}: every gun has one — rapid fire, explosive rounds, hook, flak shell, grenade volley, loaded rockets, Plasma Nova, shock beam, railgun scope, blade lunge, mine and orb detonation, guided nuke, the big bombs' short throw`],
     ["Chat", `${KEY("T")} to type, Enter sends, Esc closes`],
+    ["Emotes", `${KEY("G")} says GG, ${KEY("H")} wiggles, ${KEY("V")} flips — everyone sees it`],
     ["Brake / drift", `hold ${KEY("X")} to brake; ${KEY("X")} + a direction drifts: you slide on while the nose swings round (shoot back)`],
     ["Health & armor", "100 HP on spawn; Health Pack +20 (cap 100), Vial +5 and Big Keg +100 (cap 199). Body Armor absorbs 75%; Shield Belt absorbs all damage until depleted. No levels or XP bonuses."]] });
   const CONTROLS = {
@@ -22,7 +23,7 @@
       ["Dash", "tap the teal button — a quick dodge forward"],
       ["Boost", "hold the teal button"],
       ["Weapon", "tap a gun in the bar above the fire button"],
-      ["Alt fire", "the small orange button above the fire button (shock beam, rockets, shotgun, mines, saws)"],
+      ["Alt fire", "the small orange button above the fire button: each gun's second mode (see the gun bar)"],
       ["Health & armor", "100 HP on spawn; Health Pack +20 (cap 100), Vial +5 and Big Keg +100 (cap 199). Body Armor absorbs 75%; Shield Belt absorbs all damage until depleted. No levels or XP bonuses."]] }
   };
   function detectDevice() {

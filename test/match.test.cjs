@@ -155,3 +155,41 @@ test('Juggernaut: the Quad makes its taker the Juggernaut until it dies, worth a
     assert.ok(!(A.ampUntil > performance.now()), 'gone with its death');
   } finally { m.dispose(); }
 });
+
+test('an emote a player makes goes out with their pilot\'s state, for everyone to see, then is gone', { skip }, async () => {
+  const m = await createMatch({ code: 'm1d0o' });
+  try {
+    const a = m.addPilot('A'); m.addPilot('B'); run(m, 0.2);
+    m.input(a, { em: [1, 0] }); run(m, 0.1);
+    const entry = () => m.packet(clock.t).bots.find(e => e[0] === a)[1];
+    assert.deepEqual([...entry().em], [1, 0], 'GG, for all to see');   // (a copy: the game's arrays are of its own realm)
+    run(m, 2);
+    assert.equal(entry().em, undefined, 'and gone after a moment');
+  } finally { m.dispose(); }
+});
+
+test('the profile adds up every round played, and its earned looks open at their counts (a locked one is never worn)', { skip }, async () => {
+  const g = await loadGame();
+  try {
+    const r = g.get(`(() => {
+      for (const k of ["rounds", "wins", "kills", "deaths", "best"]) profile[k] = 0;
+      const before = { crown: !!lockedBy("hat", "crown"), gold: !!lockedBy("flame", "gold") };
+      Object.assign(stats, { kills: 30, deaths: 4, best: 9 }); recordRound(true);
+      const worn = freeLook(CUSTOM_KEYS.map(k => CUSTOM[k].items.length - 1));   // the last of each list: crown, trophy, gold
+      return { before, profile: { ...profile }, gold: !!lockedBy("flame", "gold"), crown: !!lockedBy("hat", "crown"), hat: worn[CUSTOM_KEYS.indexOf("hat")], flame: worn[CUSTOM_KEYS.indexOf("flame")] };
+    })()`);
+    assert.deepEqual(r.before, { crown: true, gold: true });
+    assert.deepEqual(r.profile, { rounds: 1, wins: 1, kills: 30, deaths: 4, best: 9 });
+    assert.equal(r.gold, false, 'gold fire: 25 kills'); assert.equal(r.crown, true, 'the crown wants 100');
+    assert.equal(r.hat, 0, 'a locked crown is not worn'); assert.ok(r.flame > 0, 'the earned gold fire is');
+  } finally { g.dispose(); }
+});
+
+test('a player on the server flies the look they chose (everyone sees their bin, not a random one)', { skip }, async () => {
+  const m = await createMatch({ code: 'm1d0o' });
+  try {
+    const a = m.addPilot('A', { ck: [1, 2, 3, 0, 4, 5, 1], hue: 77 }); run(m, 0.1);
+    assert.deepEqual([...m.game.__simBot(a).ck], [1, 2, 3, 0, 4, 5, 1]);
+    assert.equal(m.game.__simBot(a).hue, 77);
+  } finally { m.dispose(); }
+});
