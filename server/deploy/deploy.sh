@@ -29,7 +29,7 @@ docker rm -f brs-game >/dev/null 2>&1 || true
 RTC_ARGS=""; [ "$RTC_PORT" != "0" ] && RTC_ARGS="-p $RTC_PORT:$RTC_PORT/udp -e RTC_PORT=$RTC_PORT -e RTC_IP=$RTC_IP"
 docker run -d --name brs-game --network brs --network-alias game --restart unless-stopped \
   --memory 450m --memory-swap 450m --cpus 0.85 --log-opt max-size=10m --log-opt max-file=3 \
-  -e MAX_ROOMS=1 -e ROOM_MEM_MB=190 -e MALLOC_ARENA_MAX=2 $RTC_ARGS bin-rocket-sky-server:latest >/dev/null
+  -e MAX_ROOMS=2 -e ROOM_MEM_MB=0 -e MALLOC_ARENA_MAX=2 $RTC_ARGS bin-rocket-sky-server:latest >/dev/null
 if ! docker ps --format '{{.Names}}' | grep -qx brs-caddy; then
   docker rm -f brs-caddy >/dev/null 2>&1 || true
   docker run -d --name brs-caddy --network brs --restart unless-stopped -p 80:80 -p 8443:8443 \

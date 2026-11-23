@@ -15,7 +15,9 @@
     skip: ["#e8a530", "#b97a1c", "#f2c45a"], truck: ["#e8eef4", "#3c8a5a", "#2a3044"], wheelie: ["#3a7a4a", "#2a5a38", "#4fa060"], bales: ["#8a7a5a", "#5a7a9a", "#9a5a5a", "#6a8a5a"],
     // a station's props: crates, drums and glass partitions
     crate: ["#a8743f", "#6e4a28", "#d39a5c"], drum: ["#c23b2c", "#7a1f18", "#3a3a3a"], panel: ["#9fd6e0", "#4d5a63", "#c8f0f8"] };
-  const BODY_RES = matchMedia("(pointer: coarse)").matches ? 0.6 : 1;   // art baked at lower resolution on phones
+  // art baked at lower resolution on phones, and on the server (it never shows it: only which cells are solid is read
+  // from it, as a phone reads them; its memory is what lets more games run at once)
+  const BODY_RES = window.BRS_BODY_CANVAS || matchMedia("(pointer: coarse)").matches ? 0.6 : 1;
   let planets = [], moons = [], wrecks = [], det = [], rubble = [], bodies = [], worldCode = "lobby", mapKey = "m", rubbleSeq = 0;
 
   // what is solid is read back from the painted art, so the server (see server/sim) paints bodies on real canvases
