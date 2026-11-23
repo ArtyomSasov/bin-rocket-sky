@@ -3,7 +3,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { skip, createMatch, loadGame } = require('./helpers/game.cjs');
-const { clock, run, emptyField, wire } = require('./helpers/match.cjs');
+const { clock, run, hold, emptyField, gunIndex, wire } = require('./helpers/match.cjs');
 
 const cmd = (s, mx, my, aim, boost, brake, dash) => [s, Math.round(mx * 1000), Math.round(my * 1000), Math.round(aim * 1000), (boost ? 1 : 0) | (brake ? 2 : 0), dash];
 const asCommand = e => ({ s: e[0], mx: e[1] / 1000, my: e[2] / 1000, aim: e[3] / 1000, boost: !!(e[4] & 1), brake: !!(e[4] & 2), dash: e[5] });
@@ -97,4 +97,50 @@ test('a bin meeting a junk rock: momentum is shared and nothing is gained; the r
     assert.deepEqual(a, b, 'two games see every rock in the same place');
     for (let i = 0; i < a.length; i += 4) assert.ok(a[i] === a[i + 2] && a[i + 1] === a[i + 3], 'a quick look at a rock finds it where it is');
   } finally { g.dispose(); h.dispose(); }
+});
+
+test('the fence and walls are soft: a bin bounces off with most of its speed, unhurt unless it hit very hard', { skip }, async () => {
+  const g = await loadGame();
+  try {
+    const r = g.get(`(() => { const o = { x: W - 60, y: 1000, vx: 500, vy: 0, a: 0 };
+      let f; for (let i = 0; i < 20; i++) f = flyPilot(o, 0, 0, false, false, 1 / 60, 0, false) || f;
+      return { vx: Math.round(o.vx), soft: crashDmg(500, false), hard: crashDmg(900, true) > 0 }; })()`);
+    assert.ok(r.vx < -200, 'bounced back at ' + r.vx); assert.equal(r.soft, 0); assert.equal(r.hard, true);
+  } finally { g.dispose(); }
+});
+
+test('round a planet at about orbital speed, off the throttle, a bin keeps circling; elsewhere it slows', { skip }, async () => {
+  const g = await loadGame();
+  try {
+    const r = g.get(`(() => { worldCode = "m1d0c"; setMapSize(mapOf(worldCode)); buildPlanets(worldCode);
+      const p = planets.filter(q => !q.free && !q.dead).sort((a, b) => b.rr - a.rr)[0], d0 = p.rr * 1.6, v0 = Math.sqrt(pullAt(p, d0) * d0);
+      const o = { x: p.x + d0, y: p.y, vx: 0, vy: v0 }, far = { x: 20, y: 20, vx: v0, vy: 0 }, ds = [];
+      for (let i = 0; i < 6 * 60; i++) { for (const q of [o, far]) { thrustPilot(q, 0, 0, false, false, 1 / 60); gravityOn(q, 1 / 60); q.x += q.vx / 60; q.y += q.vy / 60; } ds.push(Math.hypot(o.x - p.x, o.y - p.y)); }
+      return { d0, min: Math.min(...ds), max: Math.max(...ds), v: Math.hypot(o.vx, o.vy) / v0, farV: Math.hypot(far.vx, far.vy) / v0 }; })()`);
+    assert.ok(r.min > r.d0 * 0.9 && r.max < r.d0 * 1.1, `circling at ${Math.round(r.min)}..${Math.round(r.max)}`);
+    assert.ok(r.v > 0.9, 'without slowing'); assert.ok(r.farV < 0.3, 'off the throttle elsewhere, it slows');
+  } finally { g.dispose(); }
+});
+
+test('a shotgun\'s kick pushes its shooter back, and its pellets throw the target back', { skip }, async () => {
+  const m = await createMatch({ code: 'm1x0o' }); emptyField(m);
+  try {
+    const s = m.addPilot('S'), t = m.addPilot('T'); run(m, 0.1);
+    const S = m.game.__simBot(s), T = m.game.__simBot(t), both = () => { hold(m, s, 1500, 1500, 0); hold(m, t, 1700, 1500, Math.PI / 2); };
+    m.input(s, { w: gunIndex(m, 'scatter'), aim: 0 }); run(m, 0.4, both);
+    m.input(s, { w: gunIndex(m, 'scatter'), aim: 0, fire: true }); run(m, 1 / 30 * 1.01, () => hold(m, t, 1700, 1500, Math.PI / 2));
+    assert.ok(S.vx < -300, 'the kick: ' + Math.round(S.vx));
+    run(m, 0.25);
+    assert.ok(T.vx > 150, 'the target thrown back: ' + Math.round(T.vx));
+  } finally { m.dispose(); }
+});
+
+test('a heavy hit knocks the nose aside, away from where it came from; a light one does not', { skip }, async () => {
+  const g = await loadGame();
+  try {
+    const r = g.get(`(() => { const a = { a: 0 }, b = { a: 0 }, c = { a: 0 };
+      spinKick(a, 1.5, Math.PI / 2, 0); spinKick(b, 1.5, -Math.PI / 2, 0); spinKick(c, 0.4, Math.PI / 2, 0);
+      return { a: a.a, b: b.a, c: c.a, stun: a.stunUntil }; })()`);
+    assert.ok(r.a > 0.4 && r.b < -0.4, 'thrown aside either way'); assert.equal(r.c, 0, 'a light hit leaves it'); assert.equal(r.stun, 250);
+  } finally { g.dispose(); }
 });
