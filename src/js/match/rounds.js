@@ -13,12 +13,12 @@
   const acc = r => r.shots ? Math.min(100, Math.round(r.hits / r.shots * 100)) : 0;
   function teamWinLine() {
     if (!isTeams()) return "";
-    const t = teamTotals(), flags = MODES[MODE].flags, sc = i => flags ? t.c[i] + " flags, " + t.k[i] + " kills" : t.k[i] + " kills";
+    const t = teamTotals(), goal = goalOf(MODE), sc = i => goal ? t.c[i] + " " + goal + ", " + t.k[i] + " kills" : t.k[i] + " kills";
     if (!t.lead) return "A draw · " + sc(0) + " each side";
     const w = t.lead > 0 ? 0 : 1;
     return `<span style="color:${TEAM_HEX[w]}">${TEAM_NAME[w]} team wins</span> · ${sc(w)} to ${sc(1 - w)}`;
   }
-  const comparePlayers = (a, b) => (MODES[MODE].flags ? b.caps - a.caps : 0) || b.kills - a.kills || a.deaths - b.deaths;
+  const comparePlayers = (a, b) => (goalOf(MODE) ? b.caps - a.caps : 0) || b.kills - a.kills || a.deaths - b.deaths;
   function showResults(roundNo) {
     const rows = playerRows().sort(comparePlayers);
     const top = rows[0], tied = rows.length > 1 && comparePlayers(rows[0], rows[1]) === 0;
@@ -35,8 +35,8 @@
     const card = document.getElementById("resultsCard");
     card.innerHTML = `<h2>Round ${roundNo} over</h2>
       <div class="winner">${teamWinLine() || (top.kills ? tied ? "Draw · " + top.kills + " kills" : "Winner: " + esc(top.name) + " · " + top.kills + " kills" : "Nobody scored a kill")}</div>
-      <table><thead><tr><th>Pilot</th><th>Kills</th><th>Deaths</th>${MODES[MODE].flags ? "<th>Flags</th>" : ""}<th>Points</th><th>Accuracy</th></tr></thead><tbody>
-      ${rows.map(r => `<tr class="${r.me ? "me" : ""}"><td${isTeams() && onTeam(r) ? ` style="color:${TEAM_HEX[r.tm]}"` : ""}>${esc(r.name)}${r.me ? " (you)" : ""}</td><td>${r.kills}</td><td>${r.deaths}</td>${MODES[MODE].flags ? `<td>${r.caps}</td>` : ""}<td>${r.score}</td><td>${r.shots ? acc(r) + "%" : "–"}</td></tr>`).join("")}
+      <table><thead><tr><th>Pilot</th><th>Kills</th><th>Deaths</th>${goalOf(MODE) ? `<th>${goalOf(MODE)[0].toUpperCase() + goalOf(MODE).slice(1)}</th>` : ""}<th>Points</th><th>Accuracy</th></tr></thead><tbody>
+      ${rows.map(r => `<tr class="${r.me ? "me" : ""}"><td${isTeams() && onTeam(r) ? ` style="color:${TEAM_HEX[r.tm]}"` : ""}>${esc(r.name)}${r.me ? " (you)" : ""}</td><td>${r.kills}</td><td>${r.deaths}</td>${goalOf(MODE) ? `<td>${r.caps}</td>` : ""}<td>${r.score}</td><td>${r.shots ? acc(r) + "%" : "–"}</td></tr>`).join("")}
       </tbody></table>
       <div class="awards">${awards.map(([title, who, why]) => `<div class="award"><b>${title}</b><span>${esc(who.name)}</span><small>${why(who)}</small></div>`).join("")}</div>
       <div class="next" id="nextRound"></div>`;
@@ -56,10 +56,10 @@
     setTimeout(() => { const line = won ? (stats.deaths === 0 ? "v_flawless" : "v_win") : "v_lose"; sfx(line, 1); }, 600);
   }
   let decidedRound = -1;
-  // the best score in the lobby, in the unit the limit counts: kills, team kills, or flags
+  // the best score in the lobby, in the unit the limit counts: kills, team kills, or the mode's goal (flags, holds)
   function leaderScore() {
-    if (isTeams()) { const t = teamTotals(); return MODES[MODE].flags ? Math.max(...t.c) : Math.max(...t.k); }
-    return Math.max(0, ...playerRows().map(r => r.kills));
+    if (isTeams()) { const t = teamTotals(); return goalOf(MODE) ? Math.max(...t.c) : Math.max(...t.k); }
+    return Math.max(0, ...playerRows().map(r => goalOf(MODE) ? r.caps : r.kills));
   }
   function roundTick(now) {
     const rd = roundAt(clockNow());
@@ -75,9 +75,9 @@
         sfx("v_fight", 1);
       }
       for (const b of bots) resetCmds(b);
-      for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, shield: 0, beltArmor: 0, bodyArmor: 0, padsArmor: 0, vx: 0, vy: 0, ammo: 0, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0, weapon: "fire" });
+      for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, shield: 0, beltArmor: 0, bodyArmor: 0, padsArmor: 0, hillT: 0, jugT: 0, vx: 0, vy: 0, ammo: 0, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0, weapon: "fire" });
       for (const b of bots) if (b.input) pilotArm(b);
-      me.fc = -1; me.caps = 0; altCharge = 0; charge = 0; cancelRocketLoad();
+      me.fc = -1; me.caps = 0; me.hillT = me.jugT = 0; altCharge = 0; charge = 0; cancelRocketLoad();
       energy = 100; energyRegenAt = 0; dashReadyAt = 0;
       flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
       grabbed.clear(); myGrabs.length = 0; gunDrops.clear(); myGunDrops.length = 0;
@@ -111,7 +111,7 @@
     if (live) {
       const remaining = Math.ceil(rd.left), m = Math.floor(remaining / 60), sec = remaining % 60;
       if (firstRoundIdx === null) firstRoundIdx = rd.idx;
-      info.textContent = "Round " + (rd.idx - firstRoundIdx + 1) + " · " + m + ":" + String(sec).padStart(2, "0") + (SCORE_LIMIT ? " · first to " + SCORE_LIMIT : "");
+      info.textContent = "Round " + (rd.idx - firstRoundIdx + 1) + " · " + m + ":" + String(sec).padStart(2, "0") + (SCORE_LIMIT ? " · first to " + limitText(SCORE_LIMIT, MODE) : "");
       info.classList.toggle("last", rd.left < 30);
     } else {
       info.textContent = "Results · next round in " + Math.ceil(rd.next) + "s";
@@ -123,11 +123,11 @@
       if (nx) nx.textContent = "Next round in " + Math.ceil(rd.next) + " s";
     }
   }
-  // team totals: kills, and flags captured
+  // team totals: kills, and the mode's goal (flags captured)
   function teamTotals() {
     const k = [0, 0], c = [0, 0];
     for (const r of playerRows()) if (onTeam(r)) { k[r.tm] += r.kills; c[r.tm] += r.caps; }
-    return { k, c, lead: MODES[MODE].flags ? (c[0] - c[1] || k[0] - k[1]) : k[0] - k[1] };
+    return { k, c, lead: goalOf(MODE) ? (c[0] - c[1] || k[0] - k[1]) : k[0] - k[1] };
   }
   function renderBoard() {
     const rows = playerRows();
@@ -135,18 +135,18 @@
     const shown = rows;
     const team = [];
     if (isTeams()) {   // the two teams first: kills, or captures in CTF
-      const t = teamTotals(), flags = MODES[MODE].flags;
+      const t = teamTotals(), goal = goalOf(MODE);
       for (const i of [0, 1]) {
         const li = document.createElement("li"); li.className = "team";
         const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = TEAM_NAME[i] + " team"; nm.style.color = TEAM_HEX[i];
-        const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = flags ? t.c[i] + " flags · " + t.k[i] : String(t.k[i]);
+        const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = goal ? t.c[i] + " " + goal + " · " + t.k[i] : String(t.k[i]);
         li.append(nm, pts); team.push(li);
       }
     }
     boardEl.replaceChildren(...team, ...shown.map(r => {
       const li = document.createElement("li"); if (r.me) li.className = "me";
       const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = r.name; nm.style.color = isTeams() && onTeam(r) ? TEAM_HEX[r.tm] : `hsl(${r.hue} 90% 80%)`;
-      const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = (MODES[MODE].flags ? r.caps + " flags · " : "") + r.kills + " / " + r.deaths + " · " + r.score + " pts";
+      const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = (goalOf(MODE) ? r.caps + " " + goalOf(MODE) + " · " : "") + r.kills + " / " + r.deaths + " · " + r.score + " pts";
       if (r.ping) { const pg = document.createElement("small"); pg.className = "pg " + (r.ping < 90 ? "good" : r.ping < 180 ? "ok" : "bad"); pg.textContent = Math.round(r.ping) + "ms"; nm.append(" ", pg); }
       li.append(nm, pts); return li;
     }));

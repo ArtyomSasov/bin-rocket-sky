@@ -25,6 +25,11 @@
     // the arena's shape: planets and wrecks as faint outlines
     mctx.fillStyle = "rgba(189,200,255,0.16)";
     for (const b of bodies) { if (b.dead || b.moon) continue; const [x, y] = P(b.x, b.y); mctx.beginPath(); mctx.arc(x, y, Math.max(2, (b.wreck ? b.rr * 0.7 : b.rr) * k), 0, 6.29); mctx.fill(); }
+    if (hill) {   // the hill: a ring in its holder's colour
+      const [x, y] = P(hill.x, hill.y);
+      mctx.strokeStyle = hillHolder === me ? "#4fd6c8" : hillHolder ? "#ffd36b" : "rgba(255,255,255,0.8)"; mctx.lineWidth = 2;
+      mctx.beginPath(); mctx.arc(x, y, Math.max(5, hill.r * k), 0, 6.29); mctx.stroke();
+    }
     // the arena's spots, so they can be learned: bright while something lies there, faint while it is taken
     const dot = (c, col, r) => { if (!c) return; const [x, y] = P(c.x, c.y); mctx.globalAlpha = grabbed.has(c.key) ? 0.25 : 0.9; mctx.fillStyle = col; mctx.fillRect(x - r, y - r, r * 2, r * 2); };
     for (const c of world.picks) dot(c, WEAPONS[c.type].col, 2.5);

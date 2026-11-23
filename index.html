@@ -799,7 +799,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const SPRITE_TILT = 0.24;          // the art leans right a little (its engine points down-left)
   const NOZZLE = [140 / 320 - 0.5, 186 / 320 - 0.5];   // engine opening in the art, as a fraction of size
   const LIVES = 3, ROCK_PERIOD = 22; let ROCKS = 36;
-  const RESPAWN_MS = 2000;           // dead this long, then back in (see safeSpawn)
+  const RESPAWN_MS = 2000;           // dead this long, then back in (see safeSpawn); Last Bin Standing waits (standingTick)
   const FLAME = { outer: [255, 70, 20], mid: [255, 150, 40], core: [255, 240, 170] };   // an engine's fire, unless its look picks another
   // shot kinds: what flies. The number is what goes over the network; everything per kind lives in SHOTS
   const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10, HOLY: 11, SAW: 12, GAMMA: 13, BEACON: 14, TFRAG: 15, BULLET: 16, GAUSS: 17, SHOCK: 18, PULSE: 19, FLAK: 20, DET: 21, NAIL: 22, GREN: 23, MELEE: 24, SPIKE: 25, MDET: 26, HROCKET: 27, RECALL: 28, PISTOL: 29, SAW_ALT: 30, BULLET_ALT: 31, PULSE_BOLT: 32, SWORD: 33, VOID: 34, HOOK: 35, NOVA: 36 };
@@ -967,7 +967,9 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // a station's inner wall gives only to heavy weapons (a crater of WALL_CARVE or more: rockets, grenades, mines, the
   // orbs, the charged rail and gauss), and then WALL_GIVE times more than rock does; the hull never
   const WALL_CARVE = 24, WALL_GIVE = 1.5;
-  const AMP_PERIOD = 95, AMP_TIME = 20000, QUAD = 4;         // Quad damage: a rare pick-up, four times the damage for 20 s                        // mines go off when a bin comes this close, after arming
+  const AMP_PERIOD = 95, AMP_TIME = 20000, QUAD = 4, JUG_PERIOD = 10;         // Quad damage: a rare pick-up, four times the damage for 20 s                        // mines go off when a bin comes this close, after arming
+  // a Quad damage taken: for AMP_TIME, or, the Juggernaut's, until its holder dies
+  const ampFor = now => now + (MODES[MODE].juggernaut ? 1e9 : AMP_TIME);
   // UT99 pickups: ordinary health caps at 100; super health at 199.
   const SUPPLIES = {
     med: { name: "Health Pack +20", col: "#ff5a6e", heal: HP(20), cap: HP(100), period: 20, icon: "cross" },
@@ -984,7 +986,10 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const MODES = {
     d: { name: "Deathmatch", label: "Deathmatch", hint: "everyone for themselves" },
     t: { name: "Team Deathmatch", label: "Team DM", hint: "Red against Blue", teams: true },
-    c: { name: "Capture the Flag", label: "CTF", hint: "steal their flag", teams: true, flags: true },
+    c: { name: "Capture the Flag", label: "CTF", hint: "steal their flag", teams: true, flags: true, goal: "flags" },
+    h: { name: "King of the Hill", label: "Hill", hint: "hold the hill alone", hill: true, goal: "holds" },
+    l: { name: "Last Bin Standing", label: "Last Bin", hint: "no respawn until one is left", lastStanding: true, goal: "wins" },
+    j: { name: "Juggernaut", label: "Juggernaut", hint: "hold the Quad while all hunt you", juggernaut: true, goal: "points" },
     n: { name: "Nukes only", label: "Nukes", hint: "unlimited nukes", only: "nuke", cdMul: 2.2, botCd: 6 },
     r: { name: "Railgun instagib", label: "Instagib", hint: "one rail hit kills", only: "rail", botCd: 3, instagib: true, noSupplies: true },
     // the test range: every gun at once with endless ammo (and the teleporter), to try them all out
@@ -995,10 +1000,15 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const modeOf = code => MODES[codeOpts(code).mode] ? codeOpts(code).mode : "d";
   // match settings: round length (minutes) and a score that ends the round early (kills, or flags in CTF)
   const TIME_OPTS = { 2: 3, 3: 5, 4: 8, 5: 10, 6: 15 }, TIME_DEFAULT = "3";
-  const SCORE_OPTS = { 2: [10, 3], 3: [20, 5], 4: [30, 10] };   // [kills, flags]
+  // a mode's own score (goal: what its pilots count besides kills, carried as their caps) and the limits it is played to
+  const GOALS = { flags: [3, 5, 10], holds: [12, 24, 36], wins: [3, 5, 10], points: [12, 24, 36] };   // (a hold: 5 s alone on the hill; a win: the last one left; a point: 5 s as the Juggernaut)
+  const SCORE_OPTS = { 2: 0, 3: 1, 4: 2 }, KILL_LIMITS = [10, 20, 30];
   const timeOf = code => TIME_OPTS[codeOpts(code).time] ? codeOpts(code).time : TIME_DEFAULT;
-  const scoreOf = code => SCORE_OPTS[codeOpts(code).score] ? codeOpts(code).score : "";
-  const scoreLimit = code => { const s = scoreOf(code); return s ? SCORE_OPTS[s][MODES[modeOf(code)].flags ? 1 : 0] : 0; };
+  const scoreOf = code => SCORE_OPTS[codeOpts(code).score] !== undefined ? codeOpts(code).score : "";
+  const goalOf = m => MODES[m].goal || "";   // "" : kills
+  const respawnDelay = () => MODES[MODE].lastStanding ? Infinity : RESPAWN_MS;   // (the heat's end brings it back: standingTick)
+  const scoreLimit = code => { const s = scoreOf(code); return s ? (GOALS[goalOf(modeOf(code))] || KILL_LIMITS)[SCORE_OPTS[s]] : 0; };
+  const limitText = (n, m) => n + " " + (goalOf(m) || "kills");
   let MODE = "d";
   const TEAM_NAME = ["Red", "Blue"], TEAM_HEX = ["#ff5a6e", "#4fa8ff"], TEAM_RGB = ["255,90,110", "79,168,255"];
   // the guns by their number on the wire (retired ones keep their place, so older pages still read the rest)
@@ -4040,7 +4050,10 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     placeBases();
   }
   // capture the flag's two home pads, on the map being played
-  const placeBases = () => { bases = MODES[MODE].flags ? [findBase(0), findBase(1)] : null; };
+  const placeBases = () => {   // (and the hill, and how soon the Quad comes back)
+    bases = MODES[MODE].flags ? [findBase(0), findBase(1)] : null; placeHill();
+    if (arena.amp) arena.amp.P = MODES[MODE].juggernaut ? JUG_PERIOD : AMP_PERIOD;
+  };
   // ---------- body physics: pick-up placement, gravity, bouncing off bodies, shot hits ----------
   // pick-ups that would land inside a planet sit on its rim instead (same result on every client)
   function outside(o) {
@@ -6548,7 +6561,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       me.ds = deathPiecesOf(kind);   // pieces the bin breaks into: 1 = intact dead hulk, 2-4 = shattered (always pieces for a blast)
       me.dk = deathStyleOf(kind); me.da = ang;
       deathFx(me, me.ds, me.dk, me.da);
-      me.dead = true; me.respawnAt = now + RESPAWN_MS; me.vx = me.vy = 0;
+      me.dead = true; me.diedAt = now; me.respawnAt = now + respawnDelay(); me.vx = me.vy = 0;
       const trophy = me.weapon !== "fire" ? me.weapon : owned().find(k => k !== "fire");
       if (trophy && !MODES[MODE].only) dropGun(me.x, me.y, trophy, me.arsenal[trophy]);
       baseArsenal(); me.ampUntil = 0; me.fc = -1; renderWeapon();   // its guns are lost with it (and a carried flag goes home)
@@ -7615,6 +7628,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (typeof m.tg === "string" && /^[a-z0-9]{1,8}$/.test(m.tg)) { srv.tag = m.tg; myTag = m.tg; }   // my shots' ids: kills reported on them are mine
     if (Number.isFinite(m.ts)) srv.lastTs = Math.max(srv.lastTs || m.ts, m.ts);
     srv.ping = myPing;
+    if (Array.isArray(m.cp) && m.cp[0] === stats.round && Number.isInteger(m.cp[1])) me.caps = clamp(m.cp[1], 0, 99);   // my flags or holds, as the server counts them
     // my shots, as fired on the server: the ones this screen already showed (predictShot) are not shown twice
     if (m.rd === stats.round && Array.isArray(m.f)) for (const f of m.f.slice(0, 24)) {
       if (Array.isArray(f) && typeof f[0] === "string" && !seenShots.has(f[0]) && claimPrediction(f[5], now, f[0])) { seenShots.set(f[0], performance.now()); noteShotKind(f[0], f[5]); continue; }
@@ -7637,7 +7651,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (Number.isFinite(m.sh) && m.sh !== me.shield) { me.shield = clamp(m.sh, 0, MAX_SHIELD); renderShield(); }
     if (Number.isFinite(m.l) && m.l !== me.lives) { const hit = m.l < me.lives; me.lives = clamp(m.l, 0, LIVES * 1.99); renderHearts(hit); if (hit && !me.dead) { me.hitAt = now; hurtFlash = Math.min(1, hurtFlash + 0.4); } }
     if (m.d === 1 && !me.dead) {   // the server's verdict: I died
-      me.dead = true; me.respawnAt = now + RESPAWN_MS; me.vx = me.vy = 0;
+      me.dead = true; me.diedAt = now; me.respawnAt = now + respawnDelay(); me.vx = me.vy = 0;
       me.ds = clamp(Math.floor(num(m.ds, 2)), 0, 4); me.dk = clamp(Math.floor(num(m.dk, 0)), 0, DEATH_KINDS); me.da = num(m.da, 0);
       deathFx(me, me.ds, me.dk, me.da);
       stats.deaths++; stats.streak = 0;
@@ -8129,6 +8143,103 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       if (onScreen(fx, fy, 90)) drawFlag(fx, fy, t, now);
     }
   }
+  // ---------- the modes' own goals: King of the Hill, Last Bin Standing, Juggernaut ----------
+  // ---------- king of the hill ----------
+  // One hill, a ring where the Quad damage lies. A pilot alone on it (no living enemy inside) holds it: every HOLD_S
+  // seconds held without a break scores a hold (its caps, as CTF's captures are, so every screen sees the count). Each
+  // screen judges its own pilot and its bots, the server its pilots, as every pick-up is judged
+  let hill = null;   // { x, y, r } on the map being played
+  const HOLD_S = 5, HILL_R = 300;
+  const placeHill = () => { hill = MODES[MODE].hill && arena.amp ? { x: arena.amp.x, y: arena.amp.y, r: HILL_R } : null; };
+  const onHill = o => !o.dead && Math.hypot(o.x - hill.x, o.y - hill.y) < hill.r;
+  // who is on the hill now: the pilots inside it, as this screen sees them
+  function hillPilots() {
+    const on = [];
+    if (playing && onHill(me)) on.push(me);
+    for (const [id, r] of remotes) if (!botById.has(id) && onHill(r)) on.push(r);
+    for (const b of bots) if (onHill(b)) on.push(b);
+    return on;
+  }
+  let hillHolder = null;   // the one holding it now (for its drawing), or null: nobody or a fight on it
+  function hillTick(dt, now) {
+    hillHolder = null;
+    if (!hill) return;
+    const on = hillPilots();
+    if (on.length === 1) hillHolder = on[0];
+    const actors = [];
+    if (roundLive && playing && !serverRun) actors.push(me);   // (on the server, the server holds my hill)
+    if (roundLive) actors.push(...bots);
+    for (const o of actors) {
+      if (o !== hillHolder) { o.hillT = 0; continue; }
+      o.hillT = (o.hillT || 0) + dt;
+      if (o.hillT < HOLD_S) continue;
+      o.hillT -= HOLD_S; o.caps = (o.caps || 0) + 1;
+      if (o === me) { me.score += 5; showScore(); floaters.push({ x: me.x, y: me.y - 70, t: 0, txt: "HOLD +1", gold: true }); sfx("p_pickup", 0.6, 1.2); }
+    }
+  }
+  // the hill: a wide ring on the ground, its colour who holds it (white: nobody, a pilot's own hue, red flicker: a
+  // fight on it); mine fills round as my hold builds
+  function drawHill(now) {
+    if (!hill) return;
+    const x = sx(hill.x), y = sy(hill.y), R = hill.r;
+    if (!onScreen(x, y, R + 40)) return;
+    const fight = !hillHolder && hillPilots().length > 1, col = hillHolder ? (hillHolder === me ? "79,214,200" : "255,211,107") : fight ? "255,90,110" : "255,255,255";
+    g.save();
+    g.globalCompositeOperation = "lighter";
+    const gr = g.createRadialGradient(x, y, R * 0.6, x, y, R);
+    gr.addColorStop(0, `rgba(${col},0)`); gr.addColorStop(1, `rgba(${col},${fight && Math.floor(now / 180) % 2 ? 0.08 : 0.16})`);
+    g.fillStyle = gr; g.beginPath(); g.arc(x, y, R, 0, 6.29); g.fill();
+    g.globalCompositeOperation = "source-over";
+    g.strokeStyle = `rgba(${col},0.8)`; g.lineWidth = 4; g.setLineDash([22, 14]); g.lineDashOffset = now / 60;
+    g.beginPath(); g.arc(x, y, R, 0, 6.29); g.stroke(); g.setLineDash([]);
+    if (hillHolder === me && me.hillT > 0) {   // my hold, filling round
+      g.strokeStyle = "rgba(79,214,200,0.95)"; g.lineWidth = 9; g.lineCap = "round";
+      g.beginPath(); g.arc(x, y, R - 10, -Math.PI / 2, -Math.PI / 2 + 6.283 * me.hillT / HOLD_S); g.stroke();
+    }
+    g.restore();
+  }
+  // ---------- last bin standing ----------
+  // Nobody comes back while two or more still fly: the fallen wait. When one is left, it has won the heat (a win, as
+  // its caps) and the fallen come back a moment later for the next. Each screen judges its own pilot and bots, the
+  // server its pilots (players' among them), from the pilots it sees
+  function standingTick(now) {
+    if (!MODES[MODE].lastStanding || !roundLive) return;
+    const all = bots.slice();
+    if (playing) all.push(me);
+    for (const [id, r] of remotes) if (!botById.has(id)) all.push(r);
+    if (all.length < 2) return;
+    const actors = bots.slice();
+    if (playing && !serverRun) actors.push(me);   // (on the server, the server decides for my pilot)
+    if (all.filter(o => !o.dead).length >= 2) { for (const o of actors) o.heatWon = false; return; }
+    for (const o of actors) {
+      if (!o.dead && !o.heatWon) {   // the last one standing
+        o.heatWon = true; o.caps = (o.caps || 0) + 1; o.lives = LIVES;
+        if (o === me) { me.score += 10; showScore(); renderHearts(false); announce("LAST BIN STANDING", "you win the heat", "#ffd36b", 2); }
+      }
+      if (o.dead && !Number.isFinite(o.respawnAt)) o.respawnAt = now + 2500;   // the next heat
+    }
+  }
+  // ---------- juggernaut ----------
+  // The Quad damage makes its taker the Juggernaut until it dies (no other Quad comes while it lives; one is back on its
+  // spot JUG_PERIOD after). Every HOLD_S seconds as the Juggernaut scores a point (its caps), judged as the hill is
+  const juggernaut = now => {
+    if (playing && !me.dead && amped(me, now)) return me;
+    for (const b of bots) if (!b.dead && amped(b, now)) return b;
+    for (const r of remotes.values()) if (!r.dead && r.amp) return r;
+    return null;
+  };
+  function juggernautTick(dt, now) {
+    if (!MODES[MODE].juggernaut || !roundLive) return;
+    const actors = bots.slice();
+    if (playing && !serverRun) actors.push(me);
+    for (const o of actors) {
+      if (o.dead || !amped(o, now)) { o.jugT = 0; continue; }
+      o.jugT = (o.jugT || 0) + dt;
+      if (o.jugT < HOLD_S) continue;
+      o.jugT -= HOLD_S; o.caps = (o.caps || 0) + 1;
+      if (o === me) { me.score += 5; showScore(); floaters.push({ x: me.x, y: me.y - 70, t: 0, txt: "JUGGERNAUT +1", gold: true }); }
+    }
+  }
   // ---------- bots (simulated here, broadcast like real pilots) ----------
   const MAX_BOTS = 24;
   const BOT_NAMES = ["Rusty", "Bolt", "Zappy", "Clank", "Nova", "Sprocket", "Dusty", "Orbit", "Razor", "Vex", "Scrap", "Fury", "Nail", "Cinder", "Hex", "Rivet", "Grinder", "Rook", "Torque", "Wraith", "Flint", "Rattle", "Havoc", "Slag"];
@@ -8196,7 +8307,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (!byHole) pushCapped(b.hitBy, shotId, 12);
     if (b.lives <= 0) {
       if (b.weapon !== "fire" && !MODES[MODE].only) dropGun(b.x, b.y, b.weapon, b.input ? b.arsenal[b.weapon] : b.ammo);   // its trophy
-      b.dead = true; b.respawnAt = now + RESPAWN_MS; b.fc = -1; b.weapon = "fire"; b.ampUntil = 0;
+      b.dead = true; b.respawnAt = now + respawnDelay(); b.fc = -1; b.weapon = "fire"; b.ampUntil = 0;
       if (b.input) pilotArm(b);   // a player starts again with the laser pistol
       b.ds = deathPiecesOf(kind); b.dk = deathStyleOf(kind); b.da = ang;
       b.st.deaths++; b.st.streak = 0;
@@ -8273,6 +8384,11 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         if (goal) { routeGoal = goal; const gx = goal.x - b.x, gy = goal.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * w; dy += gy / gd * w; }
       }
       pilotTakes(b, now, human);
+      // king of the hill: off to the hill, and kept on it (unless a fight is close)
+      if (hill && !human && !(tgt && td < 500)) {
+        const gx = hill.x - b.x, gy = hill.y - b.y, gd = Math.hypot(gx, gy) || 1;
+        if (gd > hill.r * 0.5) { routeGoal = hill; dx += gx / gd * 2; dy += gy / gd * 2; }
+      }
       const gun = !MODES[MODE].only && roundLive ? gunGoal(b, td, human) : null;
       if (gun && !human) { routeGoal = gun; const gx = gun.x - b.x, gy = gun.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * 1.4; dy += gy / gd * 1.4; }
       const m = 260;   // keep off the fence
@@ -8376,7 +8492,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     }
     const qd = world.amp;
     if (roundLive && qd && !grabbed.has(qd.key) && Math.hypot(qd.x - b.x, qd.y - b.y) < 60) {
-      grabbed.add(qd.key); pushCapped(myGrabs, qd.key, 40); b.ampUntil = now + AMP_TIME;
+      grabbed.add(qd.key); pushCapped(myGrabs, qd.key, 40); b.ampUntil = ampFor(now);
       if (!human) for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 100 + Math.random() * 300; puff(qd.x, qd.y, Math.cos(a) * v, Math.sin(a) * v, 0.8, 2.5, k % 2 ? "#5b9bff" : "#ffffff"); }
       sfx("shield_get", 0.6, 0.7, qd.x, qd.y);
     }
@@ -8478,14 +8594,18 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   // a bot's target: the nearest living pilot not on its side (me or anyone else, other bots included), within how far
   // it looks (further with a big bomb; range: another reach); [the pilot, how far] or [null, that range]
   function botTarget(b, range) {
-    let tgt = null, td = range ?? (botWeapon(b) === "holy" ? 3200 : botWeapon(b) === "nuke" || botWeapon(b) === "void" ? 2600 : 1700);
-    if (playing && !me.dead && !mates(b, me)) { const d = Math.hypot(me.x - b.x, me.y - b.y); if (d < td) { td = d; tgt = me; } }
+    let tgt = null, td = range ?? (botWeapon(b) === "holy" ? 3200 : botWeapon(b) === "nuke" || botWeapon(b) === "void" ? 2600 : 1700), best = td;
+    const jug = MODES[MODE].juggernaut;   // (the Juggernaut first: it counts as 2.5 times nearer)
+    if (playing && !me.dead && !mates(b, me)) { const d = Math.hypot(me.x - b.x, me.y - b.y), k = d * (jug && amped(me, performance.now()) ? 0.4 : 1); if (k < best && d < td) { best = k; tgt = me; } }
     for (const [rid, r] of remotes) {
-      if (rid === b.id || r.dead || Math.abs(r.x - b.x) > td || Math.abs(r.y - b.y) > td || mates(r, b)) continue;
-      const ex = r.x - b.x, ey = r.y - b.y, d = Math.sqrt(ex * ex + ey * ey);
-      if (d < td) { td = d; tgt = r; }
+      if (rid === b.id || r.dead || mates(r, b)) continue;
+      const ex = r.x - b.x, ey = r.y - b.y;
+      const lim = jug ? td : best;   // (a cheap test first: no nearer than the best so far can be this far on an axis)
+      if (Math.abs(ex) > lim || Math.abs(ey) > lim) continue;
+      const d = Math.sqrt(ex * ex + ey * ey), k = d * (jug && r.amp ? 0.4 : 1);
+      if (k < best && d < td) { best = k; tgt = r; }
     }
-    return [tgt, td];
+    return [tgt, tgt ? Math.hypot(tgt.x - b.x, tgt.y - b.y) : td];
   }
   // another pilot ramming my bot on boost (the bot is the victim, so its owner decides)
   function botRammed(b, now) {
@@ -8834,7 +8954,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   function ampHud(now) {
     const left = Math.ceil(ampLeft(me, now));
     if (left === ampShown) return;
-    ampShown = left; ampChip.hidden = !left; ampChip.textContent = "QUAD DAMAGE x4 · " + left + "s";
+    ampShown = left; ampChip.hidden = !left; ampChip.textContent = MODES[MODE].juggernaut ? "JUGGERNAUT · QUAD x4" : "QUAD DAMAGE x4 · " + left + "s";
   }
   // the trigger, for dt seconds: cooldown, charge, rocket loading, and the shots it lets go
   function fireTick(dt, now, held, altHeld) {
@@ -9151,7 +9271,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (scoped) { const ce3 = 1 - Math.exp(-5 * dt); cam.lx += (Math.cos(me.a) * reach - cam.lx) * ce3; cam.ly += (Math.sin(me.a) * reach - cam.ly) * ce3; }
     else { cam.lx += (me.vx * lk + (mcx - vw / 2) * lean - cam.lx) * ce; cam.ly += (me.vy * lk + (mcy - vh / 2) * lean - cam.ly) * ce; }
     // dead: my own end first, then over to whoever killed me (while they live), until I am back
-    const watch = me.dead && killerId && now > me.respawnAt - RESPAWN_MS + 900 ? remotes.get(killerId) : null;
+    const watch = me.dead && killerId && now > (me.diedAt || 0) + 900 ? remotes.get(killerId) : null;
     if (guided || now < camBackUntil) {   // riding along with the guided nuke, then easing back to the bin
       const to = guided || me, ce2 = 1 - Math.exp(-(guided ? 10 : 6) * dt);
       cam.x += (to.x + (guided ? 0 : cam.lx) - cam.x) * ce2; cam.y += (to.y + (guided ? 0 : cam.ly) - cam.y) * ce2;
@@ -9598,8 +9718,9 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (!serverRun && playing && !me.dead && world.amp && !grabbed.has(world.amp.key) && Math.hypot(world.amp.x - me.x, world.amp.y - me.y) < 60 + magnet()) {
       const c = world.amp;
       grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
-      me.ampUntil = now + AMP_TIME;
-      announce("QUAD DAMAGE", "four times the damage for 20 seconds", "#6fa8ff", 4);
+      me.ampUntil = ampFor(now);
+      if (MODES[MODE].juggernaut) announce("JUGGERNAUT", "four times the damage until you die · everyone is after you", "#6fa8ff", 4);
+      else announce("QUAD DAMAGE", "four times the damage for 20 seconds", "#6fa8ff", 4);
       for (let k = 0; k < 50; k++) { const a = Math.random() * 6.28, v = 100 + Math.random() * 300; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.8, 2.5, k % 2 ? "#5b9bff" : "#ffffff"); }
       rings.push({ x: c.x, y: c.y, t: 0, r: 260, col: "91,155,255", warp: true, dur: 0.6, w: 14 });
     }
@@ -9852,6 +9973,9 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     updateBots(dt, now);
     continuousAudioTick(now);
     ctfTick(now);
+    hillTick(dt, now);
+    standingTick(now);
+    juggernautTick(dt, now);
     updateRemotes(dt, now);
     updatePickups(dt, now);
     updateFx(dt, now);
@@ -9875,12 +9999,12 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const acc = r => r.shots ? Math.min(100, Math.round(r.hits / r.shots * 100)) : 0;
   function teamWinLine() {
     if (!isTeams()) return "";
-    const t = teamTotals(), flags = MODES[MODE].flags, sc = i => flags ? t.c[i] + " flags, " + t.k[i] + " kills" : t.k[i] + " kills";
+    const t = teamTotals(), goal = goalOf(MODE), sc = i => goal ? t.c[i] + " " + goal + ", " + t.k[i] + " kills" : t.k[i] + " kills";
     if (!t.lead) return "A draw · " + sc(0) + " each side";
     const w = t.lead > 0 ? 0 : 1;
     return `<span style="color:${TEAM_HEX[w]}">${TEAM_NAME[w]} team wins</span> · ${sc(w)} to ${sc(1 - w)}`;
   }
-  const comparePlayers = (a, b) => (MODES[MODE].flags ? b.caps - a.caps : 0) || b.kills - a.kills || a.deaths - b.deaths;
+  const comparePlayers = (a, b) => (goalOf(MODE) ? b.caps - a.caps : 0) || b.kills - a.kills || a.deaths - b.deaths;
   function showResults(roundNo) {
     const rows = playerRows().sort(comparePlayers);
     const top = rows[0], tied = rows.length > 1 && comparePlayers(rows[0], rows[1]) === 0;
@@ -9897,8 +10021,8 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const card = document.getElementById("resultsCard");
     card.innerHTML = `<h2>Round ${roundNo} over</h2>
       <div class="winner">${teamWinLine() || (top.kills ? tied ? "Draw · " + top.kills + " kills" : "Winner: " + esc(top.name) + " · " + top.kills + " kills" : "Nobody scored a kill")}</div>
-      <table><thead><tr><th>Pilot</th><th>Kills</th><th>Deaths</th>${MODES[MODE].flags ? "<th>Flags</th>" : ""}<th>Points</th><th>Accuracy</th></tr></thead><tbody>
-      ${rows.map(r => `<tr class="${r.me ? "me" : ""}"><td${isTeams() && onTeam(r) ? ` style="color:${TEAM_HEX[r.tm]}"` : ""}>${esc(r.name)}${r.me ? " (you)" : ""}</td><td>${r.kills}</td><td>${r.deaths}</td>${MODES[MODE].flags ? `<td>${r.caps}</td>` : ""}<td>${r.score}</td><td>${r.shots ? acc(r) + "%" : "–"}</td></tr>`).join("")}
+      <table><thead><tr><th>Pilot</th><th>Kills</th><th>Deaths</th>${goalOf(MODE) ? `<th>${goalOf(MODE)[0].toUpperCase() + goalOf(MODE).slice(1)}</th>` : ""}<th>Points</th><th>Accuracy</th></tr></thead><tbody>
+      ${rows.map(r => `<tr class="${r.me ? "me" : ""}"><td${isTeams() && onTeam(r) ? ` style="color:${TEAM_HEX[r.tm]}"` : ""}>${esc(r.name)}${r.me ? " (you)" : ""}</td><td>${r.kills}</td><td>${r.deaths}</td>${goalOf(MODE) ? `<td>${r.caps}</td>` : ""}<td>${r.score}</td><td>${r.shots ? acc(r) + "%" : "–"}</td></tr>`).join("")}
       </tbody></table>
       <div class="awards">${awards.map(([title, who, why]) => `<div class="award"><b>${title}</b><span>${esc(who.name)}</span><small>${why(who)}</small></div>`).join("")}</div>
       <div class="next" id="nextRound"></div>`;
@@ -9918,10 +10042,10 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     setTimeout(() => { const line = won ? (stats.deaths === 0 ? "v_flawless" : "v_win") : "v_lose"; sfx(line, 1); }, 600);
   }
   let decidedRound = -1;
-  // the best score in the lobby, in the unit the limit counts: kills, team kills, or flags
+  // the best score in the lobby, in the unit the limit counts: kills, team kills, or the mode's goal (flags, holds)
   function leaderScore() {
-    if (isTeams()) { const t = teamTotals(); return MODES[MODE].flags ? Math.max(...t.c) : Math.max(...t.k); }
-    return Math.max(0, ...playerRows().map(r => r.kills));
+    if (isTeams()) { const t = teamTotals(); return goalOf(MODE) ? Math.max(...t.c) : Math.max(...t.k); }
+    return Math.max(0, ...playerRows().map(r => goalOf(MODE) ? r.caps : r.kills));
   }
   function roundTick(now) {
     const rd = roundAt(clockNow());
@@ -9937,9 +10061,9 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
         sfx("v_fight", 1);
       }
       for (const b of bots) resetCmds(b);
-      for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, shield: 0, beltArmor: 0, bodyArmor: 0, padsArmor: 0, vx: 0, vy: 0, ammo: 0, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0, weapon: "fire" });
+      for (const b of bots) Object.assign(b, { st: { kills: 0, deaths: 0, shots: 0, hits: 0, streak: 0, best: 0 }, lives: LIVES, shield: 0, beltArmor: 0, bodyArmor: 0, padsArmor: 0, hillT: 0, jugT: 0, vx: 0, vy: 0, ammo: 0, dead: false, ...spawnPoint(b.tm), inv: now + 2000, fc: -1, caps: 0, weapon: "fire" });
       for (const b of bots) if (b.input) pilotArm(b);
-      me.fc = -1; me.caps = 0; altCharge = 0; charge = 0; cancelRocketLoad();
+      me.fc = -1; me.caps = 0; me.hillT = me.jugT = 0; altCharge = 0; charge = 0; cancelRocketLoad();
       energy = 100; energyRegenAt = 0; dashReadyAt = 0;
       flagWas = ["", ""]; flagHeld.fill(null); flagCarrier.fill(null);
       grabbed.clear(); myGrabs.length = 0; gunDrops.clear(); myGunDrops.length = 0;
@@ -9973,7 +10097,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     if (live) {
       const remaining = Math.ceil(rd.left), m = Math.floor(remaining / 60), sec = remaining % 60;
       if (firstRoundIdx === null) firstRoundIdx = rd.idx;
-      info.textContent = "Round " + (rd.idx - firstRoundIdx + 1) + " · " + m + ":" + String(sec).padStart(2, "0") + (SCORE_LIMIT ? " · first to " + SCORE_LIMIT : "");
+      info.textContent = "Round " + (rd.idx - firstRoundIdx + 1) + " · " + m + ":" + String(sec).padStart(2, "0") + (SCORE_LIMIT ? " · first to " + limitText(SCORE_LIMIT, MODE) : "");
       info.classList.toggle("last", rd.left < 30);
     } else {
       info.textContent = "Results · next round in " + Math.ceil(rd.next) + "s";
@@ -9985,11 +10109,11 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       if (nx) nx.textContent = "Next round in " + Math.ceil(rd.next) + " s";
     }
   }
-  // team totals: kills, and flags captured
+  // team totals: kills, and the mode's goal (flags captured)
   function teamTotals() {
     const k = [0, 0], c = [0, 0];
     for (const r of playerRows()) if (onTeam(r)) { k[r.tm] += r.kills; c[r.tm] += r.caps; }
-    return { k, c, lead: MODES[MODE].flags ? (c[0] - c[1] || k[0] - k[1]) : k[0] - k[1] };
+    return { k, c, lead: goalOf(MODE) ? (c[0] - c[1] || k[0] - k[1]) : k[0] - k[1] };
   }
   function renderBoard() {
     const rows = playerRows();
@@ -9997,18 +10121,18 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     const shown = rows;
     const team = [];
     if (isTeams()) {   // the two teams first: kills, or captures in CTF
-      const t = teamTotals(), flags = MODES[MODE].flags;
+      const t = teamTotals(), goal = goalOf(MODE);
       for (const i of [0, 1]) {
         const li = document.createElement("li"); li.className = "team";
         const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = TEAM_NAME[i] + " team"; nm.style.color = TEAM_HEX[i];
-        const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = flags ? t.c[i] + " flags · " + t.k[i] : String(t.k[i]);
+        const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = goal ? t.c[i] + " " + goal + " · " + t.k[i] : String(t.k[i]);
         li.append(nm, pts); team.push(li);
       }
     }
     boardEl.replaceChildren(...team, ...shown.map(r => {
       const li = document.createElement("li"); if (r.me) li.className = "me";
       const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = r.name; nm.style.color = isTeams() && onTeam(r) ? TEAM_HEX[r.tm] : `hsl(${r.hue} 90% 80%)`;
-      const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = (MODES[MODE].flags ? r.caps + " flags · " : "") + r.kills + " / " + r.deaths + " · " + r.score + " pts";
+      const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = (goalOf(MODE) ? r.caps + " " + goalOf(MODE) + " · " : "") + r.kills + " / " + r.deaths + " · " + r.score + " pts";
       if (r.ping) { const pg = document.createElement("small"); pg.className = "pg " + (r.ping < 90 ? "good" : r.ping < 180 ? "ok" : "bad"); pg.textContent = Math.round(r.ping) + "ms"; nm.append(" ", pg); }
       li.append(nm, pts); return li;
     }));
@@ -11642,7 +11766,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
       g.textAlign = "center"; g.fillStyle = "#ffffff";
       g.font = `700 ${30 * TS}px ` + DISPLAY_FONT;
       const kr = killerId && remotes.get(killerId), hp = kr && !kr.dead && Number.isFinite(kr.lives) ? " · " + hpPct(kr) + " HP left" : "";
-      g.fillText((killer ? "Killed by " + killer + hp + " · " : "Boom! ") + "back in " + Math.max(1, Math.ceil((me.respawnAt - now) / 1000)) + "…", vw / 2, vh * 0.28);   // (above the middle: the camera shows the killer there)
+      g.fillText((killer ? "Killed by " + killer + hp + " · " : "Boom! ") + (Number.isFinite(me.respawnAt) ? "back in " + Math.max(1, Math.ceil((me.respawnAt - now) / 1000)) + "…" : "out until one bin is left"), vw / 2, vh * 0.28);   // (above the middle: the camera shows the killer there)
     }
   }
   // smoke over the bins, impact flashes, rail trails, zaps, shock rings, nuke blasts
@@ -12030,6 +12154,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     drawCuts();
     drawAim(now);
     drawFlags(now);
+    drawHill(now);
     drawBlastFx(now);
     drawFloaters(now);
   }
@@ -12072,7 +12197,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     world.bombs = solo ? [] : Object.keys(BOMB_CRATES).map(k => bombPickup(wt, k)).filter(Boolean);
     const holy = world.bombs.find(c => c.type === "holy");   // a fresh holy-bomb crate is announced once
     if (playing && holy && holy.age < 1 && holy.key !== holyAnnounced && !grabbed.has(holy.key)) { holyAnnounced = holy.key; announce("HOLY BOMB", "it is back on its spot · follow the white arrow", "#fff3b0"); }   // back after someone took it
-    world.amp = solo ? null : ampPickup(wt);
+    world.amp = solo || MODES[MODE].juggernaut && juggernaut(now) ? null : ampPickup(wt);   // (one Juggernaut at a time)
     world.supplies.length = MODES[MODE].noSupplies ? 0 : SUPPLY_SLOTS;
     roundTick(now);
     for (let i = 0; i < world.supplies.length; i++) world.supplies[i] = supply(i, wt);
@@ -12139,6 +12264,11 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     // the arena's shape: planets and wrecks as faint outlines
     mctx.fillStyle = "rgba(189,200,255,0.16)";
     for (const b of bodies) { if (b.dead || b.moon) continue; const [x, y] = P(b.x, b.y); mctx.beginPath(); mctx.arc(x, y, Math.max(2, (b.wreck ? b.rr * 0.7 : b.rr) * k), 0, 6.29); mctx.fill(); }
+    if (hill) {   // the hill: a ring in its holder's colour
+      const [x, y] = P(hill.x, hill.y);
+      mctx.strokeStyle = hillHolder === me ? "#4fd6c8" : hillHolder ? "#ffd36b" : "rgba(255,255,255,0.8)"; mctx.lineWidth = 2;
+      mctx.beginPath(); mctx.arc(x, y, Math.max(5, hill.r * k), 0, 6.29); mctx.stroke();
+    }
     // the arena's spots, so they can be learned: bright while something lies there, faint while it is taken
     const dot = (c, col, r) => { if (!c) return; const [x, y] = P(c.x, c.y); mctx.globalAlpha = grabbed.has(c.key) ? 0.25 : 0.9; mctx.fillStyle = col; mctx.fillRect(x - r, y - r, r * 2, r * 2); };
     for (const c of world.picks) dot(c, WEAPONS[c.type].col, 2.5);
@@ -12614,7 +12744,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
   const lobbyCode = () => joining ? normCode(lobbyInput.value) : newGameCode;
   const codeOk = () => lobbyCode().length >= 4;
   const describe = c => MODES[modeOf(c)].name + " · " + mapLabel(c, "name") + " · " + MAP_SIZES[mapOf(c)][1]
-    + " · " + TIME_OPTS[timeOf(c)] + " min" + (scoreLimit(c) ? " · first to " + scoreLimit(c) + (MODES[modeOf(c)].flags ? " flags" : " kills") : "");
+    + " · " + TIME_OPTS[timeOf(c)] + " min" + (scoreLimit(c) ? " · first to " + limitText(scoreLimit(c), modeOf(c)) : "");
   const syncGo = () => {
     if (!standalone) { goBtn.textContent = "Take off"; return; }
     goBtn.disabled = !codeOk();
@@ -12676,7 +12806,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     let modePick = MODES[store.get("binrocket.mode")] ? store.get("binrocket.mode") : "d";
     let themePick = MAPS[store.get("binrocket.theme")] || store.get("binrocket.theme") === ROTATION ? store.get("binrocket.theme") : "c";
     let timePick = TIME_OPTS[store.get("binrocket.time")] ? store.get("binrocket.time") : TIME_DEFAULT;
-    let scorePick = SCORE_OPTS[store.get("binrocket.score")] ? store.get("binrocket.score") : "";
+    let scorePick = SCORE_OPTS[store.get("binrocket.score")] !== undefined ? store.get("binrocket.score") : "";
     const newCode = () => {
       let c = mapPick + (modePick === "d" ? "" : "1" + modePick) + (themePick === "c" ? "" : "0" + themePick)
         + (timePick === TIME_DEFAULT ? "" : "1" + timePick) + (scorePick ? "0" + scorePick : "");
@@ -12709,7 +12839,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
     segButtons(document.getElementById("modePick"), Object.entries(MODES).map(([k, v]) => [k, v.label, v.hint]), modePick, v => { modePick = v; store.set("binrocket.mode", v); drawScores(); newCode(); });
     segButtons(document.getElementById("themePick"), [...Object.entries(MAPS).map(([k, v]) => [k, v.label, v.hint]), [ROTATION, ROTATION_LABEL, "a different map every round"]], themePick, v => { themePick = v; store.set("binrocket.theme", v); newCode(); });
     segButtons(document.getElementById("timePick"), Object.entries(TIME_OPTS).map(([k, v]) => [k, v + " min"]), timePick, v => { timePick = v; store.set("binrocket.time", v); newCode(); });
-    const scoreItems = () => [["", "None"], ...Object.entries(SCORE_OPTS).map(([k, v]) => [k, MODES[modePick].flags ? v[1] + " flags" : v[0] + " kills"])];
+    const scoreItems = () => [["", "None"], ...Object.entries(SCORE_OPTS).map(([k, i]) => [k, limitText((GOALS[goalOf(modePick)] || KILL_LIMITS)[i], modePick)])];
     const scoreEl = document.getElementById("scorePick");
     const drawScores = () => { scoreEl.replaceChildren(); segButtons(scoreEl, scoreItems(), scorePick, v => { scorePick = v; store.set("binrocket.score", v); newCode(); }); };
     drawScores();

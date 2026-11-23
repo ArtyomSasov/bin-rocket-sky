@@ -45,6 +45,11 @@
         if (goal) { routeGoal = goal; const gx = goal.x - b.x, gy = goal.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * w; dy += gy / gd * w; }
       }
       pilotTakes(b, now, human);
+      // king of the hill: off to the hill, and kept on it (unless a fight is close)
+      if (hill && !human && !(tgt && td < 500)) {
+        const gx = hill.x - b.x, gy = hill.y - b.y, gd = Math.hypot(gx, gy) || 1;
+        if (gd > hill.r * 0.5) { routeGoal = hill; dx += gx / gd * 2; dy += gy / gd * 2; }
+      }
       const gun = !MODES[MODE].only && roundLive ? gunGoal(b, td, human) : null;
       if (gun && !human) { routeGoal = gun; const gx = gun.x - b.x, gy = gun.y - b.y, gd = Math.hypot(gx, gy) || 1; dx += gx / gd * 1.4; dy += gy / gd * 1.4; }
       const m = 260;   // keep off the fence
@@ -148,7 +153,7 @@
     }
     const qd = world.amp;
     if (roundLive && qd && !grabbed.has(qd.key) && Math.hypot(qd.x - b.x, qd.y - b.y) < 60) {
-      grabbed.add(qd.key); pushCapped(myGrabs, qd.key, 40); b.ampUntil = now + AMP_TIME;
+      grabbed.add(qd.key); pushCapped(myGrabs, qd.key, 40); b.ampUntil = ampFor(now);
       if (!human) for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, v = 100 + Math.random() * 300; puff(qd.x, qd.y, Math.cos(a) * v, Math.sin(a) * v, 0.8, 2.5, k % 2 ? "#5b9bff" : "#ffffff"); }
       sfx("shield_get", 0.6, 0.7, qd.x, qd.y);
     }
@@ -250,14 +255,18 @@
   // a bot's target: the nearest living pilot not on its side (me or anyone else, other bots included), within how far
   // it looks (further with a big bomb; range: another reach); [the pilot, how far] or [null, that range]
   function botTarget(b, range) {
-    let tgt = null, td = range ?? (botWeapon(b) === "holy" ? 3200 : botWeapon(b) === "nuke" || botWeapon(b) === "void" ? 2600 : 1700);
-    if (playing && !me.dead && !mates(b, me)) { const d = Math.hypot(me.x - b.x, me.y - b.y); if (d < td) { td = d; tgt = me; } }
+    let tgt = null, td = range ?? (botWeapon(b) === "holy" ? 3200 : botWeapon(b) === "nuke" || botWeapon(b) === "void" ? 2600 : 1700), best = td;
+    const jug = MODES[MODE].juggernaut;   // (the Juggernaut first: it counts as 2.5 times nearer)
+    if (playing && !me.dead && !mates(b, me)) { const d = Math.hypot(me.x - b.x, me.y - b.y), k = d * (jug && amped(me, performance.now()) ? 0.4 : 1); if (k < best && d < td) { best = k; tgt = me; } }
     for (const [rid, r] of remotes) {
-      if (rid === b.id || r.dead || Math.abs(r.x - b.x) > td || Math.abs(r.y - b.y) > td || mates(r, b)) continue;
-      const ex = r.x - b.x, ey = r.y - b.y, d = Math.sqrt(ex * ex + ey * ey);
-      if (d < td) { td = d; tgt = r; }
+      if (rid === b.id || r.dead || mates(r, b)) continue;
+      const ex = r.x - b.x, ey = r.y - b.y;
+      const lim = jug ? td : best;   // (a cheap test first: no nearer than the best so far can be this far on an axis)
+      if (Math.abs(ex) > lim || Math.abs(ey) > lim) continue;
+      const d = Math.sqrt(ex * ex + ey * ey), k = d * (jug && r.amp ? 0.4 : 1);
+      if (k < best && d < td) { best = k; tgt = r; }
     }
-    return [tgt, td];
+    return [tgt, tgt ? Math.hypot(tgt.x - b.x, tgt.y - b.y) : td];
   }
   // another pilot ramming my bot on boost (the bot is the victim, so its owner decides)
   function botRammed(b, now) {

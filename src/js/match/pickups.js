@@ -52,8 +52,9 @@
     if (!serverRun && playing && !me.dead && world.amp && !grabbed.has(world.amp.key) && Math.hypot(world.amp.x - me.x, world.amp.y - me.y) < 60 + magnet()) {
       const c = world.amp;
       grabbed.add(c.key); pushCapped(myGrabs, c.key, 40);
-      me.ampUntil = now + AMP_TIME;
-      announce("QUAD DAMAGE", "four times the damage for 20 seconds", "#6fa8ff", 4);
+      me.ampUntil = ampFor(now);
+      if (MODES[MODE].juggernaut) announce("JUGGERNAUT", "four times the damage until you die · everyone is after you", "#6fa8ff", 4);
+      else announce("QUAD DAMAGE", "four times the damage for 20 seconds", "#6fa8ff", 4);
       for (let k = 0; k < 50; k++) { const a = Math.random() * 6.28, v = 100 + Math.random() * 300; puff(c.x, c.y, Math.cos(a) * v, Math.sin(a) * v, 0.8, 2.5, k % 2 ? "#5b9bff" : "#ffffff"); }
       rings.push({ x: c.x, y: c.y, t: 0, r: 260, col: "91,155,255", warp: true, dur: 0.6, w: 14 });
     }

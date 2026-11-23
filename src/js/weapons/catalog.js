@@ -161,4 +161,6 @@
   // a station's inner wall gives only to heavy weapons (a crater of WALL_CARVE or more: rockets, grenades, mines, the
   // orbs, the charged rail and gauss), and then WALL_GIVE times more than rock does; the hull never
   const WALL_CARVE = 24, WALL_GIVE = 1.5;
-  const AMP_PERIOD = 95, AMP_TIME = 20000, QUAD = 4;         // Quad damage: a rare pick-up, four times the damage for 20 s                        // mines go off when a bin comes this close, after arming
+  const AMP_PERIOD = 95, AMP_TIME = 20000, QUAD = 4, JUG_PERIOD = 10;         // Quad damage: a rare pick-up, four times the damage for 20 s                        // mines go off when a bin comes this close, after arming
+  // a Quad damage taken: for AMP_TIME, or, the Juggernaut's, until its holder dies
+  const ampFor = now => now + (MODES[MODE].juggernaut ? 1e9 : AMP_TIME);

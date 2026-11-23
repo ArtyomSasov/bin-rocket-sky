@@ -27,7 +27,7 @@
       me.ds = deathPiecesOf(kind);   // pieces the bin breaks into: 1 = intact dead hulk, 2-4 = shattered (always pieces for a blast)
       me.dk = deathStyleOf(kind); me.da = ang;
       deathFx(me, me.ds, me.dk, me.da);
-      me.dead = true; me.respawnAt = now + RESPAWN_MS; me.vx = me.vy = 0;
+      me.dead = true; me.diedAt = now; me.respawnAt = now + respawnDelay(); me.vx = me.vy = 0;
       const trophy = me.weapon !== "fire" ? me.weapon : owned().find(k => k !== "fire");
       if (trophy && !MODES[MODE].only) dropGun(me.x, me.y, trophy, me.arsenal[trophy]);
       baseArsenal(); me.ampUntil = 0; me.fc = -1; renderWeapon();   // its guns are lost with it (and a carried flag goes home)

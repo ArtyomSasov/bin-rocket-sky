@@ -25,7 +25,7 @@
     world.bombs = solo ? [] : Object.keys(BOMB_CRATES).map(k => bombPickup(wt, k)).filter(Boolean);
     const holy = world.bombs.find(c => c.type === "holy");   // a fresh holy-bomb crate is announced once
     if (playing && holy && holy.age < 1 && holy.key !== holyAnnounced && !grabbed.has(holy.key)) { holyAnnounced = holy.key; announce("HOLY BOMB", "it is back on its spot · follow the white arrow", "#fff3b0"); }   // back after someone took it
-    world.amp = solo ? null : ampPickup(wt);
+    world.amp = solo || MODES[MODE].juggernaut && juggernaut(now) ? null : ampPickup(wt);   // (one Juggernaut at a time)
     world.supplies.length = MODES[MODE].noSupplies ? 0 : SUPPLY_SLOTS;
     roundTick(now);
     for (let i = 0; i < world.supplies.length; i++) world.supplies[i] = supply(i, wt);

@@ -10,7 +10,7 @@
   const lobbyCode = () => joining ? normCode(lobbyInput.value) : newGameCode;
   const codeOk = () => lobbyCode().length >= 4;
   const describe = c => MODES[modeOf(c)].name + " · " + mapLabel(c, "name") + " · " + MAP_SIZES[mapOf(c)][1]
-    + " · " + TIME_OPTS[timeOf(c)] + " min" + (scoreLimit(c) ? " · first to " + scoreLimit(c) + (MODES[modeOf(c)].flags ? " flags" : " kills") : "");
+    + " · " + TIME_OPTS[timeOf(c)] + " min" + (scoreLimit(c) ? " · first to " + limitText(scoreLimit(c), modeOf(c)) : "");
   const syncGo = () => {
     if (!standalone) { goBtn.textContent = "Take off"; return; }
     goBtn.disabled = !codeOk();
@@ -72,7 +72,7 @@
     let modePick = MODES[store.get("binrocket.mode")] ? store.get("binrocket.mode") : "d";
     let themePick = MAPS[store.get("binrocket.theme")] || store.get("binrocket.theme") === ROTATION ? store.get("binrocket.theme") : "c";
     let timePick = TIME_OPTS[store.get("binrocket.time")] ? store.get("binrocket.time") : TIME_DEFAULT;
-    let scorePick = SCORE_OPTS[store.get("binrocket.score")] ? store.get("binrocket.score") : "";
+    let scorePick = SCORE_OPTS[store.get("binrocket.score")] !== undefined ? store.get("binrocket.score") : "";
     const newCode = () => {
       let c = mapPick + (modePick === "d" ? "" : "1" + modePick) + (themePick === "c" ? "" : "0" + themePick)
         + (timePick === TIME_DEFAULT ? "" : "1" + timePick) + (scorePick ? "0" + scorePick : "");
@@ -105,7 +105,7 @@
     segButtons(document.getElementById("modePick"), Object.entries(MODES).map(([k, v]) => [k, v.label, v.hint]), modePick, v => { modePick = v; store.set("binrocket.mode", v); drawScores(); newCode(); });
     segButtons(document.getElementById("themePick"), [...Object.entries(MAPS).map(([k, v]) => [k, v.label, v.hint]), [ROTATION, ROTATION_LABEL, "a different map every round"]], themePick, v => { themePick = v; store.set("binrocket.theme", v); newCode(); });
     segButtons(document.getElementById("timePick"), Object.entries(TIME_OPTS).map(([k, v]) => [k, v + " min"]), timePick, v => { timePick = v; store.set("binrocket.time", v); newCode(); });
-    const scoreItems = () => [["", "None"], ...Object.entries(SCORE_OPTS).map(([k, v]) => [k, MODES[modePick].flags ? v[1] + " flags" : v[0] + " kills"])];
+    const scoreItems = () => [["", "None"], ...Object.entries(SCORE_OPTS).map(([k, i]) => [k, limitText((GOALS[goalOf(modePick)] || KILL_LIMITS)[i], modePick)])];
     const scoreEl = document.getElementById("scorePick");
     const drawScores = () => { scoreEl.replaceChildren(); segButtons(scoreEl, scoreItems(), scorePick, v => { scorePick = v; store.set("binrocket.score", v); newCode(); }); };
     drawScores();

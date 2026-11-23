@@ -3,7 +3,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { skip, createMatch, loadGame } = require('./helpers/game.cjs');
-const { clock, run } = require('./helpers/match.cjs');
+const { clock, run, hold, emptyField } = require('./helpers/match.cjs');
 
 const T0 = Math.floor(Date.now() / 1000) * 1000;   // (a clock sent from more than a day away is refused)
 
@@ -108,5 +108,50 @@ test('a pilot that dies is back after the respawn time, at a spot away from its 
     assert.equal(victim.dead, false, 'back in');
     const near = Math.min(...rest.map(b => Math.hypot(b.x - victim.x, b.y - victim.y)));
     assert.ok(near > 1200, `born ${Math.round(near)} px from the nearest enemy`);
+  } finally { m.dispose(); }
+});
+
+test('King of the Hill: a pilot alone on the hill scores a hold every 5 s; with an enemy on it too, nobody does', { skip }, async () => {
+  const m = await createMatch({ code: 'm1h0o' });
+  try {
+    emptyField(m);
+    const a = m.addPilot('A'), b = m.addPilot('B'); run(m, 0.1);
+    const A = m.game.__simBot(a), B = m.game.__simBot(b), q = m.game.__simQuad() || { x: 0, y: 0 };
+    run(m, 11, () => { hold(m, a, q.x, q.y); hold(m, b, q.x + 1500, q.y); });
+    assert.equal(A.caps, 2, 'two holds in 11 s alone'); assert.equal(B.caps || 0, 0);
+    run(m, 6, () => { hold(m, a, q.x, q.y); hold(m, b, q.x + 60, q.y); });
+    assert.equal(A.caps, 2, 'a fight on the hill scores nothing'); assert.equal(B.caps || 0, 0);
+  } finally { m.dispose(); }
+});
+
+test('Last Bin Standing: the fallen wait while two still fly; the last one left wins the heat and the fallen come back', { skip }, async () => {
+  const m = await createMatch({ code: 'm1l0o' });
+  try {
+    emptyField(m);
+    const ids = ['A', 'B', 'C'].map(n => m.addPilot(n)); run(m, 0.5);
+    const [A, B, C] = ids.map(id => m.game.__simBot(id)), apart = () => ids.forEach((id, i) => hold(m, id, 600 + i * 900, 600));
+    m.game.__simHurt(ids[1], 99); run(m, 4, apart);
+    assert.equal(B.dead, true, 'still out: two fly on');
+    m.game.__simHurt(ids[2], 99); run(m, 0.2, apart);
+    assert.equal(A.caps, 1, 'A, the last one left, wins the heat');
+    run(m, 3, apart);
+    assert.equal(B.dead || C.dead, false, 'the fallen are back for the next heat');
+  } finally { m.dispose(); }
+});
+
+test('Juggernaut: the Quad makes its taker the Juggernaut until it dies, worth a point every 5 s; no other Quad comes meanwhile', { skip }, async () => {
+  const m = await createMatch({ code: 'm1j0o' });
+  try {
+    emptyField(m);
+    const a = m.addPilot('A'), b = m.addPilot('B'); run(m, 0.2);
+    const A = m.game.__simBot(a), q = m.game.__simQuad();
+    assert.ok(q, 'the Quad is on its spot');
+    run(m, 0.3, () => { hold(m, a, q.x, q.y); hold(m, b, q.x + 1500, q.y); });
+    run(m, 30, () => { hold(m, a, q.x + 600, q.y); hold(m, b, q.x + 1500, q.y); });
+    assert.ok(A.ampUntil > performance.now() + 1e8, 'the Quad lasts until death');
+    assert.equal(A.caps, 6, 'a point every 5 s');
+    assert.equal(m.game.__simQuad(), null, 'no other Quad while the Juggernaut lives');
+    m.game.__simHurt(a, 99); run(m, 0.2);
+    assert.ok(!(A.ampUntil > performance.now()), 'gone with its death');
   } finally { m.dispose(); }
 });

@@ -65,7 +65,7 @@
     if (!byHole) pushCapped(b.hitBy, shotId, 12);
     if (b.lives <= 0) {
       if (b.weapon !== "fire" && !MODES[MODE].only) dropGun(b.x, b.y, b.weapon, b.input ? b.arsenal[b.weapon] : b.ammo);   // its trophy
-      b.dead = true; b.respawnAt = now + RESPAWN_MS; b.fc = -1; b.weapon = "fire"; b.ampUntil = 0;
+      b.dead = true; b.respawnAt = now + respawnDelay(); b.fc = -1; b.weapon = "fire"; b.ampUntil = 0;
       if (b.input) pilotArm(b);   // a player starts again with the laser pistol
       b.ds = deathPiecesOf(kind); b.dk = deathStyleOf(kind); b.da = ang;
       b.st.deaths++; b.st.streak = 0;

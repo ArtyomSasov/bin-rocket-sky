@@ -40,6 +40,7 @@
     if (typeof m.tg === "string" && /^[a-z0-9]{1,8}$/.test(m.tg)) { srv.tag = m.tg; myTag = m.tg; }   // my shots' ids: kills reported on them are mine
     if (Number.isFinite(m.ts)) srv.lastTs = Math.max(srv.lastTs || m.ts, m.ts);
     srv.ping = myPing;
+    if (Array.isArray(m.cp) && m.cp[0] === stats.round && Number.isInteger(m.cp[1])) me.caps = clamp(m.cp[1], 0, 99);   // my flags or holds, as the server counts them
     // my shots, as fired on the server: the ones this screen already showed (predictShot) are not shown twice
     if (m.rd === stats.round && Array.isArray(m.f)) for (const f of m.f.slice(0, 24)) {
       if (Array.isArray(f) && typeof f[0] === "string" && !seenShots.has(f[0]) && claimPrediction(f[5], now, f[0])) { seenShots.set(f[0], performance.now()); noteShotKind(f[0], f[5]); continue; }
@@ -62,7 +63,7 @@
     if (Number.isFinite(m.sh) && m.sh !== me.shield) { me.shield = clamp(m.sh, 0, MAX_SHIELD); renderShield(); }
     if (Number.isFinite(m.l) && m.l !== me.lives) { const hit = m.l < me.lives; me.lives = clamp(m.l, 0, LIVES * 1.99); renderHearts(hit); if (hit && !me.dead) { me.hitAt = now; hurtFlash = Math.min(1, hurtFlash + 0.4); } }
     if (m.d === 1 && !me.dead) {   // the server's verdict: I died
-      me.dead = true; me.respawnAt = now + RESPAWN_MS; me.vx = me.vy = 0;
+      me.dead = true; me.diedAt = now; me.respawnAt = now + respawnDelay(); me.vx = me.vy = 0;
       me.ds = clamp(Math.floor(num(m.ds, 2)), 0, 4); me.dk = clamp(Math.floor(num(m.dk, 0)), 0, DEATH_KINDS); me.da = num(m.da, 0);
       deathFx(me, me.ds, me.dk, me.da);
       stats.deaths++; stats.streak = 0;

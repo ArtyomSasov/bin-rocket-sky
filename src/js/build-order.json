@@ -76,6 +76,7 @@
   "net/delta.js",
   "match/crates.js",
   "match/ctf.js",
+  "match/objectives.js",
   "pilots/roster.js",
   "pilots/bot-update.js",
   "pilots/contacts.js",

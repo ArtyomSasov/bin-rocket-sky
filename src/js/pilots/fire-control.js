@@ -5,7 +5,7 @@
   function ampHud(now) {
     const left = Math.ceil(ampLeft(me, now));
     if (left === ampShown) return;
-    ampShown = left; ampChip.hidden = !left; ampChip.textContent = "QUAD DAMAGE x4 · " + left + "s";
+    ampShown = left; ampChip.hidden = !left; ampChip.textContent = MODES[MODE].juggernaut ? "JUGGERNAUT · QUAD x4" : "QUAD DAMAGE x4 · " + left + "s";
   }
   // the trigger, for dt seconds: cooldown, charge, rocket loading, and the shots it lets go
   function fireTick(dt, now, held, altHeld) {

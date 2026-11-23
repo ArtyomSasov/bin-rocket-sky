@@ -43,4 +43,7 @@
     placeBases();
   }
   // capture the flag's two home pads, on the map being played
-  const placeBases = () => { bases = MODES[MODE].flags ? [findBase(0), findBase(1)] : null; };
+  const placeBases = () => {   // (and the hill, and how soon the Quad comes back)
+    bases = MODES[MODE].flags ? [findBase(0), findBase(1)] : null; placeHill();
+    if (arena.amp) arena.amp.P = MODES[MODE].juggernaut ? JUG_PERIOD : AMP_PERIOD;
+  };

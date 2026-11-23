@@ -92,6 +92,7 @@
     drawCuts();
     drawAim(now);
     drawFlags(now);
+    drawHill(now);
     drawBlastFx(now);
     drawFloaters(now);
   }

@@ -17,6 +17,9 @@
     updateBots(dt, now);
     continuousAudioTick(now);
     ctfTick(now);
+    hillTick(dt, now);
+    standingTick(now);
+    juggernautTick(dt, now);
     updateRemotes(dt, now);
     updatePickups(dt, now);
     updateFx(dt, now);

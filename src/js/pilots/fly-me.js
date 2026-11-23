@@ -73,7 +73,7 @@
     if (scoped) { const ce3 = 1 - Math.exp(-5 * dt); cam.lx += (Math.cos(me.a) * reach - cam.lx) * ce3; cam.ly += (Math.sin(me.a) * reach - cam.ly) * ce3; }
     else { cam.lx += (me.vx * lk + (mcx - vw / 2) * lean - cam.lx) * ce; cam.ly += (me.vy * lk + (mcy - vh / 2) * lean - cam.ly) * ce; }
     // dead: my own end first, then over to whoever killed me (while they live), until I am back
-    const watch = me.dead && killerId && now > me.respawnAt - RESPAWN_MS + 900 ? remotes.get(killerId) : null;
+    const watch = me.dead && killerId && now > (me.diedAt || 0) + 900 ? remotes.get(killerId) : null;
     if (guided || now < camBackUntil) {   // riding along with the guided nuke, then easing back to the bin
       const to = guided || me, ce2 = 1 - Math.exp(-(guided ? 10 : 6) * dt);
       cam.x += (to.x + (guided ? 0 : cam.lx) - cam.x) * ce2; cam.y += (to.y + (guided ? 0 : cam.ly) - cam.y) * ce2;

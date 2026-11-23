@@ -14,7 +14,10 @@
   const MODES = {
     d: { name: "Deathmatch", label: "Deathmatch", hint: "everyone for themselves" },
     t: { name: "Team Deathmatch", label: "Team DM", hint: "Red against Blue", teams: true },
-    c: { name: "Capture the Flag", label: "CTF", hint: "steal their flag", teams: true, flags: true },
+    c: { name: "Capture the Flag", label: "CTF", hint: "steal their flag", teams: true, flags: true, goal: "flags" },
+    h: { name: "King of the Hill", label: "Hill", hint: "hold the hill alone", hill: true, goal: "holds" },
+    l: { name: "Last Bin Standing", label: "Last Bin", hint: "no respawn until one is left", lastStanding: true, goal: "wins" },
+    j: { name: "Juggernaut", label: "Juggernaut", hint: "hold the Quad while all hunt you", juggernaut: true, goal: "points" },
     n: { name: "Nukes only", label: "Nukes", hint: "unlimited nukes", only: "nuke", cdMul: 2.2, botCd: 6 },
     r: { name: "Railgun instagib", label: "Instagib", hint: "one rail hit kills", only: "rail", botCd: 3, instagib: true, noSupplies: true },
     // the test range: every gun at once with endless ammo (and the teleporter), to try them all out
@@ -25,10 +28,15 @@
   const modeOf = code => MODES[codeOpts(code).mode] ? codeOpts(code).mode : "d";
   // match settings: round length (minutes) and a score that ends the round early (kills, or flags in CTF)
   const TIME_OPTS = { 2: 3, 3: 5, 4: 8, 5: 10, 6: 15 }, TIME_DEFAULT = "3";
-  const SCORE_OPTS = { 2: [10, 3], 3: [20, 5], 4: [30, 10] };   // [kills, flags]
+  // a mode's own score (goal: what its pilots count besides kills, carried as their caps) and the limits it is played to
+  const GOALS = { flags: [3, 5, 10], holds: [12, 24, 36], wins: [3, 5, 10], points: [12, 24, 36] };   // (a hold: 5 s alone on the hill; a win: the last one left; a point: 5 s as the Juggernaut)
+  const SCORE_OPTS = { 2: 0, 3: 1, 4: 2 }, KILL_LIMITS = [10, 20, 30];
   const timeOf = code => TIME_OPTS[codeOpts(code).time] ? codeOpts(code).time : TIME_DEFAULT;
-  const scoreOf = code => SCORE_OPTS[codeOpts(code).score] ? codeOpts(code).score : "";
-  const scoreLimit = code => { const s = scoreOf(code); return s ? SCORE_OPTS[s][MODES[modeOf(code)].flags ? 1 : 0] : 0; };
+  const scoreOf = code => SCORE_OPTS[codeOpts(code).score] !== undefined ? codeOpts(code).score : "";
+  const goalOf = m => MODES[m].goal || "";   // "" : kills
+  const respawnDelay = () => MODES[MODE].lastStanding ? Infinity : RESPAWN_MS;   // (the heat's end brings it back: standingTick)
+  const scoreLimit = code => { const s = scoreOf(code); return s ? (GOALS[goalOf(modeOf(code))] || KILL_LIMITS)[SCORE_OPTS[s]] : 0; };
+  const limitText = (n, m) => n + " " + (goalOf(m) || "kills");
   let MODE = "d";
   const TEAM_NAME = ["Red", "Blue"], TEAM_HEX = ["#ff5a6e", "#4fa8ff"], TEAM_RGB = ["255,90,110", "79,168,255"];
   // the guns by their number on the wire (retired ones keep their place, so older pages still read the rest)

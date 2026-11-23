@@ -60,7 +60,7 @@
   const SPRITE_TILT = 0.24;          // the art leans right a little (its engine points down-left)
   const NOZZLE = [140 / 320 - 0.5, 186 / 320 - 0.5];   // engine opening in the art, as a fraction of size
   const LIVES = 3, ROCK_PERIOD = 22; let ROCKS = 36;
-  const RESPAWN_MS = 2000;           // dead this long, then back in (see safeSpawn)
+  const RESPAWN_MS = 2000;           // dead this long, then back in (see safeSpawn); Last Bin Standing waits (standingTick)
   const FLAME = { outer: [255, 70, 20], mid: [255, 150, 40], core: [255, 240, 170] };   // an engine's fire, unless its look picks another
   // shot kinds: what flies. The number is what goes over the network; everything per kind lives in SHOTS
   const K = { FIRE: 0, ROCKET: 1, LASER: 2, NUKE: 3, PELLET: 4, RAIL: 5, MINE: 6, ORB: 7, BOLT: 8, SHARD: 9, SLUG: 10, HOLY: 11, SAW: 12, GAMMA: 13, BEACON: 14, TFRAG: 15, BULLET: 16, GAUSS: 17, SHOCK: 18, PULSE: 19, FLAK: 20, DET: 21, NAIL: 22, GREN: 23, MELEE: 24, SPIKE: 25, MDET: 26, HROCKET: 27, RECALL: 28, PISTOL: 29, SAW_ALT: 30, BULLET_ALT: 31, PULSE_BOLT: 32, SWORD: 33, VOID: 34, HOOK: 35, NOVA: 36 };
