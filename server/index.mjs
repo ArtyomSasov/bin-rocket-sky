@@ -30,6 +30,9 @@ const MAX_PLAYERS = +env("MAX_PLAYERS", 16);      // per room; bots fill the res
 const PER_IP = +env("PER_IP", 6);                 // open connections from one address
 const ROOM_IDLE_MS = +env("ROOM_IDLE_MS", 60000); // an empty room is kept this long for someone to come back
 const ROOMS_PER_IP = +env("ROOMS_PER_IP", 1);    // rooms one address may have open at a time
+// the AI bots all the server's games may fly together (they are what costs the processor): a game opened while
+// others run gets what is left of it, never fewer than BOTS_MIN (two games of 16 hard bots fall 12% of steps behind)
+const BOT_BUDGET = +env("BOT_BUDGET", 20), BOTS_MIN = 6;
 // Connections that have not joined a room yet are capped on their own (per address, per network, in all) and get
 // a few seconds to join: someone holding many of them can only fill the waiting room, never keep players out.
 // Joined ones are bounded by the rooms (MAX_ROOMS x MAX_PLAYERS) and the per-address cap
@@ -46,7 +49,8 @@ const rooms = new Map();   // code -> room
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 
 function openRoom(code, bots, level) {
-  const match = createMatch({ code, bots: Math.max(0, Math.min(24, Math.floor(Number(bots) || 0))), level: ["easy", "normal", "hard"].includes(level) ? level : "normal" });
+  const flying = [...rooms.values()].reduce((n, r) => n + r.match.bots, 0), want = Math.max(0, Math.min(24, Math.floor(Number(bots) || 0)));
+  const match = createMatch({ code, bots: Math.min(want, Math.max(BOTS_MIN, BOT_BUDGET - flying)), level: ["easy", "normal", "hard"].includes(level) ? level : "normal" });
   const room = { code, match, clients: new Set(), held: new Map(), emptySince: performance.now(), last: performance.now(), acc: 0, ticks: 0, slowTicks: 0 };
   // a fixed step on the real clock: after a stall it catches up a few steps, never more (no spiral of death)
   room.timer = setInterval(() => {
@@ -232,8 +236,9 @@ wss.on("connection", (ws, req) => {
         // (one room over MAX_ROOMS at most, whatever the memory says: rooms opened at once have not grown yet)
         const memOk = ROOM_MEM_MB > 0 && rooms.size < MAX_ROOMS + 1 && process.memoryUsage().rss / 1e6 < ROOM_MEM_MB;
         if (rooms.size >= MAX_ROOMS && !memOk) { send(ws, { t: "error", reason: "server full" }); ws.close(1013); return; }
-        // one address opens few rooms at a time, so nobody can take every room for themselves
-        if ([...rooms.values()].filter(o => o.opener === addr).length >= ROOMS_PER_IP) { send(ws, { t: "error", reason: "you already have a room" }); ws.close(1013); return; }
+        // one address opens few rooms at a time, so nobody can take every room for themselves (an empty one it left
+        // does not count: it gives way anyway)
+        if ([...rooms.values()].filter(o => o.opener === addr && (o.clients.size || o.held.size)).length >= ROOMS_PER_IP) { send(ws, { t: "error", reason: "you already have a room" }); ws.close(1013); return; }
         r = openRoom(code, m.bots, m.level); r.opener = addr; r.pub = m.pub === true;
       }
       // back after a dropped connection: the pilot kept for them (its key, rk, was theirs alone), or still held by

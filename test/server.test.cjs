@@ -38,6 +38,18 @@ function client(headers) {
   return ws;
 }
 
+// (first: before any other game is open on the server)
+test('the server\'s games share a budget of AI bots: one opened while another flies 16 gets what is left (at least 6)', { skip }, async () => {
+  const a = client(), b = client(); await a.opened; await b.opened;
+  try {
+    a.sendJ({ t: 'join', code: 'm1d0obudgeta', name: 'A', bots: 16 }); await a.next(m => m.t === 'welcome');
+    b.sendJ({ t: 'join', code: 'm1d0obudgetb', name: 'B', bots: 16 }); await b.next(m => m.t === 'welcome');
+    const bots = code => srv.rooms.get(code).match.bots;
+    assert.equal(bots('m1d0obudgeta'), 16);
+    assert.equal(bots('m1d0obudgetb'), 6, 'the second game: what is left of 20, at least 6');
+  } finally { for (const c of [a, b]) { c.sendJ({ t: 'bye' }); c.close(); } }
+});
+
 test('a player joins a room, gets snapshots, and flies by the input it sends', { skip }, async () => {
   const ws = client(); await ws.opened;
   ws.sendJ({ t: 'join', code: 'm1d0otest', name: 'Tester', bots: 2 });
@@ -119,9 +131,15 @@ test('the server refuses another site’s page, a bad code and too many rooms fr
   await assert.rejects(client({ Origin: 'https://evil.example' }).opened, /HTTP 401/);
   const bad = client(); await bad.opened; bad.sendJ({ t: 'join', code: '../x' });
   assert.equal((await bad.next(m => m.t === 'error')).reason, 'bad code');
-  // the first two tests opened two rooms from this address (they stay open a minute): a third is refused
-  const extra = client(); await extra.opened; extra.sendJ({ t: 'join', code: 'm1d0othird' });
-  assert.equal((await extra.next(m => m.t === 'error')).reason, 'you already have a room');
+  // two rooms played in from this address: a third is refused (an empty one it left would not count)
+  const one = client(), two = client(); await one.opened; await two.opened;
+  try {
+    one.sendJ({ t: 'join', code: 'm1d0oownone', name: 'A' }); await one.next(m => m.t === 'welcome');
+    two.sendJ({ t: 'join', code: 'm1d0oowntwo', name: 'B' }); await two.next(m => m.t === 'welcome');
+    const extra = client(); await extra.opened; extra.sendJ({ t: 'join', code: 'm1d0othird' });
+    assert.equal((await extra.next(m => m.t === 'error')).reason, 'you already have a room');
+    extra.close();
+  } finally { for (const c of [one, two]) { c.sendJ({ t: 'bye' }); c.close(); } }
 });
 
 test('/health shows counts, never room codes, and no cross-site access', { skip }, async () => {
