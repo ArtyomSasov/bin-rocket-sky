@@ -40,9 +40,24 @@
       }
   }
   let resCheckAt = 0;
+  // the frame rate as the scoreboard shows it: the average over the last two seconds and its slowest frame (one long
+  // frame in a smooth run is a felt hitch, which an average hides)
+  const fpsEl = document.getElementById("fpsInfo"), fpsBoard = document.getElementById("scoreboard"), fpsLog = [];
+  let fpsShownAt = 0;
+  function showFps(now, raw) {
+    if (raw < 0.25) fpsLog.push([now, raw]);
+    while (fpsLog.length && now - fpsLog[0][0] > 2000) fpsLog.shift();
+    if (now - fpsShownAt < 500 || fpsBoard.hidden || !fpsLog.length) return;
+    fpsShownAt = now;
+    let sum = 0, worst = 0; for (const [, d] of fpsLog) { sum += d; worst = Math.max(worst, d); }
+    const fps = fpsLog.length / sum;
+    fpsEl.textContent = `${Math.round(fps)} fps · slowest frame ${Math.round(worst * 1000)} ms`;
+    fpsEl.className = "ping " + (worst < 1 / 40 ? "good" : worst < 1 / 25 ? "ok" : "bad");
+  }
   function frame(now) {
     requestAnimationFrame(frame);
     const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
+    showFps(now, raw);
     if (raw < 0.25) {   // ignore pauses (tab switch)
       frameAvg += (raw - frameAvg) * 0.05;
       if (settings.fx === "low") lowQ = true;               // the player asked for light effects

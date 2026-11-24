@@ -617,7 +617,7 @@ body.playing .score .wpn { white-space: nowrap !important; overflow: hidden; tex
 </div>
 <div class="score chip"><b id="score">0</b><span>points</span><span class="energy"><b id="energyLabel">ENERGY</b><span class="meter" title="Boost energy"><i id="nrgFill"></i></span></span><span class="hp" id="hearts" role="img" aria-label="Health 100%"><span class="hpbar"><i id="hpFill"></i></span><b id="hpNum">100%</b></span><span class="shieldchip" id="shieldChip" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5.2-3.4 9.4-8 11-4.6-1.6-8-5.8-8-11V5z"/></svg><b id="shieldNum">0</b></span><span class="ampchip" id="ampChip" hidden></span><span class="wpn" id="wpn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5C8 11 9.5 12 10.5 12 9 8 10 3 12 0z"/></svg>Enforcer</span></div>
 </div>
-<div class="board chip" id="scoreboard" hidden><h2 id="boardTitle">Flyers</h2><div class="ping" id="pingInfo"></div><div class="bhead"><span>Pilot</span><span id="boardCols">Kills / Deaths · Points</span></div><ol id="board"></ol></div>
+<div class="board chip" id="scoreboard" hidden><h2 id="boardTitle">Flyers</h2><div class="ping" id="pingInfo"></div><div class="ping" id="fpsInfo"></div><div class="bhead"><span>Pilot</span><span id="boardCols">Kills / Deaths · Points</span></div><ol id="board"></ol></div>
 <div class="feed" id="feed" aria-live="off"></div>
 <div class="lockhint chip" id="lockHint" hidden>Click to take the mouse · Esc lets it go</div>
 <div class="announce" id="announce"></div>
@@ -1943,26 +1943,41 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   const tintCache = new Map();
   // a look colour (a hue, or [hue, saturation x, lightness x]) as CSS, at a base saturation and lightness in %
   const toneCss = (v, s, l) => Array.isArray(v) ? `hsl(${v[0]} ${Math.min(100, s * v[1])}% ${Math.min(95, l * v[2])}%)` : `hsl(${v} ${s}% ${l}%)`;
+  // the sprite's pixels that take a look's colours, found once: the hull (teal) and the lid (violet), each pixel's
+  // saturation and lightness kept, so a new colour pair only turns those back into RGB (a full pass over the sprite
+  // with a colour conversion per pixel stalled a frame by ~12 ms whenever a pilot with new colours came into view)
+  let tintSrc = null;
+  function tintPixels() {
+    if (tintSrc && tintSrc.of === body) return tintSrc;
+    const x = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+    x.canvas.width = body.width; x.canvas.height = body.height; x.drawImage(body, 0, 0);
+    const base = x.getImageData(0, 0, body.width, body.height), px = base.data, at = [], part = [], sl = [];
+    for (let i = 0; i < px.length; i += 4) {
+      if (!px[i + 3]) continue;
+      const [h, sat, l] = rgb2hsl(px[i], px[i + 1], px[i + 2]);
+      const p = h > 145 && h < 205 && sat > 0.2 ? 1 : h > 230 && h < 295 && sat > 0.1 ? 2 : 0;
+      if (p) { at.push(i); part.push(p); sl.push(sat, l); }
+    }
+    return tintSrc = { of: body, base, at: Int32Array.from(at), part: Uint8Array.from(part), sl: Float64Array.from(sl) };
+  }
   function tintedBody(ck) {
     const bh = customVal(ck, "body"), lh = customVal(ck, "lid");
     if (bh === null && lh === null) return body;
     const key = JSON.stringify([bh, lh]), tone = v => v === null ? null : Array.isArray(v) ? v : [v, 1.05, 1], bt = tone(bh), lt = tone(lh);
     let c = tintCache.get(key);
     if (c) return c;
-    c = document.createElement("canvas"); c.width = body.width; c.height = body.height;
-    const x = c.getContext("2d", { willReadFrequently: true }); x.drawImage(body, 0, 0);   // read back at once: a GPU canvas stalls the frame for it
-    const d = x.getImageData(0, 0, c.width, c.height), px = d.data;
-    for (let i = 0; i < px.length; i += 4) {
-      if (!px[i + 3]) continue;
-      const [h, sat, l] = rgb2hsl(px[i], px[i + 1], px[i + 2]);
-      let tn = null;
-      if (bt && h > 145 && h < 205 && sat > 0.2) tn = bt;
-      else if (lt && h > 230 && h < 295 && sat > 0.1) tn = lt;
+    const src = tintPixels(), d = new ImageData(new Uint8ClampedArray(src.base.data), src.base.width, src.base.height), px = d.data;
+    for (let n = 0; n < src.at.length; n++) {
+      const tn = src.part[n] === 1 ? bt : lt;
       if (!tn) continue;
-      const [r, gg, b] = hsl2rgb(tn[0], Math.min(1, sat * tn[1]), Math.min(0.95, l * tn[2]));
-      px[i] = r; px[i + 1] = gg; px[i + 2] = b;
+      const i = src.at[n], h = tn[0], sat = Math.min(1, src.sl[n * 2] * tn[1]), l = Math.min(0.95, src.sl[n * 2 + 1] * tn[2]);
+      // hsl2rgb, inline (no array per pixel)
+      const C = (1 - Math.abs(2 * l - 1)) * sat, X = C * (1 - Math.abs((h / 60) % 2 - 1)), m = l - C / 2, s6 = Math.min(5, h / 60 | 0);
+      const r = s6 === 0 || s6 === 5 ? C : s6 === 1 || s6 === 4 ? X : 0, gg = s6 === 1 || s6 === 2 ? C : s6 === 0 || s6 === 3 ? X : 0, b = s6 === 3 || s6 === 4 ? C : s6 === 2 || s6 === 5 ? X : 0;
+      px[i] = (r + m) * 255; px[i + 1] = (gg + m) * 255; px[i + 2] = (b + m) * 255;
     }
-    x.putImageData(d, 0, 0);
+    c = document.createElement("canvas"); c.width = body.width; c.height = body.height;
+    c.getContext("2d").putImageData(d, 0, 0);
     tintCache.set(key, c);
     return c;
   }
@@ -12505,9 +12520,24 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       }
   }
   let resCheckAt = 0;
+  // the frame rate as the scoreboard shows it: the average over the last two seconds and its slowest frame (one long
+  // frame in a smooth run is a felt hitch, which an average hides)
+  const fpsEl = document.getElementById("fpsInfo"), fpsBoard = document.getElementById("scoreboard"), fpsLog = [];
+  let fpsShownAt = 0;
+  function showFps(now, raw) {
+    if (raw < 0.25) fpsLog.push([now, raw]);
+    while (fpsLog.length && now - fpsLog[0][0] > 2000) fpsLog.shift();
+    if (now - fpsShownAt < 500 || fpsBoard.hidden || !fpsLog.length) return;
+    fpsShownAt = now;
+    let sum = 0, worst = 0; for (const [, d] of fpsLog) { sum += d; worst = Math.max(worst, d); }
+    const fps = fpsLog.length / sum;
+    fpsEl.textContent = `${Math.round(fps)} fps · slowest frame ${Math.round(worst * 1000)} ms`;
+    fpsEl.className = "ping " + (worst < 1 / 40 ? "good" : worst < 1 / 25 ? "ok" : "bad");
+  }
   function frame(now) {
     requestAnimationFrame(frame);
     const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
+    showFps(now, raw);
     if (raw < 0.25) {   // ignore pauses (tab switch)
       frameAvg += (raw - frameAvg) * 0.05;
       if (settings.fx === "low") lowQ = true;               // the player asked for light effects
