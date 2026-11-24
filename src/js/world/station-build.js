@@ -113,11 +113,16 @@
     for (const i of list) b.cells[i] = 1;
     b.mass += list.length;
     if (window.BRS_BODY_CANVAS || !b.paint) return;   // (the server draws nothing)
-    const art = bodyCanvas(); art.width = b.cv.width; art.height = b.cv.height;
-    const aq = art.getContext("2d"); aq.scale(BODY_RES, BODY_RES);
+    // the wall painted again over just the box round those cells (whatever falls outside it costs next to nothing),
+    // on a canvas in memory as the wall's own is (one on the GPU would make the copy wait for the GPU: a stalled frame)
+    let i0 = Infinity, j0 = Infinity, i1 = -1, j1 = -1;
+    for (const i of list) { const ci = i % b.gw, cj = (i - ci) / b.gw; i0 = Math.min(i0, ci); i1 = Math.max(i1, ci); j0 = Math.min(j0, cj); j1 = Math.max(j1, cj); }
+    const X = i0 * b.cs, Y = j0 * b.cs, art = document.createElement("canvas");
+    art.width = Math.ceil((i1 - i0 + 1) * b.cs * BODY_RES); art.height = Math.ceil((j1 - j0 + 1) * b.cs * BODY_RES);
+    const aq = art.getContext("2d", { willReadFrequently: true }); aq.scale(BODY_RES, BODY_RES); aq.translate(-X, -Y);
     paintStationWall({ q: aq }, ...b.paint);
     b.q.save(); b.q.globalCompositeOperation = "source-over";
-    for (const i of list) { const x = (i % b.gw) * b.cs, y = Math.floor(i / b.gw) * b.cs; b.q.drawImage(art, x * BODY_RES, y * BODY_RES, b.cs * BODY_RES, b.cs * BODY_RES, x, y, b.cs, b.cs); }
+    for (const i of list) { const x = (i % b.gw) * b.cs, y = Math.floor(i / b.gw) * b.cs; b.q.drawImage(art, (x - X) * BODY_RES, (y - Y) * BODY_RES, b.cs * BODY_RES, b.cs * BODY_RES, x, y, b.cs, b.cs); }
     b.q.restore();
   }
   function collapseProp(b) {

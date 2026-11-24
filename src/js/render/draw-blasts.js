@@ -192,23 +192,28 @@
       }
     }
   }
-  // shock rings
+  // shock rings. The air bending round a ring (a blast's shock, a warp; lens: its strength, below 0 drawing in) is the
+  // WebGL look's when it shows (one shader for every wave, nothing copied); only without it is the lens cut out of the
+  // 2D canvas, a copy of the picture under each ring every frame (dear on a big screen: a big blast's ring is
+  // thousands of pixels across, and copying the frame stalls the GPU half-way through it)
   function drawRings(now) {
+    const glLens = post && post.live;
     for (const q of rings) {
       if (q.t < 0) continue;
+      if (glLens && (q.shock || q.warp) && !q.waved) { q.waved = true; post.wave(q.x, q.y, q.r, q.dur || 0.6, q.lens ?? (q.shock ? 0.04 : 0.05)); }
       const x = sx(q.x), y = sy(q.y), k = q.t / (q.dur || 0.6), e = 1 - (1 - k) * (1 - k);
       if (q.shock) {   // a blast's shock wave: the lens, a darker band of compressed air behind it, a hot bright front
         const rr = q.r * e, w = q.shock * (1 - 0.5 * k), fade = 1 - k;
         if (!onScreen(x, y, rr + w)) continue;
         g.globalCompositeOperation = "source-over";
-        if (!lowQ && k < 0.85) shockLens(x, y, rr, w, fade);
+        if (!lowQ && !glLens && k < 0.85) shockLens(x, y, rr, w, fade);
         g.strokeStyle = `rgba(20,14,24,${0.18 * fade})`; g.lineWidth = w * 0.9; g.beginPath(); g.arc(x, y, Math.max(0, rr - w * 0.6), 0, 6.29); g.stroke();
         g.globalCompositeOperation = "lighter";
         g.strokeStyle = `rgba(${q.col},${0.22 * fade})`; g.lineWidth = w * 0.7; g.beginPath(); g.arc(x, y, rr, 0, 6.29); g.stroke();
         g.strokeStyle = `rgba(255,255,255,${0.85 * fade * fade})`; g.lineWidth = 2 + 2 * fade; g.beginPath(); g.arc(x, y, rr + w * 0.15, 0, 6.29); g.stroke();
         continue;
       }
-      if (q.warp && !lowQ && k < 0.9 && onScreen(x, y, q.r)) {
+      if (q.warp && !lowQ && !glLens && k < 0.9 && onScreen(x, y, q.r)) {
         g.globalCompositeOperation = "source-over"; refractRing(x, y, q.r * e, 24, 1 - k); g.globalCompositeOperation = "lighter";
       }
       if (q.bare) continue;   // (only the air bending: no ring drawn)

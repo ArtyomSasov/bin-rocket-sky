@@ -90,7 +90,7 @@
     }
     booms.push({ x, y, t: 0, seed: Math.random() * 100, R, holy });
     // three shock waves: a fast bright one, a heavy one, and a faint far one, all bending the view
-    rings.push({ x, y, t: 0, r: wr, col: "255,250,230", warp: true, dur: wdur, w: 46 });   // the blast wave itself
+    rings.push({ x, y, t: 0, r: wr, col: "255,250,230", warp: true, dur: wdur, w: 46, lens: holy ? 0.05 : 0.07 });   // the blast wave itself
     rings.push({ x, y, t: -0.12, r: R * 0.95, col: holy ? "255,236,160" : "255,190,110", warp: true, dur: 1.2, w: 34 });
     rings.push({ x, y, t: -0.3, r: R * 1.8, col: "255,220,180", dur: 1.6, w: 14 });
     explode(x, y, Math.round(140 * q), 1300);
@@ -102,7 +102,7 @@
     smoke(x, y, Math.round(60 * q), 560, 6);
     rings.push({ x, y, t: -0.5, r: far, col: holy ? "255,240,190" : "255,140,80", dur: 2.2, w: 22 });   // the slow heat wave rolling far out
     if (d < far) { shake = Math.max(shake, (holy ? 1.8 : 1.4) * (1 - d / far)); flash = Math.max(flash, 0.5 * (d < R * 1.6 ? 1 : 1 - (d - R * 1.6) / (far - R * 1.6))); }   // (a flash, not a white-out: the blast is the show)
-    if (post) { post.burst(x, y, R * 0.55, holy ? [0.85, 0.6, 0.22] : [0.3, 0.27, 0.27], holy ? 1.6 : 7, R * 4.5); post.wave(x, y, wr, wdur * 1.4, holy ? 0.05 : 0.07); }   // a towering cloud rolling out, and the wave bending the air
+    if (post) { post.burst(x, y, R * 0.55, holy ? [0.85, 0.6, 0.22] : [0.3, 0.27, 0.27], holy ? 1.6 : 7, R * 4.5); }   // a towering cloud rolling out
     if (holy) for (let k = 0; k < (lowQ ? 60 : 160); k++) {   // a rain of golden light drifting down out of it
       const a = Math.random() * 6.283, v = 80 + Math.random() * 700;
       puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 1.5 + Math.random() * 2.5, 1.5 + Math.random() * 2.5, k % 3 ? "#ffe9a0" : "#ffffff", 0, 0, (Math.random() - 0.5) * 0.6, 0.97);

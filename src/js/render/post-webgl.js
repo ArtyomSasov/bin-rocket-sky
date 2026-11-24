@@ -209,7 +209,8 @@
     return {
       // a big hit or blast splits the colours a moment (k: 0..1)
       kick(k) { kick = Math.max(kick, k); },
-      get autoStep() { return autoStep; },   // how much Auto has given up (0: nothing, 4: the whole layer)
+      get autoStep() { return autoStep; },
+      get live() { return on; },   // showing this frame (its shock-wave lens then bends the picture: see drawRings)   // how much Auto has given up (0: nothing, 4: the whole layer)
       // a blast's smoke rolling out through the fluid
       burst(x, y, r, col, amount, radial) { if (fluid && smokeLive) { fluid.splat(x, y, r, col, amount, 0, 0, radial); for (let k = 0; k < 6; k++) { const a = k / 6 * 6.283; fluid.splat(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, r * 0.5, col, amount * 0.4, Math.cos(a) * radial * 0.25, Math.sin(a) * radial * 0.25); } } },
       // a shock wave bending the picture: out to reach (world px) over dur seconds, strength in the view's terms

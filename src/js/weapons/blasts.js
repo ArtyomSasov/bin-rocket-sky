@@ -33,8 +33,7 @@
   function gammaSuck(s, now) {
     s.sucking = true; s.boom = true;
     maws.push({ s, x: s.x, y: s.y, t: 0 });
-    rings.push({ x: s.x, y: s.y, t: 0, r: GAMMA_SUCK.R, col: "120,0,20", warp: true, dur: GAMMA_SUCK.t, w: 18 });
-    if (post) post.wave(s.x, s.y, GAMMA_SUCK.R, GAMMA_SUCK.t, -0.06);
+    rings.push({ x: s.x, y: s.y, t: 0, r: GAMMA_SUCK.R, col: "120,0,20", warp: true, dur: GAMMA_SUCK.t, w: 18, lens: -0.06 });   // (the air drawn in)
     if (Math.hypot(s.x - me.x, s.y - me.y) < 1600) packPlay("p_charge", 0.8, s.x, s.y);
   }
   function mawTick(dt, now) {

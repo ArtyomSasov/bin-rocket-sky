@@ -1592,11 +1592,16 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     for (const i of list) b.cells[i] = 1;
     b.mass += list.length;
     if (window.BRS_BODY_CANVAS || !b.paint) return;   // (the server draws nothing)
-    const art = bodyCanvas(); art.width = b.cv.width; art.height = b.cv.height;
-    const aq = art.getContext("2d"); aq.scale(BODY_RES, BODY_RES);
+    // the wall painted again over just the box round those cells (whatever falls outside it costs next to nothing),
+    // on a canvas in memory as the wall's own is (one on the GPU would make the copy wait for the GPU: a stalled frame)
+    let i0 = Infinity, j0 = Infinity, i1 = -1, j1 = -1;
+    for (const i of list) { const ci = i % b.gw, cj = (i - ci) / b.gw; i0 = Math.min(i0, ci); i1 = Math.max(i1, ci); j0 = Math.min(j0, cj); j1 = Math.max(j1, cj); }
+    const X = i0 * b.cs, Y = j0 * b.cs, art = document.createElement("canvas");
+    art.width = Math.ceil((i1 - i0 + 1) * b.cs * BODY_RES); art.height = Math.ceil((j1 - j0 + 1) * b.cs * BODY_RES);
+    const aq = art.getContext("2d", { willReadFrequently: true }); aq.scale(BODY_RES, BODY_RES); aq.translate(-X, -Y);
     paintStationWall({ q: aq }, ...b.paint);
     b.q.save(); b.q.globalCompositeOperation = "source-over";
-    for (const i of list) { const x = (i % b.gw) * b.cs, y = Math.floor(i / b.gw) * b.cs; b.q.drawImage(art, x * BODY_RES, y * BODY_RES, b.cs * BODY_RES, b.cs * BODY_RES, x, y, b.cs, b.cs); }
+    for (const i of list) { const x = (i % b.gw) * b.cs, y = Math.floor(i / b.gw) * b.cs; b.q.drawImage(art, (x - X) * BODY_RES, (y - Y) * BODY_RES, b.cs * BODY_RES, b.cs * BODY_RES, x, y, b.cs, b.cs); }
     b.q.restore();
   }
   function collapseProp(b) {
@@ -5995,8 +6000,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   function gammaSuck(s, now) {
     s.sucking = true; s.boom = true;
     maws.push({ s, x: s.x, y: s.y, t: 0 });
-    rings.push({ x: s.x, y: s.y, t: 0, r: GAMMA_SUCK.R, col: "120,0,20", warp: true, dur: GAMMA_SUCK.t, w: 18 });
-    if (post) post.wave(s.x, s.y, GAMMA_SUCK.R, GAMMA_SUCK.t, -0.06);
+    rings.push({ x: s.x, y: s.y, t: 0, r: GAMMA_SUCK.R, col: "120,0,20", warp: true, dur: GAMMA_SUCK.t, w: 18, lens: -0.06 });   // (the air drawn in)
     if (Math.hypot(s.x - me.x, s.y - me.y) < 1600) packPlay("p_charge", 0.8, s.x, s.y);
   }
   function mawTick(dt, now) {
@@ -6429,13 +6433,13 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     voids.push({ x, y, born: performance.now(), dur: 6000, s: { id: s.id || "x", owner: s.owner, mine: !!s.mine, kind: K.VOID, m: 1 } });   // (s: whose hole it is, for the kills it makes)
     impacts.push({ x, y, t: 0, r: 220, col: "#efe0ff", dur: 0.18 });
     impacts.push({ x, y, t: 0, r: 700, col: "176,107,255", dur: 1.6, soft: 0.6, flick: Math.random() * 6.28 });
-    rings.push({ x, y, t: 0, r: 900, col: "200,160,255", warp: true, dur: 0.6, w: 26, shock: 30 });
+    rings.push({ x, y, t: 0, r: 900, col: "200,160,255", warp: true, dur: 0.6, w: 26, shock: 30, lens: -0.08 });
     for (let k = 0; k < (lowQ ? 50 : 140); k++) {   // everything near rushes in at once
       const a = Math.random() * 6.283, r = 200 + Math.random() * 700, v = r * (2 + Math.random() * 1.5);
       puff(x + Math.cos(a) * r, y + Math.sin(a) * r, -Math.cos(a) * v + Math.sin(a) * v * 0.5, -Math.sin(a) * v - Math.cos(a) * v * 0.5, 0.35 + Math.random() * 0.3, 1.2 + Math.random() * 1.6, k % 3 ? "#c9a6ff" : "#ffffff", 1, 0.06);
     }
     explode(x, y, 30, 260, "plasma");
-    if (post) { post.wave(x, y, 900, 0.7, -0.08); post.burst(x, y, 260, [0.35, 0.18, 0.55], 2.5, -1800); }
+    if (post) { post.burst(x, y, 260, [0.35, 0.18, 0.55], 2.5, -1800); }
     packPlay("p_boom_gamma", 1, x, y);
     if (d < 2000) shake = Math.max(shake, 0.9 * (1 - d / 2000));
     if (canHurt(s, me, "me", true) && d < bm.R && !fixedCover(x, y, me.x, me.y)) hurtMe(s, now, bombDmg(bm, d), s.kind, 0, false);
@@ -6661,7 +6665,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     }
     booms.push({ x, y, t: 0, seed: Math.random() * 100, R, holy });
     // three shock waves: a fast bright one, a heavy one, and a faint far one, all bending the view
-    rings.push({ x, y, t: 0, r: wr, col: "255,250,230", warp: true, dur: wdur, w: 46 });   // the blast wave itself
+    rings.push({ x, y, t: 0, r: wr, col: "255,250,230", warp: true, dur: wdur, w: 46, lens: holy ? 0.05 : 0.07 });   // the blast wave itself
     rings.push({ x, y, t: -0.12, r: R * 0.95, col: holy ? "255,236,160" : "255,190,110", warp: true, dur: 1.2, w: 34 });
     rings.push({ x, y, t: -0.3, r: R * 1.8, col: "255,220,180", dur: 1.6, w: 14 });
     explode(x, y, Math.round(140 * q), 1300);
@@ -6673,7 +6677,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     smoke(x, y, Math.round(60 * q), 560, 6);
     rings.push({ x, y, t: -0.5, r: far, col: holy ? "255,240,190" : "255,140,80", dur: 2.2, w: 22 });   // the slow heat wave rolling far out
     if (d < far) { shake = Math.max(shake, (holy ? 1.8 : 1.4) * (1 - d / far)); flash = Math.max(flash, 0.5 * (d < R * 1.6 ? 1 : 1 - (d - R * 1.6) / (far - R * 1.6))); }   // (a flash, not a white-out: the blast is the show)
-    if (post) { post.burst(x, y, R * 0.55, holy ? [0.85, 0.6, 0.22] : [0.3, 0.27, 0.27], holy ? 1.6 : 7, R * 4.5); post.wave(x, y, wr, wdur * 1.4, holy ? 0.05 : 0.07); }   // a towering cloud rolling out, and the wave bending the air
+    if (post) { post.burst(x, y, R * 0.55, holy ? [0.85, 0.6, 0.22] : [0.3, 0.27, 0.27], holy ? 1.6 : 7, R * 4.5); }   // a towering cloud rolling out
     if (holy) for (let k = 0; k < (lowQ ? 60 : 160); k++) {   // a rain of golden light drifting down out of it
       const a = Math.random() * 6.283, v = 80 + Math.random() * 700;
       puff(x, y, Math.cos(a) * v, Math.sin(a) * v, 1.5 + Math.random() * 2.5, 1.5 + Math.random() * 2.5, k % 3 ? "#ffe9a0" : "#ffffff", 0, 0, (Math.random() - 0.5) * 0.6, 0.97);
@@ -12271,23 +12275,28 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
       }
     }
   }
-  // shock rings
+  // shock rings. The air bending round a ring (a blast's shock, a warp; lens: its strength, below 0 drawing in) is the
+  // WebGL look's when it shows (one shader for every wave, nothing copied); only without it is the lens cut out of the
+  // 2D canvas, a copy of the picture under each ring every frame (dear on a big screen: a big blast's ring is
+  // thousands of pixels across, and copying the frame stalls the GPU half-way through it)
   function drawRings(now) {
+    const glLens = post && post.live;
     for (const q of rings) {
       if (q.t < 0) continue;
+      if (glLens && (q.shock || q.warp) && !q.waved) { q.waved = true; post.wave(q.x, q.y, q.r, q.dur || 0.6, q.lens ?? (q.shock ? 0.04 : 0.05)); }
       const x = sx(q.x), y = sy(q.y), k = q.t / (q.dur || 0.6), e = 1 - (1 - k) * (1 - k);
       if (q.shock) {   // a blast's shock wave: the lens, a darker band of compressed air behind it, a hot bright front
         const rr = q.r * e, w = q.shock * (1 - 0.5 * k), fade = 1 - k;
         if (!onScreen(x, y, rr + w)) continue;
         g.globalCompositeOperation = "source-over";
-        if (!lowQ && k < 0.85) shockLens(x, y, rr, w, fade);
+        if (!lowQ && !glLens && k < 0.85) shockLens(x, y, rr, w, fade);
         g.strokeStyle = `rgba(20,14,24,${0.18 * fade})`; g.lineWidth = w * 0.9; g.beginPath(); g.arc(x, y, Math.max(0, rr - w * 0.6), 0, 6.29); g.stroke();
         g.globalCompositeOperation = "lighter";
         g.strokeStyle = `rgba(${q.col},${0.22 * fade})`; g.lineWidth = w * 0.7; g.beginPath(); g.arc(x, y, rr, 0, 6.29); g.stroke();
         g.strokeStyle = `rgba(255,255,255,${0.85 * fade * fade})`; g.lineWidth = 2 + 2 * fade; g.beginPath(); g.arc(x, y, rr + w * 0.15, 0, 6.29); g.stroke();
         continue;
       }
-      if (q.warp && !lowQ && k < 0.9 && onScreen(x, y, q.r)) {
+      if (q.warp && !lowQ && !glLens && k < 0.9 && onScreen(x, y, q.r)) {
         g.globalCompositeOperation = "source-over"; refractRing(x, y, q.r * e, 24, 1 - k); g.globalCompositeOperation = "lighter";
       }
       if (q.bare) continue;   // (only the air bending: no ring drawn)
@@ -12908,7 +12917,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     return {
       // a big hit or blast splits the colours a moment (k: 0..1)
       kick(k) { kick = Math.max(kick, k); },
-      get autoStep() { return autoStep; },   // how much Auto has given up (0: nothing, 4: the whole layer)
+      get autoStep() { return autoStep; },
+      get live() { return on; },   // showing this frame (its shock-wave lens then bends the picture: see drawRings)   // how much Auto has given up (0: nothing, 4: the whole layer)
       // a blast's smoke rolling out through the fluid
       burst(x, y, r, col, amount, radial) { if (fluid && smokeLive) { fluid.splat(x, y, r, col, amount, 0, 0, radial); for (let k = 0; k < 6; k++) { const a = k / 6 * 6.283; fluid.splat(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, r * 0.5, col, amount * 0.4, Math.cos(a) * radial * 0.25, Math.sin(a) * radial * 0.25); } } },
       // a shock wave bending the picture: out to reach (world px) over dur seconds, strength in the view's terms

@@ -42,13 +42,13 @@
     voids.push({ x, y, born: performance.now(), dur: 6000, s: { id: s.id || "x", owner: s.owner, mine: !!s.mine, kind: K.VOID, m: 1 } });   // (s: whose hole it is, for the kills it makes)
     impacts.push({ x, y, t: 0, r: 220, col: "#efe0ff", dur: 0.18 });
     impacts.push({ x, y, t: 0, r: 700, col: "176,107,255", dur: 1.6, soft: 0.6, flick: Math.random() * 6.28 });
-    rings.push({ x, y, t: 0, r: 900, col: "200,160,255", warp: true, dur: 0.6, w: 26, shock: 30 });
+    rings.push({ x, y, t: 0, r: 900, col: "200,160,255", warp: true, dur: 0.6, w: 26, shock: 30, lens: -0.08 });
     for (let k = 0; k < (lowQ ? 50 : 140); k++) {   // everything near rushes in at once
       const a = Math.random() * 6.283, r = 200 + Math.random() * 700, v = r * (2 + Math.random() * 1.5);
       puff(x + Math.cos(a) * r, y + Math.sin(a) * r, -Math.cos(a) * v + Math.sin(a) * v * 0.5, -Math.sin(a) * v - Math.cos(a) * v * 0.5, 0.35 + Math.random() * 0.3, 1.2 + Math.random() * 1.6, k % 3 ? "#c9a6ff" : "#ffffff", 1, 0.06);
     }
     explode(x, y, 30, 260, "plasma");
-    if (post) { post.wave(x, y, 900, 0.7, -0.08); post.burst(x, y, 260, [0.35, 0.18, 0.55], 2.5, -1800); }
+    if (post) { post.burst(x, y, 260, [0.35, 0.18, 0.55], 2.5, -1800); }
     packPlay("p_boom_gamma", 1, x, y);
     if (d < 2000) shake = Math.max(shake, 0.9 * (1 - d / 2000));
     if (canHurt(s, me, "me", true) && d < bm.R && !fixedCover(x, y, me.x, me.y)) hurtMe(s, now, bombDmg(bm, d), s.kind, 0, false);
